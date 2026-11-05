@@ -1,4 +1,4 @@
-// npm run check:browser [name ...]: builds and serves the site when a selected check needs it. Runs checks
+// npm run check:browser [--gpu | name ...]: builds and serves the site when a selected check needs it. Runs checks
 // one at a time in this run (checks-and-hooks/06; after-redesign/01 for the slots and the run folders).
 // `npm run check:browser -- --help` prints the names and the settings. The checks are in tools/lib/registry.mjs.
 // Exit codes: 0 all passed, 1 a check or the build failed, 2 a usage fault (unknown name, output root inside
@@ -17,11 +17,11 @@ const root = realpathSync(join(dirname(fileURLToPath(import.meta.url)), '..'));
 const say = line => console.log(line);
 
 function usage() {
-  const rows = checks.map(c => `  ${c.name.padEnd(16)} ${String(c.limit).padStart(4)} s  ${c.script}${c.channel ? `  (channel ${c.channel})` : ''}${c.env ? `  (${Object.entries(c.env).map(([k, v]) => `${k}=${v}`).join(' ')})` : ''}${c.site ? '  (site)' : ''}${c.byName ? '  (by name only)' : ''}${c.exclusive ? '  (exclusive)' : ''}`);
-  return `Usage: npm run check:browser [name ...]
+  const rows = checks.map(c => `  ${c.name.padEnd(16)} ${String(c.limit).padStart(4)} s  ${c.script}${c.channel ? `  (channel ${c.channel})` : ''}${c.env ? `  (${Object.entries(c.env).map(([k, v]) => `${k}=${v}`).join(' ')})` : ''}${c.site ? '  (site)' : ''}${c.byName ? '  (by name only)' : ''}${c.exclusive ? '  (exclusive)' : ''}${c.gpu ? '  (gpu)' : ''}`);
+  return `Usage: npm run check:browser [--gpu | name ...]
 
 Builds and serves the site with Vite's preview on 127.0.0.1 at a free port when a check needs it.
-Plugin-only checks build their own artifact; a "(site)" plugin check also opens the site. Runs the named checks one at a time. With no name, it runs all checks that are not "by name only".
+Plugin-only checks build their own artifact; a "(site)" plugin check also opens the site. Runs the named checks one at a time. With no name, it runs all checks that are not "by name only"; on CI (CI is set) that run leaves out the "(gpu)" checks, which assert frame times and need a GPU. --gpu runs only the "(gpu)" checks.
 
 Checks (name, time limit, script):
 ${rows.join('\n')}
@@ -47,14 +47,20 @@ Do not edit or commit in the worktree during a run: a check that finds the check
 }
 
 // 1. Names: an unknown name stops the run before the build.
-const args = process.argv.slice(2);
-if (args.some(a => a === '-h' || a === '--help')) { say(usage()); process.exit(0); }
+const argv = process.argv.slice(2);
+if (argv.some(a => a === '-h' || a === '--help')) { say(usage()); process.exit(0); }
+const gpuOnly = argv.includes('--gpu');
+const args = argv.filter(a => a !== '--gpu');
+if (gpuOnly && args.length) { console.error(`check: --gpu takes no name\n\n${usage()}`); process.exit(2); }
 const unknown = args.filter(a => !checks.some(c => c.name === a));
 if (unknown.length) {
   console.error(`check: unknown name: ${unknown.join(', ')}. Known names: ${checks.map(c => c.name).join(', ')}\n\n${usage()}`);
   process.exit(2);
 }
-const selected = args.length ? [...new Set(args)].map(a => checks.find(c => c.name === a)) : checks.filter(c => !c.byName);
+const defaults = checks.filter(c => !c.byName);
+const left = !gpuOnly && !args.length && process.env.CI ? defaults.filter(c => c.gpu) : [];
+const selected = args.length ? [...new Set(args)].map(a => checks.find(c => c.name === a)) : defaults.filter(c => gpuOnly ? c.gpu : !left.includes(c));
+if (left.length) say(`check: CI has no GPU; left out ${left.map(c => c.name).join(', ')} (run them with --gpu on a machine with a GPU)`);
 
 // 2. The output root: never inside the checkout.
 if (isInside(root, outRoot)) {

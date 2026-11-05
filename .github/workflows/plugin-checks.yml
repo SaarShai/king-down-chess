@@ -231,14 +231,15 @@ jobs:
           retention-days: 7
 
   # Every default browser check (tools/lib/registry.mjs, the entries not "by name only"), with no names: a new default
-  # check runs here with no change to this file. tools/deploy.sh runs the same set only when CI did not pass on the
-  # commit. Before 2026-11-04 CI ran four of them, and a check that no CI job ran blocked release 8 at the publish.
+  # check runs here with no change to this file. The runner has no GPU, so the run leaves out the checks that assert
+  # frame times (gpu in the registry); tools/deploy.sh always runs those. tools/deploy.sh runs the same set only when CI did not pass on the
+  # commit; it looks for the exact step line below, so keep that step without names.
   browser-default:
     runs-on: ubuntu-latest
     needs: reuse
     if: needs.reuse.outputs.green != 'true'
-    # The Chromium checks run with the step limits times 2 on CI (tools/lib/checks.mjs STEP).
-    timeout-minutes: 45
+    # The first run took 19 min 40 s: 17 min for all 20 checks (two of them now run only with a GPU) and the install.
+    timeout-minutes: 40
     services:
       postgres:
         image: postgres:17

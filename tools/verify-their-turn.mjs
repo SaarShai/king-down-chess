@@ -27,9 +27,10 @@ try {
     const marks = () => page.evaluate(() => ({ check: window.view.marks.check, checkers: window.view.marks.checkers }));
 
     await open(); await tap(15); await tap(7);
-    await page.waitForFunction(() => window.view.scene.animating);
-    assert.deepEqual(await marks(), { check: null, checkers: [] }, 'no check line during the move');
-    assert.equal(await page.locator('#board').evaluate(b => b.classList.contains('king-in-check')), false);
+    // One read in the page, at the frame that first shows the move: a slow runner can land the move between two reads.
+    const during = await (await page.waitForFunction(() => window.view.scene.animating && { check: window.view.marks.check, checkers: window.view.marks.checkers, ring: document.getElementById('board').classList.contains('king-in-check') })).jsonValue();
+    assert.deepEqual({ check: during.check, checkers: during.checkers }, { check: null, checkers: [] }, 'no check line during the move');
+    assert.equal(during.ring, false);
     await land();
     assert.deepEqual(await marks(), { check: 4, checkers: checker }, 'landing shows the ring and cause line');
     assert.equal(await page.locator('#board').evaluate(b => b.classList.contains('king-in-check')), true);

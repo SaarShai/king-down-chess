@@ -46,12 +46,13 @@ export function ciPasses(pages, head) {
   require(checks.every(check => ['queued', 'in_progress', 'completed', 'waiting', 'requested', 'pending'].includes(check.status)), 'invalid CI check status');
   // One commit can carry several runs (a staging push and a release PR), each its own check suite. Every suite must
   // pass on its own: all success, or the reuse shape (reuse passed, every other job skipped, no job missing).
-  // Ready: each full suite has its ten checks, all complete (a job gets its check run only when reuse completes).
+  // Ready: each full suite has its check runs, all complete (a job gets its check run only when reuse completes). A
+  // full run has 12; a branch whose workflow has no browser-default job has 11.
   let ready = checks.length > 0;
   for (const suite of Map.groupBy(checks, check => check.check_suite?.id).values()) {
     if (!suite.some(check => check.conclusion === 'skipped')) {
       require(suite.every(check => check.status !== 'completed' || check.conclusion === 'success'), 'CI check does not pass');
-      ready &&= suite.length >= 10 && suite.every(check => check.status === 'completed');
+      ready &&= suite.length >= 11 && suite.every(check => check.status === 'completed');
       continue;
     }
     require(suite.every(check => check.status === 'completed' && check.conclusion === (check.name === 'reuse' ? 'success' : 'skipped')), 'CI check does not pass');

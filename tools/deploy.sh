@@ -12,8 +12,8 @@
 # VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY, because the build reads both from this shell.
 # No ref is accepted. A detached origin/main worktree runs the npm test steps and the default browser checks,
 # then build:vercel (with its own node_modules), the engine guards and byte record, check:vercel and
-# the web journey (web-online). When CI passed on that exact commit (tools/ci-green.mjs), the tests, the default browser
-# checks and the web journey are skipped: CI ran them on the same tree. The ChatGPT plugin is parked (tools/chatgpt-plugin.mjs): the website
+# the web journey (web-online). When CI passed on that exact commit (tools/ci-green.mjs), the tests, the web
+# journey and the default browser checks without a frame-time assertion are skipped: CI ran them on the same tree. The ChatGPT plugin is parked (tools/chatgpt-plugin.mjs): the website
 # release runs no MCP protocol or plugin UI check, and the checks expect each plugin path to answer 404.
 # PLUGIN_TEST_DATABASE_URL must name a disposable loopback database ending in _test.
 # A build that adds an uncommitted engine stops. KINGDOWN_ENGINES_DATABASE_URL enables the read-only
@@ -264,15 +264,17 @@ if [ -L node_modules ]; then
 fi
 step 'plugin test database' npm run plugin:db:init-test
 # CI that passed on this exact commit (every check suite complete and green, tools/ci-green.mjs) stands for npm test,
-# the default browser checks and the web journey, which CI ran on the same tree. The browser checks are skipped only
-# when this commit's workflow has the browser-default job: before it, CI ran four of the default checks.
+# the default browser checks and the web journey, which CI ran on the same tree. CI stands for the browser checks only
+# when this commit's workflow has the step that runs check:browser with no names (the browser-default job): without
+# it, CI ran four of the default checks. The checks that assert frame times need a GPU, which CI does not have
+# (gpu in tools/lib/registry.mjs): they always run here.
 # The build, artifact and live gates run here. No answer from GitHub, a running or a failed CI: the full local run.
 ci_green=no ci_browser=no
 if [ "$target" = website ] && node tools/ci-green.mjs "$commit"; then
   ci_green=yes
-  if grep -q '^  browser-default:' .github/workflows/plugin-checks.yml 2>/dev/null; then
+  if grep -qx '      - run: npm run check:browser' .github/workflows/plugin-checks.yml 2>/dev/null; then
     ci_browser=yes
-    echo "deploy: CI passed at $commit; skipped npm test, the default browser checks and the web journey"
+    echo "deploy: CI passed at $commit; skipped npm test, the browser checks that CI ran and the web journey"
   else
     echo "deploy: CI passed at $commit; skipped npm test and the web journey"
   fi
@@ -282,7 +284,7 @@ else
   step 'npm test' bash tools/test-lock.sh bash tools/test-unlocked.sh
 fi
 if [ "$target" = website ]; then
-  [ "$ci_browser" = yes ] || step 'browser checks' node tools/check.mjs
+  if [ "$ci_browser" = yes ]; then step 'frame-time browser checks' node tools/check.mjs --gpu; else step 'browser checks' node tools/check.mjs; fi
   # shellcheck disable=SC2086 # site_env holds two checked words without spaces.
   step 'site artifact' env $site_env npm run build:vercel
 else

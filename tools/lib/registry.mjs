@@ -4,7 +4,10 @@
 // args (for the script), env (extra environment for the script, for example the staging build stage), byName (true: the entry runs only when you name it, never in a run of all),
 // site (true: a plugin check that also opens the site at PLAYABLE_URL, so the runner builds and serves it),
 // exclusive (true: the check asserts time or shares the test database, so it runs with every machine slot
-// and no other check beside it; after-redesign/01).
+// and no other check beside it; after-redesign/01),
+// gpu (true: the check asserts frame times, so it needs a machine with a GPU. The CI runner draws in software at about
+// 10 frames a second: a run of all on CI leaves the check out, and `--gpu` selects only these checks. tools/deploy.sh
+// runs them with `--gpu` when CI stands for the other default checks).
 // The default checks and the self-test run when no name is given. The selftest-* entries after them are planned
 // faults that prove the runner: selftest-dirty writes a scratch file into the checkout, selftest-fail
 // fails, selftest-hang never ends, selftest-hold sleeps 15 s so that two runs can be seen together.
@@ -43,11 +46,11 @@ export const checks = [
   { name: 'home', script: 'tools/verify-home.mjs', limit: 180 },
   { name: 'account', script: 'tools/verify-account.mjs', limit: 180 },
   { name: 'cursor-adoption', script: 'tools/verify-cursor-adoption.mjs', limit: 240, channel: 'chromium' },
-  { name: 'king-effects', script: 'tools/verify-king-effects.mjs', limit: 240, exclusive: true },
+  { name: 'king-effects', script: 'tools/verify-king-effects.mjs', limit: 240, exclusive: true, gpu: true },
   { name: 'character-clips', script: 'tools/verify-character-clips.mjs', limit: 180 },
   { name: 'lesson-return', script: 'tools/verify-lesson-return.mjs', limit: 180, byName: true },
   { name: 'new-game', script: 'tools/verify-new-game.mjs', limit: 240 },
-  { name: 'painted-game', script: 'tools/verify-painted-game.mjs', limit: 240, exclusive: true },
+  { name: 'painted-game', script: 'tools/verify-painted-game.mjs', limit: 240, exclusive: true, gpu: true },
   { name: 'powers', script: 'tools/verify-powers.mjs', limit: 180 },
   { name: 'special-moves', script: 'tools/verify-special-moves.mjs', limit: 240 },
   { name: 'ux-defects', script: 'tools/verify-ux-defects.mjs', limit: 300 },

@@ -51,7 +51,7 @@ function run(names: string[], failBuild = false, shell: Record<string, string> =
     appendFileSync(process.env.RUNNER_EVENTS, JSON.stringify({ script: process.argv[1].slice(process.cwd().length + 1), args: process.argv.slice(2), url: process.env.PLAYABLE_URL, stage: process.env.VITE_KINGDOWN_STAGE }) + '\\n');
   `);
   const result = spawnSync(process.execPath, ['tools/check.mjs', ...names], {
-    cwd: repo.dir, env: { ...repo.env, TMPDIR: repo.root, RUNNER_EVENTS: events, PLAYABLE_URL: undefined, VITE_KINGDOWN_STAGE: undefined, ...shell },
+    cwd: repo.dir, env: { ...repo.env, TMPDIR: repo.root, RUNNER_EVENTS: events, PLAYABLE_URL: undefined, VITE_KINGDOWN_STAGE: undefined, CI: undefined, ...shell },
     encoding: 'utf8', timeout: 30_000,
   });
   const calls = existsSync(events) ? readFileSync(events, 'utf8').trim().split('\n').map(line => JSON.parse(line)) : [];
@@ -86,6 +86,22 @@ describe('browser check site build', () => {
     expect(calls.length).toBe((names.length || checks.filter(c => !c.byName).length) + 3);
     const selected = names.length ? names.map(name => checks.find(c => c.name === name)!) : checks.filter(c => !c.byName);
     expect(calls.slice(2, -1)).toEqual(selected.map(c => ({ script: c.script, args: c.args ?? [], url: 'http://127.0.0.1:1234/' })));
+  });
+
+  it('on CI a run of all leaves out the frame-time checks, and --gpu runs only them', () => {
+    const scripts = (calls: unknown[]) => calls.filter((call): call is { script: string } => typeof call === 'object').map(call => call.script);
+    const gpu = checks.filter(c => c.gpu), rest = checks.filter(c => !c.byName && !c.gpu);
+    expect(gpu.map(c => c.name)).toEqual(['king-effects', 'painted-game']);
+    const ci = run([], false, { CI: 'true' });
+    expect(ci.result.status, ci.result.stderr + ci.result.stdout).toBe(0);
+    expect(scripts(ci.calls)).toEqual(rest.map(c => c.script));
+    expect(ci.result.stdout).toContain('check: CI has no GPU; left out king-effects, painted-game');
+    const only = run(['--gpu'], false, { CI: 'true' });
+    expect(only.result.status, only.result.stderr + only.result.stdout).toBe(0);
+    expect(scripts(only.calls)).toEqual(gpu.map(c => c.script));
+    const named = run(['--gpu', 'home']);
+    expect(named.result.status).toBe(2);
+    expect(named.result.stderr).toContain('--gpu takes no name');
   });
 
   it('builds the site as a production build with the fake account project, whatever the shell holds', () => {

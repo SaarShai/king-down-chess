@@ -20,7 +20,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(verify).toContain('PLUGIN_TEST_DATABASE_URL:');
     expect(verify).toContain('- run: npm run plugin:db:init-test');
     expect(verify).toContain("- run: npm test\n        env:\n          KINGDOWN_TEST_SKIP: 'tools/plugin-board{,-input,-drafts}.test.ts'\n");
-    expect([...workflow.split('\njobs:\n')[1].matchAll(/^  ([\w-]+):$/gm)].map(m => m[1])).toEqual(['reuse', 'verify', 'browser-board', 'browser-ui', 'browser-web', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui']);
+    expect([...workflow.split('\njobs:\n')[1].matchAll(/^  ([\w-]+):$/gm)].map(m => m[1])).toEqual(['reuse', 'verify', 'browser-board', 'browser-ui', 'browser-web', 'browser-default', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui']);
   });
 
   it('runs the suite once per tree: every job skips when a green run of this workflow checked the same tree', () => {
@@ -31,7 +31,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(reuse).toContain('actions/workflows/plugin-checks.yml/runs?status=success&event=push&');
     expect(reuse).toContain("tree=$(git rev-parse 'HEAD^{tree}')");
     expect(reuse).toContain('echo "green=true" >> "$GITHUB_OUTPUT"');
-    for (const name of ['verify', 'browser-board', 'browser-ui', 'browser-web', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui']) {
+    for (const name of ['verify', 'browser-board', 'browser-ui', 'browser-web', 'browser-default', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui']) {
       expect(job(name)).toContain("    runs-on: ubuntu-latest\n    needs: reuse\n    if: needs.reuse.outputs.green != 'true'\n");
     }
   });
@@ -56,7 +56,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(read('tools/lib/checks.mjs')).not.toContain('pre-push');
   });
 
-  it('removes the slow Azure mirror and limits downloads in all seven browser install steps', () => {
+  it('removes the slow Azure mirror and limits downloads in all eight browser install steps', () => {
     const directory = join(import.meta.dirname, '..', '.github', 'workflows');
     const removeMirror = "sudo sed -i '/azure\\.archive\\.ubuntu\\.com/d' /etc/apt/apt-mirrors.txt";
     let installs = 0;
@@ -71,7 +71,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
         expect(step.indexOf('sudo tee')).toBeLessThan(step.indexOf('npx playwright install'));
       }
     }
-    expect(installs).toBe(7);
+    expect(installs).toBe(8);
   });
 
   it.each(webkitJobs)('runs WebKit in the separate job %s with its own install and the time limit for its scaled steps', name => {
@@ -107,7 +107,14 @@ describe('.github/workflows/plugin-checks.yml', () => {
     }
     expect(web).toContain('timeout-minutes: 30');
     expect(web).toContain('npx playwright install --with-deps chromium');
-    expect(web).toContain('- run: npm run check:browser home account new-game menu-extra');
+    // The default checks run in browser-default, with no names: tools/deploy.sh looks for that exact step line before it
+    // skips its own browser checks.
+    expect(web).not.toContain('- run: npm run check:browser home');
+    const all = job('browser-default');
+    expect(all).toContain('      - run: npm run check:browser\n        env:\n          PLAYABLE_BROWSER: chromium\n');
+    expect(all).toContain('image: postgres:17');
+    expect(all).toContain('npx playwright install --with-deps chromium');
+    expect(all).toContain('name: default-check-logs');
     expect(web).toContain('- run: npm run check:browser web-online');
     expect(web).toContain('name: web-check-logs');
   });
