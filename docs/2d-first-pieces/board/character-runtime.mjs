@@ -191,8 +191,8 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
     await bounded(loadManifest());if(disposed||generation!==moveGeneration)return;
     const all=forPiece(character,army),rest=idle(character,army),turns=all.filter(b=>b.kind==='turn');
     // Decode capture starts before the click; the move keeps its existing wait limit.
-    const attacks=all.filter(b=>b.kind==='attack'&&character!=='knight'&&captures.includes(b.facing));
-    for(const bank of [...attacks,...all.filter(b=>(jumps(character)?b.kind==='movement':b.kind==='move')&&(directions.includes(b.facing)||character==='knight'&&captures.includes(b.facing)))]){
+    const attacks=all.filter(b=>b.kind==='attack'&&captures.includes(b.facing));
+    for(const bank of [...attacks,...all.filter(b=>(jumps(character)?b.kind==='movement':b.kind==='move')&&directions.includes(b.facing))]){
      if(disposed||generation!==moveGeneration)return;
      const capture=bank.kind==='attack',route=rest?turnRoute(turns,rest.facing,bank.facing):null;
      if(capture&&(!rest||route===null))continue;
@@ -231,9 +231,9 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    const deadline=performance.now()+LOAD_TIMEOUT,remaining=()=>Math.max(0,deadline-performance.now());
    await bounded(loadManifest(),remaining(),signal);if(disposed||signal?.aborted||!remaining())return null;
    const all=forPiece(character,army),rest=idle(character,army);if(!rest)return null;
-   const attack=capture&&character!=='knight'?all.find(b=>b.kind==='attack'&&b.facing===direction):null;
+   const attack=capture?all.find(b=>b.kind==='attack'&&b.facing===direction):null;
    const playable=b=>b.facing===direction&&Number.isFinite(b.durationMs)&&b.durationMs>0&&b.frames?.length&&(b.kind!=='move'||Number.isFinite(b.strideSquares)&&b.strideSquares>0);
-   let movement=!capture||character==='knight'?(jumps(character)?all.find(b=>b.kind==='movement'&&playable(b))??null:all.find(b=>b.kind==='move'&&playable(b))||oneSquare&&all.find(b=>b.kind==='movement'&&playable(b))||null):null;
+   let movement=!capture?(jumps(character)?all.find(b=>b.kind==='movement'&&playable(b))??null:all.find(b=>b.kind==='move'&&playable(b))||oneSquare&&all.find(b=>b.kind==='movement'&&playable(b))||null):null;
    const movementRequested=!!movement;
    const turns=all.filter(b=>b.kind==='turn'),before=turnRoute(turns,rest.facing,direction),after=before&&reverseRoute(before);
    // A missing edge keeps the rest body coherent instead of jumping to an unsupported facing.

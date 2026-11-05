@@ -21,7 +21,7 @@ The package keeps all 7,807 base WebP files unchanged and adds 196 files.
 The package has 842 banks: 46 idle, 272 turn, 256 attack, 240 walk and 28 jump.
 The jump count is 16 Knight and 12 Paladin. Paladin NW and NE in both armies remain absent.
 The runtime uses the existing movement kind. It holds each pose at its recorded time.
-Knight capture uses the leap. Paladin capture keeps the hammer attack.
+Quiet Knight and Paladin moves use the new banks. Both capture actions keep their existing attack banks and timing.
 The paths, contact times, ground shadow and target squares stay in the scene.
 
 The importer adds a four-pixel transparent margin and shifts each pivot by four pixels.
@@ -37,7 +37,7 @@ Walk preparation stays unchanged. The cache limit stays at 64 MiB and six active
 - Doc checks: 187 pass, one existing skip. The new count check covers the 28 jumps and the four absent drafts.
 - `npm run check:browser painted-leaps` passes in Chromium. It records quiet SE moves in both armies for both pieces.
   It checks all eight pose times, constant scale, exact target at contact and at the end, six active loads and 64 MiB.
-- `/Users/za/kd-runs/leap-integrate/game.gif` has four normal-speed clips. It is 720 by 648 pixels and 8.4 seconds.
+- `/Users/za/kd-runs/leap-integrate/game.gif` has four normal-speed clips. It is 720 by 648 pixels and 8.32 seconds.
   Native browser playback and a frame sheet show discrete pose steps. No clear scale pop or shifted landing appears.
 - Browser checks first expose the partial-cache fault. They pass after the reservation fix. Temporary probes are removed.
 

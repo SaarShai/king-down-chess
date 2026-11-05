@@ -300,8 +300,8 @@ describe('ready character playback', () => {
    expect(ready.movement.id).toBe('white-jump');
    expect([89,90,1106,1107,1350].map(t=>(runtime.action(ready,t,1350,1107) as {time:number}).time)).toEqual([0,90,840,1107,1350]);
    const capture=await runtime.prepare(character,'white','SE',true,false) as any;
-   expect(capture.attack?.id??null).toBe(character==='knight'?null:'white-attack');
-   expect(capture.movement?.id??null).toBe(character==='knight'?'white-jump':null);
+   expect(capture.attack?.id).toBe('white-attack');
+   expect(capture.movement).toBeNull();
    const missing=await runtime.prepare(character,'white','N',false,false) as any;
    expect(missing.movement).toBeNull();expect(runtime.action(missing,500,1350,1107)).toMatchObject({bank:'white-turn'});
    slow=true;
