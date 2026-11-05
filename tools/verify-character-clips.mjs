@@ -1,8 +1,8 @@
 // The character clips in the game's painted look (docs/2d-first-pieces/clips/clips.mjs).
 // Run: npm run check:browser character-clips (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 // The clips are the legacy look of a Knight or a Rook with no runtime body: with the shipped character package the
-// board requests no clip sheet and shows no clip (part 0). Parts 1 to 3 answer the package manifest with no bodies,
-// as when the package is absent, so the clips load.
+// board requests no clip sheet and shows no clip (part 0). Parts 1 to 4 answer the package manifest with no bodies,
+// so the clips load.
 // Checks: a selected Knight (lance tap) and Rook (slam, crack and heal) of each army play their clip once, through
 // every drawing, and end on the still figure; with reduced motion or Animations Off no clip shows. A page-side
 // recorder reads the scene each animation frame, so a slow browser call cannot miss a short clip. Then, with the
@@ -20,7 +20,8 @@ const browser = await launch();
 // Ends when both clip sheets finish loading.
 const sheets = page => Promise.all(['tap', 'slam'].map(name =>
   page.waitForEvent('requestfinished', { predicate: request => new URL(request.url()).pathname.includes('/' + name + '-') })));
-// No runtime bodies: the scene falls back to the clips (docs/2d-first-pieces/board/scene.mjs, loadClips).
+// No runtime bodies: the scene falls back to the clips (docs/2d-first-pieces/board/scene.mjs, loadClips). The answer is
+// a valid manifest, not a 404: the service worker precaches the manifest, and a 404 stops its install (part 2 waits for it).
 const noBodies = context => context.route('**/character-runtime/manifest.json', route => route.fulfill({ json: { schemaVersion: 1, banks: [], effects: {} } }));
 const pace = (page, value) => page.evaluate(v => { const s = document.getElementById('pace'); s.value = v; s.dispatchEvent(new Event('change')); }, value);
 async function open(options = {}, { clock = false, fen = FEN, bodies = false } = {}) {
@@ -84,6 +85,8 @@ try {
   // 0. The shipped package has a body for each Knight and Rook: no clip sheet is requested and no clip shows.
   {
     const { context, page, clipRequests } = await open({}, { bodies: true });
+    // The scene decides about the clip sheets when the bodies on the board are warm.
+    await page.waitForFunction(() => window.view.scene.characterWarmupSettled);
     for (const [name, [sq]] of Object.entries(SQUARES)) {
       await page.evaluate(() => { window.clipLog.length = 0; });
       await select(page, sq); await page.waitForTimeout(2500);
