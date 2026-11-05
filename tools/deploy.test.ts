@@ -495,9 +495,9 @@ describe('deploy.sh', () => {
     expect(result.stdout).not.toMatch(/skipped npm test/);
   });
 
-  it('with CI passed and the no-name check:browser step in the commit workflow, skips npm test, the web journey and all browser checks but the frame-time ones', () => {
+  it('with CI passed and the --no-gpu check:browser step in the commit workflow, skips npm test, the web journey and all browser checks but the frame-time ones', () => {
     const { repo, deploy, calls } = setup();
-    repo.write('.github/workflows/plugin-checks.yml', 'jobs:\n  browser-default:\n    steps:\n      - run: npm run check:browser\n        env:\n          PLAYABLE_BROWSER: chromium\n');
+    repo.write('.github/workflows/plugin-checks.yml', 'jobs:\n  browser-default:\n    steps:\n      - run: npm run check:browser -- --no-gpu\n        env:\n          PLAYABLE_BROWSER: chromium\n');
     repo.git('add', '.'); repo.git('commit', '-q', '-m', 'workflow'); repo.git('push', '-q', 'origin', 'main');
     const result = deploy([], { STUB_CI_PASS: '1' });
     expect(result.status, result.stderr).toBe(0);
@@ -1214,7 +1214,7 @@ describe('deploy.sh --publish', () => {
 
   it('with CI passed and the check:browser step in the workflow, the publish runs only the frame-time browser checks, then the engine, artifact, publish and live gates', async () => {
     const { repo, deployAsync, calls } = setup();
-    repo.write('.github/workflows/plugin-checks.yml', 'jobs:\n  browser-default:\n    steps:\n      - run: npm run check:browser\n        env:\n          PLAYABLE_BROWSER: chromium\n');
+    repo.write('.github/workflows/plugin-checks.yml', 'jobs:\n  browser-default:\n    steps:\n      - run: npm run check:browser -- --no-gpu\n        env:\n          PLAYABLE_BROWSER: chromium\n');
     repo.git('add', '.'); repo.git('commit', '-q', '-m', 'workflow'); repo.git('push', '-q', 'origin', 'main');
     const files = pages(), published = liveFolder(files);
     const live = await pluginSite('parked', () => tree(published));

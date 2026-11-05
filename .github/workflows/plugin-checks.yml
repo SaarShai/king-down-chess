@@ -231,7 +231,7 @@ jobs:
           retention-days: 7
 
   # Every default browser check (tools/lib/registry.mjs, the entries not "by name only"), with no names: a new default
-  # check runs here with no change to this file. The runner has no GPU, so the run leaves out the checks that assert
+  # check runs here with no change to this file. The runner has no GPU, so --no-gpu leaves out the checks that assert
   # frame times (gpu in the registry); tools/deploy.sh always runs those. tools/deploy.sh runs the same set only when CI did not pass on the
   # commit; it looks for the exact step line below, so keep that step without names.
   browser-default:
@@ -268,7 +268,7 @@ jobs:
           echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
           npx playwright install --with-deps chromium
         timeout-minutes: 10
-      - run: npm run check:browser
+      - run: npm run check:browser -- --no-gpu
         env:
           PLAYABLE_BROWSER: chromium
       - if: always()

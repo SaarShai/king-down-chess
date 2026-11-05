@@ -265,14 +265,14 @@ fi
 step 'plugin test database' npm run plugin:db:init-test
 # CI that passed on this exact commit (every check suite complete and green, tools/ci-green.mjs) stands for npm test,
 # the default browser checks and the web journey, which CI ran on the same tree. CI stands for the browser checks only
-# when this commit's workflow has the step that runs check:browser with no names (the browser-default job): without
-# it, CI ran four of the default checks. The checks that assert frame times need a GPU, which CI does not have
-# (gpu in tools/lib/registry.mjs): they always run here.
+# when this commit's workflow has the step that runs check:browser with --no-gpu and no names (the browser-default
+# job): without it, CI ran four of the default checks. The checks that assert frame times need a GPU, which CI does
+# not have (gpu in tools/lib/registry.mjs): they always run here.
 # The build, artifact and live gates run here. No answer from GitHub, a running or a failed CI: the full local run.
 ci_green=no ci_browser=no
 if [ "$target" = website ] && node tools/ci-green.mjs "$commit"; then
   ci_green=yes
-  if grep -qx '      - run: npm run check:browser' .github/workflows/plugin-checks.yml 2>/dev/null; then
+  if grep -qx '      - run: npm run check:browser -- --no-gpu' .github/workflows/plugin-checks.yml 2>/dev/null; then
     ci_browser=yes
     echo "deploy: CI passed at $commit; skipped npm test, the browser checks that CI ran and the web journey"
   else

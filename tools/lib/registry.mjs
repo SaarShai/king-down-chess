@@ -6,8 +6,8 @@
 // exclusive (true: the check asserts time or shares the test database, so it runs with every machine slot
 // and no other check beside it; after-redesign/01),
 // gpu (true: the check asserts frame times, so it needs a machine with a GPU. The CI runner draws in software at about
-// 10 frames a second: a run of all on CI leaves the check out, and `--gpu` selects only these checks. tools/deploy.sh
-// runs them with `--gpu` when CI stands for the other default checks).
+// 10 frames a second: the CI job runs all with `--no-gpu`, which leaves the check out, and `--gpu` selects only these
+// checks. tools/deploy.sh runs them with `--gpu` when CI stands for the other default checks).
 // The default checks and the self-test run when no name is given. The selftest-* entries after them are planned
 // faults that prove the runner: selftest-dirty writes a scratch file into the checkout, selftest-fail
 // fails, selftest-hang never ends, selftest-hold sleeps 15 s so that two runs can be seen together.

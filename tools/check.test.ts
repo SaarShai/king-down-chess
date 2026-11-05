@@ -88,20 +88,24 @@ describe('browser check site build', () => {
     expect(calls.slice(2, -1)).toEqual(selected.map(c => ({ script: c.script, args: c.args ?? [], url: 'http://127.0.0.1:1234/' })));
   });
 
-  it('on CI a run of all leaves out the frame-time checks, and --gpu runs only them', () => {
+  it('--no-gpu leaves out the frame-time checks, --gpu runs only them, and a named one runs with CI set', () => {
     const scripts = (calls: unknown[]) => calls.filter((call): call is { script: string } => typeof call === 'object').map(call => call.script);
     const gpu = checks.filter(c => c.gpu), rest = checks.filter(c => !c.byName && !c.gpu);
     expect(gpu.map(c => c.name)).toEqual(['king-effects', 'painted-game']);
-    const ci = run([], false, { CI: 'true' });
+    const ci = run(['--no-gpu']);
     expect(ci.result.status, ci.result.stderr + ci.result.stdout).toBe(0);
     expect(scripts(ci.calls)).toEqual(rest.map(c => c.script));
-    expect(ci.result.stdout).toContain('check: CI has no GPU; left out king-effects, painted-game');
+    expect(ci.result.stdout).toContain('check: --no-gpu: left out king-effects, painted-game');
+    const all = run([], false, { CI: 'true' });
+    expect(scripts(all.calls)).toEqual(checks.filter(c => !c.byName).map(c => c.script));
+    expect(scripts(run(['king-effects'], false, { CI: 'true' }).calls)).toEqual(['tools/verify-king-effects.mjs']);
     const only = run(['--gpu'], false, { CI: 'true' });
     expect(only.result.status, only.result.stderr + only.result.stdout).toBe(0);
     expect(scripts(only.calls)).toEqual(gpu.map(c => c.script));
     const named = run(['--gpu', 'home']);
     expect(named.result.status).toBe(2);
-    expect(named.result.stderr).toContain('--gpu takes no name');
+    expect(named.result.stderr).toContain('--gpu and --no-gpu take no name');
+    expect(run(['--gpu', '--no-gpu']).result.status).toBe(2);
   });
 
   it('builds the site as a production build with the fake account project, whatever the shell holds', () => {

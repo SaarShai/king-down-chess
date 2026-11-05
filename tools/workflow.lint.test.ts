@@ -108,10 +108,12 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(web).toContain('timeout-minutes: 30');
     expect(web).toContain('npx playwright install --with-deps chromium');
     // The default checks run in browser-default, with no names: tools/deploy.sh looks for that exact step line before it
-    // skips its own browser checks.
+    // skips its own browser checks. --no-gpu leaves out the frame-time checks, which the deploy runs.
     expect(web).not.toContain('- run: npm run check:browser home');
     const all = job('browser-default');
-    expect(all).toContain('      - run: npm run check:browser\n        env:\n          PLAYABLE_BROWSER: chromium\n');
+    expect(all).toContain('      - run: npm run check:browser -- --no-gpu\n        env:\n          PLAYABLE_BROWSER: chromium\n');
+    expect(readFileSync(join(import.meta.dirname, 'deploy.sh'), 'utf8')).toContain("grep -qx '      - run: npm run check:browser -- --no-gpu' .github/workflows/plugin-checks.yml");
+    expect(all).toContain('timeout-minutes: 40');
     expect(all).toContain('image: postgres:17');
     expect(all).toContain('npx playwright install --with-deps chromium');
     expect(all).toContain('name: default-check-logs');
