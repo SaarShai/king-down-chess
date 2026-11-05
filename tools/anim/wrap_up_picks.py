@@ -6,7 +6,7 @@ segment and recolour code on new poses, with the loop p1-p2-p3-p4-p1 as the only
 No pipeline file changes. Each pick runs in its own process, because the pipelines share module names.
 
 Usage: wrap_up_picks.py --pick ogre-black --facing E --input <dir> --white <dir> --output <dir> [--r5 <dir>]
-<dir> holds 001.png to 004.png at catalog scale. Input for a black pick is the tone-mapped frame.
+<dir> holds 001.png to 004.png at catalog scale. Input for a black pick is the tone-mapped frame. Ogre SW takes skin shading from --white.
 Input for king-stratus-white is the white frame. --white holds the white poses. Alpha never changes.
 
 Black Mud and black Stratus do not run here. wrap_up_build.py maps their walks from the pick colours of the standing pose.
@@ -25,7 +25,8 @@ BACK = {'N', 'NE', 'NW'}
 PICKS = ('ogre-black', 'king-stratus-white')
 # Line art closes a raised thigh, toes or a hand in the hip band as if they were cloth, and white skin has the cloth colour.
 # (facing, pose index): (x, y, area) of each piece, with the catalog-scale area. A remade pose fails the area test.
-OGRE_NOT_CLOTH = {('SW', 3): ((522, 463, 9803), (519, 522, 654), (542, 538, 553), (553, 561, 401)),
+OGRE_NOT_CLOTH = {('SW', 0): ((326, 439, 6332),), ('SW', 1): ((211, 532, 507),),
+                  ('SW', 2): ((286, 480, 451),), ('SW', 3): ((522, 463, 9803), (519, 522, 654), (542, 538, 553), (553, 561, 401)),
                   ('W', 0): ((584, 455, 8125),), ('W', 1): ((385, 408, 6984),), ('W', 2): ((663, 402, 6126),)}
 
 
@@ -82,7 +83,16 @@ def ogre(frames, facing, whites):
         weights['cloth'] = np.where(cloth, 1.0, 0.0)
         weights['body'] = np.where(cloth, 0.0, weights['body'])
         weights['interior'] = folds
-        if previous:
+        if facing == 'SW':
+            # The tone map makes skin look like old blue cloth. Use white shading and rebuild both masks together.
+            keep = weights['eye'] | weights['tusk'] | weights['red']
+            rgba = white.copy()
+            fixed = cloth | folds | keep
+            rgba[fixed, :3] = frames[pose][fixed, :3]
+            lab = rgb2lab(rgba[..., :3] / 255.0)
+            weights['body'] = G.ramp(lab[..., 0], 6, 16) * (1 - G.ramp(lab[..., 1], 18, 24))
+            weights['body'][fixed | (rgba[..., 3] < 9)] = 0
+        if previous and facing != 'SW':
             R.carry(weights, previous[0], lab, previous[1], visible, previous[2])
         keep = weights['eye'] | weights['tusk'] | weights['red']
         results.append(G.render(rgba, lab, weights['body'], weights['cloth'], keep, rgba[:, :, 3] >= 9, weights['interior']))

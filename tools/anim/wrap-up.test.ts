@@ -1,5 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+import sharp from 'sharp';
 import { expect, it } from 'vitest';
 
 it('checks picked-base proof and the straight move speed rule', () => {
@@ -36,4 +38,34 @@ with tempfile.TemporaryDirectory() as tmp:
  else: raise AssertionError('one method must not set a short straight move')
 `;
  expect(() => execFileSync('python3', ['-S', '-c', script, resolve('tools/anim')], { stdio: 'pipe' })).not.toThrow();
+});
+
+
+it('keeps black ogre SW skin smooth across the old mask edges in all four poses', async () => {
+ const root = resolve('public/character-runtime');
+ const manifest = JSON.parse(readFileSync(resolve(root, 'manifest.json'), 'utf8')) as {
+  banks: { character: string; army: string; id: string; frames: { url: string }[] }[];
+ };
+ const banks = ['white', 'black'].map(army => manifest.banks.find(bank =>
+  bank.character === 'ogre' && bank.army === army && bank.id === `${army}-walk-SW`)!);
+ // Each pair has near-equal white shading. The old body-mask holes split it into light and dark skin.
+ const samples = [[210, 229], [186, 160], [98, 327], [253, 232]];
+ for (const [pose, [x, y]] of samples.entries()) {
+  const means: number[][] = [];
+  for (const bank of banks) {
+   const { data, info } = await sharp(resolve(root, bank.frames[pose].url)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+   expect([info.width, info.height]).toEqual([384, 384]);
+   means.push([x, x + 3].map(column => {
+    const offset = (y * info.width + column) * 4;
+    expect(data[offset + 3]).toBeGreaterThan(250);
+    return (data[offset] + data[offset + 1] + data[offset + 2]) / 3;
+   }));
+  }
+  expect(Math.abs(means[0][0] - means[0][1])).toBeLessThan(8);
+  expect(Math.abs(means[1][0] - means[1][1])).toBeLessThan(8);
+  for (const value of means[1]) {
+   expect(value).toBeGreaterThan(25);
+   expect(value).toBeLessThan(115);
+  }
+ }
 });

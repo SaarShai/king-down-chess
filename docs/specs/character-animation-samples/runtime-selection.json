@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "ready",
-  "catalogSha256": "26df6c96f75bfe98e9c5d4f7965e11f55973a745c44b7763eac0defa23b0328d",
+  "catalogSha256": "0b01f644adac19eb8e4dc4c13c04c3dff004c5e02255749c34f737e6448fb8a5",
   "entries": [
     {
       "character": "pawn",
@@ -6752,8 +6752,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "black-walk-SW",
-      "manifest": "banks/2f2c740668c5c4fe6d31508f3a173fee3d1c84a0b641dd48c3f34c7ea133778b.json",
-      "sha256": "2f2c740668c5c4fe6d31508f3a173fee3d1c84a0b641dd48c3f34c7ea133778b"
+      "manifest": "banks/21c1922607544825a7b833e66e55d60a7a2d82e8746fae61cfe9a8c7b9d4ea99.json",
+      "sha256": "21c1922607544825a7b833e66e55d60a7a2d82e8746fae61cfe9a8c7b9d4ea99"
     }
   ],
   "strideSource": {
