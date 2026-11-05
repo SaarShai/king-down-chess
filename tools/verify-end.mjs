@@ -163,13 +163,18 @@ try {
   assert.equal(await page.locator('#over').isVisible(), false, 'no old result opens on the new game');
   console.log('ok disabled turn button and dialog Rematch');
 
-  await stageMate('normal'); await endTurn(page);
+  await stageMate('normal');
+  // The page clock stops here, so the Ceremony stays in its first 120 ms, before the final blow, until runFor below.
+  // A press during board motion is a skip and keeps Menu closed (A8): a slow runner pressed Menu during the blow.
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000)); // pauseAt refuses a time that has passed
+  await endTurn(page);
   await page.locator('.kd-words').waitFor({ state: 'attached' });
   await pressMenu(page, 'Settings');
   await page.locator('#menu-back').focus(); await page.keyboard.press('Space');
   assert.equal(await page.locator('#menu-title').textContent(), 'Menu', 'Space works on the sheet button');
   await page.clock.runFor(2500); // The result waits for the sheet to close.
   assert.equal(await page.locator('#over').isVisible(), false, 'the result waits behind Menu');
+  await page.clock.resume();
   await page.keyboard.press('Escape');
   await page.locator('#over').waitFor({ state: 'visible' });
   assert.equal(await page.locator('dialog[open]').count(), 1, 'only the result opens after Menu closes');

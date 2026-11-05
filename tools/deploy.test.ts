@@ -495,7 +495,25 @@ describe('deploy.sh', () => {
     expect(result.stdout).not.toMatch(/skipped npm test/);
   });
 
-  it('with CI passed on the exact commit, skips npm test and the web journey, and keeps the browser checks and the build gates', () => {
+  it('with CI passed and the --no-gpu check:browser step in the commit workflow, skips npm test, the web journey and all browser checks but the frame-time ones', () => {
+    const { repo, deploy, calls } = setup();
+    repo.write('.github/workflows/plugin-checks.yml', 'jobs:\n  browser-default:\n    steps:\n      - run: npm run check:browser -- --no-gpu\n        env:\n          PLAYABLE_BROWSER: chromium\n');
+    repo.git('add', '.'); repo.git('commit', '-q', '-m', 'workflow'); repo.git('push', '-q', 'origin', 'main');
+    const result = deploy([], { STUB_CI_PASS: '1' });
+    expect(result.status, result.stderr).toBe(0);
+    const path = worktreeOf(result.stdout);
+    expect(calls().map(line => line.replace(/ @ .*/, ''))).toEqual([
+      `wt.sh add ${path}`,
+      'npm run plugin:db:init-test',
+      `node tools/ci-green.mjs ${head(repo, 'HEAD')}`,
+      'node tools/check.mjs --gpu',
+      'npm run build:vercel',
+      'npm run check:vercel',
+    ]);
+    expect(result.stdout).toMatch(/CI passed at [0-9a-f]{40}; skipped npm test, the browser checks that CI ran and the web journey/);
+  });
+
+  it('with CI passed on a commit whose workflow has no such step, keeps the browser checks', () => {
     const { repo, deploy, calls } = setup();
     const result = deploy([], { STUB_CI_PASS: '1' });
     expect(result.status, result.stderr).toBe(0);
@@ -1194,16 +1212,19 @@ describe('deploy.sh --publish', () => {
   const words = (line: string) => line.replace(/ @ .*/, '');
   const npxCalls = (calls: string[]) => calls.filter(line => line.startsWith('npx '));
 
-  it('with CI passed, the publish still runs the browser checks and the engine, artifact, publish and live gates', async () => {
+  it('with CI passed and the check:browser step in the workflow, the publish runs only the frame-time browser checks, then the engine, artifact, publish and live gates', async () => {
     const { repo, deployAsync, calls } = setup();
+    repo.write('.github/workflows/plugin-checks.yml', 'jobs:\n  browser-default:\n    steps:\n      - run: npm run check:browser -- --no-gpu\n        env:\n          PLAYABLE_BROWSER: chromium\n');
+    repo.git('add', '.'); repo.git('commit', '-q', '-m', 'workflow'); repo.git('push', '-q', 'origin', 'main');
     const files = pages(), published = liveFolder(files);
     const live = await pluginSite('parked', () => tree(published));
     const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(files), STUB_PUBLISH_DIR: published, DEPLOY_LIVE_URL: live.url, DEPLOY_LIVE_TIMEOUT_MS: '900000', STUB_CI_PASS: '1' });
     expect(result.status, result.stderr).toBe(0);
     expect([...result.stdout.matchAll(/^deploy: step (.+)$/gm)].map(match => match[1])).toEqual(['fetch origin', 'make worktree', 'wt add', 'plugin test database',
-      'browser checks', 'site artifact', 'engine archive', 'production artifact', 'engines in use', 'site HTTP check',
+      'frame-time browser checks', 'site artifact', 'engine archive', 'production artifact', 'engines in use', 'site HTTP check',
       'copy artifact', 'link site project', 'verify site project', 'keep live assets', 'publish', 'live check', 'plugin live check']);
     expect(calls().some(line => line.startsWith('test-lock.sh '))).toBe(false);
+    expect(calls().filter(line => line.startsWith('node tools/check.mjs')).map(line => line.replace(/ @ .*/, ''))).toEqual(['node tools/check.mjs --gpu']);
     expect(calls().some(line => line.startsWith(`node tools/ci-green.mjs ${head(repo, 'HEAD')} `))).toBe(true);
     expectGone(repo, worktreeOf(result.stdout));
   });

@@ -8,7 +8,7 @@ import { setTimeout } from 'node:timers/promises';
 export const repo = 'SaarShai/king-down-chess';
 // plugin-checks.yml skips every job but reuse when a green push run already checked the same tree. GitHub then reports
 // one check run per job, a matrix job included, so a reused run has exactly these check-run names.
-export const REUSE_SHAPE = ['reuse', 'verify', 'browser-board', 'browser-ui', 'browser-web', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui'];
+export const REUSE_SHAPE = ['reuse', 'verify', 'browser-board', 'browser-ui', 'browser-web', 'browser-default', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui'];
 const fullSha = value => typeof value === 'string' && /^[0-9a-f]{40}$/.test(value);
 const text = value => typeof value === 'string' && value.trim().length > 0;
 const require = (condition, reason) => { if (!condition) throw new Error(reason); };
@@ -46,12 +46,13 @@ export function ciPasses(pages, head) {
   require(checks.every(check => ['queued', 'in_progress', 'completed', 'waiting', 'requested', 'pending'].includes(check.status)), 'invalid CI check status');
   // One commit can carry several runs (a staging push and a release PR), each its own check suite. Every suite must
   // pass on its own: all success, or the reuse shape (reuse passed, every other job skipped, no job missing).
-  // Ready: each full suite has its ten checks, all complete (a job gets its check run only when reuse completes).
+  // Ready: each full suite has its check runs, all complete (a job gets its check run only when reuse completes). A
+  // full run has 12; a branch whose workflow has no browser-default job has 11.
   let ready = checks.length > 0;
   for (const suite of Map.groupBy(checks, check => check.check_suite?.id).values()) {
     if (!suite.some(check => check.conclusion === 'skipped')) {
       require(suite.every(check => check.status !== 'completed' || check.conclusion === 'success'), 'CI check does not pass');
-      ready &&= suite.length >= 10 && suite.every(check => check.status === 'completed');
+      ready &&= suite.length >= 11 && suite.every(check => check.status === 'completed');
       continue;
     }
     require(suite.every(check => check.status === 'completed' && check.conclusion === (check.name === 'reuse' ? 'success' : 'skipped')), 'CI check does not pass');
