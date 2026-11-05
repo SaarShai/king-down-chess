@@ -646,8 +646,8 @@ def main():
     parser.add_argument('--characters', help='limit the runtime build, as pawn,guard')
     parser.add_argument('--apply', action='store_true', help='with --final and --runtime: write results into this worktree')
     args = parser.parse_args()
-    if args.apply and not (args.final and args.runtime):
-        raise ValueError('--apply needs --final and --runtime')
+    if args.apply and not (args.final and args.runtime) or args.apply and args.characters:
+        raise ValueError('--apply needs --final and --runtime, and the whole package: no --characters')
     build(args)
 
 

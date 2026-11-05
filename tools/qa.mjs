@@ -77,6 +77,12 @@ const waitPly = (page, n) => page.waitForFunction(n => {
   try { return (JSON.parse(localStorage.getItem('kingdown.save') || '{}').moves || []).length === n; } catch { return false; }
 }, n, { timeout: 40000 });
 
+// A painted walk turns and walks, and an undo plays it back, so a fixed wait can end first.
+const settled = async page => {
+  await page.waitForFunction(() => !window.view.scene.animating, null, { timeout: 15000 });
+  await page.waitForTimeout(200);
+};
+
 async function caseFn(id, query, fn, opts = {}) {
   if (ONLY && !id.includes(ONLY)) return;
   const { ctx, page, errors } = await newPage();
@@ -155,7 +161,7 @@ await caseFn('ogre shoves a friend (plain click) and undo', `?fen=${encodeURICom
   await clickSq(page, 'e4');
   await clickSq(page, 'd4'); // a friend can only be shoved, so no modifier is needed
   await waitPly(page, 1);
-  await page.waitForTimeout(900);
+  await settled(page);
   let s = await snap(page);
   const bad = [];
   if (!s.moves.includes('Oe4>d4-c4')) bad.push(`moves="${s.moves}"`);
@@ -165,7 +171,7 @@ await caseFn('ogre shoves a friend (plain click) and undo', `?fen=${encodeURICom
   if (s.scene[sqOf('e4')] !== undefined) bad.push(`e4=${s.scene[sqOf('e4')] ?? 'empty'}`);
   await page.click('#undo');
   await waitPly(page, 0);
-  await page.waitForTimeout(500);
+  await settled(page);
   s = await snap(page);
   if (s.fen !== OGRE_FRIEND_FEN) bad.push(`undo fen ${s.fen}`);
   if (s.scene[sqOf('d4')] !== CODE.P) bad.push(`undo d4=${s.scene[sqOf('d4')] ?? 'empty'}`);
@@ -178,18 +184,18 @@ await caseFn('ogre capture by the choice dialog, shove by shift-click', `?fen=${
   await clickSq(page, 'd4'); // plain click on an enemy asks: capture or push
   await page.click('#choose-capture');
   await waitPly(page, 1);
-  await page.waitForTimeout(700);
+  await settled(page);
   let s = await snap(page);
   const bad = [];
   if (!s.moves.includes('Oe4xd4')) bad.push(`plain click gave "${s.moves}"`);
   if (s.scene[sqOf('d4')] !== CODE.O) bad.push(`after capture d4=${s.scene[sqOf('d4')] ?? 'empty'}`);
   await page.click('#undo');
   await waitPly(page, 0);
-  await page.waitForTimeout(400);
+  await settled(page);
   await clickSq(page, 'e4');
   await clickSq(page, 'd4', true); // shift-click: the shove
   await waitPly(page, 1);
-  await page.waitForTimeout(900);
+  await settled(page);
   s = await snap(page);
   if (!s.moves.includes('Oe4>d4-c4')) bad.push(`shift-click gave "${s.moves}"`);
   if (s.scene[sqOf('d4')] !== CODE.O) bad.push(`after shove d4=${s.scene[sqOf('d4')] ?? 'empty'}`); // 'push' mode
