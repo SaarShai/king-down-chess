@@ -8,19 +8,26 @@ import { turnRoute } from '../src/render/painted/character-runtime.mjs';
 const browser=await launch();
 try {
  for(const cancel of [false,true]){
-  const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
+  const page=await browser.newPage({viewport:{width:1100,height:950},serviceWorkers:'block'}),errors=trapErrors(page);
   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
   const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen','7k/8/8/8/8/8/4P3/K7 w - - 0 1');url.searchParams.set('players','human,human');
   const manifest=await (await page.request.get(new URL('/character-runtime/manifest.json',url).href)).json();
   const banks=manifest.banks.filter(b=>b.character==='pawn'&&b.army==='white'),rest=banks.find(b=>b.kind==='idle'&&b.facing==='SE');
   const route=turnRoute(banks.filter(b=>b.kind==='turn'),rest.facing,'N');assert(route?.length);
   const blocked=route.flatMap(p=>[p.bank.frames[0],p.bank.frames.at(-1)]).find(f=>f.url!==rest.frames[0].url);assert(blocked);
-  let release,hit,firstRequest;const gate=new Promise(resolve=>{release=resolve;}),intercepted=new Promise(resolve=>{hit=resolve;});
+  let release,hit;const gate=new Promise(resolve=>{release=resolve;}),intercepted=new Promise(resolve=>{hit=resolve;});
   const blockedUrl=new URL(blocked.url,new URL('/character-runtime/manifest.json',url)).href;
-  await page.route(blockedUrl,async request=>{firstRequest??=request.request();hit();await gate;await request.continue().catch(()=>{});});
+  await page.route(blockedUrl,async request=>{hit();await gate;await request.continue().catch(()=>{});});
   await page.goto(url.href);await page.waitForFunction(()=>window.view?.scene?.characterFrames?.some(f=>f.square===12));await page.evaluate(()=>view.ready());
   const original=await page.evaluate(()=>[...view.pos.board]);
-  await page.evaluate(()=>{window.prepareTrace=[];const capture=()=>{prepareTrace.push({at:performance.now(),animating:view.scene.animating,body:view.scene.characterFrames.some(f=>f.square===12),sha:view.scene.characterFrames.find(f=>f.square===12)?.sourceSha256});if(prepareTrace.length<600)requestAnimationFrame(capture);};capture();});
+  await page.evaluate(()=>{
+   window.prepareTrace=[];
+   const capture=()=>{
+    const frame=view.scene.characterFrames.find(f=>f.square===12);
+    prepareTrace.push({at:performance.now(),animating:view.scene.animating,playing:view.scene.playing,bank:frame?.bank,sha:frame?.sourceSha256,foot:frame?.foot});
+    if(prepareTrace.length<600)requestAnimationFrame(capture);
+   };capture();
+  });
   const start=Date.now();for(const square of [12,20]){const p=await page.evaluate(s=>view.screenOf(s),square);await page.mouse.click(p.x,p.y);}
   await page.waitForFunction(()=>view.scene.animating);
   await Promise.race([intercepted,page.waitForTimeout(1500).then(()=>{throw Error('turn endpoint was not held');})]);
@@ -33,11 +40,14 @@ try {
   }else{
    await page.waitForFunction(()=>!view.scene.animating&&!view.pos.board[12]&&view.pos.board[20],null,{timeout:4000});
    assert(Date.now()-start<3500,'move settles with a stalled image');
-   const trace=await page.evaluate(()=>prepareTrace);assert(trace.some(s=>s.animating&&!s.body),'legacy body is used after the deadline');
-   const delivered=page.waitForResponse(response=>response.url()===blockedUrl&&response.request()!==firstRequest);release();await page.click('#undo');await page.waitForFunction(board=>!view.scene.animating&&view.pos.board.every((v,i)=>v===board[i]),original,{timeout:5000});
+   const trace=await page.evaluate(()=>prepareTrace);
+   const moving=trace.filter(s=>s.animating&&s.playing==='hop'&&s.foot&&Math.abs(s.foot.y-trace[0].foot.y)>56);
+   assert(moving.length,'the fallback pawn hop moves with the turn image still held');
+   assert(moving.every(s=>s.bank===rest.id&&s.sha===rest.frames[0].sourceSha256),'the fallback keeps the painted rest body during the hop');
+   release();await page.click('#undo');await page.waitForFunction(board=>!view.scene.animating&&view.pos.board.every((v,i)=>v===board[i]),original,{timeout:5000});
    const previous=await page.evaluate(()=>prepareTrace.length);
    for(const square of [12,20]){const p=await page.evaluate(s=>view.screenOf(s),square);await page.mouse.click(p.x,p.y);}
-   await delivered;await page.waitForFunction(()=>!view.scene.animating&&!view.pos.board[12]&&view.pos.board[20],null,{timeout:5000});
+   await page.waitForFunction(()=>!view.scene.animating&&!view.pos.board[12]&&view.pos.board[20],null,{timeout:5000});
    const recovered=await page.evaluate(index=>prepareTrace.slice(index),previous);assert(recovered.some(s=>s.sha===undefined?false:s.sha===blocked.sourceSha256),'a later move uses the recovered turn image');
   }
   assertNoErrors(errors);console.log(`ok stalled turn image: ${cancel?'Undo during preparation':'bounded fallback and Undo'}`);await page.close();
@@ -52,7 +62,7 @@ try {
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const waitFor=predicate=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error(`request wait timed out: started=${started}, closed=${closed}`)),12000);notify=()=>{if(predicate()){clearTimeout(timer);resolve();}};notify();});
  try{
-  const page=await browser.newPage();await page.goto(env('PLAYABLE_URL'));
+  const page=await browser.newPage({serviceWorkers:'block'});await page.goto(env('PLAYABLE_URL'));
   const source=await readFile(new URL('../src/render/painted/character-runtime.mjs',import.meta.url),'utf8'),base=`http://127.0.0.1:${server.address().port}/`;
   await page.evaluate(async({source,base})=>{
    const moduleUrl=URL.createObjectURL(new Blob([source],{type:'text/javascript'})),{createCharacterRuntime}=await import(moduleUrl);URL.revokeObjectURL(moduleUrl);
