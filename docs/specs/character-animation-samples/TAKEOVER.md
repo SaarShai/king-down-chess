@@ -1,5 +1,11 @@
 # Consolidated animation ownership
 
+Status: old record. Do not use this file to start work. The bank counts, open tasks and running sessions below describe the earlier takeover.
+
+For the current state, read [the animation records ticket](issues/41-animation-records.md). PR 251 merges the walks and colour picks. The owner approves all review sequences on 2026-11-05. Another worker adds the last four walks and their black versions. PR 239 is not merged: it swaps the walk-end jump for a slide. [Issue 39](issues/39-animation-wrap-up.md) records the earlier wrap-up build; its open-review status is old. Use [the art and motion lessons](../../lessons/art-and-motion.md) for reusable rules.
+
+## Earlier takeover record
+
 The original character-animation session now owns consolidation and integration. All previous animation sessions were inspected and are inactive; none was restarted. Existing sources remain preserved.
 
 ## Current bank
