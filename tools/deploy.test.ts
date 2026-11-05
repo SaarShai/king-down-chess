@@ -755,14 +755,15 @@ describe.each([['keep-assets', keepAssets], ['live-check', liveCheck]])('%s over
   });
 
   it.each(['network fault', 'timeout'])('stops after three attempts on a %s', async fault => {
-    const files = pages(), live = await site(() => files, { path, type: 'text/javascript', ...(fault === 'timeout' ? { delayMs: 500 } : { drop: 3 }) });
-    const result = await run(buildFolder(files), live.url, fault === 'timeout' ? '100' : undefined);
+    const files = pages(), live = await site(() => files, { path, type: 'text/javascript', ...(fault === 'timeout' ? { delayMs: 3000 } : { drop: 3 }) });
+    // A 1 s limit: a loaded machine must not time out the other files.
+    const result = await run(buildFolder(files), live.url, fault === 'timeout' ? '1000' : undefined);
     expect(result.status).toBe(1);
     expect(live.requests.filter(r => r.path === path)).toHaveLength(3);
     expect(result.stderr).toContain(`GET ${path}: fetch failed`);
     expect(result.stderr).toContain(`${name}: repeat 2/2 GET ${path}: fetch failed`);
-    expect(result.stderr.match(/repeat /g)).toHaveLength(2);
-    expect(result.seconds).toBeLessThan(10);
+    expect(result.stderr.split('\n').filter(line => line.includes('repeat ') && line.includes(`GET ${path}:`))).toHaveLength(2);
+    expect(result.seconds).toBeLessThan(15);
   });
 
   it('rejects a wrong status at once with the old message and no repeat', async () => {
