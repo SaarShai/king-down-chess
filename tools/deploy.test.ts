@@ -686,14 +686,18 @@ const oldBuild = (): Record<string, string> => ({
 });
 
 /** A local site. `files` can change between requests; `/` serves `index.html`. */
-async function site(files: () => Record<string, string>, challengeReply: { status?: number; type?: string | null; location?: string; path?: string; body?: string; cache?: string | null; drop?: number } = {}, access: Access = 'closed') {
+async function site(files: () => Record<string, string>, challengeReply: { status?: number; type?: string | null; location?: string; path?: string; body?: string; cache?: string | null; drop?: number; delayMs?: number } = {}, access: Access = 'closed') {
   const requests: { path: string; method?: string; cookie?: string }[] = [];
-  const server = createServer((req, res) => {
+  let active = 0, peak = 0;
+  const server = createServer(async (req, res) => {
     const path = (req.url ?? '/').split('?')[0];
     requests.push({ path, method: req.method, cookie: req.headers.cookie });
+    peak = Math.max(peak, ++active);
+    res.once('close', () => { active--; });
     // drop: close the connection with no reply this many times, as a network fault does.
     if (challengeReply.drop && path === challengeReply.path) { challengeReply.drop--; req.socket.destroy(); return; }
     if (req.headers.cookie !== undefined) { res.writeHead(400).end('cookie sent'); return; }
+    if (challengeReply.delayMs && (!challengeReply.path || path === challengeReply.path)) await new Promise(done => setTimeout(done, challengeReply.delayMs));
     const body = files()[path === '/' ? 'index.html' : path.slice(1)];
     if (path === (challengeReply.path ?? '/.well-known/openai-apps-challenge')) {
       const api = apiPaths.includes(path);
@@ -709,7 +713,7 @@ async function site(files: () => Record<string, string>, challengeReply: { statu
   await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
   servers.push(server);
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  return { url, requests };
+  return { url, requests, get peak() { return peak; } };
 }
 
 /** Runs a command without a block on the event loop, so that the local site can answer. */
@@ -726,6 +730,68 @@ function runAsync(command: string, args: string[], options: { cwd?: string; env:
 
 const check = (folder: string, url: string, timeoutMs = 1500) =>
   runAsync(process.execPath, [liveCheck, folder], { env: { ...process.env, DEPLOY_LIVE_URL: url, DEPLOY_LIVE_TIMEOUT_MS: String(timeoutMs) } });
+
+describe.each([['keep-assets', keepAssets], ['live-check', liveCheck]])('%s over a slow link', (name, tool) => {
+  const path = '/assets/index-Abc123_x.js';
+  const run = (folder: string, url: string, requestTimeout?: string) => runAsync(process.execPath, [tool, folder], {
+    env: { ...process.env, DEPLOY_LIVE_URL: url, DEPLOY_LIVE_TIMEOUT_MS: '0', DEPLOY_REQUEST_TIMEOUT_MS: requestTimeout },
+  });
+
+  it('passes a slow response after 16 s with the default request limit', async () => {
+    const files = pages(), live = await site(() => files, { path, type: 'text/javascript', delayMs: 16_000 });
+    const result = await run(buildFolder(files), live.url);
+    expect(result.status, result.stderr).toBe(0);
+    expect(live.requests.filter(r => r.path === path)).toHaveLength(1);
+    expect(result.stderr).not.toContain('repeat');
+  });
+
+  it('passes on a repeat after a dropped connection and logs the repeat', async () => {
+    const files = pages(), live = await site(() => files, { path, type: 'text/javascript', drop: 1 });
+    const result = await run(buildFolder(files), live.url);
+    expect(result.status, result.stderr).toBe(0);
+    expect(live.requests.filter(r => r.path === path)).toHaveLength(2);
+    expect(result.stderr).toContain(`${name}: repeat 1/2 GET ${path}: fetch failed`);
+    expect(result.stderr.match(/repeat /g)).toHaveLength(1);
+  });
+
+  it.each(['network fault', 'timeout'])('stops after three attempts on a %s', async fault => {
+    const files = pages(), live = await site(() => files, { path, type: 'text/javascript', ...(fault === 'timeout' ? { delayMs: 500 } : { drop: 3 }) });
+    const result = await run(buildFolder(files), live.url, fault === 'timeout' ? '100' : undefined);
+    expect(result.status).toBe(1);
+    expect(live.requests.filter(r => r.path === path)).toHaveLength(3);
+    expect(result.stderr).toContain(`GET ${path}: fetch failed`);
+    expect(result.stderr).toContain(`${name}: repeat 2/2 GET ${path}: fetch failed`);
+    expect(result.stderr.match(/repeat /g)).toHaveLength(2);
+    expect(result.seconds).toBeLessThan(10);
+  });
+
+  it('rejects a wrong status at once with the old message and no repeat', async () => {
+    const files = pages(), live = await site(() => files, { path, status: 503 });
+    const result = await run(buildFolder(files), live.url);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(name === 'keep-assets' ? `keep-assets: GET ${path}: expected HTTP 200, got 503` : `${path}: HTTP 503`);
+    expect(live.requests.filter(r => r.path === path)).toHaveLength(1);
+    expect(result.stderr).not.toContain('repeat');
+  });
+
+  it('keeps at most eight requests open at once', async () => {
+    const assets = Object.fromEntries(Array.from({ length: 24 }, (_, i) => [`assets/image-${String(i).padStart(8, '0')}.png`, 'image']));
+    const files = { ...pages(), ...assets, 'index.html': pages()['index.html'] + Object.keys(assets).map(file => `<img src="/${file}">`).join('') };
+    const live = await site(() => files, { delayMs: 50 });
+    const result = await run(buildFolder(files), live.url);
+    expect(result.status, result.stderr).toBe(0);
+    expect(live.peak).toBe(8);
+    for (const file of Object.keys(assets)) expect(live.requests.filter(r => r.path === `/${file}`)).toHaveLength(1);
+  });
+
+  it.each(['', '0', '-1', '1.5', 'Infinity', 'invalid', '2147483648'])('rejects request limit %j before any request', async timeout => {
+    const files = pages(), live = await site(() => files);
+    const result = await run(buildFolder(files), live.url, timeout);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('DEPLOY_REQUEST_TIMEOUT_MS must be a whole number from 1 to 2147483647 milliseconds');
+    expect(live.requests).toEqual([]);
+  });
+});
 
 describe('deploy-live-check.mjs', () => {
   const challenge = '.well-known/openai-apps-challenge';
@@ -795,9 +861,20 @@ describe('deploy-live-check.mjs', () => {
   it('tries again until the live site serves the build, inside the time limit', async () => {
     let served = 0;
     const live = await site(() => (served++ === 0 ? { ...pages(), 'index.html': pages('index-Old999')['index.html'] } : pages()));
-    const result = await check(buildFolder(pages()), live.url, 3000);
+    const result = await check(buildFolder(pages()), live.url, 7000);
     expect(result.status, result.stderr).toBe(0);
     expect(live.requests.filter(r => r.path === '/').length).toBe(2);
+  });
+
+  it('keeps the whole-check limit when requests and queued probes are slow', async () => {
+    const files = pages(), live = await site(() => files, { delayMs: 500 });
+    const result = await check(buildFolder(files), live.url, 250);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('GET /: fetch failed');
+    expect(result.stderr).not.toContain('repeat');
+    expect(live.requests.length).toBeLessThanOrEqual(8);
+    expect(live.peak).toBeLessThanOrEqual(8);
+    expect(result.seconds).toBeLessThan(3);
   });
 
   it.each(['sw.js', 'assets/index-Abc123_x.js', 'assets/lazy.js', 'assets/ai-worker.js', 'assets/style.css', 'fonts/game.woff2', 'icons/game.png', 'ui/board.webp', 'ui/piece.svg', 'manifest.webmanifest'])('rejects stale public bytes at %s', async path => {
