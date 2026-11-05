@@ -8,7 +8,7 @@ import { setTimeout } from 'node:timers/promises';
 export const repo = 'SaarShai/king-down-chess';
 // plugin-checks.yml skips every job but reuse when a green push run already checked the same tree. GitHub then reports
 // one check run per job, a matrix job included, so a reused run has exactly these check-run names.
-export const REUSE_SHAPE = ['reuse', 'verify', 'browser-board', 'browser-ui', 'browser-web', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui'];
+export const REUSE_SHAPE = ['reuse', 'verify', 'browser-board', 'browser-ui', 'browser-web', 'browser-default', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui'];
 const fullSha = value => typeof value === 'string' && /^[0-9a-f]{40}$/.test(value);
 const text = value => typeof value === 'string' && value.trim().length > 0;
 const require = (condition, reason) => { if (!condition) throw new Error(reason); };

@@ -220,9 +220,6 @@ jobs:
           echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
           npx playwright install --with-deps chromium
         timeout-minutes: 10
-      - run: npm run check:browser home account new-game menu-extra
-        env:
-          PLAYABLE_BROWSER: chromium
       - run: npm run check:browser web-online signin-speed web-game
         env:
           PLAYABLE_BROWSER: chromium
@@ -230,6 +227,53 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: web-check-logs
+          path: /tmp/kingdown-check-runs/
+          retention-days: 7
+
+  # Every default browser check (tools/lib/registry.mjs, the entries not "by name only"), with no names: a new default
+  # check runs here with no change to this file. tools/deploy.sh runs the same set only when CI did not pass on the
+  # commit. Before 2026-11-04 CI ran four of them, and a check that no CI job ran blocked release 8 at the publish.
+  browser-default:
+    runs-on: ubuntu-latest
+    needs: reuse
+    if: needs.reuse.outputs.green != 'true'
+    # The Chromium checks run with the step limits times 2 on CI (tools/lib/checks.mjs STEP).
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: kingdown_test
+          POSTGRES_PASSWORD: local_test_only
+          POSTGRES_DB: kingdown_plugin_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run plugin:db:init-test
+      - run: |
+          sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
+          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
+          npx playwright install --with-deps chromium
+        timeout-minutes: 10
+      - run: npm run check:browser
+        env:
+          PLAYABLE_BROWSER: chromium
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: default-check-logs
           path: /tmp/kingdown-check-runs/
           retention-days: 7
 

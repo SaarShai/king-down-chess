@@ -27,6 +27,6 @@ NODE
   output=$(node "$repo/tools/merge-on-green.mjs" "$pr" "$head" "$record" 2>&1); rc=$?
   echo "$output"
   [ $rc -eq 0 ] && exit 0
-  case "$output" in *"Error connecting"*|*"error connecting"*|*"timed out"*|*ETIMEDOUT*) sleep 30 ;; *) exit 1 ;; esac
+  case "$output" in *"Error connecting"*|*"error connecting"*|*"timed out"*|*ETIMEDOUT*|*"unexpected EOF"*) sleep 30 ;; *) exit 1 ;; esac
 done
 echo 'merge: gave up after three network failures' >&2; exit 1

@@ -495,7 +495,24 @@ describe('deploy.sh', () => {
     expect(result.stdout).not.toMatch(/skipped npm test/);
   });
 
-  it('with CI passed on the exact commit, skips npm test and the web journey, and keeps the browser checks and the build gates', () => {
+  it('with CI passed and the browser-default job in the commit, skips npm test, the browser checks and the web journey', () => {
+    const { repo, deploy, calls } = setup();
+    repo.write('.github/workflows/plugin-checks.yml', 'jobs:\n  browser-default:\n    runs-on: ubuntu-latest\n');
+    repo.git('add', '.'); repo.git('commit', '-q', '-m', 'workflow'); repo.git('push', '-q', 'origin', 'main');
+    const result = deploy([], { STUB_CI_PASS: '1' });
+    expect(result.status, result.stderr).toBe(0);
+    const path = worktreeOf(result.stdout);
+    expect(calls().map(line => line.replace(/ @ .*/, ''))).toEqual([
+      `wt.sh add ${path}`,
+      'npm run plugin:db:init-test',
+      `node tools/ci-green.mjs ${head(repo, 'HEAD')}`,
+      'npm run build:vercel',
+      'npm run check:vercel',
+    ]);
+    expect(result.stdout).toMatch(/CI passed at [0-9a-f]{40}; skipped npm test, the default browser checks and the web journey/);
+  });
+
+  it('with CI passed on a commit whose workflow has no browser-default job, keeps the browser checks', () => {
     const { repo, deploy, calls } = setup();
     const result = deploy([], { STUB_CI_PASS: '1' });
     expect(result.status, result.stderr).toBe(0);

@@ -7,6 +7,7 @@
 # (KINGDOWN_SECRETS_ENV). The value goes only into this process, never in an argument, a message or a log. Without the
 # file, a hidden prompt asks for the URL. The publishable key is the public production value read from the live bundle.
 #   KINGDOWN_RELEASE_WORKTREE  a worktree with its own node_modules (default <main checkout>/.claude/worktrees/release-live)
+#   KINGDOWN_CI_WAIT_MINUTES   how long publish waits for CI (default 30; 0 starts the full local checks at once)
 #   KINGDOWN_RELEASE_EVIDENCE  where the logs go (default <main checkout>/../evidence/production-release)
 set -euo pipefail
 mode=${1:?check, engines or publish}
@@ -48,7 +49,7 @@ case "$mode" in
   publish)
     test_database; engine_url
     # Green CI on this commit lets deploy.sh skip the local tests; a failed or absent CI run means the full local run.
-    bash "$tools/release/ci-wait.sh" "$sha" 30 || echo 'live: CI did not pass in time; deploy.sh runs the full local checks'
+    bash "$tools/release/ci-wait.sh" "$sha" "${KINGDOWN_CI_WAIT_MINUTES:-30}" || echo 'live: CI did not pass in time; deploy.sh runs the full local checks'
     cd "$repo"; tools/deploy.sh --publish 2>&1 | tee "$evidence/deploy-$sha.log" ;;
   *) echo 'usage: tools/release/live.sh check|engines|publish' >&2; exit 2 ;;
 esac
