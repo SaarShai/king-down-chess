@@ -7,11 +7,11 @@ import { setRules } from '../rules/engine';
 import type { PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 import { SHARED_MECHANICS, assertMechanicExpected } from '../../tools/fixtures/shared-mechanics';
 
-const { reducedMotion, lively, aim, decorate, disposeScene, disconnectResize } = vi.hoisted(() => ({ reducedMotion: vi.fn(), lively: vi.fn(), aim: vi.fn(), decorate: vi.fn(), disposeScene: vi.fn(), disconnectResize: vi.fn() }));
+const { reducedMotion, lively, aim, decorate, disposeScene, disconnectResize, selectScene } = vi.hoisted(() => ({ reducedMotion: vi.fn(), lively: vi.fn(), aim: vi.fn(), decorate: vi.fn(), disposeScene: vi.fn(), disconnectResize: vi.fn(), selectScene: vi.fn() }));
 let resolveLoad: () => void = () => {};
 let pickedSquare: number | null = null;
 vi.mock('../../docs/2d-first-pieces/board/scene.mjs', () => ({
-  createScene: () => new Proxy({ prepareUndo: () => false, rewindUndo: async () => true, play: async () => true, load: () => new Promise<void>(r => { resolveLoad = r; }), dispose: disposeScene, squareAt: () => pickedSquare, kings: [], drawnKings: [], setReducedMotion: reducedMotion, setLively: lively, setAim: aim, setDecorate: decorate, animating: false, falling: false, PAD: 32, TILE: 112, cell: (sq: number) => ({col:sq % 8,row:7 - (sq >> 3)}) } as Record<string, unknown>,
+  createScene: () => new Proxy({ prepareUndo: () => false, rewindUndo: async () => true, play: async () => true, load: () => new Promise<void>(r => { resolveLoad = r; }), dispose: disposeScene, squareAt: () => pickedSquare, kings: [], drawnKings: [], setReducedMotion: reducedMotion, setLively: lively, setAim: aim, setSelected: selectScene, setDecorate: decorate, animating: false, falling: false, PAD: 32, TILE: 112, cell: (sq: number) => ({col:sq % 8,row:7 - (sq >> 3)}) } as Record<string, unknown>,
     { get: (t, k: string) => k in t ? t[k] : () => {} }),
 }));
 
@@ -34,6 +34,14 @@ function stubDom() {
   return el();
 }
 afterEach(() => { vi.unstubAllGlobals(); frames.length = 0; listeners.clear(); documentListeners.clear(); pickedSquare = null; vi.clearAllMocks(); setRules({}); });
+
+it('passes capture targets to scene preparation on selection', async () => {
+ const container=stubDom(), {PaintedView}=await import('./PaintedView');
+ const view=new PaintedView(container as unknown as HTMLElement);
+ view.highlight({selected:28,moves:[29],captures:[36]});
+ expect(selectScene).toHaveBeenLastCalledWith(28,[29],[36]);
+ view.dispose();
+});
 
 describe('PaintedView first paint', () => {
   it('releases input, observers and scene work before a delayed artwork load finishes', async () => {

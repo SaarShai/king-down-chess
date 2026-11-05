@@ -184,14 +184,18 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   get stats(){return {bytes:bytes+effectBytes+smokeBytes,peakBytes,framesLoaded:images.size,active,queued:queue.length,manifestReady,manifestLoading:!!manifestLoading};},
   smoke(){return smokeClass&&smokeImage?new smokeClass(smokeImage):null;},
   warm,
-  async prefetchMoves(character,army,directions){
+  async prefetchMoves(character,army,directions,captures=[]){
    const generation=++moveGeneration;movePrefetchActive=true;moveLoads?.release();moveLoads=null;
    try{
     await bounded(loadManifest());if(disposed||generation!==moveGeneration)return;
     const all=forPiece(character,army),rest=idle(character,army),turns=all.filter(b=>b.kind==='turn');
-    for(const bank of all.filter(b=>b.kind==='move'&&directions.includes(b.facing))){
+    // Decode capture starts before the click; the move keeps its existing wait limit.
+    const attacks=all.filter(b=>b.kind==='attack'&&captures.includes(b.facing));
+    for(const bank of [...attacks,...all.filter(b=>b.kind==='move'&&directions.includes(b.facing))]){
      if(disposed||generation!==moveGeneration)return;
-     const route=rest?turnRoute(turns,rest.facing,bank.facing):null,frames=[...bank.frames,...(rest?[rest.frames[0]]:[]),...(route??[]).flatMap(part=>endpoints(part.bank))];
+     const capture=bank.kind==='attack',route=rest?turnRoute(turns,rest.facing,bank.facing):null;
+     if(capture&&(!rest||route===null))continue;
+     const frames=[...(capture?bank.frames.slice(0,4):bank.frames),...(rest?[rest.frames[0]]:[]),...(route??[]).flatMap(part=>capture&&character.startsWith('king-')?part.bank.frames:endpoints(part.bank))];
      const loads=loadPreparation(frames,1);moveLoads=loads;await loads.promise;
      if(moveLoads===loads){moveLoads=null;loads.release();}
     }

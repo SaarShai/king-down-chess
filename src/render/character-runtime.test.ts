@@ -3,6 +3,24 @@ import { createCharacterRuntime, anchorAt, bankPointToWorld, idleBankAt, facingO
 const bank = (from = 'SE', to = 'S'): RuntimeBank => ({ id: `${from}-${to}`, character: 'pawn', army: 'white', kind: 'turn', from, to, facing: 'SE', durationMs: 120, nearest: true, pivot: [384,700], canvasSize: [768,768], bodyHeightPx: 600, registrationHeightPx: 600, frames: [0,60,120].map(timeMs => ({ url: `frame-${timeMs}`, timeMs })) });
 
 describe('ready character playback', () => {
+ it('decodes a selected capture route before its bounded preparation', async () => {
+  vi.useFakeTimers();
+  const idle={...bank(),id:'idle',character:'king-frost',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const turn={...bank('SE','N'),id:'turn',character:'king-frost',frames:[idle.frames[0],...Array.from({length:17},(_,i)=>({url:`turn-${i}`,timeMs:i+1}))]};
+  const attacks=['N','S'].map(facing=>({...idle,id:`attack-${facing}`,kind:'attack',facing,frames:Array.from({length:8},(_,i)=>({url:`attack-${facing}-${i}`,timeMs:i*10}))}));
+  const started:string[]=[];
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,...attacks]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){started.push(s);setTimeout(()=>img.onload?.(),300);}};return img as unknown as HTMLImageElement;}});
+  try{
+   await runtime.ready();const warm=runtime.warm('king-frost','white');await vi.advanceTimersByTimeAsync(300);await warm;
+   void runtime.prefetchMoves('king-frost','white',[],['N']);await vi.advanceTimersByTimeAsync(1000);
+   expect(started.some(s=>s.endsWith('/turn-16'))).toBe(true);
+   expect(started.filter(s=>s.includes('/attack-N-'))).toHaveLength(4);
+   expect(started.some(s=>s.includes('/attack-S-'))).toBe(false);
+   runtime.releaseMovePrefetch();const preparing=runtime.prepare('king-frost','white','N',true);await vi.advanceTimersByTimeAsync(1000);
+   expect(await preparing).toMatchObject({attack:{id:'attack-N'}});
+  }finally{runtime.dispose();vi.useRealTimers();}
+ });
  it('loads the target walk while its turn endpoints load', async () => {
   const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
   const turn={...bank(),id:'turn',frames:[{url:'rest',timeMs:0},{url:'held-turn',timeMs:120}]};
