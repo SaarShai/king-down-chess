@@ -284,6 +284,49 @@ describe('ready character playback', () => {
    image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
   const prepared=await runtime.prepare('pawn','white','N',false,true) as {movement:unknown};expect(prepared.movement).toBeNull();runtime.dispose();
  });
+ it.each(['knight','paladin'])('selects %s jump poses for both armies and falls back for missing or slow banks', async character => {
+  vi.useFakeTimers();
+  const banks=['white','black'].flatMap(army=>{
+   const idle={...bank(),character,army,id:`${army}-idle`,kind:'idle',facing:'SE',frames:[{url:`${army}-rest`,timeMs:0}]};
+   const turn={...idle,id:`${army}-turn`,kind:'turn',from:'SE',to:'N',frames:[idle.frames[0],{url:`${army}-N`,timeMs:120}]};
+   const movement={...idle,id:`${army}-jump`,kind:'movement',nearest:false,durationMs:1350,frames:[0,90,300,510,840,1107,1250,1350].map(timeMs=>({url:`${army}-jump-${timeMs}`,timeMs}))};
+   return [idle,turn,movement,{...idle,id:`${army}-attack`,kind:'attack'}];
+  });
+  let slow=false;
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){if(!slow||!s.includes('jump-'))queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  try{
+   const ready=await runtime.prepare(character,'white','SE',false,false) as any;
+   expect(ready.movement.id).toBe('white-jump');
+   expect([89,90,1106,1107,1350].map(t=>(runtime.action(ready,t,1350,1107) as {time:number}).time)).toEqual([0,90,840,1107,1350]);
+   const capture=await runtime.prepare(character,'white','SE',true,false) as any;
+   expect(capture.attack?.id??null).toBe(character==='knight'?null:'white-attack');
+   expect(capture.movement?.id??null).toBe(character==='knight'?'white-jump':null);
+   const missing=await runtime.prepare(character,'white','N',false,false) as any;
+   expect(missing.movement).toBeNull();expect(runtime.action(missing,500,1350,1107)).toMatchObject({bank:'white-turn'});
+   slow=true;
+   const pending=runtime.prepare(character,'black','SE',false,false);await vi.advanceTimersByTimeAsync(1000);
+   const fallback=await pending as any;
+   expect(fallback.movement).toBeNull();expect(runtime.action(fallback,500,1350,1107)).toMatchObject({bank:'black-idle'});
+   expect(runtime.stats.active).toBe(0);
+  }finally{runtime.dispose();vi.useRealTimers();}
+ });
+ it('keeps a partly cached jump while its missing frames load under cache pressure', async()=>{
+  const idle={...bank(),character:'paladin',id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const movement={...idle,id:'charge',kind:'movement',nearest:false,frames:[0,60,120].map(timeMs=>({url:`charge-${timeMs}`,timeMs}))};
+  const others=Array.from({length:13},(_,i)=>({...idle,character:`other-${i}`,id:`other-${i}`,frames:[{url:`other-${i}`,timeMs:0}]}));
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,movement,...others]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:1024,naturalHeight:1024,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  try{
+   await runtime.prefetchMoves('paladin','white',['SE']);
+   for(const other of others)await runtime.warm(other.character,'white');
+   const prepared=await runtime.prepare('paladin','white','SE',false,false) as any;
+   expect(prepared.movement?.id).toBe('charge');
+   expect([0,60,120].map(t=>(runtime.action(prepared,t,120,0) as {time:number}).time)).toEqual([0,60,120]);
+   expect(runtime.stats.peakBytes).toBeLessThanOrEqual(64*1024*1024);
+   prepared.releaseMovementStart?.();prepared.releaseMovement?.();prepared.releaseFallback?.();
+  }finally{runtime.dispose();}
+ });
  it('plays explicit movement for each army and direction over the scene travel time', async () => {
   const banks = ['white','black'].flatMap(army => {
    const idle={...bank(),id:`${army}-idle`,army,kind:'idle',frames:[{url:`${army}-rest`,timeMs:0}]};

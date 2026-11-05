@@ -39,6 +39,7 @@ export function idleBankAt(clips,turns,restFacing,time) {
  for(const part of sequence){if(t<part.durationMs)return {bank:part.bank,time:part.reverse?part.durationMs-t:t,reverse:part.reverse};t-=part.durationMs;}
  return null;
 }
+const jumps=character=>character==='knight'||character==='paladin';
 const HEIGHT={pawn:96,knight:112,bishop:114,rook:132,queen:120,archer:120,paladin:124,maester:112,ogre:136,guard:114};
 export const DECODED_BUDGET=64*1024*1024;
 // Bound the wait for optional art so a stalled request cannot hold up a move indefinitely.
@@ -190,8 +191,8 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
     await bounded(loadManifest());if(disposed||generation!==moveGeneration)return;
     const all=forPiece(character,army),rest=idle(character,army),turns=all.filter(b=>b.kind==='turn');
     // Decode capture starts before the click; the move keeps its existing wait limit.
-    const attacks=all.filter(b=>b.kind==='attack'&&captures.includes(b.facing));
-    for(const bank of [...attacks,...all.filter(b=>b.kind==='move'&&directions.includes(b.facing))]){
+    const attacks=all.filter(b=>b.kind==='attack'&&character!=='knight'&&captures.includes(b.facing));
+    for(const bank of [...attacks,...all.filter(b=>(jumps(character)?b.kind==='movement':b.kind==='move')&&(directions.includes(b.facing)||character==='knight'&&captures.includes(b.facing)))]){
      if(disposed||generation!==moveGeneration)return;
      const capture=bank.kind==='attack',route=rest?turnRoute(turns,rest.facing,bank.facing):null;
      if(capture&&(!rest||route===null))continue;
@@ -230,9 +231,9 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    const deadline=performance.now()+LOAD_TIMEOUT,remaining=()=>Math.max(0,deadline-performance.now());
    await bounded(loadManifest(),remaining(),signal);if(disposed||signal?.aborted||!remaining())return null;
    const all=forPiece(character,army),rest=idle(character,army);if(!rest)return null;
-   const attack=capture?all.find(b=>b.kind==='attack'&&b.facing===direction):null;
+   const attack=capture&&character!=='knight'?all.find(b=>b.kind==='attack'&&b.facing===direction):null;
    const playable=b=>b.facing===direction&&Number.isFinite(b.durationMs)&&b.durationMs>0&&b.frames?.length&&(b.kind!=='move'||Number.isFinite(b.strideSquares)&&b.strideSquares>0);
-   let movement=!capture?(!['knight','paladin'].includes(character)&&all.find(b=>b.kind==='move'&&playable(b))||oneSquare&&all.find(b=>b.kind==='movement'&&playable(b))||null):null;
+   let movement=!capture||character==='knight'?(jumps(character)?all.find(b=>b.kind==='movement'&&playable(b))??null:all.find(b=>b.kind==='move'&&playable(b))||oneSquare&&all.find(b=>b.kind==='movement'&&playable(b))||null):null;
    const movementRequested=!!movement;
    const turns=all.filter(b=>b.kind==='turn'),before=turnRoute(turns,rest.facing,direction),after=before&&reverseRoute(before);
    // A missing edge keeps the rest body coherent instead of jumping to an unsupported facing.
@@ -240,18 +241,20 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    const routeFrames=character.startsWith('king-')&&capture?p=>p.bank.frames:p=>endpoints(p.bank);
    const start=[rest.frames[0],...before.flatMap(routeFrames),...after.flatMap(routeFrames),...(attack?attack.frames.slice(0,4):[])];
    let releaseFallback=movement||character.startsWith('king-')&&capture?reserve(start):null;
+   // A large jump bank can be partly cached; keep those frames while its missing frames load.
+   let releaseMovement=movement&&jumps(character)?reserve(movement.frames):null;
    let startLoads,movementLoads=null;
    if(movement){suspendPump++;try{startLoads=loadPreparation(start);movementLoads=loadPreparation(movement.frames);}finally{suspendPump--;pump();}}
    else startLoads=loadPreparation(start);
    await bounded(startLoads.promise,remaining(),signal);startLoads.release();
-   if(disposed||signal?.aborted||!remaining()||start.some(frame=>!images.has(frame.url))){movementLoads?.release();releaseFallback?.();return null;}
+   if(disposed||signal?.aborted||!remaining()||start.some(frame=>!images.has(frame.url))){movementLoads?.release();releaseMovement?.();releaseFallback?.();return null;}
    const sizes=new Map(start.map(frame=>[frame.url,images.get(frame.url).size]));
-   let releaseMovementStart=null,releaseMovement=null;
+   let releaseMovementStart=null;
    if(movement){
     await bounded(movementLoads.promise,remaining(),signal);movementLoads.release();
-    if(disposed||signal?.aborted){releaseFallback();return null;}
-    if(!remaining()||movement.frames.some(frame=>!images.has(frame.url)))movement=null;
-    else {releaseMovementStart=reserve([movement.frames[0]]);releaseMovement=reserve([movement.frames.at(-1)]);}
+    if(disposed||signal?.aborted){releaseMovement?.();releaseFallback();return null;}
+    if(!remaining()||movement.frames.some(frame=>!images.has(frame.url))){movement=null;releaseMovement?.();releaseMovement=null;}
+    else {releaseMovementStart=reserve([movement.frames[0]]);releaseMovement??=reserve([movement.frames.at(-1)]);}
    }
    const effect=attack?await bounded(loadSeparate(character),remaining(),signal):null;
    if(disposed||signal?.aborted||!remaining()&&!movementRequested||attack&&effectEntries[character]&&!effect){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}

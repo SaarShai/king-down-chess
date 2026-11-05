@@ -839,6 +839,8 @@ function vortex(out,foot,phase,strength) {
    const lift=Math.min(TILE*.7,Math.max(0,ground.y-specs[N].scale*1000-12))*motion.lift;
    actor.pose={...a.from,ground,lift,foot:{x:ground.x,y:ground.y-lift},rotation:motion.rotation};
    actor.extension=motion.crouch;
+   const correction=a.runtime?.movement?.contactCorrection;
+   if(correction&&t>=correction[0]&&t<correction[1])actor.pose.foot.y+=correction[2]*ease((t-correction[0])/(correction[1]-correction[0]));
    const landing=duration*knight.LANDING;
    if(victim)victim.opacity=1-clamp((t-landing)/120,0,1);
    hit={point:a.to.foot,t:(t-landing)/180};
@@ -891,7 +893,7 @@ function vortex(out,foot,phase,strength) {
    if(body){
     if(a?.runtime){
      if(local<0)u.pose={...a.from};else if(local>a.actionDuration)u.pose={...a.to};
-     if(a.runtime.movement||a.runtime.attack||a.type!=='gait'){if(typeOf(u.value)!==K||!a.move.captures.length||a.runtime.attack)u.pose.rotation=0;u.pose.sx=1;u.pose.sy=1;}
+     if(a.runtime.movement||a.runtime.attack||a.type!=='gait'){if(!(a.type==='knight'&&a.runtime.movement)&&(typeOf(u.value)!==K||!a.move.captures.length||a.runtime.attack))u.pose.rotation=0;u.pose.sx=1;u.pose.sy=1;}
     }
     u.pose.bank=body;
    }
