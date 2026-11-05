@@ -16,7 +16,8 @@
 #
 # Safe means all of: not the main checkout and not the current worktree; not locked; index and HEAD
 # unchanged for 24 hours; an empty `git status`; no ignored file except node_modules, dist and
-# .DS_Store; HEAD is an ancestor of main.
+# .DS_Store; HEAD is an ancestor of origin/main (of the local main when there is no origin/main:
+# a local main can be far behind the remote, and then no merged worktree is safe).
 #
 # Package step: if the worktree's lock file is byte-equal to the main checkout's, node_modules
 # becomes a link to the main checkout's packages. Else the step removes any link and runs
@@ -96,7 +97,7 @@ serve() {
 
 # Prints why the worktree at $1 must stay, or nothing when it is safe. $2 is yes when it is locked.
 keep_reason() {
-  local dir=$1 locked=$2 gitdir status line path
+  local dir=$1 locked=$2 gitdir status line path base
   if [ "$dir" = "$main" ]; then echo "main checkout"; return; fi
   if [ "$dir" = "$here" ]; then echo "current worktree"; return; fi
   if [ "$locked" = yes ]; then echo "locked"; return; fi
@@ -122,7 +123,9 @@ keep_reason() {
   done <<EOF
 $status
 EOF
-  git -C "$dir" merge-base --is-ancestor HEAD refs/heads/main 2>/dev/null || { echo "commits not on main"; return; }
+  base=refs/remotes/origin/main
+  git -C "$dir" rev-parse -q --verify "$base" >/dev/null 2>&1 || base=refs/heads/main
+  git -C "$dir" merge-base --is-ancestor HEAD "$base" 2>/dev/null || { echo "commits not on main"; return; }
 }
 
 prune() {

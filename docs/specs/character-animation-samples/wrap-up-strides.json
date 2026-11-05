@@ -1,0 +1,593 @@
+{
+  "method": "final-strides.json study: methods A and B, rules in tools/anim/wrap_up_strides.py",
+  "medians": {
+    "kings": 0.9,
+    "king-flame": 1.1048999999999998,
+    "ogre": 1.2049,
+    "king-mud": 0.9972000000000001,
+    "king-stratus": null,
+    "maester": 0.9039999999999999,
+    "guard": 0.92
+  },
+  "walks": {
+    "guard/white/N": {
+      "strideSquaresPerCycle": 0.92,
+      "rule": "N/S: character side-view median",
+      "needsLook": true,
+      "methodA": {
+        "stride": null,
+        "confidence": "none"
+      },
+      "methodB": {
+        "stride": 0.4695,
+        "confidence": "low"
+      }
+    },
+    "guard/white/NW": {
+      "strideSquaresPerCycle": 0.864,
+      "rule": "method A medium",
+      "needsLook": false,
+      "methodA": {
+        "stride": 0.864,
+        "confidence": "medium"
+      },
+      "methodB": {
+        "stride": 0.1284,
+        "confidence": "low"
+      }
+    },
+    "guard/white/SW": {
+      "strideSquaresPerCycle": 0.792,
+      "rule": "method A low, within 30% of the character median",
+      "needsLook": true,
+      "methodA": {
+        "stride": 0.792,
+        "confidence": "low"
+      },
+      "methodB": {
+        "stride": 0.2777,
+        "confidence": "low"
+      }
+    },
+    "guard/white/W": {
+      "strideSquaresPerCycle": 0.83,
+      "rule": "method A high",
+      "needsLook": false,
+      "methodA": {
+        "stride": 0.83,
+        "confidence": "high"
+      },
+      "methodB": {
+        "stride": 0.5695,
+        "confidence": "low"
+      }
+    },
+    "king-flame/white/E": {
+      "strideSquaresPerCycle": 1.224,
+      "rule": "both methods agree",
+      "needsLook": false,
+      "methodA": {
+        "stride": 1.165,
+        "confidence": "medium"
+      },
+      "methodB": {
+        "stride": 1.2825,
+        "confidence": "medium"
+      }
+    },
+    "king-flame/white/N": {
+      "strideSquaresPerCycle": 1.105,
+      "rule": "N/S: character side-view median",
+      "needsLook": true,
+      "methodA": {
+        "stride": null,
+        "confidence": "none"
+      },
+      "methodB": {
+        "stride": null,
+        "confidence": "none"
+      }
+    },
+    "king-flame/white/NW": {
+      "strideSquaresPerCycle": 1.105,
+      "rule": "character median: no usable measure",
+      "needsLook": true,
+      "methodA": {
+        "stride": 0.714,
+        "confidence": "low"
+      },
+      "methodB": {
+        "stride": 0.247,
+        "confidence": "low"
+      }
+    },
+    "king-flame/white/S": {
+      "strideSquaresPerCycle": 1.105,
+      "rule": "N/S: character side-view median",
+      "needsLook": true,
+      "methodA": {
+        "stride": null,
+        "confidence": "none"
+      },
+      "methodB": {
+        "stride": 0.1612,
+        "confidence": "medium"
+      }
+    },
+    "king-flame/white/SE": {
+      "strideSquaresPerCycle": 1.441,
+      "rule": "method A high",
+      "needsLook": false,
+      "methodA": {
+        "stride": 1.441,
+        "confidence": "high"
+      },
+      "methodB": {
+        "stride": 0.5218,
+        "confidence": "low"
+      }
+    },
+    "king-flame/white/SW": {
+      "strideSquaresPerCycle": 1.105,
+      "rule": "character median: no usable measure",
+      "needsLook": true,
+      "methodA": {
+        "stride": 0.568,
+        "confidence": "low"
+      },
+      "methodB": {
+        "stride": 0.2412,
+        "confidence": "low"
+      }
+    },
+    "king-flame/white/W": {
+      "strideSquaresPerCycle": 0.986,
+      "rule": "both methods agree",
+      "needsLook": false,
+      "methodA": {
+        "stride": 1.003,
+        "confidence": "high"
+      },
+      "methodB": {
+        "stride": 0.9691,
+        "confidence": "medium"
+      }
+    },
+    "king-mud/white/N": {
+      "strideSquaresPerCycle": 0.997,
+      "rule": "N/S: character side-view median",
+      "needsLook": true,
+      "methodA": {
+        "stride": 0.138,
+        "confidence": "none"
+      },
+      "methodB": {
+        "stride": 0.1922,
+        "confidence": "low"
+      }
+    },
+    "king-mud/white/NE": {
+      "strideSquaresPerCycle": 0.997,
+      "rule": "character median: no usable measure",
+      "needsLook": true,
+      "methodA": {
+        "stride": 0.354,
+        "confidence": "low"
+      },
+      "methodB": {
+        "stride": 0.3257,
+        "confidence": "low"
+      }
+    },
+    "king-mud/white/NW": {
+      "strideSquaresPerCycle": 0.702,
+      "rule": "method A medium",
+      "needsLook": false,
+      "methodA": {
+        "stride": 0.702,
+        "confidence": "medium"
+      },
+      "methodB": {
+        "stride": 0.485,
+        "confidence": "low"
+      }
+    },
+    "king-mud/white/S": {
+      "strideSquaresPerCycle": 0.997,
+      "rule": "N/S: character side-view median",
+      "needsLook": true,
+      "methodA": {
+        "stride": null,
+        "confidence": "none"
+      },
+      "methodB": {
+        "stride": 0.0997,
+        "confidence": "low"
+      }
+    },
+    "king-mud/white/SE": {
+      "strideSquaresPerCycle": 0.759,
+      "rule": "method A low, within 30% of the character median",
+      "needsLook": true,
+      "methodA": {
+        "stride": 0.759,
+        "confidence": "low"
+      },
+      "methodB": {
+        "stride": 0.2817,
+        "confidence": "low"
+      }
+    },
+    "king-mud/white/SW": {
+      "strideSquaresPerCycle": 0.941,
+      "rule": "method A low, within 30% of the character median",
+      "needsLook": true,
+      "methodA": {
+        "stride": 0.941,
+        "confidence": "low"
+      },
+      "methodB": {
+        "stride": 0.2864,
+        "confidence": "low"
+      }
+    },
+    "king-mud/white/W": {
+      "strideSquaresPerCycle": 0.997,
+      "rule": "both methods agree",
+      "needsLook": false,
+      "methodA": {
+        "stride": 1.012,
+        "confidence": "high"
+      },
+      "methodB": {
+        "stride": 0.9824,
+        "confidence": "medium"
+      }
+    },
+    "king-stratus/white/E": {
+      "strideSquaresPerCycle": 0.9,
+      "rule": "Stratus floats: median of the other kings",
+      "needsLook": true,
+      "methodA": {
+        "stride": null,
+        "confidence": "none"
+      },
+      "methodB": {
+        "stride": 0.1895,
+        "confidence": "low"
+      }
+    },
+    "king-stratus/white/N": {
+      "strideSquaresPerCycle": 0.9,
+      "rule": "Stratus floats: median of the other kings",
+      "needsLook": true,
+      "methodA": {
+        "stride": null,
+        "confidence": "none"
+      },
+      "methodB": {
+        "stride": 0.2582,
+        "confidence": "low"
+      }
+    },
+    "king-stratus/white/NE": {
+      "strideSquaresPerCycle": 0.9,
+      "rule": "Stratus floats: median of the other kings",
+      "needsLook": true,
+      "methodA": {
+        "stride": 0.098,
+        "confidence": "low"
+      },
+      "methodB": {
+        "stride": 0.1472,
+        "confidence": "low"
+      }
+    },
+    "king-stratus/white/NW": {
+      "strideSquaresPerCycle": 0.9,
+      "rule": "Stratus floats: median of the other kings",
+      "needsLook": true,
+      "methodA": {
+        "stride": 0.161,
+        "confidence": "low"
+      },
+      "methodB": {
+        "stride": 0.0194,
+        "confidence": "low"
+      }
+    },
+    "king-stratus/white/S": {
+      "strideSquaresPerCycle": 0.9,
+      "rule": "Stratus floats: median of the other kings",
+      "needsLook": true,
+      "methodA": {
+        "stride": null,
+        "confidence": "none"
+      },
+      "methodB": {
+        "stride": 0.1476,
+        "confidence": "low"
+      }
+    },
+    "king-stratus/white/SE": {
+      "strideSquaresPerCycle": 0.9,
+      "rule": "Stratus floats: median of the other kings",
+      "needsLook": true,
+      "methodA": {
+        "stride": 1.556,
+        "confidence": "low"
+      },
+      "methodB": {
+        "stride": 0.0348,
+        "confidence": "low"
+      }
+    },
+    "king-stratus/white/SW": {
+      "strideSquaresPerCycle": 0.9,
+      "rule": "Stratus floats: median of the other kings",
+      "needsLook": true,
+      "methodA": {
+        "stride": 1.054,
+        "confidence": "high"
+      },
+      "methodB": {
+        "stride": 0.0394,
+        "confidence": "low"
+      }
+    },
+    "king-stratus/white/W": {
+      "strideSquaresPerCycle": 0.9,
+      "rule": "Stratus floats: median of the other kings",
+      "needsLook": true,
+      "methodA": {
+        "stride": 0.323,
+        "confidence": "low"
+      },
+      "methodB": {
+        "stride": 0.0117,
+        "confidence": "low"
+      }
+    },
+    "maester/white/E": {
+      "strideSquaresPerCycle": 0.828,
+      "rule": "method A high",
+      "needsLook": false,
+      "methodA": {
+        "stride": 0.828,
+        "confidence": "high"
+      },
+      "methodB": {
+        "stride": 0.5016,
+        "confidence": "medium"
+      }
+    },
+    "maester/white/NE": {
+      "strideSquaresPerCycle": 0.657,
+      "rule": "method A medium",
+      "needsLook": false,
+      "methodA": {
+        "stride": 0.657,
+        "confidence": "medium"
+      },
+      "methodB": {
+        "stride": 0.3281,
+        "confidence": "low"
+      }
+    },
+    "maester/white/NW": {
+      "strideSquaresPerCycle": 1.024,
+      "rule": "method A medium",
+      "needsLook": false,
+      "methodA": {
+        "stride": 1.024,
+        "confidence": "medium"
+      },
+      "methodB": {
+        "stride": 0.4832,
+        "confidence": "low"
+      }
+    },
+    "maester/white/S": {
+      "strideSquaresPerCycle": 0.904,
+      "rule": "N/S: character side-view median",
+      "needsLook": true,
+      "methodA": {
+        "stride": null,
+        "confidence": "none"
+      },
+      "methodB": {
+        "stride": 0.1435,
+        "confidence": "medium"
+      }
+    },
+    "maester/white/W": {
+      "strideSquaresPerCycle": 0.98,
+      "rule": "method A high",
+      "needsLook": false,
+      "methodA": {
+        "stride": 0.98,
+        "confidence": "high"
+      },
+      "methodB": {
+        "stride": 0.6492,
+        "confidence": "low"
+      }
+    },
+    "ogre/white/E": {
+      "strideSquaresPerCycle": 1.41,
+      "rule": "both methods agree",
+      "needsLook": false,
+      "methodA": {
+        "stride": 1.499,
+        "confidence": "high"
+      },
+      "methodB": {
+        "stride": 1.3206,
+        "confidence": "medium"
+      }
+    },
+    "ogre/white/NW": {
+      "strideSquaresPerCycle": 0.793,
+      "rule": "method A low, within 30% of the character median",
+      "needsLook": true,
+      "methodA": {
+        "stride": 0.793,
+        "confidence": "low"
+      },
+      "methodB": {
+        "stride": 0.3252,
+        "confidence": "low"
+      }
+    },
+    "ogre/white/S": {
+      "strideSquaresPerCycle": 1.0,
+      "rule": "N/S: ogre fallback",
+      "needsLook": true,
+      "methodA": {
+        "stride": 0.185,
+        "confidence": "none"
+      },
+      "methodB": {
+        "stride": 0.2051,
+        "confidence": "low"
+      }
+    },
+    "ogre/white/W": {
+      "strideSquaresPerCycle": 1.0,
+      "rule": "set in the pass list",
+      "needsLook": false,
+      "methodA": {
+        "stride": 1.698,
+        "confidence": "medium"
+      },
+      "methodB": {
+        "stride": 0.7192,
+        "confidence": "high"
+      }
+    },
+    "guard/white/NE": {
+      "strideSquaresPerCycle": 0.92,
+      "rule": "character median: no usable measure",
+      "needsLook": true,
+      "methodA": {
+        "stride": 1.509,
+        "confidence": "low"
+      },
+      "methodB": {
+        "stride": 0.4293,
+        "confidence": "low"
+      }
+    },
+    "king-flame/white/NE": {
+      "strideSquaresPerCycle": 0.826,
+      "rule": "method A low, within 30% of the character median",
+      "needsLook": true,
+      "methodA": {
+        "stride": 0.826,
+        "confidence": "low"
+      },
+      "methodB": {
+        "stride": 0.2533,
+        "confidence": "low"
+      }
+    },
+    "king-mud/white/E": {
+      "strideSquaresPerCycle": 0.986,
+      "rule": "both methods agree",
+      "needsLook": false,
+      "methodA": {
+        "stride": 1.004,
+        "confidence": "high"
+      },
+      "methodB": {
+        "stride": 0.9679,
+        "confidence": "medium"
+      }
+    },
+    "ogre/white/SW": {
+      "strideSquaresPerCycle": 0.582,
+      "rule": "method A high",
+      "needsLook": false,
+      "methodA": {
+        "stride": 0.582,
+        "confidence": "high"
+      },
+      "methodB": {
+        "stride": 0.2068,
+        "confidence": "low"
+      }
+    }
+  },
+  "shippedBacktest": {
+    "guard/white/E": {
+      "study": 0.92,
+      "methodA": 1.016,
+      "confidenceA": "high",
+      "methodB": 0.9174,
+      "confidenceB": "low"
+    },
+    "guard/white/SE": {
+      "study": 0.7,
+      "methodA": 0.845,
+      "confidenceA": "medium",
+      "methodB": 0.2246,
+      "confidenceB": "low"
+    },
+    "guard/white/S": {
+      "study": 0.68,
+      "methodA": null,
+      "confidenceA": "none",
+      "methodB": 0.107,
+      "confidenceB": "medium"
+    },
+    "maester/white/N": {
+      "study": 0.84,
+      "methodA": 0.144,
+      "confidenceA": "none",
+      "methodB": 0.0653,
+      "confidenceB": "low"
+    },
+    "maester/white/SE": {
+      "study": 1,
+      "methodA": 1.118,
+      "confidenceA": "medium",
+      "methodB": 0.1973,
+      "confidenceB": "low"
+    },
+    "maester/white/SW": {
+      "study": 0.68,
+      "methodA": 0.603,
+      "confidenceA": "low",
+      "methodB": 0.0332,
+      "confidenceB": "low"
+    },
+    "ogre/white/N": {
+      "study": 1,
+      "methodA": null,
+      "confidenceA": "none",
+      "methodB": 0.0204,
+      "confidenceB": "low"
+    },
+    "ogre/white/NE": {
+      "study": 1.76,
+      "methodA": 1.977,
+      "confidenceA": "low",
+      "methodB": 0.1016,
+      "confidenceB": "low"
+    },
+    "ogre/white/SE": {
+      "study": 0.76,
+      "methodA": 0.633,
+      "confidenceA": "low",
+      "methodB": 0.0696,
+      "confidenceB": "low"
+    },
+    "king-flame/white/SE": {
+      "study": 0.76,
+      "methodA": 1.439,
+      "confidenceA": "high",
+      "methodB": 0.5198,
+      "confidenceB": "low"
+    }
+  }
+}

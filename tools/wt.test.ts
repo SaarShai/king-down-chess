@@ -209,6 +209,18 @@ describe('wt prune', () => {
     expect(verdicts(prune().stdout)).toEqual(v);
   });
 
+  it('compares with origin/main when that ref exists, in both directions', () => {
+    const { repo, path, prune, verdicts } = pruneSetup();
+    // Work that only the local main holds is not on the remote: it stays.
+    repo.git('update-ref', 'refs/remotes/origin/main', repo.git('rev-parse', 'main~1').stdout.trim());
+    expect(verdicts(prune().stdout)[path.safe]).toEqual(['keep', 'commits not on main']);
+    const head = repo.run('git', ['rev-parse', 'HEAD'], { cwd: path.unmerged }).stdout.trim();
+    repo.git('update-ref', 'refs/remotes/origin/main', head);
+    const v = verdicts(prune().stdout);
+    expect(v[path.unmerged][0]).toBe('safe');
+    expect(v[path.safe][0]).toBe('safe');
+  });
+
   it('with --apply removes only the safe worktree and its link, and keeps every branch and the main packages', () => {
     const { repo, path, prune, verdicts, listed, branches, mainPackages } = pruneSetup();
     const branchesBefore = branches();

@@ -11,7 +11,7 @@ export function createCharacterRuntime(options?: { url?: string; wake?: () => vo
  has(character: string, army: string): boolean;
  smoke(): { tick(dt: number, anchor: number[], scale?: number): void; draw(ctx: CanvasRenderingContext2D): void } | null;
  warm(character: string, army: string, full?: boolean): Promise<void>;
- prefetchMoves(character: string, army: string, directions: string[]): Promise<void>;
+ prefetchMoves(character: string, army: string, directions: string[], captures?: string[]): Promise<void>;
  releaseMovePrefetch(): void;
  reserveIdle(character: string, army: string): Promise<boolean>;
  releaseIdle(): void;

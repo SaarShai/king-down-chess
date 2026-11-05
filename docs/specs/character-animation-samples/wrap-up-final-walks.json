@@ -1,0 +1,18 @@
+[
+  {
+    "character": "guard",
+    "facing": "NE"
+  },
+  {
+    "character": "king-flame",
+    "facing": "NE"
+  },
+  {
+    "character": "king-mud",
+    "facing": "E"
+  },
+  {
+    "character": "ogre",
+    "facing": "SW"
+  }
+]

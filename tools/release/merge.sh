@@ -2,7 +2,7 @@
 # Usage: tools/release/merge.sh <pr> <head> <reviewed head> [reconcile note]
 # Records one complete independent review (reviewed head and its merge base; a reconcile note when the head or the base
 # moved since) and merges the PR on green with tools/merge-on-green.mjs. The record goes to a temp file named on stdout.
-# Three tries cover a GitHub network error; a failed check or review record stops at once.
+# Three tries cover a GitHub network error or server error (HTTP 500, 502, 503); a failed check or review record stops at once.
 set -u
 [ $# -ge 3 ] && [ $# -le 4 ] || { echo 'usage: tools/release/merge.sh <pr> <head> <reviewed head> [reconcile note]' >&2; exit 2; }
 pr=$1 head=$2 rhead=$3 note=${4:-}
@@ -27,6 +27,6 @@ NODE
   output=$(node "$repo/tools/merge-on-green.mjs" "$pr" "$head" "$record" 2>&1); rc=$?
   echo "$output"
   [ $rc -eq 0 ] && exit 0
-  case "$output" in *"Error connecting"*|*"error connecting"*|*"timed out"*|*ETIMEDOUT*|*"unexpected EOF"*) sleep 30 ;; *) exit 1 ;; esac
+  case "$output" in *"Error connecting"*|*"error connecting"*|*"timed out"*|*ETIMEDOUT*|*"unexpected EOF"*|*"handshake timeout"*|*"i/o timeout"*|*"HTTP 50"*|*"Something went wrong"*) sleep 30 ;; *) exit 1 ;; esac
 done
 echo 'merge: gave up after three network failures' >&2; exit 1

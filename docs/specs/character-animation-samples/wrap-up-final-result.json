@@ -1,0 +1,72 @@
+{
+  "baseCatalogSha256": "d9bdfe957c8cc913787b29a71d1a19281001b4c5e26f01a203e1f8f6f3e5e3c6",
+  "catalogSha256": "0b01f644adac19eb8e4dc4c13c04c3dff004c5e02255749c34f737e6448fb8a5",
+  "banks": 814,
+  "selectionKinds": {
+    "turn": 272,
+    "attack": 256,
+    "idle": 46,
+    "move": 240
+  },
+  "baseSelectedBanksKept": 806,
+  "baseCatalogEntriesKept": 1181,
+  "baseCatalogFilesKept": 14490,
+  "addedMoveBanks": 8,
+  "addedFrames": 32,
+  "allPicksMapped": true,
+  "unmappedFrames": 0,
+  "basePickReportSha256": "158d3f5ee4049b0b4695f015d67eb7551cacc8295a4dc4bf2b649f2e4d65dde5",
+  "newFrameAlpha": "pass; transparent exterior, white and black alpha equal",
+  "ownerApproval": {
+    "date": "2026-11-05",
+    "quote": "they're all fine.",
+    "scope": "all sequences, with the four left-out walks"
+  },
+  "look": {
+    "image": "/Users/za/kd-runs/fin-ogre/black-ogre-compare.png",
+    "poses": 12,
+    "scales": [
+      "game size",
+      "2x"
+    ],
+    "tiles": [
+      "light",
+      "dark"
+    ],
+    "result": "Black SW skin is smooth, as in black W. White SW art stays. Cloth stays white, wrists stay red, hands and thighs stay dark. The 3 other new black walks show no blotches at 2x."
+  },
+  "focusedTests": {
+    "files": 4,
+    "cases": 21,
+    "boardUnitCases": 70,
+    "status": "pass",
+    "runs": 1
+  },
+  "ciFixFocusedTest": {
+    "file": "tools/anim/wrap-up.test.ts",
+    "cases": 1,
+    "boardUnitCases": 70,
+    "status": "pass",
+    "pythonSitePackages": false
+  },
+  "blackOgreSwRepair": {
+    "previousCatalogSha256": "26df6c96f75bfe98e9c5d4f7965e11f55973a745c44b7763eac0defa23b0328d",
+    "scratchCatalog": "/Users/za/kd-runs/fin-ogre/catalog",
+    "cause": "The old cloth mask removes skin from the body mask. Replacing cloth alone leaves body holes. The tone map also loses smooth white shading.",
+    "fix": "Use the approved white shading for SW skin and rebuild body and cloth masks together. Exclude the belly, toe and thigh skin components from cloth.",
+    "unchangedSelectedBanks": 813,
+    "unchangedMoveBanks": 239,
+    "newImageCalls": 0,
+    "verification": {
+      "hashProof": "/Users/za/kd-runs/fin-ogre/hash-proof.json",
+      "unchangedCatalogBanks": 1195,
+      "unchangedCatalogFrameFiles": 8106,
+      "focusedSetRuns": 1,
+      "existingCasesPass": 21,
+      "newRegressionCase": "pass after 2 test-assumption corrections; only the failed case reruns",
+      "boardUnitCases": 70,
+      "typeChecks": "pass",
+      "ci": "See PR 252 for the repair-head result"
+    }
+  }
+}

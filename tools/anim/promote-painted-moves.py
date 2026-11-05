@@ -16,7 +16,8 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-BASE = '77e83626a60d3ef8518d374409a9f8b9268460cfd65a545190b406782f20e363'
+BASE = 'd9bdfe957c8cc913787b29a71d1a19281001b4c5e26f01a203e1f8f6f3e5e3c6'
+MOVE_BANKS = 272
 SELECTION = ROOT / 'docs/specs/character-animation-samples/runtime-selection.json'
 PACKAGE = ROOT / 'public/character-runtime'
 
@@ -52,8 +53,8 @@ def promote(candidate, target, cache=None):
         raise ValueError('Candidate catalog does not match the selection')
     catalog = json.loads(proposed)
     moves = [e for e in catalog['entries'] if e['kind'] == 'move']
-    if len(moves) != 196:
-        raise ValueError('Expected 196 source move banks')
+    if len(moves) != MOVE_BANKS:
+        raise ValueError(f'Expected {MOVE_BANKS} source move banks')
     if shutil.disk_usage('/').free < 31 * 1024**3:
         raise ValueError('Need 31 GiB free for the rebuild and the 30 GiB floor')
     for sibling in ('alpha-recovery-review', 'army-effects-review', 'directional-attacks'):
@@ -68,7 +69,8 @@ def promote(candidate, target, cache=None):
             raise ValueError('Target catalog changed; rebuild the candidate against it')
         if previous_sha == BASE:
             base = json.loads(previous)
-            if [e for e in catalog['entries'] if e['kind'] != 'move'] != base['entries']:
+            kept = {json.dumps(e, sort_keys=True) for e in catalog['entries']}
+            if any(json.dumps(e, sort_keys=True) not in kept for e in base['entries']):
                 raise ValueError('Candidate changes the base catalog')
         additions = {}
         for entry in moves:

@@ -10,10 +10,10 @@
       "id": "black-turn-SE-S"
     },
     "white": {
-      "bank": "banks/ace0c5bb98ffe050dec13ed39d1ac5fffb82b243ebee1e0e6fa7bdaadc09a699.json",
-      "bankSha256": "ace0c5bb98ffe050dec13ed39d1ac5fffb82b243ebee1e0e6fa7bdaadc09a699",
-      "path": "assets/7d193a8197189238c4e37a0a7b4ce8698befd66b4ea893c27b5ee7df4498bcf2.png",
-      "sha256": "7d193a8197189238c4e37a0a7b4ce8698befd66b4ea893c27b5ee7df4498bcf2",
+      "bank": "banks/5d1fa81d3b5e7324e8711af74d749bf37916839f1445b4042acacfc7805a904d.json",
+      "bankSha256": "5d1fa81d3b5e7324e8711af74d749bf37916839f1445b4042acacfc7805a904d",
+      "path": "assets/3dd90a4ae26b337d407cf4eca9ce31ab8606ff007790f55bc535dbae1f0f27ec.png",
+      "sha256": "3dd90a4ae26b337d407cf4eca9ce31ab8606ff007790f55bc535dbae1f0f27ec",
       "id": "white-turn-SE-S"
     }
   }
