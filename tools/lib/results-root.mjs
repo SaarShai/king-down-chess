@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-// Machines without a card configuration (M1 and Kaggle) keep a local spool.
+// Machines without a results configuration (M1 and Kaggle) keep a local spool.
 export function resultsRoot(configFile = join(homedir(), '.config/king-down/results.json')) {
   if (process.env.KING_DOWN_RESULTS_DIR) return process.env.KING_DOWN_RESULTS_DIR;
   const file = configFile;
@@ -13,9 +13,9 @@ export function resultsRoot(configFile = join(homedir(), '.config/king-down/resu
   try {
     const info = execFileSync('/usr/sbin/diskutil', ['info', '-plist', config.volume]);
     const uuid = execFileSync('/usr/bin/plutil', ['-extract', 'VolumeUUID', 'raw', '-o', '-', '-'], { input: info, encoding: 'utf8' }).trim();
-    if (uuid !== config.uuid || !existsSync(config.root)) throw new Error('wrong or missing card');
+    if (uuid !== config.uuid || !existsSync(config.root)) throw new Error('wrong or missing volume');
   } catch {
-    throw new Error('Connect card disk for King Down results; no local fallback');
+    throw new Error(`The King Down results folder ${config.root} is absent or on the wrong volume (${file}); no fallback`);
   }
   return config.root;
 }
