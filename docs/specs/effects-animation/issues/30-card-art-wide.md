@@ -1,6 +1,6 @@
 # Artwork for the wide cards
 
-Status: complete; full proposal set shown for feedback
+Status: complete; all paintings final
 
 The owner asks to redo all card artwork for the card aspect ratio except Freeze and March. The owner also asks for proposals where paintings are missing and an update of the original game artwork. Called Home rising from the dead world is already approved and designed for 16:9.
 
@@ -20,7 +20,7 @@ Every requested row has either its preserved source or a finished proposal. New 
 
 ## Result
 
-The gallery has 23 ready entries:20 new paintings, the approved wide Salvation painting, and unchanged Freeze and March. The nine redesigned current paintings are Ice Wall, Strike, Haste, Flight, Sacrifice, Leap, Mimic, Vault and Sky Lift. The nine first paintings are Mirror, Firewall, Earth Quake, Burn, Fire Starter, Control, Rally, Morph and Curse. Rescue and the card back are refreshed additional files. The owner approves the first redesigned set's direction: “Keep this direction.” The owner approves all nine first paintings: “All nine work.” The legacy extras await specific feedback.
+The gallery has 23 ready entries:20 new paintings, the approved wide Salvation painting, and unchanged Freeze and March. The nine redesigned current paintings are Ice Wall, Strike, Haste, Flight, Sacrifice, Leap, Mimic, Vault and Sky Lift. The nine first paintings are Mirror, Firewall, Earth Quake, Burn, Fire Starter, Control, Rally, Morph and Curse. Rescue and the card back are refreshed additional files. The owner approves the first redesigned set's direction: “Keep this direction.” The owner approves all nine first paintings: “All nine work.” Sacrifice, Rescue and the card back are final: on 2026-11-06 the owner asks to finish without more feedback, and the latest revision of each stays.
 
 All new selected images are 1672 × 941, near16:9. Each uses the whole image inside a definite16:9 contain window, with no crop or stretch. Current cards use the actual renderer and its existing top-clipping behavior. Freeze/March show their exact game frame on both sides, with byte-identical source copies. The phone view shows the new painting first; desktop shows current and proposal beside each other. Named buttons, Previous/Next, keyboard arrows, direct hash links and full-image links work.
 

@@ -12,7 +12,7 @@ The owner asks for an animation for every approved artwork, in the style of the 
 
 ## Initial approved set
 
-Freeze, Ice Wall, Strike, Haste, Flight, March, Leap, Salvation, Firewall, Earth Quake, Burn, Fire Starter, Control, Morph, Mimic, Hop and Sky Lift, plus Curse. Sacrifice, Mirror, Rally and Rescue await revised-art feedback. Card back is awaiting specific feedback. Freeze's accepted effect stays intact.
+Freeze, Ice Wall, Strike, Haste, Flight, March, Leap, Salvation, Firewall, Earth Quake, Burn, Fire Starter, Control, Morph, Mimic, Hop and Sky Lift, plus Curse. Sacrifice, Mirror, Rally, Rescue and the card back were first shown for feedback; their current art is final (see ticket 30). Freeze's accepted effect stays intact.
 
 ## Result and current decisions
 

@@ -39,7 +39,7 @@
       "id": "Sacrifice",
       "name": "Sacrifice",
       "status": "redesigned",
-      "note": "Revised: an ivory pawn breaks open to reveal an ivory rook \u00b7 awaiting feedback",
+      "note": "Revised: an ivory pawn breaks open to reveal an ivory rook \u00b7 final",
       "proposal": "./art/sacrifice.png"
     },
     {
@@ -151,14 +151,14 @@
       "id": "Rescue",
       "name": "Rescue",
       "status": "legacy",
-      "note": "Revised: stylized painted hand \u00b7 awaiting feedback",
+      "note": "Revised: stylized painted hand \u00b7 final",
       "proposal": "./art/rescue.png"
     },
     {
       "id": "Back",
       "name": "Card back",
       "status": "legacy",
-      "note": "Refresh of the original-game card back",
+      "note": "Refresh of the original-game card back \u00b7 final",
       "proposal": "./art/back.png"
     }
   ]
