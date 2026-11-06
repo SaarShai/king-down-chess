@@ -201,7 +201,7 @@ export class PaintedView implements BoardView {
 
   setFallen(sq: number | null, animate = true): void {
     this.fallen = sq == null || !this.pos ? null : { pos: this.pos, sq };
-    this.scene.setFallen(sq, animate && this.motion(), this.fallRotation(sq));
+    this.scene.setFallen(sq, animate && this.motion(), this.fallRotation(sq), this.pace === 'fast' ? 0.5 : 1);
   }
 
   private fallRotation(sq: number | null): number {

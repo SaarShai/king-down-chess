@@ -50,7 +50,7 @@ export interface PaintedScene {
   setCoords(on: boolean, size?: number, inset?: number): void;
   setLabels(on: boolean): void;
   setReducedMotion(on: boolean): void;
-  setFallen(square: number | null, animate?: boolean, rotation?: number): void;
+  setFallen(square: number | null, animate?: boolean, rotation?: number, speed?: number): void;
   /** Backing pixels per board unit; resizes the canvas and the effect layer. Default 1. */
   setResolution(k: number): void;
   /**
