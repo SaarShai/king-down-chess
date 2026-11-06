@@ -1,5 +1,6 @@
 import type { CardLayer, Point } from './card-types';
 import { GUSTS, gustArt, PUFFS, puffArt, type CloudTint, type WindTint } from './cloud-art';
+import { paintBurst, paintChar, paintEmber, paintFlame, paintSmoke } from './fire-art';
 
 export type { CloudTint, WindTint };
 
@@ -39,108 +40,60 @@ function stampTurned(ctx: CanvasRenderingContext2D, s: Sprite, x: number, y: num
 }
 
 // Flame -------------------------------------------------------------------------------------------------------------
-function tongue(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, lean: number, low: string, high: string) {
-  const f = g.createLinearGradient(0, y, 0, y - h);
-  f.addColorStop(0, low); f.addColorStop(1, high);
-  g.fillStyle = f; g.beginPath(); g.moveTo(x - w / 2, y);
-  g.bezierCurveTo(x - w * .66, y - h * .36, x - w * .16 + lean * .5, y - h * .66, x + lean, y - h);
-  g.bezierCurveTo(x + w * .2 + lean * .4, y - h * .62, x + w * .66, y - h * .32, x + w / 2, y);
-  g.bezierCurveTo(x + w * .3, y + h * .1, x - w * .3, y + h * .1, x - w / 2, y); g.fill();
-}
-const flames = once(() => [-11, 6, 15, -3].map((lean, v) => paint(72, 112, g => {
-  const x = 36 + (v - 1.5) * 1.5, y = 106, wide = v === 2 ? 40 : 46, tall = 100 - v * 7;
-  // Side licks break the outline. The base dissolves, so tongues merge into one fire instead of standing as separate cones.
-  tongue(g, x - 14, y - 6, 22, tall * .52, lean * .5 - 5, '#f4470a', '#c32103');
-  tongue(g, x + 14, y - 8, 20, tall * .42, lean * .4 + 6, '#f4470a', '#c32103');
-  tongue(g, x, y, wide, tall, lean, '#f4470a', '#b51c02');
-  tongue(g, x + lean * .1, y, wide * .7, tall * .7, lean * .72, '#ff8a12', '#f6490a');
-  tongue(g, x + lean * .12, y - 4, wide * .4, tall * .46, lean * .5, '#ffcc3c', '#ff8d14');
-  tongue(g, x + lean * .1, y - 8, wide * .17, tall * .24, lean * .24, '#fff2b0', '#ffd65a');
-  g.globalCompositeOperation = 'destination-out';
-  const base = g.createLinearGradient(0, y + 6, 0, y - 26);
-  base.addColorStop(0, '#000'); base.addColorStop(.35, '#000a'); base.addColorStop(1, '#0000');
-  g.fillStyle = base; g.fillRect(0, y - 26, 72, 40);
-})));
-const smoke = once(() => paint(72, 72, g => {
-  for (const [x, y, r] of [[36, 40, 26], [22, 44, 17], [50, 45, 18], [29, 27, 16], [45, 28, 15]]) soft(g, x, y, r, '#2d241cc2', '#2d241c00', .35);
-}));
-const glowFire = once(() => paint(128, 128, g => {
-  const f = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-  f.addColorStop(0, '#ffd25cf0'); f.addColorStop(.35, '#ff8a1cb4'); f.addColorStop(.7, '#e5420a4c'); f.addColorStop(1, '#d6350800');
-  g.fillStyle = f; g.fillRect(0, 0, 128, 128);
-}));
-const scorch = once(() => paint(112, 60, g => {
-  for (let i = 0; i < 9; i++) soft(g, 56 + (rand(i, 3) - .5) * 58, 30 + (rand(i, 4) - .5) * 16, 13 + rand(i, 5) * 8, '#17100ab4', '#17100a00', .25);
-}));
-const emberDot = once(() => paint(16, 16, g => { soft(g, 8, 8, 8, '#ff9a1c', '#ff5a0c00', .25); soft(g, 8, 8, 3.4, '#fff4c0', '#ffd25c', .55); }));
-function ember(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, alpha: number) {
-  stamp(ctx, emberDot(), x, y, size, size, alpha);
-}
-const flicker = (ms: number, seed: number) => 1 + Math.sin(ms * .021 + seed * 5.1) * .1 + Math.sin(ms * .047 + seed * 2.3) * .05;
-
-/** One tongue on the ground at x, y that grows, stands and dies over its life. */
+/** One painted flame on the ground at x, y that rises from the stone, stands and sinks back over its life. */
 export function flameAt(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, age: number, life: number, seed: number) {
   if (age <= 0 || age >= life) return;
-  const grow = ease(age / (life * .22)), die = ease((age - life * .42) / (life * .58)), s = size * grow * (1 - die * .45);
-  const f = flames(), fl = flicker(age, seed);
-  stamp(ctx, f[Math.floor(rand(seed, 7) * 4)], x, y - die * 22 * size, s * (2 - fl), s * fl * (1 - die * .25), Math.min(1, age / 50) * (1 - die * die), .95);
+  const grow = ease(age / (life * .22)), die = ease((age - life * .5) / (life * .5));
+  paintFlame(ctx, x, y, 72 * size * (.6 + grow * .4) * (1 - die * .3), 112 * size * grow * (1 - die * .78), age + rand(seed, 7) * 640, seed, 1 - ease((age - life * .8) / (life * .2)));
 }
 export function smokeAt(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, age: number, life: number, seed: number) {
   if (age <= 0 || age >= life) return;
-  const k = age / life, s = size * (.5 + k * .9);
-  stamp(ctx, smoke(), x + (rand(seed, 9) - .5) * 22 * k, y - k * 62, s, s, ease(age / 90) * (1 - k) * .85);
+  const k = age / life;
+  paintSmoke(ctx, x + (rand(seed, 9) - .5) * 22 * k, y - k * 62, size * (.45 + k * .6), seed, ease(age / 110) * (1 - ease((k - .35) / .65)) * .85);
 }
-export function scorchAt(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, alpha: number) {
-  stamp(ctx, scorch(), x, y, size, size, alpha);
+export function scorchAt(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, alpha: number, seed = 0) {
+  paintChar(ctx, x, y, 128 * size, seed, alpha);
 }
-export function fireGlow(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, alpha: number, flat = .5) {
-  stamp(ctx, glowFire(), x, y, radius / 64, radius / 64 * flat, alpha);
-}
-/** Embers that rise from a point and cool; `count` sets the density and a seed keeps each path fixed. */
+/** Embers and ash that rise from a point and cool; `count` sets the density and a seed keeps each path fixed. */
 export function emberRise(ctx: CanvasRenderingContext2D, p: Point, age: number, life: number, count: number, reach: number, seed: number) {
   for (let i = 0; i < count; i++) {
     const own = age - rand(i, seed) * life * .25, span = life * (.6 + rand(i, seed + 1) * .4);
     if (own <= 0 || own >= span) continue;
     const k = own / span, open = 1 - (1 - k) ** 2, angle = rand(i, seed + 2) * TAU;
-    ember(ctx, p.x + Math.cos(angle) * reach * open * (.4 + rand(i, seed + 3) * .6), p.y - 8 + Math.sin(angle) * reach * .3 * open - (40 + rand(i, seed + 4) * 70) * open + k * k * 22,
-      .34 + rand(i, seed + 5) * .5, ease(own / 40) * (1 - k * k));
+    paintEmber(ctx, p.x + Math.cos(angle) * reach * open * (.4 + rand(i, seed + 3) * .6), p.y - 8 + Math.sin(angle) * reach * .3 * open - (40 + rand(i, seed + 4) * 70) * open + k * k * 22,
+      7 + rand(i, seed + 5) * 8, k * 5 * (rand(i, seed + 6) - .5), i + seed, ease(own / 40) * (1 - k * k));
   }
 }
-/** Ignition at a start foot: a ring of tongues that grows out of the stone and falls when the figure leaves. */
+/** Ignition at a start foot: the stone cracks, flames rise round the figure and sink when it leaves. */
 export function ignite(ctx: CanvasRenderingContext2D, p: Point, age: number, leave: number, layer: CardLayer, seed: number) {
-  const fade = 1 - ease((age - leave) / 340), g = ease(age / 170) * fade;
-  if (g <= 0) return;
+  const fade = 1 - ease((age - leave) / 340);
+  if (fade <= 0 || age <= 0) return;
   const life = Math.max(leave + 340, 500);
   if (layer === 'under') {
-    scorchAt(ctx, p.x, p.y, 1.05, ease(age / 200) * (1 - ease((age - leave - 320) / 620)));
-    fireGlow(ctx, p.x, p.y - 8, 92, g * .85);
-    for (let i = 0; i < 7; i++) {
-      const angle = TAU * i / 7 + rand(i, seed), own = age - rand(i, seed + 1) * 60;
-      flameAt(ctx, p.x + Math.cos(angle) * 40, p.y + Math.sin(angle) * 15 - 3, .62 + rand(i, seed + 2) * .3, own, life, seed + i);
+    scorchAt(ctx, p.x, p.y, 1.05, ease(age / 200) * (1 - ease((age - leave - 320) / 620)), seed);
+    for (let i = 0; i < 5; i++) {
+      const angle = TAU * i / 5 + rand(i, seed) + Math.PI, own = age - rand(i, seed + 1) * 70;
+      flameAt(ctx, p.x + Math.cos(angle) * 42, p.y + Math.sin(angle) * 14 - 3, .6 + rand(i, seed + 2) * .28, own, life, seed + i);
     }
   } else {
-    for (let i = 0; i < 3; i++) flameAt(ctx, p.x + (i - 1) * 30, p.y + 16 - Math.abs(i - 1) * 5, .42, age - i * 30, life, seed + 20 + i);
-    emberRise(ctx, p, age, life + 240, 9, 46, seed + 30);
+    for (let i = 0; i < 2; i++) flameAt(ctx, p.x + (i ? 34 : -34), p.y + 14, .34, age - i * 30, life, seed + 20 + i);
+    emberRise(ctx, p, age, life + 240, 6, 46, seed + 30);
   }
 }
-/** A flame-charged landing: ground fire bursts out in a ring, smoke climbs, embers fly. `size` scales the blast. */
+/** A flame-charged landing: a painted burst stands up round the figure, the stone stays burnt, embers fly. `size` scales the blast. */
 export function fireBurst(ctx: CanvasRenderingContext2D, p: Point, age: number, layer: CardLayer, seed: number, size = 1) {
   if (age <= 0 || age > 1050) return;
   const open = 1 - (1 - clamp(age / 300)) ** 2;
   if (layer === 'under') {
-    scorchAt(ctx, p.x, p.y, 1.45 * size, ease(age / 90) * (1 - ease((age - 500) / 520)));
-    fireGlow(ctx, p.x, p.y - 12, 150 * size * (.65 + open * .35), ease(age / 60) * (1 - ease((age - 150) / 450)), .62);
-    for (let i = 0; i < 6; i++) smokeAt(ctx, p.x + (i - 2.5) * 22 * size, p.y - 22, 1.1 * size, age - 90 - i * 20, 900, seed + i);
-    for (let i = 0; i < 11; i++) {
-      const angle = TAU * i / 11 + rand(i, seed + 1), r = (22 + open * (34 + rand(i, seed + 2) * 24)) * size;
-      flameAt(ctx, p.x + Math.cos(angle) * r, p.y + Math.sin(angle) * r * .42, (.66 + rand(i, seed + 3) * .44) * size, age - rand(i, seed + 4) * 50, 640, seed + 3 + i);
-    }
+    scorchAt(ctx, p.x, p.y + 2, 1.5 * size, ease(age / 70) * (1 - ease((age - 620) / 430)), seed);
+    paintBurst(ctx, p.x, p.y + 16 * size, age / 700, 1.28 * size, ease(age / 40));
+    for (let i = 0; i < 3; i++) smokeAt(ctx, p.x + (i - 1) * 40 * size, p.y - 64 * size, 1.1 * size, age - 320 - i * 50, 720, seed + i);
   } else {
-    for (let i = 0; i < 5; i++) {
-      const side = (i - 2) / 2;
-      flameAt(ctx, p.x + side * 64 * size * (.4 + open * .6), p.y + (22 - Math.abs(side) * 10) * size, (.5 + (1 - Math.abs(side)) * .08) * size, age - Math.abs(side) * 40, 560, seed + 40 + i);
+    for (let i = 0; i < 3; i++) {
+      const side = i - 1;
+      flameAt(ctx, p.x + side * 52 * size * (.45 + open * .55), p.y + (22 - Math.abs(side) * 9) * size, (.46 - Math.abs(side) * .06) * size, age - Math.abs(side) * 40, 520, seed + 40 + i);
     }
-    emberRise(ctx, p, age, 950, Math.round(26 * size), 118 * size, seed + 50);
+    emberRise(ctx, p, age, 950, Math.round(14 * size), 118 * size, seed + 50);
   }
 }
 
