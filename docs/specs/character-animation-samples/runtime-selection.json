@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "ready",
-  "catalogSha256": "fa43a2131e7596ca7755f5f48397770100bd9b6a28e68b8260cde4cf6ce899a8",
+  "catalogSha256": "119af86fb7980068b6feaeb19523edf92eb02c5802b75d3a56c336c0c15128a3",
   "entries": [
     {
       "character": "pawn",
@@ -72,8 +72,8 @@
       "army": "black",
       "kind": "attack",
       "id": "black-attack-W",
-      "manifest": "banks/8606ed6b92a8b056127a4d7eec59ab5ed92433a9a9310f5e7d22ae82ce732b97.json",
-      "sha256": "8606ed6b92a8b056127a4d7eec59ab5ed92433a9a9310f5e7d22ae82ce732b97"
+      "manifest": "banks/d439f2434db084b6485d082548ce9a5f58155e814853e94071d01bad8ba68b15.json",
+      "sha256": "d439f2434db084b6485d082548ce9a5f58155e814853e94071d01bad8ba68b15"
     },
     {
       "character": "pawn",
@@ -136,8 +136,8 @@
       "army": "white",
       "kind": "attack",
       "id": "white-attack-W",
-      "manifest": "banks/9acc7ee96349ddd7d499eb457424872f39c1fa9a3577ba4e1a53727940175bc0.json",
-      "sha256": "9acc7ee96349ddd7d499eb457424872f39c1fa9a3577ba4e1a53727940175bc0"
+      "manifest": "banks/4f779fad24b7fc793a165e2c723843c2562b42fd14f213f94df37852ab9f43e4.json",
+      "sha256": "4f779fad24b7fc793a165e2c723843c2562b42fd14f213f94df37852ab9f43e4"
     },
     {
       "character": "pawn",
@@ -168,24 +168,24 @@
       "army": "white",
       "kind": "idle",
       "id": "white-idle-alert-turn",
-      "manifest": "banks/962100c870c3e483a2616097e931205c11497e730c37902f9afe07d3db8c5ced.json",
-      "sha256": "962100c870c3e483a2616097e931205c11497e730c37902f9afe07d3db8c5ced"
+      "manifest": "banks/0c962239956201aec8e25b7b16f904858c03604aabe3cf9d02e5ada923835a49.json",
+      "sha256": "0c962239956201aec8e25b7b16f904858c03604aabe3cf9d02e5ada923835a49"
     },
     {
       "character": "pawn",
       "army": "white",
       "kind": "idle",
       "id": "white-idle-crouch-shield",
-      "manifest": "banks/724d0fd1251bedc8961e8d52b74d676fdad6500815988d69d6029112844d12cf.json",
-      "sha256": "724d0fd1251bedc8961e8d52b74d676fdad6500815988d69d6029112844d12cf"
+      "manifest": "banks/ea1f106eec49d31efc47e2aa8c80a9e911d2ee74697d87a2795f49cdcfb5a39b.json",
+      "sha256": "ea1f106eec49d31efc47e2aa8c80a9e911d2ee74697d87a2795f49cdcfb5a39b"
     },
     {
       "character": "pawn",
       "army": "white",
       "kind": "idle",
       "id": "white-idle-shield-settle",
-      "manifest": "banks/58f108fe47c50815cec05cb9fcbfe84231dbccc5778982e9b7021fe0c0dbab97.json",
-      "sha256": "58f108fe47c50815cec05cb9fcbfe84231dbccc5778982e9b7021fe0c0dbab97"
+      "manifest": "banks/54561040fe7668c5ef02652d3c6bb9c1ef527b71005f5ca9a84e2fa22ff5f077.json",
+      "sha256": "54561040fe7668c5ef02652d3c6bb9c1ef527b71005f5ca9a84e2fa22ff5f077"
     },
     {
       "character": "pawn",
@@ -576,8 +576,8 @@
       "army": "white",
       "kind": "idle",
       "id": "white-idle-clap",
-      "manifest": "banks/2c502f969581fd82eed94736905d39fb9ea8d692d1b47eae530e42e125acdfe8.json",
-      "sha256": "2c502f969581fd82eed94736905d39fb9ea8d692d1b47eae530e42e125acdfe8"
+      "manifest": "banks/4e72799df676ff8d4816d292734cb8f5f573cfa92670e0681529e42757280981.json",
+      "sha256": "4e72799df676ff8d4816d292734cb8f5f573cfa92670e0681529e42757280981"
     },
     {
       "character": "knight",
@@ -712,16 +712,16 @@
       "army": "white",
       "kind": "idle",
       "id": "white-lance-tap",
-      "manifest": "banks/ea9c5271b22a6f6ed229d58fd7579a42b5fdcc943448453f89f7cfa9fe28d6ce.json",
-      "sha256": "ea9c5271b22a6f6ed229d58fd7579a42b5fdcc943448453f89f7cfa9fe28d6ce"
+      "manifest": "banks/e8364c83eb738ecb3e7a83f62e203c08b23d5cb5de414fcf70fe025cc5042f05.json",
+      "sha256": "e8364c83eb738ecb3e7a83f62e203c08b23d5cb5de414fcf70fe025cc5042f05"
     },
     {
       "character": "knight",
       "army": "white",
       "kind": "idle",
       "id": "white-salute",
-      "manifest": "banks/2c6273a7dc358def4c8f068b6c422d88674c3d0ab7f41d07751e2b94b68379f3.json",
-      "sha256": "2c6273a7dc358def4c8f068b6c422d88674c3d0ab7f41d07751e2b94b68379f3"
+      "manifest": "banks/8f4930646f4bb263ebb3e207454a1149da67a1322ddc645b716225d639942f3b.json",
+      "sha256": "8f4930646f4bb263ebb3e207454a1149da67a1322ddc645b716225d639942f3b"
     },
     {
       "character": "knight",
@@ -920,8 +920,8 @@
       "army": "black",
       "kind": "idle",
       "id": "black-book",
-      "manifest": "banks/39edb922a035a03ac7452effb7b94c8720db253c41b73a7abd92c4226fb6a981.json",
-      "sha256": "39edb922a035a03ac7452effb7b94c8720db253c41b73a7abd92c4226fb6a981"
+      "manifest": "banks/9ad67584c7680858e2cbffc72b16d06a28d9ac00135b6ab25e97c3523ad1a3fe.json",
+      "sha256": "9ad67584c7680858e2cbffc72b16d06a28d9ac00135b6ab25e97c3523ad1a3fe"
     },
     {
       "character": "bishop",
@@ -1000,16 +1000,16 @@
       "army": "white",
       "kind": "idle",
       "id": "white-book",
-      "manifest": "banks/40a22ae30518b99879bd346a0512faae9414a85daf14ee8606e2676271b98351.json",
-      "sha256": "40a22ae30518b99879bd346a0512faae9414a85daf14ee8606e2676271b98351"
+      "manifest": "banks/89f12348a02e980761afc512ef99b356278071dbc7be24216a9aada9414a9981.json",
+      "sha256": "89f12348a02e980761afc512ef99b356278071dbc7be24216a9aada9414a9981"
     },
     {
       "character": "bishop",
       "army": "white",
       "kind": "idle",
       "id": "white-dagger",
-      "manifest": "banks/392af5db26ac5697fdd20ba016ad463f51662977178af4b07928bb8969ab8ff2.json",
-      "sha256": "392af5db26ac5697fdd20ba016ad463f51662977178af4b07928bb8969ab8ff2"
+      "manifest": "banks/7d583893a64c7fcbc50d9ebad525ac0d874fd8f0e9f5f2a3e670051f0936e76f.json",
+      "sha256": "7d583893a64c7fcbc50d9ebad525ac0d874fd8f0e9f5f2a3e670051f0936e76f"
     },
     {
       "character": "bishop",
@@ -1368,16 +1368,16 @@
       "army": "white",
       "kind": "idle",
       "id": "white-idle-boxer",
-      "manifest": "banks/af55e5462598529c1c28374c71f24607e9f70badb7c64f22f9b1b70216e99497.json",
-      "sha256": "af55e5462598529c1c28374c71f24607e9f70badb7c64f22f9b1b70216e99497"
+      "manifest": "banks/4f3989925be51a0601b04458ee4ec966c598f4ae29e2076e9220a0c34e1f2b2a.json",
+      "sha256": "4f3989925be51a0601b04458ee4ec966c598f4ae29e2076e9220a0c34e1f2b2a"
     },
     {
       "character": "archer",
       "army": "white",
       "kind": "idle",
       "id": "white-idle-watchful",
-      "manifest": "banks/deb559073d8adc209f173e68a44df2ec6041f898fa9c2f53ed6d30ada9f88fb2.json",
-      "sha256": "deb559073d8adc209f173e68a44df2ec6041f898fa9c2f53ed6d30ada9f88fb2"
+      "manifest": "banks/3a537eaa41f6b524f773309973e7a48e64053a297feb1fc51e1e8e7c5d524507.json",
+      "sha256": "3a537eaa41f6b524f773309973e7a48e64053a297feb1fc51e1e8e7c5d524507"
     },
     {
       "character": "archer",
@@ -1712,8 +1712,8 @@
       "army": "white",
       "kind": "idle",
       "id": "white-idle-ocular-adjust",
-      "manifest": "banks/9feebbd436c1f5a6a565f9e268e6831f5789173f34cbcfe08d2baabe8f94c127.json",
-      "sha256": "9feebbd436c1f5a6a565f9e268e6831f5789173f34cbcfe08d2baabe8f94c127"
+      "manifest": "banks/8743d169027bce9c5e9d51ba3f2b42411e0770bc8a0e906a34afde057cf9d2b4.json",
+      "sha256": "8743d169027bce9c5e9d51ba3f2b42411e0770bc8a0e906a34afde057cf9d2b4"
     },
     {
       "character": "paladin",
@@ -1920,8 +1920,8 @@
       "army": "white",
       "kind": "idle",
       "id": "white-idle-hammer-transfer",
-      "manifest": "banks/2ce4fce9b02effceaffe311519f55e598e116be4cd694b329e6c0a3f39b75452.json",
-      "sha256": "2ce4fce9b02effceaffe311519f55e598e116be4cd694b329e6c0a3f39b75452"
+      "manifest": "banks/e00c927b2fe432d8f384a7b186f1d36e9541c61a6990cfc387f34729d188cb2d.json",
+      "sha256": "e00c927b2fe432d8f384a7b186f1d36e9541c61a6990cfc387f34729d188cb2d"
     },
     {
       "character": "paladin",
@@ -2184,8 +2184,8 @@
       "army": "white",
       "kind": "idle",
       "id": "white-idle-rose-spin",
-      "manifest": "banks/5a2ba2ceeff96dda23840c6e9a9e5df92ce01b63ef309245eab30e1087de8e2b.json",
-      "sha256": "5a2ba2ceeff96dda23840c6e9a9e5df92ce01b63ef309245eab30e1087de8e2b"
+      "manifest": "banks/2859099d551336b74bd252fc64c0d81179b0c1bb05ddccbe610cdffe2a1b0173.json",
+      "sha256": "2859099d551336b74bd252fc64c0d81179b0c1bb05ddccbe610cdffe2a1b0173"
     },
     {
       "character": "queen",
@@ -2760,8 +2760,8 @@
       "army": "white",
       "kind": "idle",
       "id": "white-contraction",
-      "manifest": "banks/fd1079e85d9f06b0389920d46051beae7943011433e8546591ee9df0c894a50c.json",
-      "sha256": "fd1079e85d9f06b0389920d46051beae7943011433e8546591ee9df0c894a50c"
+      "manifest": "banks/90be520a4b1e0049c17fd21ca8b7ab5adfac7518156d9d0193b592734543fdad.json",
+      "sha256": "90be520a4b1e0049c17fd21ca8b7ab5adfac7518156d9d0193b592734543fdad"
     },
     {
       "character": "guard",
@@ -4264,8 +4264,8 @@
       "army": "white",
       "kind": "attack",
       "id": "white-attack-W",
-      "manifest": "banks/a7c7282583bdff741419d5b35e8a1682d4e6dee4cae923509bfbb31136ec2004.json",
-      "sha256": "a7c7282583bdff741419d5b35e8a1682d4e6dee4cae923509bfbb31136ec2004"
+      "manifest": "banks/e2f2676dd17d4b67dc6992333d5a4fcbb9f2b220f66116b1c42b5a91b5f42a30.json",
+      "sha256": "e2f2676dd17d4b67dc6992333d5a4fcbb9f2b220f66116b1c42b5a91b5f42a30"
     },
     {
       "character": "king-shadow",
@@ -4328,8 +4328,8 @@
       "army": "black",
       "kind": "attack",
       "id": "black-attack-W",
-      "manifest": "banks/aef827194ce0d6df27e72b064515edd41e36d4c7f69c1cdf850ed6708e975a4a.json",
-      "sha256": "aef827194ce0d6df27e72b064515edd41e36d4c7f69c1cdf850ed6708e975a4a"
+      "manifest": "banks/0a6a0873740038ff3852a301a7334d2b2e2af3636ed9201c5bcc6c1772d33e0c.json",
+      "sha256": "0a6a0873740038ff3852a301a7334d2b2e2af3636ed9201c5bcc6c1772d33e0c"
     },
     {
       "character": "king-shadow",
@@ -6806,8 +6806,8 @@
       "kind": "movement-study",
       "id": "white-leap-SW",
       "direction": "SW",
-      "manifest": "banks/49ef46132fc51e1e66c2137d1207cc8a6747c1c9e02ef7322754426638ff9d23.json",
-      "sha256": "49ef46132fc51e1e66c2137d1207cc8a6747c1c9e02ef7322754426638ff9d23"
+      "manifest": "banks/1d311387f5138bda58480500dd1a7820cb5a2dfb334f344317da8ec5a910685e.json",
+      "sha256": "1d311387f5138bda58480500dd1a7820cb5a2dfb334f344317da8ec5a910685e"
     },
     {
       "character": "knight",
@@ -6878,8 +6878,8 @@
       "kind": "movement-study",
       "id": "black-leap-SW",
       "direction": "SW",
-      "manifest": "banks/93c808f711539ab16b6f9dc74ef704f750b3bbd7a22744b13cae9cded6c56527.json",
-      "sha256": "93c808f711539ab16b6f9dc74ef704f750b3bbd7a22744b13cae9cded6c56527"
+      "manifest": "banks/e90b3f9e42bff1937854f8d3643a85b01c259089278dfbacacc8e6dd514b0c19.json",
+      "sha256": "e90b3f9e42bff1937854f8d3643a85b01c259089278dfbacacc8e6dd514b0c19"
     },
     {
       "character": "knight",
@@ -6932,8 +6932,8 @@
       "kind": "movement-study",
       "id": "white-charge-S",
       "direction": "S",
-      "manifest": "banks/792d537a4a44935b2f428f815a1d3a6ce076862539ee9407a50880fd752dd6aa.json",
-      "sha256": "792d537a4a44935b2f428f815a1d3a6ce076862539ee9407a50880fd752dd6aa"
+      "manifest": "banks/140cdd336ad2fb332535328ac9e6205f223499f9ce61fa4e5dfc7fda00145691.json",
+      "sha256": "140cdd336ad2fb332535328ac9e6205f223499f9ce61fa4e5dfc7fda00145691"
     },
     {
       "character": "paladin",
@@ -6941,8 +6941,8 @@
       "kind": "movement-study",
       "id": "white-charge-SW",
       "direction": "SW",
-      "manifest": "banks/646eeb75e799b10dc7126ee4e6f0f763361de6f493e87d826afb4ed59831777b.json",
-      "sha256": "646eeb75e799b10dc7126ee4e6f0f763361de6f493e87d826afb4ed59831777b"
+      "manifest": "banks/794f813d0879fc500b30a9e9dc7aba4b44bebc379503ab0dc4c9065ba633b5f3.json",
+      "sha256": "794f813d0879fc500b30a9e9dc7aba4b44bebc379503ab0dc4c9065ba633b5f3"
     },
     {
       "character": "paladin",
@@ -6986,8 +6986,8 @@
       "kind": "movement-study",
       "id": "black-charge-S",
       "direction": "S",
-      "manifest": "banks/54fd238b5e0f693d91e6dfdd05c6335ca25aacbda8e866d22763d2381a124658.json",
-      "sha256": "54fd238b5e0f693d91e6dfdd05c6335ca25aacbda8e866d22763d2381a124658"
+      "manifest": "banks/2a159eead762bdc5418ceb4c834928c88fbc45f361a0129f110021390c2b36a0.json",
+      "sha256": "2a159eead762bdc5418ceb4c834928c88fbc45f361a0129f110021390c2b36a0"
     },
     {
       "character": "paladin",
@@ -6995,8 +6995,8 @@
       "kind": "movement-study",
       "id": "black-charge-SW",
       "direction": "SW",
-      "manifest": "banks/45c05ebb3ff826fba2700d16ddc6b2850689bdbf9fdac7dcfa8e63cb27f4f438.json",
-      "sha256": "45c05ebb3ff826fba2700d16ddc6b2850689bdbf9fdac7dcfa8e63cb27f4f438"
+      "manifest": "banks/534d5e8f0221d058370718dc9599b8c518fa9cc70fd9c19882a6e98095952e40.json",
+      "sha256": "534d5e8f0221d058370718dc9599b8c518fa9cc70fd9c19882a6e98095952e40"
     },
     {
       "character": "paladin",

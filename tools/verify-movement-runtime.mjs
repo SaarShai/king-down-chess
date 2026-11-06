@@ -138,7 +138,7 @@ try{
    capture();await view.scene.play({from:27,to:28,captures:[]});active=false;const board=view.pos.board.slice();board[28]=board[27];board[27]=0;view.scene.setPosition({...view.pos,board});await new Promise(resolve=>setTimeout(resolve,250));const rest=view.scene.characterFrames.find(f=>f.square===28);if(rest){ctx.drawImage(canvas,0,0,small.width,small.height);frames.push({bank:rest.bank,time:rest.time,image:small.toDataURL('image/png')});}view.scene.setPosition(view.pos);return frames;
   });
   const movement=real.find(b=>b.facing==='E'),walk=samples.filter(f=>f.bank===movement.id);
-  const idle=manifest.banks.find(b=>b.character==='pawn'&&b.army==='white'&&b.kind==='idle'&&b.facing==='SE');
+  const idle=manifest.banks.find(b=>b.character==='pawn'&&b.army==='white'&&b.kind==='idle');
   for(const bank of real)assert.equal(bank.registrationHeightPx,idle.registrationHeightPx,`${bank.id} uses the idle scale`);
   assert(walk.some(f=>f.time===movement.frames[0].timeMs),'real E first frame');assert(walk.some(f=>f.time===movement.frames.at(-1).timeMs),'real E last frame');assert(walk.length>1,'real E movement samples');
   if(process.env.MOVEMENT_MEDIA_DIR){await mkdir(process.env.MOVEMENT_MEDIA_DIR,{recursive:true});for(const [i,f] of samples.entries())await writeFile(join(process.env.MOVEMENT_MEDIA_DIR,`${String(i).padStart(2,'0')}-${f.bank}-${f.time}.png`),Buffer.from(f.image.split(',')[1],'base64'));}
