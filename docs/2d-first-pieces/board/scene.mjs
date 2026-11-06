@@ -13,7 +13,7 @@ import * as rook from '../rook/motion.mjs';
 import * as guard from '../guard/motion.mjs';
 import * as court from '../court-motion.mjs';
 import {chargeAt,CHARGE_CONTACT,swapAt} from './motion.mjs';
-import {BLOW,KING_BLOW,STRAIGHT_REACH,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
+import {BLOW,KING_BLOW,STRAIGHT_REACH,blows,kingActionMs,tiltAt,footAt,stopPoint} from './blows.mjs';
 import {GAITS,GAIT_OF,idleAt,paintedPace,paintedTravel} from './gait.mjs';
 import {createKingEffects,phaseOffset} from './king-effects.mjs';
 import {createQueenThorns} from './fx-queen.mjs';
@@ -917,7 +917,7 @@ function vortex(out,foot,phase,strength) {
  }
  const smokeDt=Math.max(0,Math.min(.05,(time-smokeTime)/1000));smokeTime=time;
  if(reducedMotion)smokeStreams.clear();
- else if(bodyRuntime)for(const [sq,u] of ordered)if(typeOf(u.value)===A&&u.pose.bank){
+ else if(bodyRuntime)for(const [sq,u] of ordered)if(typeOf(u.value)===A&&u.pose.bank&&!(u.fx?.death?.t>60)){
   let smoke=smokeStreams.get(sq);if(!smoke){smoke=bodyRuntime.smoke();if(smoke)smokeStreams.set(sq,smoke);}
   if(smoke){const body=u.pose.bank,point=body.effectAnchor?bankPointToWorld(body,u.pose.foot,body.effectAnchor):world(archer.muzzle(u.pose.angle,colorOf(u.value)),u.pose,A);smoke.tick(smokeDt,[point.x,point.y],.65*body.scale*body.unitHeight/640);smoke.draw(ctx);}
  }
@@ -1029,6 +1029,7 @@ function drawEncounter(a,t) {
    if(prepared.attack&&!prepared.effect)setStance(a,prepared.attack);
    if(a.bites)a.duration=a.actionDuration+prepared.beforeMs+prepared.afterMs;
    if(prepared.effect){if(characterOf(a.value)==='queen')prepared.effect=queenThorns.effect(prepared.effect);prepared.release=prepared.attack.beatTimes.release??a.contactTime;a.contactTime=prepared.release+prepared.effect.contactMs;prepared.ranged=rangedPlan(characterOf(a.value),prepared.attack,prepared.release);a.actionDuration=(prepared.ranged?.end??Math.max(prepared.attack.durationMs,prepared.release+prepared.effect.player.durationMs))+(a.move.from===a.move.to?0:420);}
+   if(a.theme&&prepared.attack)a.actionDuration=kingActionMs(a.actionDuration,a.contactTime);
    a.duration=a.actionDuration+prepared.beforeMs+prepared.afterMs;
   }
   a.preparing=false;a.start=now;
