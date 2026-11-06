@@ -1,10 +1,11 @@
 import { StateEffects } from './effects/states';
 import { drawBoardEffects } from './effects/board-effects';
 import { GameRules } from '../game-rules';
-import { cardPlayback, type CardPlayback } from './effects/card';
+import { cardPlayback, keepsLiveStates, type CardPlayback } from './effects/card';
 import { PromotionPlayback, loadAscension } from './effects/promotion';
 import { drawWithdrawal } from './effects/check';
 import { moveOverlay, type MoveOverlay } from './effects/move-overlay';
+import { loadDarkGate } from './effects/dark-gate';
 import type { TailedOverlay } from './effects/power-overlays';
 import { createScene, type KingDesign, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, S, T, colorOf, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
@@ -59,7 +60,10 @@ const HEADROOM = 64;
 /** The painted 2D look: the board trial's figures and capture animations driving the real game. */
 export class PaintedView implements BoardView {
   context = new GameRules();
-  setRules(context: GameRules): void { this.context = context; }
+  setRules(context: GameRules): void {
+    this.context = context;
+    if (context.rules.kings.some(king => king?.power === 'Darkness')) loadDarkGate();
+  }
   onSquareClick: (sq: number, shift: boolean) => void = () => {};
   onDragSelect: (sq: number) => void = () => {};
   onSquareHover: (sq: number | null) => void = () => {};
@@ -232,7 +236,7 @@ export class PaintedView implements BoardView {
       if (!this.motion() || document.hidden) return;
       this.card = card;
       // The Mercy hop keeps the live shelters, so they fade as they do under his walk.
-      const moving = card.action.id === 'MercyHop' ? new Set([m.from, m.to]) : undefined;
+      const moving = keepsLiveStates(card.action.id) ? new Set([m.from, m.to]) : undefined;
       this.moveSquares = moving;
       try {
         const completed = await this.scene.play(m, { effect: card, onContact, speed: speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed });
@@ -421,7 +425,7 @@ export class PaintedView implements BoardView {
       ink: this.options.webInk ? boardInk(this.width) : undefined,
     }, row);
     const now = performance.now();
-    const cardStates = this.card?.action.id !== 'MercyHop' && !!this.card;
+    const cardStates = !!this.card && !keepsLiveStates(this.card.action.id);
     if (cardStates && layer === 'under') this.cardStates.sync(this.context, this.card!.shown, now, false);
     // A card that ends check: its withdrawal belongs to the live board's state, not to the card's shown frames.
     const cardWithdrawal = this.card && layer === 'under' ? this.stateEffects.withdrawal(now, this.motion() && !document.hidden) : undefined;
