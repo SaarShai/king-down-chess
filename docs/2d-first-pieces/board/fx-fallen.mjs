@@ -2,11 +2,12 @@
 // off (dust, then his own theme dying with him). Pure timing first, so it can be tested; drawing after.
 //   0–110 ms  he rocks back from the blow;  110–440  he falls, faster and faster;  440–510  the slam travels from
 //   his feet to his head;  to 650  rebound and rest;  to 1100  the dust and his theme's aftermath clear.
-// The lying figure and game timing are the scene's: from FALL on he is the plain rotated figure (fallPose), and
-// from DEMISE on nothing here draws. Times are in demise ms (the scene divides by the playback speed).
+// The game timing is the scene's: from DEMISE on nothing here draws. He ends as his painted lying figure (drawLying):
+// it takes his place at SWAP, behind the thick dust of the slam (veilAt). Until that art has loaded he stays the plain
+// rotated figure (fallPose). Times are in demise ms (the scene divides by the playback speed).
 import {clamp} from '../painted-mesh.mjs';
 
-export const FALL=650,DEMISE=1100,IMPACT=440;
+export const FALL=650,DEMISE=1100,IMPACT=440,SWAP=IMPACT+90;
 const ROCK=110,LAG=70,SETTLE=FALL-LAG,TAU=Math.PI*2,HEIGHT=124;
 const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
 const frac=x=>x-Math.floor(x);
@@ -55,6 +56,22 @@ export function drawFall(out,source,{foot,facing,rotation,ms,unit,offsetY}){
  }
 }
 
+// One image per king: the ivory army's figure above, the charcoal's below, head left. One literal URL per image, as
+// bundlers need (king-sheets.mjs). A cell is at twice the board's size, with his foot point at FOOT_X, FOOT_Y.
+export const FALLEN_FILES={frost:new URL('../king-frost/fallen.webp',import.meta.url).href,flame:new URL('../king-flame/fallen.webp',import.meta.url).href,stratus:new URL('../king-stratus/fallen.webp',import.meta.url).href,mud:new URL('../king-mud/fallen.webp',import.meta.url).href,spirit:new URL('../king-spirit/fallen.webp',import.meta.url).href,shadow:new URL('../king-shadow/fallen.webp',import.meta.url).href};
+const CELL_W=360,CELL_H=240,FOOT_X=340,FOOT_Y=120;
+/** Draws his painted lying figure: feet on `foot`, body toward `dir` (-1 left, as painted; 1 right, mirrored). */
+export function drawLying(out,image,{foot,dir,side}){
+ out.save();out.translate(foot.x,foot.y);out.scale(dir>0?-.5:.5,.5);
+ out.drawImage(image,0,side*CELL_H,CELL_W,CELL_H,-FOOT_X,-FOOT_Y,CELL_W,CELL_H);
+ out.restore();
+}
+/**
+ * How thick one puff of the slam's veil is, 0 to 1: it comes in along the body from the slam, and stays whole round
+ * SWAP, so the swap of figures never shows. p: its place along the body, 0 feet to 1 head; r: 0..1, each its own.
+ */
+export const veilAt=(ms,p=0,r=0)=>smooth((ms-IMPACT-30*p)/40)*(1-smooth((ms-SWAP-30-50*r)/(130+50*r)));
+
 // Dust colours by theme: [on light stone, on dark wood]. A puff takes the one that reads on the floor under it.
 const DUST={
  flame:['#4d3a2f','#8d7562'],frost:['#9cc8ea','#e6f4ff'],stratus:['#b9c4cf','#ffffff'],
@@ -91,6 +108,15 @@ export function createDemise({onLoad=()=>{}}={}){
    const out=1-(1-age)**2,x=s.foot.x+s.dir*s.tall*(.04+.96*p)+(rand(i,seed+3)-.5)*14+(rand(i,seed+4)-.5)*spread*life*out;
    const y=s.foot.y+3+(rand(i,seed+5)-.5)*10-rise*(.35+.65*rand(i,seed+6))*out;
    drawPuff(ctx,colours,s.dark(x,y),i+seed,x,y,size*(.65+.5*rand(i,seed+7))*(1+grow*out),strength*smooth(age/.1)*(1-age)**1.4);
+  }
+ }
+ // Thick dust over all of him, the rotated figure and the painted one, on either floor.
+ function veil(ctx,s,colours){
+  const size=62,across=[-40,-14,12,38],dark=s.dark(s.foot.x+s.dir*s.tall*.45,s.foot.y);
+  for(let row=0;row<across.length;row++)for(let i=0;i<7;i++){
+   const p=(i+(row&1)*.5)/6.5,seed=row*7+i,r=rand(seed,120),alpha=veilAt(s.ms,p,r);if(alpha<=.01)continue;
+   const out=smooth((s.ms-SWAP)/300),x=s.foot.x+s.dir*(-8+166*p)+(rand(seed,121)-.5)*8+(rand(seed,122)-.5)*60*out,y=s.foot.y+across[row]+size*.12+(row===0?-1:row===across.length-1?1:0)*12*rand(seed,123)-26*out*(.5+r);
+   drawPuff(ctx,colours,dark,seed,x,y,size*(1+.45*rand(seed,124))*(1+.5*out),alpha);
   }
  }
  // A low ring of dust running out across the floor from the slam.
@@ -151,6 +177,8 @@ export function createDemise({onLoad=()=>{}}={}){
 
  return {
   prepare,
+  /** Whether the dust can be drawn yet (the veil must be there before a swap may go behind it). */
+  get ready(){return !!art?.naturalWidth;},
   /** Before any figure: the board dims round him, and his theme marks the floor where he lands. */
   floor(ctx,s){
    const {ms,foot}=s,cx=foot.x+s.dir*s.tall*.45,dim=.36*smooth(ms/IMPACT)*(1-smooth((ms-IMPACT-120)/(DEMISE-IMPACT-120)));
@@ -169,6 +197,7 @@ export function createDemise({onLoad=()=>{}}={}){
   over(ctx,s){
    const dust=s.design==='spirit'&&s.side?SPIRIT_DARK:DUST[s.design]??PLAIN;
    ctx.save();
+   if(s.veil)veil(ctx,s,dust);
    if(s.design==='stratus'){
     // What held him up gives way: his cloud rolls out along the floor from under him.
     bodyDust(ctx,s,dust,{n:7,size:40,grow:.8,rise:14,spread:.14,life:560,strength:.72});
