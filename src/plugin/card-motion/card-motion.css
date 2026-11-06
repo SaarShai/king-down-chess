@@ -1,0 +1,4 @@
+card-motion { position: absolute; inset: 0; display: block; pointer-events: none; border-radius: inherit; }
+.cf-art { position: relative; }
+.coin.card-coin > .coin-paint > card-motion { inset: 3px; border-radius: 50%; }
+#game-table .coin.card-coin[data-state='armed'] card-motion { inset: 5px; }
