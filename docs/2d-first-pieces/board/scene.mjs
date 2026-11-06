@@ -1014,7 +1014,7 @@ function drawEncounter(a,t) {
    if(disposed)return;
    if(!reducedMotion)loadClips();
    if(characterRuntime){
-    const start=()=>{if(disposed||bodyRuntime)return;bodyRuntime=createCharacterRuntime({wake:()=>wake()});void bodyRuntime.ready().then(()=>{if(!disposed)return warmBodies();}).then(()=>{bodyWarm=true;loadClips();});};
+    const start=()=>{if(disposed||bodyRuntime)return;bodyRuntime=createCharacterRuntime({wake:()=>wake(),drawnEffects:['queen']});void bodyRuntime.ready().then(()=>{if(!disposed)return warmBodies();}).then(()=>{bodyWarm=true;loadClips();});};
     startBodyRuntime=start;globalThis.addEventListener('pageshow',onPageShow);
     if(document.readyState&&document.readyState!=='complete')globalThis.addEventListener('load',start,{once:true});else start();
    }

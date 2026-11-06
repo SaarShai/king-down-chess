@@ -51,7 +51,7 @@ const connected=()=>globalThis.navigator?.onLine!==false;
 function bounded(promise,ms=LOAD_TIMEOUT,signal){
  return new Promise(resolve=>{let done=false;const finish=value=>{if(done)return;done=true;clearTimeout(timer);signal?.removeEventListener('abort',abort);resolve(value);},abort=()=>finish(null),timer=setTimeout(abort,Math.max(0,ms));signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();Promise.resolve(promise).then(finish,()=>finish(null));});
 }
-export function createCharacterRuntime({url=new URL('/character-runtime/manifest.json',import.meta.url).href,wake=()=>{},fetcher=fetch,image=()=>Object.assign(new Image(),{crossOrigin:'anonymous'})}={}) {
+export function createCharacterRuntime({url=new URL('/character-runtime/manifest.json',import.meta.url).href,wake=()=>{},fetcher=fetch,image=()=>Object.assign(new Image(),{crossOrigin:'anonymous'}),drawnEffects=[]}={}) {
  let banks=[],disposed=false,bytes=0,peakBytes=0,active=0,activeFrame=null, idlePins=new Set(),idleGeneration=0,idleLoads=null,moveGeneration=0,moveLoads=null,movePrefetchActive=false;
  let effectEntries={},currentEffect=null,effectBytes=0,smokeBytes=0,smokeClass=null,smokeImage=null,smokeLoading=null,smokeBlocked=false;
  const images=new Map(),loading=new Map(),failed=new Map(),stills=new Set(),pins=new Map(),queue=[],activeJobs=new Set(),effectRetryAt=new Map(),effectLoads=new Map();
@@ -142,6 +142,8 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  const endpoints=bank=>[bank.frames[0],bank.frames.at(-1)];
  async function loadSeparate(character){
   const entry=effectEntries[character];if(!connected()||!entry||performance.now()<(effectRetryAt.get(character)??0))return null;
+  // The scene draws this one itself and takes only the contact time, so the package's images never load.
+  if(drawnEffects.includes(character))return {player:null,contactMs:entry.contactMs};
   if(currentEffect?.character!==character){
    let selected=effectLoads.get(character);
    if(selected){effectLoads.delete(character);effectLoads.set(character,selected);currentEffect=selected;}
