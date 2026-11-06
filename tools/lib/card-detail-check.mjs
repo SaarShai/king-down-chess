@@ -51,10 +51,7 @@ export async function checkCardDetails(browser, base, engine) {
         for (const [index, card] of ['Strike', 'Haste', 'Flight', 'Control'].entries()) {
           await frame.locator(`#card-w-${index}`).click();
           if (card !== 'Control') await visibleDiagram(frame.locator(`#board-sheet .card-diagram:has(.pm-${card})`));
-          else {
-            assert.equal(await frame.locator('#board-sheet [data-piece="knight"]').count(), 1);
-            assert.equal(await frame.locator('#board-sheet [data-piece="rook"]').count(), 1);
-          }
+          else assert.match(await frame.locator('#board-sheet .cf-art img').getAttribute('src'), /control-/);
           await shot(page, `repair-${card === 'Control' ? 'A33' : 'A5'}-board-${card}-${width}x${height}-${theme}`);
           await frame.locator('#board-sheet [aria-label="Close"]').click();
         }

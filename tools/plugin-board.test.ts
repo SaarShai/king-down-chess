@@ -251,20 +251,17 @@ it.each([['light', 'cards'], ['dark', 'cards'], ['light', 'powers'], ['dark', 'p
   } finally { await page.close(); }
 });
 
-it('keeps spent coin contrast and clear symbols together', async () => {
+it('keeps a spent coin faded, with its painting and its whole button', async () => {
   const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { hands: [['MorphP'], ['MirrorB']] })), frame = page.frameLocator('iframe');
   try {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const coins = await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll<HTMLButtonElement>('.card-coin')].map(coin => {
       coin.dataset.state = 'used'; coin.disabled = true;
-      // The paint compresses; its symbol inset is separate from the unchanged button target.
-      const paint = coin.querySelector('.coin-paint')!, style = getComputedStyle(paint), symbol = coin.querySelector('svg')!, face = symbol.getBoundingClientRect(), box = paint.getBoundingClientRect();
-      return { opacity: style.opacity, buttonOpacity: getComputedStyle(coin).opacity, symbol: !!symbol, letters: coin.textContent, color: getComputedStyle(symbol).color, inset: box.width - face.width };
+      const paint = coin.querySelector('.coin-paint')!;
+      return { opacity: getComputedStyle(paint).opacity, buttonOpacity: getComputedStyle(coin).opacity, image: !!paint.querySelector('img'), letters: coin.textContent };
     }));
     expect(coins).toHaveLength(2);
-    expect(coins[0].color).not.toBe(coins[1].color);
-    expect(coins[1].color).toBe('rgb(255, 245, 218)');
-    for (const coin of coins) { expect(coin.opacity).toBe('0.85'); expect(coin.buttonOpacity).toBe('1'); expect(coin.symbol).toBe(true); expect(coin.letters).toBe(''); expect(coin.inset).toBeCloseTo(12, 0); }
+    for (const coin of coins) { expect(coin.opacity).toBe('0.85'); expect(coin.buttonOpacity).toBe('1'); expect(coin.image).toBe(true); expect(coin.letters).toBe(''); }
   } finally { await page.close(); }
 });
 

@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { createServer } from 'vite';
 import { assertNoErrors, env, launch, shot, trapErrors } from '../lib/checks.mjs';
 
-const CARDS = ['back', 'flight', 'freeze', 'haste', 'icewall', 'leap', 'march', 'mimic', 'rescue', 'sacrifice', 'salvation', 'skylift', 'strike', 'vault'];
+const CARDS = ['back', 'burn', 'control', 'curse', 'earthquake', 'firestarter', 'firewall', 'flight', 'freeze', 'haste', 'icewall', 'leap', 'march', 'mimic', 'mirrorb', 'morphp', 'rally', 'rescue', 'sacrifice', 'salvation', 'skylift', 'strike', 'vault'];
 const server = await createServer({ root: resolve('.'), logLevel: 'error', server: { host: '127.0.0.1', port: 0, hmr: false } });
 await server.listen();
 const page_ = `${server.resolvedUrls.local[0]}docs/specs/effects-animation/preview/card-motion/index.html`;
@@ -32,7 +32,7 @@ try {
   await page.goto(`${page_}?phase=0`);
   await page.waitForFunction(count => window.cardMotion && window.cardMotion.names.length === count, CARDS.length);
   assert.deepEqual(await page.evaluate(() => window.cardMotion.names.slice().sort()), CARDS);
-  await page.waitForFunction(() => { const s = window.cardMotion.motionState(); return s.compiled.length === 14; }, null, { timeout: 60000 });
+  await page.waitForFunction(() => { const s = window.cardMotion.motionState(); return s.compiled.length === 23; }, null, { timeout: 60000 });
   assert(await page.evaluate(() => window.cardMotion.motionState().compiled.every(([, ok]) => ok)), 'Every recipe compiles');
   await page.waitForTimeout(800);
   const seam = await compare(page, 0, 1), moved = await compare(page, 0, .3);
@@ -71,11 +71,11 @@ try {
   assert.equal((await still.evaluate(() => window.cardMotion.motionState())).running, false);
   await still.close();
 
-  // A full set on a phone-sized page: twelve tiles and eight coins. CPU throttled four times; software GL on a check machine is slower than a phone's GPU.
-  const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, reducedMotion: 'no-preference' });
+  // A full set on a phone-sized page: 21 tiles and eight coins. CPU throttled four times; software GL on a check machine is slower than a phone's GPU.
+  const phone = await browser.newPage({ viewport: { width: 390, height: 1200 }, deviceScaleFactor: 3, reducedMotion: 'no-preference' });
   await phone.goto(`${page_}?set=1`);
   await phone.waitForFunction(() => window.cardMotion?.motionState().shown >= 18);
-  await phone.waitForFunction(() => window.cardMotion.motionState().compiled.length >= 12, null, { timeout: 60000 });
+  await phone.waitForFunction(() => window.cardMotion.motionState().compiled.length >= 21, null, { timeout: 60000 });
   await phone.waitForTimeout(1500);
   const cdp = await phone.context().newCDPSession(phone).catch(() => null);
   await cdp?.send('Emulation.setCPUThrottlingRate', { rate: 4 });

@@ -2,6 +2,7 @@ import { GameRules } from '../../game-rules';
 import { K, P, colorOf, typeOf, type Move, type Position } from '../../rules/engine';
 import type { PaintedScene } from '../painted/scene.mjs';
 import type { CardLayer } from './card-types';
+import { DarkGrip } from './dark-gate';
 import type { MoveOverlay } from './move-overlay';
 
 const clamp = (t: number) => Math.max(0, Math.min(1, t));
@@ -31,17 +32,6 @@ const ball = (size: number, stops: readonly (readonly [number, string])[], squas
   ctx.fillStyle = fill; ctx.fillRect(0, 0, size, size);
   return canvas;
 };
-let smokeSprite: HTMLCanvasElement | undefined;
-/** A puff with volume: a near-black body, a violet edge and a pale crown, so it reads on both square colours. */
-function puff(): HTMLCanvasElement {
-  if (smokeSprite) return smokeSprite;
-  const canvas = ball(96, [[0, 'rgba(14,10,24,.94)'], [.36, 'rgba(24,16,40,.86)'], [.66, 'rgba(50,34,80,.52)'], [1, 'rgba(70,48,108,0)']]);
-  const ctx = canvas.getContext('2d')!; ctx.globalCompositeOperation = 'source-atop';
-  const crown = ctx.createRadialGradient(36, 30, 0, 36, 30, 34);
-  crown.addColorStop(0, 'rgba(150,126,190,.62)'); crown.addColorStop(1, 'rgba(150,126,190,0)');
-  ctx.fillStyle = crown; ctx.fillRect(0, 0, 96, 96);
-  return smokeSprite = canvas;
-}
 let holySprites: { lift: HTMLCanvasElement; floor: HTMLCanvasElement; mote: HTMLCanvasElement } | undefined;
 function holy() {
   if (holySprites) return holySprites;
@@ -73,58 +63,6 @@ const endFade = (scene: PaintedScene, ms: number) => {
   const total = scene.actionTotal;
   return total == null ? 1 : ease((total - ms) / 130);
 };
-
-// Darkness: shadow smoke at the feet, only on a move that needs the power.
-const SMOKE_LIFE = 620, SMOKE_COUNT = 26;
-const BURST = [[-34, 2], [32, 4], [-14, 12], [16, -8], [-46, -6], [46, -4]] as const;
-class ShadowSmoke implements MoveOverlay {
-  private x = new Float32Array(SMOKE_COUNT);
-  private y = new Float32Array(SMOKE_COUNT);
-  private born = new Float32Array(SMOKE_COUNT).fill(-1);
-  private next = 0;
-  private trail = 0;
-  private opened = false;
-  private landed = false;
-  constructor(private move: Move) {}
-  private emit(x: number, y: number, ms: number) {
-    const i = this.next; this.next = (this.next + 1) % SMOKE_COUNT;
-    this.x[i] = x; this.y[i] = y; this.born[i] = ms;
-  }
-  private burst(at: Point, ms: number) {
-    BURST.forEach(([dx, dy], i) => this.emit(at.x + dx, at.y + dy, ms + i * 22));
-  }
-  private update(scene: PaintedScene, ms: number) {
-    const { foot, travel, start, end } = travelOf(scene, this.move);
-    if (!this.opened) { this.opened = true; this.burst(start, ms); }
-    // A puff each time the feet cross a fifth of a square.
-    const crossed = Math.hypot(foot.x - start.x, foot.y - start.y);
-    while (travel > 0 && crossed - this.trail > 24) {
-      this.trail += 24;
-      const u = this.trail / crossed;
-      // Puffs fall to either side of the path, so the trail is a mass and not a row.
-      const side = (this.next * 37 % 29) - 14;
-      this.emit(start.x + (foot.x - start.x) * u + side, start.y + (foot.y - start.y) * u + side * .3, ms);
-    }
-    // Timed to bloom as he arrives, so a move with no turn afterwards still shows it.
-    if (!this.landed && travel >= .8) { this.landed = true; this.burst(end, ms); }
-  }
-  draw(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: CardLayer, row: number | undefined, ms: number): void {
-    if (layer === 'under') this.update(scene, ms);
-    else if (row !== 7) return;
-    const sprite = puff(), fade = endFade(scene, ms);
-    ctx.save();
-    for (let i = 0; i < SMOKE_COUNT; i++) {
-      // Even puffs lie behind the figures; odd puffs wrap the front of the feet.
-      if ((i % 2 === 0) !== (layer === 'under')) continue;
-      const u = (ms - this.born[i]) / SMOKE_LIFE;
-      if (this.born[i] < 0 || u <= 0 || u >= 1) continue;
-      const size = (58 + (i % 3) * 16) * (.5 + .9 * ease(u / .6));
-      ctx.globalAlpha = ease(u / .14) * (1 - ease((u - .45) / .55)) * fade;
-      ctx.drawImage(sprite, this.x[i] - size / 2 + (i % 2 ? 8 : -8) * u, this.y[i] - size * .5 - 30 * u, size, size * .7);
-    }
-    ctx.restore();
-  }
-}
 
 // Mercy: a lift of holy light where the king leaves and where he lands.
 const LIFT_MS = 560;
@@ -252,7 +190,7 @@ export function specialOverlay(context: GameRules, before: Position, move: Move)
   if (move.castle) return new CastleDust({ ...move, castle: move.castle });
   const power = context.rules.kings[colorOf(value)]?.power, type = typeOf(value);
   if (type === P && move.captures.length === 1 && move.captures[0] !== move.to) return new EnPassantStrike(move);
-  if (power === 'Darkness' && (type === P || type === K) && needsPower(context, before, move)) return new ShadowSmoke(move);
+  if (power === 'Darkness' && (type === P || type === K) && needsPower(context, before, move)) return new DarkGrip(move);
   if (power === 'Mercy' && type === K && needsPower(context, before, move)) return new HolyLift(move);
   return null;
 }

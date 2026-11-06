@@ -744,6 +744,16 @@ describe('ready character playback', () => {
    runtime.dispose();expect(runtime.stats.bytes).toBe(0);delete (globalThis as {__overlapJobs?:Job[]}).__overlapJobs;
   } finally {vi.useRealTimers();}
  });
+ it('never loads the package of an effect the scene draws itself', async () => {
+  const idle={...bank(),kind:'idle',frames:[{url:'frame-0',timeMs:0}]},attack={...bank(),kind:'attack',facing:'SE',frames:[{url:'frame-0',timeMs:0}]};
+  const module='data:text/javascript,'+encodeURIComponent('globalThis.__drawnEffectLoaded=true;export const loadEffect=()=>({})');
+  const runtime=createCharacterRuntime({url:'https://example.invalid/package/manifest.json',drawnEffects:['pawn'],fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack],effects:{pawn:{module,decodedBytes:5000,contactMs:600}}})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  await runtime.warm('pawn','white');const base=runtime.stats.bytes;
+  const prepared=await runtime.prepare('pawn','white','SE',true);
+  expect((prepared as {effect?:unknown}).effect).toMatchObject({player:null,contactMs:600});expect(runtime.stats.bytes).toBe(base);
+  expect((globalThis as {__drawnEffectLoaded?:boolean}).__drawnEffectLoaded).toBeUndefined();runtime.dispose();
+ });
  it('evicts the least recently used completed effect to keep the decoded budget', async () => {
   const calls:Record<string,number>={};(globalThis as {__effectCacheCalls?:Record<string,number>}).__effectCacheCalls=calls;
   const names=['pawn','queen','rook'],idle={...bank(),kind:'idle',frames:[{url:'frame-0',timeMs:0}]},attack={...bank(),kind:'attack',facing:'SE',frames:[{url:'frame-0',timeMs:0}]};
