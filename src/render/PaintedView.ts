@@ -212,7 +212,9 @@ export class PaintedView implements BoardView {
   }
 
   private fallRotation(sq: number | null): number {
-    return this.options.webInk && sq != null && this.scene.cell(sq).col === 7 ? 1.5 : -1.5;
+    const col = sq == null ? -1 : this.scene.cell(sq).col, value = sq == null ? 0 : this.pos?.board[sq] ?? 0;
+    // White faces right and black left, so the same rotation falls opposite ways. On an edge column he falls inward.
+    return col === 0 || col === 7 ? (col === 0 ? 1.5 : -1.5) * (value && colorOf(value) ? -1 : 1) : -1.5;
   }
 
   async animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number): Promise<void> {

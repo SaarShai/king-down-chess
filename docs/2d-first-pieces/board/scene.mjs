@@ -18,7 +18,7 @@ import {BLOW,KING_BLOW,STRAIGHT_REACH,blows,kingActionMs,tiltAt,footAt,stopPoint
 import {GAITS,GAIT_OF,idleAt,paintedPace,paintedTravel} from './gait.mjs';
 import {createKingEffects,phaseOffset} from './king-effects.mjs';
 import {createQueenThorns} from './fx-queen.mjs';
-import {DEMISE,IMPACT,fallPose,effectsLeft,drawFall,selfRemovalAt,createDemise} from './fx-fallen.mjs';
+import {DEMISE,IMPACT,SWAP,FALLEN_FILES,fallPose,effectsLeft,drawFall,drawLying,selfRemovalAt,createDemise} from './fx-fallen.mjs';
 const SELF_FALL=-1.45;
 import {KING_FILES} from './king-sheets.mjs';
 import {DEATHS,THEMED,drawDeath,kingBodyBounds} from './king-captures.mjs';
@@ -77,10 +77,17 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
   let entry=kingArt[design];
   if(!entry){
    const image=corsImage();
-   entry=kingArt[design]={image:null,loaded:new Promise((resolve,reject)=>{image.onload=()=>{entry.image=image;wake();resolve();};image.onerror=reject;})};
+   entry=kingArt[design]={image:null,loaded:new Promise((resolve,reject)=>{image.onload=()=>{entry.image=image;lyingArt(design);wake();resolve();};image.onerror=reject;})};
    image.src=KING_FILES[design];
   }
   return entry;
+ }
+ // His painted lying figure (fx-fallen.mjs), or null until it has loaded. Each king in play loads his own after his sheet.
+ const lyingArts={};
+ function lyingArt(design){
+  let image=lyingArts[design];
+  if(!image){image=lyingArts[design]=corsImage();image.onload=()=>wake();image.src=FALLEN_FILES[design];demise.prepare();}
+  return image.naturalWidth?image:null;
  }
  const boardArt=corsImage();
  // Clips load after the first frame with motion on, or when a selection needs one. They never gate readiness.
@@ -209,6 +216,7 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
   (fx.ranged.kind==='ray'?drawDissolve:drawFlash)(d);
   return;
  }
+ if(pose.lying){out.save();out.globalAlpha=opacity;drawLying(out,pose.lying,{foot:pose.ground??pose.foot,dir:Math.sign(pose.facing*pose.rotation)||1,side:colorOf(value)});out.restore();return;}
  if(pose.fall){
   // A king going down (fx-fallen.mjs): upright into the effect layer, with what moves with his figure, then in strips.
   const c=fxCanvas.getContext('2d'),up={...pose,rotation:0,fall:null};
@@ -389,6 +397,7 @@ let frameTime=0,shadowsFading=false;
 // shows. In the air the pool slides a little away from the light and hands over to an oval; a figure that tips
 // over or lies on the floor has a pool under its body, along its lower edge.
 function contactShadow(out,value,pose,opacity) {
+ if(pose.lying)return; // (painted under him)
  const w=shadowWeights(pose,opacity);if(w.shown<=.004)return;
  const type=typeOf(value),design=type===K?kings[colorOf(value)]:null;
  if(design&&!pose.sheet&&!kingArt[design]?.image)return; // (the figure is not drawn yet either)
@@ -639,7 +648,7 @@ function vortex(out,foot,phase,strength) {
  // What the demise draws this frame (fx-fallen.mjs): where he falls, and the floor's darkness under a point.
  function demiseState(unit,ms){
   const side=colorOf(unit.value),design=kings[side],pose=unit.pose;
-  return {design,side,ms,foot:pose.foot,dir:Math.sign(pose.facing*fallen.rotation)||1,tall:124,dark:(x,y)=>groundDark({x,y}),board:{x:PAD,y:PAD,size:8*TILE},
+  return {design,side,ms,foot:pose.foot,dir:Math.sign(pose.facing*fallen.rotation)||1,tall:124,veil:!fallen.plain,dark:(x,y)=>groundDark({x,y}),board:{x:PAD,y:PAD,size:8*TILE},
    soul:lively.kings?g=>kingFx.soul(g,{design,side,pose,rotation:fallen.rotation,ms}):null};
  }
  function render(time=performance.now()) {
@@ -674,7 +683,7 @@ function vortex(out,foot,phase,strength) {
  }
  // King Down: the beaten king topples backwards onto the board.
  let fall=null;
- if(fallen&&poses.has(fallen.sq)){const u=poses.get(fallen.sq),ms=fallMs(time);if(ms<DEMISE&&typeOf(u.value)===K)fall=demiseState(u,ms);u.pose=fallPose(u.pose,fallen.rotation,ms);}
+ if(fallen&&poses.has(fallen.sq)){const u=poses.get(fallen.sq),ms=fallMs(time);if(ms<DEMISE&&typeOf(u.value)===K)fall=demiseState(u,ms);u.pose=fallPose(u.pose,fallen.rotation,ms);if(!fallen.plain&&ms>=SWAP&&typeOf(u.value)===K){const lying=lyingArt(kings[colorOf(u.value)]);if(lying){u.pose={...u.pose,fall:null,rotation:fallen.rotation,lying};drawnKings[colorOf(u.value)]=kings[colorOf(u.value)];}}}
  let shot=null,hit=null;const effects=[];
  if(animation&&!animation.effect&&!animation.preparing){
   const a=animation,duration=a.legacyDuration??a.duration,at=a.rewind?.kind==='move'?Math.max(a.start,Math.min(a.rewind.at,a.rewind.at-(time-a.rewind.start))):time,elapsed=clamp((at-a.start)/a.speed-(a.runtime?.beforeMs??0),0,a.actionDuration??duration),t=effectTimeAt(a,elapsed),actor=poses.get(a.move.from),victim=poses.get(a.move.swap?a.move.to:a.move.shove?.from??a.move.captures[0]);
@@ -950,7 +959,7 @@ function vortex(out,foot,phase,strength) {
    drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,{death:{...d2,part:'back'}});
    late.push(()=>drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,{death:{...d2,part:'front'}}));
   }else {let drawn=fx?.pose??unit.pose;if(fx&&drawn.fall&&kingFx.onFigure(fx.design))drawn={...drawn,fall:{...drawn.fall,overlay:(g,up)=>kingFx.front(g,{...fx,pose:up})}};drawPiece(ctx,unit.value,drawn,unit.opacity,unit.extension,unit.fx,false);if(sq===selected&&!animation&&idleReady&&drawn.bank)lastSelectedBody={square:sq,value:unit.value,body:drawn.bank,pose:{...unit.pose,foot:{...unit.pose.foot}}};}
-  if(fx&&!(fx.pose.fall&&kingFx.onFigure(fx.design)))kingFx.front(ctx,fx);
+  if(fx&&!((fx.pose.fall||fx.pose.lying)&&kingFx.onFigure(fx.design)))kingFx.front(ctx,fx);
  }
  const smokeDt=Math.max(0,Math.min(.05,(time-smokeTime)/1000));smokeTime=time;
  if(reducedMotion)smokeStreams.clear();
@@ -1014,7 +1023,7 @@ function drawEncounter(a,t) {
    if(disposed)return;
    if(!reducedMotion)loadClips();
    if(characterRuntime){
-    const start=()=>{if(disposed||bodyRuntime)return;bodyRuntime=createCharacterRuntime({wake:()=>wake()});void bodyRuntime.ready().then(()=>{if(!disposed)return warmBodies();}).then(()=>{bodyWarm=true;loadClips();});};
+    const start=()=>{if(disposed||bodyRuntime)return;bodyRuntime=createCharacterRuntime({wake:()=>wake(),drawnEffects:['queen']});void bodyRuntime.ready().then(()=>{if(!disposed)return warmBodies();}).then(()=>{bodyWarm=true;loadClips();});};
     startBodyRuntime=start;globalThis.addEventListener('pageshow',onPageShow);
     if(document.readyState&&document.readyState!=='complete')globalThis.addEventListener('load',start,{once:true});else start();
    }
@@ -1259,7 +1268,12 @@ function drawEncounter(a,t) {
   setLabels(on){labels=on;wake();},
   setReducedMotion(on){const was=reducedMotion;reducedMotion=on;if(on){landed=null;selectionGeneration++;pendingIdle=null;idleOut=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}if(on&&(animation?.runtime||animation?.preparing||animation?.rewind||animation?.value&&typeOf(animation.value)===K&&animation.move.captures.length))endMove();if(on)awakeUntil=0;else if(was){loadClips();reserveSelected(selected);}wake();},
   /** Lay the king on `sq` down (null: nobody); animate=false shows it already fallen. speed: as in play (.5 is twice as fast). */
-  setFallen(sq,animate=true,rotation=-1.5,speed=1){fallen=sq==null?null:{sq,rotation,speed,start:animate?performance.now():-Infinity};if(animate&&sq!=null)demise.prepare();wake();},
+  setFallen(sq,animate=true,rotation=-1.5,speed=1){
+   const value=sq==null?0:position.board[sq];
+   // (A fall that starts before his painted figure or the dust has loaded ends as the rotated figure: no swap in the open.)
+   fallen=sq==null?null:{sq,rotation,speed,start:animate?performance.now():-Infinity,plain:animate&&!(typeOf(value)===K&&lyingArt(kings[colorOf(value)])&&demise.ready)};
+   if(animate&&sq!=null)demise.prepare();wake();
+  },
   /** Backing pixels per board unit (1 = 960 px wide), so the board stays sharp on high-density screens. */
   setResolution(k){if(k===res)return;res=k;canvas.width=fxCanvas.width=Math.round(SIZE*k);canvas.height=fxCanvas.height=Math.round((SIZE+headroom)*k);ctx.setTransform(k,0,0,k,0,0);wake();},
   /**
