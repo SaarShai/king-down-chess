@@ -2,7 +2,7 @@ import type { GameRules } from '../../game-rules';
 import { TAG_POWER, colorOf, typeOf, K, P, type Move, type Position } from '../../rules/engine';
 import { RELEASED_CARDS } from '../../content/cards';
 import type { PaintedScene, SceneEffect } from '../../../docs/2d-first-pieces/board/scene.mjs';
-import { HEROES, drawHero } from './card-hero';
+import { HEROES, drawFreezeCast, drawHero, quakeJolt } from './card-hero';
 import { MOVEMENT_IDS, MOVEMENT_DURATIONS, drawMovement } from './card-movement';
 import { SPELL_DURATIONS, drawSpell } from './card-spell';
 import { drawFreeze, drawIceWall, drawFirewall } from './materials';
@@ -103,7 +103,7 @@ export class CardPlayback implements SceneEffect {
 
   draw(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: CardLayer, row: number | undefined, t: number): void {
     if (t >= 1) return;
-    if (this.local) { this.drawRelease(ctx, scene, layer, row, t * this.duration); return; }
+    if (this.local) { this.drawRelease(ctx, scene, layer, row, t * this.duration); if (this.move.power === 'freeze') drawFreezeCast(ctx, scene, this.move.to, layer, row, t * this.duration); return; }
     const { id, mirror } = this.action, event = this.frame;
     if (layer === 'under' || row === 7) {
       if (HEROES.has(id)) drawHero(ctx, scene, id, event, layer);
@@ -170,6 +170,7 @@ export class CardPlayback implements SceneEffect {
       const lift = airborne ? Math.sin(u * Math.PI) * (id === 'SkyLift' ? 105 : 88) : 0;
       let dx = (b.x - a.x) * u, dy = (b.y - a.y) * u - lift;
       if (id === 'SkyLift') dx += Math.sin(u * Math.PI) * (index ? -24 : 24);
+      if (id === 'EarthQuake') dy -= quakeJolt(t);
       if (id === 'Haste' || id === 'Strike') for (let j = 3; j >= 1; j--) {
         const trail = Math.max(0, u - j * .055);
         ctx.save(); ctx.translate((b.x - a.x) * trail, (b.y - a.y) * trail); scene.ghost(ctx, unit.value, unit.from, .08); ctx.restore();
