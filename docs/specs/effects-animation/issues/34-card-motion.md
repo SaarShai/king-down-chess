@@ -1,6 +1,6 @@
 # Subtle motion in the card art
 
-Status: built. All 12 painted released cards and 9 rule pictures move. Rescue and the card back have motion but no screen shows them.
+Status: built. All 21 released cards show the approved wide paintings of `docs/specs/effects-animation/preview/card-art/wide-review/art/` and move. Rescue and the card back have motion but no screen shows them.
 
 The owner asks for "subtle movements of certain elements" on the cards. A flame flickers, cloth stirs, smoke drifts, a glow breathes, a crystal glints. The card stays still as a whole.
 
@@ -22,15 +22,16 @@ Run its mask script, edit its recipe, then `node tools/card-motion/frames.mjs <d
 
 ## Verification
 
-- `npm run check:browser card-motion`: all 14 recipes compile. Each surface of each card moves. Phase 0 and phase 1 match. The loop stops off screen, in a hidden tab and under Animations Off. Reduced motion leaves each canvas empty.
-- Phone-sized page, 12 tiles and 8 coins, CPU slowed four times in Chromium: 30 draws each second, 1.28 ms of main-thread time each draw, 60 page frames each second, worst gap 16.8 ms. This is not a test on a physical phone.
-- Playwright WebKit passes the same check: 27 draws each second, 52 page frames each second with software GL on a busy machine.
+- `npm run check:browser card-motion`: all 23 recipes compile. Each surface of each card moves. Phase 0 and phase 1 match. The loop stops off screen, in a hidden tab and under Animations Off. Reduced motion leaves each canvas empty.
+- Phone-width page, 21 tiles and 8 coins, CPU slowed four times in Chromium: 30 draws each second, 1.24 ms of main-thread time each draw, 60 page frames each second, worst gap 16.8 ms. This is not a test on a physical phone.
+- Playwright WebKit passed this check on the first 14 recipes: 27 draws each second, 52 page frames each second with software GL on a busy machine.
 - `npm run check:browser plugin-ui`: a painted coin in a real card game draws its motion, with art from the plugin origin in CORS mode.
-- The parent inspected frames and the map of motion for all 14 paintings at sheet, tile and coin size.
+- The parent inspected frames and the map of motion for all 23 paintings at sheet, tile and coin size.
 
 ## Limits
 
 - A device whose frames fall behind 24 ms draws cards at 15 fps. A display that runs at 30 Hz, such as Low Power Mode, does too.
 - A lost WebGL context leaves the still art until the next page load.
-- The nine rule pictures use CSS loops, which the browser does not paint off screen but still schedules.
-- Parked screens: `src/plugin/screens/collection.ts` calls `cardArt`, so it would show motion when it returns. The Workshop keeps its still pictures. Rescue and the card back have recipes but no caller.
+- Sacrifice, Rescue and the card back use the latest drafts, which the review record marks as awaiting feedback.
+- The shaders live in the page, because the host CSP has no connect domain to fetch them. The plugin no longer ships the rule pictures. The Workshop still does.
+- Parked screens: `src/plugin/screens/collection.ts` calls `cardArt`, so it would show motion when it returns. The Workshop keeps its still pictures, and reads the same painting files. Rescue and the card back have recipes but no caller.

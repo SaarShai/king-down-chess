@@ -71,8 +71,8 @@ describe('cardMarks (ticket 14)', () => {
     expect(squares(cardMarks(pos, from, 'Leap'), false)).toBe('d3 d4 d5 d6');
     expect(squares(cardMarks(pos, from, 'Leap'), true)).toBe('d7');
   });
-  it('ships all 14 card pictures as webp, with the A5 paintings (public/ui/cards)', () => {
-    const art = ['back', 'flight', 'freeze', 'haste', 'icewall', 'leap', 'march', 'mimic', 'rescue', 'sacrifice', 'salvation', 'skylift', 'strike', 'vault'];
+  it('ships all 23 card pictures as webp, with the approved wide paintings (public/ui/cards)', () => {
+    const art = ['back', 'burn', 'control', 'curse', 'earthquake', 'firestarter', 'firewall', 'flight', 'freeze', 'haste', 'icewall', 'leap', 'march', 'mimic', 'mirrorb', 'morphp', 'rally', 'rescue', 'sacrifice', 'salvation', 'skylift', 'strike', 'vault'];
     expect(readdirSync('public/ui/cards').sort()).toEqual(art.map(a => `${a}.webp`));
   });
 });

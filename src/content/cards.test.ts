@@ -29,14 +29,11 @@ it('links each released card to its signature fixture and current display name',
   expect(['MirrorB', 'MorphP', 'EarthQuake', 'SkyLift'].map(id => RELEASED_CARDS.find(card => card.id === id)?.name)).toEqual(['Mirror', 'Morph', 'Earth Quake', 'Sky Lift']);
 });
 
-it('keeps twelve real paintings and nine existing rule pictures', () => {
-  expect(RELEASED_CARDS.filter(card => card.art)).toHaveLength(12);
+it('gives every released card a real painting and keeps a rule picture for each', () => {
   for (const card of RELEASED_CARDS) {
-    if (card.art) expect(readFileSync(new URL(`../../public/${card.art}`, import.meta.url)).toString('ascii', 8, 12), card.id).toBe('WEBP');
-    else {
-      const picture = cardPicture(card.id);
-      expect(picture).toContain(`data-card-picture="${card.id}"`);
-      expect(picture).not.toMatch(/undefined|<text|back.webp/);
-    }
+    expect(readFileSync(new URL(`../../public/${card.art}`, import.meta.url)).toString('ascii', 8, 12), card.id).toBe('WEBP');
+    const picture = cardPicture(card.id);
+    expect(picture).toContain(`data-card-picture="${card.id}"`);
+    expect(picture).not.toMatch(/undefined|<text|back.webp/);
   }
 });

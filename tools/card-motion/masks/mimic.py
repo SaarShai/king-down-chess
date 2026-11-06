@@ -1,48 +1,69 @@
-# R: cape (free at the torn wing and hem, zero on hood and body). G: moonlight (halo, moon, lit plain). B: clouds above y .5, horse shadow below.
+"""Mimic. R: the cape's torn wing and hem (zero on hood and body). G: the moon's glow and the plain it lights. B: the clouds."""
 import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from mask_lib import *
+
 rgb = painting('mimic'); h, s, v = hsv(rgb)
 H, W = v.shape
 y, x = np.mgrid[0:H, 0:W].astype(np.float32); x = (x + .5) / W; y = (y + .5) / H
+
 def ramp(a, b, t):
     u = np.clip((t - a) / (b - a), 0, 1); return u * u * (3 - 2 * u)
+def px(points):
+    """Points read off the 1024 x 576 painting, in painting units."""
+    return [(a / 1024, b / 576) for a, b in points]
 
-# The figure, traced on the painted silhouette.
-outline = [(.31,.36),(.295,.364),(.238,.362),(.19,.35),(.114,.343),(.062,.348),(.043,.364),(.09,.362),(.081,.395),(.124,.381),(.138,.398),(.129,.424),
-  (.062,.45),(.10,.455),(.107,.474),(.10,.507),(.124,.493),(.145,.493),(.119,.545),(.176,.512),(.176,.531),(.195,.545),(.21,.531),(.252,.536),(.245,.564),
-  (.264,.574),(.257,.602),(.286,.598),(.348,.583),(.39,.617),(.443,.607),(.471,.60),(.464,.555),(.476,.524),(.495,.521),(.495,.507),(.476,.44),(.46,.35),(.456,.285),(.447,.25),(.42,.195),(.40,.195),(.358,.25),(.348,.28),(.33,.31)]
-figure = polygon(rgb, outline)
+# The whole figure, traced on the painted silhouette, hood to hem.
+figure = polygon(rgb, px([(392,126),(408,128),(420,160),(423,178),(430,205),(445,270),(455,325),(447,335),(442,385),(415,392),(360,394),(320,386),(282,382),(284,370),
+                          (262,368),(268,345),(240,342),(205,352),(218,322),(165,340),(180,312),(155,294),(205,272),(165,240),(205,225),(270,222),(320,232),(345,185),(362,168),(372,145)]))
+# Cape cloth is red to wine; the plain and the mountains behind it are blue to violet.
+wine = (h > .84) | (h < .08)
+cloth_paint = figure * wine * (s > .25)
+cloth_paint = soften(cloth_paint, 1, .6)
+cloth_paint = (cloth_paint > .5) * figure
 
-# Cape: weight grows with the distance from the still body. Left of a line from the shoulder to the feet the wing is free; the hem is free near the ground.
-anchor = .31 + (y - .36) * .375
-wing = ramp(0, .2, anchor - x)
-hem = ramp(.5, .6, y) * .75
-tip = ramp(.465, .495, x) * ramp(.49, .53, y) * .75
-cape = soften(figure, 3, 3) * np.maximum(wing, np.maximum(hem, tip))
+# The free cloth: left of a line from the shoulder to the feet the wing is free; near the ground the hem is free; the hood and the body stay still.
+anchor = .325 + (y - .40) * .22
+wing = ramp(.0, .13, anchor - x) * ramp(.36, .40, y)
+hem = ramp(.565, .635, y) * .8
+tip = ramp(.415, .442, x) * ramp(.50, .57, y) * .7
+cape = soften(cloth_paint, 3, 2) * np.maximum.reduce([wing, hem, tip])
 
-# Moon and its light.
-moon_c = (.7214, .161); r = .131
-dist = np.hypot(x - moon_c[0], y - moon_c[1])
-disc = dist < r
-mountain = soften(polygon(rgb, [(0,.12),(1,.12),(1,.5),(0,.5)]) * (h < .712) * (v < .9), 0, .7) > .4
-hold = soften(figure, 1, 4)
-halo = np.where(disc, .5, np.exp(-(dist - r) / .075)) * ramp(.3, .16, dist - r)
-halo = soften(halo, 0, 1.5) * (1 - hold) * (1 - .6 * soften(mountain, 0, 2))
-lit = polygon(rgb, [(.38,.46),(1,.46),(1,.74),(.38,.74)]) * (v > .62) * (h > .72) * (h < .86) * (1 - figure)
-lit = soften(lit, 0, 1.5) * np.exp(-((x - .66) / .24) ** 2 - ((y - .55) / .11) ** 2)
+# The rocks left of the wing stay still.
+rocks = polygon(rgb, px([(0,285),(70,280),(110,300),(150,318),(195,338),(190,352),(120,358),(0,360)]))
+cape = cape * (1 - soften(rocks, 0, 1.5))
+
+# The moon. x runs 16/9 as far on screen as y, so the disc and its halo are round in these units.
+sx = (x - .7305) * 16 / 9; sy = y - .160
+dist = np.hypot(sx, sy)
+R = .147
+disc = dist < R
+
+# Everything that stands in front of the sky: the mountain ridge, traced, and the hood.
+ground = polygon(rgb, px([(0,155),(42,132),(70,147),(90,125),(132,85),(162,120),(175,120),(205,92),(220,95),(265,65),(295,110),(310,107),(330,145),(352,146),(368,165),(380,190),
+                          (430,195),(450,197),(482,212),(532,182),(554,200),(577,225),(602,235),(637,222),(672,230),(712,250),(747,255),(787,230),(822,235),(869,202),(902,220),(942,172),(977,146),(1012,175),(1024,178),
+                          (1024,576),(0,576)]))
+hood = soften(figure, 5, 3)
+stand = np.maximum(soften(ground, 5, 2.5), hood)
+
+# Moon's glow: full at the rim, gone by a third of the sky's height. Clouds take the light; mountains and the figure do not.
+halo = np.exp(-np.maximum(dist - R, 0) / .07) * ramp(.34, .17, dist - R)
+halo = halo * (1 - soften(ground, 1, 1.5)) * (1 - hood)
+# The plain's bright band below the moon: its lit paint only, so the horse shadow stays dark.
+lit = (y > .5) * (v > .55) * (h > .68) * (h < .84) * (1 - figure)
+lit = soften(lit, 0, 1) * np.exp(-((x - .66) / .22) ** 2 - ((y - .56) / .07) ** 2) * .45
 light = np.maximum(halo, lit)
 
-# Clouds: their paint keyed by colour, moved only clear of the mountains, the figure and the moon's free rim.
-sky = polygon(rgb, [(0,0),(1,0),(1,.47),(0,.47)])
-cloud = sky * (h > .70) * (h < .92) * (v > .52) * (s > .4) * (dist > r + .05)
-cloud = np.maximum(cloud, sky * (h > .70) * (h < .92) * (v > .52) * (s > .4) * (y > .235) * (x < .74) * ~disc)
-rim = disc & ~((x < .74) & (y > .24))
-cloud = soften(cloud, 4, 4) * (1 - soften(mountain, 5, 4)) * (1 - soften(figure, 5, 4)) * (1 - soften(rim, 4, 3))
+# Clouds: their paint against the dark sky. The sky is dark blue with stars, so first take the stars away with a median, then key the brighter, redder cloud paint.
+def median(a, n):
+    return np.asarray(Image.fromarray(np.uint8(np.clip(a, 0, 1) * 255)).filter(ImageFilter.MedianFilter(n)), dtype=np.float32) / 255
+vm = median(v, 7); rm = median(rgb[..., 0], 7)
+body = np.maximum(ramp(.47, .54, vm), ramp(.24, .30, rm))
+# Keep the lit haze low on the ridges out: only the sky above the ridge counts.
+sky = 1 - ground
+cloud = soften(sky * body, 2, 2)
+rim = soften(dist < R + .012, 3, 2)
+# Stars in the dark sky stay fixed: the flat sky around them can hold a hole in the mask without any visible stretch.
+stars = (v - vm > .08) * (vm < .5)
+clouds = cloud * (1 - stand) * (1 - rim) * (1 - soften(stars, 2, 1))
 
-# Horse shadow: the mane's strands, and a faint weight on the barrel for its breath.
-mane = polygon(rgb, [(.495,.665),(.52,.645),(.58,.622),(.63,.592),(.69,.568),(.75,.56),(.76,.60),(.70,.63),(.64,.665),(.60,.70),(.54,.705),(.495,.70)])
-barrel = np.exp(-((x - .70) / .10) ** 2 - ((y - .67) / .085) ** 2)
-horse = np.maximum(soften(mane, 2, 3), barrel * .7 * ramp(.62, .66, y))
-
-blue = np.where(y < .5, cloud, horse)
-save('mimic', cape, light, blue)
+save('mimic', cape, light, clouds)

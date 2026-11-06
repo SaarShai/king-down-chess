@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-SIDE = 256  # The map's long side. The map keeps the painting's shape: the runtime reads the painting's shape from it.
+SIDE = 384  # The map's long side. The map keeps the painting's shape: the runtime reads the painting's shape from it.
 
 def painting(card):
     """The painting as float RGB (0 to 1), resized to the map."""

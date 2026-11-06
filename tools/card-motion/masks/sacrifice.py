@@ -1,39 +1,59 @@
+"""Sacrifice. R: the banners, tight at the pole and free at the tail. G: the sky's clouds, the sun's air and the sun's light on the water. B: 1 in the shell's broken inside (warm light), about .45 in the air round the shell (dust)."""
 import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from mask_lib import *
+
 rgb = painting('sacrifice'); h, s, v = hsv(rgb)
-W, H = 491, 512  # The polygons below are in painting pixels, read from enlarged crops.
-def poly(*pts): return polygon(rgb, [(x / W, y / H) for x, y in pts])
+H, W = v.shape
+Y, X = np.mgrid[0:H, 0:W]
+x, y = (X + .5) / W, (Y + .5) / H
 
-blade = poly((124,184),(175,230),(207,256),(240,285),(280,312),(311,340),(300,341),(260,325),(225,300),(185,267),(142,230),(105,195))
-arm = poly((22,150),(30,118),(60,108),(100,116),(160,133),(360,148),(400,118),(440,102),(491,98),(491,225),(415,222),(290,215),(200,197),(130,186),(95,194),(40,198))
-helmet = poly((430,0),(491,0),(491,110),(435,110))
-body = poly((395,100),(491,100),(491,512),(372,512),(382,440),(394,330),(400,230))
+def ramp(a, b): return np.clip((y - a) / (b - a), 0, 1)
+def fall(a, b): return 1 - ramp(a, b)
+# The centre crop's pixels: 3x enlargement of x .36 to .68, y .05 to .85 at 1024 x 576.
+def C(*pts): return polygon(rgb, [(.36 + a / 3072, .05 + b / 1728) for a, b in pts])
 
-# R: the thin fire. Colour key inside tight boxes round each lick; the blade's grey is below the saturation limit.
-fire_zone = np.clip(
-    poly((132,224),(150,226),(190,262),(190,272),(160,264),(138,246))
-    + poly((176,232),(190,230),(212,254),(204,258))
-    + poly((183,262),(205,260),(252,284),(246,292),(205,276))
-    + poly((226,296),(248,300),(290,334),(280,342),(250,332)), 0, 1)
-key = (s > .62) & (v > .55) & (((h > .02) & (h < .15)))
-fire = fire_zone * key
-fire = soften(fire, 1, 1.2)
+# R: each banner, traced from the enlarged crops with its gold edge. The sides grow past the cloth so that its edges may move.
+big = polygon(rgb, [(.884,.157),(.928,.150),(.928,.375),(.918,.415),(.905,.445),(.896,.42),(.886,.375)])
+far = polygon(rgb, [(.960,.0),(1.,.0),(1.,.312),(.985,.362),(.973,.33),(.960,.288)])
+left = polygon(rgb, [(0,.338),(.052,.338),(.054,.42),(.052,.512),(0,.512)])
+small = polygon(rgb, [(.800,.235),(.819,.235),(.820,.36),(.812,.40),(.801,.37)])
+banners = np.maximum.reduce([
+    soften(big, 2, 1.5) * ramp(.16, .30),
+    soften(far, 2, 1.5) * ramp(.01, .20),
+    soften(left, 2, 1.5) * ramp(.34, .42) * fall(.47, .515),
+    soften(small, 1, 1.2) * ramp(.24, .32) * .7,
+])
 
-# G: the air round the blade, where the light breathes and the embers rise. It keeps off the arm.
-air = poly((130,205),(250,225),(345,300),(335,360),(270,350),(170,270),(120,225))
-air = soften(air, 0, 7) * (1 - soften(arm, 1, 2))
+# The pawn's shell, its fragments and the rook: nothing here moves, and dust passes behind them.
+solid = np.maximum.reduce([
+    C((470,2),(560,18),(640,75),(690,170),(688,270),(640,380),(752,440),(750,500),(712,525),(714,570),(685,572),(660,540),(668,640),(652,780),(720,830),(790,830),(860,920),(880,1040),(860,1160),(800,1230),(990,1290),(990,1390),(0,1390),(0,1090),(250,1030),(150,860),(158,720),(185,620),(232,558),(300,590),(300,490),(245,470),(255,420),(310,385),(255,270),(262,160),(330,60),(400,18)),
+    C((752,690),(790,632),(826,690),(800,752),(760,720)),
+    C((65,990),(105,930),(146,985),(100,1052),(70,1030)),
+    C((640,370),(700,370),(752,440),(750,500),(712,525),(660,450)),
+])
+solid = soften(solid, 1, 1)
 
-# B: the bands of cloud, with some sky round them so the edges can move. Never the blade, the arm or the body.
-clouds = np.clip(
-    poly((0,28),(235,38),(235,95),(0,105))
-    + poly((285,52),(378,52),(378,78),(285,78))
-    + poly((135,84),(425,84),(425,115),(135,112))
-    + poly((0,195),(75,195),(75,222),(0,222))
-    + poly((25,270),(180,262),(300,250),(415,250),(415,305),(180,305),(25,305))
-    + poly((0,340),(250,340),(250,405),(0,410))
-    + poly((0,405),(345,405),(345,478),(0,482))
-    + poly((35,478),(395,478),(395,512),(35,512)), 0, 1)
-keep_off = np.clip(soften(blade, 3, 1) + soften(arm, 1, 1) + soften(helmet, 1, 1) + soften(body, 1, 1) + soften(fire_zone, 2, 1), 0, 1)
-clouds = soften(clouds, 0, 5) * (1 - soften(keep_off, 1, 3))
+# B: the broken inside of the shell, by its saturated gold. The rook's pale marble keeps out.
+rook = C((345,545),(605,545),(608,650),(590,690),(570,800),(575,900),(620,965),(650,1040),(680,1100),(250,1100),(300,1040),(340,960),(375,900),(382,800),(370,690),(345,650))
+inside = np.maximum.reduce([
+    C((345,540),(400,520),(440,470),(560,495),(640,505),(650,560),(660,620),(640,680),(612,770),(575,810),(590,690),(608,650),(605,545)),
+    C((575,810),(640,850),(720,880),(780,920),(770,1000),(690,1080),(650,1040),(620,965),(575,900)),
+    C((372,700),(330,770),(280,830),(260,900),(320,1010),(345,960),(375,900),(382,800)),
+    C((610,100),(560,170),(520,250),(480,330),(540,372),(590,290),(600,180)),
+])
+gold = (s > .45) & (h > .04) & (h < .14)
+inside = soften(inside * gold * (1 - rook), 1, 1.5)
 
-save('sacrifice', fire, air, clouds)
+# The dust stays close to the shell: a ring round it, wider at the sides where the painting already has dust, and above the wall.
+ring = soften(solid, 15, 6)
+air = ring * (1 - solid) * ramp(.18, .27) * fall(.57, .66)
+ivory = np.maximum(air * .45, inside)
+
+# G: the sky above the ridge. It keeps off the towers, the shell and the dust. The water's light lies below it.
+sky = polygon(rgb, [(0,0),(.95,0),(.875,.145),(.875,.34),(.785,.34),(.78,.20),(.74,.20),(.74,.33),(.70,.42),(.64,.41),(.40,.42),(.34,.435),(.26,.43),(.20,.40),(.14,.40),(.10,.34),(.06,.34),(.06,.27),(0,.27)])
+keep_off = np.maximum(solid, soften(air, 2, 3))
+sky = soften(sky, 0, 2) * (1 - soften(keep_off, 3, 3))
+water = soften(polygon(rgb, [(.255,.548),(.33,.548),(.335,.58),(.25,.58)]) * (v > .62), 2, 2.5) * .9
+air_water = np.maximum(sky, water)
+
+save('sacrifice', banners, air_water, ivory)

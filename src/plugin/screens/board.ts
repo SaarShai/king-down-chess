@@ -17,7 +17,6 @@ import type { DraftPosition, DraftPreview, PlayerRecord, View } from '../../matc
 import { ending } from '../ending';
 import { board, disposeBoard, highlight } from '../board-view';
 import { art, symbols } from '../../account-game/art';
-import { cardSymbol } from '../../card-symbol';
 import { cardArt } from '../card-face';
 import { motionTag } from '../card-motion/tag';
 import { cardDiagram } from '../../card-diagram';
@@ -519,7 +518,6 @@ export function boardScreen(store: Store) {
         b.setAttribute('aria-label', (mine ? 'Your ' : "Opponent's ") + cardName(card.card) + (card.spent ? ', spent' : ''));
         const paint = document.createElement('span'); paint.className = 'coin-paint'; b.append(paint);
         if (face) { image.src = face; image.alt = ''; paint.append(image); if (!card.spent) paint.insertAdjacentHTML('beforeend', motionTag(card.card, face)); }
-        else paint.innerHTML = cardSymbol(card.card);
         row.append(b);
         motion.play(b, [{ opacity: 0, transform: `translateY(16px) rotate(${(index - 1.5) * 9}deg) scale(.9)` }, { opacity: 1, transform: 'translateY(0) rotate(0) scale(1)' }], 500, 150 + index * 130, dealtAt);
         // Freeze and Firewall release their material at the card itself (ticket 86); the board shows where it lands.
