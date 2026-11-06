@@ -1,10 +1,11 @@
 import { StateEffects } from './effects/states';
 import { drawBoardEffects } from './effects/board-effects';
 import { GameRules } from '../game-rules';
-import { cardPlayback, type CardPlayback } from './effects/card';
+import { cardPlayback, keepsLiveStates, type CardPlayback } from './effects/card';
 import { PromotionPlayback, loadAscension } from './effects/promotion';
 import { drawWithdrawal } from './effects/check';
 import { moveOverlay, type MoveOverlay } from './effects/move-overlay';
+import { loadDarkGate } from './effects/dark-gate';
 import type { TailedOverlay } from './effects/power-overlays';
 import { createScene, type KingDesign, type PaintedScene } from './painted/scene.mjs';
 import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, S, T, colorOf, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
@@ -59,7 +60,10 @@ const HEADROOM = 64;
 /** The painted 2D look: the board trial's figures and capture animations driving the real game. */
 export class PaintedView implements BoardView {
   context = new GameRules();
-  setRules(context: GameRules): void { this.context = context; }
+  setRules(context: GameRules): void {
+    this.context = context;
+    if (context.rules.kings.some(king => king?.power === 'Darkness')) loadDarkGate();
+  }
   onSquareClick: (sq: number, shift: boolean) => void = () => {};
   onDragSelect: (sq: number) => void = () => {};
   onSquareHover: (sq: number | null) => void = () => {};
@@ -212,7 +216,9 @@ export class PaintedView implements BoardView {
   }
 
   private fallRotation(sq: number | null): number {
-    return this.options.webInk && sq != null && this.scene.cell(sq).col === 7 ? 1.5 : -1.5;
+    const col = sq == null ? -1 : this.scene.cell(sq).col, value = sq == null ? 0 : this.pos?.board[sq] ?? 0;
+    // White faces right and black left, so the same rotation falls opposite ways. On an edge column he falls inward.
+    return col === 0 || col === 7 ? (col === 0 ? 1.5 : -1.5) * (value && colorOf(value) ? -1 : 1) : -1.5;
   }
 
   async animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number): Promise<void> {
@@ -229,6 +235,9 @@ export class PaintedView implements BoardView {
       this.stateEffects.withdrawn = withdrawn;
       if (!this.motion() || document.hidden) return;
       this.card = card;
+      // The Mercy hop keeps the live shelters, so they fade as they do under his walk.
+      const moving = keepsLiveStates(card.action.id) ? new Set([m.from, m.to]) : undefined;
+      this.moveSquares = moving;
       try {
         const completed = await this.scene.play(m, { effect: card, onContact, speed: speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed });
         if (completed && this.card === card) {
@@ -238,6 +247,7 @@ export class PaintedView implements BoardView {
         }
       } finally {
         if (this.card === card) this.card = null;
+        if (moving && this.moveSquares === moving) this.moveSquares = undefined;
       }
       return;
     }
@@ -415,14 +425,15 @@ export class PaintedView implements BoardView {
       ink: this.options.webInk ? boardInk(this.width) : undefined,
     }, row);
     const now = performance.now();
-    if (this.card && layer === 'under') this.cardStates.sync(this.context, this.card.shown, now, false);
+    const cardStates = !!this.card && !keepsLiveStates(this.card.action.id);
+    if (cardStates && layer === 'under') this.cardStates.sync(this.context, this.card!.shown, now, false);
     // A card that ends check: its withdrawal belongs to the live board's state, not to the card's shown frames.
     const cardWithdrawal = this.card && layer === 'under' ? this.stateEffects.withdrawal(now, this.motion() && !document.hidden) : undefined;
     if (cardWithdrawal) drawWithdrawal(ctx, scene, cardWithdrawal.king, cardWithdrawal.progress);
     // Keep unaffected states visible during playback. The scene owns moving figures and their material.
-    drawBoardEffects(ctx, scene, layer, row, this.card ? this.cardStates : this.stateEffects, scene.animating ? {} : m,
+    drawBoardEffects(ctx, scene, layer, row, cardStates ? this.cardStates : this.stateEffects, scene.animating ? {} : m,
       this.width, now, this.motion() && !document.hidden, !!this.symbols, scene.animating ? null : this.hovered ?? this.cursor, piece,
-      this.card ? undefined : this.moveSquares, this.pos?.board);
+      cardStates ? undefined : this.moveSquares, this.pos?.board);
     // The frame that ends the move has no action clock yet no tail either: it holds the last time, so the material never blinks.
     if (this.overlay) {
       this.overlayMs = scene.actionElapsed ?? this.overlayMs;

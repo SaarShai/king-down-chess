@@ -5,7 +5,9 @@ import type { PaintedScene, SceneEffect } from '../painted/scene.mjs';
 import { HEROES, drawFreezeCast, drawHero, quakeJolt } from './card-hero';
 import { AIR_IDS, AIR_LANDS, AIR_SETTLED, MOVEMENT_IDS, MOVEMENT_DURATIONS, airPose, drawMovement } from './card-movement';
 import { SPELL_DURATIONS, drawRising, drawSpell } from './card-spell';
+import { DARK_LEAVES, DARK_SINK_MS, drawDarkSink } from './dark-gate';
 import { drawFreeze, drawIceWall, drawFirewall } from './materials';
+import { needsPower } from './special-overlays';
 import type { CardFrame, CardLayer } from './card-types';
 
 const released = new Set(RELEASED_CARDS.map(card => card.id));
@@ -15,7 +17,7 @@ const released = new Set(RELEASED_CARDS.map(card => card.id));
  */
 export const CAST_PREPARE_MS = 125;
 const LOCAL = new Set(['Freeze', 'Firewall']);
-const durations: Record<string, number> = { Burn: 1500, Freeze: 1600, EarthQuake: 1650, ...MOVEMENT_DURATIONS, ...SPELL_DURATIONS };
+const durations: Record<string, number> = { Burn: 1500, Freeze: 1600, EarthQuake: 1650, ...MOVEMENT_DURATIONS, ...SPELL_DURATIONS, DarkSink: DARK_SINK_MS };
 const clamp = (t: number) => Math.max(0, Math.min(1, t));
 const ease = (t: number) => { t = clamp(t); return t * t * (3 - 2 * t); };
 
@@ -39,9 +41,32 @@ const WALKS = new Set(['Strike', 'FireStarter', 'Haste', 'Rally', 'March']);
 const keepsRealMotion = (before: Position, move: Move, action: { id: string; mirror: boolean }) => !action.mirror
   && (WALKS.has(action.id) || (action.id === 'Flight' && [N, L].includes(typeOf(before.board[move.from]))));
 
-export function cardAction(_context: GameRules, before: Position, move: Move): ReturnType<typeof actionOf> {
+/** The Mercy king jumps a piece in his two-square path. A walk would cross that figure, so he goes through the air. */
+function mercyHop(context: GameRules, before: Position, move: Move): ReturnType<typeof actionOf> {
+  const value = before.board[move.from];
+  if (move.pass || move.power || move.castle || typeOf(value) !== K || context.rules.kings[colorOf(value)]?.power !== 'Mercy') return null;
+  const dx = (move.to & 7) - (move.from & 7), dy = (move.to >> 3) - (move.from >> 3);
+  if (Math.max(Math.abs(dx), Math.abs(dy)) !== 2 || dx % 2 || dy % 2) return null;
+  return before.board[(move.from + move.to) / 2] ? { id: 'MercyHop', mirror: false, index: 0 } : null;
+}
+
+/** A quiet Darkness step goes through the floor. A capture or a promotion keeps its real motion and has DarkGrip. */
+function darkSink(context: GameRules, before: Position, move: Move): ReturnType<typeof actionOf> {
+  const value = before.board[move.from];
+  if (!value || move.pass || move.power || move.castle || move.promo || move.drop !== undefined || move.pushes || move.shove || move.swap || move.captures.length) return null;
+  if (context.rules.kings[colorOf(value)]?.power !== 'Darkness' || ![K, P].includes(typeOf(value))) return null;
+  return needsPower(context, before, move) ? { id: 'DarkSink', mirror: false, index: 0 } : null;
+}
+
+/** These replace the walk with their own route but keep the live board states, which fade as they do under a walk. */
+export const keepsLiveStates = (id: string) => id === 'MercyHop' || id === 'DarkSink';
+
+export function cardAction(context: GameRules, before: Position, move: Move): ReturnType<typeof actionOf> {
+  const hop = mercyHop(context, before, move);
+  if (hop) return hop;
   const action = actionOf(before, move);
-  return action && !keepsRealMotion(before, move, action) ? action : null;
+  if (action) return keepsRealMotion(before, move, action) ? null : action;
+  return darkSink(context, before, move);
 }
 
 export function walkAction(_context: GameRules, before: Position, move: Move): ReturnType<typeof actionOf> {
@@ -116,7 +141,7 @@ export class CardPlayback implements SceneEffect {
     for (const unit of this.units) this.travelBoard[unit.from] = 0;
     this.replaceBoard = new Uint8Array(this.travelBoard);
     if (move.promo || move.drop) this.replaceBoard[move.from] = 0;
-    this.air = AIR_IDS.has(action.id) && !action.mirror;
+    this.air = (AIR_IDS.has(action.id) || action.id === 'DarkSink') && !action.mirror;
     this.landBoard = new Uint8Array(this.after.board);
     for (const unit of this.units) this.landBoard[unit.to] = 0;
   }
@@ -127,7 +152,7 @@ export class CardPlayback implements SceneEffect {
     this.frame.t = t;
     this.frame.travel = ease((t - .22) / .4);
     const board = this.air
-      ? (t >= AIR_SETTLED ? this.after.board : t >= AIR_LANDS ? this.landBoard : t > 0 ? this.travelBoard : this.before.board)
+      ? (t >= AIR_SETTLED ? this.after.board : t >= AIR_LANDS ? this.landBoard : t > (this.action.id === 'DarkSink' ? DARK_LEAVES : 0) ? this.travelBoard : this.before.board)
       : t >= .62 ? this.after.board : t > .35 ? this.replaceBoard : t > .22 ? this.travelBoard : this.before.board;
     // The card draws its new material through the onset. Other states follow the displayed figures.
     const newMark = ['freeze', 'ward', 'firewall'].includes(this.move.power ?? '');
@@ -143,6 +168,11 @@ export class CardPlayback implements SceneEffect {
     if (t >= 1) return;
     if (this.local) { this.drawRelease(ctx, scene, layer, row, t * this.duration); if (this.move.power === 'freeze') drawFreezeCast(ctx, scene, this.move.to, layer, row, t * this.duration); return; }
     const { id, mirror } = this.action, event = this.frame;
+    if (id === 'DarkSink') {
+      const unit = this.units[0];
+      drawDarkSink(ctx, withoutShadow, scene, unit.value, unit.from, unit.to, layer, row, t);
+      return;
+    }
     if (this.air && layer === 'over') this.drawAirborne(ctx, scene, row);
     if (layer === 'under' || row === 7) {
       if (HEROES.has(id)) drawHero(ctx, scene, id, event, layer);

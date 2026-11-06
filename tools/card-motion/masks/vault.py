@@ -1,56 +1,75 @@
+"""Hop. R: the loose leaves in the air and the blurred leaves in the near corners. G: the ivy on the wall. B: the sun's glow on the sky and clouds."""
 import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from mask_lib import *
-from math import cos, sin, radians
+
 rgb = painting('vault'); h, s, v = hsv(rgb)
+H, W = v.shape
 
-def poly(*points):
-    """Polygon in the 1024 px grid used to read the painting."""
-    return polygon(rgb, [(x / 1024, y / 1024) for x, y in points])
+def grow(mask, n):
+    return np.asarray(Image.fromarray(np.uint8(np.clip(mask, 0, 1) * 255)).filter(ImageFilter.MaxFilter(n * 2 + 1)), dtype=np.float32) / 255
+def shrink(mask, n):
+    return np.asarray(Image.fromarray(np.uint8(np.clip(mask, 0, 1) * 255)).filter(ImageFilter.MinFilter(n * 2 + 1)), dtype=np.float32) / 255
 
-def union(*masks):
-    return np.maximum.reduce(masks)
+# Loose leaves, traced on enlarged crops. Upper crop: x = px / 2048, y = .05 + py / 1152. Lower crop: x = .2 + px / 2048, y = .45 + py / 1152.
+def upper(*pts): return polygon(rgb, [(x / 2048, .05 + y / 1152) for x, y in pts])
+def lower(*pts): return polygon(rgb, [(.2 + x / 2048, .45 + y / 1152) for x, y in pts])
+air = np.maximum.reduce([
+    upper((100,135),(135,85),(210,65),(290,72),(240,115),(215,145),(160,155),(105,145)),
+    upper((240,222),(300,222),(340,245),(352,280),(300,270),(262,252)),
+    upper((385,282),(440,290),(480,320),(500,340),(485,360),(440,350),(410,325)),
+    upper((5,315),(60,315),(100,340),(130,370),(150,405),(110,395),(70,370),(30,340)),
+    upper((535,215),(560,222),(582,248),(555,235)),
+    upper((585,265),(610,270),(612,290),(595,283)),
+    upper((518,365),(560,372),(590,395),(598,428),(560,420),(530,395)),
+    upper((600,385),(630,405),(680,420),(710,440),(730,495),(690,470),(650,445),(615,410)),
+    upper((690,335),(730,340),(755,365),(755,378),(720,365)),
+    upper((842,345),(860,350),(877,367),(855,362)),
+    upper((885,188),(915,190),(938,220),(910,215)),
+    upper((932,258),(960,262),(978,283),(950,280)),
+    lower((395,180),(430,185),(455,200),(460,225),(430,243),(412,220)),
+    lower((470,270),(510,278),(540,300),(558,335),(520,325),(490,305)),
+    lower((755,408),(800,415),(840,450),(875,480),(875,520),(850,505),(800,480),(770,440)),
+    lower((160,525),(205,545),(240,600),(200,585),(170,555)),
+])
+# The flying stones next to the leaf under the stag must not bend.
+stones = polygon(rgb, [(.355,.625),(.393,.625),(.393,.675),(.355,.675)])
+# The stag's two back legs and antlers lie next to leaves: the margin of a leaf must stop short of them.
+stag_near = np.maximum.reduce([
+    lower((250,140),(268,92),(300,82),(360,16),(420,-4),(402,36),(352,92),(302,134)),
+    lower((296,194),(318,146),(344,136),(410,56),(590,36),(572,68),(492,94),(412,104),(372,154),(342,190)),
+    polygon(rgb, [(.484,.16),(.56,.16),(.56,.30),(.484,.30)]),
+])
+keep = soften(np.maximum(stones, stag_near), 1, 1)
+leaves = soften(air, 4, 2) * (1 - keep * (1 - soften(air, 0, .6)))
 
-def ellipse(cx, cy, rx, ry, turn=0):
-    a, b = radians(turn), [radians(i * 15) for i in range(24)]
-    return poly(*[(cx + rx * cos(i) * cos(a) - ry * sin(i) * sin(a), cy + rx * cos(i) * sin(a) + ry * sin(i) * cos(a)) for i in b])
+# The big blurred leaves in the near corners sway softly; their blur hides the soft mask.
+near = np.maximum(
+    polygon(rgb, [(0,.70),(.06,.70),(.10,.76),(.17,.84),(.165,.92),(.14,1),(0,1)]),
+    polygon(rgb, [(.875,1),(.89,.93),(.93,.86),(1,.81),(1,1)]))
+r = np.maximum(leaves, soften(near, 0, 4) * .8)
 
-# Keep the stag and the stone out of the moving paint.
-stag = poly((360,395),(375,365),(470,335),(600,285),(645,255),(830,250),(830,400),(860,440),(840,520),(740,590),(720,560),(770,520),(790,460),(720,500),(660,545),(660,510),(700,480),(500,470),(400,520),(300,620),(240,655),(235,625),(290,590),(330,530),(360,490),(340,470),(280,510),(230,570),(190,600),(190,560),(260,470),(305,432))
-# The polygon sits a little inside the painted edge; the colour key finds the rest of the hide.
-stag = np.maximum(stag, soften(stag, 5, 0) * (h < .12) * (s > .4) * (v < .8))
-rock = (s < .35) & (v < .72) & (poly((0,380),(620,540),(620,1024),(0,1024)) > 0)
-wall = poly((400,720),(528,682),(538,770),(548,850),(640,880),(640,1024),(380,1024))
+# The ivy: leaf colour inside the clumps. Stone and grass stay out.
+clumps = np.maximum.reduce([
+    polygon(rgb, [(0,.47),(.08,.47),(.13,.56),(.17,.63),(.17,.70),(.09,.68),(0,.66)]),
+    polygon(rgb, [(.18,.65),(.25,.66),(.285,.72),(.30,.80),(.28,.875),(.23,.86),(.19,.79),(.165,.70)]),
+    polygon(rgb, [(.30,.73),(.375,.72),(.41,.80),(.40,.88),(.41,.965),(.345,.965),(.315,.90),(.295,.81)]),
+    polygon(rgb, [(.44,.82),(.495,.80),(.525,.86),(.515,.96),(.475,.985),(.445,.92)]),
+    polygon(rgb, [(.53,.885),(.585,.885),(.62,.95),(.62,1),(.54,1)]),
+])
+leafy = (h > .13) & (h < .42) & (s > .38)
+ivy = shrink(grow(clumps * leafy, 1), 1) * clumps
+stone = (s < .33) | ((h < .125) & (v > .3))
+g = soften(ivy, 0, 1.2) * (1 - soften(shrink(stone * 1., 1) * clumps, 0, .8)) * (1 - near)
 
-# R: the loose leaves, whole, with a margin of sky so that the leaf moves and only the sky bends.
-leaves = union(*[ellipse(*e) for e in [
-    (100,138,74,34,-14), (28,208,38,18), (80,280,24,16,20), (130,288,28,24,40), (202,290,25,17,20),
-    (264,344,38,30,-30), (300,387,36,20,20), (370,319,18,16), (428,258,36,19,16), (422,33,24,14,15),
-    (435,584,34,38), (527,561,28,16,8), (570,733,30,13,-8), (566,760,20,20,40), (635,737,18,18),
-    (622,812,30,18,50), (850,897,28,16,-5)]])
-# The rocks near the leaves, sunlit faces too: the colour key finds only their dark faces.
-rocks = union(ellipse(472,620,18,20), ellipse(413,660,34,26), poly((0,320),(60,318),(98,350),(98,400),(0,400)))
-keep_out = soften(np.maximum(np.maximum(stag, wall), np.maximum(rocks, rock * 1.)), 2, 1)
-r = soften(leaves, 5, 3) * (1 - keep_out * (1 - soften(leaves, 0, 1)))  # A leaf's own dark paint must not cut the leaf.
-
-# G: the streaks of cream light, with a low soft halo on the sky round them. No stag, stone, leaf or cloud.
-ways = union(
-    poly((275,285),(610,170),(650,195),(630,225),(290,315)),
-    poly((105,365),(320,285),(350,300),(340,330),(130,400)),
-    poly((345,340),(640,250),(650,268),(600,278),(470,328),(375,360),(355,375)),
-    poly((165,490),(200,420),(355,365),(375,390),(345,425),(290,435),(250,470),(210,530),(170,570)),
-    poly((440,560),(680,478),(690,495),(460,585)),
-    poly((300,590),(400,505),(460,510),(470,570),(360,670),(330,640)))
-cream = (h > .09) & (h < .31) & (s < .6) & (v > .7)
-core = ways * cream * (1 - stag)
-g = np.maximum(soften(core, 0, 1), .6 * soften(core, 2, 4)) * (1 - soften(stag, 0, 1)) * (1 - soften(rock * 1., 0, 1))
-
-# B: the ivy on the wall. Leaf colour only, so that the stone stays still.
-vines = union(
-    poly((0,360),(135,360),(135,400),(90,500),(85,610),(200,640),(290,720),(285,790),(190,835),(110,780),(0,740)),
-    poly((375,730),(420,730),(460,790),(545,830),(545,1000),(390,1000),(400,880)),
-    poly((615,880),(720,900),(720,1024),(630,1024)),
-    poly((795,925),(880,960),(870,1024),(790,1024)))
-ivy = vines * (h > .13) * (h < .42) * (s > .35)
-b = soften(ivy, 1, 1) * (1 - soften(leaves, 1, 1))
+# The glow: a wide pool round the sun, only on bright sky and cloud. The stag and mountains stay out.
+y, x = np.mgrid[0:H, 0:W]
+d = np.hypot((x + .5) / W - .843, ((y + .5) / H - .454) * 9 / 16)
+pool = np.exp(-(d / .16) ** 2)
+sky = np.clip((v - .78) / .12, 0, 1) * np.clip((.62 - s) / .15, 0, 1)
+above = polygon(rgb, [(.63,0),(1,0),(1,.40),(.965,.42),(.92,.44),(.885,.40),(.862,.50),(.80,.57),(.74,.60),(.66,.60),(.63,.58)])
+b = soften(sky * pool * above, 0, 3)
+b = b / b.max()
+stag = polygon(rgb, [(.56,.2),(.665,.2),(.665,.37),(.64,.37),(.64,.60),(.56,.60)])
+b = b * (1 - soften(stag, 1, 2))
 
 save('vault', r, g, b)

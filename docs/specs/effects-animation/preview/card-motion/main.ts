@@ -8,7 +8,7 @@ const names = Object.keys(paintings).map(path => path.split('/').pop()!.replace(
 const frame = (card: string, kind: string, url: string) => `<div class="frame ${kind}" data-kind="${kind}" data-name="${card}"><img src="${url}" alt="">${motionTag(card, url)}</div>`;
 const hrefs = (card: string) => [paintings[`../../../../../public/ui/cards/${card}.webp`], thumbs[`../../../../../src/plugin/assets/card-thumbs/${card}.webp`] ?? paintings[`../../../../../public/ui/cards/${card}.webp`]];
 const released = names.filter(card => card !== 'back' && card !== 'rescue');
-// ?set=1: the most a phone shows at once: twelve tiles and two hands of four coins.
+// ?set=1: the most a phone shows at once: all 21 tiles and two hands of four coins.
 document.getElementById('cards')!.innerHTML = new URLSearchParams(location.search).has('set')
   ? `<div class="row">${released.map(card => frame(card, 'tile', hrefs(card)[1])).join('')}${released.slice(0, 8).map(card => frame(card, 'coin', hrefs(card)[0])).join('')}</div>`
   : names.map(card => {

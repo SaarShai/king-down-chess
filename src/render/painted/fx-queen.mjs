@@ -70,7 +70,7 @@ export function thornAt(t,elapsed,s,out){
 }
 export function createQueenThorns({onLoad=()=>{}}={}){
  let atlas=null,loading=false,plan=null,planKey='';
- const load=()=>{if(loading)return;loading=true;const image=new Image();image.src=ATLAS_URL;image.decode().then(()=>{atlas=image;onLoad();},()=>{loading=false;});};
+ const load=()=>{if(loading)return;loading=true;const image=Object.assign(new Image(),{crossOrigin:'anonymous'});image.src=ATLAS_URL;image.decode().then(()=>{atlas=image;onLoad();},()=>{loading=false;});};
  const planFor=o=>{const key=`${o.seed}:${o.origin}:${o.target}:${o.foot}:${o.height}`;if(key!==planKey){plan=makePlan(o);planKey=key;}return plan;};
  const state={},fly={x:0,y:0};
  const sprite=(ctx,r,x,y,w,h)=>ctx.drawImage(atlas,r[0],r[1],r[2],r[3],x,y,w,h);
