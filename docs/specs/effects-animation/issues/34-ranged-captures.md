@@ -1,6 +1,6 @@
 # Ranged captures: the Maester's ray and the Archer's arrow
 
-Status: ready-for-human
+Status: ready-for-review
 Type: task
 
 The owner asks for stronger effects and fitting deaths. Before this change, the published beam showed for 100 ms at about 8 px wide, the arrow was a few specks at game size, and each victim faded in 180 ms.
