@@ -211,7 +211,7 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
       bodyHeightPx: bank.bodyHeightPx == null ? null : bank.bodyHeightPx / 2, bodyTopPx: assets.get(bank.frames[0].sha256).top / 2, boardScale: bank.boardScale == null ? null : bank.boardScale * 2, targetPoint: Array.isArray(bank.targetPoint) ? bank.targetPoint.map(n => n / 2) : null,
       beatTimes: bank.beatTimes ?? {}, effectAnchors: (Array.isArray(bank.effectAnchors) ? bank.effectAnchors : (bank.effectAnchors?.timedframes?.[entry.army] ?? []).map(frame => ({ id: 'contact-bloom', timeMs: frame.timeMs, point: frame.contactBloomAnchor }))).filter(anchor => Array.isArray(anchor.point) && anchor.point.length === 2 && anchor.point.every(Number.isFinite) && Number.isFinite(anchor.timeMs)).map(anchor => ({ id: anchor.id, timeMs: anchor.timeMs, point: anchor.point.map(n => n / 2), ...(anchor.visibility ? { visibility: anchor.visibility } : {}) })),
       contactMs: bank.beatTimes?.contact ?? bank.beatTimes?.contactMs ?? bank.beatTimes?.release ?? bank.frames.find(f => f.phase === 'release' || f.phase === 'contact')?.timeMs ?? null,
-      nearest: sourceFrames === bank.frames && !floor && (entry.kind === 'turn' || sampling.some(s => s === 'nearest')), ...(entry.kind === 'move' ? {strideSquares:bank.strideSquares} : {}), frames });
+      nearest: sourceFrames === bank.frames && !floor && (entry.kind === 'turn' || sampling.some(s => s === 'nearest')), ...(entry.kind === 'move' ? {strideSquares:bank.strideSquares} : {}), ...(bank.contactCorrection ? {contactCorrection:bank.contactCorrection} : {}), frames });
   }
   for (const bank of banks.filter(b => b.kind === 'idle')) {
     const hash = bank.frames[0].sourceSha256;
