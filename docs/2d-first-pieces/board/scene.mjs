@@ -699,12 +699,12 @@ function vortex(out,foot,phase,strength) {
    const s=bishop.SLASH,tipWorld=ms=>world(bishop.tipAt(bishop.slashAngle(ms),colorOf(a.value)),{...a.pose,foot:a.approach},B);
    const foot=t<s.approach?mix(a.from.foot,a.approach,ease(t/s.approach)):t<s.hold?a.approach:mix(a.approach,a.to.foot,ease((t-s.hold)/(s.duration-s.hold)));
    actor.pose={...a.pose,foot,angle:bishop.slashAngle(t)};
-   const legacy=!a.runtime?.attack,{since,life}=sinceContact(a,t,elapsed),strike=strikeOf(a);
+   const legacy=!a.runtime?.attack,{since,life,fx}=sinceContact(a,t,elapsed),strike=strikeOf(a);
    if(legacy){const trail=[];for(let ms=Math.max(s.strike[0],t-110);ms<=Math.min(t,s.strike[1]+50);ms+=6)trail.push(tipWorld(ms));if(trail.length>1)effects.push(()=>streak(ctx,trail,8,'#f7f6ee'));}
    if(victim){
     const body=strike.body,line=slashLine(strike.dir);
-    if(since>=0){victim.fx={cut:{point:body,dir:line,since,life}};victim.opacity=1-clamp((since-life*.55)/(life*.44),0,1);effects.push(()=>drawChips(ctx,body,since,colorOf(victim.value),{n:6,speed:.8}));}
-    effects.push(()=>drawSlashArc(ctx,body,line,since));
+    if(since>=0){victim.fx={cut:{point:body,dir:line,since,life}};victim.opacity=1-clamp((since-life*.55)/(life*.44),0,1);effects.push(()=>drawChips(ctx,body,fx,colorOf(victim.value),{n:6,speed:.8}));}
+    effects.push(()=>drawSlashArc(ctx,body,line,fx));
    }
   }
   else if(a.type==='hammer'){
@@ -720,9 +720,9 @@ function vortex(out,foot,phase,strength) {
    }
    const face=ms=>world(court.hammerFace(colorOf(a.value),court.smashAngle(ms)),{...a.pose,foot:a.approach},L);
    if(!a.runtime?.attack){const trail=[];for(let ms=Math.max(s.chop[0],t-120);ms<=Math.min(t,s.chop[1]+30);ms+=6)trail.push(face(ms));if(trail.length>1)effects.push(()=>streak(ctx,trail,10,'#f2e6c8'));}
-   const {since,life}=sinceContact(a,t,elapsed);
+   const {since,life,fx}=sinceContact(a,t,elapsed);
    if(victim&&since>=0){const d=crushPose(victim.pose,since,life);victim.pose=d.pose;victim.opacity=d.opacity;}
-   if(since>=0)effects.push(()=>drawCrush(ctx,{x:strikeOf(a).point.x,y:a.victimFoot.y},since,victim?colorOf(victim.value):0));
+   if(since>=0)effects.push(()=>drawCrush(ctx,{x:strikeOf(a).point.x,y:a.victimFoot.y},fx,victim?colorOf(victim.value):0));
   }
   else if(a.type==='chain'){
    // Beast: lunge until the jaws meet the victim, clamp shut, shake, then step onto that square;
@@ -735,7 +735,7 @@ function vortex(out,foot,phase,strength) {
     a.bites.forEach(x=>{const w=poses.get(x.square),since=elapsed-x.start-x.turnMs-x.contact;if(!w)return;
      if(since<0)return;
      const tint=colorOf(w.value),life=x.duration-x.contact,d=bitePose(w.pose,since,life,x.point,x.bite),hole={x:x.bite.x+d.pose.foot.x-w.pose.foot.x,y:x.bite.y+d.pose.foot.y-w.pose.foot.y};
-     w.fx={bitten:{...hole,r:23*ease(since/60)}};w.pose=d.pose;w.opacity=d.opacity;effects.push(()=>drawBiteHit(ctx,hole,since,tint,x.dir));});
+     w.fx={bitten:{...hole,r:23*ease(since/60)}};w.pose=d.pose;w.opacity=d.opacity;effects.push(()=>drawBiteHit(ctx,hole,afterglow(a,x.start+x.turnMs+x.contact),tint,x.dir));});
    }
    else{
    const n=a.move.captures.length,step=Math.min(n-1,Math.floor(t/CHAIN_STEP)),k=clamp((t-step*CHAIN_STEP)/CHAIN_STEP,0,1);
@@ -758,14 +758,14 @@ function vortex(out,foot,phase,strength) {
    const P=rook.POUND,foot=t<P.approach?mix(a.from.foot,a.stop,ease(t/P.approach)):t<P.settle?a.stop:mix(a.stop,a.to.foot,ease((t-P.settle)/(P.duration-P.settle)));
    actor.pose={...a.pose,foot,angle:rook.poundAngle(t)};
    const baseAt=world(rook.towerBase(colorOf(a.value),0),{...a.pose,foot:a.stop},R);
-   const {since,life}=sinceContact(a,t,elapsed),legacy=!a.runtime?.attack;
+   const {since,life,fx}=sinceContact(a,t,elapsed),legacy=!a.runtime?.attack;
    // The old sprite pounds twice; a painted attack strikes once.
    if(legacy&&t>=rook.SLAMS[0]&&t<rook.SLAMS[1]){const first=t-rook.SLAMS[0];effects.push(()=>smash(ctx,{x:baseAt.x,y:baseAt.y-2},first/320));if(victim)victim.pose={...victim.pose,...onFloor(victim.pose.foot),foot:{x:victim.pose.foot.x,y:victim.pose.foot.y-16*Math.sin(Math.PI*clamp(first/220,0,1))}};}
    if(since>=0){
     const strike=strikeOf(a);
     // The arm drives it along the blow as it goes down under the weight.
     if(victim){const d=crushPose(victim.pose,since,life,strike.dir);victim.pose=d.pose;victim.opacity=d.opacity;}
-    effects.push(()=>{drawBurst(ctx,strike.point,since,{size:.95,dir:strike.dir});drawCrush(ctx,{x:a.victimFoot.x,y:a.victimFoot.y},since,victim?colorOf(victim.value):0,.85);});
+    effects.push(()=>{drawBurst(ctx,strike.point,fx,{size:.95,dir:strike.dir});drawCrush(ctx,{x:a.victimFoot.x,y:a.victimFoot.y},fx,victim?colorOf(victim.value):0,.85);});
    }
   }
   else if(a.type==='spin'){
@@ -844,10 +844,10 @@ function vortex(out,foot,phase,strength) {
    actor.extension=motion.crouch;
    const correction=a.runtime?.movement?.contactCorrection;
    if(correction&&t>=correction[0]&&t<correction[1])actor.pose.foot.y+=correction[2]*ease((t-correction[0])/(correction[1]-correction[0]));
-   const {since,life}=sinceContact(a,t,elapsed);
+   const {since,life,fx}=sinceContact(a,t,elapsed);
    if(since>=0){
     if(victim){const d=impalePose(victim.pose,since,life,strike.dir);victim.pose=d.pose;victim.opacity=d.opacity;}
-    effects.push(()=>{drawDust(ctx,land,since,{size:.55,n:5,ms:320});drawBurst(ctx,strike.point,since,{size:.9,dir:strike.dir});if(victim)drawChips(ctx,strike.point,since,colorOf(victim.value),{n:5,speed:.8,dir:strike.dir});});
+    effects.push(()=>{drawDust(ctx,land,fx,{size:.55,n:5,ms:320});drawBurst(ctx,strike.point,fx,{size:.9,dir:strike.dir});if(victim)drawChips(ctx,strike.point,fx,colorOf(victim.value),{n:5,speed:.8,dir:strike.dir});});
    }
   }
   else if(a.type==='ogre'){
@@ -855,20 +855,20 @@ function vortex(out,foot,phase,strength) {
    if(t<300)actor.pose={...a.pose,foot:mix(a.from.foot,a.approach,ease(t/300))};
    else if(t<1300){actor.pose={...a.pose,foot:{x:a.approach.x+travel.x,y:a.approach.y+travel.y}};actor.extension=ogre.PUSH*ogre.pushAt((t-300)/1000);}
    else actor.pose={...a.pose,foot:mix({x:a.approach.x+travel.x,y:a.approach.y+travel.y},a.to.foot,ease((t-1300)/300))};
-   const {since,life}=sinceContact(a,t,elapsed),strike=strikeOf(a);
+   const {since,life,fx}=sinceContact(a,t,elapsed),strike=strikeOf(a);
    if(victim){if(a.move.shove)victim.pose={...a.victimPose,foot:mix(a.victimPose.foot,a.pushedTo.foot,drive)};else if(since>=0){const d=thrownPose(victim.pose,since,life,strike.dir,BOARD_X);victim.pose=d.pose;victim.opacity=d.opacity;}}
-   if(since>=0)effects.push(()=>{drawBurst(ctx,{x:strike.point.x+travel.x,y:strike.point.y+travel.y},since,{size:a.move.shove?.8:1.05,dir:strike.dir});if(!a.move.shove)drawDust(ctx,a.victimPose.foot,since,{size:.6,n:5,ms:300});});
+   if(since>=0)effects.push(()=>{drawBurst(ctx,{x:strike.point.x+travel.x,y:strike.point.y+travel.y},fx,{size:a.move.shove?.8:1.05,dir:strike.dir});if(!a.move.shove)drawDust(ctx,a.victimPose.foot,fx,{size:.6,n:5,ms:300});});
   }
   else if(a.type==='pawn'){
    if(t<280)actor.pose={...a.from,angle:a.pose.angle*ease(t/280),facing:a.pose.facing};
    else if(t<550)actor.pose={...a.pose,foot:mix(a.from.foot,a.approach,ease((t-280)/270))};
    else if(t<1350){actor.pose={...a.pose,foot:a.approach};actor.extension=pawn.THRUST*pawn.thrustAt((t-550)/800);}
    else actor.pose={...a.pose,foot:mix(a.approach,a.to.foot,ease((t-1350)/280)),angle:a.pose.angle*(1-ease((t-1350)/280))};
-   const {since,life}=sinceContact(a,t,elapsed);
+   const {since,life,fx}=sinceContact(a,t,elapsed);
    if(since>=0){
     const strike=strikeOf(a);
     if(victim){const d=impalePose(victim.pose,since,life,strike.dir);victim.pose=d.pose;victim.opacity=d.opacity;}
-    effects.push(()=>{drawBurst(ctx,strike.point,since,{size:.85,dir:strike.dir});if(victim)drawChips(ctx,strike.point,since,colorOf(victim.value),{n:5,speed:.8,dir:strike.dir});});
+    effects.push(()=>{drawBurst(ctx,strike.point,fx,{size:.85,dir:strike.dir});if(victim)drawChips(ctx,strike.point,fx,colorOf(victim.value),{n:5,speed:.8,dir:strike.dir});});
    }
   }else{
    actor.pose={...a.pose,angle:a.pose.angle*ease(t/160)};
@@ -1074,8 +1074,14 @@ function drawEncounter(a,t) {
  // Melee strikes: time since the blow in the clock of the painted body (or the old sprite's), and until when the victim may stay.
  const BOARD_X={minX:PAD+6,maxX:SIZE-PAD-6};
  function sinceContact(a,t,elapsed){
-  const painted=!!a.runtime?.attack,hit=painted?a.contactTime:contactTime(a);
-  return {since:(painted?elapsed:t)-hit,life:(painted?a.actionDuration:a.legacyDuration??a.duration)-hit};
+  const painted=!!a.runtime?.attack,hit=painted?a.contactTime:contactTime(a),since=(painted?elapsed:t)-hit;
+  return {since,life:(painted?a.actionDuration:a.legacyDuration??a.duration)-hit,fx:painted?afterglow(a,hit):since};
+ }
+ // A painted blow's dust, chips and cracks run past the attack's last drawing, on into the turn back. They end with
+ // the animation, or they would stand still in the air and then vanish when it ends. (fx-melee.mjs: at most 560 ms.)
+ function afterglow(a,hit){
+  const ms=(frameTime-a.start)/a.speed-(a.runtime.beforeMs??0)-hit;
+  return ms<0?ms:ms*Math.max(1,560/(a.actionDuration-hit+(a.runtime.afterMs??0)));
  }
  // Where the blow lands. The painted body's weapon sets it (setStance); the old sprite strikes the victim's hit point.
  function strikeOf(a){
