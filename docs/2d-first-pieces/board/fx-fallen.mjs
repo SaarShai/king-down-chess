@@ -70,14 +70,30 @@ export function drawLying(out,image,{foot,dir,side}){
  * How thick one puff of the slam's veil is, 0 to 1: it comes in along the body from the slam, and stays whole round
  * SWAP, so the swap of figures never shows. p: its place along the body, 0 feet to 1 head; r: 0..1, each its own.
  */
-export const veilAt=(ms,p=0,r=0)=>smooth((ms-IMPACT-30*p)/40)*(1-smooth((ms-SWAP-30-50*r)/(130+50*r)));
+export const veilAt=(ms,p=0,r=0)=>smooth((ms-IMPACT-30*p)/40)*(1-smooth((ms-SWAP-30-120*r)/(120+60*r)));
+/**
+ * The veil's puffs, back to front: a low mound along the body, not a block. Each lobe's lit top covers the shaded
+ * underside of the row behind it, so it has volume, and the outline is bumpy and tapers at both ends. The solid
+ * middles of the puffs (SOLID of their size, by painted cell) cover every king's lying figure. along: board px from his feet toward
+ * his head. y: board px from his foot point, down. p: 0 feet to 1 head. r: 0 at the edge of the mound (goes first).
+ */
+export const SOLID=[.297,.296,.234,.243];
+export const veilPuffs=()=>{
+ const puffs=[];
+ for(const [row,y,lift,shift] of [[0,-19,-9,0],[1,3,-3,14],[2,30,3,0]])for(let i=0;i<7;i++){
+  const p=(i+shift/28)/6.5,seed=row*7+i,bow=Math.sin(Math.PI*p),edge=row===1?bow:bow*.45;
+  puffs.push({along:-6+170*p+(rand(seed,121)-.5)*5,y:y+lift*bow+(rand(seed,123)-.5)*3,size:80*(.94+.2*rand(seed,124)),p,r:clamp(edge*.75+.25*rand(seed,120),0,1),i:seed});
+ }
+ return puffs;
+};
+const VEIL=veilPuffs();
 
 // Dust colours by theme: [on light stone, on dark wood]. A puff takes the one that reads on the floor under it.
 const DUST={
- flame:['#4d3a2f','#8d7562'],frost:['#9cc8ea','#e6f4ff'],stratus:['#b9c4cf','#ffffff'],
+ flame:['#4d3a2f','#8d7562'],frost:['#9cc8ea','#e6f4ff'],stratus:['#e4e9ef','#ffffff'],
  mud:['#6b4d2e','#a98a60'],spirit:['#c9a24e','#ffe9ae'],shadow:['#2a2230','#6d6078'],
 };
-const PLAIN=['#7a6650','#c9b89a'],SPIRIT_DARK=['#2b2621','#6a6058'],PUFFS=new URL('./fallen-puffs.webp',import.meta.url).href,PUFF=128;
+const PLAIN=['#7a6650','#c9b89a'],SPIRIT_DARK=['#2b2621','#6a6058'],PUFFS=new URL('./fallen-puffs.webp',import.meta.url).href,PUFF=192;
 
 export function createDemise({onLoad=()=>{}}={}){
  let art=null;const tints=new Map();
@@ -100,6 +116,8 @@ export function createDemise({onLoad=()=>{}}={}){
   const c=puff(colours[dark>.5?1:0]);if(!c)return;
   ctx.globalAlpha=alpha;ctx.drawImage(c,(i&3)*PUFF,0,PUFF,PUFF,x-size/2,y-size*.62,size,size);
  }
+ // Dust ends by shrinking as it thins; a long fade at full size reads as a smear on the floor.
+ const thin=age=>1-.4*smooth((age-.45)/.55);
  // A puff of dust: age 0..1 from when the body hits there.
  function bodyDust(ctx,s,colours,{n=10,life=500,size=36,grow=.9,rise=40,spread=.05,strength=.8,seed=0}={}){
   const tau=s.ms-IMPACT;
@@ -107,16 +125,17 @@ export function createDemise({onLoad=()=>{}}={}){
    const p=i/(n-1),age=(tau-LAG*p-40*rand(i,seed+1))/(life*(.75+.5*rand(i,seed+2)));if(age<=0||age>=1)continue;
    const out=1-(1-age)**2,x=s.foot.x+s.dir*s.tall*(.04+.96*p)+(rand(i,seed+3)-.5)*14+(rand(i,seed+4)-.5)*spread*life*out;
    const y=s.foot.y+3+(rand(i,seed+5)-.5)*10-rise*(.35+.65*rand(i,seed+6))*out;
-   drawPuff(ctx,colours,s.dark(x,y),i+seed,x,y,size*(.65+.5*rand(i,seed+7))*(1+grow*out),strength*smooth(age/.1)*(1-age)**1.4);
+   drawPuff(ctx,colours,s.dark(x,y),i+seed,x,y,size*(.65+.5*rand(i,seed+7))*(1+grow*out)*thin(age),strength*smooth(age/.1)*(1-smooth((age-.45)/.55)));
   }
  }
- // Thick dust over all of him, the rotated figure and the painted one, on either floor.
+ // Thick dust over all of him, the rotated figure and the painted one, on either floor. Each puff swells in as the
+ // slam reaches it, and goes by shrinking as it drifts up, so it never ends as a see-through sheet.
  function veil(ctx,s,colours){
-  const size=62,across=[-40,-14,12,38],dark=s.dark(s.foot.x+s.dir*s.tall*.45,s.foot.y);
-  for(let row=0;row<across.length;row++)for(let i=0;i<7;i++){
-   const p=(i+(row&1)*.5)/6.5,seed=row*7+i,r=rand(seed,120),alpha=veilAt(s.ms,p,r);if(alpha<=.01)continue;
-   const out=smooth((s.ms-SWAP)/300),x=s.foot.x+s.dir*(-8+166*p)+(rand(seed,121)-.5)*8+(rand(seed,122)-.5)*60*out,y=s.foot.y+across[row]+size*.12+(row===0?-1:row===across.length-1?1:0)*12*rand(seed,123)-26*out*(.5+r);
-   drawPuff(ctx,colours,dark,seed,x,y,size*(1+.45*rand(seed,124))*(1+.5*out),alpha);
+  const dark=s.dark(s.foot.x+s.dir*s.tall*.45,s.foot.y);
+  for(const {along,y,size,p,r,i} of VEIL){
+   const alpha=veilAt(s.ms,p,r);if(alpha<=.01)continue;
+   const going=s.ms>SWAP,out=smooth((s.ms-SWAP)/340),swell=going?.62+.38*alpha:.6+.4*alpha;
+   drawPuff(ctx,colours,dark,i,s.foot.x+s.dir*along+(rand(i,122)-.5)*44*out,s.foot.y+y-(14+22*(1-r))*out,size*swell*(1+.16*out),alpha);
   }
  }
  // A low ring of dust running out across the floor from the slam.
@@ -126,7 +145,7 @@ export function createDemise({onLoad=()=>{}}={}){
    const age=(tau-30*rand(i,seed+1))/life;if(age<=0||age>=1)continue;
    const a=TAU*(i+.6*rand(i,seed+2))/n,out=1-(1-age)**2.4,r=s.tall*.28+(s.tall*.3+reach*(.75+.25*rand(i,seed+3)))*out;
    const x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r*.36;
-   drawPuff(ctx,colours,s.dark(x,y),i,x,y,size*(.7+.6*rand(i,seed+4))*(1+.7*out),strength*smooth(age/.08)*(1-age)**1.6);
+   drawPuff(ctx,colours,s.dark(x,y),i,x,y,size*(.7+.6*rand(i,seed+4))*(1+.7*out)*thin(age),strength*smooth(age/.08)*(1-smooth((age-.4)/.6)));
   }
  }
  // A small tumbling chip thrown up from along his body, landing on the floor.
@@ -197,7 +216,6 @@ export function createDemise({onLoad=()=>{}}={}){
   over(ctx,s){
    const dust=s.design==='spirit'&&s.side?SPIRIT_DARK:DUST[s.design]??PLAIN;
    ctx.save();
-   if(s.veil)veil(ctx,s,dust);
    if(s.design==='stratus'){
     // What held him up gives way: his cloud rolls out along the floor from under him.
     bodyDust(ctx,s,dust,{n:7,size:40,grow:.8,rise:14,spread:.14,life:560,strength:.72});
@@ -206,6 +224,8 @@ export function createDemise({onLoad=()=>{}}={}){
     bodyDust(ctx,s,dust,s.design==='shadow'?{n:10,size:44,rise:84,life:560,strength:.8}:s.design==='flame'?{n:9,size:38,rise:80,life:560,strength:.72}:undefined);
     floorRing(ctx,s,dust);
    }
+   // Over the running dust, so it comes out from behind the veil as the veil breaks up.
+   if(s.veil)veil(ctx,s,dust);
    if(s.design==='flame'){
     bodyDust(ctx,s,['#ff8a2a','#ffa640'],{n:7,size:34,grow:.5,rise:30,life:260,strength:.85,seed:40});
     motes(ctx,s,18,50,'#ffd27a','#8a2406',{rise:170});

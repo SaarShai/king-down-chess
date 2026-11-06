@@ -26,6 +26,31 @@ function expected(context: GameRules, pos: pieces.Position, fixture: SharedMecha
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
+describe('a quiet Darkness step goes through the floor', () => {
+  const dark = new GameRules({ ...POWERS_BALANCED, kings: parseKings('Shadow:Darkness,none') });
+  const route = (fen: string, lan: string) => { const pos = dark.fromFen(fen); return cardAction(dark, pos, legal(dark, pos, lan))?.id; };
+
+  it('takes the sink route only on a step that needs the power', () => {
+    expect(route('7k/8/8/8/8/8/8/3K4 w - - 0 1', 'Kd1-d3')).toBe('DarkSink');
+    expect(route('7k/8/8/8/8/3P4/8/K7 w - - 0 1', 'd3-e4')).toBe('DarkSink');
+    expect(route('7k/8/8/8/8/8/8/3K4 w - - 0 1', 'Kd1-d2')).toBeUndefined();
+    expect(route('7k/8/8/8/8/3P4/8/K7 w - - 0 1', 'd3-d4')).toBeUndefined();
+  });
+
+  it('keeps the real motion for a capture and a promotion', () => {
+    expect(route('7k/8/8/3p4/3P4/8/8/K7 w - - 0 1', 'd4xd5')).toBeUndefined();
+    expect(route('7k/1P6/8/8/8/8/8/K7 w - - 0 1', 'b7-c8=Q')).toBeUndefined();
+  });
+
+  it('holds the figure on the first square, then shows the real result', () => {
+    const pos = dark.fromFen('7k/8/8/8/8/8/8/3K4 w - - 0 1'), move = legal(dark, pos, 'Kd1-d3'), card = cardPlayback(dark, pos, move)!;
+    expect(card.position(.1).board[move.from]).toBe(pos.board[move.from]);
+    expect(card.position(.3).board[move.from]).toBe(0);
+    expect(card.position(.3).board[move.to]).toBe(0);
+    expect(card.position(1)).toEqual(dark.makeMove(pos, move));
+  });
+});
+
 describe('released card playback uses real engine frames', () => {
   it.each(fixtures)('$id keeps the full legal result', fixture => {
     const { context, before } = game(fixture);

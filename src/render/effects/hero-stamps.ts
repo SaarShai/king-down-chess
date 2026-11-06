@@ -41,52 +41,6 @@ function glow(size: number, stops: [number, string][]) {
   });
 }
 
-function teardrop(g: CanvasRenderingContext2D, x: number, base: number, w: number, h: number, lean: number, fill: string | CanvasGradient) {
-  g.beginPath(); g.moveTo(x - w, base - h * .12);
-  g.bezierCurveTo(x - w * 1.25, base - h * .5, x - w * .3 + lean * .4, base - h * .62, x + lean, base - h);
-  g.bezierCurveTo(x + w * .45 + lean * .3, base - h * .6, x + w * 1.3, base - h * .42, x + w, base - h * .1);
-  g.bezierCurveTo(x + w * .7, base + h * .04, x - w * .7, base + h * .04, x - w, base - h * .12); g.closePath();
-  g.fillStyle = fill; g.fill();
-}
-function flame(seed: number) {
-  const W = 64, H = 110, lean = (rand(1, seed) - .5) * 16;
-  return paint(W, H, g => {
-    const x = W / 2, base = H - 8;
-    g.shadowColor = '#ff5a10'; g.shadowBlur = 7;
-    const outer = g.createLinearGradient(0, base, 0, base - 94);
-    outer.addColorStop(0, '#d8380a'); outer.addColorStop(.6, '#e8480c'); outer.addColorStop(1, '#a8260a');
-    teardrop(g, x, base, 22, 94, lean, outer);
-    g.shadowBlur = 0;
-    teardrop(g, x + lean * .1, base, 16, 72, lean * .8, '#ff8d18');
-    teardrop(g, x + lean * .1, base, 10.5, 50, lean * .6, '#ffc83c');
-    teardrop(g, x, base, 6, 27, lean * .3, '#fff4bb');
-  }, W / 2, H - 8);
-}
-const CLEAR_FIRE = '#8a1c0500';
-
-export interface FireStamps { flames: Stamp[]; fire: Stamp[]; smoke: Stamp[]; hot: Stamp; ember: Stamp; scorch: Stamp }
-let fireSet: FireStamps | undefined;
-export const fireStamps = () => fireSet ??= {
-  flames: [flame(3), flame(11), flame(23), flame(37)],
-  fire: [5, 13, 29].map(seed => puff(96, seed, [
-    { colour: '#8a1c05d8', clear: CLEAR_FIRE, count: 12, spread: .52, r: .42, lift: 0, solid: .3 },
-    { colour: '#e8480cd8', clear: '#e8480c00', count: 12, spread: .42, r: .36, lift: .02, solid: .3 },
-    { colour: '#ff9a1ed8', clear: '#ff9a1e00', count: 9, spread: .3, r: .3, lift: .05, solid: .25 },
-    { colour: '#ffdf78e0', clear: '#ffdf7800', count: 5, spread: .16, r: .25, lift: .07, solid: .2 },
-  ])),
-  smoke: [7, 19, 41].map(seed => puff(120, seed, [
-    { colour: '#231c17c0', clear: '#231c1700', count: 14, spread: .52, r: .42, lift: 0, solid: .15 },
-    { colour: '#3d342cb0', clear: '#3d342c00', count: 10, spread: .42, r: .36, lift: .06, solid: .15 },
-    { colour: '#5f5347a0', clear: '#5f534700', count: 6, spread: .3, r: .28, lift: .15, solid: .1 },
-  ])),
-  hot: glow(160, [[0, '#fffbe0'], [.2, '#ffe680f5'], [.45, '#ff8f1ac0'], [.75, '#e53c0850'], [1, '#c4270000']]),
-  ember: glow(14, [[0, '#fffbd8'], [.35, '#ffd24a'], [.7, '#ff6a12c0'], [1, '#e0300000']]),
-  scorch: puff(150, 53, [
-    { colour: '#140b06e0', clear: '#140b0600', count: 14, spread: .56, r: .34, lift: 0 },
-    { colour: '#0b0603e8', clear: '#0b060300', count: 7, spread: .28, r: .3, lift: 0 },
-  ]),
-};
-
 function rock(seed: number, light: string, body: string, dark: string) {
   return paint(40, 40, g => {
     const n = 7, xs: number[] = [], ys: number[] = [];
