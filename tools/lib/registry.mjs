@@ -12,6 +12,7 @@
 // faults that prove the runner: selftest-dirty writes a scratch file into the checkout, selftest-fail
 // fails, selftest-hang never ends, selftest-hold sleeps 15 s so that two runs can be seen together.
 export const checks = [
+  { name: 'painted-leaps', script: 'tools/verify-painted-leaps.mjs', limit: 120, channel: 'chromium', byName: true },
   { name: 'movement-runtime', script: 'tools/verify-movement-runtime.mjs', limit: 120, channel: 'chromium', byName: true, exclusive: true },
   { name: 'ui-review-samples', script: 'docs/specs/ui-review-samples/verify.mjs', limit: 90, channel: 'chromium', byName: true },
   { name: 'king-capture-facing', script: 'tools/verify-king-capture-facing.mjs', limit: 300, channel: 'chromium', byName: true, exclusive: true },
