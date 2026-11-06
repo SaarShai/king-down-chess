@@ -26,8 +26,15 @@ export function footAt(ms,from,stop,to,b=BLOW){
  if(ms<b.hold)return stop;
  return mix(stop,to,smooth((ms-b.hold)/(b.duration-b.hold)));
 }
+// The screen side each painted straight attack reaches to, in both armies: 1 right, -1 left (contact frame
+// against rest frame). A file capture stands so that this side faces the target. Not listed: no clear side
+// (Spirit and Stratus use both hands; Bishop, Ogre, Beast and Pawn strike ahead) or a ranged attack.
+export const STRAIGHT_REACH={
+ 'king-flame':{N:1,S:-1},'king-frost':{N:1,S:1},'king-mud':{N:1,S:-1},'king-shadow':{N:-1,S:1},
+ rook:{N:1,S:-1},paladin:{N:-1,S:1},
+};
 // Stand beside the victim, on the side the attacker comes from, so neither
-// figure hides the other; straight file moves use the army's facing side.
+// figure hides the other; a straight file move uses `side`.
 export function stopPoint(from,victim,gap,side=1){
  const away=Math.sign(victim.x-from.x)||side;
  return {x:victim.x-away*gap,y:victim.y+2};
