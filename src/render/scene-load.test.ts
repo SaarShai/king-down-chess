@@ -129,7 +129,7 @@ it.each([true,false])('uses the rest pose and whole-figure gait when a quiet wal
  expect(Math.max(...feet)-Math.min(...feet)).toBeGreaterThan(112);await vi.advanceTimersByTimeAsync(48);await expect(playing).resolves.toBe(true);
 });
 
-it('walks the king on castling and leaves the rook for the position update', async () => {
+it('walks the king on castling; the position update places the rook', async () => {
  const base={character:'king-frost',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600,facing:'E'};
  const idle={...base,id:'idle',kind:'idle',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
  const move={...base,id:'painted',kind:'move',strideSquares:1,durationMs:640,frames:[0,160,320,480].map(timeMs=>({url:`runtime-walk-${timeMs}.png`,timeMs}))};

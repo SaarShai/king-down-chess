@@ -49,7 +49,7 @@ export function drawShelter(ctx: CanvasRenderingContext2D, source: Point, target
       wisp(ctx, { x: source.x + side * 31, y: source.y - 57 }, { x: source.x + side * 17, y: source.y - 136 }, 14, side * 15, colour, alpha);
     }
     // Broad shoulders stay behind the figure. Mercy leaves the pawn-facing side open.
-    ctx.save(); ctx.translate(target.x, target.y); ctx.globalAlpha = settled * (.29 + flare * .55);
+    ctx.save(); ctx.translate(target.x, target.y); ctx.globalAlpha *= settled * (.29 + flare * .55);
     const pawnSide = Math.sign(source.x - target.x) || 1;
     for (const side of [-1, 1]) {
       if (mercy && side === -pawnSide) continue;
