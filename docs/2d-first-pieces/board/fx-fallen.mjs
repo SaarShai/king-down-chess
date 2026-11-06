@@ -115,8 +115,8 @@ export function createDemise({onLoad=()=>{}}={}){
   const size=62,across=[-40,-14,12,38],dark=s.dark(s.foot.x+s.dir*s.tall*.45,s.foot.y);
   for(let row=0;row<across.length;row++)for(let i=0;i<7;i++){
    const p=(i+(row&1)*.5)/6.5,seed=row*7+i,r=rand(seed,120),alpha=veilAt(s.ms,p,r);if(alpha<=.01)continue;
-   const out=smooth((s.ms-SWAP)/300),x=s.foot.x+s.dir*(-8+166*p)+(rand(seed,121)-.5)*8+(rand(seed,122)-.5)*60*out,y=s.foot.y+across[row]+size*.12+(rand(seed,123)-.5)*6-26*out*(.5+r);
-   drawPuff(ctx,colours,dark,seed,x,y,size*(1+.5*out),alpha);
+   const out=smooth((s.ms-SWAP)/300),x=s.foot.x+s.dir*(-8+166*p)+(rand(seed,121)-.5)*8+(rand(seed,122)-.5)*60*out,y=s.foot.y+across[row]+size*.12+(row===0?-1:row===across.length-1?1:0)*12*rand(seed,123)-26*out*(.5+r);
+   drawPuff(ctx,colours,dark,seed,x,y,size*(1+.45*rand(seed,124))*(1+.5*out),alpha);
   }
  }
  // A low ring of dust running out across the floor from the slam.
