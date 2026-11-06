@@ -441,6 +441,42 @@ it('exits a selected Mud squat along its painted frames on a quiet move', async 
  await vi.advanceTimersByTimeAsync(2000);await expect(playing).resolves.toBe(true);
 });
 
+it.each(['mud','stratus'] as const)('a selected %s idle follows its painted frames back to rest on a deselect and on another selection', async king => {
+ const base={character:`king-${king}`,army:'white',canvasSize:[384,384],pivot:[192,345],bodyHeightPx:267,registrationHeightPx:267,boardScale:null};
+ const idle={...base,id:'large-idle',kind:'idle',facing:'SE',durationMs:400,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-low.png',timeMs:100},{url:'runtime-rest.png',timeMs:400}]};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle]})})));
+ const b=board(true,true);scene.setKings([king,'flame']);scene.setPosition(fromFen('4k3/8/8/8/8/8/8/1N2K2R w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ for(const next of [null,1]){
+  scene.setSelected(4);let low=false;for(let i=0;i<60&&!low;i++){await vi.advanceTimersByTimeAsync(16);low=scene.characterFrames.find(frame=>frame.square===4)?.time===100;}
+  expect(low).toBe(true);
+  scene.setSelected(next);await vi.advanceTimersByTimeAsync(48);
+  expect(scene.animating).toBe(false);expect(scene.characterFrames.find(frame=>frame.square===4)?.time).toBe(100);
+  await vi.advanceTimersByTimeAsync(220);expect(scene.characterFrames.find(frame=>frame.square===4)?.time).toBe(0);
+  scene.setSelected(null);await vi.advanceTimersByTimeAsync(32);
+ }
+});
+
+it.each([
+ ['flame', 'black', '7K/8/8/3P4/3k4/8/8/8 b - - 0 1', 27, 35, 1],
+ ['flame', 'white', '7k/8/8/3K4/3p4/8/8/8 w - - 0 1', 35, 27, -1],
+ ['frost', 'black', '7K/8/8/3P4/3k4/8/8/8 b - - 0 1', 27, 35, 1],
+ ['shadow', 'white', '7k/8/8/3p4/3K4/8/8/8 w - - 0 1', 27, 35, -1],
+ ['flame', 'black', '7K/8/8/P7/k7/8/8/8 b - - 0 1', 24, 32, 1],
+] as const)('a %s %s king on a file stands on the side its painted attack reaches to', async (king, army, fen, from, to, reach) => {
+ const base={character:`king-${king}`,army,canvasSize:[384,384],pivot:[192,345],bodyHeightPx:267,registrationHeightPx:267};
+ const idle={...base,id:'idle',kind:'idle',facing:'SE',durationMs:400,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const turns=['N','S'].map(direction=>({...base,id:`turn-${direction}`,kind:'turn',from:'SE',to:direction,durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-rest.png',timeMs:120}]}));
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,...turns]})})));
+ const b=board(true,true);scene.setKings([king,king]);scene.setPosition(fromFen(fen));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ const start=scene.characterFrames.find(f=>f.square===from)!.foot.x;
+ const playing=scene.play({from,to,captures:[to]});await vi.advanceTimersByTimeAsync(700);
+ const stand=scene.characterFrames.find(f=>f.square===from)!.foot.x;
+ // The target shares the file, so the stand offset from the start is the side.
+ expect(Math.sign(stand-start)).toBe(-reach);
+ expect(stand).toBeGreaterThanOrEqual(32+20);expect(stand).toBeLessThanOrEqual(960-32-20);
+ scene.cancel();await expect(playing).resolves.toBe(false);
+});
+
 it.each(['position', 'kings'] as const)('ignores a late Stratus reservation after %s removes the selected king', async refresh => {
  const base={character:'king-stratus',army:'white',canvasSize:[384,384],pivot:[192,345],bodyHeightPx:267,registrationHeightPx:267,boardScale:null};
  const idle={...base,id:'stratus-idle',kind:'idle',facing:'SE',durationMs:400,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-deferred.png',timeMs:100},{url:'runtime-rest.png',timeMs:400}]};
