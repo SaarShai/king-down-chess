@@ -22,7 +22,7 @@ export async function checkCharacterEffects(browser){
    sessionStorage.setItem('kingdown.title-seen','1');window.nativeDraws=[];
    const draw=CanvasRenderingContext2D.prototype.drawImage;
    CanvasRenderingContext2D.prototype.drawImage=function(image,...args){
-    if(image?.src?.includes('/character-runtime/effects/')&&this.globalAlpha>0){const m=this.getTransform();nativeDraws.push({at:performance.now(),url:image.src,alpha:this.globalAlpha,matrix:[m.a,m.b,m.c,m.d,m.e,m.f],width:image.naturalWidth,height:image.naturalHeight});}
+    if((image?.src?.includes('/character-runtime/effects/')||image?.src?.includes('thorn-fx'))&&this.globalAlpha>0){const m=this.getTransform();nativeDraws.push({at:performance.now(),url:image.src,alpha:this.globalAlpha,matrix:[m.a,m.b,m.c,m.d,m.e,m.f],width:image.naturalWidth,height:image.naturalHeight});}
     return Reflect.apply(draw,this,[image,...args]);
    };
   });
@@ -40,7 +40,7 @@ export async function checkCharacterEffects(browser){
   for(let i=0;i<500;i++){await step();current=await state();if(current.effect?.kind===kind)break;await page.waitForTimeout(2);}
   assert.equal(current.effect?.kind,kind,`${label}: published separate effect loaded`);
   const contact={archer:220,maester:30,queen:600}[kind],duration=current.effect.durationMs;
-  const isProjectile=d=>kind==='archer'?/golden-arrow|contact-flash/.test(d.url):kind==='queen'?d.url.includes('thorn-shard'):!d.url.includes('provenance');
+  const isProjectile=d=>kind==='archer'?/golden-arrow|contact-flash/.test(d.url):kind==='queen'?d.url.includes('thorn-fx'):!d.url.includes('provenance');
   const capture=async(name,elapsed,expectPixels)=>{
    for(let i=0;i<500;i++){current=await state();if(current.effect.elapsedMs>=elapsed)break;await step();}
    current=await state();const e=current.effect;assert(e,`${label}/${name}: scene still owns effect clock`);
@@ -60,7 +60,8 @@ export async function checkCharacterEffects(browser){
   }
   if(kind==='queen'){const returned=await capture('after-body-return',current.effect.bodyDurationMs-current.effect.releaseMs+32,true);assert.equal(returned.bodyTime,returned.bodyDurationMs,'thorns continue after exact body rest');phases.push(returned);}
   const before=await capture('before-contact',kind==='maester'?.5:Math.max(16,contact-32),true);assert.equal(before.victimOpacity,1,`${label}: victim waits for effect contact`);phases.push(before);
-  const hit=await capture('contact',contact+16,true);assert(hit.victimOpacity<1,`${label}: victim reacts after effect contact`);phases.push(hit);
+  const hit=await capture('contact',contact+16,true);if(kind==='queen')assert.equal(hit.victimOpacity,1,`${label}: pierced before it falls`);else assert(hit.victimOpacity<1,`${label}: victim reacts after effect contact`);phases.push(hit);
+  if(kind==='queen'){const falling=await capture('falling',contact+500,true);assert(falling.victimOpacity<1,`${label}: victim falls and fades after the thorns`);phases.push(falling);}
   phases.push(await capture('last-fade',duration-24,true));phases.push(await capture('after-fade',duration+32,false));
   if(kind==='archer')assert(current.draws.some(d=>d.url.includes('golden-wisp')),`${label}: independent native smoke draws`);
   await page.evaluate(()=>view.skip());await page.clock.runFor(3000);assertNoErrors(errors);evidence.push({label,phases});await page.close();
