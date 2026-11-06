@@ -105,9 +105,11 @@ export const AIR_LEAVES = .22, AIR_LANDS = .62, AIR_SETTLED = .8;
 const AIR_LIFT: Record<string, number> = { Flight: 138, Leap: 124, Vault: 118, SkyLift: 142 };
 /** A heavy landing squashes the body more; cloud carries the figure down. */
 const AIR_THUD: Record<string, number> = { Flight: .1, Leap: .22, Vault: .18, SkyLift: .1 };
+/** How much the rise and fall ease at the two ends: cloud carries softly, a jump keeps some speed for its thud. */
+const AIR_SOFT: Record<string, number> = { Flight: .85, Leap: .45, Vault: .45, SkyLift: .85 };
 export interface AirPose { x: number; y: number; groundX: number; groundY: number; lift: number; tilt: number; sx: number; sy: number }
 export function airPose(id: string, a: Point, b: Point, t: number, sway = 0): AirPose {
-  const w = clamp((t - AIR_LEAVES) / (AIR_LANDS - AIR_LEAVES)), u = .6 * ease(w) + .4 * w, arc = Math.sin(w * Math.PI);
+  const w = clamp((t - AIR_LEAVES) / (AIR_LANDS - AIR_LEAVES)), u = .6 * ease(w) + .4 * w, arc = Math.sin((w + (ease(w) - w) * AIR_SOFT[id]) * Math.PI);
   const lift = arc * AIR_LIFT[id], dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
   const groundX = a.x + dx * u + arc * sway, groundY = a.y + dy * u;
   // Weight first: a crouch, a stretch off the ground, then the landing the legs absorb.
@@ -151,8 +153,10 @@ function drawAir(ctx: CanvasRenderingContext2D, id: string, event: CardFrame, la
     }
   }
   if (flying && layer === 'over' && !leap) cloudAt(ctx, at.x, at.y + 14, .74, 260, 660, seed + 90, tint);
-  if (leap || id === 'Vault') stomp(ctx, b, down, layer, seed + 30, leap ? 1.1 : .84);
-  else cloudRing(ctx, b, down + 30, layer, seed + 30, .86, tint);
+  // A card has no tail: the landing runs fast enough to finish inside the card's own clock.
+  const left = (1 - AIR_LANDS) * duration;
+  if (leap || id === 'Vault') stomp(ctx, b, down * 1000 / left, layer, seed + 30, leap ? 1.1 : .84);
+  else cloudRing(ctx, b, down * 900 / left, layer, seed + 30, .86, tint);
 }
 export const MOVEMENT_DURATIONS: Record<string, number> = { Strike: 1500, FireStarter: 1700, Haste: 2600, Rally: 2700, March: 1650, Flight: 1750, Leap: 1600, Vault: 1750, SkyLift: 1850 };
 export const MOVEMENT_IDS = new Set(Object.keys(MOVEMENT_DURATIONS));
