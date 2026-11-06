@@ -39,3 +39,15 @@ describe('always-on king powers', () => {
     expect(overlay(light, '7k/8/5p2/4p3/3K4/8/8/R7 w - - 0 1', 'Kd4xe5')).toBeNull();
   });
 });
+
+describe('classic chess moves', () => {
+  const classic = new GameRules({ classicChess: true });
+  it('castling draws an overlay; a plain rook move does not', () => {
+    expect(overlay(classic, '4k3/8/8/8/8/8/P7/R3K2R w KQ - 0 1', 'O-O')).not.toBeNull();
+    expect(overlay(classic, '4k3/8/8/8/8/8/P7/R3K2R w KQ - 0 1', 'Rh1-h2')).toBeNull();
+  });
+  it('en passant draws an overlay; a capture on the target square does not', () => {
+    expect(overlay(classic, '4k3/8/8/3Pp3/8/8/8/4K3 w - e6 0 1', 'd5xe6')).not.toBeNull();
+    expect(overlay(classic, '4k3/8/4p3/3P4/8/8/8/4K3 w - - 0 1', 'd5xe6')).toBeNull();
+  });
+});

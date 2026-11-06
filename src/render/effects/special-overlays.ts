@@ -62,7 +62,7 @@ function holy() {
 }
 
 /** Where the actor's feet are now, and how far along the move (0..1). */
-function travelOf(scene: PaintedScene, move: Move): { foot: Point; travel: number; start: Point; end: Point } {
+function travelOf(scene: PaintedScene, move: { from: number; to: number }): { foot: Point; travel: number; start: Point; end: Point } {
   const start = scene.foot(move.from), end = scene.foot(move.to);
   const foot = scene.characterFrames?.find(frame => frame.square === move.from)?.foot ?? start;
   const whole = Math.hypot(end.x - start.x, end.y - start.y) || 1;
@@ -163,11 +163,95 @@ class HolyLift implements MoveOverlay {
   }
 }
 
+// Dust: a soft tan puff, darker at the rim on a light square and paler than a dark one.
+let dustSprite: HTMLCanvasElement | undefined;
+const dust = () => dustSprite ??= ball(96, [[0, 'rgba(226,204,164,.96)'], [.42, 'rgba(204,176,132,.9)'], [.72, 'rgba(146,116,78,.55)'], [1, 'rgba(120,94,60,0)']]);
+const DUST = [[-46, 0, 1], [46, 2, 1.05], [-24, 8, .85], [24, 8, .9], [-66, -3, .7], [66, -2, .75], [0, 10, .8]] as const;
+const DUST_LIFE = 420;
+function dustBeat(ctx: CanvasRenderingContext2D, at: Point, u: number, scale: number) {
+  if (u <= 0 || u >= 1) return;
+  const sprite = dust(), out = 1 - (1 - u) * (1 - u);
+  for (const [dx, dy, size] of DUST) {
+    const s = 58 * scale * size * (.5 + .75 * out);
+    ctx.globalAlpha = ease(u / .12) * (1 - ease((u - .4) / .6));
+    ctx.drawImage(sprite, at.x + dx * scale * (.35 + .65 * out) - s / 2, at.y + dy - s * .5 - 22 * u, s, s * .66);
+  }
+}
+/** Castling: dust where the rook and the king land. The scene walks both figures. */
+class CastleDust implements MoveOverlay {
+  private rookAt = -1;
+  private kingAt = -1;
+  constructor(private move: Move & { castle: NonNullable<Move['castle']> }) {}
+  draw(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: CardLayer, row: number | undefined, ms: number): void {
+    if (layer === 'under') {
+      if (this.rookAt < 0 && travelOf(scene, this.move.castle).travel >= .95) this.rookAt = ms;
+      if (this.kingAt < 0 && travelOf(scene, this.move).travel >= .95) this.kingAt = ms;
+      return;
+    }
+    if (row !== 7) return;
+    ctx.save();
+    if (this.rookAt >= 0) dustBeat(ctx, scene.foot(this.move.castle.to), (ms - this.rookAt) / DUST_LIFE, 1);
+    if (this.kingAt >= 0) dustBeat(ctx, scene.foot(this.move.to), (ms - this.kingAt) / DUST_LIFE, .7);
+    ctx.restore();
+  }
+}
+
+// En passant: the victim is beside the target square, so the strike lands on the victim's own square at the contact beat.
+let strikeSprite: HTMLCanvasElement | undefined;
+/** A hot flash with broad, soft points: a white heart in gold, with an orange edge for both square colours. */
+function strikeStar(): HTMLCanvasElement {
+  if (strikeSprite) return strikeSprite;
+  const canvas = ball(192, [[0, '#ffffff'], [.3, '#fff3c4'], [.52, 'rgba(255,190,70,.9)'], [.76, 'rgba(238,120,26,.42)'], [1, 'rgba(226,96,20,0)']]);
+  const ctx = canvas.getContext('2d')!; ctx.translate(96, 96);
+  const star = (outer: number, inner: number) => {
+    ctx.beginPath();
+    for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6 + .2, r = i % 2 ? inner : outer * (i % 4 ? .78 : 1); ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+    ctx.closePath(); ctx.fill();
+  };
+  ctx.fillStyle = 'rgba(244,128,28,.9)'; star(88, 30); ctx.fillStyle = '#ffd25e'; star(68, 26); ctx.fillStyle = '#fffbe8'; star(46, 20);
+  return strikeSprite = canvas;
+}
+const SHARDS = [[-.7, 92, 13], [-.25, 112, 11], [.2, 104, 14], [.65, 88, 10], [-1.3, 70, 9], [1.25, 74, 9]] as const;
+const STRIKE_MS = 300;
+class EnPassantStrike implements MoveOverlay {
+  private hitAt = -1;
+  constructor(private move: Move) {}
+  draw(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: CardLayer, row: number | undefined, ms: number): void {
+    const victim = this.move.captures[0];
+    if (layer === 'under') {
+      // The contact beat is the frame the scene starts to take the victim away.
+      const frame = scene.characterFrames?.find(f => f.square === victim);
+      if (this.hitAt < 0 && frame && frame.opacity < 1) this.hitAt = ms;
+      return;
+    }
+    if (row !== 7 || this.hitAt < 0) return;
+    const at = scene.foot(victim), from = scene.foot(this.move.from), angle = Math.atan2(at.y - from.y, at.x - from.x), u = (ms - this.hitAt) / STRIKE_MS, center = { x: at.x, y: at.y - 58 };
+    ctx.save();
+    dustBeat(ctx, at, (ms - this.hitAt) / DUST_LIFE, .9);
+    if (u > 0 && u < 1) {
+      const size = 158 * (.45 + .55 * ease(u / .22)) * (1 - .3 * ease((u - .4) / .6));
+      ctx.globalAlpha = ease(u / .08) * (1 - ease((u - .3) / .6));
+      ctx.translate(center.x, center.y); ctx.rotate(angle + u * .5);
+      ctx.drawImage(strikeStar(), -size / 2, -size / 2, size, size);
+      ctx.rotate(-u * .5);
+      const shard = strikeStar();
+      for (const [turn, far, s] of SHARDS) {
+        const out = far * (1 - (1 - u) * (1 - u));
+        ctx.globalAlpha = 1 - ease((u - .55) / .45);
+        ctx.drawImage(shard, Math.cos(turn) * out - s, Math.sin(turn) * out - s, s * 2, s * 2);
+      }
+    }
+    ctx.restore();
+  }
+}
+
 /** Special moves that keep their real walk or attack: castling, en passant, always-on powers. */
 export function specialOverlay(context: GameRules, before: Position, move: Move): MoveOverlay | null {
   const value = before.board[move.from];
-  if (!value || move.pass || move.power || move.castle) return null;
+  if (!value || move.pass || move.power) return null;
+  if (move.castle) return new CastleDust({ ...move, castle: move.castle });
   const power = context.rules.kings[colorOf(value)]?.power, type = typeOf(value);
+  if (type === P && move.captures.length === 1 && move.captures[0] !== move.to) return new EnPassantStrike(move);
   if (power === 'Darkness' && (type === P || type === K) && needsPower(context, before, move)) return new ShadowSmoke(move);
   if (power === 'Mercy' && type === K && needsPower(context, before, move)) return new HolyLift(move);
   return null;

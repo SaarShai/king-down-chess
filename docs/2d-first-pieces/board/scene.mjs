@@ -877,6 +877,7 @@ function vortex(out,foot,phase,strength) {
    else actor.pose={...a.from,angle:0};
   }
   if(a.closeup)drawEncounter(a,t);else if(closeup)closeup.panel.hidden=true;
+  if(a.rookFrom&&poses.has(a.move.castle.from))castleRook(a,poses.get(a.move.castle.from),(at-a.start)/a.speed);
   const impactTime=contactTime(a);
   if(a.type==='knight'&&t>=duration*.35&&!a.airborne){a.airborne=true;onStatus('Airborne. Clearing the intervening pieces…');}
   if(a.type!=='move'&&a.type!=='gait'&&a.type!=='swap'&&t>=impactTime&&!a.contacted){a.contacted=true;a.onContact?.();onStatus(a.move.selfRemove?'The Paladin and his target are removed together.':a.type==='beam'?'Measured. Taking it apart…':a.type==='knight'||(a.type==='paladin'&&!victim)?'Landed. Settling into stance…':'Hit. Recovering…');}
@@ -903,9 +904,12 @@ function vortex(out,foot,phase,strength) {
    }
   }
  }
+ if(bodyRuntime&&animation?.rookFrom&&animation.rookLocal!=null&&poses.has(animation.move.castle.from)){const a=animation,body=bodyRuntime.action(a.rookRuntime,a.rookLocal,a.rookWalk);if(body)poses.get(a.move.castle.from).pose.bank=body;}
  bodyFrames=[...poses].filter(([,u])=>u.pose.bank).map(([square,u])=>({square,bank:u.pose.bank.bank,sourceSha256:u.pose.bank.sourceSha256,sourceBankSha256:u.pose.bank.sourceBankSha256,opacity:u.opacity,time:u.pose.bank.time,foot:{...u.pose.foot},pivot:[...u.pose.bank.pivot],scale:u.pose.bank.scale}));
  const ordered=[...poses].sort((a,b)=>a[1].pose.foot.y-b[1].pose.foot.y);
  if(animation&&!animation.effect){const i=ordered.findIndex(([sq])=>sq===animation.move.from);ordered.push(...ordered.splice(i,1));}
+ // Castling: a rook passing on the near side of the king stands in front of him.
+ if(animation?.rookFrom){const i=ordered.findIndex(([sq])=>sq===animation.move.castle.from);if(i>=0&&ordered[i][1].pose.foot.y>ordered.at(-1)[1].pose.foot.y)ordered.push(...ordered.splice(i,1));}
  // 'over' markers are drawn one screen row at a time, after that row's figures: a marker sits on its
  // own square's figure, and a tall figure standing in front of it (a lower row) covers it.
  let overRow=0;
@@ -1009,7 +1013,7 @@ function drawEncounter(a,t) {
  }
  function wake(changed=true){if(disposed)return;if(changed)passiveUntil=performance.now()+5000;if(ready&&!frame)frame=requestAnimationFrame(tick);}
  function releasePrepared(prepared){prepared?.releaseMovementStart?.();prepared?.releaseMovement?.();prepared?.releaseFallback?.();}
- function cancelAnimation(a){a.prepareController?.abort();releasePrepared(a.runtime);releasePrepared(a.exitReady?.prepared);if(!a.done)a.resolve(false);}
+ function cancelAnimation(a){a.prepareController?.abort();releasePrepared(a.runtime);releasePrepared(a.rookRuntime);releasePrepared(a.exitReady?.prepared);if(!a.done)a.resolve(false);}
  // A move is over: a king's effect on the square he moved from starts again from nothing if he is there next
  // (he stayed, as with Death Touch, or came back); its fade-out during the move stays seamless.
  function endMove(keepSource=false){
@@ -1044,7 +1048,24 @@ function drawEncounter(a,t) {
    if(prepared.effect){prepared.release=prepared.attack.beatTimes.release??a.contactTime;a.contactTime=prepared.release+prepared.effect.contactMs;a.actionDuration=Math.max(prepared.attack.durationMs,prepared.release+prepared.effect.player.durationMs)+(a.move.from===a.move.to?0:420);}
    a.duration=a.actionDuration+prepared.beforeMs+prepared.afterMs;
   }
+  if(a.rookFrom)planRook(a);
   a.preparing=false;a.start=now;
+ }
+ // Castling: the rook walks round the king on a curve toward the board's middle, so neither passes through the other.
+ const ROOK_ROUND=.62,ROOK_SETTLE=260;
+ function planRook(a){
+  const prepared=a.rookPrepared,squares=Math.abs((a.move.castle.to&7)-(a.move.castle.from&7))+.3;
+  const pace=prepared?.movement?.kind==='move'?paintedPace(squares,prepared.movement.durationMs,prepared.movement.strideSquares):null;
+  if(pace){prepared.movementRate=pace.rate;a.rookRuntime=prepared;a.rookWalk=pace.duration;a.rookEnd=prepared.beforeMs+pace.duration+prepared.afterMs;}
+  else{releasePrepared(prepared);a.rookRuntime=null;a.rookWalk=GAITS.glide.duration(squares)*1.5;a.rookEnd=a.rookWalk;}
+  a.duration=Math.max(a.duration,a.rookEnd+ROOK_SETTLE);
+ }
+ function castleRook(a,rook,ms){
+  if(a.rookWalk==null)planRook(a);
+  const r=a.rookRuntime,before=r?.beforeMs??0,local=ms-before,u=local<=0?0:local>=a.rookWalk?1:r?paintedTravel(local,a.rookWalk,r.movementRate,r.movement.frames,r.movement.durationMs):ease(local/a.rookWalk);
+  const ground=mix(a.rookFrom.foot,a.rookTo.foot,u),inward=Math.sign(SIZE/2-a.rookFrom.foot.y)||-1;
+  rook.pose={...(u<1?a.rookFrom:a.rookTo),foot:{x:ground.x,y:ground.y+inward*Math.sin(Math.PI*u)*TILE*ROOK_ROUND}};
+  a.rookLocal=r?local:null;
  }
  // Body banks keep their recorded timing; the separate effect meets the body's contact drawing.
  function effectTimeAt(a,t){
@@ -1056,6 +1077,7 @@ function drawEncounter(a,t) {
  function plan(move,speed,gait=null) {
  const value=position.board[move.from],from=poseFor(value,move.from),to=poseFor(value,move.to),victimSquare=move.swap?move.to:move.shove?.from??move.captures[0],victim=position.board[victimSquare];
  const base={move,value,from,to,victim,start:performance.now(),speed,contacted:false};
+ if(move.castle&&!reducedMotion&&position.board[move.castle.from]){base.rookValue=position.board[move.castle.from];base.rookFrom=poseFor(base.rookValue,move.castle.from);base.rookTo=poseFor(base.rookValue,move.castle.to);}
  if(reducedMotion){base.type='move';base.duration=(move.from===move.to?0:420)+(move.captures.length?150/speed:0);}
  else if(move.swap){base.type='swap';base.duration=1100;base.partner=poseFor(victim,move.to);base.partnerEnd=poseFor(victim,move.from);}
  else if(typeOf(value)===N){base.type='knight';base.duration=knight.DURATION;from.facing=Math.sign(to.foot.x-from.foot.x);}
@@ -1221,8 +1243,11 @@ function drawEncounter(a,t) {
      a.preparing=true;
      a.prepareController=new AbortController();
      const target=move.shove?.from??move.captures[0]??move.to,from=foot(move.from),to=foot(target);
-     void bodyRuntime.prepare(characterOf(base.value),armyOf(base.value),facingOf(to.x-from.x,to.y-from.y),!!move.captures.length||!!move.shove,Math.max(Math.abs(to.x-from.x),Math.abs(to.y-from.y))===TILE,a.prepareController.signal).then(prepared=>{
-      if(disposed||animation!==a||a.undoPending||a.rewind){releasePrepared(prepared);return;}
+     // Castling also waits for the rook's walk, so the two figures set off together.
+     const rookPrepared=a.rookFrom?bodyRuntime.prepare(characterOf(a.rookValue),armyOf(a.rookValue),facingOf(a.rookTo.foot.x-a.rookFrom.foot.x,a.rookTo.foot.y-a.rookFrom.foot.y),false,false,a.prepareController.signal):null;
+     void Promise.all([bodyRuntime.prepare(characterOf(base.value),armyOf(base.value),facingOf(to.x-from.x,to.y-from.y),!!move.captures.length||!!move.shove,Math.max(Math.abs(to.x-from.x),Math.abs(to.y-from.y))===TILE,a.prepareController.signal),rookPrepared]).then(([prepared,rook])=>{
+      if(disposed||animation!==a||a.undoPending||a.rewind){releasePrepared(prepared);releasePrepared(rook);return;}
+      a.rookPrepared=rook;
       const first=prepared?.before[0],join=first?(first.reverse?first.bank.frames.at(-1):first.bank.frames[0]):prepared?.rest.frames[0];
       if(a.exitBody&&(!prepared||join?.url===a.exit(1)?.url))a.exitReady={prepared};
       else {a.exitBody=null;bodyRuntime.releaseIdle();startPrepared(a,prepared,performance.now());}
