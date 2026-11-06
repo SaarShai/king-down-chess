@@ -2,7 +2,8 @@
 // Shared by the board trial (prototype.mjs) and the game's painted look (src/render/PaintedView.ts).
 // Rules helpers are passed in, so the scene never bundles its own copy of the engine.
 import { clamp } from '../painted-mesh.mjs';
-import {createCharacterRuntime,facingOf,anchorAt,bankPointToWorld} from './character-runtime.mjs';
+import {createCharacterRuntime,facingOf,anchorAt,bankPointToWorld,bankScale,figureHeight} from './character-runtime.mjs';
+import {strikeReach,strikeStance,crushPose,impalePose,thrownPose,bitePose,slashLine,drawCut,drawSlashArc,drawCrush,drawBurst,drawDust,drawChips,drawBitten,drawBiteHit} from './fx-melee.mjs';
 import * as archer from '../wrist-bow/aiming.mjs';
 import * as pawn from '../lance/aiming.mjs';
 import * as ogre from '../ogre/motion.mjs';
@@ -223,19 +224,9 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
   }
   return;
  }
- const cut=fx?.cut;
- if(cut){
-  // Two halves split along the slash: the upper one slides down the cut.
-  const n={x:-cut.dir.y,y:cut.dir.x},far=2000,p=cut.point,k=ease(cut.t);
-  for(const s of [-1,1]){
-   const upper=n.y*s<0;
-   out.save();out.beginPath();out.moveTo(p.x-cut.dir.x*far,p.y-cut.dir.y*far);out.lineTo(p.x+cut.dir.x*far,p.y+cut.dir.y*far);
-   out.lineTo(p.x+cut.dir.x*far+n.x*far*s,p.y+cut.dir.y*far+n.y*far*s);out.lineTo(p.x-cut.dir.x*far+n.x*far*s,p.y-cut.dir.y*far+n.y*far*s);out.closePath();out.clip();
-   out.translate(n.x*s*5*k+(upper?cut.dir.x*16*k:0),n.y*s*5*k+(upper?cut.dir.y*16*k:0));
-   drawPiece(out,value,pose,opacity,extension,null,false);out.restore();
-  }
-  return;
- }
+ // A blade's cut (fx-melee.mjs): two halves of the figure.
+ if(fx?.cut){drawCut(out,fx.cut,()=>drawPiece(out,value,pose,opacity,extension,null,false));return;}
+ if(fx?.bitten){drawBitten(out,fx.bitten,()=>drawPiece(out,value,pose,opacity,extension,null,false));return;}
  const spec=specs[typeOf(value)],ground=pose.ground??pose.foot;
  out.save();out.globalAlpha=opacity;
  // (the charcoal army's pale rim fades out at the soles, where it meets the contact shadow; base: board units to
@@ -469,11 +460,6 @@ function streak(out,points,width,colour) {
  for(let i=1;i<points.length;i++){const k=i/(points.length-1);out.globalAlpha=.85*k;out.lineWidth=width*k;out.beginPath();out.moveTo(points[i-1].x,points[i-1].y);out.lineTo(points[i].x,points[i].y);out.stroke();}
  out.restore();
 }
-function slashFlash(out,cut) {
- if(cut.t<0||cut.t>.6)return;
- const k=cut.t/.6,l=46;out.save();out.globalAlpha=1-k;out.strokeStyle='#fffbef';out.lineWidth=3*(1-k)+.5;out.beginPath();
- out.moveTo(cut.point.x-cut.dir.x*l,cut.point.y-cut.dir.y*l);out.lineTo(cut.point.x+cut.dir.x*l,cut.point.y+cut.dir.y*l);out.stroke();out.restore();
-}
 function smash(out,point,t) {
  if(t<0||t>1)return;
  const k=ease(t);out.save();
@@ -689,31 +675,41 @@ function vortex(out,foot,phase,strength) {
    const s=bishop.SLASH,tipWorld=ms=>world(bishop.tipAt(bishop.slashAngle(ms),colorOf(a.value)),{...a.pose,foot:a.approach},B);
    const foot=t<s.approach?mix(a.from.foot,a.approach,ease(t/s.approach)):t<s.hold?a.approach:mix(a.approach,a.to.foot,ease((t-s.hold)/(s.duration-s.hold)));
    actor.pose={...a.pose,foot,angle:bishop.slashAngle(t)};
-   const trail=[];for(let ms=Math.max(s.strike[0],t-110);ms<=Math.min(t,s.strike[1]+50);ms+=6)trail.push(tipWorld(ms));
-   if(trail.length>1)effects.push(()=>streak(ctx,trail,8,'#f7f6ee'));
-   if(victim&&t>=bishop.CONTACT_MS){
-    const p0=tipWorld(bishop.CONTACT_MS-6),p1=tipWorld(bishop.CONTACT_MS+6),len=Math.hypot(p1.x-p0.x,p1.y-p0.y)||1,sign=p1.y>=p0.y?1:-1;
-    const cut={point:a.target,dir:{x:(p1.x-p0.x)/len*sign,y:(p1.y-p0.y)/len*sign},t:(t-bishop.CONTACT_MS)/340};victim.fx={cut};
-    victim.opacity=1-clamp((t-bishop.CONTACT_MS-140)/260,0,1);
-    effects.push(()=>slashFlash(ctx,cut));
+   const legacy=!a.runtime?.attack,{since,life}=sinceContact(a,t,elapsed),strike=strikeOf(a);
+   if(legacy){const trail=[];for(let ms=Math.max(s.strike[0],t-110);ms<=Math.min(t,s.strike[1]+50);ms+=6)trail.push(tipWorld(ms));if(trail.length>1)effects.push(()=>streak(ctx,trail,8,'#f7f6ee'));}
+   if(victim){
+    const body=strike.body,line=slashLine(strike.dir);
+    if(since>=0){victim.fx={cut:{point:body,dir:line,since,life}};victim.opacity=1-clamp((since-life*.55)/(life*.44),0,1);effects.push(()=>drawChips(ctx,body,since,colorOf(victim.value),{n:6,speed:.8}));}
+    effects.push(()=>drawSlashArc(ctx,body,line,since));
    }
   }
   else if(a.type==='hammer'){
-   const s=court.SMASH,chopped=t-s.chop[1];
+   const s=court.SMASH;
    let foot=a.approach,ground,lift=0;
    if(t<s.charge){const f=clamp(t/s.charge,0,1);ground=mix(a.from.foot,a.approach,ease(f));lift=Math.min(TILE*.42,Math.max(0,ground.y-150))*4*f*(1-f);foot={x:ground.x,y:ground.y-lift};}
    else if(t>=s.hold&&!a.move.selfRemove)foot=mix(a.approach,a.to.foot,ease((t-s.hold)/(s.recover-s.hold)));
    actor.pose={...a.pose,foot,ground:ground??foot,lift,angle:court.smashAngle(t)};
    if(a.move.selfRemove)actor.opacity=1-clamp((t-s.hold)/(s.recover-s.hold),0,1);
    const face=ms=>world(court.hammerFace(colorOf(a.value),court.smashAngle(ms)),{...a.pose,foot:a.approach},L);
-   const trail=[];for(let ms=Math.max(s.chop[0],t-120);ms<=Math.min(t,s.chop[1]+30);ms+=6)trail.push(face(ms));
-   if(trail.length>1)effects.push(()=>streak(ctx,trail,10,'#f2e6c8'));
-   if(victim&&chopped>=0){const k=ease(chopped/110);victim.pose={...victim.pose,sx:1+.28*k,sy:1-.5*k};victim.opacity=1-clamp((chopped-60)/260,0,1);}
-   effects.push(()=>smash(ctx,a.victimFoot,chopped/420));
+   if(!a.runtime?.attack){const trail=[];for(let ms=Math.max(s.chop[0],t-120);ms<=Math.min(t,s.chop[1]+30);ms+=6)trail.push(face(ms));if(trail.length>1)effects.push(()=>streak(ctx,trail,10,'#f2e6c8'));}
+   const {since,life}=sinceContact(a,t,elapsed);
+   if(victim&&since>=0){const d=crushPose(victim.pose,since,life);victim.pose=d.pose;victim.opacity=d.opacity;}
+   if(since>=0)effects.push(()=>drawCrush(ctx,{x:strikeOf(a).point.x,y:a.victimFoot.y},since,victim?colorOf(victim.value):0));
   }
   else if(a.type==='chain'){
    // Beast: lunge until the jaws meet the victim, clamp shut, shake, then step onto that square;
    // a chain repeats from each captured square in turn, as the rules move him.
+   if(a.bites){
+    // Painted: each bite is its own attack; the Beast comes in until the jaws meet the victim, then steps on.
+    const b=a.bites.findLast(x=>elapsed>=x.start)??a.bites[0],at=elapsed-b.start-b.turnMs,rest=b.duration-b.contact,go=b.contact*.85;
+    const pose={...a.from,angle:0,foot:at<go?mix(b.from,b.stance,ease(at/go)):at<b.contact+rest*.3?b.stance:mix(b.stance,b.land,ease((at-b.contact-rest*.3)/(rest*.7)))};
+    actor.pose=pose;
+    a.bites.forEach(x=>{const w=poses.get(x.square),since=elapsed-x.start-x.turnMs-x.contact;if(!w)return;
+     if(since<0)return;
+     const tint=colorOf(w.value),life=x.duration-x.contact,d=bitePose(w.pose,since,life,x.point,x.bite),hole={x:x.bite.x+d.pose.foot.x-w.pose.foot.x,y:x.bite.y+d.pose.foot.y-w.pose.foot.y};
+     w.fx={bitten:{...hole,r:23*ease(since/60)}};w.pose=d.pose;w.opacity=d.opacity;effects.push(()=>drawBiteHit(ctx,hole,since,tint,x.dir));});
+   }
+   else{
    const n=a.move.captures.length,step=Math.min(n-1,Math.floor(t/CHAIN_STEP)),k=clamp((t-step*CHAIN_STEP)/CHAIN_STEP,0,1);
    const sq=a.move.captures[step],start=step?foot(a.move.captures[step-1]):a.from.foot,land=foot(sq),v=poses.get(sq);
    const facing=Math.sign(land.x-start.x)||(step?actor.pose.facing:a.from.facing);
@@ -727,18 +723,21 @@ function vortex(out,foot,phase,strength) {
    if(t>=n*CHAIN_STEP){at=land;jaw=0;}
    actor.pose={...a.from,facing,foot:at,angle:jaw};
    a.move.captures.forEach((c,i)=>{const w=poses.get(c);if(!w)return;const since=t-(i+.36)*CHAIN_STEP;if(since<0)return;
-    const e=clamp(since/180,0,1);w.pose={...w.pose,foot:{x:w.pose.foot.x+Math.sin(since*.09)*5*(1-e),y:w.pose.foot.y},sx:1-.25*e,sy:1-.2*e};w.opacity=1-clamp((since-60)/160,0,1);
-    const hit=world(specs[typeOf(w.value)].hit,poses.get(c).pose,typeOf(w.value));effects.push(()=>impact(ctx,hit,since/280,1.5));});
+    const hit=world(specs[typeOf(w.value)].hit,w.pose,typeOf(w.value)),tint=colorOf(w.value),d=bitePose(w.pose,since,240,hit,hit);w.pose=d.pose;w.opacity=d.opacity;effects.push(()=>drawBiteHit(ctx,hit,since,tint,{x:facing,y:0}));});
+   }
   }
   else if(a.type==='pound'){
    const P=rook.POUND,foot=t<P.approach?mix(a.from.foot,a.stop,ease(t/P.approach)):t<P.settle?a.stop:mix(a.stop,a.to.foot,ease((t-P.settle)/(P.duration-P.settle)));
    actor.pose={...a.pose,foot,angle:rook.poundAngle(t)};
    const baseAt=world(rook.towerBase(colorOf(a.value),0),{...a.pose,foot:a.stop},R);
-   rook.SLAMS.forEach((slam,i)=>{const since=t-slam;if(since>=0)effects.push(()=>smash(ctx,{x:baseAt.x,y:baseAt.y-2},since/(i?420:320)));});
-   if(victim){
-    const first=t-rook.SLAMS[0],second=t-rook.SLAMS[1];
-    if(first>=0&&second<0)victim.pose={...victim.pose,...onFloor(victim.pose.foot),foot:{x:victim.pose.foot.x,y:victim.pose.foot.y-16*Math.sin(Math.PI*clamp(first/220,0,1))}};
-    if(second>=0){const k=ease(second/110);victim.pose={...victim.pose,sx:1+.28*k,sy:1-.5*k};victim.opacity=1-clamp((second-60)/260,0,1);}
+   const {since,life}=sinceContact(a,t,elapsed),legacy=!a.runtime?.attack;
+   // The old sprite pounds twice; a painted attack strikes once.
+   if(legacy&&t>=rook.SLAMS[0]&&t<rook.SLAMS[1]){const first=t-rook.SLAMS[0];effects.push(()=>smash(ctx,{x:baseAt.x,y:baseAt.y-2},first/320));if(victim)victim.pose={...victim.pose,...onFloor(victim.pose.foot),foot:{x:victim.pose.foot.x,y:victim.pose.foot.y-16*Math.sin(Math.PI*clamp(first/220,0,1))}};}
+   if(since>=0){
+    const strike=strikeOf(a);
+    // The arm drives it along the blow as it goes down under the weight.
+    if(victim){const d=crushPose(victim.pose,since,life,strike.dir);victim.pose=d.pose;victim.opacity=d.opacity;}
+    effects.push(()=>{drawBurst(ctx,strike.point,since,{size:.95,dir:strike.dir});drawCrush(ctx,{x:a.victimFoot.x,y:a.victimFoot.y},since,victim?colorOf(victim.value):0,.85);});
    }
   }
   else if(a.type==='spin'){
@@ -809,32 +808,40 @@ function vortex(out,foot,phase,strength) {
    hit={point:a.target,t:(t-duration*.5)/240};
   }
   else if(a.type==='knight'){
-   const motion=knight.leapAt(t/duration),ground=mix(a.from.foot,a.to.foot,motion.travel);
+   // A painted attack lands short, its spear in the victim, then it steps onto the square.
+   const motion=knight.leapAt(t/duration),landing=duration*knight.LANDING,strike=strikeOf(a),land=strike.stance??a.to.foot,ground=t<landing?mix(a.from.foot,land,motion.travel):mix(land,a.to.foot,ease((t-landing)/(duration-landing)*1.4-.4));
    // Keep the complete spear visible when jumping along the board's top edge.
    const lift=Math.min(TILE*.7,Math.max(0,ground.y-specs[N].scale*1000-12))*motion.lift;
    actor.pose={...a.from,ground,lift,foot:{x:ground.x,y:ground.y-lift},rotation:motion.rotation};
    actor.extension=motion.crouch;
    const correction=a.runtime?.movement?.contactCorrection;
    if(correction&&t>=correction[0]&&t<correction[1])actor.pose.foot.y+=correction[2]*ease((t-correction[0])/(correction[1]-correction[0]));
-   const landing=duration*knight.LANDING;
-   if(victim)victim.opacity=1-clamp((t-landing)/120,0,1);
-   hit={point:a.to.foot,t:(t-landing)/180};
+   const {since,life}=sinceContact(a,t,elapsed);
+   if(since>=0){
+    if(victim){const d=impalePose(victim.pose,since,life,strike.dir);victim.pose=d.pose;victim.opacity=d.opacity;}
+    effects.push(()=>{drawDust(ctx,land,since,{size:.55,n:5,ms:320});drawBurst(ctx,strike.point,since,{size:.9,dir:strike.dir});if(victim)drawChips(ctx,strike.point,since,colorOf(victim.value),{n:5,speed:.8,dir:strike.dir});});
+   }
   }
   else if(a.type==='ogre'){
    const drive=ease((t-780)/360),travel=a.move.shove?{x:(a.pushedTo.foot.x-a.victimPose.foot.x)*drive,y:(a.pushedTo.foot.y-a.victimPose.foot.y)*drive}:{x:0,y:0};
    if(t<300)actor.pose={...a.pose,foot:mix(a.from.foot,a.approach,ease(t/300))};
    else if(t<1300){actor.pose={...a.pose,foot:{x:a.approach.x+travel.x,y:a.approach.y+travel.y}};actor.extension=ogre.PUSH*ogre.pushAt((t-300)/1000);}
    else actor.pose={...a.pose,foot:mix({x:a.approach.x+travel.x,y:a.approach.y+travel.y},a.to.foot,ease((t-1300)/300))};
-   if(victim){if(a.move.shove)victim.pose={...a.victimPose,foot:mix(a.victimPose.foot,a.pushedTo.foot,drive)};else victim.opacity=1-clamp((t-780)/180,0,1);}
-   hit={point:{x:a.target.x+travel.x,y:a.target.y+travel.y},t:(t-780)/260};
+   const {since,life}=sinceContact(a,t,elapsed),strike=strikeOf(a);
+   if(victim){if(a.move.shove)victim.pose={...a.victimPose,foot:mix(a.victimPose.foot,a.pushedTo.foot,drive)};else if(since>=0){const d=thrownPose(victim.pose,since,life,strike.dir,BOARD_X);victim.pose=d.pose;victim.opacity=d.opacity;}}
+   if(since>=0)effects.push(()=>{drawBurst(ctx,{x:strike.point.x+travel.x,y:strike.point.y+travel.y},since,{size:a.move.shove?.8:1.05,dir:strike.dir});if(!a.move.shove)drawDust(ctx,a.victimPose.foot,since,{size:.6,n:5,ms:300});});
   }
   else if(a.type==='pawn'){
    if(t<280)actor.pose={...a.from,angle:a.pose.angle*ease(t/280),facing:a.pose.facing};
    else if(t<550)actor.pose={...a.pose,foot:mix(a.from.foot,a.approach,ease((t-280)/270))};
    else if(t<1350){actor.pose={...a.pose,foot:a.approach};actor.extension=pawn.THRUST*pawn.thrustAt((t-550)/800);}
    else actor.pose={...a.pose,foot:mix(a.approach,a.to.foot,ease((t-1350)/280)),angle:a.pose.angle*(1-ease((t-1350)/280))};
-   if(victim)victim.opacity=1-clamp((t-910)/180,0,1);
-   hit={point:a.target,t:(t-910)/260};
+   const {since,life}=sinceContact(a,t,elapsed);
+   if(since>=0){
+    const strike=strikeOf(a);
+    if(victim){const d=impalePose(victim.pose,since,life,strike.dir);victim.pose=d.pose;victim.opacity=d.opacity;}
+    effects.push(()=>{drawBurst(ctx,strike.point,since,{size:.85,dir:strike.dir});if(victim)drawChips(ctx,strike.point,since,colorOf(victim.value),{n:5,speed:.8,dir:strike.dir});});
+   }
   }else{
    actor.pose={...a.pose,angle:a.pose.angle*ease(t/160)};
    if(t>180&&t<500)actor.pose.angle-=Math.sin(clamp((t-180)/320,0,1)*Math.PI)*1.8*Math.PI/180;
@@ -1019,6 +1026,8 @@ function drawEncounter(a,t) {
     prepared.movementRate=pace.rate;
    }
    a.contactTime=prepared.attack?(prepared.attack.contactMs??prepared.attack.durationMs*.45):contactTime(a);
+   if(prepared.attack&&!prepared.effect)setStance(a,prepared.attack);
+   if(a.bites)a.duration=a.actionDuration+prepared.beforeMs+prepared.afterMs;
    if(prepared.effect){if(characterOf(a.value)==='queen')prepared.effect=queenThorns.effect(prepared.effect);prepared.release=prepared.attack.beatTimes.release??a.contactTime;a.contactTime=prepared.release+prepared.effect.contactMs;prepared.ranged=rangedPlan(characterOf(a.value),prepared.attack,prepared.release);a.actionDuration=(prepared.ranged?.end??Math.max(prepared.attack.durationMs,prepared.release+prepared.effect.player.durationMs))+(a.move.from===a.move.to?0:420);}
    a.duration=a.actionDuration+prepared.beforeMs+prepared.afterMs;
   }
@@ -1031,6 +1040,38 @@ function drawEncounter(a,t) {
   return t<a.contactTime?t/a.contactTime*hit:hit+(t-a.contactTime)/(a.actionDuration-a.contactTime)*((a.legacyDuration??a.duration)-hit);
  }
  function contactTime(a){const duration=a.legacyDuration??a.actionDuration??a.duration;return a.type==='pound'?rook.SLAMS[1]:a.type==='spin'?SPIN.contact:a.type==='blow'?a.timing.strike:a.type==='chain'?CHAIN_STEP*.36:a.type==='slash'?bishop.CONTACT_MS:a.type==='hammer'?court.SMASH.chop[1]:a.type==='pawn'?910:a.type==='ogre'?780:a.type==='knight'?duration*knight.LANDING:a.type==='paladin'?duration*CHARGE_CONTACT:a.type==='advance'?duration*.5:a.type==='beam'?court.BEAM.apart[0]:440;}
+ // Melee strikes: time since the blow in the clock of the painted body (or the old sprite's), and until when the victim may stay.
+ const BOARD_X={minX:PAD+6,maxX:SIZE-PAD-6};
+ function sinceContact(a,t,elapsed){
+  const painted=!!a.runtime?.attack,hit=painted?a.contactTime:contactTime(a);
+  return {since:(painted?elapsed:t)-hit,life:(painted?a.actionDuration:a.legacyDuration??a.duration)-hit};
+ }
+ // Where the blow lands. The painted body's weapon sets it (setStance); the old sprite strikes the victim's hit point.
+ function strikeOf(a){
+  if(a.strike)return a.strike;
+  const target=a.target??a.victimFoot??a.to.foot,from=a.from.foot,l=Math.hypot(target.x-from.x,target.y-from.y)||1;
+  return a.strike={point:target,body:target,dir:{x:(target.x-from.x)/l,y:(target.y-from.y)/l}};
+ }
+ function setStance(a,bank){
+  if(a.type==='chain')return setBites(a);
+  const square=a.move.shove?.from??a.move.captures[0],v=a.victim,kind=a.type;
+  if(square==null||!v||!['slash','hammer','pound','pawn','knight','ogre'].includes(kind))return;
+  const reach=strikeReach(bank,bankScale(bank));if(!reach)return;
+  const vf=foot(square),h=figureHeight(characterOf(v)),s=strikeStance(kind,a.from.foot,vf,h,reach,{minX:PAD+20,maxX:SIZE-PAD-20});
+  a.strike={...s,body:{x:vf.x,y:vf.y-h*.55}};
+  if(kind==='pound')a.stop=s.stance;else if(kind!=='knight')a.approach=s.stance;
+ }
+// A chain's bites on the painted body's clock: one attack each, with the turn between them.
+ function setBites(a){
+  const attacks=a.runtime.chain??[{attack:a.runtime.attack,turn:[],turnMs:0}];let start=0,from=a.from.foot;
+  a.bites=a.move.captures.map((square,i)=>{
+   const {attack,turnMs}=attacks[i],victim=position.board[square],vf=foot(square),h=figureHeight(victim?characterOf(victim):'beast');
+   const s=strikeStance('chain',from,vf,h,strikeReach(attack,bankScale(attack)),{minX:PAD+20,maxX:SIZE-PAD-20});
+   const bite={square,from,land:vf,start,turnMs,duration:attack.durationMs,contact:attack.contactMs??attack.durationMs*.45,...s,bite:{x:(s.point.x+vf.x)/2,y:(s.point.y+vf.y-h*.55)/2}};
+   start+=turnMs+attack.durationMs;from=vf;return bite;
+  });
+  a.actionDuration=start;
+ }
  function plan(move,speed,gait=null) {
  const value=position.board[move.from],from=poseFor(value,move.from),to=poseFor(value,move.to),victimSquare=move.swap?move.to:move.shove?.from??move.captures[0],victim=position.board[victimSquare];
  const base={move,value,from,to,victim,start:performance.now(),speed,contacted:false};
@@ -1204,7 +1245,7 @@ function drawEncounter(a,t) {
      a.preparing=true;
      a.prepareController=new AbortController();
      const target=move.shove?.from??move.captures[0]??move.to,from=foot(move.from),to=foot(target);
-     void bodyRuntime.prepare(characterOf(base.value),armyOf(base.value),facingOf(to.x-from.x,to.y-from.y),!!move.captures.length||!!move.shove,Math.max(Math.abs(to.x-from.x),Math.abs(to.y-from.y))===TILE,a.prepareController.signal).then(prepared=>{
+     void bodyRuntime.prepare(characterOf(base.value),armyOf(base.value),facingOf(to.x-from.x,to.y-from.y),!!move.captures.length||!!move.shove,Math.max(Math.abs(to.x-from.x),Math.abs(to.y-from.y))===TILE,a.prepareController.signal,base.type==='chain'&&move.captures.length>1?move.captures.map((sq,i)=>{const p=foot(i?move.captures[i-1]:move.from),q=foot(sq);return facingOf(q.x-p.x,q.y-p.y);}):null).then(prepared=>{
       if(disposed||animation!==a||a.undoPending||a.rewind){releasePrepared(prepared);return;}
       const first=prepared?.before[0],join=first?(first.reverse?first.bank.frames.at(-1):first.bank.frames[0]):prepared?.rest.frames[0];
       if(a.exitBody&&(!prepared||join?.url===a.exit(1)?.url))a.exitReady={prepared};
