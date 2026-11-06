@@ -2182,6 +2182,9 @@ try {
   const cardBoard = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
   const cardGame = await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_create',arguments:{kind:'solo',colour:'white',board_id:cardBoard,options:{...DEFAULT_OPTIONS,fairy:false,arrangement:false,kingPowers:false,cards:true,cardPool:['Freeze','IceWall','MorphP','Vault']}}}})).json();
   assert(!cardGame.isError); await page.evaluate(r=>window.harnessShow(r),cardGame); await idleBoard(); await boardBox();
+  // The painted coins carry their motion layer. The art comes from the plugin origin, so this also proves it loads in CORS mode.
+  await frame.locator('#strip-me .card-coin card-motion').first().waitFor({state:'attached'});
+  await frame.locator('#game-table').evaluate(table=>new Promise((resolve,reject)=>{ const end=performance.now()+15000; const look=()=>{ const drawn=[...table.querySelectorAll('.card-coin card-motion')].map(m=>m.canvas).some(c=>c.width&&c.getContext('2d').getImageData(0,0,c.width,c.height).data.some(v=>v)); if(drawn) resolve(); else if(performance.now()>end) reject(new Error('No card coin draws its motion')); else setTimeout(look,100); }; look(); }));
   const { checkOwnerPicks } = await import('./lib/plugin-k-picks-check.mjs');
   await checkOwnerPicks(page, frame, cardGame, idleBoard, boardBox);
   const { measureCardCoins } = await import('./lib/plugin-cards-check.mjs');
