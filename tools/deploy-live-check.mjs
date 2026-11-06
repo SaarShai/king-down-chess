@@ -1,6 +1,7 @@
 // Compare the published site with the tested build. tools/deploy.sh runs this after publish.
 // Send no cookie. Keep the bounded propagation check for a new deployment.
 // DEPLOY_LIVE_URL defaults to https://kingdown.dev; DEPLOY_LIVE_TIMEOUT_MS defaults to 180000.
+// DEPLOY_REQUEST_TIMEOUT_MS is the limit for one request, with a 60000 ms default.
 // Exit: 0 pass, 1 live difference, 2 invalid build or arguments.
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
@@ -80,15 +81,22 @@ const built = new Map(paths.map(path => {
 }));
 const base = (process.env.DEPLOY_LIVE_URL || 'https://kingdown.dev').replace(/\/+$/, '');
 const limit = Number(process.env.DEPLOY_LIVE_TIMEOUT_MS ?? 180_000);
-if (!(limit >= 0)) fault('DEPLOY_LIVE_TIMEOUT_MS must be a number of milliseconds');
+if (!Number.isSafeInteger(limit) || limit < 0 || limit > 2_147_483_647) fault('DEPLOY_LIVE_TIMEOUT_MS must be a number of milliseconds');
+const requestTimeout = Number(process.env.DEPLOY_REQUEST_TIMEOUT_MS ?? 60_000);
+if (!Number.isSafeInteger(requestTimeout) || requestTimeout < 1 || requestTimeout > 2_147_483_647) fault('DEPLOY_REQUEST_TIMEOUT_MS must be a whole number from 1 to 2147483647 milliseconds');
 
 /** Use manual redirects for every probe. Node fetch keeps no cookie jar. */
 async function get(path, method = 'GET') {
-  try {
-    const res = await fetch(base + path, { method, credentials: 'omit', redirect: 'manual', headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(15_000) });
-    return { status: res.status, location: res.headers.get('location'), type: (res.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase(), cache: res.headers.get('cache-control'), bytes: Buffer.from(await res.arrayBuffer()) };
-  } catch (error) {
-    return { error: `${method} ${path}: fetch failed (${error.cause?.code ?? error.message})` };
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const signal = AbortSignal.timeout(requestTimeout);
+      const res = await fetch(base + path, { method, credentials: 'omit', redirect: 'manual', headers: { 'cache-control': 'no-cache' }, signal: checkSignal ? AbortSignal.any([signal, checkSignal]) : signal });
+      return { status: res.status, location: res.headers.get('location'), type: (res.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase(), cache: res.headers.get('cache-control'), bytes: Buffer.from(await res.arrayBuffer()) };
+    } catch (error) {
+      if (attempt === 3 || checkSignal?.aborted) return { error: `${method} ${path}: fetch failed (${error.cause?.code ?? error.message})` };
+      console.error(`live-check: repeat ${attempt}/2 ${method} ${path}: fetch failed (${error.cause?.code ?? error.message}); pause ${attempt} s`);
+      await new Promise(done => setTimeout(done, Math.min(1000 * attempt, limit > 0 ? Math.max(0, deadline - Date.now()) : Infinity)));
+    }
   }
 }
 
@@ -98,7 +106,14 @@ let access;
 /** One complete probe of public files, app routes, closed routes and the account API. */
 async function differences() {
   const probes = [...paths.map(path => ['GET', path]), ...appPages.map(path => ['GET', path]), ...closedPages.map(path => ['GET', path]), ['GET', '/api/status'], ...apiProbes.map(({ method, path }) => [method, path])];
-  const results = await Promise.all(probes.map(([method, path]) => get(path, method)));
+  const results = new Array(probes.length);
+  let pending = 0;
+  await Promise.all(Array.from({ length: Math.min(8, probes.length) }, async () => {
+    while (pending < probes.length) {
+      const index = pending++, [method, path] = probes[index];
+      results[index] = await get(path, method);
+    }
+  }));
   const found = [];
   const next = (() => { let i = 0; return () => results[i++]; })();
   const expectBytes = (path, expected) => {
@@ -142,10 +157,13 @@ async function differences() {
 
 const start = Date.now();
 const deadline = start + limit;
+// Zero keeps the single-pass check. A positive limit also stops requests and their repeats.
+const checkSignal = limit > 0 ? AbortSignal.timeout(limit) : undefined;
+let found;
 console.log(`live-check: ${base} against ${folder} (bundle ${bundle}, time limit ${Math.round(limit / 1000)} s)`);
 console.log(`live-check: sw.js version ${version}, policy ${policy}, sha256 ${createHash('sha256').update(built.get('/sw.js').bytes).digest('hex')}`);
 for (;;) {
-  const found = await differences();
+  if (!found || Date.now() < deadline) found = await differences();
   if (!found.length) {
     console.log(`live-check: pass: ${base} loads ${bundle}; ${checkedPages.join(', ')} are identical to the build; ${paths.length} public files match bytes and types (${assetFiles.length} under /assets/); ${appPages.length} app pages serve the build's index.html; ${closedPages.length} closed paths answer 404; account_access ${access}; ${apiProbes.length} API probes pass`);
     process.exit(0);
