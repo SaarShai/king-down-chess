@@ -21,7 +21,7 @@ function bones(curl){
 }
 const PALM=[[-3.2,-16.6],[3,-16.8],[4.6,-23.2],[1.6,-25],[-1.6,-25.4],[-4.9,-23.6]];
 // Bone colours per army: bone white with a dark outline (ivory, side 0), black with a pale edge (charcoal).
-const BONE=[
+export const BONE=[
  {outline:'rgba(52,42,30,.92)',body:'#ede6d4',edge:'rgba(150,134,108,.85)',palm:'rgba(236,229,212,.4)'},
  {outline:null,body:'#0b0910',edge:'rgba(176,170,180,.8)',palm:'rgba(11,9,16,.55)'},
 ];

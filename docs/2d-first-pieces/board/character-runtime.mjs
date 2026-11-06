@@ -41,6 +41,9 @@ export function idleBankAt(clips,turns,restFacing,time) {
 }
 const jumps=character=>character==='knight'||character==='paladin';
 const HEIGHT={pawn:96,knight:112,bishop:114,rook:132,queen:120,archer:120,paladin:124,maester:112,ogre:136,guard:114};
+/** Board px per bank px of a body bank; figureHeight: how tall a character stands on the board. */
+export const bankScale=bank=>bank.boardScale??(HEIGHT[bank.character]??130)/bank.registrationHeightPx;
+export const figureHeight=character=>HEIGHT[character]??130;
 export const DECODED_BUDGET=64*1024*1024;
 // Bound the wait for optional art so a stalled request cannot hold up a move indefinitely.
 const LOAD_TIMEOUT=1000,IMAGE_TIMEOUT=5000,RETRY_DELAY=5000;
@@ -176,7 +179,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   const frame=images.has(wanted.url)?wanted:reverse?bank.frames.slice(index).find(frame=>images.has(frame.url)):bank.frames.slice(0,index+1).findLast(frame=>images.has(frame.url));
   const entry=frame&&images.get(frame.url);if(!entry)return null;if(pin)activeFrame=frame.url;images.delete(frame.url);images.set(frame.url,entry);
   const size=bank.kind==='attack'?[entry.art.naturalWidth,entry.art.naturalHeight]:bank.canvasSize,offset=bank.canvasSize.map((n,i)=>(n-size[i])/2);
-  return {url:frame.url,image:entry.art,pivot:bank.pivot.map((n,i)=>n-offset[i]),scale:bank.boardScale??(HEIGHT[bank.character]??130)/bank.registrationHeightPx,bank:bank.id,sourceSha256:frame.sourceSha256,sourceBankSha256:bank.sourceSha256,time:frame.timeMs,canvasSize:size,unitHeight:bank.registrationHeightPx,effectAnchor:frame.effectAnchor??anchorAt(bank,'arrowhead-smoke',frame.timeMs)??anchorAt(bank,'arrow',frame.timeMs)};
+  return {url:frame.url,image:entry.art,pivot:bank.pivot.map((n,i)=>n-offset[i]),scale:bankScale(bank),bank:bank.id,sourceSha256:frame.sourceSha256,sourceBankSha256:bank.sourceSha256,time:frame.timeMs,canvasSize:size,unitHeight:bank.registrationHeightPx,effectAnchor:frame.effectAnchor??anchorAt(bank,'arrowhead-smoke',frame.timeMs)??anchorAt(bank,'arrow',frame.timeMs)};
  }
  function routeSample(route,time){for(const part of route){if(time<=part.bank.durationMs)return sample(part.bank,part.reverse?part.bank.durationMs-time:time,true,part.reverse,true);time-=part.bank.durationMs;}const last=route.at(-1);return last?sample(last.bank,last.reverse?0:last.bank.durationMs,true,last.reverse,true):null;}
  return {
@@ -227,7 +230,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    return t=>sample(bank,0,false,false,false,bank.frames[Math.round(path[0]+(path[1]-path[0])*Math.min(1,Math.max(0,t)))]);
   },
   rest(character,army,time=0,active=false){const bank=idle(character,army);if(!bank)return null;if(active){const all=forPiece(character,army),choice=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time);if(choice){const next=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time+160);if(next&&next.bank!==choice.bank)for(const frame of next.bank.frames.slice(0,6))void loadFrame(frame);return sample(choice.bank,choice.time,true,choice.reverse,true)??sample(bank,0,false);}}return sample(bank,0,false);},
-  async prepare(character,army,direction,capture,oneSquare=false,signal){
+  async prepare(character,army,direction,capture,oneSquare=false,signal,bites=null){
    const deadline=performance.now()+LOAD_TIMEOUT,remaining=()=>Math.max(0,deadline-performance.now());
    await bounded(loadManifest(),remaining(),signal);if(disposed||signal?.aborted||!remaining())return null;
    const all=forPiece(character,army),rest=idle(character,army);if(!rest)return null;
@@ -239,8 +242,16 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    // A missing edge keeps the rest body coherent instead of jumping to an unsupported facing.
    if(before===null)return null;
    const routeFrames=character.startsWith('king-')&&capture?p=>p.bank.frames:p=>endpoints(p.bank);
-   const start=[rest.frames[0],...before.flatMap(routeFrames),...after.flatMap(routeFrames),...(attack?attack.frames.slice(0,4):[])];
-   let releaseFallback=movement||character.startsWith('king-')&&capture?reserve(start):null;
+   // A chain of captures: each bite has its own attack and the turn from the last bite's facing.
+   let chain=null,back=after;
+   if(attack&&bites?.length>1){
+    chain=bites.map((facing,i)=>({attack:all.find(b=>b.kind==='attack'&&b.facing===facing),turn:i?turnRoute(turns,bites[i-1],facing):[]}));
+    if(chain.some(bite=>!bite.attack||!bite.turn))chain=null;
+    else{for(const bite of chain)bite.turnMs=bite.turn.reduce((n,p)=>n+p.bank.durationMs,0);back=turnRoute(turns,rest.facing,bites.at(-1))&&reverseRoute(turnRoute(turns,rest.facing,bites.at(-1)));if(!back){chain=null;back=after;}}
+   }
+   const start=[rest.frames[0],...before.flatMap(routeFrames),...back.flatMap(routeFrames),...(attack?attack.frames.slice(0,4):[]),...(chain?chain.flatMap(bite=>[...bite.attack.frames.slice(0,4),...bite.turn.flatMap(routeFrames)]):[])];
+   // A capture's start frames stay decoded while the selection's own loads run on, or the old figure would play it.
+   let releaseFallback=movement||capture?reserve(start):null;
    // A large jump bank can be partly cached; keep those frames while its missing frames load.
    let releaseMovement=movement&&jumps(character)?reserve(movement.frames):null;
    let startLoads,movementLoads=null;
@@ -268,13 +279,14 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
     if(disposed||signal?.aborted||!remaining()||start.some(frame=>!images.has(frame.url))){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}
    }
    if(movement&&movement.frames.some(frame=>!images.has(frame.url))){movement=null;releaseMovementStart?.();releaseMovement?.();releaseMovementStart=null;releaseMovement=null;}
-   return {rest,attack,movement,effect,before,after,releaseMovementStart,releaseMovement,releaseFallback,beforeMs:before.reduce((n,p)=>n+p.bank.durationMs,0),afterMs:after.reduce((n,p)=>n+p.bank.durationMs,0)};
+   return {rest,attack,movement,effect,chain,before,after:back,releaseMovementStart,releaseMovement,releaseFallback,beforeMs:before.reduce((n,p)=>n+p.bank.durationMs,0),afterMs:back.reduce((n,p)=>n+p.bank.durationMs,0)};
   },
   action(prepared,time,duration,contact,boundary){
    if(time<0)return routeSample(prepared.before,time+prepared.beforeMs)??sample(prepared.rest,0,false);
    if(time>duration)return routeSample(prepared.after,time-duration)??sample(prepared.rest,0,false);
    if(boundary==='turn-end')return routeSample(prepared.before,prepared.beforeMs)??sample(prepared.rest,0,false);
    const attack=prepared.attack;
+   if(prepared.chain){let t=time;for(const bite of prepared.chain){if(t<bite.turnMs)return routeSample(bite.turn,t)??sample(bite.attack,0,false);t-=bite.turnMs;if(t<=bite.attack.durationMs||bite===prepared.chain.at(-1))return sample(bite.attack,Math.min(t,bite.attack.durationMs),true,false,true)??sample(prepared.rest,0,false);t-=bite.attack.durationMs;}}
    if(attack){return sample(attack,Math.min(time,attack.durationMs),true,false,true)??sample(prepared.rest,0,false);}
    if(prepared.movement){const move=prepared.movement,frames=move.frames;if(boundary==='end'&&move.kind==='move')return routeSample(prepared.after,0)??sample(prepared.rest,0,false);const frame=boundary==='start'?frames[0]:boundary==='end'?frames.at(-1):null;const clock=move.kind==='move'?time*(prepared.movementRate??1)%move.durationMs:duration>0?time/duration*move.durationMs:0;const body=sample(move,clock,true,false,true,frame);if(body)return body;}
    return routeSample(prepared.before,prepared.beforeMs)??sample(prepared.rest,0,false);
