@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "ready",
-  "catalogSha256": "fd84e01b2e401e6eafa9a282e4d8a41b0d7170a36b41a439f14ee2b1412813b2",
+  "catalogSha256": "13aa7192c36f1f02f3a60fe1f3123bd9b2b3fa0575d0fbeef1b325de5e47d541",
   "entries": [
     {
       "character": "pawn",
@@ -3455,17 +3455,17 @@
       "character": "king-mud",
       "army": "white",
       "kind": "idle",
-      "id": "white-idle-claw-curl-SE",
-      "manifest": "banks/1d97642e46cb1d841b7ea27cf899c71a1d4c38045d20ccc9d764e42fe38de238.json",
-      "sha256": "1d97642e46cb1d841b7ea27cf899c71a1d4c38045d20ccc9d764e42fe38de238"
+      "id": "white-idle-squat-SE",
+      "manifest": "banks/ffe23b1621185891f1e6b816892923559d4aa7a885d3c13ec052e5a5cd7ab73e.json",
+      "sha256": "ffe23b1621185891f1e6b816892923559d4aa7a885d3c13ec052e5a5cd7ab73e"
     },
     {
       "character": "king-mud",
       "army": "black",
       "kind": "idle",
-      "id": "black-idle-claw-curl-SE",
-      "manifest": "banks/b4265a3bd1359540a249bdf97448560a1118cdfc582c9746edc0ece3b21d666d.json",
-      "sha256": "b4265a3bd1359540a249bdf97448560a1118cdfc582c9746edc0ece3b21d666d"
+      "id": "black-idle-squat-SE",
+      "manifest": "banks/d2c50148e810b8631e769eedc6e0b714f6ca68ec30342af9f147ee7acd7006c9.json",
+      "sha256": "d2c50148e810b8631e769eedc6e0b714f6ca68ec30342af9f147ee7acd7006c9"
     },
     {
       "character": "king-spirit",
@@ -3832,16 +3832,16 @@
       "army": "white",
       "kind": "attack",
       "id": "white-attack-N",
-      "manifest": "banks/3a210149f4bcf8e8c1b60390c3d99454f67b9a301839e7d1e49572a572c190fc.json",
-      "sha256": "3a210149f4bcf8e8c1b60390c3d99454f67b9a301839e7d1e49572a572c190fc"
+      "manifest": "banks/e7bc90a213904de7987b0a6f0bbf2f883581f1c93f2cef8de9ba5b42b26626dc.json",
+      "sha256": "e7bc90a213904de7987b0a6f0bbf2f883581f1c93f2cef8de9ba5b42b26626dc"
     },
     {
       "character": "king-flame",
       "army": "white",
       "kind": "attack",
       "id": "white-attack-NE",
-      "manifest": "banks/7be88c4cf1628271f738989b234cd2225c171de2c017a65973ed693d01af5703.json",
-      "sha256": "7be88c4cf1628271f738989b234cd2225c171de2c017a65973ed693d01af5703"
+      "manifest": "banks/426d0b27e7ff68e44081798c6138543021e21dc92ce2b9a1430b6e865f0c0c53.json",
+      "sha256": "426d0b27e7ff68e44081798c6138543021e21dc92ce2b9a1430b6e865f0c0c53"
     },
     {
       "character": "king-flame",
@@ -3864,8 +3864,8 @@
       "army": "white",
       "kind": "attack",
       "id": "white-attack-S",
-      "manifest": "banks/450ca7e00803bcaea56bebed1c3935da9fc428cb4013e0f0a3735ec1e8d2443c.json",
-      "sha256": "450ca7e00803bcaea56bebed1c3935da9fc428cb4013e0f0a3735ec1e8d2443c"
+      "manifest": "banks/477283bd1252f79f9a7410aaecd7816b9011be3b36d7b25a363f70696cb8f28a.json",
+      "sha256": "477283bd1252f79f9a7410aaecd7816b9011be3b36d7b25a363f70696cb8f28a"
     },
     {
       "character": "king-flame",
@@ -3896,16 +3896,16 @@
       "army": "black",
       "kind": "attack",
       "id": "black-attack-N",
-      "manifest": "banks/8b2fd75d87ba82c605893c70db61eeb5b3618084d5237b93c1abc4fd7f083769.json",
-      "sha256": "8b2fd75d87ba82c605893c70db61eeb5b3618084d5237b93c1abc4fd7f083769"
+      "manifest": "banks/b69638d6618b852bbbc3f6733e163959c1940b8f79409fbcebc865abeaa12da0.json",
+      "sha256": "b69638d6618b852bbbc3f6733e163959c1940b8f79409fbcebc865abeaa12da0"
     },
     {
       "character": "king-flame",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-NE",
-      "manifest": "banks/9796327e1c0e151baa47c8d7852f843c0365c6cbc841de229aa1d6962a01b978.json",
-      "sha256": "9796327e1c0e151baa47c8d7852f843c0365c6cbc841de229aa1d6962a01b978"
+      "manifest": "banks/5a828a37e68c639ce037ba68ce98bc3eca146291ef8ccebd3ed1bff28ff2db8b.json",
+      "sha256": "5a828a37e68c639ce037ba68ce98bc3eca146291ef8ccebd3ed1bff28ff2db8b"
     },
     {
       "character": "king-flame",
@@ -3928,8 +3928,8 @@
       "army": "black",
       "kind": "attack",
       "id": "black-attack-S",
-      "manifest": "banks/67cfd41d5a8345a2b20b25f70beeb1722f91c50e3708f90d392e505489f8fcd6.json",
-      "sha256": "67cfd41d5a8345a2b20b25f70beeb1722f91c50e3708f90d392e505489f8fcd6"
+      "manifest": "banks/7542a6dbfbc9d43c37384bc8536dcf5afe4eec86e874b284616c98844f1057d4.json",
+      "sha256": "7542a6dbfbc9d43c37384bc8536dcf5afe4eec86e874b284616c98844f1057d4"
     },
     {
       "character": "king-flame",

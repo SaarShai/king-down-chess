@@ -428,6 +428,19 @@ it.each(['position', 'kings', 'cancel'] as const)('restores a selected Stratus i
  await vi.advanceTimersByTimeAsync(2000);await expect(playing).resolves.toBe(true);
 });
 
+it('exits a selected Mud squat along its painted frames on a quiet move', async () => {
+ const base={character:'king-mud',army:'white',canvasSize:[384,384],pivot:[192,345],bodyHeightPx:267,registrationHeightPx:267,boardScale:null};
+ const idle={...base,id:'mud-idle',kind:'idle',facing:'SE',durationMs:400,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-low.png',timeMs:100},{url:'runtime-rest.png',timeMs:400}]};
+ const turn={...base,id:'mud-turn',kind:'turn',from:'SE',to:'N',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-turn.png',timeMs:120}]};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn]})})));
+ const b=board(true,true);scene.setKings(['mud','flame']);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ scene.setSelected(4);let low=false;for(let i=0;i<40&&!low;i++){await vi.advanceTimersByTimeAsync(16);low=scene.characterFrames.find(frame=>frame.square===4)?.time===100;}
+ expect(low).toBe(true);
+ scene.setSelected(null);const playing=scene.play({from:4,to:12,captures:[]});await vi.advanceTimersByTimeAsync(32);
+ expect(scene.characterExit).not.toBeNull();expect(scene.characterFrames.find(frame=>frame.square===4)?.time).toBe(100);
+ await vi.advanceTimersByTimeAsync(2000);await expect(playing).resolves.toBe(true);
+});
+
 it.each(['position', 'kings'] as const)('ignores a late Stratus reservation after %s removes the selected king', async refresh => {
  const base={character:'king-stratus',army:'white',canvasSize:[384,384],pivot:[192,345],bodyHeightPx:267,registrationHeightPx:267,boardScale:null};
  const idle={...base,id:'stratus-idle',kind:'idle',facing:'SE',durationMs:400,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-deferred.png',timeMs:100},{url:'runtime-rest.png',timeMs:400}]};
