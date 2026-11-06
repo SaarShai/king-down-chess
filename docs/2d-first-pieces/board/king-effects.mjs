@@ -616,6 +616,15 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  }
 
  return {
+  /** Whether a design's front layer lies on his figure (a falling figure carries it), not on the floor round him. */
+  onFigure(design){return design==='flame'||design==='spirit';},
+  /** The Spirit's demise: his glowing outline leaves the fallen body, straightens and rises (fx-fallen.mjs). */
+  soul(ctx,{side,pose,rotation,ms}){
+   const sp=spiritLayers(side),u=(ms-420)/640;if(!sp||u<=0||u>=1)return;
+   const risen={...pose,rotation:rotation*(1-smooth(u/.6)),foot:{x:pose.foot.x+24*(rotation*pose.facing<0?-1:1)*(1-smooth(u/.6)),y:pose.foot.y-76*smooth(u)}};
+   ctx.save();ctx.globalAlpha=(side?.5:.4)*smooth(u/.25)*(1-smooth((u-.4)/.6));
+   inSpirit(ctx,{pose:risen},sp.halo);if(!side)ctx.globalCompositeOperation='lighter';inSpirit(ctx,{pose:risen},sp.gold);ctx.restore();
+  },
   /** Whether a design has an effect; starts loading that effect's own art. */
   has(design){if(design==='mud')asset(MUD_PLANTS);if(design==='flame')asset(LAVA_GROUND);if(design==='stratus')asset(CLOUD_BANK);if(design==='flame')flameLayers(0);if(design==='shadow'){shadowLayers(0);asset(HAND_BANK);}return design in PERIOD;},
   /** The pose the figure is drawn with (Stratus floats; Shadow is drawn without his painted smoke, which moves). */

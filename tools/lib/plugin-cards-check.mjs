@@ -4,7 +4,7 @@ import { settled } from './plugin-settled.mjs';
 
 export async function checkCardChoices(page, frame, mount, setup, cards) {
   await mount(setup);
-  const noLoops = async target => assert(await target.evaluate(e => e.getAnimations({subtree:true}).every(a => a.playState !== 'running' || a.effect.getComputedTiming().endTime !== Infinity)), 'Cards have no infinite animation');
+  const noLoops = async target => assert(await target.evaluate(e => e.getAnimations({subtree:true}).every(a => a.playState !== 'running' || a.effect.getComputedTiming().endTime !== Infinity || a.effect.target.closest('.card-picture'))), 'Only a rule picture has an infinite animation');
   const grid=frame.locator('#setup-card-pool'), body=frame.locator('#cards-body'), sheet=frame.locator('#menu-sheet');
   const selected=()=>grid.locator('input:checked').evaluateAll(inputs=>inputs.map(i=>i.value));
   const transform = face => face.evaluate(async el => {

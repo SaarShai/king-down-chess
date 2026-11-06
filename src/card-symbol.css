@@ -2,3 +2,27 @@
 .card-symbol { display: block; width: 22px; height: 22px; }
 .coin.card-coin .card-symbol { position: absolute; inset: 5px; width: calc(100% - 10px); height: calc(100% - 10px); color: #fff5da; }
 #strip-them .coin.card-coin .card-symbol { color: var(--stone-700); }
+
+/* One quiet loop for each released card with no painting (cardPicture). Each loop ends where it starts. No piece moves. */
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-pace='off']) .card-picture :is(.cp-flicker, .cp-pulse, .cp-breathe, .cp-arc, .cp-rise, .cp-nudge, .cp-dim) { transform-box: fill-box; transform-origin: center; animation: cp-breathe 5s ease-in-out infinite; }
+  :root:not([data-pace='off']) .card-picture .cp-flicker { transform-origin: 50% 100%; animation-name: cp-flicker; animation-duration: 3.4s; }
+  :root:not([data-pace='off']) .card-picture .cp-pulse { animation-name: cp-pulse; animation-duration: 4s; }
+  :root:not([data-pace='off']) .card-picture .cp-arc { transform-origin: 50% 100%; animation-name: cp-arc; animation-duration: 6s; }
+  :root:not([data-pace='off']) .card-picture .cp-rise { animation-name: cp-rise; animation-duration: 4.5s; }
+  :root:not([data-pace='off']) .card-picture .cp-nudge { animation-name: cp-nudge; animation-duration: 4s; }
+  :root:not([data-pace='off']) .card-picture .cp-dim { animation-name: cp-dim; animation-duration: 6s; }
+}
+@keyframes cp-flicker {
+  0%, 100% { transform: scale(1, 1); opacity: 1; }
+  22% { transform: scale(.96, 1.07); opacity: .86; }
+  41% { transform: scale(1.02, .97); opacity: 1; }
+  63% { transform: scale(.98, 1.05); opacity: .9; }
+  82% { transform: scale(1.01, .98); opacity: .97; }
+}
+@keyframes cp-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@keyframes cp-breathe { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: .78; } }
+@keyframes cp-arc { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.025, 1.04); opacity: .72; } }
+@keyframes cp-rise { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.6px); } }
+@keyframes cp-nudge { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(1.8px); } }
+@keyframes cp-dim { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }

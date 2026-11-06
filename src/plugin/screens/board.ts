@@ -19,6 +19,7 @@ import { board, disposeBoard, highlight } from '../board-view';
 import { art, symbols } from '../../account-game/art';
 import { cardSymbol } from '../../card-symbol';
 import { cardArt } from '../card-face';
+import { motionTag } from '../card-motion/tag';
 import { cardDiagram } from '../../card-diagram';
 import { pieceIcon } from '../../piece-icons';
 import { snd } from '../../render/sfx';
@@ -517,7 +518,7 @@ export function boardScreen(store: Store) {
         if (mine && !card.spent) b.setAttribute('aria-pressed', String(armedCard === index));
         b.setAttribute('aria-label', (mine ? 'Your ' : "Opponent's ") + cardName(card.card) + (card.spent ? ', spent' : ''));
         const paint = document.createElement('span'); paint.className = 'coin-paint'; b.append(paint);
-        if (face) { image.src = face; image.alt = ''; paint.append(image); }
+        if (face) { image.src = face; image.alt = ''; paint.append(image); if (!card.spent) paint.insertAdjacentHTML('beforeend', motionTag(card.card, face)); }
         else paint.innerHTML = cardSymbol(card.card);
         row.append(b);
         motion.play(b, [{ opacity: 0, transform: `translateY(16px) rotate(${(index - 1.5) * 9}deg) scale(.9)` }, { opacity: 1, transform: 'translateY(0) rotate(0) scale(1)' }], 500, 150 + index * 130, dealtAt);
