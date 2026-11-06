@@ -3,12 +3,84 @@ import {
   BLACK, Color, Move, POWERS_BALANCED, Position, Q, WHITE, colorOf, isAttacked, legalMoves, makeMove, parseKings, parseSq, piece, setRules, status, typeOf,
 } from '../rules/engine';
 import { fromFen, randomBackRank, startPosition, toLan } from '../rules/setup';
-import { MATE, evaluate, resetSearchState, search } from './search';
+import { MATE, evaluate, quiesceScore, resetSearchState, search } from './search';
 import { positionKey } from '../rules/position-key';
 import { setDesignValue, setPieceValues } from './eval';
 import { PRESETS, specOf } from '../workshop/model';
 
 const MID = '1sakg1l1/1p1pppq1/3b4/r1p3p1/p1PPB1Pp/4P2P/PP1GQP2/RSAKL3 w - - 0 13';
+
+it('keeps fixed moves and scores under default rules', () => {
+  setRules();
+  // Values come from the search before the double first turn fix.
+  const cases = [
+    [MID, 'Ac1-c2', 30],
+    ['k7/8/5p2/3pp3/2nS4/8/8/6K1 w - - 0 1', 'Sd4xc4xd5xe5xf6', 473],
+    ['3r3k/8/8/8/8/8/3Q4/4K3 w - - 0 1', 'Qd2xd8', 914],
+    ['7k/8/8/8/8/8/7r/K7 b - - 0 1', 'Kh8-g7', 518],
+    ['rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1', 'Nb1-c3', 46],
+  ] as const;
+  for (const [fen, move, score] of cases) {
+    resetSearchState();
+    const pos = fromFen(fen), result = search(pos, { maxDepth: 3 });
+    expect(result.move).not.toBeNull();
+    expect({ move: toLan(pos, result.move!), score: result.score }, fen).toEqual({ move, score });
+  }
+});
+
+describe('double first turn', () => {
+  it('finds mate across both moves at the root', () => {
+    setRules({ secondPlayerDoubleFirstTurn: true });
+    try {
+      resetSearchState();
+      const pos = fromFen('8/8/8/8/8/8/2k4r/K7 b - - 0 1');
+      const result = search(pos, { maxDepth: 1 });
+      expect(toLan(pos, result.move!)).toBe('Kc2-b3');
+      expect(result.score).toBe(MATE - 2);
+      const next = makeMove(pos, result.move!);
+      expect(next.turn).toBe(BLACK);
+      const reply = search(next, { maxDepth: 1 });
+      expect(status(makeMove(next, reply.move!))).toBe('checkmate');
+    } finally { setRules(); resetSearchState(); }
+  });
+
+  it('finds mate across both moves below the root', () => {
+    setRules({ secondPlayerDoubleFirstTurn: true });
+    try {
+      resetSearchState();
+      const pos = fromFen('8/8/8/8/8/2k5/7r/K7 w - - 0 1');
+      const result = search(pos, { maxDepth: 2 });
+      expect(toLan(pos, result.move!)).toBe('Ka1-b1');
+      expect(result.score).toBe(-MATE + 3);
+    } finally { setRules(); resetSearchState(); }
+  });
+
+  it('keeps the opening move at the capture horizon', () => {
+    setRules({ secondPlayerDoubleFirstTurn: true });
+    try {
+      resetSearchState();
+      const pos = fromFen('7k/8/8/3Q4/4r3/8/8/K7 w - - 0 1');
+      const rootMoves = legalMoves(pos).filter(m => m.from === parseSq('a1') && m.to === parseSq('b1'));
+      expect(rootMoves).toHaveLength(1);
+      // Black first moves the rook onto the queen's line, then takes the queen.
+      expect(search(pos, { maxDepth: 1, rootMoves }).score).toBeLessThan(-400);
+    } finally { setRules(); resetSearchState(); }
+  });
+
+  it('keeps the score sign across both opening captures', () => {
+    setRules({ secondPlayerDoubleFirstTurn: true });
+    try {
+      const pos = fromFen('7k/8/8/3RQ3/4r3/8/8/K7 b - - 0 1');
+      const first = legalMoves(pos).find(m => m.captures.includes(parseSq('e5')))!;
+      const next = makeMove(pos, first);
+      const second = legalMoves(next).find(m => m.captures.includes(parseSq('d5')))!;
+      const after = makeMove(next, second);
+      expect(next.turn).toBe(BLACK);
+      expect(after.turn).toBe(WHITE);
+      expect(quiesceScore(pos)).toBe(-quiesceScore(after));
+    } finally { setRules(); resetSearchState(); }
+  });
+});
 
 const same = (a: Move, b: Move): boolean =>
   a.from === b.from && a.to === b.to && !!a.swap === !!b.swap && !!a.selfRemove === !!b.selfRemove &&

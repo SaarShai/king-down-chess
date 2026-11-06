@@ -1,4 +1,4 @@
-import { createScene } from '../../../../2d-first-pieces/board/scene.mjs';
+import { createScene } from '../../../../../src/render/painted/scene.mjs';
 import * as pieces from '../../../../../src/rules/engine';
 import { drawMarks, type Highlights } from '../../../../../src/render/marks';
 import { marksModel } from '../../../../../src/marks-model';

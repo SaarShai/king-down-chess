@@ -19,7 +19,7 @@ When you add, move or remove an entry at the top of `docs/`, change its line her
 ## Look, motion and sound
 
 - [painted-game/](painted-game/): What does the painted 2D game look like, and what did each change add? The painted look is the only look since 2026-10-11.
-- [2d-first-pieces/](2d-first-pieces/): How did we make each painted piece and the board? The game imports [the board scene](2d-first-pieces/board/scene.mjs) from this folder, so its paths are code paths.
+- [2d-first-pieces/](2d-first-pieces/): How did we make each painted piece and the board? The art and prototype stay here. The game imports [the board scene](../src/render/painted/scene.mjs) from `src/`.
 - [painted-motion/](painted-motion/): How does each piece move, and how does the board look in light (2026-10-02)?
 - [visual-design/](visual-design/): What did the design and UX pass change, and do its contrast checks pass (2026-10-02)?
 - [special-moves/](special-moves/): How does a player choose between two special moves, for example the Ogre's capture and push (2026-09-25)?

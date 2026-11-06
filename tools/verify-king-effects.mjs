@@ -1,5 +1,5 @@
 import { endTurn } from './app-ui.mjs';
-// The kings' idle effects in the game's painted look (docs/2d-first-pieces/board/king-effects.mjs).
+// The kings' idle effects in the game's painted look (src/render/painted/king-effects.mjs).
 // Run: npm run check:browser king-effects (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 // Checks: a default game shows Spirit's and Shadow's effects at about 30 frames a second and its 16 pawns
 // rest (now and then one acts); with Animations Off or reduced motion nothing extra is drawn and the

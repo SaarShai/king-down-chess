@@ -1,6 +1,6 @@
 # Painted Queen — 2026-09-26
 
-Open [the character preview](http://127.0.0.1:5192/queen/) or [its board position](http://127.0.0.1:5192/board/?position=queen).
+Open [the character preview](http://127.0.0.1:5192/docs/2d-first-pieces/queen/) or [its board position](http://127.0.0.1:5192/docs/2d-first-pieces/board/?position=queen).
 
 Crown, gold eye mask, brown bob, high collar and complete spiral skirt. Narrow red edging is the recognition accent.
 
@@ -9,7 +9,7 @@ Crown, gold eye mask, brown bob, high collar and complete spiral skirt. Narrow r
 The built-in image generation tool used the original King Down reference and accepted painted Knight as style/palette input. Exact prompts, original reference, final transparent 1536×1024 PNG and hash/provenance are saved in this directory. [Provenance](provenance.json); [initial prompt](prompt.txt). 
 Small rigid upper-body weight shift; only lower skirt bands deform, with the lower hem fixed. No independent hand animation or drawn walking cycle.
 
-The shared renderer is `../court-motion.mjs`; the preview controls live in `../court-study.mjs`. Source origins are registered separately for the two armies without editing their bitmaps. Hold pose exposes the maximum deformation for inspection. Reset and army changes cancel the current action; keyboard, slow motion and reduced motion are supported.
+The shared renderer is `src/render/painted/court-motion.mjs`; the preview controls live in `../court-study.mjs`. Source origins are registered separately for the two armies without editing their bitmaps. Hold pose exposes the maximum deformation for inspection. Reset and army changes cancel the current action; keyboard, slow motion and reduced motion are supported.
 
 ## Verification
 
@@ -19,4 +19,4 @@ See [board integration evidence](../board/README.md#queen-paladin-and-maester) f
 
 ## Thorn effect atlas
 
-`thorn-fx.webp` is the sprite atlas of `board/fx-queen.mjs`: the thorn, four bramble strands, eight rose petals, a trail and a spark. The thorn comes from her effect package (`thorn-shard-native-v1.png`). The strands and petals are two sheets from the built-in image tool on the ChatGPT plan, with that thorn as the style guide. The sprites are reduced to small sizes and have a pale rim, so they read at game size on light and dark squares.
+`thorn-fx.webp` is the sprite atlas of `src/render/painted/fx-queen.mjs`: the thorn, four bramble strands, eight rose petals, a trail and a spark. The thorn comes from her effect package (`thorn-shard-native-v1.png`). The strands and petals are two sheets from the built-in image tool on the ChatGPT plan, with that thorn as the style guide. The sprites are reduced to small sizes and have a pale rim, so they read at game size on light and dark squares.

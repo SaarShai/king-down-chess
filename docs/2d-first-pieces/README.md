@@ -1,6 +1,6 @@
 # First two 2D pieces — 2026-09-25
 
-The shipped game uses the painted board scene (`src/render/PaintedView.ts` imports `board/scene.mjs`). The local previews and dated work below record how this art was built.
+The shipped game uses the painted board scene (`src/render/PaintedView.ts` imports `src/render/painted/scene.mjs`). The local previews and dated work below record how this art was built.
 
 Piece previews: [Archer wrist bow](wrist-bow/README.md), [Pawn lance](lance/README.md), [Ogre shove](ogre/README.md), [Knight leap](knight/README.md), [Bishop](bishop/README.md), [Rook](rook/README.md), and [Guard](guard/README.md). All seven are available on the [interactive board](board/README.md). The first-pair experiments below remain as history.
 
@@ -27,10 +27,10 @@ Palette: warm ivory versus charcoal/slate dominant on armour and cloth. Pawn kee
 From the project root:
 
 ```sh
-python3 -m http.server 5192 --bind 127.0.0.1 --directory docs/2d-first-pieces
+python3 -m http.server 5192 --bind 127.0.0.1 --directory .
 ```
 
-Open http://127.0.0.1:5192/ . The existing game remains at port 5189.
+Open http://127.0.0.1:5192/docs/2d-first-pieces/ . The existing game remains at port 5189.
 
 ## Verification
 

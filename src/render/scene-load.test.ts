@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { createScene, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
+import { createScene, type PaintedScene } from './painted/scene.mjs';
 import * as pieces from '../rules/engine';
 import { fromFen } from '../rules/setup';
 

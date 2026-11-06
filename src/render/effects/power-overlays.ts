@@ -1,6 +1,6 @@
 import type { GameRules } from '../../game-rules';
 import { P, colorOf, typeOf, type Move, type Position } from '../../rules/engine';
-import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs';
+import type { PaintedScene } from '../painted/scene.mjs';
 import { walkAction } from './card';
 import type { CardLayer, Point } from './card-types';
 import type { MoveOverlay } from './move-overlay';

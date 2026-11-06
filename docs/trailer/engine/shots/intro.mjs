@@ -10,13 +10,13 @@ import { W, H, flush, finish, load, canvas, rand, clamp, lerp, easeOut, easeInOu
 import * as M from '../motion.mjs';
 import * as rules from '../../../2d-first-pieces/board/rules.mjs';
 import { actionsFor } from '../../../2d-first-pieces/board/model.mjs';
-import { createScene, SIZE, TILE } from '../../../2d-first-pieces/board/scene.mjs';
-import { stopPoint } from '../../../2d-first-pieces/board/blows.mjs';
-import * as court from '../../../2d-first-pieces/court-motion.mjs';
-import * as archerRig from '../../../2d-first-pieces/wrist-bow/aiming.mjs';
-import * as ogreRig from '../../../2d-first-pieces/ogre/motion.mjs';
-import * as guardRig from '../../../2d-first-pieces/guard/motion.mjs';
-import * as knightRig from '../../../2d-first-pieces/knight/motion.mjs';
+import { createScene, SIZE, TILE } from '../../../../src/render/painted/scene.mjs';
+import { stopPoint } from '../../../../src/render/painted/blows.mjs';
+import * as court from '../../../../src/render/painted/court-motion.mjs';
+import * as archerRig from '../../../../src/render/painted/wrist-bow/aiming.mjs';
+import * as ogreRig from '../../../../src/render/painted/ogre/motion.mjs';
+import * as guardRig from '../../../../src/render/painted/guard/motion.mjs';
+import * as knightRig from '../../../../src/render/painted/knight/motion.mjs';
 
 // Art paths are relative to this file (fetch and Image would resolve them against the page).
 const ART = new URL('../../../2d-first-pieces/', import.meta.url).href;

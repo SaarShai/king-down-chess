@@ -1,4 +1,4 @@
-import type { PaintedScene, SceneEffect } from '../../../docs/2d-first-pieces/board/scene.mjs';
+import type { PaintedScene, SceneEffect } from '../painted/scene.mjs';
 import type { Move, Position } from '../../rules/engine';
 
 // The promotion: after the pawn arrives, a column of gold light rises from its feet and a burst fills the square. Both

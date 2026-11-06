@@ -25,7 +25,7 @@ Regenerate: `PLAYABLE_URL=http://127.0.0.1:5189/ PLAYABLE_BROWSER=chromium node 
 
 ## How it works
 
-- `docs/2d-first-pieces/board/gait.mjs`: the gaits as data. `GAITS[name] = {duration(squares), at(progress, squares)}` returns where the feet are along the move (`travel`), how high the figure is (`lift`), squash (`sx`, `sy`), lean (`tilt`) and shadow size. `GAIT_OF` names each figure's gait. `idleAt(ms)` is the selected breath.
+- `src/render/painted/gait.mjs`: the gaits as data. `GAITS[name] = {duration(squares), at(progress, squares)}` returns where the feet are along the move (`travel`), how high the figure is (`lift`), squash (`sx`, `sy`), lean (`tilt`) and shadow size. `GAIT_OF` names each figure's gait. `idleAt(ms)` is the selected breath.
 - `scene.setLively({moves, idle, atmosphere})` turns the three parts on. **All are off by default**, so the board trial and the trailer, which share the scene, are unchanged. `src/render/PaintedView.ts` turns them on for the game.
 - `scene.playing` names what is playing (`'walk'`, `'glide'`, `'hop'`, or the capture kind), for checks.
 - **Adding a move kind** (for example the kings' powers in PR #1): add an entry to `GAITS` (a function of progress returning the same fields) and either name it in `GAIT_OF` or play it directly with `scene.play(move, {gait: 'name'})`. A power that needs effects beyond the figure (ice, wings) belongs in `scene.mjs` beside the capture effects, as a new animation type in `plan()` and `render()`.

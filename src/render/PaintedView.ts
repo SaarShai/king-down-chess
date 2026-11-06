@@ -7,7 +7,7 @@ import { drawWithdrawal } from './effects/check';
 import { moveOverlay, type MoveOverlay } from './effects/move-overlay';
 import { loadDarkGate } from './effects/dark-gate';
 import type { TailedOverlay } from './effects/power-overlays';
-import { createScene, type KingDesign, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
+import { createScene, type KingDesign, type PaintedScene } from './painted/scene.mjs';
 import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, S, T, colorOf, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
 import { figureUrl, selectedFigure } from '../workshop/figures';
 import { drawMarks, type Highlights } from './marks';

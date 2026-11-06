@@ -1,8 +1,8 @@
 // Local visual/interaction trial. Drawing and animation live in scene.mjs, shared with the game.
 import { P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName,parseSq,makeMove } from './rules.mjs';
 import { layouts,createPosition,actionsFor,destination } from './model.mjs';
-import { clamp } from '../painted-mesh.mjs';
-import { createScene } from './scene.mjs';
+import { clamp } from '../../../src/render/painted/painted-mesh.mjs';
+import { createScene } from '../../../src/render/painted/scene.mjs';
 const $=id=>document.getElementById(id);
 const names={ [K]:'King',[S]:'Beast',[P]:'Pawn',[N]:'Knight',[B]:'Bishop',[R]:'Rook',[Q]:'Queen',[L]:'Paladin',[M]:'Maester',[G]:'Guard',[A]:'Archer',[O]:'Ogre' };
 const colours=['Ivory','Charcoal'];

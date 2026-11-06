@@ -1,4 +1,4 @@
-import { PAD, TILE, type PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs';
+import { PAD, TILE, type PaintedScene } from '../painted/scene.mjs';
 import type { Point } from './card-types';
 import { clamp, ease, rand } from './travel-material';
 

@@ -7,6 +7,7 @@
 // assets/kept-files.json names the kept files. When the live page is the page of this build (a rerun,
 // for example after a failed live check), the walk also reads that live list and keeps its files again.
 // Send no cookie. DEPLOY_LIVE_URL defaults to https://kingdown.dev.
+// DEPLOY_REQUEST_TIMEOUT_MS is the limit for one request, with a 60000 ms default.
 // Exit: 0 pass, 1 live fault (a failed read, a wrong type, a type with no check, or other bytes at a
 // name of the build), 2 invalid build or arguments.
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -17,6 +18,8 @@ const [folder, ...extra] = process.argv.slice(2);
 if (!folder || extra.length) fault(2, 'usage: node tools/deploy-keep-assets.mjs <static folder>');
 for (const name of ['index.html', 'sw.js', 'assets']) if (!existsSync(join(folder, name))) fault(2, `the build has no ${name} in ${folder}`);
 const base = (process.env.DEPLOY_LIVE_URL || 'https://kingdown.dev').replace(/\/+$/, '');
+const requestTimeout = Number(process.env.DEPLOY_REQUEST_TIMEOUT_MS ?? 60_000);
+if (!Number.isSafeInteger(requestTimeout) || requestTimeout < 1 || requestTimeout > 2_147_483_647) fault(2, 'DEPLOY_REQUEST_TIMEOUT_MS must be a whole number from 1 to 2147483647 milliseconds');
 
 // The content types of tools/deploy-live-check.mjs. The live check compares each file under assets/, so
 // a build file of another type stops here, before publication, and not after it.
@@ -40,10 +43,11 @@ const reference = new RegExp(String.raw`["'\x60(\s,]((?:\.?\/)?assets\/|\.\/)(${
 async function get(path) {
   for (let attempt = 1; ; attempt++) {
     try {
-      const res = await fetch(base + path, { credentials: 'omit', redirect: 'manual', headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(15_000) });
+      const res = await fetch(base + path, { credentials: 'omit', redirect: 'manual', headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(requestTimeout) });
       return { status: res.status, type: (res.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase(), bytes: Buffer.from(await res.arrayBuffer()) };
     } catch (error) {
       if (attempt === 3) fault(1, `GET ${path}: fetch failed (${error.cause?.code ?? error.message})`);
+      console.error(`keep-assets: repeat ${attempt}/2 GET ${path}: fetch failed (${error.cause?.code ?? error.message}); pause ${attempt} s`);
       await new Promise(done => setTimeout(done, 1000 * attempt));
     }
   }

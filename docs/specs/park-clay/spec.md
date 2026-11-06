@@ -36,7 +36,7 @@ The three.js board (`BoardRenderer`) is made only by `src/render/clay.ts`, and `
 
 ### 2.3 Shared with the painted board (it stays as it is)
 
-`src/render/PaintedView.ts`, `marks.ts`, `legend.ts` (the clay board also used it), `board-ink.ts`, `tap.ts`, `sfx.ts`, `src/read.ts`, `src/workshop/figures.ts` (`figureUrl`, `selectedFigure`), `docs/2d-first-pieces/` (the painted scene), `public/ui/`, `public/icons/`, `public/fonts/`.
+`src/render/PaintedView.ts`, `marks.ts`, `legend.ts` (the clay board also used it), `board-ink.ts`, `tap.ts`, `sfx.ts`, `src/read.ts`, `src/workshop/figures.ts` (`figureUrl`, `selectedFigure`), `src/render/painted/` (the painted scene), `docs/2d-first-pieces/` (the art), `public/ui/`, `public/icons/`, `public/fonts/`.
 
 Not clay, although the name says so: the `clay-golem` Workshop figure, and the `workshop-cast` check (the Workshop figure picker; it never opens the clay look). Both stay.
 

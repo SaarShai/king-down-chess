@@ -2,9 +2,9 @@
 // resting pawns (lance/idle.mjs), with the game's own painted scene. tools/king-effects-preview.mjs turns
 // this page into one self-contained file and records each panel.
 import { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, parseSq, piece, genPiece } from '../2d-first-pieces/board/rules.mjs';
-import { createScene } from '../2d-first-pieces/board/scene.mjs';
-import { PERIOD } from '../2d-first-pieces/board/king-effects.mjs';
-import { startTitleKings } from '../2d-first-pieces/board/title-kings.mjs';
+import { createScene } from '../../src/render/painted/scene.mjs';
+import { PERIOD } from '../../src/render/painted/king-effects.mjs';
+import { startTitleKings } from '../../src/render/painted/title-kings.mjs';
 // The title screen's art (public/ui/), one literal URL each so the one-file preview can inline it.
 const TITLE_ART = { mud: new URL('../../public/ui/kings/mud.webp',import.meta.url).href, flame: new URL('../../public/ui/kings/flame.webp',import.meta.url).href, spirit: new URL('../../public/ui/kings/spirit.webp',import.meta.url).href, shadow: new URL('../../public/ui/kings/shadow.webp',import.meta.url).href, frost: new URL('../../public/ui/kings/frost.webp',import.meta.url).href, stratus: new URL('../../public/ui/kings/stratus.webp',import.meta.url).href };
 const TITLE_FLOOR = new URL('../../public/ui/stone-board.webp',import.meta.url).href;
