@@ -27,14 +27,14 @@ const rules = new GameRules({});
 const promoting = rules.fromFen('r1b2rk1/pp1P1ppp/2n1pn2/2p5/2P1P3/2N2N2/PP3PPP/R1B1R1K1 w - - 0 24');
 
 describe('promotion reveal', () => {
-  it('shows the chosen identity by the midpoint and ends with no dust', () => {
+  it('changes the figure behind the opaque light by the midpoint and ends with no light', () => {
     expect(ascension(0)).toEqual({ t: 0, reveal: 0, pawn: 1, material: 0 });
     expect(ascension(.42).reveal).toBe(1);
     expect(ascension(.5)).toMatchObject({ reveal: 1, pawn: 0 });
     expect(ascension(.2).material).toBeGreaterThan(.9);
     expect(ascension(1).material).toBe(0);
-    // The pawn and the new piece overlap: the square is never empty.
-    for (let t = 0; t <= 1; t += .01) expect(ascension(t).pawn + ascension(t).reveal).toBeGreaterThan(.99);
+    // Exactly one figure shows at each moment: no crossfade, and the square is never empty.
+    for (let t = 0; t <= 1; t += .01) expect(ascension(t).pawn + ascension(t).reveal).toBe(1);
   });
 
   it.each([['d7-d8=Q', Q], ['d7-d8=N', N]] as const)('%s hides only the promotion square from the scene until the end', (lan, type) => {
@@ -48,12 +48,15 @@ describe('promotion reveal', () => {
     expect(typeOf(after.board[move.to])).toBe(type);
   });
 
-  it('draws the pawn and the chosen piece in the promotion row only, both on the promotion square', () => {
+  it('draws the pawn, then the chosen piece, in the promotion row only, on the promotion square', () => {
     const move = legal(rules, promoting, 'd7-d8=Q'), after = rules.makeMove(promoting, move), reveal = new PromotionPlayback(promoting, move, after);
     const ghost = vi.fn(), scene = { foot: () => ({ x: 0, y: 0 }), cell: (sq: number) => ({ col: sq % 8, row: 7 - (sq >> 3) }), ghost } as unknown as PaintedScene;
     const ctx = new Proxy({}, { get: () => () => {}, set: () => true }) as CanvasRenderingContext2D;
     for (let row = 0; row < 8; row++) reveal.draw(ctx, scene, 'over', row, .35);
-    expect(ghost.mock.calls.map(call => call.slice(1, 3))).toEqual([[promoting.board[move.from], move.to], [after.board[move.to], move.to]]);
+    expect(ghost.mock.calls.map(call => call.slice(1, 4))).toEqual([[promoting.board[move.from], move.to, 1]]);
+    ghost.mockClear();
+    for (let row = 0; row < 8; row++) reveal.draw(ctx, scene, 'over', row, .37);
+    expect(ghost.mock.calls.map(call => call.slice(1, 4))).toEqual([[after.board[move.to], move.to, 1]]);
     ghost.mockClear(); reveal.draw(ctx, scene, 'over', 0, 1);
     expect(ghost).not.toHaveBeenCalled();
   });
