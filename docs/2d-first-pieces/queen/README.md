@@ -16,3 +16,7 @@ The shared renderer is `src/render/painted/court-motion.mjs`; the preview contro
 Artwork inspected at full/portrait scale and in the ten-piece board: complete silhouettes, hands and equipment, army palettes, source-cell gutter, both armies and full-pose extremes. Geometry tests cover 1,001 curve samples, upper-body rigidity, positive mesh orientation and fixed Queen hems/Paladin soles, plus rigid Maester distances. The board reuses unchanged production rules.
 
 See [board integration evidence](../board/README.md#queen-paladin-and-maester) for special actions and browser checks. These are coherent pose studies with bounded motion; full walking, extra facings and owner acceptance remain outstanding. Production game unchanged.
+
+## Thorn effect atlas
+
+`thorn-fx.webp` is the sprite atlas of `src/render/painted/fx-queen.mjs`: the thorn, four bramble strands, eight rose petals, a trail and a spark. The thorn comes from her effect package (`thorn-shard-native-v1.png`). The strands and petals are two sheets from the built-in image tool on the ChatGPT plan, with that thorn as the style guide. The sprites are reduced to small sizes and have a pale rim, so they read at game size on light and dark squares.

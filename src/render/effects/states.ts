@@ -1,9 +1,14 @@
 import type { GameRules } from '../../game-rules';
 import { stable } from '../../balance/measurements';
 import { G, K, colorOf, findKing, typeOf, type Color, type Position } from '../../rules/engine';
+import type { Checker } from '../../move-text';
 import { SIGNAL_DURATION_MS } from './indications';
 import { CHECK_WITHDRAW_MS } from './check';
 import { FREEZE_RELEASE_MS } from './freeze-release';
+
+const BADGE_FADE_MS = 160, SHELTER_RELEASE_MS = 320;
+const isShelter = (kind: StateKind) => kind === 'holy-light' || kind === 'mercy';
+const fade = (n: number) => { n = Math.max(0, Math.min(1, n)); return n * n * (3 - 2 * n); };
 
 export type StateKind = 'freeze' | 'ward' | 'firewall' | 'holy-light' | 'mercy';
 export interface BoardState {
@@ -16,7 +21,12 @@ export interface BoardState {
   turns: number;
   exception?: 'pawn';
 }
-export interface StateFrame extends BoardState { since: number; clear?: number }
+export interface StateFrame extends BoardState {
+  since: number;
+  clear?: number;
+  /** The release began when a move started to play, before the board showed the move. A refused move restores the state. */
+  moved?: boolean;
+}
 
 /** Read the same mark slots, power and rule switches that the engine uses. */
 export function boardStates(context: GameRules, pos: Position): BoardState[] {
@@ -64,6 +74,8 @@ export class StateEffects {
   forward = false;
   /** A check that a live move just ended: its wash withdraws from the king's old square (check.ts). */
   withdrawn?: { king: number; since: number };
+  /** The cause lines of the check last shown; a withdrawal fades them. */
+  checkers: readonly Checker[] = [];
   /** The king of a check that a highlight ended while the board still shows its position: the move has yet to play. */
   private ending?: number;
   private signals = new Map<string, { key: string; since: number }>();
@@ -73,7 +85,11 @@ export class StateEffects {
     // Online views rebuild GameRules. Equivalent rule values keep the same effect history.
     const rulesKey = stable(context.rules);
     const signature = `${Array.from(pos.board)}|${pos.turn}|${pos.ply}|${JSON.stringify(pos.marks)}`;
-    if (this.previous?.rulesKey === rulesKey && this.previous.signature === signature) { this.seen.add(pos); return; }
+    if (this.previous?.rulesKey === rulesKey && this.previous.signature === signature) {
+      this.seen.add(pos);
+      for (const state of this.frames) if (state.moved) { state.moved = state.clear = undefined; state.since = -Infinity; }
+      return;
+    }
     if (this.previous?.rulesKey !== rulesKey) this.seen = new WeakSet<Position>();
     const forward = motion && this.previous?.rulesKey === rulesKey && pos.ply === this.previous.ply + 1 && !this.seen.has(pos);
     this.forward = forward;
@@ -88,10 +104,19 @@ export class StateEffects {
       const held = prior.get(s.key) ?? (s.kind === 'firewall' ? [...prior.values()].find(p => p.kind === s.kind && p.owner === s.owner) : undefined);
       return { ...s, since: forward ? held?.since ?? now : -Infinity };
     });
-    if (forward) for (const old of prior.values()) {
-      if (old.kind !== 'freeze' && old.kind !== 'ward' && old.kind !== 'firewall') continue;
-      if (!frames.some(s => s.key === old.key) && pos.board[old.sq] === old.code
-        && !frames.some(s => s.sq === old.sq && ['freeze', 'ward', 'firewall'].includes(s.kind))) frames.push({ ...old, turns: 0, clear: now });
+    const material = (s: BoardState) => ['freeze', 'ward', 'firewall'].includes(s.kind);
+    if (forward) {
+      for (const old of prior.values()) {
+        if (!material(old)) {
+          if (!frames.some(s => s.key === old.key)) frames.push({ ...old, clear: now });
+          continue;
+        }
+        // Ice stands on its own: a freeze thaws even when its piece has left the square. Other material needs its piece.
+        if (!frames.some(s => s.key === old.key) && (old.kind === 'freeze' || pos.board[old.sq] === old.code)
+          && !frames.some(s => s.sq === old.sq && material(s))) frames.push({ ...old, turns: 0, clear: now });
+      }
+      // A release that is playing goes on through later moves, unless new material now stands on its square.
+      for (const old of this.frames) if (old.clear != null && !(material(old) && frames.some(s => s.sq === old.sq && material(s)))) frames.push({ ...old, moved: false });
     }
     this.frames = frames;
     this.previous = { rulesKey, signature, ply: pos.ply };
@@ -148,13 +173,34 @@ export class StateEffects {
     return motion ? Math.min(.42, this.elapsed(state.since, now, motion)) : .42;
   }
 
+  /** A move starts to take a frozen piece off its square, or a sheltering king or sheltered piece away: the mark lets go now, not at the move's end. */
+  releaseMoved(moving: ReadonlySet<number>, now: number, motion: boolean): void {
+    if (!motion) return;
+    for (const state of this.frames) {
+      if (state.clear != null) continue;
+      const taken = state.kind === 'freeze' ? moving.has(state.sq) : isShelter(state.kind) && (moving.has(state.sq) || (state.source != null && moving.has(state.source)));
+      if (taken) { state.clear = now; state.moved = true; }
+    }
+  }
+
+  /** The strength of a state's badge and ground ring: they fade in with the onset and out with the release, so they do not pop. */
+  badge(state: StateFrame, now: number, motion: boolean): number {
+    if (!motion) return state.clear == null ? 1 : 0;
+    return fade((now - state.since) * this.rate / BADGE_FADE_MS) * (state.clear == null ? 1 : 1 - fade((now - state.clear) * this.rate / BADGE_FADE_MS));
+  }
+
+  /** The strength of a shelter mantle during its release. */
+  shelterFade(state: StateFrame, now: number, motion: boolean): number {
+    return state.clear == null ? 1 : motion ? 1 - fade((now - state.clear) * this.rate / SHELTER_RELEASE_MS) : 0;
+  }
+
   freezeRelease(state: StateFrame, now: number, motion: boolean): number {
     return motion && state.clear != null ? Math.max(0, Math.min(1, (now - state.clear) * this.rate / FREEZE_RELEASE_MS)) : 1;
   }
 
   remaining(now: number): number {
     const duration = SIGNAL_DURATION_MS / this.rate;
-    const release = (s: StateFrame) => s.kind === 'freeze' ? FREEZE_RELEASE_MS / this.rate : duration * 28 / 100;
+    const release = (s: StateFrame) => s.kind === 'freeze' ? FREEZE_RELEASE_MS / this.rate : isShelter(s.kind) ? SHELTER_RELEASE_MS / this.rate : duration * 28 / 100;
     this.frames = this.frames.filter(s => s.clear == null || now - s.clear < release(s));
     const ends = this.frames.map(s => s.clear == null ? s.since + (['freeze', 'ward', 'firewall'].includes(s.kind) ? .42 : .7) * duration : s.clear + release(s));
     for (const s of this.signals.values()) ends.push(s.since + .75 * duration);
@@ -173,5 +219,5 @@ export class StateEffects {
     this.withdrawn = undefined;
   }
 
-  dispose(): void { this.frames = []; this.signals.clear(); this.previous = undefined; this.seen = new WeakSet<Position>(); this.forward = false; this.withdrawn = this.ending = undefined; }
+  dispose(): void { this.frames = []; this.signals.clear(); this.previous = undefined; this.seen = new WeakSet<Position>(); this.forward = false; this.withdrawn = this.ending = undefined; this.checkers = []; }
 }

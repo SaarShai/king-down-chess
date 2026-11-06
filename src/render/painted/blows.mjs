@@ -6,6 +6,10 @@ export const BLOW={approach:400,wind:560,strike:660,hold:900,duration:1150};
 // A king's capture with his own death for the victim (king-captures.mjs): the same strike, then he waits
 // for it to go under before he steps in.
 export const KING_BLOW={...BLOW,hold:1420,duration:1660};
+// A painted king's attack can end soon after its contact (Frost: 230 ms), which would squeeze his victim's whole
+// death into that time. He holds his last drawing until the death has had this long at Normal speed.
+export const KING_DEATH_MS=760;
+export const kingActionMs=(attackMs,contactMs)=>Math.max(attackMs,contactMs+KING_DEATH_MS);
 // gap: how far short of the victim's feet the attacker stops (px on the 960 board).
 export const blows={
  rook:{tilt:.2,gap:62,effect:'smash',verb:'Swinging the tower…'},

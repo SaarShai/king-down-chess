@@ -1,6 +1,7 @@
 import type { CardName } from './rules/rules';
 import './card-symbol.css';
 
+const fireFlame = 'M13 6c2 4-2 5-1 8l3-3c5 6 2 10-3 10s-8-4-4-8c0 3 1 3 2 3-2-4 2-6 3-10z';
 const marks = {
   frost: '<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M9 5l3 3 3-3M9 19l3-3 3 3"/>',
   shield: '<path d="M12 3l8 3v6c0 5-8 9-8 9S4 17 4 12V6z"/>',
@@ -22,7 +23,7 @@ const marks = {
   mirror: '<path d="M3 4h11v14H3zM10 7h11v14H10M13 11h5M13 15h5"/>',
   quake: '<path d="M2 15h5l3-10 4 16 3-9h5"/>',
   burn: '<path d="M13 2c2 6-3 7-1 11 2-1 3-3 3-5 8 8 4 14-3 14S1 16 6 10c0 4 2 5 3 5C6 9 12 8 13 2z"/>',
-  firestarter: '<path d="M3 3h18M13 6c2 4-2 5-1 8l3-3c5 6 2 10-3 10s-8-4-4-8c0 3 1 3 2 3-2-4 2-6 3-10z"/>',
+  firestarter: `<path d="M3 3h18${fireFlame}"/>`,
   control: '<circle cx="6" cy="7" r="3"/><circle cx="18" cy="7" r="3"/><path d="M2 20v-4a4 4 0 0 1 8 0v4M14 20v-4a4 4 0 0 1 8 0v4M9 7h6"/>',
   growth: '<path d="M12 21V9M12 15C3 16 3 9 3 7c7 0 9 3 9 8M12 11c0-7 5-8 9-8 0 7-3 9-9 8"/>',
   rally: '<path d="M3 21V5h8l-2 4 2 4H3M14 21V5h7l-2 4 2 4h-7"/>',
@@ -41,15 +42,19 @@ export function cardSymbol(card: CardName): string {
 const pawn = (x: number, dark = false, y = 16) => `<g data-piece="pawn" transform="translate(${x} ${y})" fill="${dark ? '#514638' : '#fff5da'}" stroke="#514638" stroke-width="1.2"><circle cx="8" cy="4" r="3"/><path d="M5 7h6l-1 6 3 3H3l3-3z"/></g>`;
 const knight = (x: number, dark = false) => `<g data-piece="knight" transform="translate(${x} 14)" fill="${dark ? '#514638' : '#fff5da'}" stroke="#514638" stroke-width="1.2"><path d="M1 18h15c0-8-1-14-8-17l1 3-7 6 5 2 3-3-3 5z"/></g>`;
 const arrow = '<path d="M33 24h13m-4-4 4 4-4 4"/>';
+/** The one quiet loop of each released card with no painting (card-symbol.css). No other card moves. */
+const motion: Partial<Record<CardName, string>> = { MirrorB: 'breathe', Firewall: 'arc', EarthQuake: 'pulse', Burn: 'flicker', FireStarter: 'flicker', Control: 'breathe', Rally: 'rise', MorphP: 'nudge', Curse: 'dim' };
 /** A small rule picture. The text remains the full rule. */
 export function cardPicture(card: CardName): string {
   const kind = family[card];
+  // A CSS transform replaces a transform attribute on the same element, so the loop has its own group.
+  const moving = (part: string) => motion[card] ? `<g class="cp-${motion[card]}">${part}</g>` : part;
   let scene: string;
-  if (kind === 'quake') scene = '<path d="M40 10V3m-4 4 4-4 4 4M40 38v7m-4-4 4 4 4-4M26 24H15m4-4-4 4 4 4M54 24h11m-4-4 4 4-4 4"/><circle cx="40" cy="24" r="6"/>';
-  else if (kind === 'shield') scene = pawn(16) + pawn(32) + pawn(48) + '<path d="M12 36V21a28 18 0 0 1 56 0v15"/>';
-  else if (kind === 'rally') scene = pawn(12) + pawn(44) + '<path d="M20 15V5m-4 4 4-4 4 4M52 15V5m-4 4 4-4 4 4"/>';
-  else if (kind === 'mirror' || kind === 'mimic' || kind === 'growth') scene = `<g transform="translate(12 12)">${marks[kind]}</g>${arrow}<g transform="translate(48 12)">${marks[kind]}</g>`;
-  else if (kind === 'control') scene = `<g data-square="a1" transform="translate(0 9)">${knight(12)}</g><g data-piece="rook" data-square="b1" transform="translate(32 23)" fill="#fff5da"><path d="M1 2h4v3h3V2h3v3h3V2h3v6l-3 2v5l2 3H2l2-3v-5L1 8z"/></g><circle cx="20" cy="15" r="6" stroke-dasharray="2 2"/><path data-move="Na1-a2!O" d="M20 26V13m-4 4 4-4 4 4"/>`;
+  if (kind === 'quake') scene = moving('<path d="M40 10V3m-4 4 4-4 4 4M40 38v7m-4-4 4 4 4-4M26 24H15m4-4-4 4 4 4M54 24h11m-4-4 4 4-4 4"/>') + '<circle cx="40" cy="24" r="6"/>';
+  else if (kind === 'shield') scene = pawn(16) + pawn(32) + pawn(48) + moving('<path d="M12 36V21a28 18 0 0 1 56 0v15"/>');
+  else if (kind === 'rally') scene = pawn(12) + pawn(44) + moving('<path d="M20 15V5m-4 4 4-4 4 4M52 15V5m-4 4 4-4 4 4"/>');
+  else if (kind === 'mirror' || kind === 'mimic' || kind === 'growth') scene = `<g transform="translate(12 12)">${marks[kind]}</g>${arrow}<g transform="translate(48 12)">${moving(marks[kind])}</g>`;
+  else if (kind === 'control') scene = `<g data-square="a1" transform="translate(0 9)">${knight(12)}</g><g data-piece="rook" data-square="b1" transform="translate(32 23)" fill="#fff5da"><path d="M1 2h4v3h3V2h3v3h3V2h3v6l-3 2v5l2 3H2l2-3v-5L1 8z"/></g>${moving('<circle cx="20" cy="15" r="6" stroke-dasharray="2 2"/>')}<path data-move="Na1-a2!O" d="M20 26V13m-4 4 4-4 4 4"/>`;
   else if (kind === 'swap') scene = pawn(12) + pawn(52) + '<path d="M25 10h30m-4-4 4 4-4 4M55 38H25m4-4-4 4 4 4"/>';
   else if (kind === 'spawn') {
     const two = card === 'Spawn2' || card === 'SpawnK2', king = card === 'SpawnK' || card === 'SpawnK2';
@@ -58,7 +63,8 @@ export function cardPicture(card: CardName): string {
       : '<path d="M20 18v12m-6-6h12"/>' + arrow + (two ? pawn(40) + pawn(55) : pawn(48));
     scene += '<path d="M55 9v3M65 15l-2 2"/>';
   }
-  else if (kind === 'morph') scene = pawn(12) + arrow + '<path d="M53 32h15c0-8-1-14-8-17l1 3-7 6 5 2 3-3-3 5z" fill="#fff5da"/>';
-  else scene = (kind === 'burn' || kind === 'firestarter' ? knight(12) : pawn(12, kind === 'curse')) + arrow + `<g transform="translate(49 12)">${marks[kind]}</g>`;
+  else if (kind === 'morph') scene = pawn(12) + moving(arrow) + '<path d="M53 32h15c0-8-1-14-8-17l1 3-7 6 5 2 3-3-3 5z" fill="#fff5da"/>';
+  else if (kind === 'firestarter') scene = knight(12) + arrow + `<g transform="translate(49 12)"><path d="M3 3h18"/>${moving(`<path d="${fireFlame}"/>`)}</g>`; // Only the flame flickers: the bar stays still.
+  else scene = (kind === 'burn' ? knight(12) : pawn(12, kind === 'curse')) + arrow + `<g transform="translate(49 12)">${moving(marks[kind])}</g>`;
   return `<svg class="card-picture" data-card-picture="${card}" viewBox="0 0 80 48" aria-hidden="true" focusable="false"><rect x="10" y="6" width="60" height="36" rx="6" fill="#d9cdb6"/><path d="M30 6v36M50 6v36M10 24h60" stroke="#c4b69c" fill="none"/><g fill="none" stroke="#695035" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${scene}</g></svg>`;
 }

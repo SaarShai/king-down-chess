@@ -29,6 +29,7 @@ export const checks = [
   { name: 'card-art', script: 'docs/specs/effects-animation/verify-card-art.mjs', limit: 120, channel: 'chromium', byName: true },
   { name: 'card-crops', script: 'docs/specs/effects-animation/preview/card-art/crop-review/verify.mjs', limit: 120, channel: 'chromium', byName: true },
   { name: 'card-art-wide', script: 'docs/specs/effects-animation/preview/card-art/wide-review/verify.mjs', limit: 180, channel: 'chromium', byName: true },
+  { name: 'card-motion', script: 'tools/card-motion/verify.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'wide-card-motion', script: 'docs/specs/effects-animation/preview/card-art/wide-review/motion/verify.mjs', limit: 240, channel: 'chromium', byName: true },
   { name: 'effects-game', script: 'docs/specs/effects-animation/verify-game.mjs', limit: 240, channel: 'chromium', byName: true, exclusive: true },
   { name: 'motion-concepts', script: 'tools/verify-motion-concepts.mjs', limit: 300, channel: 'chromium', byName: true },

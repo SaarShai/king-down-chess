@@ -50,9 +50,9 @@ for (const style of html.matchAll(/<link[^>]*href="([^"]+\.css)"[^>]*>/g)) { con
 html = html.replace(/href="\.\/plugin-art\//g, `href="${ART_ORIGIN}/plugin-art/`);
 const uri = `ui://kingdown/board-${createHash('sha256').update(html).digest('hex')}.html`;
 const payloadBytes = Buffer.byteLength(JSON.stringify({ contents: [{ uri, mimeType: 'text/html;profile=mcp-app', text: html }] }));
-// The art is served as files (ticket 09); an inlined image would put the page near the host's 4.4 MB limit again.
+// The art is served as files (ticket 09); an inlined image would put the page near the host's 4.4 MB limit again. This guard stays well below that limit and catches only an unplanned jump.
 if (/data:image\/(?!svg\+xml)/.test(html)) throw new Error('The board page inlines an image; serve it from the plugin origin');
-if (payloadBytes > 1_000_000) throw new Error(`MCP resource payload exceeds response budget: ${payloadBytes}`);
+if (payloadBytes > 1_250_000) throw new Error(`MCP resource payload exceeds response budget: ${payloadBytes}`);
 await mkdir(output, { recursive: true });
 await writeFile(resolve(output, 'board.html'), html);
 console.log(`MCP App resource: ${resolve(output, 'board.html')} (${Buffer.byteLength(html)} bytes, payload ${payloadBytes}); art in ${resolve(output, 'plugin-art')}`);

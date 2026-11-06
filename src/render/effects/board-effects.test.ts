@@ -15,7 +15,7 @@ vi.mock('./freeze-release', () => ({ FREEZE_RELEASE_MS: 620, drawFreezeRelease: 
 vi.mock('./archer-flare', () => ({ drawArcherFocus: vi.fn() }));
 vi.mock('./state-flare', () => ({ drawShelter: vi.fn(), drawSwap: vi.fn() }));
 vi.mock('./indications', () => ({ SIGNAL_DURATION_MS: 4800, ring: vi.fn(), link: vi.fn(), pips: vi.fn(), checkImpact: vi.fn() }));
-vi.mock('./check', () => ({ CHECK_ONSET_MS: 440, CHECK_WITHDRAW_MS: 220, drawCheck: vi.fn(), drawWithdrawal: vi.fn() }));
+vi.mock('./check', () => ({ CHECK_ONSET_MS: 440, CHECK_SETTLE_MS: 240, CHECK_WITHDRAW_MS: 220, drawCheck: vi.fn(), drawWithdrawal: vi.fn() }));
 afterEach(() => vi.clearAllMocks());
 const ctx = { save() {}, restore() {}, translate() {}, scale() {} } as unknown as CanvasRenderingContext2D;
 const sceneAt = (flipped: boolean) => ({ cell: (sq: number) => ({ col: flipped ? 7 - sq % 8 : sq % 8, row: flipped ? sq >> 3 : 7 - (sq >> 3) }), foot: (sq: number) => ({ x: sq * 10, y: sq * 20 }) }) as unknown as PaintedScene;
@@ -74,12 +74,17 @@ it('plays the check onset from its live signal, then holds the approved ring', (
   drawBoardEffects(ctx, scene, 'under', undefined, effects, marks, 960, 1200, true, false, null, 0, undefined, board);
   expect(drawCheck).toHaveBeenLastCalledWith(ctx, scene, 'under', undefined, expect.objectContaining({ ms: 400 }));
   expect(checkImpact).not.toHaveBeenCalled();
-  // At the onset's end (440 ms at this pace) and without motion, the held check is the ring at rest.
-  for (const motion of [true, false]) {
+  // At the onset's end (440 ms at this pace) the wash and seal give way to the ring, with no cut.
+  vi.clearAllMocks();
+  drawBoardEffects(ctx, scene, 'under', undefined, effects, marks, 960, 1280, true, false, null, 0, undefined, board);
+  expect(drawCheck).toHaveBeenLastCalledWith(ctx, scene, 'under', undefined, expect.objectContaining({ ms: 560 }));
+  expect(checkImpact).toHaveBeenCalledExactlyOnceWith(ctx, scene, 4, 1, false, .5);
+  // After that and without motion, the held check is the ring at rest.
+  for (const [time, motion] of [[1400, true], [1220, false]] as const) {
     vi.clearAllMocks();
-    drawBoardEffects(ctx, scene, 'under', undefined, effects, marks, 960, 1220, motion, false, null, 0, undefined, board);
+    drawBoardEffects(ctx, scene, 'under', undefined, effects, marks, 960, time, motion, false, null, 0, undefined, board);
     expect(drawCheck).not.toHaveBeenCalled();
-    expect(checkImpact).toHaveBeenCalledExactlyOnceWith(ctx, scene, 4, 1, !motion);
+    expect(checkImpact).toHaveBeenCalledExactlyOnceWith(ctx, scene, 4, 1, !motion, 1);
   }
 });
 
@@ -125,10 +130,29 @@ it.each([false, true])('draws approved Freeze residue in its row without a live 
     [ctx, scene.foot(35), false, .5, 35], [ctx, scene.foot(35), true, .5, 35],
   ]);
   expect(drawFreeze).not.toHaveBeenCalled(); expect(pips).not.toHaveBeenCalled();
+  // The ice finishes on its own square when its piece walks away or falls, and under a move through that square.
   vi.mocked(drawFreezeRelease).mockClear();
   for (const replacement of [0, 1]) {
     const board = [...f.expired!.board]; board[35] = replacement;
-    drawBoardEffects(ctx, scene, 'under', undefined, effects, {}, 390, 410, true, false, null, 0, undefined, board);
+    drawBoardEffects(ctx, scene, 'under', undefined, effects, {}, 390, 410, true, false, null, 0, new Set([35]), board);
   }
-  expect(drawFreezeRelease).not.toHaveBeenCalled();
+  expect(drawFreezeRelease).toHaveBeenCalledTimes(2);
+});
+
+it('fades the badge of a release instead of dropping it', () => {
+  const f = fixtures.freeze, effects = new StateEffects(), scene = sceneAt(false);
+  effects.sync(f.rules, f.after, 0, true); effects.sync(f.rules, f.expired!, 100, true);
+  drawBoardEffects(ctx, scene, 'over', scene.cell(35).row, effects, {}, 390, 180, true, false, null, 0, undefined, f.expired!.board);
+  expect(pips).toHaveBeenCalledOnce();
+  vi.mocked(pips).mockClear();
+  drawBoardEffects(ctx, scene, 'over', scene.cell(35).row, effects, {}, 390, 300, true, false, null, 0, undefined, f.expired!.board);
+  expect(pips).not.toHaveBeenCalled();
+});
+
+it('a capture of a frozen piece starts its thaw on the first drawn frame', () => {
+  const f = fixtures.freeze, effects = new StateEffects(), scene = sceneAt(false);
+  effects.sync(f.rules, f.after, 0, true);
+  drawBoardEffects(ctx, scene, 'under', undefined, effects, {}, 390, 500, true, false, null, 0, new Set([35]), f.after.board);
+  expect(drawFreeze).not.toHaveBeenCalled();
+  expect(vi.mocked(drawFreezeRelease).mock.calls).toEqual([[ctx, scene.foot(35), false, 0, 35]]);
 });

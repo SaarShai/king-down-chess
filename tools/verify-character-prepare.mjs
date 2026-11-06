@@ -12,7 +12,7 @@ try {
   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
   const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen','7k/8/8/8/8/8/4P3/K7 w - - 0 1');url.searchParams.set('players','human,human');
   const manifest=await (await page.request.get(new URL('/character-runtime/manifest.json',url).href)).json();
-  const banks=manifest.banks.filter(b=>b.character==='pawn'&&b.army==='white'),rest=banks.find(b=>b.kind==='idle'&&b.facing==='SE');
+  const banks=manifest.banks.filter(b=>b.character==='pawn'&&b.army==='white'),rest=banks.find(b=>b.kind==='idle');
   const route=turnRoute(banks.filter(b=>b.kind==='turn'),rest.facing,'N');assert(route?.length);
   const blocked=route.flatMap(p=>[p.bank.frames[0],p.bank.frames.at(-1)]).find(f=>f.url!==rest.frames[0].url);assert(blocked);
   let release,hit;const gate=new Promise(resolve=>{release=resolve;}),intercepted=new Promise(resolve=>{hit=resolve;});

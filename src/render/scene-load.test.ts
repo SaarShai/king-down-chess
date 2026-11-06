@@ -129,7 +129,7 @@ it.each([true,false])('uses the rest pose and whole-figure gait when a quiet wal
  expect(Math.max(...feet)-Math.min(...feet)).toBeGreaterThan(112);await vi.advanceTimersByTimeAsync(48);await expect(playing).resolves.toBe(true);
 });
 
-it('walks the king on castling and leaves the rook for the position update', async () => {
+it('walks the king on castling; the position update places the rook', async () => {
  const base={character:'king-frost',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600,facing:'E'};
  const idle={...base,id:'idle',kind:'idle',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
  const move={...base,id:'painted',kind:'move',strideSquares:1,durationMs:640,frames:[0,160,320,480].map(timeMs=>({url:`runtime-walk-${timeMs}.png`,timeMs}))};
@@ -729,4 +729,23 @@ it('does not prepare a Stratus rewind when reduced motion is already on', async 
  const b=board(false);scene.setKings(['stratus','flame']);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
  const move={from:4,to:12,captures:[]},playing=scene.play(move);await vi.advanceTimersByTimeAsync(80);
  expect(scene.prepareUndo(move)).toBe(false);scene.cancel();await expect(playing).resolves.toBe(false);
+});
+
+it('a king falls for as long as his demise lasts, half as long at Fast, and at once with no animation', async () => {
+  const art = board(true);
+  void scene.load();
+  art.decodeBoard();
+  await vi.advanceTimersByTimeAsync(48);
+  const sq = 4; // e1: his square
+  scene.setFallen(sq, true, -1.5);
+  expect(scene.falling).toBe(true);
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(scene.falling).toBe(true);
+  await vi.advanceTimersByTimeAsync(120);
+  expect(scene.falling).toBe(false);
+  scene.setFallen(sq, true, -1.5, 0.5);
+  await vi.advanceTimersByTimeAsync(560);
+  expect(scene.falling).toBe(false);
+  scene.setFallen(sq, false, -1.5);
+  expect(scene.falling).toBe(false);
 });

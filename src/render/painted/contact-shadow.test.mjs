@@ -75,5 +75,5 @@ test('an effect that takes a figure fades its shadow: a king\'s death within 180
  assert.equal(fxFade({death:{t:0}}),1);assert.ok(Math.abs(fxFade({death:{t:90}})-.5)<1e-9);assert.equal(fxFade({death:{t:180}}),0);
  let last=2;for(let t=0;t<=300;t+=10){const k=fxFade({death:{t}});assert.ok(k<=last);last=k;}
  assert.equal(fxFade({frost:1,shatter:null}),1,'frozen, still standing');assert.equal(fxFade({frost:1,shatter:{t:.4}}),0);
- assert.equal(fxFade({scan:{},apart:{t:.3}}),1,'the lowest strip is still in place');assert.equal(fxFade({scan:{},apart:{t:1}}),0);
+ assert.equal(fxFade({ranged:{shadow:.4}}),.4,'a ranged victim sets its own');
 });
