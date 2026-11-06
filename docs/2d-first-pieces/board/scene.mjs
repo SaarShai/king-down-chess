@@ -15,6 +15,7 @@ import {chargeAt,CHARGE_CONTACT,swapAt} from './motion.mjs';
 import {BLOW,KING_BLOW,STRAIGHT_REACH,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
 import {GAITS,GAIT_OF,idleAt,paintedPace,paintedTravel} from './gait.mjs';
 import {createKingEffects,phaseOffset} from './king-effects.mjs';
+import {createQueenThorns} from './fx-queen.mjs';
 import {KING_FILES} from './king-sheets.mjs';
 import {DEATHS,THEMED,drawDeath,kingBodyBounds} from './king-captures.mjs';
 import * as pawnIdle from '../lance/idle.mjs';
@@ -110,7 +111,7 @@ for(const [type,name] of Object.entries(courtNames)){
  // Opt-in liveliness (setLively): quiet-move gaits, the selected figure's idle, the board's frame and light,
  // and each king's own idle effect (king-effects.mjs). All off by default, so the trial and the trailer draw exactly as before.
  const lively={moves:false,idle:false,atmosphere:false,kings:false,captures:false,pawns:false};
- const kingFx=createKingEffects({sheet:design=>kingArt[design]?.image??null,onLoad:()=>wake()});
+ const kingFx=createKingEffects({sheet:design=>kingArt[design]?.image??null,onLoad:()=>wake()}),queenThorns=createQueenThorns({onLoad:()=>wake()});
  // Square → when a king's effect started there (what stands on his square grows back after a move).
  // drawnBefore: how many kings' effects the frame before drew (none: they all start together now).
  let kingSince=new Map(),nextSince=new Map(),frames=0,fxDrawn=[],drawnBefore=0,pawnsAtRest=0,pawnsActing=0;
@@ -699,10 +700,10 @@ function vortex(out,foot,phase,strength) {
    const origin=project(id,release)??project('arrowhead-smoke',release),secondary=project('near-palm',release),target=a.target;
    if(origin&&target){
     const options={elapsedMs:elapsed-release,origin:[origin.x,origin.y],target:[target.x,target.y],scale:bankBody.scale*bank.bodyHeightPx/640,seed:a.move.from*64+a.move.to};
-    if(kind==='queen'){options.secondaryOrigin=secondary?[secondary.x,secondary.y]:undefined;options.emissionMs=Math.min(240,(bank.beatTimes.releaseHoldEnd??bank.beatTimes.recovery)-release);options.originAt=(launch,palm)=>{const p=project(palm?'near-palm':'far-palm',release+launch);return p?[p.x,p.y]:null;};}
+    if(kind==='queen'){options.secondaryOrigin=secondary?[secondary.x,secondary.y]:undefined;options.emissionMs=Math.min(240,(bank.beatTimes.releaseHoldEnd??bank.beatTimes.recovery)-release);options.originAt=(launch,palm)=>{const p=project(palm?'near-palm':'far-palm',release+launch);return p?[p.x,p.y]:null;};const body=victim?.pose.bank,at=victim?.pose.foot??target;Object.assign(options,{victim,foot:[at.x,at.y],height:body?body.unitHeight*body.scale*victim.pose.scale/specs[typeOf(victim.value)].scale:Math.max(60,(at.y-target.y)*2.3)});r.effect.player.pose(options);}
     effects.push(()=>r.effect.player.draw(ctx,options));effectFrames.push({kind,at:time,speed:a.speed,bodyDurationMs:bank.durationMs,bodyTime:bankBody.time,releaseMs:release,durationMs:r.effect.player.durationMs,elapsedMs:options.elapsedMs,origin,target,foot:a.from.foot,pivot:bankBody.pivot,scale:bankBody.scale});
    }
-   if(victim)victim.opacity=1-clamp((elapsed-a.contactTime)/180,0,1);
+   if(victim&&!r.effect.player.pose)victim.opacity=1-clamp((elapsed-a.contactTime)/180,0,1);
    if(a.move.selfRemove)actor.opacity=1-clamp((elapsed-a.contactTime)/180,0,1);
   }
   else if(a.type==='slash'){
@@ -1045,7 +1046,7 @@ function drawEncounter(a,t) {
     prepared.movementRate=pace.rate;
    }
    a.contactTime=prepared.attack?(prepared.attack.contactMs??prepared.attack.durationMs*.45):contactTime(a);
-   if(prepared.effect){prepared.release=prepared.attack.beatTimes.release??a.contactTime;a.contactTime=prepared.release+prepared.effect.contactMs;a.actionDuration=Math.max(prepared.attack.durationMs,prepared.release+prepared.effect.player.durationMs)+(a.move.from===a.move.to?0:420);}
+   if(prepared.effect){if(characterOf(a.value)==='queen')prepared.effect=queenThorns.effect(prepared.effect);prepared.release=prepared.attack.beatTimes.release??a.contactTime;a.contactTime=prepared.release+prepared.effect.contactMs;a.actionDuration=Math.max(prepared.attack.durationMs,prepared.release+prepared.effect.player.durationMs)+(a.move.from===a.move.to?0:420);}
    a.duration=a.actionDuration+prepared.beforeMs+prepared.afterMs;
   }
   a.preparing=false;a.start=now;
