@@ -1,4 +1,4 @@
-import { K, colorOf, typeOf, type Move } from '../../rules/engine';
+import { K, typeOf, type Move } from '../../rules/engine';
 import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs';
 import type { CardLayer, Point } from './card-types';
 import type { TailedOverlay } from './power-overlays';
@@ -6,14 +6,18 @@ import type { TailedOverlay } from './power-overlays';
 // Darkness: the floor cracks and opens into a pool of ink. Bone hands take the piece, drag him under, and a second pool
 // gives him back on his square. All painted: dark-gate.webp (prompt beside it) and the Shadow king's own hand film.
 export const DARK_SINK_MS = 1500;
+/** The scene draws the figure on its first square until here; this module draws it after that, up to AIR_SETTLED. */
+export const DARK_LEAVES = .19;
+const DARK_SETTLED = .8;
 const ATLAS_URL = new URL('./dark-gate.webp', import.meta.url).href;
 const HANDS_URL = new URL('../../../docs/2d-first-pieces/king-shadow/hands/film-poses.webp', import.meta.url).href;
 type Rect = readonly [number, number, number, number];
 const RIM: Rect = [0, 0, 300, 289], CRACK: Rect = [302, 0, 275, 280], SWIRL: Rect = [579, 0, 200, 200];
 const TENDRILS: readonly Rect[] = [[0, 291, 110, 120], [112, 291, 109, 120], [223, 291, 102, 120], [327, 291, 120, 81]];
 const COLLARS: readonly Rect[] = [[449, 291, 170, 64], [621, 291, 170, 66], [0, 413, 170, 56], [172, 413, 170, 60]];
-// The hand film: 65 frames in 192 px cells, 8 to a row and 9 rows to an army, ivory first. Frame 0 is open, 16 reach, 32 half clutch, 48 clutch.
-const CELL = 192, COLS = 8, ARMY_ROWS = 9, WRIST_X = 96, WRIST_Y = 176;
+// The hand film: 65 frames in 192 px cells, 8 to a row. The ivory hands come first; they read on the ink for both armies.
+// Frame 0 is open, 16 reach, 32 half clutch, 48 clutch.
+const CELL = 192, COLS = 8, WRIST_X = 96, WRIST_Y = 176;
 const OPEN = 0, REACH = 16, CLUTCH = 48;
 
 const clamp = (t: number) => Math.max(0, Math.min(1, t));
@@ -80,10 +84,10 @@ function drawTendrils(ctx: CanvasRenderingContext2D, at: Point, size: number, gr
   }
 }
 
-/** One bone hand of the other colour, so it reads on the figure it takes, its wrist on the ink at (x, surface). `rise`, 0..1, is how far it stands out. */
-function drawHand(ctx: CanvasRenderingContext2D, value: number, x: number, surface: number, size: number, rise: number, frame: number, lean: number, flip: boolean) {
+/** One bone hand, its wrist on the ink at (x, surface). `rise`, 0..1, is how far it stands out of the ink. */
+function drawHand(ctx: CanvasRenderingContext2D, x: number, surface: number, size: number, rise: number, frame: number, lean: number, flip: boolean) {
   if (!hands || rise <= .01) return;
-  const k = .4 * size, f = Math.round(frame), sx = (f % COLS) * CELL, sy = (Math.floor(f / COLS) + (colorOf(value) === 0 ? ARMY_ROWS : 0)) * CELL;
+  const k = .37 * size, f = Math.round(frame), sx = (f % COLS) * CELL, sy = Math.floor(f / COLS) * CELL;
   ctx.save();
   ctx.beginPath(); ctx.rect(x - 90, surface - 200, 180, 202); ctx.clip();
   ctx.translate(x, surface + (1 - rise) * CELL * k * .95); ctx.rotate(lean); ctx.scale(flip ? -k : k, k);
@@ -100,9 +104,16 @@ function drawCollar(ctx: CanvasRenderingContext2D, at: Point, size: number, grow
   ctx.restore();
 }
 
+type Shadowless = (c: CanvasRenderingContext2D) => CanvasRenderingContext2D;
 // The figure in ink: one small canvas, made once, redrawn each frame while he is in the pool.
 const SOAK_W = 260, SOAK_H = 300, SOAK_FOOT = 20, SOAK_DENSITY = 2;
 let soak: CanvasRenderingContext2D | null = null, soakOut: CanvasRenderingContext2D | null = null, inkEdge: Path2D | null = null;
+let cleanFor: CanvasRenderingContext2D | null = null, cleanOut: CanvasRenderingContext2D | null = null;
+/** A copy of the figure at this strength, without his floor shadow. */
+function drawClean(ctx: CanvasRenderingContext2D, shadowless: Shadowless, scene: PaintedScene, value: number, square: number, alpha: number) {
+  if (cleanFor !== ctx) { cleanFor = ctx; cleanOut = shadowless(ctx); }
+  if (alpha > 0) scene.ghost(cleanOut!, value, square, alpha);
+}
 /** The top edge of the ink on a figure, ragged with runs. y 0 is the ink line and all below it is ink. */
 function makeInkEdge(): Path2D {
   const path = new Path2D();
@@ -113,12 +124,8 @@ function makeInkEdge(): Path2D {
   path.lineTo(140, 0); path.lineTo(140, 500); path.closePath();
   return path;
 }
-/**
- * One figure cut off at the ink, dark up to `ink` px above his feet. Standing clear he is the scene's own figure and keeps
- * his floor shadow, so the hand-over to the scene does not show.
- */
-function drawBody(ctx: CanvasRenderingContext2D, shadowless: (c: CanvasRenderingContext2D) => CanvasRenderingContext2D, scene: PaintedScene, value: number, square: number, at: Point, depth: number, ink: number) {
-  if (depth <= 0 && ink <= 0) { scene.ghost(ctx, value, square, 1); return; }
+/** One figure cut off at the ink, dark up to `ink` px above his feet. */
+function drawBody(ctx: CanvasRenderingContext2D, shadowless: Shadowless, scene: PaintedScene, value: number, square: number, at: Point, depth: number, ink: number) {
   if (!soak) {
     const canvas = document.createElement('canvas'); canvas.width = SOAK_W * SOAK_DENSITY; canvas.height = SOAK_H * SOAK_DENSITY;
     soak = canvas.getContext('2d')!; soakOut = shadowless(soak); inkEdge = makeInkEdge();
@@ -140,22 +147,23 @@ function drawBody(ctx: CanvasRenderingContext2D, shadowless: (c: CanvasRendering
 }
 
 /**
- * The whole move, a pure function of t. Before .8 this draws the figure: down at the first square, up at the second. From
- * .8 on the scene owns the figure on its square (AIR_SETTLED) and only the second pool, under him, is left to close.
+ * The whole move, a pure function of t. The scene's own figure stands until DARK_LEAVES and again from DARK_SETTLED; between
+ * them this draws him, down at the first square and up at the second. At both hand-overs a clean copy fades over the
+ * scene's figure, so the small difference between them does not show.
  */
-export function drawDarkSink(ctx: CanvasRenderingContext2D, shadowless: (c: CanvasRenderingContext2D) => CanvasRenderingContext2D, scene: PaintedScene, value: number, from: number, to: number, layer: CardLayer, row: number | undefined, t: number): void {
+export function drawDarkSink(ctx: CanvasRenderingContext2D, shadowless: Shadowless, scene: PaintedScene, value: number, from: number, to: number, layer: CardLayer, row: number | undefined, t: number): void {
   const a = scene.foot(from), b = scene.foot(to), ms = t * DARK_SINK_MS, big = typeOf(value) === K, size = big ? 1 : .8, tall = big ? 168 : 124;
-  // First gate. A short tug when the hands close, then the pull.
-  const pull = (t - .2) / .26, down = tall * (.2 * ease(pull / .22) + .8 * ease((pull - .3) / .7));
-  const aOpen = between(t, .04, .2) * (1 - between(t, .5, .66)), aCrack = between(t, 0, .12), aGone = between(t, .62, .78);
-  const aGrow = between(t, .08, .24) * (1 - between(t, .44, .58));
+  // First gate. The hands close, the ink climbs his legs, a short tug, then the pull.
+  const pull = (t - .25) / .24, down = tall * (.2 * ease(pull / .22) + .8 * ease((pull - .3) / .7));
+  const aOpen = between(t, .04, .2) * (1 - between(t, .54, .68)), aCrack = between(t, 0, .12), aGone = between(t, .64, .78);
+  const aGrow = between(t, .08, .24) * (1 - between(t, .46, .6));
   const aHandUp = between(t, .07, .2), aFrame = t < .14 ? OPEN : t < .2 ? OPEN + (REACH - OPEN) * between(t, .14, .2) : REACH + (CLUTCH - REACH) * between(t, .18, .25);
-  // Second gate. The hands bring him up and open as he clears the ink.
-  const lift = (t - .46) / .28, up = tall * (1 - clamp(lift)) ** 2.4;
-  const bOpen = between(t, .32, .46) * (1 - between(t, .76, .94)), bCrack = between(t, .28, .4), bGone = between(t, .86, 1);
-  const bGrow = between(t, .4, .52) * (1 - between(t, .68, .82));
-  const bHandUp = between(t, .42, .52) * (1 - between(t, .62, .76)), bFrame = CLUTCH * (1 - between(t, .56, .68));
-  const sunk = down >= tall - .5, atFrom = t < .47, atB = t >= .46 && t < .8;
+  // Second gate. The hands bring him up and open as he clears the ink, which runs off him from the crown down.
+  const lift = (t - .49) / .27, up = tall * (1 - clamp(lift)) ** 2.4;
+  const bOpen = between(t, .34, .48) * (1 - between(t, .78, .95)), bCrack = between(t, .3, .42), bGone = between(t, .86, 1);
+  const bGrow = between(t, .42, .54) * (1 - between(t, .7, .84));
+  const bHandUp = between(t, .44, .54) * (1 - between(t, .64, .78)), bFrame = CLUTCH * (1 - between(t, .58, .7));
+  const sunk = down >= tall - .5, atB = t >= .49 && t < DARK_SETTLED;
 
   if (layer === 'under') {
     drawPool(ctx, a, size, aOpen, aCrack, aGone, ms);
@@ -164,16 +172,18 @@ export function drawDarkSink(ctx: CanvasRenderingContext2D, shadowless: (c: Canv
     drawTendrils(ctx, b, size, bGrow, ms, false);
     return;
   }
-  if (row === scene.cell(from).row && atFrom) {
-    if (!sunk) drawBody(ctx, shadowless, scene, value, from, a, down, down > 0 ? down + 34 * between(down, 0, 18) : 0);
+  if (row === scene.cell(from).row && t < .5) {
+    if (t < DARK_LEAVES) drawClean(ctx, shadowless, scene, value, from, between(t, DARK_LEAVES - .04, DARK_LEAVES));
+    else if (!sunk) drawBody(ctx, shadowless, scene, value, from, a, down, down + (big ? 58 : 40) * between(t, DARK_LEAVES, .27));
     const grip = Math.min(down, 90);
-    for (const side of [-1, 1]) drawHand(ctx, value, a.x + side * 24 * size, a.y + 8 * size, size, aHandUp * (1 - clamp(grip / 130)), side < 0 ? aFrame : Math.max(0, aFrame - 4), -side * .22, side > 0);
+    for (const side of [-1, 1]) drawHand(ctx, a.x + side * 24 * size, a.y + 8 * size, size, aHandUp * (1 - clamp(grip / 130)), side < 0 ? aFrame : Math.max(0, aFrame - 4), -side * .22, side > 0);
     drawCollar(ctx, a, size, between(down, 0, 26) * (1 - between(down, tall - 22, tall - 2)), 0, ms);
     drawTendrils(ctx, a, size, aGrow, ms, true);
   }
   if (row === scene.cell(to).row) {
-    if (atB && up < tall - .5) drawBody(ctx, shadowless, scene, value, to, b, up, tall * (1 - between(t, .5, .78)));
-    if (t < .8) for (const side of [-1, 1]) drawHand(ctx, value, b.x + side * 27 * size, b.y + 8 * size, size, bHandUp * .9, side < 0 ? bFrame : Math.max(0, bFrame - 4), -side * .18, side > 0);
+    if (atB && up < tall - .5) drawBody(ctx, shadowless, scene, value, to, b, up, tall * (1 - between(t, .53, .79)));
+    else if (t >= DARK_SETTLED) drawClean(ctx, shadowless, scene, value, to, 1 - between(t, DARK_SETTLED, DARK_SETTLED + .06));
+    if (t < DARK_SETTLED) for (const side of [-1, 1]) drawHand(ctx, b.x + side * 27 * size, b.y + 8 * size, size, bHandUp * .9, side < 0 ? bFrame : Math.max(0, bFrame - 4), -side * .18, side > 0);
     if (atB) drawCollar(ctx, b, size, between(up, 0, 26) * (1 - between(up, tall - 22, tall - 2)), 1, ms);
     drawTendrils(ctx, b, size, bGrow, ms, true);
   }
@@ -183,8 +193,9 @@ export function drawDarkSink(ctx: CanvasRenderingContext2D, shadowless: (c: Canv
 export class DarkGrip implements TailedOverlay {
   readonly tailMs = 520;
   private travel = 0;
+  private leftAt = -1;
   private arrivedAt = -1;
-  constructor(private move: Move, private value: number) {}
+  constructor(private move: Move) {}
   draw(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: CardLayer, row: number | undefined, ms: number): void {
     const a = scene.foot(this.move.from), b = scene.foot(this.move.to), size = .8;
     if (layer === 'under') {
@@ -193,10 +204,11 @@ export class DarkGrip implements TailedOverlay {
         const whole = Math.hypot(b.x - a.x, b.y - a.y) || 1;
         this.travel = Math.max(this.travel, clamp(((foot.x - a.x) * (b.x - a.x) + (foot.y - a.y) * (b.y - a.y)) / (whole * whole)));
       }
+      if (this.leftAt < 0 && this.travel >= .5) this.leftAt = ms;
       if (this.arrivedAt < 0 && this.travel >= .8) this.arrivedAt = ms;
     }
-    const left = clamp(this.travel / .5), closing = this.arrivedAt < 0 ? 0 : clamp((ms - this.arrivedAt) / 520);
-    const aOpen = ease(ms / 170) * (1 - left), aCrack = ease(ms / 120), aGone = this.arrivedAt < 0 ? left * .5 : .5 + closing * .5;
+    const closing = this.arrivedAt < 0 ? 0 : clamp((ms - this.arrivedAt) / 480);
+    const aOpen = ease(ms / 170) * (1 - ease(this.travel / .5)), aCrack = ease(ms / 120), aGone = this.leftAt < 0 ? 0 : ease((ms - this.leftAt) / 320);
     const bOpen = ease((this.travel - .1) / .45) * (1 - ease((closing - .2) / .7)), bCrack = ease(this.travel / .35), bGone = ease((closing - .5) / .5);
     if (layer === 'under') {
       drawPool(ctx, a, size, aOpen, aCrack, aGone, ms);
@@ -206,7 +218,7 @@ export class DarkGrip implements TailedOverlay {
     }
     if (row !== scene.cell(this.move.to).row) return;
     const rise = ease((this.travel - .35) / .35) * (1 - ease(closing / .55)), frame = CLUTCH * ease((this.travel - .4) / .5);
-    for (const side of [-1, 1]) drawHand(ctx, this.value, b.x + side * 30 * size, b.y + 10 * size, size, rise * .8, side < 0 ? frame : Math.max(0, frame - 4), -side * .2, side > 0);
+    for (const side of [-1, 1]) drawHand(ctx, b.x + side * 30 * size, b.y + 10 * size, size, rise * .8, side < 0 ? frame : Math.max(0, frame - 4), -side * .2, side > 0);
     drawTendrils(ctx, b, size, bOpen, ms, true);
   }
 }

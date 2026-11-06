@@ -190,7 +190,7 @@ export function specialOverlay(context: GameRules, before: Position, move: Move)
   if (move.castle) return new CastleDust({ ...move, castle: move.castle });
   const power = context.rules.kings[colorOf(value)]?.power, type = typeOf(value);
   if (type === P && move.captures.length === 1 && move.captures[0] !== move.to) return new EnPassantStrike(move);
-  if (power === 'Darkness' && (type === P || type === K) && needsPower(context, before, move)) return new DarkGrip(move, value);
+  if (power === 'Darkness' && (type === P || type === K) && needsPower(context, before, move)) return new DarkGrip(move);
   if (power === 'Mercy' && type === K && needsPower(context, before, move)) return new HolyLift(move);
   return null;
 }

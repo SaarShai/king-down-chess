@@ -5,7 +5,7 @@ import type { PaintedScene, SceneEffect } from '../../../docs/2d-first-pieces/bo
 import { HEROES, drawFreezeCast, drawHero, quakeJolt } from './card-hero';
 import { AIR_IDS, AIR_LANDS, AIR_SETTLED, MOVEMENT_IDS, MOVEMENT_DURATIONS, airPose, drawMovement } from './card-movement';
 import { SPELL_DURATIONS, drawRising, drawSpell } from './card-spell';
-import { DARK_SINK_MS, drawDarkSink } from './dark-gate';
+import { DARK_LEAVES, DARK_SINK_MS, drawDarkSink } from './dark-gate';
 import { drawFreeze, drawIceWall, drawFirewall } from './materials';
 import { needsPower } from './special-overlays';
 import type { CardFrame, CardLayer } from './card-types';
@@ -152,7 +152,7 @@ export class CardPlayback implements SceneEffect {
     this.frame.t = t;
     this.frame.travel = ease((t - .22) / .4);
     const board = this.air
-      ? (t >= AIR_SETTLED ? this.after.board : t >= AIR_LANDS ? this.landBoard : t > 0 ? this.travelBoard : this.before.board)
+      ? (t >= AIR_SETTLED ? this.after.board : t >= AIR_LANDS ? this.landBoard : t > (this.action.id === 'DarkSink' ? DARK_LEAVES : 0) ? this.travelBoard : this.before.board)
       : t >= .62 ? this.after.board : t > .35 ? this.replaceBoard : t > .22 ? this.travelBoard : this.before.board;
     // The card draws its new material through the onset. Other states follow the displayed figures.
     const newMark = ['freeze', 'ward', 'firewall'].includes(this.move.power ?? '');
