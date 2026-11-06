@@ -46,3 +46,7 @@ The owner (2026-11-06) rejected five effects that the ledger had graded good: "t
 - The Maester swap is a brass bell shell game (`swap-bells.mjs`). It replaces `swap-orbs.mjs`.
 - March only cracks the tile under each footfall of the real walk (`march-cracks.ts`). The roots and clods are gone.
 
+## Batch 5
+- Firewall draws painted flames from the fire atlas round a clear pocket, tall behind and on the flanks and low in front. The per-pixel `fire.ts` and its blur are gone.
+- Phone cost, 390 wide, DPR 3, CPU 4x slower, Apple GPU not slowed: the six atlases are 440 kB and 11.6 MB decoded. First draw takes 10 to 33 ms each. A warm play of every effect holds 57 to 60 fps with no frame over 34 ms. The first Flight and the first Firewall in a session show one frame of 107 to 165 ms and then none. This stays as it is: it happens once and at 4x only.
+- A software renderer gives no result: a plain pawn move runs at 3 to 5 fps there.

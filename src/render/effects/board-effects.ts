@@ -28,7 +28,8 @@ export function drawBoardEffects(ctx: CanvasRenderingContext2D, scene: PaintedSc
       if (state.kind === 'freeze' && state.clear != null) {
         drawFreezeRelease(ctx, foot, front, effects.freezeRelease(state, now, motion), state.sq);
       } else if (material) {
-        (state.kind === 'freeze' ? drawFreeze : state.kind === 'ward' ? drawIceWall : drawFirewall)(ctx, { ...foot, progress, front, seed: state.sq });
+        if (state.kind === 'firewall') drawFirewall(ctx, { ...foot, progress, front, seed: state.sq, clock: motion ? now : 0 });
+        else (state.kind === 'freeze' ? drawFreeze : drawIceWall)(ctx, { ...foot, progress, front, seed: state.sq });
       } else {
         if (!front) ring(ctx, scene, state.sq, '#a57d2f', badge);
         ctx.globalAlpha *= effects.shelterFade(state, now, motion);
