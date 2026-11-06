@@ -1,5 +1,6 @@
 import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs';
 import type { CardFrame, CardLayer, Point } from './card-types';
+import { cloudAt, cloudRing, clodFall, dustAt, earthPush, groundShade, stomp, windAt, type CloudTint } from './travel-material';
 
 // Material follows the same intact figure motion as the study player.
 const TAU = Math.PI * 2;
@@ -10,10 +11,6 @@ const mix = (a: Point, b: Point, u: number) => ({ x: a.x + (b.x - a.x) * u, y: a
 const pulse = (t: number, start: number, span: number) => Math.sin(clamp((t - start) / span) * Math.PI);
 const GOLD = ['#fff4cce8', '#f8cf7b91', '#dba44136', '#dba44100'];
 const FIRE = ['#fff0b4f0', '#ffb440c4', '#df481b69', '#d6350800'];
-const AIR = ['#f3ffffec', '#b5e4e8c4', '#5babb568', '#5babb500'];
-const SAGE = ['#edf9cce8', '#b4cf85bf', '#779c4d66', '#779c4d00'];
-const BLUE = ['#eafafff2', '#99cff4d4', '#438dd580', '#438dd500'];
-const LILAC = ['#f3e6fff2', '#cba4f4d4', '#9164d780', '#9164d700'];
 const DUST = ['#c3a88494', '#a0846385', '#785b3e49', '#785b3e00'];
 const SMOKE = ['#40332894', '#62513e69', '#8c72533b', '#8c725300'];
 function bloom(ctx: CanvasRenderingContext2D, p: Point, radius: number, colour: string[], opacity: number, flat = 1) {
@@ -102,6 +99,61 @@ function flameArrival(ctx: CanvasRenderingContext2D, p: Point, time: number) {
   bloom(ctx, { x: p.x, y: p.y - 24 }, 74, FIRE, flame * .7, .72);
   spray(ctx, { x: p.x, y: p.y - 28 }, time, '#ffd788', 105, 89, 35);
 }
+/** Air moves are not a slide: the figure crouches, leaves the ground, leans into a real arc, lands and absorbs it. */
+export const AIR_IDS = new Set(['Flight', 'Leap', 'Vault', 'SkyLift']);
+export const AIR_LEAVES = .22, AIR_LANDS = .62, AIR_SETTLED = .8;
+const AIR_LIFT: Record<string, number> = { Flight: 138, Leap: 124, Vault: 118, SkyLift: 142 };
+/** A heavy landing squashes the body more; cloud carries the figure down. */
+const AIR_THUD: Record<string, number> = { Flight: .1, Leap: .22, Vault: .18, SkyLift: .1 };
+export interface AirPose { x: number; y: number; groundX: number; groundY: number; lift: number; tilt: number; sx: number; sy: number }
+export function airPose(id: string, a: Point, b: Point, t: number, sway = 0): AirPose {
+  const w = clamp((t - AIR_LEAVES) / (AIR_LANDS - AIR_LEAVES)), u = .6 * ease(w) + .4 * w, arc = Math.sin(w * Math.PI);
+  const lift = arc * AIR_LIFT[id], dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+  const groundX = a.x + dx * u + arc * sway, groundY = a.y + dy * u;
+  // Weight first: a crouch, a stretch off the ground, then the landing the legs absorb.
+  const crouch = ease(t / .17) * (1 - ease((t - .19) / .06)), stretch = pulse(t, .2, .18), landed = clamp((t - AIR_LANDS) / (AIR_SETTLED - AIR_LANDS));
+  const squash = Math.sin(landed * Math.PI) * (1 - landed * .35) * AIR_THUD[id];
+  const lean = (Math.abs(dx) > 1 ? Math.sign(dx) : 1) * (.14 + .24 * Math.abs(dx) / len);
+  return {
+    x: groundX, y: groundY - lift, groundX, groundY, lift,
+    tilt: lean * arc - lean * .32 * crouch + lean * .28 * pulse(t, AIR_LANDS - .06, .2),
+    sx: 1 + .09 * crouch - .05 * stretch + squash * .55,
+    sy: 1 - .15 * crouch + .1 * stretch - squash,
+  };
+}
+const AIR_TRAIL = 13;
+const airMaterial = (id: string, unit: number): CloudTint => id === 'Vault' ? 'slate' : id === 'SkyLift' && !unit ? 'lilac' : id === 'SkyLift' ? 'slate' : 'cloud';
+function drawAir(ctx: CanvasRenderingContext2D, id: string, event: CardFrame, layer: CardLayer, a: Point, b: Point, sway: number, unit: number) {
+  const { t } = event, duration = MOVEMENT_DURATIONS[id], seed = 60 + unit * 40, leap = id === 'Leap', tint = airMaterial(id, unit);
+  const up = (t - .1) * duration, down = (t - AIR_LANDS) * duration, back = Math.atan2(a.y - b.y, a.x - b.x), angle = back + Math.PI;
+  const flying = t > AIR_LEAVES && t < AIR_LANDS, at = airPose(id, a, b, t, sway);
+  if (leap) earthPush(ctx, a, up, layer, back, seed);
+  else cloudRing(ctx, a, up, layer, seed, id === 'Vault' ? .66 : .82, tint);
+  if (layer === 'under' && t < AIR_SETTLED) groundShade(ctx, at.groundX, at.groundY, at.lift);
+  // The gust that lifts the figure: short bands that rise round it and thin out.
+  if (layer === 'under' && !leap) for (let i = 0; i < 5; i++) {
+    const side = i % 2 ? -1 : 1, r = 34 + rand(i, seed) * 30, age = up - 110 - i * 26;
+    windAt(ctx, a.x + side * r, a.y - 34 - age * .13, -Math.PI / 2 + side * .16, .62, age, 460, tint);
+  }
+  for (let i = 0; i < AIR_TRAIL; i++) {
+    // Each point of the arc sheds material when the figure passes it; the material then lives on its own clock.
+    const passed = AIR_LEAVES + (AIR_LANDS - AIR_LEAVES) * (i + .5) / AIR_TRAIL, age = (t - passed) * duration;
+    if (age <= 0 || age > 1000) continue;
+    const p = airPose(id, a, b, passed, sway);
+    if (leap) {
+      if (layer === 'over') {
+        if (i % 2 === 0) dustAt(ctx, p.x + (rand(i, seed) - .5) * 34, p.y + 4 + age * .06, .44 + rand(i, seed + 1) * .2, age, 480, seed + i);
+        clodFall(ctx, p, age, 640, 2, seed + i * 3);
+      }
+    } else if (layer === 'over') {
+      cloudAt(ctx, p.x + (rand(i, seed) - .5) * 42, p.y + 8, .4 + rand(i, seed + 1) * .3, age, 660, seed + i, tint);
+      if (i % 2) windAt(ctx, p.x + (rand(i, seed + 2) - .5) * 56, p.y - 24 - rand(i, seed + 3) * 64, angle + (rand(i, seed + 4) - .5) * .2, .46 + rand(i, seed + 5) * .4, age - 20, 400, tint);
+    }
+  }
+  if (flying && layer === 'over' && !leap) cloudAt(ctx, at.x, at.y + 14, .74, 260, 660, seed + 90, tint);
+  if (leap || id === 'Vault') stomp(ctx, b, down, layer, seed + 30, leap ? 1.1 : .84);
+  else cloudRing(ctx, b, down + 30, layer, seed + 30, .86, tint);
+}
 export const MOVEMENT_DURATIONS: Record<string, number> = { Strike: 1500, FireStarter: 1700, Haste: 2600, Rally: 2700, March: 1650, Flight: 1750, Leap: 1600, Vault: 1750, SkyLift: 1850 };
 export const MOVEMENT_IDS = new Set(Object.keys(MOVEMENT_DURATIONS));
 export function drawMovement(ctx: CanvasRenderingContext2D, scene: PaintedScene, id: string, event: CardFrame, layer: CardLayer) {
@@ -111,7 +163,10 @@ export function drawMovement(ctx: CanvasRenderingContext2D, scene: PaintedScene,
   const launch = clamp((t - .1) / .34), land = clamp((t - .62) / .35);
   const moving = t > .22 && t < .62;
   ctx.save();
-  if (id === 'Strike') {
+  if (AIR_IDS.has(id)) {
+    if (id === 'SkyLift') { drawAir(ctx, id, event, layer, a, b, 24, 0); drawAir(ctx, id, event, layer, b, a, -24, 1); }
+    else drawAir(ctx, id, event, layer, a, b, 0, 0);
+  } else if (id === 'Strike') {
     if (layer === 'under') {
       bloom(ctx, a, 65, GOLD, pulse(t, .03, .34) * .3, .32);
       if (moving) bloom(ctx, p, 43, GOLD, pulse(t, .22, .4) * .23, .3);
@@ -176,43 +231,6 @@ export function drawMovement(ctx: CanvasRenderingContext2D, scene: PaintedScene,
       spray(ctx, a, clamp((t - .18) / .3), '#907653', 32, 53, 10);
       spray(ctx, mix(a, b, .5), clamp((t - .42) / .3), '#ac9164', 36, 54, 12);
       spray(ctx, b, land, '#a78b60', 31, 55, 10);
-    }
-  } else {
-    const sky = id === 'SkyLift', leap = id === 'Leap', vault = id === 'Vault';
-    const units = sky ? [{ a, b, sway: 24, colour: LILAC }, { a: b, b: a, sway: -24, colour: BLUE }] : [{ a, b, sway: 0, colour: leap ? SAGE : vault ? BLUE : AIR }];
-    for (const [i, unit] of units.entries()) {
-      const { a: from, b: to, sway, colour } = unit, lift = sky ? 105 : 88, at = footAt(from, to, u, lift, sway);
-      if (layer === 'under') {
-        puff(ctx, from, launch, leap ? DUST : colour, sky ? 1.05 : .9, 58 + i);
-        if (moving) {
-          const ground = mix(from, to, u); ground.x += Math.sin(u * Math.PI) * sway;
-          bloom(ctx, ground, 31 - Math.sin(u * Math.PI) * 7, ['#30291f51', '#30291f36', '#30291f12', '#30291f00'], .8, .23);
-        }
-        puff(ctx, to, land, leap || vault ? DUST : colour, vault ? 1.05 : .85, 62 + i);
-      } else {
-        liftCloud(ctx, from, t, colour, 65 + i, sky ? 1.35 : 1.05);
-        if (moving) {
-          const amount = pulse(t, .22, .4);
-          wake(ctx, from, to, u, t, colour, sky ? 60 : vault ? 53 : 46, lift, sway, 68 + i);
-          // Broad side volumes and upright feather jets remain visible on a full board.
-          for (const side of [-1, 1]) bloom(ctx, { x: at.x + side * 40, y: at.y - 29 }, sky ? 49 : 40, colour, amount * (sky ? .48 : .35), 1.05);
-          for (let j = 0; j < (sky || vault ? 8 : 6); j++) {
-            const side = j % 2 ? -1 : 1, spread = 25 + rand(j, 71) * 20;
-            const root = { x: at.x + side * spread, y: at.y + 8 - rand(j, 72) * 18 };
-            const tip = { x: root.x + side * (8 + rand(j, 73) * 25), y: root.y - (60 + rand(j, 74) * 45) };
-            wisp(ctx, root, tip, (sky ? 16 : 12) + rand(j, 75) * 7, colour, amount * (sky ? .94 : .8), side * 1.8);
-          }
-        }
-        if (leap) spray(ctx, to, land, '#c4cb91', 48, 76, 15);
-        else if (vault) spray(ctx, to, land, '#b8d6e6', 75, 78, 24);
-        else {
-          const amount = pulse(t, .62, .35);
-          for (let j = 0; j < 5; j++) {
-            const side = j % 2 ? -1 : 1, root = { x: to.x + side * (16 + land * 32), y: to.y - 4 - rand(j, 79) * 10 };
-            wisp(ctx, root, { x: root.x + side * 38, y: root.y - 39 - land * 30 }, 14 * (1 - land), colour, amount * .85);
-          }
-        }
-      }
     }
   }
   ctx.restore();

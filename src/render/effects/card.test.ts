@@ -5,7 +5,8 @@ import { toFen } from '../../rules/setup';
 import * as pieces from '../../rules/engine';
 import { SHARED_MECHANICS, assertMechanicExpected, type SharedMechanic } from '../../../tools/fixtures/shared-mechanics';
 import { RELEASED_CARDS } from '../../content/cards';
-import { CAST_PREPARE_MS, cardAction, cardPlayback } from './card';
+import { CAST_PREPARE_MS, cardAction, cardPlayback, walkAction } from './card';
+import { powerOverlay, type TailedOverlay } from './power-overlays';
 import { viewBoard } from './view-harness';
 
 const fixtures = RELEASED_CARDS.map(card => SHARED_MECHANICS.find(row => row.id === card.fixtureId)!);
@@ -31,7 +32,8 @@ describe('released card playback uses real engine frames', () => {
     let pos = before;
     for (const lan of fixture.actions) {
       const move = legal(context, pos, lan), effect = cardPlayback(context, pos, move);
-      if (move.power || pos.haste !== undefined || pos.marks?.[pos.turn]?.all) expect(effect).not.toBeNull();
+      const walks = walkAction(context, pos, move) !== null;
+      if (move.power || pos.haste !== undefined || pos.marks?.[pos.turn]?.all) expect(effect === null).toBe(walks);
       if (effect) {
         const original = new Uint8Array(pos.board);
         expect(effect.position(0).board).toEqual(pos.board);
@@ -73,6 +75,30 @@ describe('released card playback uses real engine frames', () => {
     const powers = new GameRules({ kings: [{ king: 'Frost', power: 'Freeze' }, null] });
     const pos = powers.fromFen('7k/8/8/3p4/4P3/8/8/K7 w - - 0 1');
     expect(cardAction(powers, pos, { from: 35, to: 35, captures: [], power: 'freeze' })?.id).toBe('Freeze');
+  });
+
+  it('keeps the real walk under Strike, Haste, Rally, Fire Starter and March; the air moves stay card playback', () => {
+    for (const fixture of fixtures) {
+      const { context, before } = game(fixture), move = legal(context, before, fixture.actions[0]);
+      const walking = ['Strike', 'Haste', 'Rally', 'FireStarter', 'March'].includes(fixture.item) || (fixture.item === 'Flight' && pieces.typeOf(before.board[move.from]) === pieces.N);
+      if (walking) {
+        expect(cardAction(context, before, move), fixture.id).toBeNull();
+        expect(powerOverlay(context, before, move), fixture.id).not.toBeNull();
+      } else if (['Flight', 'Leap', 'Vault', 'SkyLift'].includes(fixture.item)) expect(cardAction(context, before, move), fixture.id).not.toBeNull();
+    }
+  });
+
+  it('shows always-on March only on the double step a plain pawn lacks', () => {
+    const context = new GameRules({ ...POWERS_BALANCED, kings: parseKings('Mud:March,none'), marchUses: 0 });
+    const away = context.fromFen('7k/8/8/8/8/4P3/8/K7 w - - 0 1'), home = context.fromFen('7k/8/8/8/8/8/4P3/K7 w - - 0 1');
+    expect(powerOverlay(context, away, legal(context, away, 'e3-e5'))).not.toBeNull();
+    expect(powerOverlay(context, away, legal(context, away, 'e3-e4'))).toBeNull();
+    expect(powerOverlay(context, home, legal(context, home, 'e2-e4'))).toBeNull();
+  });
+
+  it('does not add an overlay to a plain walk', () => {
+    const context = new GameRules({ hands: [[], []] }), pos = context.fromFen('7k/8/8/8/8/8/4P3/K7 w - - 0 1');
+    expect(powerOverlay(context, pos, legal(context, pos, 'e2-e3'))).toBeNull();
   });
 
   it('anchors borrowed material at a real matching lender away from a1', () => {
@@ -148,6 +174,21 @@ describe('production PaintedView card invocation and scene lifecycle', () => {
     expect(effects.frames).toEqual([]); view.dispose();
   });
 
+  it('a Strike plays the plain walk and its landing outlives the move until skip', async () => {
+    const { view, scene, advance } = await viewBoard(), fixture = fixtures.find(f => f.item === 'Strike')!;
+    const { context, before } = game(fixture), move = legal(context, before, fixture.actions[0]);
+    view.setRules(context); const play = vi.spyOn(scene, 'play');
+    const running = view.animateMove(before, move);
+    expect(play).toHaveBeenCalledExactlyOnceWith(move, expect.not.objectContaining({ effect: expect.anything() }));
+    advance(10000); await running;
+    const tail = () => (view as unknown as { tail: { overlay: TailedOverlay } | null }).tail;
+    expect(tail()?.overlay.tailMs).toBeGreaterThan(0);
+    view.sync(context.makeMove(before, move));
+    expect(tail()).not.toBeNull();
+    view.skip(); expect(tail()).toBeNull();
+    view.dispose();
+  });
+
   it('keeps ordinary captures on existing scene playback and reserve drops immediate', async () => {
     const { view, scene, advance } = await viewBoard();
     const context = new GameRules({ hands: [['Burn'], ['Burn']] });
@@ -176,7 +217,8 @@ describe('production PaintedView card invocation and scene lifecycle', () => {
       }
       advance(10000); await running;
       expect(scene.animating).toBe(false);
-      expect(contact).toHaveBeenCalledTimes(move.captures.length ? 1 : 0);
+      // A walk that keeps the plain path reports contact as any plain move does (a Knight also at a quiet landing).
+      if (effect) expect(contact).toHaveBeenCalledTimes(move.captures.length ? 1 : 0);
       pos = context.makeMove(pos, move); view.sync(pos);
     }
     expected(context, pos, fixture); view.dispose();
