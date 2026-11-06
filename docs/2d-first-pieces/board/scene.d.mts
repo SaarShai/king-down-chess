@@ -75,7 +75,7 @@ export interface PaintedScene {
   readonly characterExit: number | null;
   readonly characterWarmupSettled: boolean;
   readonly characterMemory: { bytes: number; peakBytes: number; framesLoaded: number; active: number; queued: number; manifestReady: boolean; manifestLoading: boolean };
-  readonly characterFrames: { square: number; opacity: number; bank: string; time: number; foot: { x: number; y: number }; pivot: number[]; scale: number }[];
+  readonly characterFrames: { square: number; opacity: number; struck: boolean; bank: string; time: number; foot: { x: number; y: number }; pivot: number[]; scale: number }[];
   /**
    * 'under': once, below every figure. 'over': once per screen row (0 = top) after that row's figures,
    * so a figure in a lower row stands in front of the markers behind it.

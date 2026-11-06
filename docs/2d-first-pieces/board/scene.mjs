@@ -20,6 +20,7 @@ import {DEATHS,THEMED,drawDeath,kingBodyBounds} from './king-captures.mjs';
 import * as pawnIdle from '../lance/idle.mjs';
 import {CLIPS,frameAt,drawFrame as drawClipFrame,inCell} from '../clips/clips.mjs';
 import {SHADE,shadowField,shadowWeights,fxFade} from './contact-shadow.mjs';
+import {SHOT,rangedPlan,heldClock,rangedFrame,drawDissolve,drawFlash,struckAt} from './fx-ranged.mjs';
 export const SIZE=960, PAD=32, TILE=112;
 /** The floor round the board, by default: the trial, the trailer and the plugin page draw it. */
 export const FLOOR='#e6e1cf';
@@ -174,7 +175,7 @@ function sprite(value,angle=0,extension=0,sheet=null,rest=null) {
 const blank=document.createElement('canvas');blank.width=blank.height=1;
 const fxCanvas=document.createElement('canvas');fxCanvas.width=SIZE;fxCanvas.height=SIZE+headroom;
 // fx: {cut} splits along a slash; {frost, shatter} ices the figure then breaks it into wedges;
-// {scan, apart} tints it with a moving scan line, then takes it apart in horizontal strips.
+// {ranged} is a ranged capture's victim (fx-ranged.mjs).
 // shadow: false when its contact shadow is already on the floor (render() draws them all before any figure, those
 // of figures with an effect too, fading as the effect takes them: fxFade).
 function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
@@ -193,23 +194,22 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
   });
   return;
  }
- if(fx&&(fx.frost||fx.shatter||fx.scan||fx.apart)){
+ if(fx?.ranged){
+  // A ranged capture's victim (fx-ranged.mjs): only its lit frames go through the effect layer.
+  if(fx.ranged.kind==='shot'&&!fx.ranged.flash)return drawPiece(out,value,pose,opacity,extension,null,false);
+  const c=fxCanvas.getContext('2d'),d={...fx.ranged,box:victimBox(pose),
+   clear(){c.setTransform(res,0,0,res,0,headroom*res);c.globalCompositeOperation='source-over';c.globalAlpha=1;c.clearRect(0,-headroom,SIZE,SIZE+headroom);return c;},
+   draw(g,{dx=0}={}){drawPiece(g,value,{...pose,foot:{x:pose.foot.x+dx,y:pose.foot.y}},1,extension,null,false);},
+   layer(x,y,w,h){out.save();out.globalAlpha=opacity;out.drawImage(fxCanvas,x*res,(y+headroom)*res,w*res,h*res,x,y,w,h);out.restore();}};
+  (fx.ranged.kind==='ray'?drawDissolve:drawFlash)(d);
+  return;
+ }
+ if(fx&&(fx.frost||fx.shatter)){
   const c=fxCanvas.getContext('2d');c.setTransform(res,0,0,res,0,headroom*res);c.clearRect(0,-headroom,SIZE,SIZE+headroom);drawPiece(c,value,pose,1,extension,null,false);
   c.globalCompositeOperation='source-atop';
   if(fx.frost){c.fillStyle=`rgba(196,230,255,${.72*fx.frost})`;c.fillRect(0,-headroom,SIZE,SIZE+headroom);}
-  if(fx.scan){c.fillStyle=`rgba(64,224,208,${.42*fx.scan.tint})`;c.fillRect(0,-headroom,SIZE,SIZE+headroom);if(fx.scan.y!=null){c.fillStyle='rgba(228,255,250,.95)';c.fillRect(0,fx.scan.y-2.5,SIZE,5);}}
   c.globalCompositeOperation='source-over';
   const layer=()=>res===1?out.drawImage(fxCanvas,0,-headroom):out.drawImage(fxCanvas,0,-headroom,SIZE,SIZE+headroom);
-  if(fx.apart){
-   // Strips come loose from the top down, sliding apart alternately and dropping.
-   const {top,bottom,t}=fx.apart,n=8,h=(bottom-top)/n;
-   for(let i=0;i<n;i++){
-    const u=clamp((t-i*.06)/.55,0,1),y0=i?top+i*h:-headroom,y1=i<n-1?top+(i+1)*h:SIZE;
-    out.save();out.globalAlpha=opacity*(1-u);out.translate((i%2?1:-1)*24*ease(u),30*u*u);
-    out.beginPath();out.rect(0,y0,SIZE,y1-y0);out.clip();layer();out.restore();
-   }
-   return;
-  }
   if(!fx.shatter){out.save();out.globalAlpha=opacity;layer();out.restore();return;}
   const {point,t}=fx.shatter,k=ease(t),n=9;
   for(let i=0;i<n;i++){
@@ -483,34 +483,6 @@ function smash(out,point,t) {
  for(let i=0;i<9;i++){const a=i*.698+.2,r=10+52*k;out.globalAlpha=.55*(1-t);out.beginPath();out.arc(point.x+Math.cos(a)*r,point.y+Math.sin(a)*r*.32-18*k,5+9*k,0,Math.PI*2);out.fill();}
  out.restore();
 }
-// Turquoise scanning fan from the Maester's lens to a line across the victim.
-function scanBeam(out,lens,centre,width,alpha) {
- if(alpha<=0)return;
- const l={x:centre.x-width/2,y:centre.y},r={x:centre.x+width/2,y:centre.y};
- out.save();out.globalAlpha=alpha;out.lineCap='round';
- out.fillStyle='rgba(90,240,222,.22)';out.beginPath();out.moveTo(lens.x,lens.y);out.lineTo(l.x,l.y);out.lineTo(r.x,r.y);out.closePath();out.fill();
- out.strokeStyle='rgba(150,255,238,.75)';out.lineWidth=1.4;out.beginPath();out.moveTo(l.x,l.y);out.lineTo(lens.x,lens.y);out.lineTo(r.x,r.y);out.stroke();
- out.strokeStyle='rgba(235,255,252,.95)';out.lineWidth=2.2;out.beginPath();out.moveTo(l.x,l.y);out.lineTo(r.x,r.y);out.stroke();
- out.restore();
-}
-function lensGlow(out,lens,k) {
- if(k<=0)return;
- out.save();out.globalAlpha=k;out.fillStyle='rgba(120,245,230,.35)';out.beginPath();out.arc(lens.x,lens.y,4+5*k,0,Math.PI*2);out.fill();
- out.fillStyle='rgba(225,255,250,.95)';out.beginPath();out.arc(lens.x,lens.y,2.5,0,Math.PI*2);out.fill();out.restore();
-}
-// Small brass and steel gears spilling out of a dismantled piece.
-function gears(out,point,t) {
- if(t<0||t>1)return;
- out.save();out.globalAlpha=1-t*t;out.lineWidth=1;out.strokeStyle='#4a3a1c';
- for(let i=0;i<7;i++){
-  const a=-Math.PI/2+(i-3)*.42,v=60+14*(i%3),r=i%2?4.5:6.5;
-  out.save();out.translate(point.x+Math.cos(a)*v*t,point.y+Math.sin(a)*v*t+140*t*t);out.rotate((i%2?1:-1)*t*6);
-  out.fillStyle=i%3?'#b8913f':'#9aa3a0';out.beginPath();
-  for(let k=0;k<16;k++){const rr=k%2?r:r*1.35,aa=k/16*Math.PI*2;out.lineTo(Math.cos(aa)*rr,Math.sin(aa)*rr);}
-  out.closePath();out.fill();out.stroke();out.fillStyle='#3a2f1a';out.beginPath();out.arc(0,0,r*.35,0,Math.PI*2);out.fill();out.restore();
- }
- out.restore();
-}
 // A funnel of wind arcs around the spinning Queen.
 function vortex(out,foot,phase,strength) {
  if(strength<=0)return;
@@ -605,6 +577,11 @@ function vortex(out,foot,phase,strength) {
   const value=position.board[selected],pose=poseFor(value,selected),target=selectionTarget();
   return target?aimed(value,pose,target):pose;
  }
+ // A ranged victim's drawn bounds, upright (its bank frame's outline; a sprite figure: from its hit point).
+ function victimBox(pose){
+  const shape=bankShape(pose);if(shape)return shape;
+  const h=(specs[K].anchor.y-specs[K].hit.y)*pose.scale,x=pose.foot.x,foot=pose.foot.y;return {x,foot,top:foot-h*1.9,l:x-h*.62,r:x+h*.62};
+ }
  // Read the outline of the exact frame, then use the same pivot and scale as drawPiece.
  const bankShapes=new WeakMap();
  function bankShape(pose){
@@ -689,10 +666,10 @@ function vortex(out,foot,phase,strength) {
  let shot=null,hit=null;const effects=[];
  if(animation&&!animation.effect&&!animation.preparing){
   const a=animation,duration=a.legacyDuration??a.duration,at=a.rewind?.kind==='move'?Math.max(a.start,Math.min(a.rewind.at,a.rewind.at-(time-a.rewind.start))):time,elapsed=clamp((at-a.start)/a.speed-(a.runtime?.beforeMs??0),0,a.actionDuration??duration),t=effectTimeAt(a,elapsed),actor=poses.get(a.move.from),victim=poses.get(a.move.swap?a.move.to:a.move.shove?.from??a.move.captures[0]);
-  const bankBody=a.runtime?bodyRuntime.action(a.runtime,elapsed,a.actionDuration,a.contactTime):null;
+  const bankBody=a.runtime?bodyRuntime.action(a.runtime,a.runtime.ranged?heldClock(elapsed,a.runtime.ranged.hold):elapsed,a.actionDuration,a.contactTime):null;
   const bankAnchor=(ids,fallback)=>{for(const id of ids){const p=anchorAt(a.runtime?.attack,id,bankBody?.time??elapsed);if(p&&bankBody)return bankPointToWorld(bankBody,actor.pose.foot,p,actor.pose.scale/specs[typeOf(a.value)].scale);}return fallback;};
   if(a.runtime?.effect){
-   const r=a.runtime,bank=r.attack,release=r.release,end=Math.max(bank.durationMs,release+r.effect.player.durationMs);
+   const r=a.runtime,bank=r.attack,release=r.release,end=r.ranged?.end??Math.max(bank.durationMs,release+r.effect.player.durationMs);
    actor.pose={...a.from,foot:mix(a.from.foot,a.to.foot,ease((elapsed-end)/420))};
    const project=(id,at)=>{const point=anchorAt(bank,id,at);return point&&bankBody?bankPointToWorld(bankBody,a.from.foot,point):null;};
    const kind=characterOf(a.value),id=kind==='queen'?'far-palm':kind==='maester'?'ocular':'arrow';
@@ -700,9 +677,11 @@ function vortex(out,foot,phase,strength) {
    if(origin&&target){
     const options={elapsedMs:elapsed-release,origin:[origin.x,origin.y],target:[target.x,target.y],scale:bankBody.scale*bank.bodyHeightPx/640,seed:a.move.from*64+a.move.to};
     if(kind==='queen'){options.secondaryOrigin=secondary?[secondary.x,secondary.y]:undefined;options.emissionMs=Math.min(240,(bank.beatTimes.releaseHoldEnd??bank.beatTimes.recovery)-release);options.originAt=(launch,palm)=>{const p=project(palm?'near-palm':'far-palm',release+launch);return p?[p.x,p.y]:null;};}
-    effects.push(()=>r.effect.player.draw(ctx,options));effectFrames.push({kind,at:time,speed:a.speed,bodyDurationMs:bank.durationMs,bodyTime:bankBody.time,releaseMs:release,durationMs:r.effect.player.durationMs,elapsedMs:options.elapsedMs,origin,target,foot:a.from.foot,pivot:bankBody.pivot,scale:bankBody.scale});
+    if(r.ranged)rangedFrame(ctx,{plan:r.ranged,elapsed,release,origin,target,victim,box:()=>victimBox(victim.pose),player:r.effect.player,scale:options.scale,seed:options.seed,effects,res});
+    else effects.push(()=>r.effect.player.draw(ctx,options));
+    effectFrames.push({kind,at:time,speed:a.speed,bodyDurationMs:bank.durationMs,bodyTime:bankBody.time,releaseMs:release,durationMs:r.ranged?.effectMs??r.effect.player.durationMs,elapsedMs:options.elapsedMs,origin,target,foot:a.from.foot,pivot:bankBody.pivot,scale:bankBody.scale});
    }
-   if(victim)victim.opacity=1-clamp((elapsed-a.contactTime)/180,0,1);
+   if(victim&&!r.ranged)victim.opacity=1-clamp((elapsed-a.contactTime)/180,0,1);
    if(a.move.selfRemove)actor.opacity=1-clamp((elapsed-a.contactTime)/180,0,1);
   }
   else if(a.type==='slash'){
@@ -787,18 +766,11 @@ function vortex(out,foot,phase,strength) {
    }
   }
   else if(a.type==='beam'){
-   // Maester: scan the victim from his square, take it apart, then step in.
-   const s=court.BEAM,height=a.victimFoot.y-a.target.y,off=court.scanOffset(t),scanY=a.target.y+off*height*(off<0?1:.85);
+   // Maester without his painted attack: the same ray from his sprite's lens, then he steps in.
+   const s=court.BEAM;
    actor.extension=court.actionAt(t/duration);
    actor.pose={...a.from,foot:mix(a.from.foot,a.to.foot,ease((t-s.walk[0])/(s.walk[1]-s.walk[0])))};
-   const lens=bankAnchor(['ocular'],world(court.maesterLens(colorOf(a.value),actor.extension),actor.pose,M)),reach=ease((t-s.on)/s.reach),fade=1-clamp((t-s.off[0])/(s.off[1]-s.off[0]),0,1);
-   effects.push(()=>{lensGlow(ctx,lens,Math.min(ease(t/s.on),fade));if(t>=s.on)scanBeam(ctx,lens,mix(lens,{x:a.target.x,y:scanY},reach),62*reach,fade);});
-   if(victim&&t>=s.scan[0]){
-    const apart=(t-s.apart[0])/(s.apart[1]-s.apart[0]);
-    victim.fx={scan:{tint:clamp((t-s.scan[0])/200,0,1),y:t<s.scan[1]?scanY:null},apart:apart>=0?{top:a.victimFoot.y-height*2.3,bottom:a.victimFoot.y+12,t:clamp(apart,0,1)}:null};
-    if(apart>=1)victim.opacity=0;
-   }
-   effects.push(()=>gears(ctx,a.target,(t-s.apart[0])/700));
+   rangedFrame(ctx,{plan:{kind:'maester'},elapsed:t,release:s.on,origin:bankAnchor(['ocular'],world(court.maesterLens(colorOf(a.value),actor.extension),actor.pose,M)),target:a.target,victim,box:()=>victimBox(victim.pose),scale:1,seed:a.move.from*64+a.move.to,effects,res});
   }
   else if(a.type==='move'){
    const slide=a.move.from===a.move.to?0:420,k=ease(t/(slide||1));
@@ -867,9 +839,10 @@ function vortex(out,foot,phase,strength) {
    if(t>180&&t<500)actor.pose.angle-=Math.sin(clamp((t-180)/320,0,1)*Math.PI)*1.8*Math.PI/180;
    if(victim&&a.closeup)victim.opacity=1-clamp((t-440)/180,0,1);
    else if(victim&&t>=440){
-    // Struck: the victim is knocked back and topples away from the Archer, then fades.
-    const k=ease((t-440)/380);victim.pose={...victim.pose,rotation:1.3*k*a.away*victim.pose.facing,foot:{x:victim.pose.foot.x+a.away*10*k,y:victim.pose.foot.y}};
-    victim.opacity=1-clamp((t-640)/320,0,1);
+    // Struck: the victim staggers and falls away from the Archer (fx-ranged.mjs); here the arrow is the scene's own.
+    const dir={x:a.away,y:0},m=struckAt((t-440)*SHOT.end/560,a.away,dir);
+    victim.pose={...victim.pose,ground:victim.pose.foot,foot:{x:victim.pose.foot.x+m.dx,y:victim.pose.foot.y+m.dy},rotation:m.tilt*victim.pose.facing};
+    victim.opacity=m.opacity;
    }
    if(!a.closeup){shot={start:bankAnchor(['arrow','arrowhead-smoke'],world(archer.muzzle(a.pose.angle,colorOf(a.value)),a.pose,A)),end:a.target,t:(t-180)/260,scale:1.8};hit={point:a.target,t:(t-440)/300,scale:1.6};}
    else actor.pose={...a.from,angle:0};
@@ -892,7 +865,7 @@ function vortex(out,foot,phase,strength) {
    const actor=animation&&!animation.effect&&animation.move.from===sq,a=actor?animation:null;
    const at=a?.rewind?.kind==='move'?Math.max(a.start,Math.min(a.rewind.at,a.rewind.at-(time-a.rewind.start))):time,elapsed=a?(at-a.start)/a.speed:0,local=a?.drawingMovementStart?0:a?.drawingMovementEndpoint?a.actionDuration:elapsed-(a?.runtime?.beforeMs??0);
    const settling=!actor&&idleOut?.square===sq&&idleOut.value===u.value;
-   let body=settling?idleOut.exit((time-idleOut.start)/200)??bodyRuntime.rest(characterOf(u.value),armyOf(u.value)):a?.exitBody?(a.exitStart==null?a.exitBody:a.exit((time-a.exitStart)/200)):a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,local,a.actionDuration,a.contactTime,a.drawingTurnEndpoint?'turn-end':a.drawingMovementStart?'start':a.drawingMovementEndpoint?'end':undefined):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),time-(selectedAt??time),sq===selected&&!animation&&!reducedMotion&&(characterOf(u.value)!=='king-stratus'||idleReady));
+   let body=settling?idleOut.exit((time-idleOut.start)/200)??bodyRuntime.rest(characterOf(u.value),armyOf(u.value)):a?.exitBody?(a.exitStart==null?a.exitBody:a.exit((time-a.exitStart)/200)):a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,a.runtime.ranged&&local<=a.actionDuration?heldClock(local,a.runtime.ranged.hold):local,a.actionDuration,a.contactTime,a.drawingTurnEndpoint?'turn-end':a.drawingMovementStart?'start':a.drawingMovementEndpoint?'end':undefined):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),time-(selectedAt??time),sq===selected&&!animation&&!reducedMotion&&(characterOf(u.value)!=='king-stratus'||idleReady));
    if(settling&&body)idleOut.body=body;
    if(body){
     if(a?.runtime){
@@ -903,7 +876,7 @@ function vortex(out,foot,phase,strength) {
    }
   }
  }
- bodyFrames=[...poses].filter(([,u])=>u.pose.bank).map(([square,u])=>({square,bank:u.pose.bank.bank,sourceSha256:u.pose.bank.sourceSha256,sourceBankSha256:u.pose.bank.sourceBankSha256,opacity:u.opacity,time:u.pose.bank.time,foot:{...u.pose.foot},pivot:[...u.pose.bank.pivot],scale:u.pose.bank.scale}));
+ bodyFrames=[...poses].filter(([,u])=>u.pose.bank).map(([square,u])=>({square,bank:u.pose.bank.bank,sourceSha256:u.pose.bank.sourceSha256,sourceBankSha256:u.pose.bank.sourceBankSha256,opacity:u.opacity,struck:!!u.fx?.ranged,time:u.pose.bank.time,foot:{...u.pose.foot},pivot:[...u.pose.bank.pivot],scale:u.pose.bank.scale}));
  const ordered=[...poses].sort((a,b)=>a[1].pose.foot.y-b[1].pose.foot.y);
  if(animation&&!animation.effect){const i=ordered.findIndex(([sq])=>sq===animation.move.from);ordered.push(...ordered.splice(i,1));}
  // 'over' markers are drawn one screen row at a time, after that row's figures: a marker sits on its
@@ -1045,7 +1018,7 @@ function drawEncounter(a,t) {
     prepared.movementRate=pace.rate;
    }
    a.contactTime=prepared.attack?(prepared.attack.contactMs??prepared.attack.durationMs*.45):contactTime(a);
-   if(prepared.effect){prepared.release=prepared.attack.beatTimes.release??a.contactTime;a.contactTime=prepared.release+prepared.effect.contactMs;a.actionDuration=Math.max(prepared.attack.durationMs,prepared.release+prepared.effect.player.durationMs)+(a.move.from===a.move.to?0:420);}
+   if(prepared.effect){prepared.release=prepared.attack.beatTimes.release??a.contactTime;a.contactTime=prepared.release+prepared.effect.contactMs;prepared.ranged=rangedPlan(characterOf(a.value),prepared.attack,prepared.release);a.actionDuration=(prepared.ranged?.end??Math.max(prepared.attack.durationMs,prepared.release+prepared.effect.player.durationMs))+(a.move.from===a.move.to?0:420);}
    a.duration=a.actionDuration+prepared.beforeMs+prepared.afterMs;
   }
   a.preparing=false;a.start=now;

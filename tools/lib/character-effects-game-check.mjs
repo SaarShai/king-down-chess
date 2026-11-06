@@ -49,7 +49,7 @@ export async function checkCharacterEffects(browser){
    else assert.equal(draws.length,0,`${label}/${name}: no projectile remains`);
    await shot(page,`${label}-${name}`);
    const victim=current.bodies.find(b=>b.square===target);
-   const result={name,elapsedMs:e.elapsedMs,bodyTime:e.bodyTime,bodyDurationMs:e.bodyDurationMs,releaseMs:e.releaseMs,victimOpacity:victim?.opacity,nativeDraws:draws.length,assets:[...new Set(draws.map(d=>d.url))],origin:e.origin,target:e.target,memory:current.memory};
+   const result={name,elapsedMs:e.elapsedMs,bodyTime:e.bodyTime,bodyDurationMs:e.bodyDurationMs,releaseMs:e.releaseMs,victimOpacity:victim?.opacity,victimStruck:victim?.struck,nativeDraws:draws.length,assets:[...new Set(draws.map(d=>d.url))],origin:e.origin,target:e.target,memory:current.memory};
    assert(current.memory.peakBytes<=64*1024*1024,`${label}: total retained runtime pixels stay within64MiB`);
    return result;
   };
@@ -60,7 +60,7 @@ export async function checkCharacterEffects(browser){
   }
   if(kind==='queen'){const returned=await capture('after-body-return',current.effect.bodyDurationMs-current.effect.releaseMs+32,true);assert.equal(returned.bodyTime,returned.bodyDurationMs,'thorns continue after exact body rest');phases.push(returned);}
   const before=await capture('before-contact',kind==='maester'?.5:Math.max(16,contact-32),true);assert.equal(before.victimOpacity,1,`${label}: victim waits for effect contact`);phases.push(before);
-  const hit=await capture('contact',contact+16,true);assert(hit.victimOpacity<1,`${label}: victim reacts after effect contact`);phases.push(hit);
+  const hit=await capture('contact',contact+16,true);assert(hit.victimOpacity<1||hit.victimStruck,`${label}: victim reacts after effect contact`);phases.push(hit);
   phases.push(await capture('last-fade',duration-24,true));phases.push(await capture('after-fade',duration+32,false));
   if(kind==='archer')assert(current.draws.some(d=>d.url.includes('golden-wisp')),`${label}: independent native smoke draws`);
   await page.evaluate(()=>view.skip());await page.clock.runFor(3000);assertNoErrors(errors);evidence.push({label,phases});await page.close();
