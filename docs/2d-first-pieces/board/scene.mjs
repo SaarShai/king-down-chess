@@ -11,7 +11,8 @@ import * as bishop from '../bishop/motion.mjs';
 import * as rook from '../rook/motion.mjs';
 import * as guard from '../guard/motion.mjs';
 import * as court from '../court-motion.mjs';
-import {chargeAt,CHARGE_CONTACT,swapAt} from './motion.mjs';
+import {chargeAt,CHARGE_CONTACT} from './motion.mjs';
+import {swapOrbsAt,drawSwapOrbs,drawSwapPools} from './swap-orbs.mjs';
 import {BLOW,KING_BLOW,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
 import {GAITS,GAIT_OF,idleAt,paintedPace,paintedTravel} from './gait.mjs';
 import {createKingEffects,phaseOffset} from './king-effects.mjs';
@@ -816,9 +817,12 @@ function vortex(out,foot,phase,strength) {
    actor.pose={...a.from,ground,lift:m.lift,foot:{x:ground.x,y:ground.y-m.lift},sx:m.sx,sy:m.sy,rotation:m.tilt*a.lean,shadow:m.shadow};
   }
   else if(a.type==='swap'){
-   const motion=swapAt(t/duration,a.from.foot,a.to.foot);
-   actor.pose={...a.from,foot:motion.actor};actor.extension=court.actionAt(t/duration);
-   victim.pose={...a.partner,foot:motion.partner};
+   // Each figure stands on its own square until its orb hides it, and on the other square once its orb opens.
+   const p=t/duration,orbs=swapOrbsAt(p),stand=(start,end)=>{const pose=orbs.arrived?end:start;return {...pose,ground:pose.foot,lift:orbs.lift,foot:{x:pose.foot.x,y:pose.foot.y-orbs.lift}};};
+   actor.pose=stand(a.from,a.to);actor.extension=orbs.arrived?0:court.actionAt(p);victim.pose=stand(a.partner,a.partnerEnd);
+   actor.opacity=victim.opacity=orbs.shown?1:0;
+   drawSwapPools(ctx,p,a.from.foot,a.to.foot);
+   effects.push(()=>drawSwapOrbs(ctx,p,a.from.foot,a.to.foot));
   }
   else if(a.type==='paladin'){
    const motion=chargeAt(t/duration),ground=mix(a.from.foot,a.to.foot,motion.travel);
@@ -1053,7 +1057,7 @@ function drawEncounter(a,t) {
  const value=position.board[move.from],from=poseFor(value,move.from),to=poseFor(value,move.to),victimSquare=move.swap?move.to:move.shove?.from??move.captures[0],victim=position.board[victimSquare];
  const base={move,value,from,to,victim,start:performance.now(),speed,contacted:false};
  if(reducedMotion){base.type='move';base.duration=(move.from===move.to?0:420)+(move.captures.length?150/speed:0);}
- else if(move.swap){base.type='swap';base.duration=1100;base.partner=poseFor(victim,move.to);}
+ else if(move.swap){base.type='swap';base.duration=1100;base.partner=poseFor(victim,move.to);base.partnerEnd=poseFor(victim,move.from);}
  else if(typeOf(value)===N){base.type='knight';base.duration=knight.DURATION;from.facing=Math.sign(to.foot.x-from.foot.x);}
  else if(typeOf(value)===L&&victim){
   const target=world(specs[typeOf(victim)].hit,poseFor(victim,victimSquare),typeOf(victim)),dx=target.x-from.foot.x;
