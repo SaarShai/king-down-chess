@@ -29,7 +29,7 @@ let atlas: HTMLImageElement | null = null, hands: HTMLImageElement | null = null
 export function loadDarkGate(): void {
   if (loading || typeof Image === 'undefined') return;
   loading = true;
-  const load = (url: string, done: (image: HTMLImageElement) => void) => { const image = new Image(); image.src = url; image.decode().then(() => done(image), () => {}); };
+  const load = (url: string, done: (image: HTMLImageElement) => void) => { const image = new Image(); image.crossOrigin = 'anonymous'; image.src = url; image.decode().then(() => done(image), () => {}); };
   load(ATLAS_URL, image => { atlas = image; });
   load(HANDS_URL, image => { hands = image; });
 }

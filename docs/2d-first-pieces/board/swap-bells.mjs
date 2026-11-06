@@ -43,7 +43,7 @@ let atlas=null,shadow=null,asked=false;
 function preload(){
  if(asked||typeof Image==='undefined')return;
  asked=true;
- const image=new Image();image.src=ATLAS_URL;image.decode().then(()=>{atlas=image;},()=>{asked=false;});
+ const image=Object.assign(new Image(),{crossOrigin:'anonymous'});image.onload=()=>{atlas=image;};image.onerror=()=>{asked=false;};image.src=ATLAS_URL;
 }
 preload();
 /** True once the bells can be drawn. The scene asks once per swap, so a swap never changes look half way. */

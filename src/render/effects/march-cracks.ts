@@ -16,7 +16,7 @@ const MISSED_STEP = 58;
 
 let atlas: HTMLImageElement | undefined;
 function art(): HTMLImageElement | null {
-  if (!atlas) { atlas = new Image(); atlas.src = new URL('./march-cracks.webp', import.meta.url).href; }
+  if (!atlas) { atlas = new Image(); atlas.crossOrigin = 'anonymous'; atlas.src = new URL('./march-cracks.webp', import.meta.url).href; }
   return atlas.complete && atlas.naturalWidth ? atlas : null;
 }
 

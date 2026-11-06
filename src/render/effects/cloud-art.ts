@@ -15,6 +15,7 @@ const GUST_TAIL = .42;
 const TINTS: Record<WindTint, [string, number] | null> = { cloud: null, lilac: ['#9a7fc8', .62], slate: ['#6d94b8', .6], gold: ['#d9ae5c', .68], flame: ['#ff8a2c', .9] };
 
 const sheet = typeof Image === 'undefined' ? null : new Image();
+if (sheet) sheet.crossOrigin = 'anonymous';
 if (sheet) sheet.src = new URL('./travel-clouds.webp', import.meta.url).href;
 
 const cells = new Map<string, ArtSprite>();

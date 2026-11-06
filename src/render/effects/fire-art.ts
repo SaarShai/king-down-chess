@@ -14,6 +14,7 @@ type Rect = readonly [number, number, number, number];
 let atlas: HTMLImageElement | null = null;
 if (typeof Image !== 'undefined') {
   const image = new Image();
+  image.crossOrigin = 'anonymous';
   image.onload = () => { atlas = image; };
   image.src = new URL('./fire-fx.webp', import.meta.url).href;
 }
