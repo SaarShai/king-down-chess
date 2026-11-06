@@ -1,4 +1,7 @@
 import type { CardLayer, Point } from './card-types';
+import { GUSTS, gustArt, PUFFS, puffArt, type CloudTint, type WindTint } from './cloud-art';
+
+export type { CloudTint, WindTint };
 
 // The kings' travel materials: flame, wind and embers, cloud, earth. Every part is a sprite painted once and stamped;
 // each function takes an age in ms, so it grows, travels and fades over many frames at any clock.
@@ -153,55 +156,22 @@ export function groundShade(ctx: CanvasRenderingContext2D, x: number, y: number,
 }
 
 // Wind --------------------------------------------------------------------------------------------------------------
-const WINDS = { flame: ['#fffdf4', '#ffdf9e', '#ff9a3c'], cloud: ['#ffffff', '#e4f1f8', '#8fb3cf'], gold: ['#fff8dc', '#f7d98a', '#c8912a'], lilac: ['#fbf4ff', '#dcc5f8', '#8f68d2'], slate: ['#f3f9ff', '#bcd7ee', '#4f86ba'] } as const;
-export type WindTint = keyof typeof WINDS;
-const winds = new Map<WindTint, Sprite>();
-function windSprite(tint: WindTint) {
-  let s = winds.get(tint);
-  if (s) return s;
-  const [core, mid, edge] = WINDS[tint];
-  s = paint(150, 48, g => {
-    // The head is on the right and thick; the tail thins to nothing with a soft curl.
-    const band = (w: number, y: number, fill: string) => { g.fillStyle = fill; g.beginPath(); g.moveTo(0, y + 3); g.bezierCurveTo(46, y - w * .34, 104, y - w * .86, 134, y - w * .3); g.bezierCurveTo(150, y + w * .12, 140, y + w * .54, 118, y + w * .54); g.bezierCurveTo(84, y + w * .62, 40, y + w * .34, 0, y + 3); g.fill(); };
-    band(40, 25, edge); band(28, 23, mid); band(14, 21, core);
-    g.globalCompositeOperation = 'destination-in';
-    const fade = g.createLinearGradient(0, 0, 150, 0);
-    fade.addColorStop(0, '#0000'); fade.addColorStop(.42, '#000b'); fade.addColorStop(.8, '#000'); fade.addColorStop(1, '#000');
-    g.fillStyle = fade; g.fillRect(0, 0, 150, 48);
-  });
-  winds.set(tint, s);
-  return s;
-}
 /** A body of wind whose head is at x, y and whose tail streams back against `angle`, stretching as it ages. */
 export function windAt(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, size: number, age: number, life: number, tint: WindTint) {
   if (age <= 0 || age >= life) return;
-  const k = age / life, s = windSprite(tint);
-  stampTurned(ctx, s, x, y, size * (.5 + ease(k * 3) * .75), size * (1 - k * .55), angle, ease(age / 55) * (1 - ease((k - .25) / .75)) * .86, .9, .5);
+  // The angle is fixed for the life of a gust, so it picks one painting and keeps it.
+  const k = age / life, s = gustArt(tint, Math.floor(rand(Math.round(angle * 100), 15) * GUSTS));
+  if (s) stampTurned(ctx, s, x, y, size * (.5 + ease(k * 3) * .75), size * .74 * (1 - k * .55), angle, ease(age / 55) * (1 - ease((k - .5) / .5)), .9, .5);
 }
 
 // Cloud -------------------------------------------------------------------------------------------------------------
-const CLOUDS = { cloud: ['#7f99b4', '#b9cede', '#fbfdff'], lilac: ['#7b5fb0', '#bfa2e6', '#fbf4ff'], slate: ['#44739f', '#92bce0', '#f2f9ff'], gold: ['#b08238', '#efcf85', '#fff8df'] } as const;
-export type CloudTint = keyof typeof CLOUDS;
-const clouds = new Map<CloudTint, Sprite>();
-function cloudSprite(tint: CloudTint) {
-  let s = clouds.get(tint);
-  if (s) return s;
-  const [shade, mid, light] = CLOUDS[tint];
-  s = paint(120, 84, g => {
-    const lumps = [[60, 48, 30], [30, 54, 23], [90, 55, 23], [43, 32, 20], [76, 30, 21], [60, 22, 15]];
-    for (const [x, y, r] of lumps) soft(g, x, y + 6, r, shade, `${shade}00`, .78);
-    for (const [x, y, r] of lumps) soft(g, x, y + 1, r * .92, mid, `${mid}00`, .78);
-    for (const [x, y, r] of lumps) soft(g, x - 2, y - 4, r * .76, light, `${light}00`, .62);
-  });
-  clouds.set(tint, s);
-  return s;
-}
 /** One puff that swells, drifts and thins out. */
 export function cloudAt(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, age: number, life: number, seed: number, tint: CloudTint = 'cloud') {
   if (age <= 0 || age >= life) return;
   // Cloud thins by shrinking, then goes: a long see-through fade over a dark square reads as smoke.
-  const k = age / life, s = size * (.35 + ease(k * 2.2) * .65 + k * .3) * (1 - ease((k - .5) / .5) * .5);
-  stamp(ctx, cloudSprite(tint), x + (rand(seed, 11) - .5) * 26 * k, y - k * 16, s * (rand(seed, 12) > .5 ? 1 : .92), s, ease(age / 70) * (1 - ease((k - .68) / .32)));
+  const k = age / life, s = size * (.35 + ease(k * 2.2) * .65 + k * .3) * (1 - ease((k - .45) / .55) * .72);
+  const art = puffArt(tint, Math.floor(rand(seed, 14) * PUFFS));
+  if (art) stamp(ctx, art, x + (rand(seed, 11) - .5) * 26 * k, y - k * 16, s * (rand(seed, 12) > .5 ? 1 : .92), s, ease(age / 70) * (1 - ease((k - .82) / .18)));
 }
 /** Cloud gathers under the feet and rolls out to the sides: a lift-off or a soft landing. */
 export function cloudRing(ctx: CanvasRenderingContext2D, p: Point, age: number, layer: CardLayer, seed: number, size = 1, tint: CloudTint = 'cloud') {
