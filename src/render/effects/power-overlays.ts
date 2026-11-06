@@ -4,7 +4,8 @@ import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs
 import { walkAction } from './card';
 import type { CardLayer, Point } from './card-types';
 import type { MoveOverlay } from './move-overlay';
-import { clamp, cloudAt, cloudRing, clodThrow, dustAt, earthPush, ease, emberRise, fireBurst, fireGlow, flameAt, ignite, rand, rootAt, scorchAt, smokeAt, stomp, windAt, type WindTint } from './travel-material';
+import { MarchCracks } from './march-cracks';
+import { clamp, cloudAt, cloudRing, dustAt, ease, emberRise, fireBurst, fireGlow, flameAt, ignite, rand, scorchAt, smokeAt, windAt, type WindTint } from './travel-material';
 
 /** An overlay whose landing outlives the move. PaintedView keeps drawing it for this many ms after the arrival. */
 export interface TailedOverlay extends MoveOverlay { readonly tailMs: number }
@@ -54,7 +55,7 @@ class WalkOverlay implements TailedOverlay {
     ctx.save();
     if (this.kind === 'Strike' || this.kind === 'FireStarter') this.drawFire(ctx, layer, ms);
     else if (this.kind === 'Haste' || this.kind === 'Rally') this.drawSpeed(ctx, layer, ms);
-    else if (this.kind === 'March') this.drawMarch(ctx, layer, ms);
+    else if (this.kind === 'March') this.drawMarch(ctx, scene, layer, ms);
     else this.drawFlight(ctx, layer, ms);
     ctx.restore();
   }
@@ -145,41 +146,13 @@ class WalkOverlay implements TailedOverlay {
     }
   }
 
-  private drawMarch(ctx: CanvasRenderingContext2D, layer: CardLayer, ms: number): void {
-    const seed = this.seed, back = this.angle + Math.PI;
-    // Roots break the stone behind the pawn and lean into it; soil heaves under each footfall.
-    if (layer === 'under') {
-      const lean = this.dirX * .42;
-      const mid = { x: (this.a.x + this.b.x) / 2, y: (this.a.y + this.b.y) / 2 };
-      for (let i = 0; i < 3; i++) {
-        const side = (i - 1) * 42;
-        rootAt(ctx, this.a.x - this.dirX * 26 - this.dirY * side, this.a.y - this.dirY * 26 + this.dirX * side * .5, 1.02 - Math.abs(i - 1) * .14, lean + (i - 1) * .2, ms - i * 44, Math.max(820, this.leave + 640), seed + i);
-      }
-      for (let i = 0; i < 2; i++) {
-        const side = i ? 44 : -44, born = this.bornNear(mid);
-        if (born != null) rootAt(ctx, mid.x - this.dirY * side, mid.y + this.dirX * side * .5, .8, lean + (i ? .18 : -.18), ms - born - i * 40, 700, seed + 5 + i);
-      }
-      for (let n = 0; n < this.count; n++) {
-        const i = n * 3, age = ms - this.trail[i + 2];
-        dustAt(ctx, this.trail[i] + (rand(n, seed) - .5) * 40, this.trail[i + 1] + (rand(n, seed + 1) - .5) * 12, .72 + rand(n, seed + 2) * .34, age, 560, seed + n);
-      }
-      earthPush(ctx, this.a, ms - this.leave + 90, layer, back, seed + 10);
-    } else {
-      earthPush(ctx, this.a, ms - this.leave + 90, layer, back, seed + 10);
-      for (let n = 0; n < this.count; n += 4) {
-        const i = n * 3;
-        clodThrow(ctx, { x: this.trail[i], y: this.trail[i + 1] }, ms - this.trail[i + 2], 520, 2, 58, seed + n, back);
-      }
-    }
-    if (this.land != null) stomp(ctx, this.b, ms - this.land, layer, seed + 20, 1.08);
-  }
+  private cracks: MarchCracks | null = null;
 
-  private bornNear(p: Point): number | null {
-    for (let n = 0; n < this.count; n++) {
-      const i = n * 3;
-      if (Math.hypot(this.trail[i] - p.x, this.trail[i + 1] - p.y) <= this.spacing) return this.trail[i + 2];
-    }
-    return null;
+  private drawMarch(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: CardLayer, ms: number): void {
+    if (layer !== 'under') return;
+    this.cracks ??= new MarchCracks(this.a, this.b, this.move.from, this.seed);
+    this.cracks.follow(scene, this.foot, this.land != null, ms);
+    this.cracks.draw(ctx, ms);
   }
 
   /** Cloud round a figure that plays its own painted leap: the bank owns the jump and the lift. */
