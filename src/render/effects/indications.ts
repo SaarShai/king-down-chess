@@ -38,7 +38,10 @@ export function pips(ctx: CanvasRenderingContext2D, scene: PaintedScene, width: 
   }
   for (let i=0;i<count;i++) { ctx.beginPath(); ctx.arc(p.x+8+i*7,p.y+19,3.3,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); } ctx.restore();
 }
-export function checkImpact(ctx: CanvasRenderingContext2D, scene: PaintedScene, sq: number, progress: number, reduced: boolean) {
+const CHECK_RING = '#b84d25';
+/** The held mark of a check. */
+export function checkRing(ctx: CanvasRenderingContext2D, scene: PaintedScene, sq: number, strength = 1, growth = 1) { ring(ctx, scene, sq, CHECK_RING, strength, growth); }
+export function checkImpact(ctx: CanvasRenderingContext2D, scene: PaintedScene, sq: number, progress: number, reduced: boolean, strength = 1) {
   const f=scene.foot(sq), t=clamp((progress-.025)/.32), burst=reduced?0:Math.sin(t*Math.PI), hold=smooth(progress/.14);
   ctx.save();ctx.translate(f.x,f.y);
   // A brief local danger plume sits behind the king, then leaves the quiet ground mark.
@@ -57,5 +60,5 @@ export function checkImpact(ctx: CanvasRenderingContext2D, scene: PaintedScene, 
       ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-Math.cos(angle)*9,y+7);ctx.strokeStyle=i%3?'#f7ae64':'#8e2923';ctx.lineWidth=2+(i%3);ctx.stroke();
     }
   }
-  ctx.restore();ring(ctx,scene,sq,'#b84d25',hold);
+  ctx.restore();checkRing(ctx,scene,sq,hold*strength);
 }
