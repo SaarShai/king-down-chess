@@ -15,7 +15,7 @@ export function swapOrbsAt(p){
  const shown=p<SWAP.covered||p>=SWAP.open,arrived=p>=SWAP.open;
  const gather=smooth(p/SWAP.covered),shrink=smooth((p-SWAP.covered)/(SWAP.fly[0]+.02-SWAP.covered)),grow=smooth((p-(SWAP.fly[1]-.03))/(SWAP.open-SWAP.fly[1]+.03));
  const size=p<SWAP.fly[0]+.02?COVER*(.22+.78*gather)*(1-(1-FLY)*shrink):FLY+(COVER-FLY)*grow;
- const alpha=smooth(p/.09)*(1-smooth((p-(SWAP.open+.02))/(1-SWAP.open-.04)));
+ const alpha=smooth(p/.12)*(1-smooth((p-(SWAP.open+.02))/(1-SWAP.open-.04)));
  const lift=LIFT*(arrived?1-smooth((p-SWAP.open)/(1-SWAP.open)):smooth(p/SWAP.covered));
  return {shown,arrived,lift,size,alpha,travel:flight(p)};
 }
