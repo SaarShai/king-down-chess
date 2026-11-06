@@ -6,8 +6,8 @@ import {env,launch,trapErrors,assertNoErrors} from './lib/checks.mjs';
 const manifest=JSON.parse(await readFile('public/character-runtime/manifest.json'));
 const browser=await launch();
 try{
- for(const character of ['knight','paladin'])for(const army of ['white','black']){
-  const to=character==='knight'?21:13,letter=character==='knight'?'N':'L',piece=army==='white'?letter:letter.toLowerCase();
+ for(const character of ['knight','paladin'])for(const army of ['white','black'])for(const facing of character==='knight'?['SE']:['SE','NE','NW']){
+  const to=character==='knight'?21:({SE:13,NE:45,NW:41})[facing],letter=character==='knight'?'N':'L',piece=army==='white'?letter:letter.toLowerCase();
   const context=await browser.newContext({viewport:{width:1000,height:900},serviceWorkers:'block',reducedMotion:'no-preference',recordVideo:{dir:env('PLAYABLE_OUT'),size:{width:1000,height:900}}});
   const page=await context.newPage(),errors=trapErrors(page);
   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
@@ -21,8 +21,8 @@ try{
   await page.waitForFunction(to=>!view.scene.animating&&!view.pos.board[27]&&view.pos.board[to],to,{timeout:15000});
   await page.waitForTimeout(250);
   const trace=await page.evaluate(()=>{recordLeap=false;return leapTrace;});
-  const name=`${character}-${army}`;await writeFile(join(env('PLAYABLE_OUT'),`${name}.json`),JSON.stringify(trace));
-  const bank=manifest.banks.find(b=>b.character===character&&b.army===army&&b.kind==='movement'&&b.facing==='SE');assert(bank);
+  const name=`${character}-${army}-${facing}`;await writeFile(join(env('PLAYABLE_OUT'),`${name}.json`),JSON.stringify(trace));
+  const bank=manifest.banks.find(b=>b.character===character&&b.army===army&&b.kind==='movement'&&b.facing===facing);assert(bank);
   const frames=trace.flatMap(t=>t.frames).filter(f=>f.square===27&&f.bank===bank.id);
   assert(frames.length>10,`${name}: painted leap plays`);
   assert.deepEqual([...new Set(frames.map(f=>f.time))],bank.frames.map(f=>f.timeMs),`${name}: all authored times`);
