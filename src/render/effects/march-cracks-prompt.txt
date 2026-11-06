@@ -1,0 +1,24 @@
+Project asset: King Down, a painted 2D board game. Reference 1 is the game's stone floor tiles, one light and one dark, seen from straight above. Reference 2 is painted fissure art from the same game: use it only for its inked, hand-painted line quality, not its lava and not its colour. Reference 3 shows the game's paint style.
+
+Paint one square image, 1024 x 1024, on a perfectly flat, solid, pure magenta background, colour #FF00FF, the same value edge to edge: no floor, no stone surface, no gradient, no vignette, no cast shadow, no glow, no text, no labels, no borders, no grid lines.
+
+The image holds FOUR separate crack decals in a 2 x 2 grid, each filling its own quarter of the image, with a clear strip of magenta 24 pixels wide between the quarters and at the image edge. Each decal shows ONLY the crack lines of a broken square stone floor tile seen from straight above. Do not paint the tile. Every pixel that is not a crack line stays pure magenta.
+
+THE CRACK SHAPE of each decal: one main jagged fracture runs from the top of its square to the bottom of its square, wandering around the vertical centre line, with sharp zigzag kinks like broken stone. From it, 5 to 8 thin branches fork at sharp angles and run out to the left and right sides of the square, some of them forking again. The tips of the lines reach the edges of the square. Between the lines keep plenty of open magenta: it must read as a few clean cracks, not a dense web and not a spider web with rings. No two decals alike.
+
+THE LINE: thin, confident, hand-inked and tapered. The main fracture is about 12 pixels wide at its widest and narrows irregularly; branches are about 6 pixels wide and taper to hairline points. The core of each line is near-black warm umber, colour #150B06, with a slightly lighter dark brown inner wall on one side. Along the lower right side of every line runs a thin pale cream chipped lip, colour #EFDCAE, about 3 pixels wide and broken in places, as light catches the broken stone edge. All lines are fully opaque with crisp painted edges. No blur, no soft halo, no airbrush.
+
+
+--- Second sheet: chips and dust ---
+
+Project asset: King Down, a painted 2D board game. Reference 1 is the game's stone floor tiles, one light and one dark, seen from straight above. Reference 2 shows the game's paint style, with a painted cloud at the figure's feet: use that for how a puff is painted, not for its colour.
+
+Paint one square image, 1024 x 1024, on a perfectly flat, solid, pure magenta background, colour #FF00FF, the same value edge to edge: no floor, no gradient, no vignette, no cast shadow, no glow, no text, no labels, no borders, no grid lines.
+
+Three rows, with clear magenta around every object. No object touches another object.
+
+TOP ROW: four small broken chips of the LIGHT floor stone in reference 1, pale warm cream with a soft painted shaded side, angular and sharp, each with a dark hand-inked outline, each about 120 pixels across, all different shapes.
+
+MIDDLE ROW: four small broken chips of the DARK floor stone in reference 1, deep warm umber with a lighter painted top facet so the shape reads, angular and sharp, each with a dark hand-inked outline, each about 120 pixels across, all different shapes.
+
+BOTTOM ROW: three small puffs of stone dust, about 260 pixels across, warm tan and pale sandstone colour, painted with soft shading in lumpy rounded lobes like the painted cloud in reference 2, fully opaque with a clean painted edge and no blur, each a different shape.

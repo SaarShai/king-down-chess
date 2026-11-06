@@ -242,20 +242,6 @@ const crater = once(() => paint(150, 78, g => {
   }
   g.restore();
 }));
-const roots = once(() => [0, 1, 2].map(seed => paint(84, 124, g => {
-  const stem = (w: number, bend: number, fill: string, x0: number) => {
-    g.fillStyle = fill; g.beginPath(); g.moveTo(x0 - w, 122);
-    g.bezierCurveTo(x0 - w * .95 + bend * .3, 96, x0 - w * .35 - bend, 52, x0 - w * .12 + bend * .6, 6);
-    g.quadraticCurveTo(x0 + bend * .6, 0, x0 + w * .14 + bend * .6, 7);
-    g.bezierCurveTo(x0 + w * .5 - bend, 52, x0 + w * .95 + bend * .3, 96, x0 + w, 122); g.closePath(); g.fill();
-  };
-  const bend = (seed - 1) * 8 + 7, x = 42;
-  // A thick trunk with a side branch: a root with force in it, never a thin thorn.
-  g.save(); g.translate(x, 82); g.rotate((seed % 2 ? -1 : 1) * .72); g.fillStyle = '#2a1a0d'; g.beginPath(); g.moveTo(-10, 8); g.quadraticCurveTo(-3, -24, 2, -52); g.quadraticCurveTo(9, -24, 11, 8); g.closePath(); g.fill();
-  g.fillStyle = '#5c3e23'; g.beginPath(); g.moveTo(-6, 6); g.quadraticCurveTo(-2, -22, 2, -44); g.quadraticCurveTo(5, -22, 6, 6); g.closePath(); g.fill(); g.restore();
-  stem(23, bend, '#2a1a0d', x); stem(18.5, bend, '#5c3e23', x); stem(8, bend, '#8f6d44', x - 5);
-  soft(g, x - 9, 92, 13, '#5f7f33e0', '#5f7f3300', .5); soft(g, x + 8, 64, 9, '#6f9040d8', '#6f904000', .4); soft(g, x + 11, 108, 11, '#4e6d2ad8', '#4e6d2a00', .45);
-})));
 export function clodAt(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, spin: number, alpha: number, seed: number) {
   stampTurned(ctx, clods()[seed & 3], x, y, size, size, spin, alpha);
 }
@@ -263,12 +249,6 @@ export function dustAt(ctx: CanvasRenderingContext2D, x: number, y: number, size
   if (age <= 0 || age >= life) return;
   const k = age / life, s = size * (.42 + (1 - (1 - k) ** 2) * .82);
   stamp(ctx, dust(), x + (rand(seed, 13) - .5) * 24 * k, y - k * 22, s, s * .9, ease(age / 55) * (1 - ease((k - .35) / .65)));
-}
-/** A root that breaks the stone, leans toward `lean` and sinks back. */
-export function rootAt(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, lean: number, age: number, life: number, seed: number) {
-  if (age <= 0 || age >= life) return;
-  const up = ease(age / (life * .3)), down = ease((age - life * .55) / (life * .45)), h = size * up * (1 - down * .96);
-  stampTurned(ctx, roots()[seed % 3], x, y, size * (.72 + up * .28), h, lean, Math.min(1, age / 40) * (1 - down * down * .5), .5, .98);
 }
 /** Clods thrown from a point on real arcs, the near ones larger. `away` (radians) biases them; null throws a full ring. */
 export function clodThrow(ctx: CanvasRenderingContext2D, p: Point, age: number, life: number, count: number, reach: number, seed: number, away: number | null = null, high = 42) {
