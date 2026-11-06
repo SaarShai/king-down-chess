@@ -1,6 +1,6 @@
 # Replace the flagged Flame attacks and the Mud idle
 
-Status: local checks pass. CI, the catalog promotion and the merge are open in the pull request.
+Status: finished. PR 269 merged and its catalog is promoted into MAIN.
 
 ## Plan
 

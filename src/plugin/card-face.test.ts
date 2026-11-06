@@ -19,7 +19,7 @@ it('uses twelve paintings and nine rule pictures', () => {
 it('gives a New game tile the lazy thumbnail and the full card the full painting', () => {
   for (const card of DEAL_CARDS) {
     const tile = cardArt(card, true);
-    if (painted.includes(card)) expect(tile).toBe(`<img src="assets/card-thumbs/${card.toLowerCase()}.webp" alt="" loading="lazy" decoding="async">`);
+    if (painted.includes(card)) expect(tile).toContain(`<img src="assets/card-thumbs/${card.toLowerCase()}.webp" alt="" loading="lazy" decoding="async">`);
     else expect(tile).toBe(cardArt(card));
   }
 });

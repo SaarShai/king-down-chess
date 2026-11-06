@@ -25,6 +25,10 @@ export interface SceneEffect {
 export interface PaintedScene {
   readonly SIZE: number; readonly PAD: number; readonly TILE: number; readonly headroom: number;
   readonly animating: boolean;
+  /** Scene ms since the running move's action began, scaled by its speed; null while idle or while its bank loads. */
+  readonly actionElapsed: number | null;
+  /** Scene ms the running move's action takes in all, on the actionElapsed clock; null while idle or while its bank loads. */
+  readonly actionTotal: number | null;
   readonly falling: boolean;
   /** A gait name ('walk', 'glide', 'hop') for a quiet move with character, else the animation kind; null when nothing plays. */
   readonly playing: string | null;
@@ -50,7 +54,7 @@ export interface PaintedScene {
   setCoords(on: boolean, size?: number, inset?: number): void;
   setLabels(on: boolean): void;
   setReducedMotion(on: boolean): void;
-  setFallen(square: number | null, animate?: boolean, rotation?: number): void;
+  setFallen(square: number | null, animate?: boolean, rotation?: number, speed?: number): void;
   /** Backing pixels per board unit; resizes the canvas and the effect layer. Default 1. */
   setResolution(k: number): void;
   /**
@@ -75,7 +79,7 @@ export interface PaintedScene {
   readonly characterExit: number | null;
   readonly characterWarmupSettled: boolean;
   readonly characterMemory: { bytes: number; peakBytes: number; framesLoaded: number; active: number; queued: number; manifestReady: boolean; manifestLoading: boolean };
-  readonly characterFrames: { square: number; opacity: number; bank: string; time: number; foot: { x: number; y: number }; pivot: number[]; scale: number }[];
+  readonly characterFrames: { square: number; opacity: number; struck: boolean; bank: string; time: number; foot: { x: number; y: number }; pivot: number[]; scale: number }[];
   /**
    * 'under': once, below every figure. 'over': once per screen row (0 = top) after that row's figures,
    * so a figure in a lower row stands in front of the markers behind it.

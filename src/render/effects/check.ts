@@ -1,12 +1,13 @@
 import type { PaintedScene } from '../painted/scene.mjs';
 import type { Checker } from '../../move-text';
 import kingIcon from '../../../public/ui/icons/king.svg?raw';
-import { link } from './indications';
+import { checkRing, link } from './indications';
 
 // Check (motion concepts, ticket 86): a warm edge marks each real checker, a rust wash presses in under the king and a
-// seal lands beside him, all in one 440 ms onset. The cause lines stay still. The result holds with no idle motion.
-// A legal move that ends check withdraws the wash in 220 ms; the seal and cause lines go at once.
-export const CHECK_ONSET_MS = 440, CHECK_WITHDRAW_MS = 220;
+// seal lands beside him, all in one 440 ms onset. The cause lines stay still. The wash and seal then give way to the
+// held ring over 240 ms, with no cut. The result holds with no idle motion.
+// A legal move that ends check fades the ring and cause lines in 220 ms.
+export const CHECK_ONSET_MS = 440, CHECK_SETTLE_MS = 240, CHECK_WITHDRAW_MS = 220;
 const clamp = (n: number) => Math.max(0, Math.min(1, n));
 const ease = (n: number) => 1 - (1 - clamp(n)) ** 4;
 const smooth = (n: number) => { n = clamp(n); return n * n * (3 - 2 * n); };
@@ -40,12 +41,14 @@ let glyphs: Path2D[] | undefined;
 const king = () => glyphs ??= [...kingIcon.matchAll(/<path d="([^"]+)"/g)].map(match => new Path2D(match[1]));
 
 /** The rust wash under the king's feet. `press` 1 is the held size. */
-export function drawWash(ctx: CanvasRenderingContext2D, foot: { x: number; y: number }, life: number, press: number, withdrawing = false): void {
+export function drawWash(ctx: CanvasRenderingContext2D, foot: { x: number; y: number }, life: number, press: number): void {
   if (life <= 0) return;
-  const image = paint(), spread = withdrawing ? 1 - press * .16 : 1.24 - .24 * press;
+  const image = paint(), spread = 1.24 - .24 * press;
   ctx.save(); ctx.translate(foot.x, foot.y - 4); ctx.globalCompositeOperation = 'multiply';
   ctx.globalAlpha = life * .85; ctx.drawImage(image, -75 * spread, -53, 150 * spread, 78);
   ctx.globalAlpha = life * .54; ctx.drawImage(image, -57 * spread + (1 - press) * 12, -38, 110 * spread, 54);
+  // Multiply alone is lost on a dark square; a plain coat keeps the rust visible there.
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = life * .62; ctx.drawImage(image, -75 * spread, -53, 150 * spread, 78);
   ctx.restore();
 }
 
@@ -84,7 +87,7 @@ export interface CheckDraw {
   checkers: readonly Checker[];
   /** The shown board, for the checkers' edge; without it the onset has no edge. */
   board?: ArrayLike<number>;
-  /** Milliseconds since the onset; Infinity for a held check (reduced motion, resync). */
+  /** Milliseconds since the onset. */
   ms: number;
   /** Scene units per CSS pixel. */
   pixel: number;
@@ -92,9 +95,9 @@ export interface CheckDraw {
 
 /** One layer of a check: the wash and checker edge under the figures, the seal in the king's row, the cause lines last. */
 export function drawCheck(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row: number | undefined, check: CheckDraw): void {
-  const foot = scene.foot(check.king), ms = check.ms;
+  const foot = scene.foot(check.king), ms = check.ms, settling = 1 - smooth((ms - CHECK_ONSET_MS) / CHECK_SETTLE_MS);
   if (layer === 'under') {
-    drawWash(ctx, foot, smooth(ms / 85), ease((ms - 45) / 290));
+    drawWash(ctx, foot, smooth(ms / 85) * settling, ease((ms - 45) / 290));
     const shine = smooth(ms / 55) * (1 - smooth((ms - 110) / 160));
     if (shine > 0 && check.checkers.length && check.board) {
       // The board's flip decides each silhouette's place; the cache follows it.
@@ -107,16 +110,18 @@ export function drawCheck(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
     }
     return;
   }
-  if (row === scene.cell(check.king).row) drawSeal(ctx, foot, ms, check.pixel);
-  if (row === 7) {
-    ctx.save(); ctx.globalAlpha *= .9;
+  if (row === scene.cell(check.king).row && settling > 0) {
+    ctx.save(); ctx.globalAlpha *= settling; drawSeal(ctx, foot, ms, check.pixel); ctx.restore();
+  }
+  if (row === 7 && ms < CHECK_ONSET_MS) {
+    ctx.save(); ctx.globalAlpha *= .9 * smooth(ms / 85);
     // The full cause stays still: no travelling attack or growing path.
     for (const checker of check.checkers) link(ctx, scene, checker.sq, checker.king, '#b84d25', checker.path === 'arc');
     ctx.restore();
   }
 }
 
-/** The wash of a check that a legal move just ended, on the king's old square. `progress` runs 0..1 over CHECK_WITHDRAW_MS. */
+/** The ring of a check that a legal move just ended, on the king's old square. `progress` runs 0..1 over CHECK_WITHDRAW_MS. */
 export function drawWithdrawal(ctx: CanvasRenderingContext2D, scene: PaintedScene, king: number, progress: number): void {
-  if (progress < 1) drawWash(ctx, scene.foot(king), 1 - ease(progress), smooth(progress), true);
+  if (progress < 1) checkRing(ctx, scene, king, 1 - smooth(progress), 1 + .12 * smooth(progress));
 }

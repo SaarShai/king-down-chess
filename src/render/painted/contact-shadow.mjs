@@ -123,8 +123,8 @@ export function fxFade(fx){
  if(!fx)return 1;
  // A king's death (king-captures.mjs): gone over 180 ms from the strike, while the effect is still small.
  if(fx.death)return 1-ease(fx.death.t/180);
- // Ice that shatters: the wedges fly apart; strips that come apart: the lowest strip goes last.
+ // Ice that shatters: the wedges fly apart. A ranged victim (fx-ranged.mjs) sets its own.
  if(fx.shatter)return 1-ease(fx.shatter.t/.4);
- if(fx.apart)return 1-ease((fx.apart.t-.42)/.55);
+ if(fx.ranged)return fx.ranged.shadow;
  return 1;
 }

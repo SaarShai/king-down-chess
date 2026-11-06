@@ -82,6 +82,33 @@ describe('ready character playback', () => {
   const capture=await runtime.prepare('pawn','white','N',true);expect(capture).toMatchObject({attack:{id:'attack'}});
   expect(started.some(s=>s.includes('/walk-S-'))).toBe(false);runtime.releaseMovePrefetch();runtime.dispose();
  });
+ it('prepares a chain with one attack per bite and the turn back from the last bite', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const attacks=['N','S'].map(facing=>({...idle,id:`attack-${facing}`,kind:'attack',facing,durationMs:100,frames:[{url:`attack-${facing}`,timeMs:0}]}));
+  const turns=[{...bank('SE','N'),id:'turn-a',frames:[{url:'turn-a',timeMs:0}]},{...bank('N','S'),id:'turn-b',frames:[{url:'turn-b',timeMs:0}]}];
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,...attacks,...turns]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  await runtime.ready();
+  const prepared=await runtime.prepare('pawn','white','N',true,false,undefined,['N','S']) as {chain:{attack:{id:string},turnMs:number}[],after:{bank:{id:string}}[]};
+  expect(prepared.chain.map(bite=>[bite.attack.id,bite.turnMs])).toEqual([['attack-N',0],['attack-S',120]]);
+  const shown=(ms:number)=>(runtime.action(prepared,ms,320,50) as {bank:string}).bank;
+  expect(shown(50)).toBe('attack-N');
+  expect(shown(160)).toBe('turn-b');
+  expect(shown(270)).toBe('attack-S');
+  // The way back to rest starts from the last bite's facing.
+  expect(prepared.after.map(part=>part.bank.id)).toEqual(['turn-b','turn-a']);
+  runtime.dispose();
+ });
+ it('keeps the start frames of a capture decoded until the capture ends', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const attack={...idle,id:'attack',kind:'attack',facing:'SE',frames:[{url:'attack-0',timeMs:0}]};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  await runtime.ready();
+  const prepared=await runtime.prepare('pawn','white','SE',true) as {releaseFallback?:()=>void};
+  expect(prepared.releaseFallback).toBeTypeOf('function');
+  prepared.releaseFallback?.();runtime.dispose();
+ });
  it('releases idle downloads before a capture needs the loader', async () => {
   const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0},...Array.from({length:12},(_,i)=>({url:`idle-${i}`,timeMs:(i+1)*10})),{url:'rest',timeMs:140}]};
   const attack={...bank(),id:'attack',kind:'attack',facing:'SE',frames:[{url:'attack-0',timeMs:0},{url:'attack-1',timeMs:120}]};
