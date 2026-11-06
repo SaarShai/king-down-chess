@@ -1,10 +1,10 @@
 import type { GameRules } from '../../game-rules';
-import { TAG_POWER, colorOf, typeOf, K, P, type Move, type Position } from '../../rules/engine';
+import { TAG_POWER, colorOf, typeOf, K, L, N, P, type Move, type Position } from '../../rules/engine';
 import { RELEASED_CARDS } from '../../content/cards';
 import type { PaintedScene, SceneEffect } from '../../../docs/2d-first-pieces/board/scene.mjs';
-import { HEROES, drawHero } from './card-hero';
-import { MOVEMENT_IDS, MOVEMENT_DURATIONS, drawMovement } from './card-movement';
-import { SPELL_DURATIONS, drawSpell } from './card-spell';
+import { HEROES, drawFreezeCast, drawHero, quakeJolt } from './card-hero';
+import { AIR_IDS, AIR_LANDS, AIR_SETTLED, MOVEMENT_IDS, MOVEMENT_DURATIONS, airPose, drawMovement } from './card-movement';
+import { SPELL_DURATIONS, drawRising, drawSpell } from './card-spell';
 import { drawFreeze, drawIceWall, drawFirewall } from './materials';
 import type { CardFrame, CardLayer } from './card-types';
 
@@ -20,8 +20,8 @@ const clamp = (t: number) => Math.max(0, Math.min(1, t));
 const ease = (t: number) => { t = clamp(t); return t * t * (3 - 2 * t); };
 
 /** Tags describe the copied action. Only via describes the card Mirror spends. */
-export function cardAction(context: GameRules, before: Position, move: Move): { id: string; mirror: boolean; index: number } | null {
-  if (move.pass || !context.rules.hands[before.turn].length) return null;
+function actionOf(before: Position, move: Move): { id: string; mirror: boolean; index: number } | null {
+  if (move.pass) return null;
   if (move.power) {
     const id = TAG_POWER[move.power];
     return released.has(id) ? { id, mirror: !!move.via, index: 0 } : null;
@@ -32,6 +32,21 @@ export function cardAction(context: GameRules, before: Position, move: Move): { 
   }
   if (before.free && before.marks?.[before.turn]?.all) return { id: 'Firewall', mirror: false, index: 1 };
   return null;
+}
+
+/** These keep the figure's real walk or attack; the material is an overlay (power-overlays.ts), so the figure never slides. */
+const WALKS = new Set(['Strike', 'FireStarter', 'Haste', 'Rally', 'March']);
+const keepsRealMotion = (before: Position, move: Move, action: { id: string; mirror: boolean }) => !action.mirror
+  && (WALKS.has(action.id) || (action.id === 'Flight' && [N, L].includes(typeOf(before.board[move.from]))));
+
+export function cardAction(_context: GameRules, before: Position, move: Move): ReturnType<typeof actionOf> {
+  const action = actionOf(before, move);
+  return action && !keepsRealMotion(before, move, action) ? action : null;
+}
+
+export function walkAction(_context: GameRules, before: Position, move: Move): ReturnType<typeof actionOf> {
+  const action = actionOf(before, move);
+  return action && keepsRealMotion(before, move, action) ? action : null;
 }
 
 interface Unit { from: number; to: number; value: number }
@@ -58,6 +73,20 @@ export function cardLender(context: GameRules, before: Position, move: Move): nu
   }
 }
 
+/** Height above the foot that an air move turns about: the middle of a figure's body. */
+const BODY_PIVOT = 52;
+/** A context that skips the figure's contact shadow: an airborne figure's shadow lies on the ground, in the under layer. */
+const withoutShadow = (ctx: CanvasRenderingContext2D) => new Proxy(ctx, {
+  get(target, key: keyof CanvasRenderingContext2D) {
+    const value = target[key];
+    if (key === 'drawImage' || key === 'fill') return (...args: unknown[]) => {
+      if (target.globalCompositeOperation !== 'multiply') (value as (...a: unknown[]) => void).apply(target, args);
+    };
+    return typeof value === 'function' ? value.bind(target) : value;
+  },
+  set(target, key, value) { Reflect.set(target, key, value); return true; },
+});
+
 /** One engine action. No timers, fixture data, or rule state lives in this drawing. */
 export class CardPlayback implements SceneEffect {
   readonly duration: number;
@@ -69,6 +98,10 @@ export class CardPlayback implements SceneEffect {
   private units: Unit[];
   private travelBoard: Uint8Array;
   private replaceBoard: Uint8Array;
+  /** An air move draws its figure from the crouch to the settled landing, so the scene must not draw it. */
+  private air: boolean;
+  private landBoard: Uint8Array;
+  private noShadow?: CanvasRenderingContext2D;
 
   constructor(readonly before: Position, readonly move: Move, readonly action: NonNullable<ReturnType<typeof cardAction>>, context: GameRules) {
     this.after = context.makeMove(before, move);
@@ -83,6 +116,9 @@ export class CardPlayback implements SceneEffect {
     for (const unit of this.units) this.travelBoard[unit.from] = 0;
     this.replaceBoard = new Uint8Array(this.travelBoard);
     if (move.promo || move.drop) this.replaceBoard[move.from] = 0;
+    this.air = AIR_IDS.has(action.id) && !action.mirror;
+    this.landBoard = new Uint8Array(this.after.board);
+    for (const unit of this.units) this.landBoard[unit.to] = 0;
   }
 
   position(t: number): Position {
@@ -90,7 +126,9 @@ export class CardPlayback implements SceneEffect {
     if (this.local && t < 1) t = t * this.duration < CAST_PREPARE_MS ? 0 : .62 + .38 * clamp((t * this.duration - CAST_PREPARE_MS) / (this.duration - CAST_PREPARE_MS));
     this.frame.t = t;
     this.frame.travel = ease((t - .22) / .4);
-    const board = t >= .62 ? this.after.board : t > .35 ? this.replaceBoard : t > .22 ? this.travelBoard : this.before.board;
+    const board = this.air
+      ? (t >= AIR_SETTLED ? this.after.board : t >= AIR_LANDS ? this.landBoard : t > 0 ? this.travelBoard : this.before.board)
+      : t >= .62 ? this.after.board : t > .35 ? this.replaceBoard : t > .22 ? this.travelBoard : this.before.board;
     // The card draws its new material through the onset. Other states follow the displayed figures.
     const newMark = ['freeze', 'ward', 'firewall'].includes(this.move.power ?? '');
     const base = t >= .62 ? this.after : this.before;
@@ -103,15 +141,16 @@ export class CardPlayback implements SceneEffect {
 
   draw(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: CardLayer, row: number | undefined, t: number): void {
     if (t >= 1) return;
-    if (this.local) { this.drawRelease(ctx, scene, layer, row, t * this.duration); return; }
+    if (this.local) { this.drawRelease(ctx, scene, layer, row, t * this.duration); if (this.move.power === 'freeze') drawFreezeCast(ctx, scene, this.move.to, layer, row, t * this.duration); return; }
     const { id, mirror } = this.action, event = this.frame;
+    if (this.air && layer === 'over') this.drawAirborne(ctx, scene, row);
     if (layer === 'under' || row === 7) {
       if (HEROES.has(id)) drawHero(ctx, scene, id, event, layer);
       else if (MOVEMENT_IDS.has(id)) drawMovement(ctx, scene, id, event, layer);
       else drawSpell(ctx, scene, id, event, layer);
       if (mirror) drawSpell(ctx, scene, 'MirrorB', event, layer);
     }
-    if (layer === 'over' && row === 7) this.drawActors(ctx, scene);
+    if (layer === 'over' && row === 7 && !this.air) this.drawActors(ctx, scene);
     this.drawMaterial(ctx, scene, layer, row);
   }
 
@@ -155,38 +194,39 @@ export class CardPlayback implements SceneEffect {
     }
   }
 
+  /** The real scene owns the figure at both ends; here the crouch and landing stand in their own rows, the arc over all. */
+  private drawAirborne(ctx: CanvasRenderingContext2D, scene: PaintedScene, row: number | undefined): void {
+    const { t } = this.frame, { id } = this.action;
+    if (t <= 0 || t >= AIR_SETTLED) return;
+    const out = this.noShadow ??= withoutShadow(ctx);
+    for (const [index, unit] of this.units.entries()) {
+      const a = scene.foot(unit.from), b = scene.foot(unit.to);
+      if (row !== (t < .2 ? scene.cell(unit.from).row : t > AIR_LANDS + .02 ? scene.cell(unit.to).row : 7)) continue;
+      const pose = airPose(id, a, b, t, id === 'SkyLift' ? (index ? -24 : 24) : 0);
+      ctx.save();
+      ctx.translate(pose.x, pose.y - BODY_PIVOT); ctx.rotate(pose.tilt); ctx.translate(0, BODY_PIVOT);
+      ctx.scale(pose.sx, pose.sy); ctx.translate(-a.x, -a.y);
+      scene.ghost(out, unit.value, unit.from, 1);
+      ctx.restore();
+    }
+  }
+
   private drawActors(ctx: CanvasRenderingContext2D, scene: PaintedScene): void {
     const { t, travel: u } = this.frame, { id } = this.action;
     if (t <= .22 || t >= .62) return;
-    if (['Sacrifice', 'MorphP'].includes(id) && t > .35) {
-      const opacity = ease((t - .35) / .27);
-      scene.ghost(ctx, this.before.board[this.move.from], this.move.from, 1 - opacity);
-      scene.ghost(ctx, this.after.board[this.move.to], this.move.to, opacity);
-    }
-    if (id === 'Salvation') scene.ghost(ctx, this.after.board[this.move.to], this.move.to, u);
-    for (const [index, unit] of this.units.entries()) {
+    if (id === 'Salvation') drawRising(ctx, scene, this.after.board[this.move.to], this.move.to, u);
+    for (const unit of this.units) {
       const a = scene.foot(unit.from), b = scene.foot(unit.to);
-      const airborne = ['Flight', 'Leap', 'Vault', 'SkyLift'].includes(id);
-      const lift = airborne ? Math.sin(u * Math.PI) * (id === 'SkyLift' ? 105 : 88) : 0;
-      let dx = (b.x - a.x) * u, dy = (b.y - a.y) * u - lift;
-      if (id === 'SkyLift') dx += Math.sin(u * Math.PI) * (index ? -24 : 24);
+      const airborne = AIR_IDS.has(id), lift = airborne ? Math.sin(u * Math.PI) * 100 : 0;
+      const dx = (b.x - a.x) * u;
+      let dy = (b.y - a.y) * u - lift;
+      if (id === 'EarthQuake') dy -= quakeJolt(t);
       if (id === 'Haste' || id === 'Strike') for (let j = 3; j >= 1; j--) {
         const trail = Math.max(0, u - j * .055);
         ctx.save(); ctx.translate((b.x - a.x) * trail, (b.y - a.y) * trail); scene.ghost(ctx, unit.value, unit.from, .08); ctx.restore();
       }
       ctx.save(); ctx.translate(dx, dy);
-      // The approved airborne figure keeps its ground shadow in the effect's under layer.
-      const out = airborne ? new Proxy(ctx, {
-        get(target, key: keyof CanvasRenderingContext2D) {
-          const value = target[key];
-          if (key === 'drawImage' || key === 'fill') return (...args: unknown[]) => {
-            if (target.globalCompositeOperation !== 'multiply') (value as (...a: unknown[]) => void).apply(target, args);
-          };
-          return typeof value === 'function' ? value.bind(target) : value;
-        },
-        set(target, key, value) { Reflect.set(target, key, value); return true; },
-      }) : ctx;
-      scene.ghost(out, unit.value, unit.from, 1);
+      scene.ghost(airborne ? (this.noShadow ??= withoutShadow(ctx)) : ctx, unit.value, unit.from, 1);
       ctx.restore();
     }
   }

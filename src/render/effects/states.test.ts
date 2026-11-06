@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameRules } from '../../game-rules';
 import { POWERS_BALANCED } from '../../rules/rules';
 import { boardStates, StateEffects } from './states';
+import { FREEZE_RELEASE_MS } from './freeze-release';
 import { fixtures, at } from '../../../docs/specs/effects-animation/preview/signals/fixtures';
 
 const quiet = (value: number) => expect(value).toBe(-Infinity);
@@ -154,16 +155,71 @@ describe('real state lifecycle', () => {
     expect(s.frames[0].since).toBe(-Infinity);
   });
 
-  it('never clears a stale volume over an empty, replaced or differently marked square', () => {
+  it('keeps no ward or firewall release over an empty square, but ice thaws without its piece', () => {
+    for (const id of ['ward', 'firewall'] as const) {
+      const f = fixtures[id], s = new StateEffects(), sq = f.after.marks!.find(Boolean)!.sq;
+      s.sync(f.rules, f.after, 0, true);
+      const next = structuredClone(f.expired!); next.board.fill(0);
+      s.sync(f.rules, next, 10, true);
+      expect(s.frames, `${id} ${sq}`).toEqual([]);
+    }
     const f = fixtures.freeze, s = new StateEffects();
     s.sync(f.rules, f.after, 0, true);
     const next = structuredClone(f.expired!); next.board[at('d5')] = 0;
     s.sync(f.rules, next, 10, true);
-    expect(s.frames).toEqual([]);
+    expect(s.frames).toEqual([expect.objectContaining({ kind: 'freeze', clear: 10 })]);
   });
 
-  it.each([1, 2])('ends Freeze residue in 620 ms at rate %s and keeps Ice Wall timing', rate => {
-    for (const [id, duration] of [['freeze', 620], ['ward', 1344]] as const) {
+  it('a thaw goes on through later moves and stops on a rewind or for new ice on its square', () => {
+    const f = fixtures.freeze, s = new StateEffects();
+    s.sync(f.rules, f.after, 0, true); s.sync(f.rules, f.expired!, 100, true);
+    const next = structuredClone(f.expired!); next.ply++;
+    s.sync(f.rules, next, 300, true);
+    expect(s.frames).toEqual([expect.objectContaining({ kind: 'freeze', clear: 100 })]);
+    const back = structuredClone(next); back.ply -= 5;
+    s.sync(f.rules, back, 310, true);
+    expect(s.frames).toEqual([]);
+    const again = new StateEffects();
+    again.sync(f.rules, f.after, 0, true); again.sync(f.rules, f.expired!, 100, true);
+    const frozen = structuredClone(f.after); frozen.ply = f.expired!.ply + 1;
+    again.sync(f.rules, frozen, 300, true);
+    expect(again.frames.map(frame => frame.clear)).toEqual([undefined]);
+  });
+
+  it('a move that takes the frozen piece starts the thaw, once, and only with motion', () => {
+    const f = fixtures.freeze, s = new StateEffects();
+    s.sync(f.rules, f.after, 0, true);
+    s.releaseMoved(new Set([at('a1')]), 50, true);
+    expect(s.frames[0].clear).toBeUndefined();
+    s.releaseMoved(new Set([at('d5')]), 60, false);
+    expect(s.frames[0].clear).toBeUndefined();
+    s.releaseMoved(new Set([at('d5')]), 70, true);
+    s.releaseMoved(new Set([at('d5')]), 90, true);
+    expect(s.frames[0]).toMatchObject({ clear: 70, moved: true });
+    // The move is refused: the same position shows again and the ice stands.
+    s.sync(f.rules, f.after, 100, true);
+    expect(s.frames[0]).toMatchObject({ since: -Infinity });
+    expect(s.frames[0].clear).toBeUndefined();
+  });
+
+  it.each(['holyLight', 'mercy'] as const)('%s lets go when the king starts to leave, and fades', id => {
+    const f = fixtures[id], s = new StateEffects();
+    s.sync(f.rules, f.after, 0, false);
+    const state = s.frames.find(frame => frame.source != null)!;
+    s.releaseMoved(new Set([state.source!]), 100, true);
+    expect(state.clear).toBe(100);
+    expect(s.shelterFade(state, 100, true)).toBe(1);
+    expect(s.shelterFade(state, 260, true)).toBeCloseTo(.5);
+    expect(s.shelterFade(state, 420, true)).toBe(0);
+    expect(s.badge(state, 100, true)).toBe(1);
+    expect(s.badge(state, 260, true)).toBe(0);
+    expect(s.remaining(419)).toBeGreaterThan(0);
+    s.remaining(421);
+    expect(s.frames).not.toContain(state);
+  });
+
+  it.each([1, 2])('ends the Freeze thaw in its time at rate %s and keeps Ice Wall timing', rate => {
+    for (const [id, duration] of [['freeze', FREEZE_RELEASE_MS], ['ward', 1344]] as const) {
       const f = fixtures[id], s = new StateEffects(); s.rate = rate;
       s.sync(f.rules, f.after, 0, true); s.sync(f.rules, f.expired!, 100, true);
       const release = s.frames[0];
@@ -171,7 +227,7 @@ describe('real state lifecycle', () => {
       expect(s.remaining(100)).toBeCloseTo(duration / rate);
       if (id === 'freeze') {
         expect(s.freezeRelease(release, 100, true)).toBe(0);
-        expect(s.freezeRelease(release, 100 + 310 / rate, true)).toBe(.5);
+        expect(s.freezeRelease(release, 100 + FREEZE_RELEASE_MS / 2 / rate, true)).toBe(.5);
         expect(s.freezeRelease(release, 100, false)).toBe(1);
       }
       expect(s.remaining(100 + duration / rate)).toBe(0);
