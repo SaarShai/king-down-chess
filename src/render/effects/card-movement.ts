@@ -152,7 +152,8 @@ function drawAir(ctx: CanvasRenderingContext2D, id: string, event: CardFrame, la
       if (i % 2) windAt(ctx, p.x + (rand(i, seed + 2) - .5) * 56, p.y - 24 - rand(i, seed + 3) * 64, angle + (rand(i, seed + 4) - .5) * .2, .46 + rand(i, seed + 5) * .4, age - 20, 400, tint);
     }
   }
-  if (flying && layer === 'over' && !leap) cloudAt(ctx, at.x, at.y + 14, .74 * puff, 260, 660, seed + 90, tint);
+  // The cloud that carries the figure grows under him as he leaves and lets go when he lands, so it never pops.
+  if (t > AIR_LEAVES && layer === 'over' && !leap) cloudAt(ctx, at.x, at.y + 14, .74 * puff, flying ? Math.min(260, (t - AIR_LEAVES) * duration) : 260 + (t - AIR_LANDS) * duration, 660, seed + 90, tint);
   // A card has no tail: the landing runs fast enough to finish inside the card's own clock.
   const left = (1 - AIR_LANDS) * duration;
   if (leap || id === 'Vault') stomp(ctx, b, down * 1000 / left, layer, seed + 30, leap ? 1.1 : .84);

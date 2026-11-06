@@ -229,6 +229,9 @@ export class PaintedView implements BoardView {
       this.stateEffects.withdrawn = withdrawn;
       if (!this.motion() || document.hidden) return;
       this.card = card;
+      // The Mercy hop keeps the live shelters, so they fade as they do under his walk.
+      const moving = card.action.id === 'MercyHop' ? new Set([m.from, m.to]) : undefined;
+      this.moveSquares = moving;
       try {
         const completed = await this.scene.play(m, { effect: card, onContact, speed: speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed });
         if (completed && this.card === card) {
@@ -238,6 +241,7 @@ export class PaintedView implements BoardView {
         }
       } finally {
         if (this.card === card) this.card = null;
+        if (moving && this.moveSquares === moving) this.moveSquares = undefined;
       }
       return;
     }
@@ -415,14 +419,15 @@ export class PaintedView implements BoardView {
       ink: this.options.webInk ? boardInk(this.width) : undefined,
     }, row);
     const now = performance.now();
-    if (this.card && layer === 'under') this.cardStates.sync(this.context, this.card.shown, now, false);
+    const cardStates = this.card?.action.id !== 'MercyHop' && !!this.card;
+    if (cardStates && layer === 'under') this.cardStates.sync(this.context, this.card!.shown, now, false);
     // A card that ends check: its withdrawal belongs to the live board's state, not to the card's shown frames.
     const cardWithdrawal = this.card && layer === 'under' ? this.stateEffects.withdrawal(now, this.motion() && !document.hidden) : undefined;
     if (cardWithdrawal) drawWithdrawal(ctx, scene, cardWithdrawal.king, cardWithdrawal.progress);
     // Keep unaffected states visible during playback. The scene owns moving figures and their material.
-    drawBoardEffects(ctx, scene, layer, row, this.card ? this.cardStates : this.stateEffects, scene.animating ? {} : m,
+    drawBoardEffects(ctx, scene, layer, row, cardStates ? this.cardStates : this.stateEffects, scene.animating ? {} : m,
       this.width, now, this.motion() && !document.hidden, !!this.symbols, scene.animating ? null : this.hovered ?? this.cursor, piece,
-      this.card ? undefined : this.moveSquares, this.pos?.board);
+      cardStates ? undefined : this.moveSquares, this.pos?.board);
     // The frame that ends the move has no action clock yet no tail either: it holds the last time, so the material never blinks.
     if (this.overlay) {
       this.overlayMs = scene.actionElapsed ?? this.overlayMs;
