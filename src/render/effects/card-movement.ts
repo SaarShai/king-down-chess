@@ -1,5 +1,6 @@
 import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs';
 import type { CardFrame, CardLayer, Point } from './card-types';
+import { fireBurst, flameAt, ignite } from './travel-material';
 import { cloudAt, cloudRing, clodFall, dustAt, earthPush, groundShade, stomp, windAt, type CloudTint } from './travel-material';
 
 // Material follows the same intact figure motion as the study player.
@@ -10,9 +11,7 @@ const rand = (i: number, seed = 0) => { const n = Math.sin(i * 127.1 + seed * 31
 const mix = (a: Point, b: Point, u: number) => ({ x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u });
 const pulse = (t: number, start: number, span: number) => Math.sin(clamp((t - start) / span) * Math.PI);
 const GOLD = ['#fff4cce8', '#f8cf7b91', '#dba44136', '#dba44100'];
-const FIRE = ['#fff0b4f0', '#ffb440c4', '#df481b69', '#d6350800'];
 const DUST = ['#c3a88494', '#a0846385', '#785b3e49', '#785b3e00'];
-const SMOKE = ['#40332894', '#62513e69', '#8c72533b', '#8c725300'];
 function bloom(ctx: CanvasRenderingContext2D, p: Point, radius: number, colour: string[], opacity: number, flat = 1) {
   if (opacity <= 0 || radius <= 0) return;
   ctx.save(); ctx.globalAlpha *= opacity; ctx.translate(p.x, p.y); ctx.scale(1, flat);
@@ -84,20 +83,16 @@ function liftCloud(ctx: CanvasRenderingContext2D, p: Point, t: number, colour: s
     wisp(ctx, root, tip, 7 + rand(i, seed + 3) * 8, colour, amount * .6 * strength);
   }
 }
-function flameArrival(ctx: CanvasRenderingContext2D, p: Point, time: number) {
-  if (time <= 0 || time >= 1) return;
-  const open = ease(time / .12), flame = open * (1 - ease((time - .22) / .58));
-  for (let i = 0; i < 9; i++) {
-    const side = (rand(i, 80) - .5) * 2;
-    bloom(ctx, { x: p.x + side * (20 + time * 58), y: p.y - 12 - time * (35 + rand(i, 81) * 45) }, 21 + time * 31, SMOKE, open * (1 - time) * .65, .9);
+/** A Mirror copy of Fire Starter: the same painted fire as the real walk, read from the card clock of the copy. */
+function fireCopy(ctx: CanvasRenderingContext2D, a: Point, b: Point, t: number, u: number, layer: CardLayer) {
+  const ms = t * 1300, leave = .22 * 1300;
+  ignite(ctx, a, ms, leave, layer, 14);
+  const count = Math.max(4, Math.min(30, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / 30)));
+  if (layer === 'under') for (let i = 1; i < count; i++) {
+    const k = i / count, at = mix(a, b, k), side = (i & 1 ? 1 : -1) * (6 + rand(i, 16) * 18);
+    if (u >= k) flameAt(ctx, at.x + side, at.y + rand(i, 17) * 6, .56 + rand(i, 18) ** 2 * .6, ms - leave - k * 520, 620, 16 + i);
   }
-  for (let i = 0; i < 11; i++) {
-    const spread = (rand(i, 84) - .5) * 2, root = { x: p.x + spread * 32, y: p.y - 5 - rand(i, 85) * 15 };
-    const tip = { x: root.x + spread * (45 + open * 30), y: root.y - (48 + rand(i, 86) * 88) * (.55 + open * .45) };
-    wisp(ctx, root, tip, 9 + rand(i, 87) * 15, FIRE, flame * .85, .9);
-  }
-  bloom(ctx, { x: p.x, y: p.y - 24 }, 74, FIRE, flame * .7, .72);
-  spray(ctx, { x: p.x, y: p.y - 28 }, time, '#ffd788', 105, 89, 35);
+  fireBurst(ctx, b, (t - .62) / .38 * 1000, layer, 61, 1.3);
 }
 /** Air moves are not a slide: the figure crouches, leaves the ground, leans into a real arc, lands and absorbs it. */
 export const AIR_IDS = new Set(['Flight', 'Leap', 'Vault', 'SkyLift', 'MercyHop']);
@@ -182,16 +177,7 @@ export function drawMovement(ctx: CanvasRenderingContext2D, scene: PaintedScene,
       spray(ctx, b, land, '#e2bd74', 30, 4, 9);
     }
   } else if (id === 'FireStarter') {
-    if (layer === 'under') {
-      puff(ctx, a, launch, SMOKE, .75, 10);
-      if (moving) bloom(ctx, p, 56, FIRE, pulse(t, .22, .4) * .45, .34);
-      puff(ctx, b, land, SMOKE, 1.25, 12);
-      bloom(ctx, b, 87, FIRE, pulse(t, .62, .3) * .55, .33);
-    } else {
-      liftCloud(ctx, a, t, FIRE, 14, .65);
-      if (moving) wake(ctx, a, b, u, t, FIRE, 50, 0, 0, 16);
-      flameArrival(ctx, b, land);
-    }
+    fireCopy(ctx, a, b, t, u, layer);
   } else if (id === 'Haste') {
     if (layer === 'under') {
       puff(ctx, a, launch, GOLD, .65, 20 + index);
