@@ -39,7 +39,18 @@ const WALKS = new Set(['Strike', 'FireStarter', 'Haste', 'Rally', 'March']);
 const keepsRealMotion = (before: Position, move: Move, action: { id: string; mirror: boolean }) => !action.mirror
   && (WALKS.has(action.id) || (action.id === 'Flight' && [N, L].includes(typeOf(before.board[move.from]))));
 
-export function cardAction(_context: GameRules, before: Position, move: Move): ReturnType<typeof actionOf> {
+/** The Mercy king jumps a piece in his two-square path. A walk would cross that figure, so he goes through the air. */
+function mercyHop(context: GameRules, before: Position, move: Move): ReturnType<typeof actionOf> {
+  const value = before.board[move.from];
+  if (move.pass || move.power || move.castle || typeOf(value) !== K || context.rules.kings[colorOf(value)]?.power !== 'Mercy') return null;
+  const dx = (move.to & 7) - (move.from & 7), dy = (move.to >> 3) - (move.from >> 3);
+  if (Math.max(Math.abs(dx), Math.abs(dy)) !== 2 || dx % 2 || dy % 2) return null;
+  return before.board[(move.from + move.to) / 2] ? { id: 'MercyHop', mirror: false, index: 0 } : null;
+}
+
+export function cardAction(context: GameRules, before: Position, move: Move): ReturnType<typeof actionOf> {
+  const hop = mercyHop(context, before, move);
+  if (hop) return hop;
   const action = actionOf(before, move);
   return action && !keepsRealMotion(before, move, action) ? action : null;
 }
