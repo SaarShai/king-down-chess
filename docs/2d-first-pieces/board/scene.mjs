@@ -62,7 +62,7 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  let bodyRuntime=null, bodyWarm=!characterRuntime, startBodyRuntime=null;
  const onPageShow=event=>{if(event.persisted)startBodyRuntime?.();};
  // These idles move the whole figure, so a quiet move, a deselect or another selection leaves them along the painted frames.
- const LARGE_IDLE=new Set(['king-stratus','king-mud']);
+ const LARGE_IDLE=new Set(['king-stratus','king-mud','rook']);
  const characterOf=value=>typeOf(value)===K?`king-${kings[colorOf(value)]}`:ART[typeOf(value)];
  const armyOf=value=>colorOf(value)?'black':'white';
  function warmBodies(){if(!bodyRuntime)return Promise.resolve();return Promise.all([...new Set(position.board)].filter(Boolean).map(value=>bodyRuntime.warm(characterOf(value),armyOf(value))));}

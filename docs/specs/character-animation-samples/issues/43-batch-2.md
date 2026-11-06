@@ -1,6 +1,6 @@
 # Import the second batch of character banks
 
-Status: local checks pass. CI, the catalog promotion and the merge are open in the pull request.
+Status: finished. PR 274 merged and its catalog is promoted into MAIN.
 
 ## Plan
 
