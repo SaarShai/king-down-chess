@@ -27,6 +27,8 @@ export interface PaintedScene {
   readonly animating: boolean;
   /** Scene ms since the running move's action began, scaled by its speed; null while idle or while its bank loads. */
   readonly actionElapsed: number | null;
+  /** Scene ms the running move's action takes in all, on the actionElapsed clock; null while idle or while its bank loads. */
+  readonly actionTotal: number | null;
   readonly falling: boolean;
   /** A gait name ('walk', 'glide', 'hop') for a quiet move with character, else the animation kind; null when nothing plays. */
   readonly playing: string | null;
