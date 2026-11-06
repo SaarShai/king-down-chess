@@ -13,7 +13,7 @@ import * as rook from '../rook/motion.mjs';
 import * as guard from '../guard/motion.mjs';
 import * as court from '../court-motion.mjs';
 import {chargeAt,CHARGE_CONTACT} from './motion.mjs';
-import {swapOrbsAt,drawSwapOrbs,drawSwapPools} from './swap-orbs.mjs';
+import {swapBellsAt,swapArtReady,drawSwapFloor,drawSwapBells} from './swap-bells.mjs';
 import {BLOW,KING_BLOW,STRAIGHT_REACH,blows,kingActionMs,tiltAt,footAt,stopPoint} from './blows.mjs';
 import {GAITS,GAIT_OF,idleAt,paintedPace,paintedTravel} from './gait.mjs';
 import {createKingEffects,phaseOffset} from './king-effects.mjs';
@@ -828,12 +828,13 @@ function vortex(out,foot,phase,strength) {
    actor.pose={...a.from,ground,lift:m.lift,foot:{x:ground.x,y:ground.y-m.lift},sx:m.sx,sy:m.sy,rotation:m.tilt*a.lean,shadow:m.shadow};
   }
   else if(a.type==='swap'){
-   // Each figure stands on its own square until its orb hides it, and on the other square once its orb opens.
-   const p=t/duration,orbs=swapOrbsAt(p),stand=(start,end)=>{const pose=orbs.arrived?end:start;return {...pose,ground:pose.foot,lift:orbs.lift,foot:{x:pose.foot.x,y:pose.foot.y-orbs.lift}};};
-   actor.pose=stand(a.from,a.to);actor.extension=orbs.arrived?0:court.actionAt(p);victim.pose=stand(a.partner,a.partnerEnd);
-   actor.opacity=victim.opacity=orbs.shown?1:0;
-   drawSwapPools(ctx,p,a.from.foot,a.to.foot);
-   effects.push(()=>drawSwapOrbs(ctx,p,a.from.foot,a.to.foot));
+   // Each figure stands on its own square until its bell covers it, and on the other square before the bell lifts.
+   a.swapArt??=swapArtReady();
+   const p=t/duration,s=swapBellsAt(p,a.swapArt);
+   actor.pose=s.arrived?a.to:a.from;actor.extension=s.arrived?0:court.actionAt(p);victim.pose=s.arrived?a.partnerEnd:a.partner;
+   actor.opacity=victim.opacity=s.opacity;
+   drawSwapFloor(ctx,p,a.from.foot,a.to.foot);
+   effects.push(()=>drawSwapBells(ctx,p,a.from.foot,a.to.foot,headroom));
   }
   else if(a.type==='paladin'){
    const motion=chargeAt(t/duration),ground=mix(a.from.foot,a.to.foot,motion.travel);
