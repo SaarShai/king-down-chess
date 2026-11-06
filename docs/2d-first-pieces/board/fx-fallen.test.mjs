@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {FALL,DEMISE,IMPACT,SWAP,FALLEN_FILES,fallFraction,fallPose,effectsLeft,selfRemovalAt,veilAt,drawLying} from './fx-fallen.mjs';
+import {FALL,DEMISE,IMPACT,SWAP,SOLID,FALLEN_FILES,fallFraction,fallPose,effectsLeft,selfRemovalAt,veilAt,veilPuffs,drawLying} from './fx-fallen.mjs';
 
 const pose={foot:{x:100,y:200},scale:.1,facing:1};
 
@@ -39,6 +39,17 @@ test('the veil is whole round the swap, comes only after the slam and clears bef
   for(let ms=SWAP-16;ms<=SWAP+30;ms+=2)assert.equal(veilAt(ms,p,r),1,`whole at ${ms} ms`);
   assert.equal(veilAt(DEMISE,p,r),0);
  }
+});
+
+test('the solid middles of the veil cover every lying king, and it is a mound with a bumpy, tapering outline',()=>{
+ // Each king's lying figure, both armies, board px from his foot point: along the body, top and bottom.
+ const hull=[[-5,-26,32],[5,-30,34],[15,-31,39],[25,-36,39],[35,-36,35],[45,-35,37],[55,-38,37],[65,-38,35],[75,-36,39],[85,-35,39],[95,-38,38],[105,-40,35],[115,-40,31],[125,-37,33],[135,-41,33],[145,-40,26],[155,-5,8]];
+ const puffs=veilPuffs();
+ const covered=(x,y)=>puffs.some(q=>Math.hypot(q.along-x,q.y-.12*q.size-y)<SOLID[q.i&3]*q.size);
+ for(const [x,top,bottom] of hull)for(let y=top;y<=bottom;y+=4)for(const at of [x,x+5,x+10])if(at<=155||Math.abs(y)<9)assert.ok(covered(at,y),`hole at ${at},${y}`);
+ const top=x=>Math.min(...puffs.filter(q=>Math.abs(q.along-x)<30).map(q=>q.y-.62*q.size));
+ assert.ok(top(80)<top(-6)-4&&top(80)<top(164)-4,'taller in the middle');
+ for(const q of puffs){assert.ok(q.r>=0&&q.r<=1);assert.ok(q.p>=0&&q.p<=1.01);}
 });
 
 test('his painted figure has its feet on his foot point, mirrored for a rightward fall, the charcoal army below',()=>{
