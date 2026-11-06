@@ -77,6 +77,14 @@ describe('released card playback uses real engine frames', () => {
     expect(cardAction(powers, pos, { from: 35, to: 35, captures: [], power: 'freeze' })?.id).toBe('Freeze');
   });
 
+  it('the Mercy king flies only over a piece in his path', () => {
+    const mercy = new GameRules({ kings: [{ king: 'Spirit', power: 'Mercy' }, null] });
+    const pos = mercy.fromFen('7k/8/8/8/8/8/4N3/4K3 w - - 0 1');
+    expect(cardAction(mercy, pos, { from: 4, to: 20, captures: [] })?.id).toBe('MercyHop');
+    expect(cardAction(mercy, pos, { from: 4, to: 22, captures: [] })).toBeNull();
+    expect(cardAction(mercy, pos, { from: 4, to: 5, captures: [] })).toBeNull();
+  });
+
   it.each(['Sacrifice', 'MorphP'])('%s swaps the figure on the board once, behind the shroud', id => {
     const fixture = fixtures.find(f => f.item === id)!, { context, before } = game(fixture);
     const move = legal(context, before, fixture.actions[0]), effect = cardPlayback(context, before, move)!;

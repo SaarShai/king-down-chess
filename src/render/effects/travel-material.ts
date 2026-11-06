@@ -180,7 +180,7 @@ export function windAt(ctx: CanvasRenderingContext2D, x: number, y: number, angl
 }
 
 // Cloud -------------------------------------------------------------------------------------------------------------
-const CLOUDS = { cloud: ['#7f99b4', '#b9cede', '#fbfdff'], lilac: ['#7b5fb0', '#bfa2e6', '#fbf4ff'], slate: ['#44739f', '#92bce0', '#f2f9ff'] } as const;
+const CLOUDS = { cloud: ['#7f99b4', '#b9cede', '#fbfdff'], lilac: ['#7b5fb0', '#bfa2e6', '#fbf4ff'], slate: ['#44739f', '#92bce0', '#f2f9ff'], gold: ['#b08238', '#efcf85', '#fff8df'] } as const;
 export type CloudTint = keyof typeof CLOUDS;
 const clouds = new Map<CloudTint, Sprite>();
 function cloudSprite(tint: CloudTint) {
