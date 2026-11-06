@@ -4,6 +4,7 @@ import { GameRules } from '../game-rules';
 import { cardPlayback, type CardPlayback } from './effects/card';
 import { PromotionPlayback, loadAscension } from './effects/promotion';
 import { drawWithdrawal } from './effects/check';
+import { moveOverlay, type MoveOverlay } from './effects/move-overlay';
 import { createScene, type KingDesign, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, S, T, colorOf, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
 import { figureUrl, selectedFigure } from '../workshop/figures';
@@ -70,6 +71,8 @@ export class PaintedView implements BoardView {
   private loaded: Promise<void>;
   private disposed = false;
   private card: CardPlayback | null = null;
+  /** The drawing over a move that keeps its real walk or attack (king powers, special moves). */
+  private overlay: MoveOverlay | null = null;
   /** The running promotion reveal (ticket 86): reduced motion or a hidden page ends it like a card. */
   private reveal: PromotionPlayback | null = null;
   private cardStates = new StateEffects();
@@ -243,6 +246,8 @@ export class PaintedView implements BoardView {
     this.moveSquares = moving;
     const rate = speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed;
     if (m.promo) void loadAscension();
+    const overlay = this.motion() && !document.hidden ? moveOverlay(this.context, pos, m) : null;
+    this.overlay = overlay;
     try {
       const arrived = await this.scene.play(m, { onContact, speed: rate });
       // A promotion reveals the chosen piece after the pawn arrives (ticket 86). Motion off shows it at once.
@@ -252,7 +257,7 @@ export class PaintedView implements BoardView {
         finally { if (this.reveal === reveal) this.reveal = null; }
       }
     }
-    finally { if (this.moveSquares === moving) this.moveSquares = undefined; }
+    finally { if (this.moveSquares === moving) this.moveSquares = undefined; if (this.overlay === overlay) this.overlay = null; }
   }
 
   async animateBack(pre: Position, m: Move, post: Position): Promise<void> {
@@ -402,6 +407,8 @@ export class PaintedView implements BoardView {
     drawBoardEffects(ctx, scene, layer, row, this.card ? this.cardStates : this.stateEffects, scene.animating ? {} : m,
       this.width, now, this.motion() && !document.hidden, !!this.symbols, scene.animating ? null : this.hovered ?? this.cursor, piece,
       this.card ? undefined : this.moveSquares, this.pos?.board);
+    const overlayMs = this.overlay ? scene.actionElapsed : null;
+    if (this.overlay && overlayMs != null) this.overlay.draw(ctx, scene, layer, row, overlayMs);
     if (scene.animating) return;
     if (layer === 'under' && this.symbols && this.pos) {
       this.pos.board.forEach((piece, sq) => {

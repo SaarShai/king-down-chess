@@ -59,7 +59,7 @@ describe('released card playback uses real engine frames', () => {
     }
   });
 
-  it('does not add card effects to ordinary captures, reserve drops, passes or king powers', () => {
+  it('does not add card effects to ordinary captures, reserve drops or passes', () => {
     const context = new GameRules({ hands: [['Burn'], ['Burn']] });
     const pos = context.fromFen('7k/8/8/3p4/4P3/8/8/K7 w - - 0 1');
     const capture = context.legalMoves(pos).find(m => !m.power && m.captures.length)!;
@@ -67,8 +67,12 @@ describe('released card playback uses real engine frames', () => {
     expect(cardPlayback(context, pos, capture)).toBeNull();
     expect(cardPlayback(context, pos, { from: 0, to: 0, captures: [], drop: pieces.G })).toBeNull();
     expect(cardPlayback(context, pos, { from: 0, to: 0, captures: [], pass: true })).toBeNull();
+  });
+
+  it('plays the same effect for a king power as for its card', () => {
     const powers = new GameRules({ kings: [{ king: 'Frost', power: 'Freeze' }, null] });
-    expect(cardAction(powers, pos, { from: 35, to: 35, captures: [], power: 'freeze' })).toBeNull();
+    const pos = powers.fromFen('7k/8/8/3p4/4P3/8/8/K7 w - - 0 1');
+    expect(cardAction(powers, pos, { from: 35, to: 35, captures: [], power: 'freeze' })?.id).toBe('Freeze');
   });
 
   it('anchors borrowed material at a real matching lender away from a1', () => {

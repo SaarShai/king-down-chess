@@ -1186,6 +1186,7 @@ function drawEncounter(a,t) {
   get frames(){return frames;},
   /** The ready body frames the last draw used, for registration checks. */
   get characterFrames(){return bodyFrames;},
+  get actionElapsed(){const a=animation;return a&&!a.done&&!a.preparing&&!a.effect?(performance.now()-a.start)/a.speed:null;},
   get characterExit(){return animation?.exitStart??null;},
   get characterWarmupSettled(){return bodyWarm&&bodyRuntime?.stats.manifestReady&&bodyRuntime.stats.framesLoaded>0&&bodyRuntime.stats.active===0&&bodyRuntime.stats.queued===0;},
   get characterMemory(){return bodyRuntime?.stats??{bytes:0,peakBytes:0,framesLoaded:0,active:0,queued:0,manifestReady:false,manifestLoading:false};},

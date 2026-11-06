@@ -21,7 +21,7 @@ const ease = (t: number) => { t = clamp(t); return t * t * (3 - 2 * t); };
 
 /** Tags describe the copied action. Only via describes the card Mirror spends. */
 export function cardAction(context: GameRules, before: Position, move: Move): { id: string; mirror: boolean; index: number } | null {
-  if (move.pass || !context.rules.hands[before.turn].length) return null;
+  if (move.pass) return null;
   if (move.power) {
     const id = TAG_POWER[move.power];
     return released.has(id) ? { id, mirror: !!move.via, index: 0 } : null;
