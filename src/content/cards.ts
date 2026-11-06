@@ -4,7 +4,7 @@ export interface ReleasedCard {
   id: CardName;
   name: string;
   availability: 'released';
-  /** Null uses the existing rule picture named by this card's ID. */
+  /** The approved painting. Null uses the rule picture named by this card's ID. */
   art: `ui/cards/${string}.webp` | null;
   fixtureId: `card-${string}`;
 }
@@ -20,16 +20,16 @@ export const RELEASED_CARDS: readonly ReleasedCard[] = [
   { id: 'March', name: 'March', availability: 'released', art: 'ui/cards/march.webp', fixtureId: 'card-march' },
   { id: 'Leap', name: 'Leap', availability: 'released', art: 'ui/cards/leap.webp', fixtureId: 'card-leap' },
   { id: 'Salvation', name: 'Salvation', availability: 'released', art: 'ui/cards/salvation.webp', fixtureId: 'card-salvation' },
-  { id: 'MirrorB', name: 'Mirror', availability: 'released', art: null, fixtureId: 'card-mirrorb' },
-  { id: 'Firewall', name: 'Firewall', availability: 'released', art: null, fixtureId: 'card-firewall' },
-  { id: 'EarthQuake', name: 'Earth Quake', availability: 'released', art: null, fixtureId: 'card-earthquake' },
-  { id: 'Burn', name: 'Burn', availability: 'released', art: null, fixtureId: 'card-burn' },
-  { id: 'FireStarter', name: 'Fire Starter', availability: 'released', art: null, fixtureId: 'card-firestarter' },
-  { id: 'Control', name: 'Control', availability: 'released', art: null, fixtureId: 'card-control' },
-  { id: 'Rally', name: 'Rally', availability: 'released', art: null, fixtureId: 'card-rally' },
-  { id: 'MorphP', name: 'Morph', availability: 'released', art: null, fixtureId: 'card-morphp' },
+  { id: 'MirrorB', name: 'Mirror', availability: 'released', art: 'ui/cards/mirrorb.webp', fixtureId: 'card-mirrorb' },
+  { id: 'Firewall', name: 'Firewall', availability: 'released', art: 'ui/cards/firewall.webp', fixtureId: 'card-firewall' },
+  { id: 'EarthQuake', name: 'Earth Quake', availability: 'released', art: 'ui/cards/earthquake.webp', fixtureId: 'card-earthquake' },
+  { id: 'Burn', name: 'Burn', availability: 'released', art: 'ui/cards/burn.webp', fixtureId: 'card-burn' },
+  { id: 'FireStarter', name: 'Fire Starter', availability: 'released', art: 'ui/cards/firestarter.webp', fixtureId: 'card-firestarter' },
+  { id: 'Control', name: 'Control', availability: 'released', art: 'ui/cards/control.webp', fixtureId: 'card-control' },
+  { id: 'Rally', name: 'Rally', availability: 'released', art: 'ui/cards/rally.webp', fixtureId: 'card-rally' },
+  { id: 'MorphP', name: 'Morph', availability: 'released', art: 'ui/cards/morphp.webp', fixtureId: 'card-morphp' },
   { id: 'Mimic', name: 'Mimic', availability: 'released', art: 'ui/cards/mimic.webp', fixtureId: 'card-mimic' },
   { id: 'Vault', name: 'Hop', availability: 'released', art: 'ui/cards/vault.webp', fixtureId: 'card-vault' },
-  { id: 'Curse', name: 'Curse', availability: 'released', art: null, fixtureId: 'card-curse' },
+  { id: 'Curse', name: 'Curse', availability: 'released', art: 'ui/cards/curse.webp', fixtureId: 'card-curse' },
   { id: 'SkyLift', name: 'Sky Lift', availability: 'released', art: 'ui/cards/skylift.webp', fixtureId: 'card-skylift' },
 ];

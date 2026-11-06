@@ -1,16 +1,15 @@
-/** R: the cape stirs at its torn wing and hem. G: the moon's light breathes on sky and plain. B: above y .5 the clouds sway; below it the horse shadow's mane ripples with the cape and its barrel breathes. */
+/** R: the cape's torn wing and hem stir in the wind. G: the moon's glow breathes on the sky and the lit plain. B: the clouds drift and billow. */
 export default `
 vec4 card(vec2 q, vec3 m) {
-  float g = gain();
-  vec2 d = m.r * mix(cloth(q, vec2(-.93, .36), 3., 2., .009), cloth(q, vec2(.25, .97), 5.5, 2., .005), smoothstep(.46, .56, q.y));
-  if (q.y < .5) {
-    d += m.b * (vec2(.011 * wave(1., q.x * .8 + q.y * 1.5), .0025 * wave(1., q.x * 1.7 + .3)) * min(g, 1.5) + stir(q, 9., 1., .0025) * min(g, 1.5) / g);
-  } else {
-    float side = q.y - .66 + .7 * (q.x - .7), mane = smoothstep(0., -.05, side);
-    vec2 strand = cloth(q, vec2(-.82, .57), 7., 2., .0055), breath = (q - vec2(.7, .67)) * .035 * breathe(1., .1) * g;
-    d += m.b * mix(breath, strand, mane);
-  }
+  float g = min(gain(), 1.8);
+  vec2 iso = vec2(q.x * 16. / 9., q.y);
+  // Wind from the right: the sky sways as one mass, the phase runs across it, and each lobe swells on its own.
+  vec2 drift = vec2(.008 * wave(1., q.x * .7 + q.y * 1.1), .003 * wave(1., q.x * 1.3 + .3)) + stir(iso, 15., 1., .0018) / gain();
+  vec2 sway = cloth(q, vec2(-.97, .2), 3.2, 2., .0065) * mix(1., .7, smoothstep(.5, .6, q.y));
+  vec2 d = m.b * drift * g + m.r * sway;
   vec3 c = paint(q + d);
-  c += (c * .45 + vec3(.46, .3, .55)) * m.g * (.16 + .02 * (g - 1.)) * breathe(1., .1);
-  return vec4(c, max(max(smoothstep(0., .06, m.r), smoothstep(0., .06, m.b)), m.g));
+  // The breath of light: the sky takes the magenta it already holds, and the pale disc lifts toward its own warm white, so its colour stays.
+  float glow = breathe(1., .1), pale = smoothstep(.62, .85, dot(c, vec3(.34, .33, .33)));
+  c = mix(c + (c * .3 + vec3(.5, .28, .62)) * m.g * (.12 + .03 * (g - 1.)) * glow, mix(c, vec3(1., .96, .87), m.g * .3 * glow), pale);
+  return vec4(c, max(max(smoothstep(0., .05, m.r), smoothstep(0., .05, m.b)), m.g));
 }`;

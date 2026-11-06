@@ -6,7 +6,7 @@ import { art } from '../src/account-game/art';
 import { fingerprint, HEIGHT, paintings, SOURCES, THUMBS, tileWindow, WIDTH } from './card-thumbs';
 
 it('keeps one thumbnail for each released card painting, in the plugin art', () => {
-  expect(paintings.length).toBe(12);
+  expect(paintings.length).toBe(21);
   expect(readdirSync(THUMBS).sort()).toEqual([...paintings.map(painting => basename(painting)), basename(SOURCES)].sort());
   for (const painting of paintings) expect(art(`assets/card-thumbs/${basename(painting)}`), painting).toBeTruthy();
 });

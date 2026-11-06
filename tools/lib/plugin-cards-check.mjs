@@ -87,7 +87,7 @@ export async function checkCardChoices(page, frame, mount, setup, cards) {
   await frame.locator('#menu-close').click();
   assert.equal((await selected()).length,5);
   const art=await grid.locator('[data-card]').evaluateAll(faces=>faces.map(f=>({card:f.dataset.card,image:!!f.querySelector('.cf-art img'),scene:!!f.querySelector('.cf-art .pm'),picture:!!f.querySelector('.cf-art .card-picture'),name:f.querySelector('b').textContent})));
-  assert.equal(art.filter(a=>a.image).length,12); assert.equal(art.filter(a=>a.picture).length,9);
+  assert.equal(art.filter(a=>a.image).length,21); assert.equal(art.filter(a=>a.picture).length,0);
   assert.equal(await grid.locator('img[src*="back.webp"]').count(),0);
   await noLoops(grid);
   await frame.locator('[data-screen="play"] [data-nav="profile"]').click();

@@ -1,58 +1,75 @@
+"""Leap. R: pines, bushes and grass, weighted so tree tops travel most and bases stay. G: the sun's glow and its reflection on the valley haze. B: the sky's clouds."""
 import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-import mask_lib
 from mask_lib import *
 
-# Key at twice the map's size, so the thin ink line round the stag holds the fill back; shrink at the end.
-mask_lib.SIDE = 512
 rgb = painting('leap'); h, s, v = hsv(rgb)
-H, W = rgb.shape[:2]
-Y, X = np.mgrid[0:H, 0:W]
-x, y = (X + .5) / W, (Y + .5) / H
-CX, CY, R = .5445, .4255, .3385  # The disc, measured on the painting.
-aspect = H / W
-dist = np.sqrt((x - CX) ** 2 + ((y - CY) * aspect) ** 2)
-disc = dist < R
+H, W = v.shape
+Y, X = np.mgrid[0:H, 0:W].astype(np.float32)
+X = (X + .5) / W; Y = (Y + .5) / H
 
-# The stag's middle, traced well inside its outline; it only gives the row colours and stops leaks.
-core = polygon(rgb, [(.385,.30),(.44,.24),(.50,.26),(.60,.25),(.72,.285),(.85,.37),(1,.5),(1,.72),(.92,.72),(.90,.97),(.86,.97),(.85,.72),(.70,.67),(.66,.60),(.62,.60),(.66,.655),(.585,.665),(.56,.645),(.565,.61),(.50,.565),(.46,.565),(.40,.53),(.34,.525),(.285,.49),(.27,.39),(.30,.31)]) > .5
+# The stag, antlers and hooves: its warm tan inside a close outline, so sky peach beside the antlers does not count.
+outline = np.maximum.reduce([
+    polygon(rgb, [(.205,.215),(.22,.14),(.27,.135),(.30,.18),(.345,.11),(.372,.04),(.415,.06),(.425,.20),(.40,.25),(.47,.27),(.60,.33),(.69,.43),(.705,.50),(.74,.56),(.79,.68),(.79,.72),(.74,.72),(.70,.69),(.65,.60),(.62,.57),(.56,.55),(.50,.53),(.47,.58),(.40,.58),(.35,.50),(.35,.44),(.30,.41),(.30,.34),(.28,.27),(.25,.27),(.21,.25)]),
+])
+tan = (h > .07) & (h < .17) & (s > .12) & (v > .5)
+dark = v < .3
+stag = outline * (tan | dark)
+stag = np.maximum(stag, polygon(rgb, [(.30,.27),(.40,.26),(.60,.34),(.68,.44),(.66,.52),(.60,.55),(.50,.52),(.36,.46),(.31,.40)]))
 
-# The disc's paint: a colour that changes only with height. Row medians give that colour.
-ref = np.zeros((H, 3), np.float32)
-free = disc & ~soften(core, 8, 0).astype(bool)
-for j in range(H):
-    pick = free[j]
-    if pick.sum() > 3: ref[j] = np.median(rgb[j][pick], axis=0)
-    elif j: ref[j] = ref[j - 1]
-first = np.argmax(free.sum(1) > 3); ref[:first] = ref[first]
-near = np.abs(rgb - ref[:, None, :]).max(-1) < .075
+# The four pawns: simple flared outlines, a little wide.
+def pawn(cx, half):
+    return polygon(rgb, [(cx-.026,.665),(cx+.026,.665),(cx+.027,.74),(cx+.022,.76),(cx+.036,.83),(cx+half,.86),(cx+half,.905),(cx-half,.905),(cx-half,.86),(cx-.036,.83),(cx-.022,.76),(cx-.027,.74)])
+pawns = np.maximum.reduce([pawn(.160,.046), pawn(.378,.044), pawn(.620,.042), pawn(.870,.044)])
 
-# Grow only from clean disc through near paint, so cream on the muzzle and chest stays out.
-fill = np.array(free & near & (dist < R - .004))
-room = disc & near & ~core
-for _ in range(80):
-    wide = np.array(Image.fromarray(np.uint8(fill) * 255).filter(ImageFilter.MaxFilter(3))) > 0
-    fill = wide & room
+# Pines in front of the haze: tip x, tip y, half width at the base, base y. Only near trees sway; the far forest stays.
+PINES = [(.055,.125,.040,.27),(.004,.04,.045,.25),(.022,.35,.050,.62),(.107,.27,.016,.34),(.122,.275,.018,.35),
+         (.163,.40,.040,.64),(.193,.37,.050,.68),(.125,.575,.038,.72),(.108,.455,.030,.60),(.247,.455,.030,.60),
+         (.305,.50,.055,.80),(.430,.62,.040,.81),(.489,.655,.030,.80),(.520,.66,.026,.79),(.556,.69,.024,.80),
+         (.722,.735,.028,.83),(.770,.75,.020,.83),(.815,.655,.042,.80),(.842,.69,.026,.80),(.875,.55,.045,.76),
+         (.968,.445,.060,.77),(.925,.63,.025,.76)]
+foliage = (h > .1) & (h < .36) & (s > .2) & (v < .86)
+trees = np.zeros_like(v)
+for tx, ty, half, by in PINES:
+    tri = polygon(rgb, [(tx,ty-.008),(tx+half,by),(tx-half,by)])
+    tip = np.clip((by - Y) / (by - ty), 0, 1)
+    trees = np.maximum(trees, tri * (.3 + .7 * tip) * foliage)
 
-def small(m):
-    size = (round(256 * W / max(W, H)), round(256 * H / max(W, H)))
-    return np.asarray(Image.fromarray(np.uint8(np.clip(m, 0, 1) * 255)).resize(size, Image.LANCZOS), dtype=np.float32) / 255
+# Bushes and grass: green paint only, so the wall, rocks and floor stay.
+grass_area = np.maximum.reduce([
+    polygon(rgb, [(.0,.76),(.11,.79),(.115,.84),(.09,.875),(.03,.87),(.0,.86)]),
+    polygon(rgb, [(.205,.70),(.30,.72),(.33,.78),(.345,.83),(.25,.815),(.205,.80)]),
+    polygon(rgb, [(.425,.78),(.48,.77),(.54,.79),(.578,.835),(.425,.835)]),
+    polygon(rgb, [(.665,.80),(.72,.81),(.72,.84),(.665,.84)]),
+    polygon(rgb, [(.78,.80),(.825,.81),(.82,.85),(.78,.85)]),
+    polygon(rgb, [(.915,.76),(.96,.73),(1.,.72),(1.,.88),(.915,.87)]),
+])
+grass = grass_area * ((h > .09) & (h < .36) & (s > .22)) * .85
+grass = grass + grass_area * (s < .22) * (v > .78) * .85  # The bushes' white flowers go with their leaves.
 
-# G: the disc's paint, and a faint halo on the ground beyond its rim. Nothing on the stag.
-stagkey = (np.abs(h - .105) < .045) & (s > .28) & (v > .55) & ~disc  # stag and antler gold outside the disc
-ink = v < .32
-halo = np.clip(1 - (dist - R) / .05, 0, 1) ** 2 * .55 * (dist >= R) * (1 - soften(stagkey | ink | core, 3, 1))
+# Keep-outs: paint here must not move, nor be dragged in by a neighbour.
+rocks = np.maximum.reduce([
+    polygon(rgb, [(.05,.295),(.10,.30),(.118,.36),(.148,.40),(.155,.50),(.11,.50),(.06,.40),(.04,.34)]),
+    polygon(rgb, [(.0,.60),(.07,.60),(.085,.70),(.115,.73),(.12,.80),(.02,.80),(.0,.72)]),
+    polygon(rgb, [(.228,.63),(.26,.63),(.262,.74),(.235,.74)]),
+    polygon(rgb, [(.205,.80),(.285,.80),(.285,.84),(.205,.84)]),
+])
+hard = np.maximum.reduce([soften(stag, 4, 1.5), soften(pawns, 2, 1), soften(rocks, 0, 1.5)])
+r = soften(np.maximum(trees, grass), 1, 1.2) * (1 - hard)
 
-# R: the green leaves, with room to move into the ground. The hoof stays out.
-leaves = polygon(rgb, [(.45,.84),(.70,.82),(.84,.93),(.95,1),(.45,1)]) + polygon(rgb, [(.93,.70),(1,.70),(1,.90),(.95,.88)])
-green = (h > .2) & (h < .42) & (s > .22) & (leaves > .5)
-hoof = soften(polygon(rgb, [(.84,.70),(.90,.70),(.95,.95),(.90,.96),(.85,.90)]), 2, 1)
+# Sky above the mountains, traced just over the skyline. The left pines count as not sky.
+sky_poly = polygon(rgb, [(.0,.0),(1,.0),(1,.345),(.965,.325),(.945,.325),(.92,.34),(.89,.365),(.85,.35),(.82,.36),(.80,.34),(.775,.335),(.75,.315),(.71,.33),(.69,.305),(.675,.29),(.655,.295),(.64,.29),(.62,.28),(.60,.29),(.59,.28),(.57,.255),(.55,.24),(.525,.205),(.50,.215),(.46,.23),(.43,.24),(.40,.23),(.35,.21),(.32,.21),(.30,.24),(.28,.25),(.24,.24),(.21,.25),(.19,.23),(.17,.185),(.15,.19),(.125,.23),(.10,.19),(.085,.225),(.068,.15),(.056,.112),(.042,.122),(.03,.115),(.012,.04),(.0,.032)])
+sky = soften(sky_poly, 0, 2)
 
-# B: the antlers' gold. Two tracings keep out the head and the ear.
-horns = polygon(rgb, [(0,.08),(.05,.07),(.14,.20),(.18,.11),(.21,.24),(.27,.15),(.315,.30),(.295,.335),(.25,.29),(.10,.34),(.05,.31),(0,.17)]) \
-      + polygon(rgb, [(.29,.14),(.33,.12),(.38,.15),(.40,.10),(.445,.15),(.40,.0),(.50,.0),(.525,.13),(.50,.215),(.44,.225),(.43,.27),(.40,.325),(.355,.315),(.385,.235),(.36,.19),(.295,.16)])
-gold = (horns > .5) & (h > .09) & (h < .17) & (s > .22) & (v > .55)
+# The sun: glow in the sky, weaker reflection on the haze below it. Screen-round.
+sx, sy = .907, .325
+sr = np.hypot((X - sx) * 16 / 9, Y - sy)
+disc = soften((sr < .045).astype(np.float32), 2, 1.5)
+glow = np.exp(-(sr / .17) ** 2) * sky
+disc_glow = np.exp(-(sr / .06) ** 2)
+reflect = np.exp(-((X - .90) / .055) ** 2 - ((Y - .55) / .055) ** 2) * .7 * (1 - soften(trees > 0, 2, 2))
+g = np.maximum.reduce([glow, disc_glow * sky, reflect]) * (1 - hard)
 
-# The two gold keys meet on the disc: light on a tine belongs to the antler, not to the disc.
-fill = fill & ~soften(gold, 2, 0).astype(bool)
-mask_lib.SIDE = 256
-save('leap', soften(small(green * (1 - hoof)), 3, 2), np.maximum(soften(small(fill), 0, .7), soften(small(halo * (1 - soften(gold, 3, 1))), 0, 1)), soften(small(gold), 0, .7))
+# Clouds: all the sky, away from the stag and the sun's disc.
+b = sky * (1 - soften(stag, 5, 2.5)) * (1 - disc)
+
+save('leap', r, g, b)
