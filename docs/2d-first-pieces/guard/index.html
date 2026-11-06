@@ -28,7 +28,7 @@
 </aside></div><footer>Original Guard identity translated into painted 2D · ivory and charcoal · tiny cold-blue slit accent.</footer></main>
 <style>.sample canvas{width:134px;height:134px}.motion-option+.motion-option{margin-top:8px}</style>
 <script type="module">
-import { drawGuard, actionAt, DURATION } from './motion.mjs';
+import { drawGuard, actionAt, DURATION } from '../../../src/render/painted/guard/motion.mjs';
 const $ = id => document.getElementById(id), canvas = $('character'), ctx = canvas.getContext('2d'), art = new Image(), preference = matchMedia('(prefers-reduced-motion: reduce)');
 let side = 0, action = null, frame = 0, ready = false;
 $('reduce-motion').checked = preference.matches;

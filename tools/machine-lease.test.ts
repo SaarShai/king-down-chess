@@ -204,7 +204,7 @@ it('the npm test child keeps the machine lease after every process above it is k
   const repo = copies[0], release = join(repo.root, 'release');
   repo.write('node_modules/.bin/tsc', '#!/bin/sh\nexit 0\n');
   repo.write('node_modules/.bin/vitest', `#!/bin/sh\nexec '${process.execPath}' tools/web-game-check.mjs\n`);
-  repo.write('docs/2d-first-pieces/pass.test.mjs', '');
+  repo.write('src/render/painted/pass.test.mjs', '');
   for (const bin of ['tsc', 'vitest']) chmodSync(join(repo.dir, 'node_modules/.bin', bin), 0o755);
   const heavy = run(0, ['npm', 'test'], { LEASE_RELEASE: release });
   await until(() => existsSync(heavy.started), heavy);
@@ -228,7 +228,7 @@ it('the deploy test step keeps the machine lease after every process above it is
   const vitest = `#!/bin/sh\\nexec '${process.execPath}' tools/web-game-check.mjs\\n`;
   repo.write('tools/wt.sh', `#!/bin/sh\nmkdir -p node_modules/.bin\nprintf '#!/bin/sh\\nexit 0\\n' > node_modules/.bin/tsc\nprintf "${vitest}" > node_modules/.bin/vitest\nchmod +x node_modules/.bin/*\n`);
   chmodSync(join(repo.dir, 'tools/wt.sh'), 0o755);
-  repo.write('docs/2d-first-pieces/pass.test.mjs', '');
+  repo.write('src/render/painted/pass.test.mjs', '');
   const pkg = JSON.parse(repo.read('package.json'));
   pkg.scripts['plugin:db:init-test'] = 'true';
   repo.write('package.json', JSON.stringify(pkg));

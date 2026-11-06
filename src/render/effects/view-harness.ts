@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 import { PaintedView } from '../PaintedView';
-import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs';
+import type { PaintedScene } from '../painted/scene.mjs';
 
 // Test helper for the effect tests (card.test.ts, motion-concepts.test.ts). Call vi.unstubAllGlobals() after each test.
 /** The real scene runs on a controlled frame clock. No production timer is replaced by a sample player. */

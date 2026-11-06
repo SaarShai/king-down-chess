@@ -1,4 +1,4 @@
-import { createScene } from '../../../../../2d-first-pieces/board/scene.mjs';
+import { createScene } from '../../../../../../src/render/painted/scene.mjs';
 import kingIcon from '../../../../../../public/ui/icons/king.svg?url';
 import * as pieces from '../../../../../../src/rules/engine';
 import { coordInk } from '../../../../../../src/render/board-ink';

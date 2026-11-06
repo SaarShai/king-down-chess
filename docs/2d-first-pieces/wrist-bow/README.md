@@ -2,7 +2,7 @@
 
 2026-09-26. Owner direction: return to 2D, replace the longbow with her original wrist bow, and correct arm proportions.
 
-[Open the focused preview](http://127.0.0.1:5192/wrist-bow/) or the [two-piece board study](http://127.0.0.1:5192/). The board now uses this Archer; Pawn retains its existing artwork and five-frame animation. The playable game on port 5189 is unchanged.
+[Open the focused preview](http://127.0.0.1:5192/docs/2d-first-pieces/wrist-bow/) or the [two-piece board study](http://127.0.0.1:5192/docs/2d-first-pieces/). The board now uses this Archer; Pawn retains its existing artwork and five-frame animation. The playable game on port 5189 is unchanged.
 
 ## Artwork
 
@@ -18,7 +18,7 @@ Move the pointer within the preview to aim; click to fire. Dragging aims without
 
 The arm now follows continuously through **22° up to 30° down**. The target stays ahead of the wrist bow inside that arc; points behind her or outside her reach are projected into the reachable range. Exponential smoothing provides a short, steady response without an overshooting spring. A shot requested during movement waits briefly for the selected aim, then fires along the painted weapon's axis. The arm recoils by 1.8° and recovers; the torso stays planted.
 
-`aiming.mjs`, using the shared `../painted-mesh.mjs` texture routine, draws the unchanged source image through a small Canvas 2D shoulder mesh. The stationary edge follows the hood, braid and bodice. The skin around the shoulder flexes locally, while the forearm, hand and bow rotate together. This preserves the coherent source drawing without exposing a cutout shoulder edge or independently stretching the fingers to a target. The neutral pose draws the original image directly. No new generated art, animation framework or dependency was added.
+`src/render/painted/wrist-bow/aiming.mjs`, using the shared `src/render/painted/painted-mesh.mjs` texture routine, draws the unchanged source image through a small Canvas 2D shoulder mesh. The stationary edge follows the hood, braid and bodice. The skin around the shoulder flexes locally, while the forearm, hand and bow rotate together. This preserves the coherent source drawing without exposing a cutout shoulder edge or independently stretching the fingers to a target. The neutral pose draws the original image directly. No new generated art, animation framework or dependency was added.
 
 The same geometry positions the muzzle, guide and target. SVG/Web Animations supplies the bolt and hit effects. Reset, army changes and motion-preference changes cancel queued and active shots. The animation loop stops when the pose settles. The Reduce motion control defaults to the system preference and makes aiming immediate, omitting recoil, bolt flight and hit-pulse motion.
 

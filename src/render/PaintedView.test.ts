@@ -4,13 +4,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fromFen, toFen } from '../rules/setup';
 import { Game } from '../game';
 import { setRules } from '../rules/engine';
-import type { PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
+import type { PaintedScene } from './painted/scene.mjs';
 import { SHARED_MECHANICS, assertMechanicExpected } from '../../tools/fixtures/shared-mechanics';
 
 const { reducedMotion, lively, aim, decorate, disposeScene, disconnectResize, selectScene } = vi.hoisted(() => ({ reducedMotion: vi.fn(), lively: vi.fn(), aim: vi.fn(), decorate: vi.fn(), disposeScene: vi.fn(), disconnectResize: vi.fn(), selectScene: vi.fn() }));
 let resolveLoad: () => void = () => {};
 let pickedSquare: number | null = null;
-vi.mock('../../docs/2d-first-pieces/board/scene.mjs', () => ({
+vi.mock('./painted/scene.mjs', () => ({
   createScene: () => new Proxy({ prepareUndo: () => false, rewindUndo: async () => true, play: async () => true, load: () => new Promise<void>(r => { resolveLoad = r; }), dispose: disposeScene, squareAt: () => pickedSquare, kings: [], drawnKings: [], setReducedMotion: reducedMotion, setLively: lively, setAim: aim, setSelected: selectScene, setDecorate: decorate, animating: false, falling: false, PAD: 32, TILE: 112, cell: (sq: number) => ({col:sq % 8,row:7 - (sq >> 3)}) } as Record<string, unknown>,
     { get: (t, k: string) => k in t ? t[k] : () => {} }),
 }));
@@ -152,7 +152,7 @@ it.each([false, true])('syncs the legal Earth Quake without a figure at its cent
   vi.stubGlobal('cancelAnimationFrame', vi.fn());
   vi.stubGlobal('matchMedia', () => ({ matches: systemReduced, addEventListener() {} }));
   const { PaintedView } = await import('./PaintedView');
-  const { createScene } = await vi.importActual<typeof import('../../docs/2d-first-pieces/board/scene.mjs')>('../../docs/2d-first-pieces/board/scene.mjs');
+  const { createScene } = await vi.importActual<typeof import('./painted/scene.mjs')>('./painted/scene.mjs');
   const scene = createScene({ canvas: document.createElement('canvas'), pieces: await import('../rules/engine') });
   scene.setReducedMotion(systemReduced);
   const view = new PaintedView(container as unknown as HTMLElement);

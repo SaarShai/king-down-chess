@@ -9,7 +9,7 @@ const harness = vi.hoisted(() => {
   const scene = { setLively() {}, setReducedMotion() {}, setDecorate() {}, setPosition() {}, redraw() {}, setCoords() {}, setFlipped() {}, ghost() {}, dispose() {}, load: () => Promise.resolve(), foot: (sq: number) => ({ x: sq * 10, y: sq * 10 }), frames: 0 };
   return { events, node, document, scene, frame: null as null | ((time: number) => void), intersect: null as any, media: { matches: false, addEventListener: (_: string, fn: () => void) => events.set('media', fn) } };
 });
-vi.mock('/docs/2d-first-pieces/board/scene.mjs', () => ({ createScene: () => harness.scene }));
+vi.mock('/src/render/painted/scene.mjs', () => ({ createScene: () => harness.scene }));
 vi.stubGlobal('document', harness.document);
 vi.stubGlobal('window', { addEventListener: (key: string, fn: () => void) => harness.events.set(key, fn) });
 vi.stubGlobal('location', { search: '' });

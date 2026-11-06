@@ -1,5 +1,5 @@
 import { K, typeOf, type Move } from '../../rules/engine';
-import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs';
+import type { PaintedScene } from '../painted/scene.mjs';
 import type { CardLayer, Point } from './card-types';
 import type { TailedOverlay } from './power-overlays';
 

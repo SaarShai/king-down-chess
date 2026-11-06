@@ -140,7 +140,7 @@ async function intro() {
 async function board() {
   const R = await import('../../2d-first-pieces/board/rules.mjs');
   const { createPosition, actionsFor } = await import('../../2d-first-pieces/board/model.mjs');
-  const { createScene } = await import('../../2d-first-pieces/board/scene.mjs');
+  const { createScene } = await import('../../../src/render/painted/scene.mjs');
   // Double resolution: the scene draws in 960-unit board space through one context, so pre-scaling it is enough.
   const src = canvas(1920, 1920); src.getContext('2d').scale(2, 2);
   const scene = createScene({ canvas: src, pieces: R });

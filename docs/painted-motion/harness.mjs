@@ -1,7 +1,7 @@
 // Drives the shared painted scene for tools/painted-motion-sheets.mjs: one scene with the game's
 // opt-in liveliness, positions from [square, type, side] lists, moves from the trial's rules bundle.
 import { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, parseSq, piece, genPiece, makeMove } from '../2d-first-pieces/board/rules.mjs';
-import { createScene } from '../2d-first-pieces/board/scene.mjs';
+import { createScene } from '../../src/render/painted/scene.mjs';
 const HEADROOM = 64, types = { P, N, B, R, Q, K, S, L, M, G, A, O };
 const canvas = document.getElementById('scene');
 canvas.width = 960; canvas.height = 960 + HEADROOM;

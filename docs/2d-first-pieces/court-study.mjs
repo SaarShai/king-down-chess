@@ -1,4 +1,4 @@
-import {figures,drawCourt,actionAt} from './court-motion.mjs';
+import {figures,drawCourt,actionAt} from '../../src/render/painted/court-motion.mjs';
 const $=id=>document.getElementById(id),name=document.body.dataset.piece,art=new Image(),spec=figures[name];
 const preference=matchMedia('(prefers-reduced-motion: reduce)');
 let side=0,action=null,frame=0,ready=false,held=false;

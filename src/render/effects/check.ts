@@ -1,4 +1,4 @@
-import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs';
+import type { PaintedScene } from '../painted/scene.mjs';
 import type { Checker } from '../../move-text';
 import kingIcon from '../../../public/ui/icons/king.svg?raw';
 import { checkRing, link } from './indications';

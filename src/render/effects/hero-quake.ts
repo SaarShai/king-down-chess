@@ -1,4 +1,4 @@
-import { PAD, TILE, type PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs';
+import { PAD, TILE, type PaintedScene } from '../painted/scene.mjs';
 import type { CardFrame, CardLayer, Point } from './card-types';
 import { quakeStamps, rand, stamp } from './hero-stamps';
 

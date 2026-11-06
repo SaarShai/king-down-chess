@@ -323,6 +323,9 @@ const evaluateNode = (c: Color): number => evalBoard(board, c, livePower(WHITE),
 // ---------------------------------------------------------------------------------------------
 // Make / unmake on the scratch board, with an incremental hash.
 
+const doubleFirstMove = (): boolean => RULES.secondPlayerDoubleFirstTurn && rootPly + fsp === 1;
+const holdsSearchTurn = (m: Move): boolean => doubleFirstMove() || holdsTurn(m);
+
 function write(s: number, v: number): void {
   const old = board[s];
   undoSq[sp] = s;
@@ -372,7 +375,7 @@ function apply(m: Move, c: Color): number {
   if (m.power === 'growth' || m.power === 'growthb') setDrawn(c, drawnN[c] + 1);
   if (m.power && trackLast && handAt[c].length) setLast(c, TAG_POWER[m.power]);
   const isMark = isMarkTag(m.power);
-  const holdTurn = holdsTurn(m);
+  const holdTurn = holdsSearchTurn(m);
   // Mirror of makeMove: the opponent's mark uses up a turn when this move passes the turn (an ended
   // one stays as `left` 0 while a Rescue may renew it); the mover's own ended mark goes when its turn
   // ends; a new mark replaces only the mover's own slot, and a Rescue renews it. A mark follows its piece.
@@ -552,6 +555,7 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
   // Firewall, a Rescue and a Growth change no square. `setFastLegality(false)` turns this off for
   // the cross-check test. A design (`RULES.design`) is always tested: its Whens read the squares next to it, so any
   // arriving or leaving piece may wake a rule that attacks the king.
+  const noCheck = doubleFirstMove();
   const k = board.indexOf(piece(K, c));
   const inChk = k < 0 || (inCheckKnown ?? attacked(c));
   const lines = k * 64;
@@ -560,7 +564,7 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
   for (let i = 0; i < out.length; i++) {
     const m = out[i];
     let test: boolean;
-    if (!fastLegality || inChk || RULES.design) test = true;
+    if (noCheck || !fastLegality || inChk || RULES.design) test = true;
     else if (isStill(m)) test = false; // no square changes
     else if (m.drop) test = lob && (LINE[lines + m.to] === 1 || (m.drop2 !== undefined && LINE[lines + m.drop2] === 1));
     else {
@@ -569,7 +573,7 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
     }
     if (test) {
       const base = applyQuiet(m, c);
-      const ok = !attacked(c);
+      const ok = !attacked(c) && (!noCheck || !attacked((c ^ 1) as Color));
       undoQuiet(base);
       if (!ok) continue;
     }
@@ -687,8 +691,7 @@ function quiesce(alpha: number, beta: number, ply: number, qdepth: number, hm: n
   const key = combine(hLo, hHi);
   path[ply] = key;
   const inChk = attacked(c);
-  // Stalemate is terminal even at the capture-search horizon, before stand-pat. No power is started
-  // here (`ply` past `powerPlyMax`), so a capture continuation never holds the turn.
+  // Stalemate is terminal even at the capture-search horizon, before stand-pat. No power starts here.
   const moves = genLegal(bufs[ply], c, 'all', MAX_PLY, inChk);
   if (!moves.length) return inChk ? -MATE + ply : 0;
   let best: number;
@@ -713,9 +716,10 @@ function quiesce(alpha: number, beta: number, ply: number, qdepth: number, hm: n
     // prune here too — the gain is the whole story, there is no recapture to discover.
     if (!inChk && stand + gain(m) + DELTA < alpha) continue;
     const nhm = m.captures.length || typeOf(board[m.from]) === P ? 0 : hm + 1;
+    const holdTurn = holdsSearchTurn(m);
     const base = apply(m, c);
-    sideAt[ply + 1] = c ^ 1;
-    const v = -quiesce(-beta, -alpha, ply + 1, qdepth - 1, nhm);
+    sideAt[ply + 1] = holdTurn ? c : c ^ 1;
+    const v = holdTurn ? quiesce(alpha, beta, ply + 1, qdepth, nhm) : -quiesce(-beta, -alpha, ply + 1, qdepth - 1, nhm);
     undo(base);
     if (stop) break;
     if (v > best) best = v;
@@ -752,7 +756,7 @@ function negamax(depth: number, alpha: number, beta: number, ply: number, hm: nu
 
   const inChk = attacked(c);
   if (inChk && ply < rootDepth * 2) depth++; // check extension, capped at twice the nominal depth
-  if (depth <= 0 && hasteSq < 0 && !free) return quiesce(alpha, beta, ply, QMAX, hm);
+  if (depth <= 0 && hasteSq < 0 && !free && !doubleFirstMove()) return quiesce(alpha, beta, ply, QMAX, hm);
 
   const moves = genLegal(bufs[ply], c, 'all', ply, inChk);
   if (moves.length === 0) return inChk ? -MATE + ply : 0;
@@ -764,12 +768,11 @@ function negamax(depth: number, alpha: number, beta: number, ply: number, hm: nu
     const m = moves[i];
     const quiet = m.captures.length === 0 && !m.promo;
     const nhm = moveResets(m) ? 0 : hm + 1;
-    const holdTurn = holdsTurn(m);
+    const holdTurn = holdsSearchTurn(m);
     const base = apply(m, c);
     let v: number;
     if (holdTurn) {
-      // Haste, Rage, a free mark or a GrowthB: the same side moves again — same depth (the turn is not over), same
-      // sign, full window.
+      // The same side moves again: keep the depth, score sign, and full window.
       sideAt[ply + 1] = c;
       v = negamax(depth, alpha, beta, ply + 1, nhm);
     } else {
@@ -908,8 +911,9 @@ const moveResets = (m: Move): boolean =>
 /** Test probe: the search's own legal list after it applies `m` to `pos` (the state `apply` keeps, the move number included). */
 export function probeLegalAfter(pos: Position, m: Move): Move[] {
   initPosition(pos);
+  const holdTurn = holdsSearchTurn(m);
   apply(m, pos.turn);
-  return [...genLegal([], (holdsTurn(m) ? pos.turn : pos.turn ^ 1) as Color, 'all', 0)];
+  return [...genLegal([], (holdTurn ? pos.turn : pos.turn ^ 1) as Color, 'all', 0)];
 }
 
 export function probeApply(pos: Position, m: Move): { after: number; back: number } {
@@ -991,11 +995,11 @@ export function search(pos: Position, opts: SearchOptions = {}): SearchResult {
     for (let i = 0; i < rootMoves.length; i++) {
       const m = rootMoves[i];
       const nhm = moveResets(m) ? 0 : pos.halfmove + 1;
-      const holdTurn = holdsTurn(m);
+      const holdTurn = holdsSearchTurn(m);
       const base = apply(m, pos.turn);
       let v: number;
       if (holdTurn) {
-        // Haste or a free mark: the next move belongs to this same turn — same depth, same sign.
+        // This move keeps the turn: keep the depth and score sign.
         sideAt[1] = pos.turn;
         v = negamax(depth, multi ? -INF : alpha, INF, 1, nhm);
       } else {
