@@ -75,6 +75,15 @@ describe('released card playback uses real engine frames', () => {
     expect(cardAction(powers, pos, { from: 35, to: 35, captures: [], power: 'freeze' })?.id).toBe('Freeze');
   });
 
+  it.each(['Sacrifice', 'MorphP'])('%s swaps the figure on the board once, behind the shroud', id => {
+    const fixture = fixtures.find(f => f.item === id)!, { context, before } = game(fixture);
+    const move = legal(context, before, fixture.actions[0]), effect = cardPlayback(context, before, move)!;
+    const on = (t: number) => effect.position(t).board[move.from];
+    expect(on(.34)).toBe(before.board[move.from]);
+    expect(on(.5)).toBe(0);
+    expect(on(.62)).toBe(context.makeMove(before, move).board[move.from]);
+  });
+
   it('anchors borrowed material at a real matching lender away from a1', () => {
     const context = new GameRules({ hands: [['Control'], []] });
     const before = context.fromFen('4k3/8/8/1p6/8/8/RN6/4K3 w - - 0 1');
@@ -146,6 +155,26 @@ describe('production PaintedView card invocation and scene lifecycle', () => {
     const again = view.animateMove(before, move); advance(100); view.skip(); await again;
     const replacement = context.fromFen('7k/8/8/8/8/8/P7/K7 w - - 0 1'); view.sync(replacement);
     expect(effects.frames).toEqual([]); view.dispose();
+  });
+
+  it.each(['Sacrifice', 'MorphP'])('%s never blends two figures', async id => {
+    const { view, scene, advance } = await viewBoard(), fixture = fixtures.find(f => f.item === id)!, { context, before } = game(fixture);
+    view.setRules(context); const ghost = vi.spyOn(scene, 'ghost');
+    const running = view.animateMove(before, legal(context, before, fixture.actions[0]));
+    for (let i = 0; i < 40; i++) advance(50);
+    advance(10000); await running;
+    expect(ghost).not.toHaveBeenCalled(); view.dispose();
+  });
+
+  it('Salvation raises a whole figure with no fade', async () => {
+    const { view, scene, advance } = await viewBoard(), fixture = fixtures.find(f => f.item === 'Salvation')!, { context, before } = game(fixture);
+    view.setRules(context); const ghost = vi.spyOn(scene, 'ghost');
+    const running = view.animateMove(before, legal(context, before, fixture.actions[0]));
+    for (let i = 0; i < 40; i++) advance(50);
+    advance(10000); await running;
+    expect(ghost).toHaveBeenCalled();
+    for (const call of ghost.mock.calls) expect(call[3]).toBe(1);
+    view.dispose();
   });
 
   it('keeps ordinary captures on existing scene playback and reserve drops immediate', async () => {

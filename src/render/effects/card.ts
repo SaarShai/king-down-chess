@@ -4,7 +4,7 @@ import { RELEASED_CARDS } from '../../content/cards';
 import type { PaintedScene, SceneEffect } from '../../../docs/2d-first-pieces/board/scene.mjs';
 import { HEROES, drawFreezeCast, drawHero, quakeJolt } from './card-hero';
 import { MOVEMENT_IDS, MOVEMENT_DURATIONS, drawMovement } from './card-movement';
-import { SPELL_DURATIONS, drawSpell } from './card-spell';
+import { SPELL_DURATIONS, drawRising, drawSpell } from './card-spell';
 import { drawFreeze, drawIceWall, drawFirewall } from './materials';
 import type { CardFrame, CardLayer } from './card-types';
 
@@ -158,12 +158,7 @@ export class CardPlayback implements SceneEffect {
   private drawActors(ctx: CanvasRenderingContext2D, scene: PaintedScene): void {
     const { t, travel: u } = this.frame, { id } = this.action;
     if (t <= .22 || t >= .62) return;
-    if (['Sacrifice', 'MorphP'].includes(id) && t > .35) {
-      const opacity = ease((t - .35) / .27);
-      scene.ghost(ctx, this.before.board[this.move.from], this.move.from, 1 - opacity);
-      scene.ghost(ctx, this.after.board[this.move.to], this.move.to, opacity);
-    }
-    if (id === 'Salvation') scene.ghost(ctx, this.after.board[this.move.to], this.move.to, u);
+    if (id === 'Salvation') drawRising(ctx, scene, this.after.board[this.move.to], this.move.to, u);
     for (const [index, unit] of this.units.entries()) {
       const a = scene.foot(unit.from), b = scene.foot(unit.to);
       const airborne = ['Flight', 'Leap', 'Vault', 'SkyLift'].includes(id);
