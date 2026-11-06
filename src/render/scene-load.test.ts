@@ -730,3 +730,22 @@ it('does not prepare a Stratus rewind when reduced motion is already on', async 
  const move={from:4,to:12,captures:[]},playing=scene.play(move);await vi.advanceTimersByTimeAsync(80);
  expect(scene.prepareUndo(move)).toBe(false);scene.cancel();await expect(playing).resolves.toBe(false);
 });
+
+it('a king falls for as long as his demise lasts, half as long at Fast, and at once with no animation', async () => {
+  const art = board(true);
+  void scene.load();
+  art.decodeBoard();
+  await vi.advanceTimersByTimeAsync(48);
+  const sq = 4; // e1: his square
+  scene.setFallen(sq, true, -1.5);
+  expect(scene.falling).toBe(true);
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(scene.falling).toBe(true);
+  await vi.advanceTimersByTimeAsync(120);
+  expect(scene.falling).toBe(false);
+  scene.setFallen(sq, true, -1.5, 0.5);
+  await vi.advanceTimersByTimeAsync(560);
+  expect(scene.falling).toBe(false);
+  scene.setFallen(sq, false, -1.5);
+  expect(scene.falling).toBe(false);
+});

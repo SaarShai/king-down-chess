@@ -15,6 +15,8 @@ import {chargeAt,CHARGE_CONTACT,swapAt} from './motion.mjs';
 import {BLOW,KING_BLOW,STRAIGHT_REACH,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
 import {GAITS,GAIT_OF,idleAt,paintedPace,paintedTravel} from './gait.mjs';
 import {createKingEffects,phaseOffset} from './king-effects.mjs';
+import {DEMISE,IMPACT,fallPose,effectsLeft,drawFall,selfRemovalAt,createDemise} from './fx-fallen.mjs';
+const SELF_FALL=-1.45;
 import {KING_FILES} from './king-sheets.mjs';
 import {DEATHS,THEMED,drawDeath,kingBodyBounds} from './king-captures.mjs';
 import * as pawnIdle from '../lance/idle.mjs';
@@ -52,7 +54,7 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  const floor=floorOf(floorOption);
  const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName}=pieces;
  const ctx=canvas.getContext('2d');
- const FALL=650, CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150};
+ const CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150};
  let bodyRuntime=null, bodyWarm=!characterRuntime, startBodyRuntime=null;
  const onPageShow=event=>{if(event.persisted)startBodyRuntime?.();};
  // These idles move the whole figure, so a quiet move, a deselect or another selection leaves them along the painted frames.
@@ -110,7 +112,7 @@ for(const [type,name] of Object.entries(courtNames)){
  // Opt-in liveliness (setLively): quiet-move gaits, the selected figure's idle, the board's frame and light,
  // and each king's own idle effect (king-effects.mjs). All off by default, so the trial and the trailer draw exactly as before.
  const lively={moves:false,idle:false,atmosphere:false,kings:false,captures:false,pawns:false};
- const kingFx=createKingEffects({sheet:design=>kingArt[design]?.image??null,onLoad:()=>wake()});
+ const kingFx=createKingEffects({sheet:design=>kingArt[design]?.image??null,onLoad:()=>wake()}),demise=createDemise({onLoad:()=>wake()});
  // Square → when a king's effect started there (what stands on his square grows back after a move).
  // drawnBefore: how many kings' effects the frame before drew (none: they all start together now).
  let kingSince=new Map(),nextSince=new Map(),frames=0,fxDrawn=[],drawnBefore=0,pawnsAtRest=0,pawnsActing=0;
@@ -172,7 +174,7 @@ function sprite(value,angle=0,extension=0,sheet=null,rest=null) {
 // Covers the headroom too, so an effect never crops a back-rank figure's head. Sized by setResolution().
 // Drawn for a king whose sheet is still loading: nothing, and nothing cached.
 const blank=document.createElement('canvas');blank.width=blank.height=1;
-const fxCanvas=document.createElement('canvas');fxCanvas.width=SIZE;fxCanvas.height=SIZE+headroom;
+const fxCanvas=document.createElement('canvas');fxCanvas.width=SIZE;fxCanvas.height=SIZE+headroom;let fallCanvas=null;
 // fx: {cut} splits along a slash; {frost, shatter} ices the figure then breaks it into wedges;
 // {scan, apart} tints it with a moving scan line, then takes it apart in horizontal strips.
 // shadow: false when its contact shadow is already on the floor (render() draws them all before any figure, those
@@ -191,6 +193,20 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
    },
    layer(clip){out.save();out.globalAlpha=opacity;if(clip!==Infinity){out.beginPath();out.rect(0,-headroom,SIZE,clip+headroom);out.clip();}if(res===1)out.drawImage(fxCanvas,0,-headroom);else out.drawImage(fxCanvas,0,-headroom,SIZE,SIZE+headroom);out.restore();},
   });
+  return;
+ }
+ if(pose.fall){
+  // A king going down (fx-fallen.mjs): upright into the effect layer, with what moves with his figure, then in strips.
+  const c=fxCanvas.getContext('2d'),up={...pose,rotation:0,fall:null};
+  c.setTransform(res,0,0,res,0,headroom*res);c.globalCompositeOperation='source-over';c.globalAlpha=1;c.clearRect(0,-headroom,SIZE,SIZE+headroom);
+  drawPiece(c,value,up,1,extension,null,false);pose.fall.overlay?.(c,up);
+  const strips={foot:pose.foot,facing:pose.facing,rotation:pose.fall.rotation,ms:pose.fall.ms,unit:res,offsetY:headroom};
+  // (A fading figure is laid out whole first, so the strips' small overlaps do not show as bands.)
+  if(opacity<1){
+   fallCanvas??=document.createElement('canvas');if(fallCanvas.width!==fxCanvas.width||fallCanvas.height!==fxCanvas.height){fallCanvas.width=fxCanvas.width;fallCanvas.height=fxCanvas.height;}
+   const g=fallCanvas.getContext('2d');g.setTransform(res,0,0,res,0,headroom*res);g.clearRect(0,-headroom,SIZE,SIZE+headroom);drawFall(g,fxCanvas,strips);
+   out.save();out.globalAlpha=opacity;out.drawImage(fallCanvas,0,-headroom,SIZE,SIZE+headroom);out.restore();
+  }else{out.save();drawFall(out,fxCanvas,strips);out.restore();}
   return;
  }
  if(fx&&(fx.frost||fx.shatter||fx.scan||fx.apart)){
@@ -622,11 +638,12 @@ function vortex(out,foot,phase,strength) {
  }
  // A king's effect this frame, or null. k fades the whole effect as he falls; g fades what stands on his
  // square while he moves (it grows back on the new square).
+ const fallMs=time=>(time-fallen.start)/fallen.speed;
  function kingEffect(sq,unit,time){
   const side=colorOf(unit.value),design=kings[side];
   if(!lively.kings||reducedMotion||unit.fx||!kingFx.has(design))return null;
   let k=unit.opacity;
-  if(fallen?.sq===sq)k*=1-ease((time-fallen.start)/FALL);
+  if(fallen?.sq===sq)k*=effectsLeft(fallMs(time));
   if(k<=.001)return null;
   // (A finished move counts until the next position comes: its last frame shows him on his new square.)
   const a=animation,moving=!!a&&(a.move.from===sq||(a.move.swap&&a.move.to===sq));
@@ -654,9 +671,15 @@ function vortex(out,foot,phase,strength) {
   if(a?.rewind?.kind==='move'&&a.done&&moving&&design==='stratus'){if(a.rewind.landedG!=null)entry.resume={g,start:time};else {const shift=time-a.start;entry.since+=shift;entry.offset+=shift;if(entry.resume)entry.resume.start+=shift;}}
   return s;
  }
+ // What the demise draws this frame (fx-fallen.mjs): where he falls, and the floor's darkness under a point.
+ function demiseState(unit,ms){
+  const side=colorOf(unit.value),design=kings[side],pose=unit.pose;
+  return {design,side,ms,foot:pose.foot,dir:Math.sign(pose.facing*fallen.rotation)||1,tall:124,dark:(x,y)=>groundDark({x,y}),board:{x:PAD,y:PAD,size:8*TILE},
+   soul:lively.kings?g=>kingFx.soul(g,{design,side,pose,rotation:fallen.rotation,ms}):null};
+ }
  function render(time=performance.now()) {
  frames++;effectFrames=[];frameTime=time;shadowsFading=false;drawnBefore=fxDrawn.length;fxDrawn=[];nextSince=new Map();
- const a0=animation,elapsed=a0?clamp((time-a0.start)/a0.speed-(a0.runtime?.beforeMs??0),0,a0.actionDuration??a0.duration):0,since=a0?.shakeAt!=null?effectTimeAt(a0,elapsed)-a0.shakeAt:-1,shake=!reducedMotion&&since>=0&&since<240?7*(1-since/240):0;
+ const a0=animation,elapsed=a0?clamp((time-a0.start)/a0.speed-(a0.runtime?.beforeMs??0),0,a0.actionDuration??a0.duration):0,since=a0?.shakeAt!=null?effectTimeAt(a0,elapsed)-a0.shakeAt:fallen?fallMs(time)-IMPACT:-1,shake=!reducedMotion&&since>=0&&since<240?7*(1-since/240):0;
  effectTime=a0?.effect?clamp((time-a0.start)/(a0.speed*a0.duration),0,1):0;
  const shown=a0?.effect?.position(effectTime)??position;
  ctx.save();ctx.translate(0,headroom);if(shake)ctx.translate(Math.sin(since*.09)*shake,Math.cos(since*.13)*shake*.6);
@@ -685,7 +708,8 @@ function vortex(out,foot,phase,strength) {
   Object.assign(p,{ground:p.ground??p.foot,foot:{x:p.foot.x,y:p.foot.y-lift},lift});
  }
  // King Down: the beaten king topples backwards onto the board.
- if(fallen&&poses.has(fallen.sq)){const u=poses.get(fallen.sq);u.pose={...u.pose,rotation:fallen.rotation*ease((time-fallen.start)/FALL)};}
+ let fall=null;
+ if(fallen&&poses.has(fallen.sq)){const u=poses.get(fallen.sq),ms=fallMs(time);if(ms<DEMISE&&typeOf(u.value)===K)fall=demiseState(u,ms);u.pose=fallPose(u.pose,fallen.rotation,ms);}
  let shot=null,hit=null;const effects=[];
  if(animation&&!animation.effect&&!animation.preparing){
   const a=animation,duration=a.legacyDuration??a.duration,at=a.rewind?.kind==='move'?Math.max(a.start,Math.min(a.rewind.at,a.rewind.at-(time-a.rewind.start))):time,elapsed=clamp((at-a.start)/a.speed-(a.runtime?.beforeMs??0),0,a.actionDuration??duration),t=effectTimeAt(a,elapsed),actor=poses.get(a.move.from),victim=poses.get(a.move.swap?a.move.to:a.move.shove?.from??a.move.captures[0]);
@@ -724,7 +748,11 @@ function vortex(out,foot,phase,strength) {
    if(t<s.charge){const f=clamp(t/s.charge,0,1);ground=mix(a.from.foot,a.approach,ease(f));lift=Math.min(TILE*.42,Math.max(0,ground.y-150))*4*f*(1-f);foot={x:ground.x,y:ground.y-lift};}
    else if(t>=s.hold&&!a.move.selfRemove)foot=mix(a.approach,a.to.foot,ease((t-s.hold)/(s.recover-s.hold)));
    actor.pose={...a.pose,foot,ground:ground??foot,lift,angle:court.smashAngle(t)};
-   if(a.move.selfRemove)actor.opacity=1-clamp((t-s.hold)/(s.recover-s.hold),0,1);
+   if(a.move.selfRemove&&t>=s.chop[1]+120){
+    // He dies with his target: he falls back and fades as the dust clears (fx-fallen.mjs).
+    const end=selfRemovalAt(t,s.chop[1]+120,duration);actor.pose={...fallPose(actor.pose,SELF_FALL,end.fall),ground:actor.pose.foot};actor.opacity=end.opacity;
+    effects.push(()=>demise.over(ctx,{design:'dust',side:colorOf(a.value),ms:end.ms,foot:actor.pose.foot,dir:Math.sign(actor.pose.facing*SELF_FALL),tall:124,dark:(x,y)=>groundDark({x,y})}));
+   }
    const face=ms=>world(court.hammerFace(colorOf(a.value),court.smashAngle(ms)),{...a.pose,foot:a.approach},L);
    const trail=[];for(let ms=Math.max(s.chop[0],t-120);ms<=Math.min(t,s.chop[1]+30);ms+=6)trail.push(face(ms));
    if(trail.length>1)effects.push(()=>streak(ctx,trail,10,'#f2e6c8'));
@@ -897,7 +925,7 @@ function vortex(out,foot,phase,strength) {
    if(body){
     if(a?.runtime){
      if(local<0)u.pose={...a.from};else if(local>a.actionDuration)u.pose={...a.to};
-     if(a.runtime.movement||a.runtime.attack||a.type!=='gait'){if(!(a.type==='knight'&&a.runtime.movement)&&(typeOf(u.value)!==K||!a.move.captures.length||a.runtime.attack))u.pose.rotation=0;u.pose.sx=1;u.pose.sy=1;}
+     if(a.runtime.movement||a.runtime.attack||a.type!=='gait'){if(!(a.type==='knight'&&a.runtime.movement)&&(typeOf(u.value)!==K||!a.move.captures.length||a.runtime.attack)&&!u.pose.fall)u.pose.rotation=0;u.pose.sx=1;u.pose.sy=1;}
     }
     u.pose.bank=body;
    }
@@ -919,6 +947,7 @@ function vortex(out,foot,phase,strength) {
  const kingFxOf=new Map();
  for(const [sq,unit] of ordered)if(typeOf(unit.value)===K){const fx=kingEffect(sq,unit,time);if(fx)kingFxOf.set(sq,fx);}
  if(animation?.theme==='stratus'){const actor=poses.get(animation.move.from),victim=poses.get(animation.move.captures[0]),pose=kingFxOf.get(animation.move.from)?.pose??actor?.pose;const shape=pose&&bankShape(pose);if(shape&&victim?.fx?.death)victim.fx.death.king=shape;}
+ if(fall)demise.floor(ctx,fall);
  if(lively.atmosphere)for(const [sq,unit] of ordered){const fade=fxFade(unit.fx);if(fade>0)contactShadow(ctx,unit.value,kingFxOf.get(sq)?.pose??unit.pose,unit.opacity*fade);}
  for(const [sq,unit] of ordered){
   if(!animation||animation.effect)over(Math.floor((unit.pose.foot.y-40-PAD)/TILE)-1);
@@ -931,8 +960,8 @@ function vortex(out,foot,phase,strength) {
    const up=typeof above==='function'?above({...death,size:SIZE,headroom}):death.t>=above,d2={...death,above:up};
    drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,{death:{...d2,part:'back'}});
    late.push(()=>drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,{death:{...d2,part:'front'}}));
-  }else {const drawn=fx?.pose??unit.pose;drawPiece(ctx,unit.value,drawn,unit.opacity,unit.extension,unit.fx,false);if(sq===selected&&!animation&&idleReady&&drawn.bank)lastSelectedBody={square:sq,value:unit.value,body:drawn.bank,pose:{...unit.pose,foot:{...unit.pose.foot}}};}
-  if(fx)kingFx.front(ctx,fx);
+  }else {let drawn=fx?.pose??unit.pose;if(fx&&drawn.fall&&kingFx.onFigure(fx.design))drawn={...drawn,fall:{...drawn.fall,overlay:(g,up)=>kingFx.front(g,{...fx,pose:up})}};drawPiece(ctx,unit.value,drawn,unit.opacity,unit.extension,unit.fx,false);if(sq===selected&&!animation&&idleReady&&drawn.bank)lastSelectedBody={square:sq,value:unit.value,body:drawn.bank,pose:{...unit.pose,foot:{...unit.pose.foot}}};}
+  if(fx&&!(fx.pose.fall&&kingFx.onFigure(fx.design)))kingFx.front(ctx,fx);
  }
  const smokeDt=Math.max(0,Math.min(.05,(time-smokeTime)/1000));smokeTime=time;
  if(reducedMotion)smokeStreams.clear();
@@ -945,6 +974,7 @@ function vortex(out,foot,phase,strength) {
  for(const effect of effects)effect();
  if(shot)bolt(ctx,shot.start,shot.end,shot.t,shot.scale);
  if(hit)impact(ctx,hit.point,hit.t,hit.scale);
+ if(fall)demise.over(ctx,fall);
  over(7);
  ctx.restore();
 }
@@ -1000,7 +1030,7 @@ function drawEncounter(a,t) {
     if(document.readyState&&document.readyState!=='complete')globalThis.addEventListener('load',start,{once:true});else start();
    }
   });
-  if((a&&!a.done&&(!a.preparing||a.exitReady||a.rewind))||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading||clipShown||idleOut)wake(false);
+  if((a&&!a.done&&(!a.preparing||a.exitReady||a.rewind))||(wanted&&aimAngle!==wanted.angle)||(fallen&&fallMs(time)<DEMISE)||time<awakeUntil||shadowsFading||clipShown||idleOut)wake(false);
   else{previousTime=0;if((idling()&&bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected])))||time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
  }
  function idling(){return lively.idle&&!reducedMotion&&!animation&&selected!==null&&!!position.board[selected]&&fallen?.sq!==selected;}
@@ -1126,7 +1156,7 @@ function drawEncounter(a,t) {
  const api={
   SIZE,PAD,TILE,headroom,
   get animating(){return !!animation&&!animation.done;},
-  get falling(){return !!fallen&&performance.now()-fallen.start<FALL;},
+  get falling(){return !!fallen&&fallMs(performance.now())<DEMISE;},
   /** What is playing: a gait name for a quiet move with character, else the animation kind ('move' for the plain slide); null when idle. */
   get playing(){return animation&&!animation.done?animation.gait??animation.type:null;},
   get position(){return position;},
@@ -1134,7 +1164,7 @@ function drawEncounter(a,t) {
   /** Board square under a point in canvas pixels, or null. */
   squareAt(x,y){y-=headroom;const col=Math.floor((x-PAD)/TILE),row=Math.floor((y-PAD)/TILE);if(col<0||col>7||row<0||row>7)return null;return flipped?row*8+(7-col):(7-row)*8+col;},
   // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
-  load(){const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;warmBodies();wake();});},
+  load(){demise.prepare();const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;warmBodies();wake();});},
   /** New position: ends any finished or running animation. */
   setPosition(next){const a=animation,m=a?.move;
    if(a?.done&&!a.rewind&&!a.effect&&!reducedMotion&&m.from!==m.to&&!m.captures.length&&!m.swap&&!m.shove&&!m.promo&&!m.selfRemove&&!m.power&&typeOf(a.value)===K&&kings[colorOf(a.value)]==='stratus'&&next.board[m.from]===0&&next.board[m.to]===a.value)landed={animation:a,source:position,post:next,sourceEntry:kingSince.get(m.from)};
@@ -1180,8 +1210,8 @@ function drawEncounter(a,t) {
   setCoords(on,size=13,inset=14){coords=on;coordSize=size;coordInset=inset;wake();},
   setLabels(on){labels=on;wake();},
   setReducedMotion(on){const was=reducedMotion;reducedMotion=on;if(on){landed=null;selectionGeneration++;pendingIdle=null;idleOut=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}if(on&&(animation?.runtime||animation?.preparing||animation?.rewind||animation?.value&&typeOf(animation.value)===K&&animation.move.captures.length))endMove();if(on)awakeUntil=0;else if(was){loadClips();reserveSelected(selected);}wake();},
-  /** Lay the king on `sq` down (null: nobody); animate=false shows it already fallen. */
-  setFallen(sq,animate=true,rotation=-1.5){fallen=sq==null?null:{sq,rotation,start:animate?performance.now():-Infinity};wake();},
+  /** Lay the king on `sq` down (null: nobody); animate=false shows it already fallen. speed: as in play (.5 is twice as fast). */
+  setFallen(sq,animate=true,rotation=-1.5,speed=1){fallen=sq==null?null:{sq,rotation,speed,start:animate?performance.now():-Infinity};if(animate&&sq!=null)demise.prepare();wake();},
   /** Backing pixels per board unit (1 = 960 px wide), so the board stays sharp on high-density screens. */
   setResolution(k){if(k===res)return;res=k;canvas.width=fxCanvas.width=Math.round(SIZE*k);canvas.height=fxCanvas.height=Math.round((SIZE+headroom)*k);ctx.setTransform(k,0,0,k,0,0);wake();},
   /**
