@@ -32,6 +32,5 @@ Run its mask script, edit its recipe, then `node tools/card-motion/frames.mjs <d
 
 - A device whose frames fall behind 24 ms draws cards at 15 fps. A display that runs at 30 Hz, such as Low Power Mode, does too.
 - A lost WebGL context leaves the still art until the next page load.
-- Sacrifice, Rescue and the card back use the latest drafts, which the review record marks as awaiting feedback.
 - The shaders live in the page, because the host CSP has no connect domain to fetch them. The plugin no longer ships the rule pictures. The Workshop still does.
 - Parked screens: `src/plugin/screens/collection.ts` calls `cardArt`, so it would show motion when it returns. The Workshop keeps its still pictures, and reads the same painting files. Rescue and the card back have recipes but no caller.

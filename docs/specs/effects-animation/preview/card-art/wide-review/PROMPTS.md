@@ -8,7 +8,7 @@ All images use the built-in image generator on the owner’s plan. `PROMPTS.json
 
 Compose directly for 16:9. Repaint the scene for the wide frame; do not take another slice of a square image. Keep essential figures, antlers, bases, shadows, weapons and magical action visible. Use tactile painted fantasy materials and expressive natural magic. Never infer safe framing from computed object-position alone; compare rendered content and source bounds.
 
-The owner approves the direction of the first nine redesigned paintings: “Keep this direction.” The owner initially approves all nine first paintings, then requests new Mirror and Rally concepts. Those two now await revised-art feedback. Rescue also receives a stylized-hand revision. Sacrifice follows the owner’s new pawn-shell concept. The current prompts and decisions are in CORRECTIONS.json and ticket31. Missing-art concepts follow actual rules; see CONCEPTS.md.
+The owner approves the direction of the first nine redesigned paintings: “Keep this direction.” The owner initially approves all nine first paintings, then requests new Mirror and Rally concepts. The owner then approves Mirror option 2 and selects the Rally banner. Rescue also receives a stylized-hand revision. Sacrifice follows the owner’s new pawn-shell concept. Sacrifice, Rescue and the card back are final. The current prompts and decisions are in CORRECTIONS.json and ticket31. Missing-art concepts follow actual rules; see CONCEPTS.md.
 
 ## Corrections
 

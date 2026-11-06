@@ -8,7 +8,7 @@ vec4 card(vec2 q, vec3 m) {
   vec3 c = paint(q + m.r * (sway + stir(r, 26., 2., .0009)));
   if (m.b > .004) {
     // High clouds run a little faster than those on the horizon.
-    vec3 sky = flow(q, vec2(-.021 * (1.2 - q.y * 1.2) * min(gain(), 1.6), 0.), 1.);
+    vec3 sky = flow(q, vec2(-.0105 * (1.2 - q.y * 1.2) * min(gain(), 1.6), 0.), 2.);
     // The sun's breath runs out over the clouds, late with distance, so the coin's sky shows it too.
     sky += vec3(1., .72, .5) * .065 * (1. + .35 * (gain() - 1.)) * breathe(1., .08 + (q.x - .907) * .5);
     c = mix(c, sky, m.b);
