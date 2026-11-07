@@ -40,3 +40,7 @@ The byte, type, route and API checks stay outside the request retry. HTTP faults
 ## Review and scope
 
 The final diff keeps both tools as separate scripts. A shared helper needs more imports and test fixture changes. The worker pool stores results by probe index, so each old check still reads its own result. No dependency or caller changes. No real deploy, live or staging request, branch push, or pull request.
+
+## Port to main
+
+PR 262 merges this change into `staging/first-game` only. A later PR applies the same two tools, `tools/deploy.test.ts` and this ticket to main, with no other change. On base eb5cacac: `KINGDOWN_TEST_FILE='tools/deploy.test.ts' npm test` exits 0 with all 189 selected tests; `npm run typecheck` exits 0. No independent review runs, as the owner directs.

@@ -1,8 +1,8 @@
 # Wide card art review
 
-Status: complete; all 23 entries shown for feedback
+Status: complete; all 23 entries final
 
-20 new wide paintings, approved Salvation, unchanged Freeze and March. Nine current paintings are recomposed, nine cards receive first paintings, and Rescue/card back are refreshed. The owner approves the first redesigned set's direction: “Keep this direction.” The owner approves all nine first paintings: “All nine work.” The legacy extras remain proposals for feedback.
+20 new wide paintings, approved Salvation, unchanged Freeze and March. Nine current paintings are recomposed, nine cards receive first paintings, and Rescue/card back are refreshed. The owner approves the first redesigned set's direction: “Keep this direction.” The owner approves all nine first paintings: “All nine work.” On 2026-11-06 the owner asks to finish without more feedback, so the Sacrifice pawn-shell revision, the Rescue stylized-hand revision and the refreshed card back are final.
 
 Use wide-review/index.html on port 5199. Named card buttons, Previous/Next, keyboard arrows and direct hash links select a comparison. Desktop places current and proposed faces together; phone shows the proposal first. Current art uses the game renderer/CSS. New paintings use the full near16:9 source in a definite contain window; kept images use the exact current game frame. All23 manifest paths exist. Source art and game styles stay intact.
 

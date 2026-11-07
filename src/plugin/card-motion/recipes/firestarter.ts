@@ -13,8 +13,8 @@ vec4 card(vec2 q, vec3 m) {
     vec2 w = way(q);
     float g = min(gain(), 2.);
     vec2 wob = stir(iso, 9., 1., .0035) * m.r;
-    vec2 by = w * .02 * g * m.r;
-    float a = fract(2. * t), b = fract(2. * t + .5);
+    vec2 by = w * .01 * g * m.r;
+    float a = fract(4. * t), b = fract(4. * t + .5);
     vec3 fire = mix(paint(q + wob - by * (a - .5)), paint(q + wob - by * (b - .5)), smoothstep(.15, .85, abs(2. * a - 1.)));
     // A slow wave of light runs with the fire; bright paint takes it, dark paint does not.
     float s = dot(iso, normalize(vec2(w.x * 16. / 9., w.y))) * 5.;
