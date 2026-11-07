@@ -378,6 +378,27 @@ describe('ready character playback', () => {
    expect(runtime.stats.active).toBe(0);
   }finally{runtime.dispose();vi.useRealTimers();}
  });
+ it('starts a jump on its first frames and streams the rest, every second frame first, holding the last decoded pose', async () => {
+  vi.useFakeTimers();
+  const idle={...bank(),character:'knight',id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const leap={...idle,id:'leap',kind:'movement',nearest:false,durationMs:450,frames:[...Array.from({length:9},(_,i)=>({url:`leap-${i}`,timeMs:i*50})),{url:'rest',timeMs:450}]};
+  const started:string[]=[],cancelled:string[]=[],held=new Map<string,()=>void>();
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,leap]})})) as unknown as typeof fetch,
+   image:()=>{let name='';const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:()=>cancelled.push(name),set src(s:string){name=s.split('/').at(-1)!;started.push(name);const load=()=>img.onload?.();if(/^leap-[4-8]$/.test(name))held.set(name,load);else queueMicrotask(load);}};return img as unknown as HTMLImageElement;}});
+  try{
+   const pending=runtime.prepare('knight','white','SE',false,false);await vi.advanceTimersByTimeAsync(1000);
+   const prepared=await pending as any;
+   expect(prepared.movement?.id).toBe('leap');
+   // A 768 px frame keeps seven frames past the playhead within a quarter of the decoded budget.
+   expect(started.filter(s=>s.startsWith('leap-'))).toEqual(['leap-0','leap-1','leap-2','leap-3','leap-4','leap-6','leap-8','leap-5','leap-7']);
+   const at=(t:number)=>(runtime.action(prepared,t,450,0) as {url:string}).url;
+   expect(at(260)).toBe('leap-3');
+   expect(cancelled).toEqual(['leap-4']);
+   held.get('leap-5')!();await vi.advanceTimersByTimeAsync(0);
+   expect(at(260)).toBe('leap-5');expect(at(450)).toBe('rest');
+   prepared.releaseMovementStart?.();prepared.releaseMovement?.();prepared.releaseFallback?.();
+  }finally{runtime.dispose();vi.useRealTimers();}
+ });
  it('keeps a partly cached jump while its missing frames load under cache pressure', async()=>{
   const idle={...bank(),character:'paladin',id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
   const movement={...idle,id:'charge',kind:'movement',nearest:false,frames:[0,60,120].map(timeMs=>({url:`charge-${timeMs}`,timeMs}))};
