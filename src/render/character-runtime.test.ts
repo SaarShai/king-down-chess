@@ -1,8 +1,48 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createCharacterRuntime, anchorAt, bankPointToWorld, idleBankAt, facingOf, frameAt, turnRoute, reverseRoute, type RuntimeBank } from './painted/character-runtime.mjs';
+import { createCharacterRuntime, anchorAt, bankPointToWorld, idleBankAt, facingOf, figureHeight, frameAt, turnRoute, reverseRoute, walkStride, type RuntimeBank } from './painted/character-runtime.mjs';
 const bank = (from = 'SE', to = 'S'): RuntimeBank => ({ id: `${from}-${to}`, character: 'pawn', army: 'white', kind: 'turn', from, to, facing: 'SE', durationMs: 120, nearest: true, pivot: [384,700], canvasSize: [768,768], bodyHeightPx: 600, registrationHeightPx: 600, frames: [0,60,120].map(timeMs => ({ url: `frame-${timeMs}`, timeMs })) });
 
+it('sets the final figure heights, and a walk stride follows its figure', () => {
+ expect(['pawn','maester','knight','queen','beast','bishop','guard','ogre','rook'].map(figureHeight)).toEqual([82,84,129,132,104,125,108,116,132]);
+ expect(walkStride({character:'maester',strideSquares:.84})).toBeCloseTo(.63);
+ expect(walkStride({character:'knight',strideSquares:1})).toBeCloseTo(129/112);
+ expect(walkStride({character:'rook',strideSquares:.9})).toBe(.9);
+});
+
 describe('ready character playback', () => {
+ it('gives each frame its footprint from the table, and a missing frame its character\'s standing one', async () => {
+  const sha=(c:string)=>c.repeat(64);
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',sourceSha256:sha('a'),timeMs:0}]};
+  const move={...bank(),id:'walk',kind:'move',strideSquares:1,durationMs:40,frames:[{url:'walk-0',sourceSha256:sha('b'),timeMs:0},{url:'walk-1',sourceSha256:sha('c'),timeMs:20}]};
+  const table={schemaVersion:1,keyLength:7,frames:{[sha('a').slice(0,7)]:[100,-3],[sha('b').slice(0,7)]:[140,4,-2,5,9]}};
+  const urls:string[]=[];
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',wake:()=>{},fetcher:vi.fn(async(url:string)=>{urls.push(url);return {ok:true,json:async()=>url.endsWith('footprints.json')?table:{schemaVersion:1,banks:[idle,move]}};}) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(_:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  await runtime.ready();await vi.waitFor(()=>expect(urls).toContain('https://example.invalid/footprints.json'));
+  await runtime.warm('pawn','white');
+  const print=(body:unknown)=>(body as {footprint?:number[]}|null)?.footprint;
+  await vi.waitFor(()=>expect(print(runtime.rest('pawn','white'))).toEqual([100,-3]));
+  const prepared=await runtime.prepare('pawn','white','SE',false);
+  expect(prepared).toBeTruthy();
+  const at=(ms:number)=>runtime.action(prepared!,ms,40,0);
+  expect(print(at(0))).toEqual([140,4,-2,5,9]);
+  expect(print(at(25))).toEqual([100,-3]);
+  runtime.dispose();
+ });
+ it('decodes a capture up to its contact frame before the attack starts', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const attack={...idle,id:'attack-SE',kind:'attack',contactMs:60,durationMs:90,frames:Array.from({length:10},(_,i)=>({url:`attack-${i}`,timeMs:i*10}))};
+  const make=(started:string[])=>createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){started.push(s.split('/').at(-1)!);queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const cold=make([]);
+  const prepared=await cold.prepare('pawn','white','SE',true);
+  expect((cold.action(prepared!,60,90,60) as {url?:string}|null)?.url).toBe('attack-6');
+  cold.dispose();
+  const started:string[]=[],selected=make(started);
+  await selected.ready();await selected.prefetchMoves('pawn','white',[],['SE']);
+  expect(started.filter(s=>s.startsWith('attack-'))).toEqual(Array.from({length:7},(_,i)=>`attack-${i}`));
+  selected.dispose();
+ });
  it('decodes a selected capture route before its bounded preparation', async () => {
   vi.useFakeTimers();
   const idle={...bank(),id:'idle',character:'king-frost',kind:'idle',frames:[{url:'rest',timeMs:0}]};
@@ -372,7 +412,7 @@ describe('ready character playback', () => {
    const sample=(t:number)=>runtime.action(prepared,t,1000,0) as {bank:string;time:number;pivot:number[];scale:number};
    expect(sources.filter(s=>s.includes(`${army}-move-`))).toHaveLength(3);
    expect([0,499,500,999,1000].map(t=>sample(t).time)).toEqual([0,0,100,100,200]);
-   expect(sample(0)).toMatchObject({bank:`${army}-move`,pivot:[100,200],scale:96/400});
+   expect(sample(0)).toMatchObject({bank:`${army}-move`,pivot:[100,200],scale:82/400});
    expect(sample(-1).bank).toBe(`${army}-turn`);expect(sample(1001).bank).toBe(`${army}-turn`);
    const opposite=await runtime.prepare('pawn',army,'SE',false,true);
    expect((runtime.action(opposite,500,1000,0) as {bank:string}).bank).toBe(`${army}-idle`);
@@ -706,7 +746,7 @@ describe('ready character playback', () => {
  it('backs off a failed manifest and accepts a later retry', async () => {
   vi.useFakeTimers();
   try {
-   let attempts=0;const runtime=createCharacterRuntime({fetcher:vi.fn(async()=>{attempts++;if(attempts===1)throw Error('offline');return {ok:true,json:async()=>({schemaVersion:1,banks:[{...bank(),kind:'idle'}]})} as Response;}) as unknown as typeof fetch});
+   let attempts=0;const runtime=createCharacterRuntime({fetcher:vi.fn(async(url:string)=>{if(url.endsWith('manifest.json'))attempts++;if(attempts===1)throw Error('offline');return {ok:true,json:async()=>({schemaVersion:1,banks:[{...bank(),kind:'idle'}]})} as Response;}) as unknown as typeof fetch});
    await runtime.ready();for(let i=0;i<50;i++)runtime.has('pawn','white');await vi.advanceTimersByTimeAsync(4999);expect(attempts).toBe(1);
    await vi.advanceTimersByTimeAsync(1);runtime.has('pawn','white');await vi.advanceTimersByTimeAsync(0);expect(attempts).toBe(2);expect(runtime.has('pawn','white')).toBe(true);runtime.dispose();
   } finally {vi.useRealTimers();}
@@ -853,13 +893,13 @@ describe('ready character playback', () => {
   } finally {runtime.dispose();vi.unstubAllGlobals();}
  });
  it('asks the network for no art while the browser reports offline and resumes when it returns', async () => {
-  const fetcher=vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})})),listeners=new Map<string,()=>void>();let online=false;
+  const fetcher=vi.fn(async(_url:string)=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})})),listeners=new Map<string,()=>void>();let online=false;
   vi.stubGlobal('addEventListener',(name:string,fn:()=>void)=>listeners.set(name,fn));vi.stubGlobal('removeEventListener',(name:string)=>listeners.delete(name));
   vi.stubGlobal('navigator',{get onLine(){return online;}});
   const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:fetcher as unknown as typeof fetch});
   try{
    await runtime.ready();expect(runtime.has('pawn','white')).toBe(false);expect(runtime.rest('pawn','white',0,true)).toBeNull();expect(fetcher).not.toHaveBeenCalled();
-   online=true;listeners.get('online')?.();await vi.waitFor(()=>expect(fetcher).toHaveBeenCalledTimes(1));
+   online=true;listeners.get('online')?.();await vi.waitFor(()=>expect(fetcher).toHaveBeenCalledWith('https://example.invalid/manifest.json'));
   }finally{runtime.dispose();expect(listeners.has('online')).toBe(false);vi.unstubAllGlobals();}
  });
 });

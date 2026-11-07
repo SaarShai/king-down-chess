@@ -13,8 +13,13 @@ it('reads current public settings without a player token, cookies or cached valu
   expect(fetcher).toHaveBeenCalledWith(url + '/auth/v1/settings', { headers: { apikey: key }, credentials: 'omit', cache: 'no-store', redirect: 'error', signal: expect.any(AbortSignal) });
 });
 
+it('reads the email option from the same settings', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ external: { github: true, email: true } })));
+  expect(await availableProviders(url, key)).toEqual(['github', 'email']);
+});
+
 it('does not turn missing, false or truthy non-boolean settings into enabled providers', async () => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ external: { google: 'true', github: 1, facebook: false, email: true } })));
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ external: { google: 'true', github: 1, facebook: false, email: 'true' } })));
   expect(await availableProviders(url, key)).toEqual([]);
 });
 

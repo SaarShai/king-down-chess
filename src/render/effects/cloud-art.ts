@@ -1,6 +1,7 @@
 // The painted clouds and wind gusts of the air moves. One sheet, painted once (travel-clouds-prompt.txt): six puffs
 // above, three gusts below. Each cell in each tint goes to its own small canvas the first time it is used. Until the
 // sheet has loaded, or if it cannot load, a cell is null and the caller draws nothing.
+import { afterBoard } from '../painted/after-board.mjs';
 export type CloudTint = 'cloud' | 'lilac' | 'slate' | 'gold';
 export type WindTint = CloudTint | 'flame';
 export interface ArtSprite { canvas: HTMLCanvasElement; w: number; h: number }
@@ -16,7 +17,7 @@ const TINTS: Record<WindTint, [string, number] | null> = { cloud: null, lilac: [
 
 const sheet = typeof Image === 'undefined' ? null : new Image();
 if (sheet) sheet.crossOrigin = 'anonymous';
-if (sheet) sheet.src = new URL('./travel-clouds.webp', import.meta.url).href;
+if (sheet) afterBoard(() => { sheet.src = new URL('./travel-clouds.webp', import.meta.url).href; });
 
 const cells = new Map<string, ArtSprite>();
 function cell(key: string, tint: WindTint, x: number, y: number, w: number, h: number): ArtSprite | null {

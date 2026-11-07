@@ -6,7 +6,13 @@
     <!-- Light only, also in device dark mode (the Quiet Table); the browser bar takes the parchment colour. -->
     <meta name="color-scheme" content="only light" />
     <meta name="theme-color" content="#f3ead7" />
-    <style>html { background: #f2e9d6; } #game-table[data-local-entry] { visibility: hidden; } html.local-ready #game-table[data-local-entry] { visibility: visible; }</style>
+    <style>html { background: #f2e9d6; } #game-table[data-local-entry] { visibility: hidden; } html.local-ready #game-table[data-local-entry] { visibility: visible; }
+      /* Until the board can draw (the stone and the still figures), a line says that it loads. */
+      #first-load { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; margin: 0; pointer-events: none; font: 1.125rem/1.4 'Alegreya Sans', Georgia, serif; letter-spacing: .02em; color: #5b5045; animation: first-load 1.6s ease-in-out infinite alternate; }
+      @keyframes first-load { from { opacity: .55; } to { opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) { #first-load { animation: none; } }
+      html.local-ready #first-load { display: none; }
+    </style>
     <title>King Down Chess</title>
     <meta name="description" content="A chess variant with archers, guards, maesters, beasts, ogres and paladins." />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232b2621'/%3E%3Cpath d='M6 12l5 5 5-8 5 8 5-5-2 13H8z' fill='%23d9a441' stroke='%23f3ead7' stroke-width='1.5' stroke-linejoin='round' transform='rotate(-14 16 16)'/%3E%3C/svg%3E" />
@@ -32,6 +38,7 @@
       <symbol id="i-smiling-pawn" viewBox="0 0 24 24"><circle cx="12" cy="7" r="5"/><path d="M10 6h.01M14 6h.01M10 8q2 2 4 0M8.5 13h7M10 13l-1 4-2.5 3v1h11v-1L15 17l-1-4"/></symbol>
       <symbol id="i-die" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M8 8h.01M16 8h.01M12 12h.01M8 16h.01M16 16h.01"/></symbol>
     </svg>
+    <p id="first-load" role="status">Loading the board…</p>
     <main id="game-table" data-local-entry aria-label="Game">
       <div id="board" tabindex="0" role="application" aria-roledescription="chess board" aria-label="Board. Arrow keys move the square cursor; Enter or Space selects and moves." aria-describedby="cursor-say"></div>
       <div class="table-side">
@@ -88,28 +95,29 @@
         <!-- The six kings in a shallow arc: Spirit and Shadow (the kings with no power) in the middle.
              Once risen, each shows his resting effect (board/title-kings.mjs, started by main.ts). -->
         <div class="title-kings">
-          <img class="tk-outer" src="/ui/kings/mud.webp" alt="" data-king="mud" />
-          <img class="tk-inner" src="/ui/kings/flame.webp" alt="" data-king="flame" />
-          <img class="tk-centre" src="/ui/kings/spirit.webp" alt="" data-king="spirit" />
-          <img class="tk-centre tk-right" src="/ui/kings/shadow.webp" alt="" data-king="shadow" />
-          <img class="tk-inner tk-right" src="/ui/kings/frost.webp" alt="" data-king="frost" />
-          <img class="tk-outer tk-right" src="/ui/kings/stratus.webp" alt="" data-king="stratus" />
+          <img class="tk-outer" src="/ui/kings/mud.webp" alt="" data-king="mud" loading="lazy" />
+          <img class="tk-inner" src="/ui/kings/flame.webp" alt="" data-king="flame" loading="lazy" />
+          <img class="tk-centre" src="/ui/kings/spirit.webp" alt="" data-king="spirit" loading="lazy" />
+          <img class="tk-centre tk-right" src="/ui/kings/shadow.webp" alt="" data-king="shadow" loading="lazy" />
+          <img class="tk-inner tk-right" src="/ui/kings/frost.webp" alt="" data-king="frost" loading="lazy" />
+          <img class="tk-outer tk-right" src="/ui/kings/stratus.webp" alt="" data-king="stratus" loading="lazy" />
         </div>
       </div>
-      <!-- Every piece in the game, alternating the two armies; sized as they stand on the board. -->
+      <!-- Every piece in the game, alternating the two armies; sized as they stand on the board.
+           The title pictures load lazily: when the title does not open, they do not slow the board. -->
       <ul class="title-lineup" aria-label="The twelve pieces">
-          <li style="--h:0.74;--i:0"><img src="/ui/pieces/pawn-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/pawn.svg#icon"/></svg>Pawn</span></li>
-          <li style="--h:0.79;--i:1"><img src="/ui/pieces/knight-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/knight.svg#icon"/></svg>Knight</span></li>
-          <li style="--h:0.87;--i:2"><img src="/ui/pieces/bishop-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/bishop.svg#icon"/></svg>Bishop</span></li>
-          <li style="--h:0.96;--i:3"><img src="/ui/pieces/rook-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/rook.svg#icon"/></svg>Rook</span></li>
-          <li style="--h:0.79;--i:4"><img src="/ui/pieces/queen-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/queen.svg#icon"/></svg>Queen</span></li>
-          <li style="--h:0.81;--i:5"><img src="/ui/kings/spirit.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/king.svg#icon"/></svg>King</span></li>
-          <li style="--h:0.72;--i:6"><img src="/ui/pieces/archer-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/archer.svg#icon"/></svg>Archer</span></li>
-          <li style="--h:0.86;--i:7"><img src="/ui/pieces/paladin-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/paladin.svg#icon"/></svg>Paladin</span></li>
-          <li style="--h:0.78;--i:8"><img src="/ui/pieces/guard-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/guard.svg#icon"/></svg>Guard</span></li>
-          <li style="--h:0.66;--i:9"><img src="/ui/pieces/maester-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/maester.svg#icon"/></svg>Maester</span></li>
-          <li style="--h:0.87;--i:10"><img src="/ui/pieces/beast-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/beast.svg#icon"/></svg>Beast</span></li>
-          <li style="--h:1;--i:11"><img src="/ui/pieces/ogre-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/ogre.svg#icon"/></svg>Ogre</span></li>
+          <li style="--h:0.74;--i:0"><img src="/ui/pieces/pawn-b.webp" alt="" loading="lazy" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/pawn.svg#icon"/></svg>Pawn</span></li>
+          <li style="--h:0.79;--i:1"><img src="/ui/pieces/knight-w.webp" alt="" loading="lazy" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/knight.svg#icon"/></svg>Knight</span></li>
+          <li style="--h:0.87;--i:2"><img src="/ui/pieces/bishop-b.webp" alt="" loading="lazy" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/bishop.svg#icon"/></svg>Bishop</span></li>
+          <li style="--h:0.96;--i:3"><img src="/ui/pieces/rook-w.webp" alt="" loading="lazy" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/rook.svg#icon"/></svg>Rook</span></li>
+          <li style="--h:0.79;--i:4"><img src="/ui/pieces/queen-b.webp" alt="" loading="lazy" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/queen.svg#icon"/></svg>Queen</span></li>
+          <li style="--h:0.81;--i:5"><img src="/ui/kings/spirit.webp" alt="" loading="lazy" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/king.svg#icon"/></svg>King</span></li>
+          <li style="--h:0.72;--i:6"><img src="/ui/pieces/archer-b.webp" alt="" loading="lazy" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/archer.svg#icon"/></svg>Archer</span></li>
+          <li style="--h:0.86;--i:7"><img src="/ui/pieces/paladin-w.webp" alt="" loading="lazy" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/paladin.svg#icon"/></svg>Paladin</span></li>
+          <li style="--h:0.78;--i:8"><img src="/ui/pieces/guard-b.webp" alt="" loading="lazy" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/guard.svg#icon"/></svg>Guard</span></li>
+          <li style="--h:0.66;--i:9"><img src="/ui/pieces/maester-w.webp" alt="" loading="lazy" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/maester.svg#icon"/></svg>Maester</span></li>
+          <li style="--h:0.87;--i:10"><img src="/ui/pieces/beast-b.webp" alt="" loading="lazy" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/beast.svg#icon"/></svg>Beast</span></li>
+          <li style="--h:1;--i:11"><img src="/ui/pieces/ogre-w.webp" alt="" loading="lazy" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/ogre.svg#icon"/></svg>Ogre</span></li>
       </ul>
       <div class="title-copy">
         <h1 id="title-word" class="wordmark"><svg class="wordmark-crown" aria-hidden="true"><use href="#i-crown"/></svg><span class="wm-king">King</span> <span class="wm-down">Down</span><span class="wm-chess">Chess</span></h1>

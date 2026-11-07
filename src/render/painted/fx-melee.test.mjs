@@ -9,8 +9,8 @@ const STRIKE={bishop:'slash',paladin:'hammer',rook:'pound',pawn:'pawn',knight:'k
 const STEP={N:[0,-1],NE:[1,-1],E:[1,0],SE:[1,1],S:[0,1],SW:[-1,1],W:[-1,0],NW:[-1,-1]};
 
 test('every painted melee attack lands its weapon on the victim, from one square and from far, without passing it',()=>{
- const victimFoot={x:480,y:520},height=figureHeight('pawn');
- for(const bank of manifest.banks.filter(b=>b.kind==='attack'&&STRIKE[b.character])){
+ const victimFoot={x:480,y:520};
+ for(const height of [figureHeight('pawn'),figureHeight('rook')])for(const bank of manifest.banks.filter(b=>b.kind==='attack'&&STRIKE[b.character])){
   const [dx,dy]=STEP[bank.facing],reach=strikeReach(bank,bankScale(bank));
   assert.ok(reach,`${bank.character} ${bank.id}: has a weapon point`);
   for(const squares of [1,3]){

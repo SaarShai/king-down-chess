@@ -61,7 +61,7 @@ export interface PaintedScene {
    * Opt-in liveliness (all off by default, so the trial and the trailer are unchanged):
    * moves: quiet moves use each figure's gait (gait.mjs); idle: the selected figure plays his clip once
    * (a Knight or a Rook: clips/clips.mjs), then breathes;
-   * atmosphere: a stone frame, soft contact shadows and warm light on the board;
+   * atmosphere: a stone frame, soft pools under the figures and warm light on the board;
    * kings: each king's own idle effect (king-effects.mjs), redrawn about 30 times a second while one shows;
    * captures: a piece a king takes dies that king's way (king-captures.mjs);
    * pawns: resting pawns now and then shake the spear, move the helmet or hitch the shield (lance/idle.mjs).
@@ -88,6 +88,8 @@ export interface PaintedScene {
   redraw(): void;
   /** Draw every frame for the next `ms` milliseconds (a decoration's own short animation). */
   keepAwake(ms: number): void;
+  /** Board-unit bounds of figure `piece` standing at rest on `square`: foot x and y, head top, left and right. */
+  figureBox(piece: number, square: number): { x: number; foot: number; top: number; l: number; r: number };
   /** A see-through copy of figure `piece` standing on `square` (a move preview), drawn into `ctx`; for setDecorate. */
   ghost(ctx: CanvasRenderingContext2D, piece: number, square: number, opacity?: number): void;
   /** onContact fires once when the strike lands (not for plain moves or swaps). */

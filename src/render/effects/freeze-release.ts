@@ -1,4 +1,4 @@
-import { drawFreeze } from './materials';
+import { drawFreeze, iceScale } from './materials';
 
 // A thaw has three beats over one approved material. The held ice cracks, whole. Then it breaks into pieces of the same
 // painted ice that fall from the top down and burst on the ground. The base sags into a puddle, which dries. The pieces
@@ -8,7 +8,7 @@ const CRACK_END = .22, CRACK_FADE = .1, SHED_START = .22, SHED_SPAN = .4, MELT_S
 const clamp = (n: number) => Math.max(0, Math.min(1, n));
 const smooth = (n: number) => { n = clamp(n); return n * n * (3 - 2 * n); };
 const hash = (n: number) => { const v = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return v - Math.floor(v); };
-const SCALE = 2, W = 200, H = 220, X = 100, Y = 165;
+const SCALE = 2, W = 240, H = 220, X = 120, Y = 165;
 const COLS = [-78, -44, -12, 20, 50, 78], ROWS = { back: [-118, -84, -52, -20], front: [-62, -28, 8] };
 const CRACK_PARTS = 9;
 type Point = [number, number];
@@ -28,17 +28,22 @@ function strokeCrack(ctx: CanvasRenderingContext2D) {
   ctx.strokeStyle = '#f2ffff'; ctx.lineWidth = 1.7; ctx.stroke();
 }
 
-function buildFace(front: boolean, seed: number): Face {
+/** The frozen figure's size, as drawFreeze takes it. */
+export interface IceSize { height?: number; half?: number }
+
+function buildFace(front: boolean, seed: number, size: IceSize): Face {
+  // The grid and strike points stretch with the ice, so the held image breaks along the same lines at any size.
+  const [sx, sy] = iceScale({ x: 0, y: 0, progress: 0, front, ...size });
   const sprite = document.createElement('canvas'); sprite.width = W * SCALE; sprite.height = H * SCALE;
   const paint = sprite.getContext('2d')!;
   paint.scale(SCALE, SCALE);
-  drawFreeze(paint, { x: X, y: Y, front, progress: .42, seed });
+  drawFreeze(paint, { x: X, y: Y, front, progress: .42, seed, ...size });
   const alpha = paint.getImageData(0, 0, sprite.width, sprite.height).data;
   const solid = (x: number, y: number) => alpha[(Math.round((y + Y) * SCALE) * sprite.width + Math.round((x + X) * SCALE)) * 4 + 3] > 50;
   const rows = front ? ROWS.front : ROWS.back, last = rows.length - 1;
   const at = (c: number, r: number): Point => {
     const k = c * 7 + r * 31 + seed * 13 + (front ? 101 : 0);
-    return [COLS[c] + (c % (COLS.length - 1) ? (hash(k) - .5) * 19 : 0), rows[r] + (r ? (hash(k + 3) - .5) * 19 : 0)];
+    return [(COLS[c] + (c % (COLS.length - 1) ? (hash(k) - .5) * 19 : 0)) * sx, (rows[r] + (r ? (hash(k + 3) - .5) * 19 : 0)) * sy];
   };
   const edges: [Point, Point][] = [], polygons: Point[][] = [];
   for (let r = 0; r < last; r++) for (let c = 0; c < COLS.length - 1; c++) {
@@ -67,14 +72,14 @@ function buildFace(front: boolean, seed: number): Face {
     g.globalCompositeOperation = 'source-atop'; g.lineJoin = 'bevel';
     outline(g, polygon, !base); strokeCrack(g);
     // Higher ice lets go first and has further to fall.
-    const height = clamp((cy + 118) / 124), ground = 10 + hash(id + 2) * 17;
+    const height = clamp((cy / sy + 118) / 124), ground = 10 + hash(id + 2) * 17;
     return { canvas, x, y, w, h, cx, cy, id, ground, release: SHED_START + height * SHED_SPAN * .72 + hash(id) * SHED_SPAN * .28, fall: .13 + .2 * Math.sqrt(clamp((ground - cy) / 140)),
       drift: (Math.sign(cx) || 1) * (5 + hash(id + 4) * 15), spin: (hash(id + 7) - .5) * 2.2 };
   };
   const pieces = polygons.flatMap((polygon, i) => cut(polygon, i * 3 + seed + (front ? 500 : 0)) ?? []);
   const base = cut([...groundLine, [X, H - Y], [-X, H - Y]], 9, true)!;
   // Each fracture runs outward from the nearest strike point; only its part on the ice shows.
-  const origins = front ? ORIGINS.front : ORIGINS.back, cracks: Crack[] = [];
+  const origins = (front ? ORIGINS.front : ORIGINS.back).map(([x, y]): Point => [x * sx, y * sy]), cracks: Crack[] = [];
   const dist = (p: Point) => Math.min(...origins.map(o => Math.hypot(p[0] - o[0], p[1] - o[1])));
   for (const [a, b] of [...edges, ...groundLine.slice(1).map((p, i) => [groundLine[i], p] as [Point, Point])]) {
     for (let i = 0; i < CRACK_PARTS; i++) {
@@ -89,12 +94,12 @@ function buildFace(front: boolean, seed: number): Face {
 }
 
 const faces = new Map<string, Face>();
-function faceOf(seed: number, front: boolean): Face {
-  const key = `${seed}:${front}`;
+function faceOf(seed: number, front: boolean, size: IceSize): Face {
+  const key = `${seed}:${front}:${size.height}:${size.half}`;
   let face = faces.get(key);
   if (!face) {
     if (faces.size >= 8) faces.delete(faces.keys().next().value!);
-    faces.set(key, face = buildFace(front, seed));
+    faces.set(key, face = buildFace(front, seed, size));
   }
   return face;
 }
@@ -146,9 +151,9 @@ function drawPiece(ctx: CanvasRenderingContext2D, foot: { x: number; y: number }
 }
 
 /** One face of a thaw at `t` 0..1. It needs no figure, so it also finishes on a square that its piece has left. */
-export function drawFreezeRelease(ctx: CanvasRenderingContext2D, foot: { x: number; y: number }, front: boolean, t: number, seed: number): void {
+export function drawFreezeRelease(ctx: CanvasRenderingContext2D, foot: { x: number; y: number }, front: boolean, t: number, seed: number, size: IceSize = {}): void {
   if (t >= 1) return;
-  const face = faceOf(seed, front);
+  const face = faceOf(seed, front, size);
   if (!front) {
     const size = smooth((t - .3) / .35), dry = smooth((t - .74) / .26), scale = (.45 + size * .55) * (1 - dry * .22);
     if (size > 0 && dry < 1) {

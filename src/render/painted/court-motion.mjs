@@ -3,13 +3,13 @@ import {clamp,paintTriangle,rotate} from './painted-mesh.mjs';
 export const ANCHOR={x:576,y:1018};
 export const HIT={x:576,y:540};
 export const figures={
- queen:{duration:1250,origins:[[103,23],[215,20]],mirror:false,bands:[0,520,600,680,760,840,925,1024],shift:{x:18,y:7},fixed:925,rigid:520,scale:.12},
+ queen:{duration:1250,origins:[[103,23],[215,20]],mirror:false,bands:[0,520,600,680,760,840,925,1024],shift:{x:18,y:7},fixed:925,rigid:520,scale:.132},
  paladin:{duration:1450,origins:[[224,108],[224,108]],mirror:false,bands:[0,640,670,700,730,760,780,1024],shift:{x:28,y:4},fixed:780,rigid:640,scale:.14},
- maester:{duration:1100,origins:[[268,56],[165,54]],mirror:true,scale:.105},
+ maester:{duration:1100,origins:[[268,56],[165,54]],mirror:true,scale:.0788},
  // King and Beast: one rigid pose each; the whole figure leans about the feet.
  // Owner 2026-10-04: kings 15% larger on the board (.122 → .1403).
  king:{duration:1100,origins:[[138,16],[228,16]],mirror:false,scale:.1403},
- beast:{duration:1000,origins:[[154,54],[149,54]],mirror:false,scale:.1275}
+ beast:{duration:1000,origins:[[154,54],[149,54]],mirror:false,scale:.102}
 };
 // The six king sheets (king-<design>/king.webp). Each origin puts that army's figure with its
 // body (head and torso) centred over ANCHOR.x and its soles on ANCHOR.y; `fit` scales it about ANCHOR so every

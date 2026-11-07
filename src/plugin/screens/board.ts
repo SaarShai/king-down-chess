@@ -378,10 +378,11 @@ export function boardScreen(store: Store) {
     motion.play($('moves-line'), [{ transform: 'translateX(12px)' }, { transform: 'translateX(0)' }], 600);
   }
   $('undo').onclick = undo;
-  $('end-turn').onclick = () => {
+  $('end-turn').onclick = event => {
     if (!view || !pos || blocked() || sheet?.open || view.action !== 'ready' || view.status !== 'playing' || !turn().ready) return;
     const actions = sendActions(steps, pos, view.seat, gameRules, previewPosition());
-    $('board').focus({preventScroll:true});
+    // A key press (a click with no pointer detail) keeps the board ring; a pointer Send does not show it.
+    $('board').focus({preventScroll:true, focusVisible: event.detail === 0});
     void call('kingdown_move', {game_id:view.game_id, command_id:crypto.randomUUID().replaceAll('-', ''), expected_revision:view.revision, actions}, true);
   };
   $('table-bar').onkeydown = event => { if (event.key.toLowerCase() === 'z' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); undo(); } };

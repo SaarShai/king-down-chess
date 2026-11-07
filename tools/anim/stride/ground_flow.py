@@ -8,7 +8,7 @@ from PIL import Image
 
 TILE = 112.0  # board px per square (scene.mjs TILE); travel px = squares * TILE, squares is Euclidean
 HEIGHT = {'pawn': 96, 'knight': 112, 'bishop': 114, 'rook': 132, 'queen': 120, 'archer': 120,
-          'paladin': 124, 'maester': 112, 'ogre': 136, 'guard': 114}  # character-runtime.mjs; default 130
+          'paladin': 124, 'maester': 112, 'ogre': 136, 'guard': 114}  # character-runtime.mjs MEASURED_HEIGHT: strides stay in these units; default 130
 S2 = math.sqrt(0.5)
 # Screen unit vector of travel per facing (facingOf(dx,dy) uses screen dx,dy; N = -y).
 DIRS = {'N': (0, -1), 'NE': (S2, -S2), 'E': (1, 0), 'SE': (S2, S2), 'S': (0, 1), 'SW': (-S2, S2), 'W': (-1, 0), 'NW': (-S2, -S2)}

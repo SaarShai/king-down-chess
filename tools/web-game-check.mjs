@@ -242,7 +242,20 @@ try {
   await shot(page, 'web-replaced-friend-code');
   await page.locator('#friend-new').click();
   code = await linkKey(); assert.notEqual(code, replacedCode);
-  await tool(1, 'kingdown_join', { code });
+  // The friend opens the invite link in a browser and joins with its Join control.
+  const friend = await browser.newContext({ viewport: { width: 1100, height: 1000 } });
+  await friend.addInitScript(({ origin, actor, token }) => { if (location.origin === origin && !localStorage.getItem('kingdown.auth')) localStorage.setItem('kingdown.auth', JSON.stringify({
+    access_token: token, refresh_token: 'local-test-refresh', token_type: 'bearer', expires_in: 600, expires_at: Math.floor(Date.now() / 1000) + 600, user: { id: actor, aud: 'authenticated', role: 'authenticated', email: 'browser@example.invalid', app_metadata: { provider: 'google' }, user_metadata: {}, created_at: new Date().toISOString() },
+  })); }, { origin, actor: actors[1], token: tokens[1] });
+  await friend.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : (failures.push('External request blocked'), route.abort()));
+  const joiner = await friend.newPage(), joinErrors = trapErrors(joiner);
+  await joiner.goto(await page.locator('#friend-link').innerText());
+  await joiner.locator('[data-screen="join"]:not([hidden]) #join-confirm:not([hidden])').waitFor();
+  assert.equal(new URL(joiner.url()).hash, `#${code}`, 'The join screen keeps the invite key');
+  await shot(joiner, 'web-join-link');
+  await joiner.locator('#join-confirm').click();
+  await joiner.waitForURL(`${origin}/g/${gameId}`);
+  await friend.close(); assertNoErrors(joinErrors);
   await page.locator('[data-screen="seat"]:not([hidden])').waitFor();
   await page.locator('#seat-screen #board[aria-busy="false"] canvas').waitFor({ state: 'visible' });
   await page.locator('.veil').waitFor({ state: 'visible' });
@@ -391,13 +404,17 @@ try {
     await page.goto(origin + soloPath);
     await page.locator('[data-screen="board"]:not([hidden])').waitFor();
     await page.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
-    let computerSent, releaseComputer, heldId;
+    let computerSent, releaseComputer, heldDropped, heldId;
     const sent = new Promise(resolve => { computerSent = resolve; }), released = new Promise(resolve => { releaseComputer = resolve; });
+    const dropped = new Promise(resolve => { heldDropped = resolve; });
+    // Only the first computer call is held, and it never reaches the server. The route stays until that call is
+    // aborted: with no route left, the browser lets a held request go on (about one run in five failed so).
+    // The reloaded page's resend of the same call goes through.
     const holdComputer = async route => {
       const body = route.request().postDataJSON();
-      if (body?.action?.type !== 'computer') return route.continue();
+      if (body?.action?.type !== 'computer' || heldId) return route.continue();
       heldId = body.command_id; computerSent(); await released;
-      await route.abort('aborted').catch(() => {});
+      await route.abort('aborted').catch(() => {}); heldDropped();
     };
     await page.route('**/api/games/*/commands', holdComputer);
     const canvas = page.locator('#board canvas'), box = await canvas.boundingBox(); assert(box);
@@ -406,7 +423,6 @@ try {
     await page.locator('#end-turn[aria-disabled="false"]').click();
     await sent;
     const moved = await readSolo();
-    await page.unroute('**/api/games/*/commands', holdComputer);
     const computerCalls = [];
     const logComputer = response => {
       const request = response.request(), body = request.method() === 'POST' && request.postDataJSON();
@@ -414,7 +430,8 @@ try {
     };
     page.on('response', logComputer);
     await page.goto(origin + '/play/');
-    releaseComputer();
+    releaseComputer(); await dropped;
+    await page.unroute('**/api/games/*/commands', holdComputer);
     await page.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert.equal(new URL(page.url()).pathname, soloPath, 'Recovery names the source game in the URL');
     // A tap during a board animation only skips it (owner pick A8 a), so Back waits for the board to stop.

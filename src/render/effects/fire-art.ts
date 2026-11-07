@@ -1,5 +1,6 @@
 // Painted fire from one atlas (fire-fx.webp, prompts in fire-fx-prompt.txt): a flame loop, a fireball loop, a burst, char, smoke,
 // streaks and embers. Every piece is one drawImage from the atlas. Before the atlas loads, these draw nothing.
+import { afterBoard } from '../painted/after-board.mjs';
 const SPRITES = {
   burst: [[3, 3, 238, 225], [244, 3, 238, 225], [485, 3, 238, 225], [726, 3, 238, 225], [3, 231, 238, 225], [244, 231, 238, 225], [485, 231, 238, 225], [726, 231, 238, 225]],
   ball: [[3, 459, 298, 94], [304, 459, 298, 94], [605, 459, 298, 94], [3, 556, 298, 94], [304, 556, 298, 94], [605, 556, 298, 94]],
@@ -16,7 +17,7 @@ if (typeof Image !== 'undefined') {
   const image = new Image();
   image.crossOrigin = 'anonymous';
   image.onload = () => { atlas = image; };
-  image.src = new URL('./fire-fx.webp', import.meta.url).href;
+  afterBoard(() => { image.src = new URL('./fire-fx.webp', import.meta.url).href; });
 }
 
 const FLAME_MS = 80, BALL_MS = 55;

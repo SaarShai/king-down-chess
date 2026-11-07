@@ -1,0 +1,11 @@
+Project asset: King Down, a painted 2D fantasy chess game. Reference 1 is painted crack art from this game: match its hand-inked, tapered line quality. Reference 2 is a game screenshot: the stone floor is seen from straight above, and a black slit opens under a piece; that slit is what you repaint, in the painted style. Reference 3 is the Shadow king figure: match its paint, its dark ink edge, and use its deep violet for the glow.
+
+Paint one landscape image, 1536 x 1024, on a perfectly flat, solid, pure chroma green background, colour #00FF00, the same value edge to edge: no floor stone, no gradient, no vignette, no cast shadow outside the rift, no text, no labels, no borders, no grid lines.
+
+The image holds THREE separate painted floor rifts, stacked in three rows, each centred in its own third-height row, with wide clear green between rows and at the image edges. No rift touches another rift or the image edge.
+
+EACH RIFT, seen from straight above, is one wide jagged opening torn in a stone floor: a long narrow lens shape about 900 pixels wide and 200 pixels tall at its middle, pointed at both ends, with sharp zigzag broken edges like split stone. Inside the opening: deep near-black void (#07050A), with a faint deep violet glow (#4A2A70) far down in the middle of the depth. The upper rim of the opening has a thin band of broken dark stone wall with a pale cream chipped lip (#E8D8B4) where light catches the edge; the whole opening has a dark hand-inked outline. From each pointed end of the opening, three or four painted cracks run outward to the left and right, forking at sharp angles and tapering to hairline points, about 250 pixels long each; the cracks have a near-black core and a thin pale cream chipped lip on one side, exactly like reference 1. Each rift has a different outline and different cracks, all the same scale.
+
+Paint only the opening and its cracks. Every pixel outside them stays pure green. Solid, fully opaque paint with crisp painted edges. No blur, no soft halo, no airbrush, no smoke, no hands, no figure. Not vector, not photographic.
+
+Guides: two crack cells of march-cracks.webp, a game frame of the old Shadow capture, and the Shadow king figure. Cut from a green key and packed as three rifts, 560 x 112 each.

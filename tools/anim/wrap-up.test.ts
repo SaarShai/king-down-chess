@@ -49,7 +49,8 @@ it('keeps black ogre SW skin smooth across the old mask edges in all four poses'
  const banks = ['white', 'black'].map(army => manifest.banks.find(bank =>
   bank.character === 'ogre' && bank.army === army && bank.id === `${army}-walk-SW`)!);
  // Each pair has near-equal white shading. The old body-mask holes split it into light and dark skin.
- const samples = [[210, 229], [186, 160], [98, 327], [253, 232]];
+ // The points sit on the belly skin of the first four poses of the eight-pose walk.
+ const samples = [[210, 200], [220, 195], [200, 190], [220, 195]];
  for (const [pose, [x, y]] of samples.entries()) {
   const means: number[][] = [];
   for (const bank of banks) {

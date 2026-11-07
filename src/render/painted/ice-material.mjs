@@ -51,13 +51,24 @@ function frostGround(ctx, life, seed) {
 }
 const ICE_BACK = [[-50, 12], [-59, -13], [-51, -54], [-38, -79], [-18, -104], [2, -96], [20, -111], [43, -81], [55, -39], [57, -9], [43, 16], [8, 23], [-23, 21]];
 const ICE_FRONT = [[-51, 8], [-47, -20], [-31, -38], [-12, -46], [7, -32], [22, -61], [42, -44], [53, -9], [45, 16], [14, 27], [-20, 23]];
+// The ice was drawn for a figure 82 tall and 54 wide to each side (the Pawn's body). A taller or wider figure stretches
+// it to the same fit: the front face to the same share of its height, the back face above its head, both past its widest side.
+function iceScale(frame) {
+  if (!frame.height) return [1, 1];
+  const sx = Math.max(1, ((frame.half ?? 0) + 4) / 58);
+  // The back face stays under 160 units tall, inside the thaw's sprite.
+  return [sx, Math.max(1, frame.front ? frame.height / 82 : Math.min(1.44, (frame.height + 12) / 111))];
+}
 function drawFreeze(ctx, frame) {
   const { grow, melt, life } = materialState(frame.progress);
   if (life <= 0) return;
+  const [sx, sy] = iceScale(frame);
   ctx.save();
   ctx.translate(frame.x, frame.y);
+  ctx.scale(sx, 1);
   if (!frame.front) frostGround(ctx, Math.min(1, life * 2), frame.seed ?? 5);
   ctx.save();
+  ctx.scale(1, sy);
   const height = (frame.front ? 84 : 139) * grow * (1 - melt * 0.88);
   ctx.beginPath();
   ctx.rect(-75, 30 - height, 150, height + 4);
@@ -171,6 +182,7 @@ function drawIceWall(ctx, frame) {
   ctx.restore();
 }
 export {
+  iceScale,
   drawFreeze,
   drawIceWall,
   materialState
