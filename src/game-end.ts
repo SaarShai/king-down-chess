@@ -61,8 +61,12 @@ export function connectGameEnd(view: BoardView, board: HTMLElement, dialog: HTML
     c.lock(false); c.refresh(); c.announce(played);
     document.getElementById('over-words')!.hidden = !played;
     allowRematch = true;
+    // The heading shows a focus ring only after keyboard focus, as Chromium decides it. WebKit shows one after the
+    // dialog's autofocus too, and a second focus() call on the focused heading changes nothing, so the heading blurs first.
+    const keyboard = !!document.activeElement?.matches(':focus-visible'), title = dialog.querySelector<HTMLElement>('#over-title')!;
     dialog.showModal();
-    dialog.querySelector<HTMLElement>('#over-title')!.focus({ preventScroll: true });
+    if (title.matches(':focus-visible') !== keyboard) title.blur();
+    title.focus({ preventScroll: true, focusVisible: keyboard });
     dialog.scrollTop = 0;
     if (animate) {
       const game = c.game(), loser = c.resigned() ?? (game.status === 'checkmate' ? game.pos.turn : null);

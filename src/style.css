@@ -433,6 +433,16 @@ label.army select { width: 100%; font-weight: 400; }
 }
 .over-king { height: 104px; width: auto; }
 .over-b { transform: scaleX(-1); }
+/* Short landscape keeps the result and its actions above the fold, as the plugin end card does: no kings, actions after the words. */
+@media (orientation: landscape) and (max-height: 480px) {
+  body > #over { flex-direction: column; }
+  body > #over[open] { display: flex; }
+  body > #over > * { flex: none; }
+  body > #over .over-art { display: none; }
+  body > #over > form { order: 1; margin-top: var(--space-3); }
+  body > #over > :is(#over-tiles, #over-review) { order: 2; }
+  body > #over > #over-tiles { margin-top: var(--space-3); }
+}
 
 /* ---- Guide: painted piece cards ---- */
 #rules { width: min(940px, calc(100vw - 32px)); max-width: none; }
