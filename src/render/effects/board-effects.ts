@@ -23,13 +23,16 @@ export function drawBoardEffects(ctx: CanvasRenderingContext2D, scene: PaintedSc
     const foot = scene.foot(state.sq), material = state.kind === 'freeze' || state.kind === 'ward' || state.kind === 'firewall';
     const progress = material ? effects.materialProgress(state, now, motion) : effects.elapsed(state.since, state.clear ?? now, motion);
     const badge = effects.badge(state, now, motion);
+    // Ice fits the frozen figure (state.code), also while it thaws on a square that figure has left.
+    const box = state.kind === 'freeze' ? scene.figureBox(state.code, state.sq) : null;
+    const size = box ? { height: box.foot - box.top, half: Math.max(box.x - box.l, box.r - box.x) } : {};
     const draw = (front: boolean) => {
       ctx.save();
       if (state.kind === 'freeze' && state.clear != null) {
-        drawFreezeRelease(ctx, foot, front, effects.freezeRelease(state, now, motion), state.sq);
+        drawFreezeRelease(ctx, foot, front, effects.freezeRelease(state, now, motion), state.sq, size);
       } else if (material) {
         if (state.kind === 'firewall') drawFirewall(ctx, { ...foot, progress, front, seed: state.sq, clock: motion ? now : 0 });
-        else (state.kind === 'freeze' ? drawFreeze : drawIceWall)(ctx, { ...foot, progress, front, seed: state.sq });
+        else (state.kind === 'freeze' ? drawFreeze : drawIceWall)(ctx, { ...foot, progress, front, seed: state.sq, ...size });
       } else {
         if (!front) ring(ctx, scene, state.sq, '#a57d2f', badge);
         ctx.globalAlpha *= effects.shelterFade(state, now, motion);

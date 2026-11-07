@@ -30,3 +30,12 @@ test('a mirrored attack topples the other way',()=>{
  const plan=makePlan({...options,origin:[800,250],secondaryOrigin:[810,270]});
  assert.ok(victimAt(plan,CONTACT+DEMISE_MS*.8,{}).theta<-.3);
 });
+
+test('on the back rank the thorns bow less, so tip and stem stay inside the canvas',()=>{
+ // A Queen on d8 takes on e8: palms near the top, a short shot, so the full bow climbs far above the board.
+ const rank8={...options,origin:[400,20],secondaryOrigin:[392,34],target:[536,90],foot:[536,128],height:132},bounds=[0,-64,960,960],out={};
+ const top=plan=>Math.min(...plan.thorns.flatMap(t=>{const ys=[];for(let e=t.launchMs;e<t.hitMs;e+=4)if(thornAt(t,e,stand,out))ys.push(out.y-Math.abs(Math.sin(out.angle))*t.length);return ys;}));
+ assert.ok(top(makePlan(rank8))<bounds[1],'unbounded, a stem leaves the canvas');
+ assert.ok(top(makePlan({...rank8,bounds}))>=bounds[1]);
+ for(const p of makePlan({...rank8,bounds}).petals)assert.ok(p.y-p.vy**2/1040-p.size>=bounds[1],'petals turn below the top');
+});
