@@ -37,8 +37,8 @@
 #table-bar { grid-area: bar; display: grid; grid-template-columns: minmax(48px, 1fr) minmax(0, 2fr) minmax(48px, 1fr); gap: 4px; padding: 0 8px max(8px, env(safe-area-inset-bottom)); }
 #table-bar > button { align-self: center; min-height: 48px; display: flex; flex-direction: column; gap: 0; align-items: center; justify-content: center; border: 0; box-shadow: none; background: transparent; color: var(--ink); font-size: var(--fs-lg); font-weight: 700; line-height: 1.2; padding: 2px 4px; }
 #table-bar > button[aria-disabled='true'] { color: var(--disabled-ink, var(--stone-700)); opacity: 1; cursor: default; }
-#sheet-moves, #menu-sheet { width: min(560px, calc(100% - 24px)); max-height: calc(100dvh - 24px); padding: 0; overflow: hidden; }
-:is(#menu-sheet, #sheet-moves)[open] { display: flex; flex-direction: column; }
+#sheet-moves, #menu-sheet { width: min(560px, calc(100% - 24px)); max-height: calc(100dvh - 24px); padding: 0; overflow: hidden; flex-direction: column; }
+:is(#menu-sheet, #sheet-moves)[open] { display: flex; }
 .sheet-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 16px; }
 :is(#menu-sheet, #sheet-moves) .sheet-head { display: flex; gap: 8px; align-items: center; padding: 12px 16px; flex: none; }
 :is(#menu-sheet, #sheet-moves) .sheet-head h2 { flex: 1; min-width: 0; margin: 0; }

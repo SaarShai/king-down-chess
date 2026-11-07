@@ -4,6 +4,10 @@
 body { height: auto; min-height: 100dvh; overflow: auto; }
 #app-root { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 #app-root :is(button, input, select, .seg-row label) { min-width: 48px; min-height: 48px; }
+/* The web page has no host composer under the frame, so the frame and its floor reach the window bottom. */
+#app-frame { --composer-gap: 0px; }
+/* A card check is the 48 px box itself: it sits in the tile corner, inside the scroll box of the pool. */
+#app-root #setup-card-pool .card-use { top: 0; right: 0; width: 48px; height: 48px; padding: 0; }
 #app-root #game-table .coin { width: 48px; height: 48px; min-width: 48px; min-height: 48px; }
 @container table-screen (max-width: 319px) {
   #app-root #game-table .player-strip:has(.card-coin) { min-height: 56px; }
