@@ -399,6 +399,29 @@ describe('ready character playback', () => {
    prepared.releaseMovementStart?.();prepared.releaseMovement?.();prepared.releaseFallback?.();
   }finally{runtime.dispose();vi.useRealTimers();}
  });
+ it('starts a jump while its frames load when the measured link brings each in time, and waits for a late first frame', async () => {
+  vi.useFakeTimers();
+  const banks=['white','black'].flatMap(army=>{
+   const idle={...bank(),character:'knight',army,id:`${army}-idle`,kind:'idle',frames:[{url:`${army}-rest`,timeMs:0}]};
+   return [idle,{...idle,id:`${army}-leap`,kind:'movement',nearest:false,durationMs:900,frames:[...Array.from({length:9},(_,i)=>({url:`${army}-leap-${i}`,timeMs:i*100})),idle.frames[0]]}];
+  });
+  // A frame decodes 20 ms after its request, the other white leap frames 150 ms after it, a black leap frame 400 ms after it.
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:()=>{},set src(s:string){setTimeout(()=>img.onload?.(),/black-leap/.test(s)?400:/white-leap-[1-8]/.test(s)?150:20);}};return img as unknown as HTMLImageElement;}});
+  const settle=async(prepare:Promise<unknown>)=>{let at:number|null=null;const began=performance.now();void prepare.then(()=>{at=performance.now()-began;});for(let t=0;t<1100&&at===null;t+=5)await vi.advanceTimersByTimeAsync(5);return {at:at as unknown as number,prepared:await prepare as any};};
+  try{
+   const warm=runtime.warm('knight','white');await vi.advanceTimersByTimeAsync(100);await warm;
+   // The link is fast: the jump starts on its first frame. Its next frames come within the hold, so it does not wait for them.
+   const fast=await settle(runtime.prepare('knight','white','SE',false,false));
+   expect(fast.prepared.movement?.id).toBe('white-leap');expect(fast.at).toBeLessThanOrEqual(30);expect(runtime.stats.active+runtime.stats.queued).toBeGreaterThan(0);
+   fast.prepared.releaseMovementStart?.();fast.prepared.releaseMovement?.();fast.prepared.releaseFallback?.();
+   const warmBlack=runtime.warm('knight','black');await vi.advanceTimersByTimeAsync(100);await warmBlack;
+   // A first frame past the measured latency is late: the start waits for it, within the limit.
+   const late=await settle(runtime.prepare('knight','black','SE',false,false));
+   expect(late.prepared.movement?.id).toBe('black-leap');expect(late.at).toBeGreaterThanOrEqual(400);expect(late.at).toBeLessThan(1000);
+   late.prepared.releaseMovementStart?.();late.prepared.releaseMovement?.();late.prepared.releaseFallback?.();
+  }finally{runtime.dispose();vi.useRealTimers();}
+ });
  it('keeps a partly cached jump while its missing frames load under cache pressure', async()=>{
   const idle={...bank(),character:'paladin',id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
   const movement={...idle,id:'charge',kind:'movement',nearest:false,frames:[0,60,120].map(timeMs=>({url:`charge-${timeMs}`,timeMs}))};
