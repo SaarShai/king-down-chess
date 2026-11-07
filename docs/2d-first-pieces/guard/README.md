@@ -14,7 +14,7 @@ SHA-256: `49a1216a3fdb84552452906a6eca682f141044861e855306b355c9229982dc6e` (`gu
 
 The preview is a short defensive brace: a small preparation, a shallow +x shift into the ward line, a hold, and recovery. `drawGuard` uses a single coherent painted pose. The upper armour, gauntlets and hands move rigidly; the horizontal shift tapers through the greaves to zero at the soles so the Guard remains planted. No attack, arm stretch, skeletal rig or added equipment is implied.
 
-`motion.mjs` uses an 1152 × 1152 local canvas. `ANCHOR` is `{x:576,y:1024}` at the shared sole line and `HIT` is `{x:576,y:540}` at the torso centre for board contact. The brace is a normalized `actionAt(t)` amount, with a 15 px maximum upper-body shift and `DURATION = 1050` ms. Positive x is right; the sheet keeps the authored forward-facing pose for both armies.
+`src/render/painted/guard/motion.mjs` uses an 1152 × 1152 local canvas. `ANCHOR` is `{x:576,y:1024}` at the shared sole line and `HIT` is `{x:576,y:540}` at the torso centre for board contact. The brace is a normalized `actionAt(t)` amount, with a 15 px maximum upper-body shift and `DURATION = 1050` ms. Positive x is right; the sheet keeps the authored forward-facing pose for both armies.
 
 The standalone preview supports Ivory and Charcoal, Brace, Reset, click/Enter activation, slow motion and reduced motion. It links to the existing board position where the Guard moves one square in any direction to an empty square, cannot capture, can be captured only by the King, and can be pushed by an Ogre. The production game and renderer are outside this bounded artifact.
 

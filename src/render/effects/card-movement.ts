@@ -1,4 +1,4 @@
-import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs';
+import type { PaintedScene } from '../painted/scene.mjs';
 import type { CardFrame, CardLayer, Point } from './card-types';
 import { fireBurst, flameAt, ignite } from './travel-material';
 import { cloudAt, cloudRing, clodFall, dustAt, earthPush, groundShade, stomp, windAt, type CloudTint } from './travel-material';

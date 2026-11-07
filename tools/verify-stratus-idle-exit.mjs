@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {env,launch,trapErrors,assertNoErrors} from './lib/checks.mjs';
-import {turnRoute} from '../docs/2d-first-pieces/board/character-runtime.mjs';
+import {turnRoute} from '../src/render/painted/character-runtime.mjs';
 
 const manifest=JSON.parse(await readFile('public/character-runtime/manifest.json','utf8'));
 const browser=await launch(),results=[];

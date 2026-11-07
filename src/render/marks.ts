@@ -1,4 +1,4 @@
-import type { PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
+import type { PaintedScene } from './painted/scene.mjs';
 import type { boardInk } from './board-ink';
 import { badge, glow as footGlow, kindOf, occupied, paint, railLine, threat, tile, type Kind, type Layer, type Shape } from './legend';
 import type { Reach } from '../read';

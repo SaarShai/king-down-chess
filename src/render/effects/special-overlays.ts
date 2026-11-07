@@ -1,6 +1,6 @@
 import { GameRules } from '../../game-rules';
 import { K, P, colorOf, typeOf, type Move, type Position } from '../../rules/engine';
-import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs';
+import type { PaintedScene } from '../painted/scene.mjs';
 import type { CardLayer } from './card-types';
 import { DarkGrip } from './dark-gate';
 import type { MoveOverlay } from './move-overlay';

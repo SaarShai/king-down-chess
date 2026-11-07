@@ -1,6 +1,6 @@
 import type { GameRules } from '../../game-rules';
 import type { Move, Position } from '../../rules/engine';
-import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs';
+import type { PaintedScene } from '../painted/scene.mjs';
 import type { CardLayer } from './card-types';
 import { powerOverlay } from './power-overlays';
 import { specialOverlay } from './special-overlays';

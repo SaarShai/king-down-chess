@@ -22,7 +22,7 @@
 </aside></div><footer>Original Rook identity translated into painted 2D · ivory and charcoal · tower, pillar arm and amber eyes.</footer></main>
 <style>.sample canvas{width:134px;height:134px}.motion-option+.motion-option{margin-top:8px}</style>
 <script type="module">
-import {drawRook,actionAt,DURATION} from './motion.mjs';
+import {drawRook,actionAt,DURATION} from '../../../src/render/painted/rook/motion.mjs';
 const $=id=>document.getElementById(id),art=new Image(),preference=matchMedia('(prefers-reduced-motion: reduce)');
 let side=0,action=null,frame=0,ready=false;
 $('reduce-motion').checked=preference.matches;

@@ -9,9 +9,9 @@ import { W, H, flush, clamp, lerp, easeInOut, rand, canvas, particles, finish } 
 import { ease, remap, noise, camera, sparks, dust, shockwave, embers, bloom, aberration, flare, flash, grade, speedLines } from '../motion.mjs';
 import * as R from '../../../2d-first-pieces/board/rules.mjs';
 import { createPosition, actionsFor } from '../../../2d-first-pieces/board/model.mjs';
-import { createScene, PAD, TILE } from '../../../2d-first-pieces/board/scene.mjs';
-import { SMASH } from '../../../2d-first-pieces/court-motion.mjs';
-import { paintTriangle } from '../../../2d-first-pieces/painted-mesh.mjs';
+import { createScene, PAD, TILE } from '../../../../src/render/painted/scene.mjs';
+import { SMASH } from '../../../../src/render/painted/court-motion.mjs';
+import { paintTriangle } from '../../../../src/render/painted/painted-mesh.mjs';
 
 // ---- The edit --------------------------------------------------------------------------------------
 // Each cut plays the game's own capture: `piece` on `from` takes `to` in model.layouts[layout].

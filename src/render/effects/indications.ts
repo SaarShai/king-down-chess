@@ -1,4 +1,4 @@
-import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs';
+import type { PaintedScene } from '../painted/scene.mjs';
 
 export const SIGNAL_DURATION_MS = 4800;
 const clamp = (n: number) => Math.max(0, Math.min(1, n));

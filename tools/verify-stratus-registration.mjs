@@ -31,7 +31,7 @@ try {
  for(const army of ['white','black'])for(const [direction,to] of [['N',43],['NE',44],['E',36],['SE',28],['S',27],['SW',26],['W',34],['NW',42]]) {
   const fen=army==='white'?'6k1/p7/8/3K4/8/8/P7/8 w - - 0 1':'8/7p/8/3k4/8/8/P7/K7 b - - 0 1',flipped=false;
   const banks=manifest.banks.filter(b=>b.character==='king-stratus'&&b.army===army&&b.kind==='turn');
-  const {turnRoute}=await import('../docs/2d-first-pieces/board/character-runtime.mjs');const route=turnRoute(banks,'SE',direction);assert(route);const expected=route.map(p=>p.bank.id);
+  const {turnRoute}=await import('../src/render/painted/character-runtime.mjs');const route=turnRoute(banks,'SE',direction);assert(route);const expected=route.map(p=>p.bank.id);
   const from=35,page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
   const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');url.searchParams.set('kings','stratus:flight,stratus:flight');

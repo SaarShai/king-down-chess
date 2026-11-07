@@ -1,4 +1,4 @@
-import { createScene } from '/docs/2d-first-pieces/board/scene.mjs';
+import { createScene } from '/src/render/painted/scene.mjs';
 import * as pieces from '/src/rules/engine';
 import { samples } from './fixtures.js';
 import { loadPigment, frameAt, drawVeil, drawFlakes, DURATION_MS, clamp } from './ascension.js';

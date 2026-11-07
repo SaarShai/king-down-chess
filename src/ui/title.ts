@@ -40,7 +40,7 @@ export function openTitle(firstVisit: boolean, resumable: boolean, pace: () => s
     dlg.showModal();
     // The six kings' resting effects: loaded after the title is up, so its first paint never waits; none
     // with Animations Off or reduced motion (the module checks reduced motion itself).
-    if (pace() !== 'off') void import('../../docs/2d-first-pieces/board/title-kings.mjs').then(({ startTitleKings }) => {
+    if (pace() !== 'off') void import('../render/painted/title-kings.mjs').then(({ startTitleKings }) => {
       if (!dlg.open) return;
       const kings = startTitleKings(dlg.querySelector('.title-kings')!, { enabled: () => pace() !== 'off' });
       (window as unknown as { titleKings?: unknown }).titleKings = kings; // for the browser checks

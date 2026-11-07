@@ -33,8 +33,8 @@
 </div><footer>Original King Down Archer used as the design reference. Complete figures · ivory and charcoal · copper braid and green accents.</footer>
 </main>
 <script type="module">
-import { MIN_ANGLE, MAX_ANGLE, aimAt, muzzle, targetPoint, drawArcher } from './aiming.mjs';
-import { clamp } from '../painted-mesh.mjs';
+import { MIN_ANGLE, MAX_ANGLE, aimAt, muzzle, targetPoint, drawArcher } from '../../../src/render/painted/wrist-bow/aiming.mjs';
+import { clamp } from '../../../src/render/painted/painted-mesh.mjs';
 const $ = id => document.getElementById(id), scene = $('scene');
 const preference = matchMedia('(prefers-reduced-motion: reduce)');
 $('reduce-motion').checked = preference.matches;

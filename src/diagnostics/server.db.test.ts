@@ -140,11 +140,29 @@ suite('first-party fault HTTP and database writes', () => {
   for (let i = 0; i < 61; i++) expect((await post()).status).toBe(204);
   expect(await rows()).toMatchObject([{ count: '60' }]);
  });
- it('adds four concurrent function writes without a lost count', async () => {
+ it('counts committed writes from four concurrent function calls', async () => {
   const pools = Array.from({ length: 4 }, () => new pg.Pool({ connectionString: runtime.options.connectionString, max: 1 }));
   try {
+   const queries = await Promise.all(pools.map(async pool => {
+    const client = await pool.connect(), query = vi.spyOn(client, 'query');
+    client.release(); return query;
+   }));
    await Promise.all(pools.map(pool => createErrorWriter(pool, build)(report())));
-   expect(await rows()).toMatchObject([{ count: '4' }]);
+   // The writer resolves after an allowed timeout too. Count successful commits, not calls.
+   let committed = 0;
+   for (const query of queries) {
+    expect(query).toHaveBeenCalledWith('begin');
+    const results = await Promise.allSettled(query.mock.results.map(result => result.value));
+    for (const result of results) if (result.status === 'rejected') {
+     expect(result.reason).toMatchObject({ code: expect.stringMatching(/^(57014|55P03)$/) });
+    }
+    for (const [index, [sql]] of query.mock.calls.entries()) if (sql === 'commit') {
+     await expect(query.mock.results[index].value).resolves.toMatchObject({ command: 'COMMIT' });
+     committed++;
+    }
+   }
+   expect(committed).toBeGreaterThanOrEqual(2);
+   expect(await rows()).toMatchObject([{ count: String(committed) }]);
   } finally { await Promise.all(pools.map(pool => pool.end())); }
  });
  it('maps false builds and made-up routes to fixed groups through raw HTTP', async () => {
