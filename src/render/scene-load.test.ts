@@ -46,6 +46,8 @@ function board(motion: boolean, characterRuntime = false, largeRuntime = false, 
 
 afterEach(() => { scene?.dispose(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
+// The footprint table follows the manifest; the manifest is what starts the downloads.
+const manifestFetches=(fetcher:{mock:{calls:[string][]}})=>fetcher.mock.calls.filter(([url])=>String(url).endsWith('manifest.json')).length;
 it('prefetches only the selected capture and its full king turn route', async () => {
  const base={character:'king-frost',army:'white',canvasSize:[32,32],pivot:[16,28],bodyHeightPx:20,registrationHeightPx:20};
  const idle={...base,id:'idle',kind:'idle',facing:'SE',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0}]};
@@ -162,13 +164,13 @@ it.each([false, true])('F7: the board is ready with stalled clips (motion %s), a
 });
 
 it('starts character downloads after the first board frame', async () => {
- const fetcher=vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})}));
+ const fetcher=vi.fn(async(_url:string)=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})}));
  vi.stubGlobal('fetch',fetcher);
  const b=board(true,true);void scene.load();
  await vi.advanceTimersByTimeAsync(0);expect(fetcher).not.toHaveBeenCalled();
  b.decodeBoard();await vi.advanceTimersByTimeAsync(16);
  expect(scene.frames).toBe(1);expect(b.draws.some(src=>src.includes('stone-board'))).toBe(true);expect(fetcher).not.toHaveBeenCalled();
- await vi.advanceTimersByTimeAsync(16);expect(fetcher).toHaveBeenCalledOnce();
+ await vi.advanceTimersByTimeAsync(16);expect(manifestFetches(fetcher)).toBe(1);
 });
 
 it('loads legacy clips when the runtime has no bodies', async () => {
@@ -213,18 +215,18 @@ it('removes page listeners when the scene is disposed', async () => {
 });
 
 it('waits for page load before starting character downloads', async () => {
- const fetcher=vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})}));
+ const fetcher=vi.fn(async(_url:string)=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})}));
  vi.stubGlobal('fetch',fetcher);
  const b=board(true,true);let onLoad=()=>{};
  Object.assign(document,{readyState:'interactive'});
  vi.stubGlobal('addEventListener',(name:string,fn:()=>void)=>{if(name==='load')onLoad=fn;});vi.stubGlobal('removeEventListener',()=>{});
  void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
  expect(scene.frames).toBeGreaterThan(0);expect(fetcher).not.toHaveBeenCalled();
- onLoad();await vi.advanceTimersByTimeAsync(0);expect(fetcher).toHaveBeenCalledOnce();
+ onLoad();await vi.advanceTimersByTimeAsync(0);expect(manifestFetches(fetcher)).toBe(1);
 });
 
 it('starts after load even if a worker install never becomes ready', async () => {
- const fetcher=vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})}));
+ const fetcher=vi.fn(async(_url:string)=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})}));
  vi.stubGlobal('fetch',fetcher);
  const b=board(true,true), listeners=new Map<string,(event?: any)=>void>();
  Object.assign(document,{readyState:'interactive'});
@@ -232,23 +234,23 @@ it('starts after load even if a worker install never becomes ready', async () =>
  vi.stubGlobal('addEventListener',(name:string,fn:(event?: any)=>void)=>listeners.set(name,fn));
  void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
  expect(fetcher).not.toHaveBeenCalled();expect(listeners.has('load')).toBe(true);
- listeners.get('load')!();await vi.advanceTimersByTimeAsync(0);expect(fetcher).toHaveBeenCalledOnce();
- listeners.get('pageshow')!({persisted:true});await vi.advanceTimersByTimeAsync(0);expect(fetcher).toHaveBeenCalledOnce();
+ listeners.get('load')!();await vi.advanceTimersByTimeAsync(0);expect(manifestFetches(fetcher)).toBe(1);
+ listeners.get('pageshow')!({persisted:true});await vi.advanceTimersByTimeAsync(0);expect(manifestFetches(fetcher)).toBe(1);
 });
 
 it('starts at once on an already loaded page and on a restored page', async () => {
- const fetcher=vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})}));vi.stubGlobal('fetch',fetcher);
+ const fetcher=vi.fn(async(_url:string)=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})}));vi.stubGlobal('fetch',fetcher);
  const b=board(true,true);Object.assign(document,{readyState:'complete'});
- void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);expect(fetcher).toHaveBeenCalledOnce();
+ void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);expect(manifestFetches(fetcher)).toBe(1);
 });
 
 it('starts on a restored page when load did not run', async () => {
- const fetcher=vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})}));vi.stubGlobal('fetch',fetcher);
+ const fetcher=vi.fn(async(_url:string)=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})}));vi.stubGlobal('fetch',fetcher);
  const b=board(true,true),listeners=new Map<string,(event?: any)=>void>();Object.assign(document,{readyState:'interactive'});
  vi.stubGlobal('addEventListener',(name:string,fn:(event?: any)=>void)=>listeners.set(name,fn));
  void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);expect(fetcher).not.toHaveBeenCalled();
- listeners.get('pageshow')!({persisted:true});await vi.advanceTimersByTimeAsync(0);expect(fetcher).toHaveBeenCalledOnce();
- listeners.get('load')!();await vi.advanceTimersByTimeAsync(0);expect(fetcher).toHaveBeenCalledOnce();
+ listeners.get('pageshow')!({persisted:true});await vi.advanceTimersByTimeAsync(0);expect(manifestFetches(fetcher)).toBe(1);
+ listeners.get('load')!();await vi.advanceTimersByTimeAsync(0);expect(manifestFetches(fetcher)).toBe(1);
 });
 
 it.each(['late', 'failed'] as const)('F7: a %s clip keeps the plain figure and a move works', async result => {
