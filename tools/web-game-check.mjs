@@ -242,7 +242,20 @@ try {
   await shot(page, 'web-replaced-friend-code');
   await page.locator('#friend-new').click();
   code = await linkKey(); assert.notEqual(code, replacedCode);
-  await tool(1, 'kingdown_join', { code });
+  // The friend opens the invite link in a browser and joins with its Join control.
+  const friend = await browser.newContext({ viewport: { width: 1100, height: 1000 } });
+  await friend.addInitScript(({ origin, actor, token }) => { if (location.origin === origin && !localStorage.getItem('kingdown.auth')) localStorage.setItem('kingdown.auth', JSON.stringify({
+    access_token: token, refresh_token: 'local-test-refresh', token_type: 'bearer', expires_in: 600, expires_at: Math.floor(Date.now() / 1000) + 600, user: { id: actor, aud: 'authenticated', role: 'authenticated', email: 'browser@example.invalid', app_metadata: { provider: 'google' }, user_metadata: {}, created_at: new Date().toISOString() },
+  })); }, { origin, actor: actors[1], token: tokens[1] });
+  await friend.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : (failures.push('External request blocked'), route.abort()));
+  const joiner = await friend.newPage(), joinErrors = trapErrors(joiner);
+  await joiner.goto(await page.locator('#friend-link').innerText());
+  await joiner.locator('[data-screen="join"]:not([hidden]) #join-confirm:not([hidden])').waitFor();
+  assert.equal(new URL(joiner.url()).hash, `#${code}`, 'The join screen keeps the invite key');
+  await shot(joiner, 'web-join-link');
+  await joiner.locator('#join-confirm').click();
+  await joiner.waitForURL(`${origin}/g/${gameId}`);
+  await friend.close(); assertNoErrors(joinErrors);
   await page.locator('[data-screen="seat"]:not([hidden])').waitFor();
   await page.locator('#seat-screen #board[aria-busy="false"] canvas').waitFor({ state: 'visible' });
   await page.locator('.veil').waitFor({ state: 'visible' });

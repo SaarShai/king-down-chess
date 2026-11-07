@@ -179,6 +179,8 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
       const gameScreen = GAME_SCREENS.includes(screen);
       // Fullscreen startup restores the screen before the first authoritative game view arrives.
       if (gameScreen && !gameId) return;
+      // The start-up mount shows the join screen while the invitation preview is still in flight: keep that read and its key.
+      if (screen === 'join' && parseAccountRoute(new URL(window.location.href))?.screen === 'join') return;
       routeGeneration++;
       const route: AccountEntryRoute = gameScreen && gameId ? { screen: 'game', gameId } : screen === 'join' ? { screen: 'join', key: null } : { screen: screen === 'profile' || screen === 'settings' ? screen : 'play' };
       const path = accountPath(route);
