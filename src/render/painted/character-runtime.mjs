@@ -40,6 +40,20 @@ export function idleBankAt(clips,turns,restFacing,time) {
  return null;
 }
 const jumps=character=>character==='knight'||character==='paladin';
+const unique=frames=>{const seen=new Set();return frames.filter(f=>!seen.has(f.url)&&seen.add(f.url));};
+/** A jump streams. first: its frames up to the crouch key and its landing; it starts once they are decoded. needed:
+ * first and every second frame, or every fourth when that is too large for half the decoded budget (a Paladin); the
+ * start waits until each is due before the clock reaches it, so a late frame between two of them holds the pose before
+ * it. window(i): the frames that stay requested and decoded while the playhead is at frame i: the needed frames not
+ * passed, then the next frames up to a quarter of the decoded budget. */
+function leapPlan(bank) {
+ const frames=bank.frames,last=frames.at(-1),first=unique([...frames.slice(0,4),last]),each=bank.canvasSize[0]*bank.canvasSize[1]*4;
+ let needed=first;
+ for(let stride=2;stride<frames.length;stride*=2){needed=unique([...first,...frames.filter((_,k)=>k%stride===0)]);if(needed.length*each<=DECODED_BUDGET/2)break;}
+ const ahead=Math.max(4,Math.floor(DECODED_BUDGET/4/each));
+ const window=i=>unique([...needed.filter(f=>f.url===last.url||frames.indexOf(f)>=i),...frames.slice(i,i+ahead+1)]);
+ return {first,needed,window};
+}
 const HEIGHT={pawn:82,knight:129,bishop:125,rook:132,queen:132,archer:120,paladin:124,maester:84,ogre:116,guard:108,beast:104};
 // The figure heights at which the catalog's strideSquares and contactCorrection were measured. The owner's
 // final sizes changed the figures, not those numbers; tools/anim/stride still measures at these heights.
@@ -175,6 +189,18 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  }
  // An attack's frames up to and including its contact pose: each must be decoded before the attack clock reaches it.
  const strike=bank=>bank.frames.slice(0,Math.max(4,bank.frames.findLastIndex(f=>f.timeMs<=bank.contactMs)+1));
+ // A jump's stream (leapPlan): advance(i) loads and pins the window at frame i and releases the frames behind it.
+ function leapStream(bank){
+  const plan=leapPlan(bank),held=new Map();let at=-1,ended=false;
+  return {...plan,
+   advance(index){
+    if(ended||index<=at)return;at=index;const want=plan.window(index);
+    for(const [key,release] of held)if(!want.some(f=>f.url===key)){held.delete(key);release();}
+    for(const frame of want)if(!held.has(frame.url)){const loads=loadPreparation([frame]),pin=reserve([frame]);held.set(frame.url,()=>{loads.release();pin();});}
+   },
+   release(){ended=true;for(const release of held.values())release();held.clear();},
+  };
+ }
  async function loadSeparate(character){
   const entry=effectEntries[character];if(!connected()||!entry||performance.now()<(effectRetryAt.get(character)??0))return null;
   // The scene draws this one itself and takes only the contact time, so the package's images never load.
@@ -233,14 +259,17 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
     // Decode capture starts before the click; the move keeps its existing wait limit.
     const attacks=all.filter(b=>b.kind==='attack'&&captures.includes(b.facing));
     // Past half the budget, a further capture prefetches only its first frames, so two large strikes do not evict each other.
-    let strikeBytes=0;
-    for(const bank of [...attacks,...all.filter(b=>(jumps(character)?b.kind==='movement':b.kind==='move')&&directions.includes(b.facing))]){
+    // A jump first prefetches its first frames toward each legal target, then its needed frames, while they fit in that half.
+    let prefetchBytes=0;const counted=new Set();
+    const moves=all.filter(b=>(jumps(character)?b.kind==='movement':b.kind==='move')&&directions.includes(b.facing)),leaps=jumps(character)?moves:[];
+    for(const [bank,part] of [...attacks.map(b=>[b]),...(leaps.length?[]:moves.map(b=>[b])),...leaps.map(b=>[b,'first']),...leaps.map(b=>[b,'needed'])]){
      if(disposed||generation!==moveGeneration)return;
+     if(part&&prefetchBytes>DECODED_BUDGET/2)break;
      const capture=bank.kind==='attack',route=rest?turnRoute(turns,rest.facing,bank.facing):null;
      if(capture&&(!rest||route===null))continue;
-     const frames=[...(capture?strikeBytes<=DECODED_BUDGET/2?strike(bank):bank.frames.slice(0,4):bank.frames),...(rest?[rest.frames[0]]:[]),...(route??[]).flatMap(part=>capture&&character.startsWith('king-')?part.bank.frames:endpoints(part.bank))];
+     const frames=[...(capture?prefetchBytes<=DECODED_BUDGET/2?strike(bank):bank.frames.slice(0,4):part?leapPlan(bank)[part]:bank.frames),...(rest?[rest.frames[0]]:[]),...(route??[]).flatMap(part=>capture&&character.startsWith('king-')?part.bank.frames:endpoints(part.bank))];
      const loads=loadPreparation(frames,1);moveLoads=loads;await loads.promise;
-     if(capture)strikeBytes+=frames.reduce((n,f)=>n+(images.get(f.url)?.size??0),0);
+     if(capture||part)for(const f of frames)if(!counted.has(f.url)){counted.add(f.url);prefetchBytes+=images.get(f.url)?.size??0;}
      if(moveLoads===loads){moveLoads=null;loads.release();}
     }
    }finally{if(generation===moveGeneration){movePrefetchActive=false;pump();}}
@@ -296,18 +325,21 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    // A capture's start frames stay decoded while the selection's own loads run on, or the old figure would play it.
    const releasePins=movement||capture?reserve([...start,...strikeFrames]):null;
    let releaseFallback=releasePins&&(()=>{strikeLoads?.release();releasePins();});
-   // A large jump bank can be partly cached; keep those frames while its missing frames load.
-   let releaseMovement=movement&&jumps(character)?reserve(movement.frames):null;
-   if(movement||strikeFrames.length){suspendPump++;try{startLoads=loadPreparation(start);if(movement)movementLoads=loadPreparation(movement.frames);else strikeLoads=loadPreparation(strikeFrames);}finally{suspendPump--;pump();}}
+   // A jump starts once its first frames are decoded; its other frames stream in during play (leapPlan).
+   const leap=movement&&jumps(character)?leapStream(movement):null,required=leap?leap.first:movement?.frames??[];
+   // A jump bank can be partly cached; its stream keeps those frames while its missing frames load.
+   let releaseMovement=leap?leap.release:null;
+   if(movement||strikeFrames.length){suspendPump++;try{startLoads=loadPreparation(start);if(leap)leap.advance(0);else if(movement)movementLoads=loadPreparation(movement.frames);else strikeLoads=loadPreparation(strikeFrames);}finally{suspendPump--;pump();}}
    else startLoads=loadPreparation(start);
    await bounded(startLoads.promise,remaining(),signal);startLoads.release();
    if(disposed||signal?.aborted||!remaining()||start.some(frame=>!images.has(frame.url))){movementLoads?.release();releaseMovement?.();releaseFallback?.();return null;}
    const sizes=new Map(start.map(frame=>[frame.url,images.get(frame.url).size]));
    let releaseMovementStart=null;
    if(movement){
-    await bounded(movementLoads.promise,remaining(),signal);movementLoads.release();
+    await bounded(leap?Promise.all(required.map(frame=>loading.get(frame.url)?.promise)):movementLoads.promise,remaining(),signal);
+    movementLoads?.release();
     if(disposed||signal?.aborted){releaseMovement?.();releaseFallback();return null;}
-    if(!remaining()||movement.frames.some(frame=>!images.has(frame.url))){movement=null;releaseMovement?.();releaseMovement=null;}
+    if(!remaining()||required.some(frame=>!images.has(frame.url))){movement=null;releaseMovement?.();releaseMovement=null;}
     else {releaseMovementStart=reserve([movement.frames[0]]);releaseMovement??=reserve([movement.frames.at(-1)]);}
    }
    const effect=attack?await bounded(loadSeparate(character),remaining(),signal):null;
@@ -321,10 +353,11 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
     await prepareFrames(start,remaining(),signal);
     if(disposed||signal?.aborted||!remaining()||start.some(frame=>!images.has(frame.url))){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}
    }
-   if(movement&&movement.frames.some(frame=>!images.has(frame.url))){movement=null;releaseMovementStart?.();releaseMovement?.();releaseMovementStart=null;releaseMovement=null;}
+   if(movement&&required.some(frame=>!images.has(frame.url))){movement=null;releaseMovementStart?.();releaseMovement?.();releaseMovementStart=null;releaseMovement=null;}
    const beforeMs=before.reduce((n,p)=>n+p.bank.durationMs,0);
    if(strikeLoads){await strikeWait(strikeFrames,beforeMs,remaining(),signal);if(disposed||signal?.aborted){releaseFallback?.();return null;}}
-   return {rest,attack,movement,effect,chain,before,after:back,releaseMovementStart,releaseMovement,releaseFallback,beforeMs,afterMs:back.reduce((n,p)=>n+p.bank.durationMs,0)};
+   if(leap&&movement){await strikeWait(leap.needed,beforeMs,remaining(),signal);if(disposed||signal?.aborted){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}}
+   return {rest,attack,movement,leap:movement&&leap,effect,chain,before,after:back,releaseMovementStart,releaseMovement,releaseFallback,beforeMs,afterMs:back.reduce((n,p)=>n+p.bank.durationMs,0)};
   },
   action(prepared,time,duration,contact,boundary){
    if(time<0)return routeSample(prepared.before,time+prepared.beforeMs)??sample(prepared.rest,0,false);
@@ -333,7 +366,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    const attack=prepared.attack;
    if(prepared.chain){let t=time;for(const bite of prepared.chain){if(t<bite.turnMs)return routeSample(bite.turn,t)??sample(bite.attack,0,false);t-=bite.turnMs;if(t<=bite.attack.durationMs||bite===prepared.chain.at(-1))return sample(bite.attack,Math.min(t,bite.attack.durationMs),true,false,true)??sample(prepared.rest,0,false);t-=bite.attack.durationMs;}}
    if(attack){return sample(attack,Math.min(time,attack.durationMs),true,false,true)??sample(prepared.rest,0,false);}
-   if(prepared.movement){const move=prepared.movement,frames=move.frames;if(boundary==='end'&&move.kind==='move')return routeSample(prepared.after,0)??sample(prepared.rest,0,false);const frame=boundary==='start'?frames[0]:boundary==='end'?frames.at(-1):null;const clock=move.kind==='move'?time*(prepared.movementRate??1)%move.durationMs:duration>0?time/duration*move.durationMs:0;const body=sample(move,clock,true,false,true,frame);if(body)return body;}
+   if(prepared.movement){const move=prepared.movement,frames=move.frames;if(boundary==='end'&&move.kind==='move')return routeSample(prepared.after,0)??sample(prepared.rest,0,false);const frame=boundary==='start'?frames[0]:boundary==='end'?frames.at(-1):null;const clock=move.kind==='move'?time*(prepared.movementRate??1)%move.durationMs:duration>0?time/duration*move.durationMs:0;prepared.leap?.advance(frames.indexOf(frame??frameAt(move,clock)));const body=sample(move,clock,true,false,true,frame);if(body)return body;}
    return routeSample(prepared.before,prepared.beforeMs)??sample(prepared.rest,0,false);
   },
   dispose(){disposed=true;if(listening)globalThis.removeEventListener('online',reconnect);banks=[];footprints=null;restChoices.clear();images.clear();idlePins.clear();pins.clear();activeFrame=null;bytes=0;effectBytes=0;smokeBytes=0;currentEffect=null;effectLoads.clear();smokeClass=null;smokeImage=null;for(const job of activeJobs)job.cancel();for(const job of queue)job.resolve();queue.length=0;loading.clear();},
