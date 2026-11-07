@@ -9,7 +9,7 @@ import type { AccountSession } from './session';
 import { publicAccountConfig, stagingPasswordSignInEnabled } from './public-config';
 import { availableProviders, type Provider } from './providers';
 
-export type { Provider } from './providers';
+export type { Provider, SignInOption } from './providers';
 
 const flowIdValid = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(value);
 function accountSession(session: Session | null): AccountSession | null {
@@ -62,6 +62,17 @@ export function connect(storageKey: string, { manualCallback = false }: { manual
     async signInWithPassword(email: string, password: string): Promise<AccountSession> {
       if (!stagingPasswordSignInEnabled(import.meta.env)) throw new Error('Test sign-in is available only in staging');
       const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      const session = accountSession(data.session);
+      if (!session) throw new Error('Sign-in did not finish');
+      return session;
+    },
+    async sendEmailCode(email: string): Promise<void> {
+      const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+      if (error) throw error;
+    },
+    async verifyEmailCode(email: string, token: string): Promise<AccountSession> {
+      const { data, error } = await sb.auth.verifyOtp({ email, token, type: 'email' });
       if (error) throw error;
       const session = accountSession(data.session);
       if (!session) throw new Error('Sign-in did not finish');

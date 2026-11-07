@@ -1,11 +1,12 @@
 /**
- * Settings → Account: sign in with Google or GitHub (Facebook only with `?facebook=1`, until Meta
- * verifies the business), sign out, delete the account; and the cloud save while signed in.
+ * Settings → Account: sign in with Google, GitHub or an email code (Facebook only with `?facebook=1`,
+ * until Meta verifies the business), sign out, delete the account; and the cloud save while signed in.
  * main.ts loads this after the board is drawn; the Supabase client loads only for a sign-in or a
  * saved session. Without a network, or without an account, the game plays exactly as before.
  */
 import { Sync, stamp, type SavedGameAccess, type Section } from './sync';
-import type { Client, Provider } from './client';
+import type { Client, Provider, SignInOption } from './client';
+import { emailCodeForm } from './email-code';
 import { AUTH_KEY } from './session';
 import { canWriteLocal } from './local';
 export type User = { name: string; avatar: string | null; provider: string };
@@ -33,7 +34,7 @@ export function userOf(u: AuthUser | null | undefined): User | null {
 }
 
 /** The Account section's content. The name and picture come from outside the game, so both are escaped. */
-export function accountHtml(user: User | null, facebook: boolean, available: readonly Provider[] = []): string {
+export function accountHtml(user: User | null, facebook: boolean, available: readonly SignInOption[] = []): string {
   const links = '<p class="account-links"><a href="/privacy.html" target="_blank" rel="noopener">Privacy</a>'
     + '<a href="/terms.html" target="_blank" rel="noopener">Terms</a></p>';
   if (!user) {
@@ -43,7 +44,7 @@ export function accountHtml(user: User | null, facebook: boolean, available: rea
       + '<small>We get only your name, picture, email address and an account number. Other players never see your email.</small>'
       + links;
   }
-  const via = PROVIDERS.find(([p]) => p === user.provider)?.[1];
+  const via = user.provider === 'email' ? 'email' : PROVIDERS.find(([p]) => p === user.provider)?.[1];
   return '<div class="account-who">'
     + (user.avatar ? `<img src="${esc(user.avatar)}" alt="" width="44" height="44" referrerpolicy="no-referrer" />` : '')
     + `<div><b>${esc(user.name)}</b>${via ? `<small>Signed in with ${via}</small>` : ''}</div></div>`
@@ -67,7 +68,8 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
   const params = new URLSearchParams(location.search);
   const facebook = params.get('facebook') === '1';
   let client: Promise<Client> | null = null, user: User | null = null, userId = '', lastPull = 0;
-  let providers: Provider[] = [], checkingProviders = false;
+  let providers: SignInOption[] = [], checkingProviders = false;
+  let emailForm: HTMLFormElement | null = null;
   // A signed-out note (a refused sign-in, sign-out, deletion) that the next provider check shows again once.
   let keptNote = '';
   const say = (t: string): void => { note.textContent = t; };
@@ -75,6 +77,8 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
   const render = (): void => {
     const hadFocus = body.contains(document.activeElement);
     body.innerHTML = accountHtml(user, facebook, providers);
+    // One form across redraws, so a code on its way keeps its step and typed address.
+    if (!user && providers.includes('email')) body.querySelector('small')!.before(emailForm ??= emailCodeForm(load, say, () => { emailForm = null; }));
     if (!user && !checkingProviders && !providers.length) body.insertAdjacentHTML('beforeend', '<button type="button" data-act="retry-signin">Try again</button>');
     body.querySelector('img')?.addEventListener('error', e => (e.target as HTMLElement).remove());
     if (hadFocus) body.querySelector('button')?.focus();

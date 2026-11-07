@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 const url = process.env.PLUGIN_TEST_DATABASE_URL;
 const suite = url ? describe : describe.skip;
-const refused = { error: { http_code: 403, message: 'Sign up with Google or GitHub.' } };
+const refused = { error: { http_code: 403, message: 'Sign up with Google, GitHub or email.' } };
 const sql = (file: string) => readFileSync(file, 'utf8').replace(/^begin;$/m, '').replace(/^commit;$/m, '');
 async function connect() {
  const db = new URL(url!);
@@ -36,7 +36,7 @@ suite('Supabase sign-up and access token hooks', () => {
   } finally { await client.query('rollback'); await client.end(); }
  });
 
- it('lets in Google, GitHub, Facebook and the listed review address, and refuses every other sign-up', async () => {
+ it('lets in Google, GitHub, Facebook and email, and refuses every other sign-up', async () => {
   const client = await connect();
   try {
    await client.query('begin');
@@ -52,7 +52,7 @@ suite('Supabase sign-up and access token hooks', () => {
    }])).rows[0].result;
    for (const provider of ['google', 'github', 'facebook']) expect(await hook(provider, 'player@example.test'), provider).toEqual({});
    expect(await hook('email', 'Review@Example.test')).toEqual({});
-   expect(await hook('email', 'player@example.test')).toEqual(refused);
+   expect(await hook('email', 'player@example.test')).toEqual({});
    expect(await hook('email', '')).toEqual(refused);
    expect(await hook('phone', '')).toEqual(refused);
    expect(await hook('anonymous', '', { is_anonymous: true })).toEqual(refused);
@@ -64,7 +64,7 @@ suite('Supabase sign-up and access token hooks', () => {
   } finally { await client.query('rollback'); await client.end(); }
  });
 
- it('requires a listed address for password sessions and app tokens of accounts with no social sign-in', async () => {
+ it('requires a listed address for password sessions, and lets email code sessions pass', async () => {
   const client = await connect();
   try {
    await client.query('begin');
@@ -77,7 +77,7 @@ suite('Supabase sign-up and access token hooks', () => {
     user_id: randomUUID(), authentication_method: method,
     claims: { iss: 'https://project.supabase.co/auth/v1', aud: 'authenticated', exp: now + 3600, iat: now, sub: randomUUID(), role: 'authenticated', aal: 'aal1', session_id: randomUUID(), is_anonymous: false, app_metadata: { provider: providers[0], providers }, ...(email === undefined ? {} : { email }), ...(signIn === undefined ? {} : { amr: [{ method: signIn, timestamp: now - 60 }] }) },
    }])).rows[0].result;
-   const passwordRefused = { error: { http_code: 403, message: 'Sign in with Google or GitHub.' } };
+   const passwordRefused = { error: { http_code: 403, message: 'Sign in with Google, GitHub or an email code.' } };
    await client.query('set local role supabase_auth_admin');
    // Before the list exists, no address gets a password session.
    expect(await token('password', 'review@example.test')).toEqual(passwordRefused);
@@ -90,20 +90,17 @@ suite('Supabase sign-up and access token hooks', () => {
    for (const email of ['player@example.test', 'opponent@example.test', '', undefined]) expect(await token('password', email), String(email)).toEqual(passwordRefused);
    // A social account can still sign in without a password.
    for (const method of ['oauth', 'token_refresh', 'oauth_provider/authorization_code']) expect((await token(method, 'player@example.test')).claims, method).toMatchObject({ email: 'player@example.test' });
-   // Auth makes a new app session with only oauth_provider/authorization_code in amr.
-   // Check both app token paths before and after the owner removes the address.
+   // An email code account has only the email provider. Its session passes on issue and refresh.
+   for (const method of ['otp', 'token_refresh']) expect((await token(method, 'player@example.test', 'otp', ['email'])).claims, method).toMatchObject({ email: 'player@example.test' });
+   // A password session stops when its address leaves the list, also on refresh.
    await client.query('reset role');
    await client.query("insert into kingdown_auth.password_accounts(email) values('opponent@example.test')");
    await client.query('set local role supabase_auth_admin');
    expect((await token('token_refresh', 'opponent@example.test', 'password')).claims).toMatchObject({ email: 'opponent@example.test' });
-   for (const method of ['oauth_provider/authorization_code', 'token_refresh']) expect((await token(method, 'opponent@example.test', 'oauth_provider/authorization_code', ['email'])).claims, method).toMatchObject({ email: 'opponent@example.test' });
    await client.query('reset role');
    await client.query("delete from kingdown_auth.password_accounts where email = 'opponent@example.test'");
    await client.query('set local role supabase_auth_admin');
    expect(await token('token_refresh', 'Opponent@Example.test', 'password')).toEqual(passwordRefused);
-   for (const method of ['oauth_provider/authorization_code', 'token_refresh']) expect.soft(await token(method, 'Opponent@Example.test', 'oauth_provider/authorization_code', ['email']), method).toEqual(passwordRefused);
-   // An empty provider list has no social sign-in.
-   expect.soft(await token('token_refresh', 'opponent@example.test', 'oauth_provider/authorization_code', []), 'no providers').toEqual(passwordRefused);
    for (const signIn of ['oauth', undefined]) expect((await token('token_refresh', 'opponent@example.test', signIn)).claims, String(signIn)).toMatchObject({ email: 'opponent@example.test' });
    for (const provider of ['google', 'github', 'facebook']) for (const method of ['oauth_provider/authorization_code', 'token_refresh']) expect((await token(method, 'opponent@example.test', 'oauth_provider/authorization_code', ['email', provider])).claims, `${provider}: ${method}`).toMatchObject({ email: 'opponent@example.test' });
    expect((await token('token_refresh', 'review@example.test', 'password')).claims).toMatchObject({ email: 'review@example.test' });

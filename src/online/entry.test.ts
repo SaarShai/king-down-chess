@@ -4,8 +4,8 @@ import { connect } from '../account/client';
 import { applyLocks } from '../account-game/state';
 
 vi.mock('./account-access', () => ({ readWebAccountAccess: vi.fn() }));
-const { providers, readSession, signOut, onSession, dispose, startAccountSignIn, signInWithPassword } = vi.hoisted(() => ({ providers: vi.fn(), readSession: vi.fn(), signOut: vi.fn(), onSession: vi.fn(), dispose: vi.fn(), startAccountSignIn: vi.fn(), signInWithPassword: vi.fn() }));
-vi.mock('../account/client', () => ({ connect: vi.fn(() => ({ readSession, signOut, onSession, providers, startAccountSignIn, signInWithPassword })) }));
+const { providers, readSession, signOut, onSession, dispose, startAccountSignIn, signInWithPassword, sendEmailCode, verifyEmailCode } = vi.hoisted(() => ({ sendEmailCode: vi.fn(), verifyEmailCode: vi.fn(), providers: vi.fn(), readSession: vi.fn(), signOut: vi.fn(), onSession: vi.fn(), dispose: vi.fn(), startAccountSignIn: vi.fn(), signInWithPassword: vi.fn() }));
+vi.mock('../account/client', () => ({ connect: vi.fn(() => ({ readSession, signOut, onSession, providers, startAccountSignIn, signInWithPassword, sendEmailCode, verifyEmailCode })) }));
 vi.mock('./client', () => ({ onlineClient: vi.fn(() => ({})) }));
 vi.mock('./runtime', () => ({ createBrowserRuntime: vi.fn(() => ({ dispose })) }));
 vi.mock('../account-game/runtime', () => ({}));
@@ -70,6 +70,41 @@ it('omits disabled providers and providers unsupported by account play', async (
   expect(body.querySelectorAll('button').map(button => button.textContent)).toEqual(['Continue with GitHub']);
   expect(body.querySelectorAll('a').map(link => link.textContent)).toEqual(['Play on this device']);
   expect(body.querySelectorAll('form')).toHaveLength(0);
+});
+
+it('signs in with an email code in two steps and returns to the current game', async () => {
+  vi.mocked(readWebAccountAccess).mockResolvedValue({ enabled: true, expiresAt: 5000 });
+  providers.mockResolvedValue(['email']);
+  sendEmailCode.mockReset().mockResolvedValue(undefined);
+  verifyEmailCode.mockReset().mockRejectedValueOnce(Object.assign(new Error('private upstream detail'), { status: 403 })).mockResolvedValue({ userId: 'u', accessToken: 't' });
+  const assign = vi.fn(); vi.stubGlobal('location', { href: 'https://kingdown.test/g/02207813-587c-867d-99be-7d448c5e30b0', assign });
+  await import('./entry');
+  const form = body.querySelectorAll('form')[0], [email, code] = form.querySelectorAll('input'), status = body.querySelectorAll('p')[0], submit = () => form.onsubmit!({ preventDefault() {} });
+  expect(status.textContent).toBe('Sign in to play with your account.');
+  expect(code.parentElement!.hidden).toBe(true);
+  email.value = ' player@kingdown.example '; await submit();
+  expect(sendEmailCode).toHaveBeenCalledExactlyOnceWith('player@kingdown.example');
+  expect(code.parentElement!.hidden).toBe(false); expect(email.required).toBe(false); expect(code.required).toBe(true);
+  expect(status.textContent).toContain('We sent a code to player@kingdown.example');
+  code.value = '111111'; await submit();
+  expect(status.textContent).toBe('That code is wrong or has expired. Try again, or ask for a new code.');
+  expect(assign).not.toHaveBeenCalled(); expect(code.disabled).toBe(false);
+  code.value = ' 123456 '; await submit();
+  expect(verifyEmailCode).toHaveBeenLastCalledWith('player@kingdown.example', '123456');
+  expect(assign).toHaveBeenCalledExactlyOnceWith('/g/02207813-587c-867d-99be-7d448c5e30b0');
+  expect(code.value).toBe('');
+});
+
+it.each([[429, 'Too many tries. Wait a minute and try again.'], [422, 'Could not send a code to that address. Check it and try again.'], [500, 'Could not reach the sign-in service. Check your connection and try again.'], [undefined, 'Could not reach the sign-in service. Check your connection and try again.']])('a refused email send with status %s stays on the first step', async (status, words) => {
+  vi.mocked(readWebAccountAccess).mockResolvedValue({ enabled: true, expiresAt: 5000 });
+  providers.mockResolvedValue(['github', 'email']);
+  sendEmailCode.mockReset().mockRejectedValue(Object.assign(new Error('private upstream detail'), { status }));
+  vi.stubGlobal('location', { href: 'https://kingdown.test/play/', assign: vi.fn() });
+  await import('./entry');
+  const form = body.querySelectorAll('form')[0], [email, code] = form.querySelectorAll('input');
+  email.value = 'player@kingdown.example'; await form.onsubmit!({ preventDefault() {} });
+  expect(body.querySelectorAll('p')[0].textContent).toBe(words);
+  expect(code.parentElement!.hidden).toBe(true); expect(email.disabled).toBe(false);
 });
 
 it('signs in the entered staging account once, clears the password and returns to the current game', async () => {
