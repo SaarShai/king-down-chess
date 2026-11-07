@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
 import sharp from 'sharp';
+import { writeFootprints } from './build-character-footprints.mjs';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const args = process.argv.slice(2), cacheAt = args.indexOf('--cache'), cacheArg = cacheAt < 0 ? null : args[cacheAt + 1];
@@ -66,4 +67,5 @@ for (const bank of manifest.banks) for (const frame of bank.frames) {
 }
 await writeFile(resolve(output, 'assets.json'), JSON.stringify(assets.map(asset => converted.get(asset.url))) + '\n');
 await writeFile(resolve(output, 'manifest.json'), JSON.stringify(manifest) + '\n');
+await writeFootprints(output);
 console.log(JSON.stringify({ banks: manifest.banks.length, assets: assets.length, ...(cacheDir ? counts : {}) }));
