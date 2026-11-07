@@ -3,6 +3,8 @@ export const DECODED_BUDGET: number;
 export interface RuntimeFrame { url: string; sourceSha256?: string; timeMs: number; visibleIntervalMs?: [number, number]; endMs?: number }
 export interface RuntimeBank { id: string; character: string; army: string; kind: string; from: string; to: string; facing: string; durationMs: number; strideSquares?: number; nearest?: boolean; frames: RuntimeFrame[]; pivot: [number, number]; canvasSize: [number, number]; bodyHeightPx: number; registrationHeightPx: number; boardScale?: number; contactMs?: number; contactCorrection?: [number, number, number]; effectAnchors?: { id: string; timeMs: number; point: [number, number] }[] }
 export function figureHeight(character: string): number;
+export function bankScale(bank: { character: string; boardScale?: number | null; registrationHeightPx: number }): number;
+export function restBankOf(banks: RuntimeBank[]): RuntimeBank | null;
 export function measuredScale(character: string): number;
 export function walkStride(bank: { character: string; strideSquares?: number }): number;
 export function facingOf(dx: number, dy: number): string;

@@ -3,6 +3,7 @@
 // Rules helpers are passed in, so the scene never bundles its own copy of the engine.
 import { clamp } from './painted-mesh.mjs';
 import {createCharacterRuntime,facingOf,anchorAt,bankPointToWorld,bankScale,figureHeight,measuredScale,walkStride} from './character-runtime.mjs';
+import {PIECE_STILLS} from './piece-stills.mjs';
 import {strikeReach,strikeStance,crushPose,impalePose,thrownPose,bitePose,slashLine,drawCut,drawSlashArc,drawCrush,drawBurst,drawDust,drawChips,drawBitten,drawBiteHit} from './fx-melee.mjs';
 import * as archer from './wrist-bow/aiming.mjs';
 import * as pawn from './lance/aiming.mjs';
@@ -90,6 +91,23 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
   if(!image){image=lyingArts[design]=corsImage();image.onload=()=>wake();image.src=FALLEN_FILES[design];demise.prepare();}
   return image.naturalWidth?image:null;
  }
+ // A figure at rest draws its runtime rest frame (a still picture, piece-stills.mjs) until the runtime has that frame:
+ // the same pivot and size, so the change to the animated art does not show.
+ const stillArt={},publicUrl=path=>new URL(path,import.meta.url).href;
+ function stillImage(value){
+  const character=characterOf(value),army=armyOf(value),meta=characterRuntime?PIECE_STILLS[character]?.[army]:null;if(!meta)return null;
+  const key=`${character}:${army}`;let entry=stillArt[key];
+  if(!entry){
+   const image=corsImage();
+   entry=stillArt[key]={body:null,done:false,loaded:new Promise(resolve=>{image.onload=()=>{entry.done=true;entry.body={image,pivot:meta.pivot,size:meta.size,scale:bankScale({character,boardScale:meta.boardScale,registrationHeightPx:meta.registrationHeightPx}),unitHeight:meta.registrationHeightPx,footprint:meta.footprint};wake();resolve();};image.onerror=()=>{entry.done=true;resolve();};})};
+   image.src=publicUrl(`/ui/pieces/${character}-${army[0]}.webp`);
+  }
+  return entry;
+ }
+ // (Not when the loaded package has no body for it: then its legacy drawings move it, so it rests as one of them too.)
+ const stillBody=value=>bodyRuntime?.stats.manifestReady&&!bodyRuntime.has(characterOf(value),armyOf(value))?null:stillImage(value)?.body??null;
+ // The loads still pending for the figures on the board, or null when none is.
+ const warmStills=()=>{const waits=[...new Set(position.board)].filter(Boolean).map(stillImage).filter(entry=>entry&&!entry.done).map(entry=>entry.loaded);return waits.length?Promise.all(waits):null;};
  const boardArt=corsImage();
  // Clips load after the first frame with motion on, or when a selection needs one. They never gate readiness.
  // Choose the clip at selection time, so a late sheet never starts a clip in the middle of a selection.
@@ -260,7 +278,7 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
  const fade=lively.atmosphere&&colorOf(value)&&out!==closeup?.ctx,base=fade?out.getTransform():null;
  if(lively.atmosphere){if(shadow)contactShadow(out,value,pose,opacity);}
  else{const k=clamp(1-(pose.lift??0)/TILE*.4,.6,1)*(pose.shadow??1);out.fillStyle='#343a2229';out.beginPath();out.ellipse(ground.x,ground.y-2,210*pose.scale*k,36*pose.scale*k,0,0,Math.PI*2);out.fill();}
- if(pose.bank){const b=pose.bank,k=b.scale*pose.scale/spec.scale;if(typeOf(value)===K)drawnKings[colorOf(value)]=kings[colorOf(value)];out.translate(pose.foot.x,pose.foot.y);out.scale(k*(pose.sx??1),k*(pose.sy??1));out.rotate((pose.rotation??0)*pose.facing);out.shadowColor=colorOf(value)?'rgba(250,246,232,.85)':'rgba(28,24,16,.8)';out.shadowBlur=3*res;out.drawImage(b.image,-b.pivot[0],-b.pivot[1]);out.restore();return;}
+ if(pose.bank||pose.still){const b=pose.bank??pose.still,k=b.scale*pose.scale/spec.scale;if(typeOf(value)===K)drawnKings[colorOf(value)]=kings[colorOf(value)];out.translate(pose.foot.x,pose.foot.y);out.scale(k*(pose.sx??1),k*(pose.sy??1));out.rotate((pose.rotation??0)*pose.facing);out.shadowColor=colorOf(value)?'rgba(250,246,232,.85)':'rgba(28,24,16,.8)';out.shadowBlur=3*res;if(b.size)out.drawImage(b.image,-b.pivot[0],-b.pivot[1],b.size[0],b.size[1]);else out.drawImage(b.image,-b.pivot[0],-b.pivot[1]);out.restore();return;}
  out.translate(pose.foot.x,pose.foot.y);out.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));out.rotate(pose.rotation??0);
  // A clip's drawing is one atlas cell, at its clip's factor of the sprite's size.
  const clip=pose.clip,anchor=clip?inCell(clip.name,spec.anchor):spec.anchor;
@@ -388,13 +406,13 @@ function contactShadow(out,value,pose,opacity,square=null) {
  if(pose.lying)return; // (painted under him)
  const type=typeOf(value),design=type===K?kings[colorOf(value)]:null;
  // The footprint in board units: from this frame in the table, or from the still sprite.
- const row=pose.bank?.footprint;
+ const row=(pose.bank??pose.still)?.footprint;
  if(!row&&design&&!pose.sheet&&!kingArt[design]?.image)return; // (the figure is not drawn yet either)
  // A king's still sheet loads in idle time, also for a bank body: his effects and his fall draw from it.
  if(row&&design)stillPrint(value,pose.sheet,1);
  const sx=pose.sx??1,sy=pose.sy??1,mirror=pose.facing*sx<0?-1:1,m=Math.max(Math.abs(sx),sy),spec=specs[type];
  let print,k,tall;
- if(row){const b=pose.bank,side=sx<0?-1:1;k=b.scale*pose.scale/spec.scale;tall=b.unitHeight*k;print={span:row[0]*k*m,cx:row[1]*k*m*side,cy:row[2]*k*Math.min(1,m),tilt:side*(row[3]??0)/100};}
+ if(row){const b=pose.bank??pose.still,side=sx<0?-1:1;k=b.scale*pose.scale/spec.scale;tall=b.unitHeight*k;print={span:row[0]*k*m,cx:row[1]*k*m*side,cy:row[2]*k*Math.min(1,m),tilt:side*(row[3]??0)/100};}
  else{const still=stillPrint(value,pose.sheet,mirror);if(still?.empty)return;const shape=still??fallbackShape(spec);k=pose.scale/shape.scale;tall=shape.tall*k;print={span:shape.span*k*m,cx:shape.cx*k*m,cy:shape.cy*k*Math.min(1,m),tilt:shape.tilt};}
  const w=shadowWeights(pose,opacity,row?(row[4]??0)*k:0);if(w.shown<=.004)return;
  if(!floorMap&&boardArt.naturalWidth)idleBuild||=requestBuild();
@@ -914,6 +932,8 @@ function vortex(out,foot,phase,strength) {
   }
  }
  if(bodyRuntime&&animation?.rookFrom&&animation.rookLocal!=null&&poses.has(animation.move.castle.from)){const a=animation,body=bodyRuntime.action(a.rookRuntime,a.rookLocal,a.rookWalk);if(body)poses.get(a.move.castle.from).pose.bank=body;}
+ // A figure at rest with no runtime frame yet: its still picture.
+ if(characterRuntime)for(const [sq,u] of poses)if(!u.pose.bank&&!u.pose.clip&&!u.fx&&!u.extension&&!u.pose.angle&&!(animation&&!animation.effect&&animation.move.from===sq)){const still=stillBody(u.value);if(still)u.pose.still=still;}
  bodyFrames=[...poses].filter(([,u])=>u.pose.bank).map(([square,u])=>({square,bank:u.pose.bank.bank,sourceSha256:u.pose.bank.sourceSha256,sourceBankSha256:u.pose.bank.sourceBankSha256,opacity:u.opacity,struck:!!u.fx?.ranged,time:u.pose.bank.time,foot:{...u.pose.foot},pivot:[...u.pose.bank.pivot],scale:u.pose.bank.scale}));
  const ordered=[...poses].sort((a,b)=>a[1].pose.foot.y-b[1].pose.foot.y);
  if(animation&&!animation.effect){const i=ordered.findIndex(([sq])=>sq===animation.move.from);ordered.push(...ordered.splice(i,1));}
@@ -1208,12 +1228,12 @@ function drawEncounter(a,t) {
   /** Board square under a point in canvas pixels, or null. */
   squareAt(x,y){y-=headroom;const col=Math.floor((x-PAD)/TILE),row=Math.floor((y-PAD)/TILE);if(col<0||col>7||row<0||row>7)return null;return flipped?row*8+(7-col):(7-row)*8+col;},
   // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
-  load(){afterBoard(()=>demise.prepare());const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;warmBodies();wake();}).finally(boardReady);},
+  load(){afterBoard(()=>demise.prepare());const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{const start=()=>{ready=true;warmBodies();wake();},stills=warmStills();return stills?stills.then(start):start();}).finally(boardReady);},
   /** New position: ends any finished or running animation. */
   setPosition(next){const a=animation,m=a?.move;
    if(a?.done&&!a.rewind&&!a.effect&&!reducedMotion&&m.from!==m.to&&!m.captures.length&&!m.swap&&!m.shove&&!m.promo&&!m.selfRemove&&!m.power&&typeOf(a.value)===K&&kings[colorOf(a.value)]==='stratus'&&next.board[m.from]===0&&next.board[m.to]===a.value)landed={animation:a,source:position,post:next,sourceEntry:kingSince.get(m.from)};
    else if(landed&&next!==landed.post)landed=null;
-   const selectedValue=selected===null?null:position.board[selected],keepIdle=!animation&&idleReady&&selectedValue&&selectedValue===next.board[selected]&&LARGE_IDLE.has(characterOf(selectedValue)),keepSource=!!animation?.rewind?.doneAtSource&&animation.done&&next===position&&position.board[m.from]===animation.value;if(m&&!animation.effect&&smokeStreams.has(m.from)&&next.board[m.to]===position.board[m.from]){const smoke=smokeStreams.get(m.from);smokeStreams.delete(m.from);smokeStreams.set(m.to,smoke);}else if([...position.board].some((v,sq)=>v!==next.board[sq]))smokeStreams.clear();if(!keepIdle)endMove(keepSource);lifted=null;position=next;if(selected!==null&&selectedValue!==position.board[selected])selectedAt=null;aimAngle=0;warmBodies();if(!keepIdle)reserveSelected(selected);wake();},
+   const selectedValue=selected===null?null:position.board[selected],keepIdle=!animation&&idleReady&&selectedValue&&selectedValue===next.board[selected]&&LARGE_IDLE.has(characterOf(selectedValue)),keepSource=!!animation?.rewind?.doneAtSource&&animation.done&&next===position&&position.board[m.from]===animation.value;if(m&&!animation.effect&&smokeStreams.has(m.from)&&next.board[m.to]===position.board[m.from]){const smoke=smokeStreams.get(m.from);smokeStreams.delete(m.from);smokeStreams.set(m.to,smoke);}else if([...position.board].some((v,sq)=>v!==next.board[sq]))smokeStreams.clear();if(!keepIdle)endMove(keepSource);lifted=null;position=next;if(selected!==null&&selectedValue!==position.board[selected])selectedAt=null;aimAngle=0;warmBodies();warmStills();if(!keepIdle)reserveSelected(selected);wake();},
   setSelected(sq,destinations=[],captures=[]){
    const value=sq==null?null:position.board[sq],from=value?foot(sq):null;
    const direction=to=>{const p=foot(to);return facingOf(p.x-from.x,p.y-from.y);};
@@ -1292,7 +1312,7 @@ function drawEncounter(a,t) {
   /** A see-through copy of a figure standing on `square` (a move preview); for setDecorate. */
   /** Board-unit bounds {x,foot,top,l,r} of figure `value` standing at rest on `square`; from its height while its frames load. */
   figureBox(value,square){const pose=poseFor(value,square);pose.bank=bodyRuntime?.rest(characterOf(value),armyOf(value))??null;const h=figureHeight(characterOf(value)),{x,y}=pose.foot;return bankShape(pose,typeOf(value))??{x,foot:y,top:y-h,l:x-h*.4,r:x+h*.4};},
-  ghost(out,value,square,opacity=.4){if(ready&&value){const pose=poseFor(value,square);pose.bank=bodyRuntime?.rest(characterOf(value),armyOf(value));drawPiece(out,value,pose,opacity);}},
+  ghost(out,value,square,opacity=.4){if(ready&&value){const pose=poseFor(value,square);pose.bank=bodyRuntime?.rest(characterOf(value),armyOf(value));if(!pose.bank)pose.still=stillBody(value);drawPiece(out,value,pose,opacity);}},
   /** Animate a move on the current position. Resolves true at the final frame, false if cancelled. */
   play(move,{speed=1,onContact=null,gait=null,effect=null}={}){
    if(disposed)return Promise.resolve(false);
