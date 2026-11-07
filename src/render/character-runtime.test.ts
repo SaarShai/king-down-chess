@@ -29,6 +29,20 @@ describe('ready character playback', () => {
   expect(print(at(25))).toEqual([100,-3]);
   runtime.dispose();
  });
+ it('decodes a capture up to its contact frame before the attack starts', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const attack={...idle,id:'attack-SE',kind:'attack',contactMs:60,durationMs:90,frames:Array.from({length:10},(_,i)=>({url:`attack-${i}`,timeMs:i*10}))};
+  const make=(started:string[])=>createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){started.push(s.split('/').at(-1)!);queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const cold=make([]);
+  const prepared=await cold.prepare('pawn','white','SE',true);
+  expect((cold.action(prepared!,60,90,60) as {url?:string}|null)?.url).toBe('attack-6');
+  cold.dispose();
+  const started:string[]=[],selected=make(started);
+  await selected.ready();await selected.prefetchMoves('pawn','white',[],['SE']);
+  expect(started.filter(s=>s.startsWith('attack-'))).toEqual(Array.from({length:7},(_,i)=>`attack-${i}`));
+  selected.dispose();
+ });
  it('decodes a selected capture route before its bounded preparation', async () => {
   vi.useFakeTimers();
   const idle={...bank(),id:'idle',character:'king-frost',kind:'idle',frames:[{url:'rest',timeMs:0}]};

@@ -158,6 +158,18 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   await bounded(loads.promise,ms,signal);loads.release();
  }
  const endpoints=bank=>[bank.frames[0],bank.frames.at(-1)];
+ // Hold the start only until, at the decode rate seen so far, each strike frame still loading is ready one frame before
+ // the attack clock reaches it (lead ms after the start), so a fast link starts at once and a slow decode waits.
+ async function strikeWait(frames,lead,ms,signal){
+  const began=performance.now(),deadline=began+ms,pending=()=>frames.filter(f=>!images.has(f.url)&&loading.has(f.url)),first=pending().length;
+  for(let left=pending();left.length&&performance.now()<deadline&&!signal?.aborted;left=pending()){
+   const done=first-left.length,each=(performance.now()-began)/Math.max(1,done);
+   if(done&&left.every((f,i)=>(i+2)*each<=lead+f.timeMs))return;
+   await bounded(Promise.race(left.map(f=>loading.get(f.url).promise)),deadline-performance.now(),signal);
+  }
+ }
+ // An attack's frames up to and including its contact pose: each must be decoded before the attack clock reaches it.
+ const strike=bank=>bank.frames.slice(0,Math.max(4,bank.frames.findLastIndex(f=>f.timeMs<=bank.contactMs)+1));
  async function loadSeparate(character){
   const entry=effectEntries[character];if(!connected()||!entry||performance.now()<(effectRetryAt.get(character)??0))return null;
   // The scene draws this one itself and takes only the contact time, so the package's images never load.
@@ -215,12 +227,15 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
     const all=forPiece(character,army),rest=idle(character,army),turns=all.filter(b=>b.kind==='turn');
     // Decode capture starts before the click; the move keeps its existing wait limit.
     const attacks=all.filter(b=>b.kind==='attack'&&captures.includes(b.facing));
+    // Past half the budget, a further capture prefetches only its first frames, so two large strikes do not evict each other.
+    let strikeBytes=0;
     for(const bank of [...attacks,...all.filter(b=>(jumps(character)?b.kind==='movement':b.kind==='move')&&directions.includes(b.facing))]){
      if(disposed||generation!==moveGeneration)return;
      const capture=bank.kind==='attack',route=rest?turnRoute(turns,rest.facing,bank.facing):null;
      if(capture&&(!rest||route===null))continue;
-     const frames=[...(capture?bank.frames.slice(0,4):bank.frames),...(rest?[rest.frames[0]]:[]),...(route??[]).flatMap(part=>capture&&character.startsWith('king-')?part.bank.frames:endpoints(part.bank))];
+     const frames=[...(capture?strikeBytes<=DECODED_BUDGET/2?strike(bank):bank.frames.slice(0,4):bank.frames),...(rest?[rest.frames[0]]:[]),...(route??[]).flatMap(part=>capture&&character.startsWith('king-')?part.bank.frames:endpoints(part.bank))];
      const loads=loadPreparation(frames,1);moveLoads=loads;await loads.promise;
+     if(capture)strikeBytes+=frames.reduce((n,f)=>n+(images.get(f.url)?.size??0),0);
      if(moveLoads===loads){moveLoads=null;loads.release();}
     }
    }finally{if(generation===moveGeneration){movePrefetchActive=false;pump();}}
@@ -270,12 +285,15 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
     else{for(const bite of chain)bite.turnMs=bite.turn.reduce((n,p)=>n+p.bank.durationMs,0);back=turnRoute(turns,rest.facing,bites.at(-1))&&reverseRoute(turnRoute(turns,rest.facing,bites.at(-1)));if(!back){chain=null;back=after;}}
    }
    const start=[rest.frames[0],...before.flatMap(routeFrames),...back.flatMap(routeFrames),...(attack?attack.frames.slice(0,4):[]),...(chain?chain.flatMap(bite=>[...bite.attack.frames.slice(0,4),...bite.turn.flatMap(routeFrames)]):[])];
+   // The attack frames from the fifth up to contact load behind the start frames and run on into the attack.
+   const strikeFrames=attack?strike(attack).slice(4):[];
+   let startLoads,movementLoads=null,strikeLoads=null;
    // A capture's start frames stay decoded while the selection's own loads run on, or the old figure would play it.
-   let releaseFallback=movement||capture?reserve(start):null;
+   const releasePins=movement||capture?reserve([...start,...strikeFrames]):null;
+   let releaseFallback=releasePins&&(()=>{strikeLoads?.release();releasePins();});
    // A large jump bank can be partly cached; keep those frames while its missing frames load.
    let releaseMovement=movement&&jumps(character)?reserve(movement.frames):null;
-   let startLoads,movementLoads=null;
-   if(movement){suspendPump++;try{startLoads=loadPreparation(start);movementLoads=loadPreparation(movement.frames);}finally{suspendPump--;pump();}}
+   if(movement||strikeFrames.length){suspendPump++;try{startLoads=loadPreparation(start);if(movement)movementLoads=loadPreparation(movement.frames);else strikeLoads=loadPreparation(strikeFrames);}finally{suspendPump--;pump();}}
    else startLoads=loadPreparation(start);
    await bounded(startLoads.promise,remaining(),signal);startLoads.release();
    if(disposed||signal?.aborted||!remaining()||start.some(frame=>!images.has(frame.url))){movementLoads?.release();releaseMovement?.();releaseFallback?.();return null;}
@@ -299,7 +317,9 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
     if(disposed||signal?.aborted||!remaining()||start.some(frame=>!images.has(frame.url))){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}
    }
    if(movement&&movement.frames.some(frame=>!images.has(frame.url))){movement=null;releaseMovementStart?.();releaseMovement?.();releaseMovementStart=null;releaseMovement=null;}
-   return {rest,attack,movement,effect,chain,before,after:back,releaseMovementStart,releaseMovement,releaseFallback,beforeMs:before.reduce((n,p)=>n+p.bank.durationMs,0),afterMs:back.reduce((n,p)=>n+p.bank.durationMs,0)};
+   const beforeMs=before.reduce((n,p)=>n+p.bank.durationMs,0);
+   if(strikeLoads){await strikeWait(strikeFrames,beforeMs,remaining(),signal);if(disposed||signal?.aborted){releaseFallback?.();return null;}}
+   return {rest,attack,movement,effect,chain,before,after:back,releaseMovementStart,releaseMovement,releaseFallback,beforeMs,afterMs:back.reduce((n,p)=>n+p.bank.durationMs,0)};
   },
   action(prepared,time,duration,contact,boundary){
    if(time<0)return routeSample(prepared.before,time+prepared.beforeMs)??sample(prepared.rest,0,false);
