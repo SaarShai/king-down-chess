@@ -51,6 +51,12 @@ export const figureHeight=character=>HEIGHT[character]??130;
 export const measuredScale=character=>figureHeight(character)/(MEASURED_HEIGHT[character]??figureHeight(character));
 /** Squares per walk cycle at the figure's size today: a smaller figure's painted step covers less floor. */
 export const walkStride=bank=>bank.strideSquares*measuredScale(bank.character);
+/** The bank a figure rests in, from one character's banks in one army: an idle (facing SE first), or a turn's end. */
+export function restBankOf(all) {
+ let rest=all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b.facing==='SE')-Number(a.facing==='SE'))[0];
+ if(!rest){const turn=all.find(b=>b.kind==='turn'&&(b.from==='SE'||b.to==='SE'))??all.find(b=>b.kind==='turn');if(turn){const last=turn.to==='SE';rest={...turn,id:`${turn.id}:rest`,kind:'still',frames:[last?turn.frames.at(-1):turn.frames[0]],facing:last?turn.to:turn.from};}}
+ return rest??null;
+}
 export const DECODED_BUDGET=64*1024*1024;
 // Bound the wait for optional art so a stalled request cannot hold up a move indefinitely.
 const LOAD_TIMEOUT=1000,IMAGE_TIMEOUT=5000,RETRY_DELAY=5000;
@@ -86,8 +92,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  const restChoices=new Map();
  const idle=(character,army)=>{
   const key=`${character}:${army}`;if(restChoices.has(key))return restChoices.get(key);
-  const all=forPiece(character,army);let rest=all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b.facing==='SE')-Number(a.facing==='SE'))[0];
-  if(!rest){const turn=all.find(b=>b.kind==='turn'&&(b.from==='SE'||b.to==='SE'))??all.find(b=>b.kind==='turn');if(turn){const last=turn.to==='SE';rest={...turn,id:`${turn.id}:rest`,kind:'still',frames:[last?turn.frames.at(-1):turn.frames[0]],facing:last?turn.to:turn.from};}}
+  const rest=restBankOf(forPiece(character,army));
   if(rest)restChoices.set(key,rest);return rest;
  };
  // A frame's row in the table: [span, cx, cy, tilt × 100, air] in bank px, or its character's standing row, or null.

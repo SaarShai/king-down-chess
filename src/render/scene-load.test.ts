@@ -2,9 +2,13 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { createScene, type PaintedScene } from './painted/scene.mjs';
 import * as pieces from '../rules/engine';
 import { fromFen } from '../rules/setup';
+import { PIECE_STILLS } from './painted/piece-stills.mjs';
 
 const isClip = (src: string) => /\/(tap|slam)(?:-[\w-]+)?\.webp/.test(src);
 let scene: PaintedScene;
+// The still pictures match the real package's rest frames, not the made-up banks of these tests: they fail to load,
+// so each test sees the runtime bodies alone. The still test turns them on.
+let stillsLoad = false;
 
 function board(motion: boolean, characterRuntime = false, largeRuntime = false, refreshMs = 16) {
   vi.useFakeTimers();
@@ -18,6 +22,7 @@ function board(motion: boolean, characterRuntime = false, largeRuntime = false, 
     private url = '';
     set src(src: string) {
       this.url = src; images.push(this);
+      if (src.includes('/ui/pieces/') && !stillsLoad) { void Promise.resolve().then(() => this.finish(true)); return; }
       if (!isClip(src) && !src.includes('runtime-deferred')) void Promise.resolve().then(() => this.finish());
     }
     get src() { return this.url; }
@@ -44,10 +49,21 @@ function board(motion: boolean, characterRuntime = false, largeRuntime = false, 
   return { images, draws, drawArgs, clouds, rotations, decodeBoard, clips: () => images.filter(image => isClip(image.src)) };
 }
 
-afterEach(() => { scene?.dispose(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+afterEach(() => { scene?.dispose(); vi.useRealTimers(); vi.unstubAllGlobals(); stillsLoad = false; });
 
 // The footprint table follows the manifest; the manifest is what starts the downloads.
 const manifestFetches=(fetcher:{mock:{calls:[string][]}})=>fetcher.mock.calls.filter(([url])=>String(url).endsWith('manifest.json')).length;
+it('draws a figure at rest from its still picture, at its rest frame\'s pivot and size, until the runtime loads', async () => {
+ stillsLoad = true;
+ vi.stubGlobal('fetch',vi.fn(()=>new Promise(()=>{})));
+ const b=board(true,true);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ const knight=PIECE_STILLS.knight.white,drawn=b.drawArgs.filter(d=>d.src.endsWith('/ui/pieces/knight-w.webp'));
+ expect(drawn.length).toBeGreaterThan(0);
+ expect(drawn.at(-1)!.args).toEqual([-knight.pivot[0],-knight.pivot[1],knight.size[0],knight.size[1]]);
+ expect(b.draws.some(src=>src.endsWith('/ui/pieces/king-frost-w.webp'))).toBe(true);
+ expect(scene.characterFrames).toHaveLength(0);
+});
+
 it('prefetches only the selected capture and its full king turn route', async () => {
  const base={character:'king-frost',army:'white',canvasSize:[32,32],pivot:[16,28],bodyHeightPx:20,registrationHeightPx:20};
  const idle={...base,id:'idle',kind:'idle',facing:'SE',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0}]};
