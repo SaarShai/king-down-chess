@@ -2,7 +2,7 @@
 // Shared by the board trial (prototype.mjs) and the game's painted look (src/render/PaintedView.ts).
 // Rules helpers are passed in, so the scene never bundles its own copy of the engine.
 import { clamp } from './painted-mesh.mjs';
-import {createCharacterRuntime,facingOf,anchorAt,bankPointToWorld,bankScale,figureHeight} from './character-runtime.mjs';
+import {createCharacterRuntime,facingOf,anchorAt,bankPointToWorld,bankScale,figureHeight,measuredScale,walkStride} from './character-runtime.mjs';
 import {strikeReach,strikeStance,crushPose,impalePose,thrownPose,bitePose,slashLine,drawCut,drawSlashArc,drawCrush,drawBurst,drawDust,drawChips,drawBitten,drawBiteHit} from './fx-melee.mjs';
 import * as archer from './wrist-bow/aiming.mjs';
 import * as pawn from './lance/aiming.mjs';
@@ -99,12 +99,12 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
   if(characterRuntime&&!bodyWarm)return;
   for(const key of name?[name]:Object.keys(clipArt))if(!clipArt[key].src&&(!characterRuntime||[...position.board].some(value=>value&&CLIP_OF[typeOf(value)]===key&&!bodyRuntime.has(characterOf(value),armyOf(value)))))clipArt[key].src=CLIPS[key].file;
  }
- const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.132,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.1166,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
-specs[O]={anchor:ogre.ANCHOR,hit:ogre.HIT,scale:.155};
-specs[N]={anchor:knight.ANCHOR,hit:knight.HIT,scale:.125};
+ const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.1128,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.1166,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
+specs[O]={anchor:ogre.ANCHOR,hit:ogre.HIT,scale:.1322};
+specs[N]={anchor:knight.ANCHOR,hit:knight.HIT,scale:.144};
 const newMotions={ [B]:bishop,[R]:rook,[G]:guard };
-// Owner 2026-10-04: the Guard and the Archer 10% larger on the board (.12 → .132, .106 → .1166).
-for(const [type,scale] of [[B,.13],[R,.155],[G,.132]])specs[type]={anchor:newMotions[type].ANCHOR,hit:newMotions[type].HIT,scale};
+// These scales follow HEIGHT in character-runtime.mjs: the hit points, the effects and the old sprites use them.
+for(const [type,scale] of [[B,.1425],[R,.155],[G,.125]])specs[type]={anchor:newMotions[type].ANCHOR,hit:newMotions[type].HIT,scale};
 const courtNames={[Q]:'queen',[L]:'paladin',[M]:'maester',[K]:'king',[S]:'beast'};
 for(const [type,name] of Object.entries(courtNames)){
  specs[type]={anchor:court.ANCHOR,hit:court.HIT,scale:court.figures[name].scale};
@@ -209,7 +209,7 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
  if(fx?.ranged){
   // A ranged capture's victim (fx-ranged.mjs): only its lit frames go through the effect layer.
   if(fx.ranged.kind==='shot'&&!fx.ranged.flash)return drawPiece(out,value,pose,opacity,extension,null,false);
-  const c=fxCanvas.getContext('2d'),d={...fx.ranged,box:victimBox(pose),
+  const c=fxCanvas.getContext('2d'),d={...fx.ranged,box:victimBox(pose,typeOf(value)),
    clear(){c.setTransform(res,0,0,res,0,headroom*res);c.globalCompositeOperation='source-over';c.globalAlpha=1;c.clearRect(0,-headroom,SIZE,SIZE+headroom);return c;},
    draw(g,{dx=0}={}){drawPiece(g,value,{...pose,foot:{x:pose.foot.x+dx,y:pose.foot.y}},1,extension,null,false);},
    layer(x,y,w,h){out.save();out.globalAlpha=opacity;out.drawImage(fxCanvas,x*res,(y+headroom)*res,w*res,h*res,x,y,w,h);out.restore();}};
@@ -591,13 +591,13 @@ function vortex(out,foot,phase,strength) {
   return target?aimed(value,pose,target):pose;
  }
  // A ranged victim's drawn bounds, upright (its bank frame's outline; a sprite figure: from its hit point).
- function victimBox(pose){
-  const shape=bankShape(pose);if(shape)return shape;
+ function victimBox(pose,type){
+  const shape=bankShape(pose,type);if(shape)return shape;
   const h=(specs[K].anchor.y-specs[K].hit.y)*pose.scale,x=pose.foot.x,foot=pose.foot.y;return {x,foot,top:foot-h*1.9,l:x-h*.62,r:x+h*.62};
  }
  // Read the outline of the exact frame, then use the same pivot and scale as drawPiece.
  const bankShapes=new WeakMap();
- function bankShape(pose){
+ function bankShape(pose,type=K){
   const b=pose.bank;if(!b)return null;
   let shape=bankShapes.get(b.image);
   if(!shape){
@@ -608,7 +608,7 @@ function vortex(out,foot,phase,strength) {
    shape={l,r,top,n};bankShapes.set(b.image,shape);
   }
   if(shape.r<0)return null;
-  return kingBodyBounds(shape,b,pose.foot,pose.scale/specs[K].scale);
+  return kingBodyBounds(shape,b,pose.foot,pose.scale/specs[type].scale);
  }
  // A king's effect this frame, or null. k fades the whole effect as he falls; g fades what stands on his
  // square while he moves (it grows back on the new square).
@@ -698,7 +698,7 @@ function vortex(out,foot,phase,strength) {
    if(origin&&target){
     const options={elapsedMs:elapsed-release,origin:[origin.x,origin.y],target:[target.x,target.y],scale:bankBody.scale*bank.bodyHeightPx/640,seed:a.move.from*64+a.move.to};
     if(kind==='queen'){options.secondaryOrigin=secondary?[secondary.x,secondary.y]:undefined;options.emissionMs=Math.min(240,(bank.beatTimes.releaseHoldEnd??bank.beatTimes.recovery)-release);options.originAt=(launch,palm)=>{const p=project(palm?'near-palm':'far-palm',release+launch);return p?[p.x,p.y]:null;};const body=victim?.pose.bank,at=victim?.pose.foot??target;Object.assign(options,{victim,foot:[at.x,at.y],height:body?body.unitHeight*body.scale*victim.pose.scale/specs[typeOf(victim.value)].scale:Math.max(60,(at.y-target.y)*2.3)});r.effect.player.pose(options);}
-    if(r.ranged)rangedFrame(ctx,{plan:r.ranged,elapsed,release,origin,target,victim,box:()=>victimBox(victim.pose),player:r.effect.player,scale:options.scale,seed:options.seed,effects,res});
+    if(r.ranged)rangedFrame(ctx,{plan:r.ranged,elapsed,release,origin,target,victim,box:()=>victimBox(victim.pose,typeOf(victim.value)),player:r.effect.player,scale:options.scale,seed:options.seed,effects,res});
     else effects.push(()=>r.effect.player.draw(ctx,options));
     effectFrames.push({kind,at:time,speed:a.speed,bodyDurationMs:bank.durationMs,bodyTime:bankBody.time,releaseMs:release,durationMs:r.ranged?.effectMs??r.effect.player.durationMs,elapsedMs:options.elapsedMs,origin,target,foot:a.from.foot,pivot:bankBody.pivot,scale:bankBody.scale});
    }
@@ -808,7 +808,7 @@ function vortex(out,foot,phase,strength) {
    const s=court.BEAM;
    actor.extension=court.actionAt(t/duration);
    actor.pose={...a.from,foot:mix(a.from.foot,a.to.foot,ease((t-s.walk[0])/(s.walk[1]-s.walk[0])))};
-   rangedFrame(ctx,{plan:{kind:'maester'},elapsed:t,release:s.on,origin:bankAnchor(['ocular'],world(court.maesterLens(colorOf(a.value),actor.extension),actor.pose,M)),target:a.target,victim,box:()=>victimBox(victim.pose),scale:1,seed:a.move.from*64+a.move.to,effects,res});
+   rangedFrame(ctx,{plan:{kind:'maester'},elapsed:t,release:s.on,origin:bankAnchor(['ocular'],world(court.maesterLens(colorOf(a.value),actor.extension),actor.pose,M)),target:a.target,victim,box:()=>victimBox(victim.pose,typeOf(victim.value)),scale:1,seed:a.move.from*64+a.move.to,effects,res});
   }
   else if(a.type==='move'){
    const slide=a.move.from===a.move.to?0:420,k=ease(t/(slide||1));
@@ -857,7 +857,7 @@ function vortex(out,foot,phase,strength) {
    actor.pose={...a.from,ground,lift,foot:{x:ground.x,y:ground.y-lift},rotation:motion.rotation};
    actor.extension=motion.crouch;
    const correction=a.runtime?.movement?.contactCorrection;
-   if(correction&&t>=correction[0]&&t<correction[1])actor.pose.foot.y+=correction[2]*ease((t-correction[0])/(correction[1]-correction[0]));
+   if(correction&&t>=correction[0]&&t<correction[1])actor.pose.foot.y+=correction[2]*measuredScale('knight')*ease((t-correction[0])/(correction[1]-correction[0]));
    const {since,life,fx}=sinceContact(a,t,elapsed);
    if(since>=0){
     if(victim){const d=impalePose(victim.pose,since,life,strike.dir);victim.pose=d.pose;victim.opacity=d.opacity;}
@@ -1061,7 +1061,7 @@ function drawEncounter(a,t) {
    a.runtime=prepared;a.legacyDuration=a.duration;a.actionDuration=prepared.attack?.durationMs??a.duration;
    const painted=prepared.movement?.kind==='move'&&(a.type==='move'||a.type==='gait')&&a.move.from!==a.move.to;
    const distance=painted?Math.hypot((a.move.to&7)-(a.move.from&7),(a.move.to>>3)-(a.move.from>>3)):0;
-   const pace=painted?paintedPace(distance,prepared.movement.durationMs,prepared.movement.strideSquares):null;
+   const pace=painted?paintedPace(distance,prepared.movement.durationMs,walkStride(prepared.movement)):null;
    if(painted&&!pace){prepared.releaseMovementStart?.();prepared.releaseMovement?.();prepared.movement=null;}
    if(!prepared.attack&&!prepared.movement&&(a.type==='move'||a.type==='gait')&&a.move.from!==a.move.to){
     prepared.before=[];prepared.after=[];prepared.beforeMs=0;prepared.afterMs=0;
@@ -1087,7 +1087,7 @@ function drawEncounter(a,t) {
  const ROOK_ROUND=.62,ROOK_SETTLE=260;
  function planRook(a){
   const prepared=a.rookPrepared,squares=Math.abs((a.move.castle.to&7)-(a.move.castle.from&7))+.3;
-  const pace=prepared?.movement?.kind==='move'?paintedPace(squares,prepared.movement.durationMs,prepared.movement.strideSquares):null;
+  const pace=prepared?.movement?.kind==='move'?paintedPace(squares,prepared.movement.durationMs,walkStride(prepared.movement)):null;
   if(pace){prepared.movementRate=pace.rate;a.rookRuntime=prepared;a.rookWalk=pace.duration;a.rookEnd=prepared.beforeMs+pace.duration+prepared.afterMs;}
   else{releasePrepared(prepared);a.rookRuntime=null;a.rookWalk=GAITS.glide.duration(squares)*1.5;a.rookEnd=a.rookWalk;}
   a.duration=Math.max(a.duration,a.rookEnd+ROOK_SETTLE);

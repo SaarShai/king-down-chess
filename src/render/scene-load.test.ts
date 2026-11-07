@@ -72,7 +72,7 @@ it('prefetches the selected piece’s quiet move facing', async () => {
 
 it.each([
  {name:'one square',fen:'4k3/8/8/8/8/8/P7/4K3 w - - 0 1',from:8,to:16,ms:600},
- {name:'two squares',fen:'4k3/8/8/8/8/8/P7/4K3 w - - 0 1',from:8,to:24,ms:850},
+ {name:'two squares',fen:'4k3/8/8/8/8/8/P7/4K3 w - - 0 1',from:8,to:24,ms:940},
  {name:'promotion',fen:'4k3/P7/8/8/8/8/8/4K3 w - - 0 1',from:48,to:56,ms:600,promo:pieces.Q},
 ])('plays a painted walk for $name at its own pace', async ({fen,from,to,ms,promo}) => {
  const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600,facing:'N'};
@@ -107,7 +107,7 @@ it('raises the painted cadence to the cap for a long move', async () => {
  const playing=scene.play({from:8,to:24,captures:[]});await vi.advanceTimersByTimeAsync(32);
  const seen:number[]=[];for(let t=0;t<500;t+=16){const frame=scene.characterFrames.find(f=>f.square===8&&f.bank==='painted');if(frame)seen.push(frame.time);await vi.advanceTimersByTimeAsync(16);}
  const last=seen.indexOf(480);expect(last).toBeGreaterThan(0);expect(seen.slice(last+1)).toContain(0);
- await vi.advanceTimersByTimeAsync(1200);await expect(playing).resolves.toBe(true);
+ await vi.advanceTimersByTimeAsync(1400);await expect(playing).resolves.toBe(true);
 });
 
 it('keeps the old pawn hop when there is no painted walk', async () => {

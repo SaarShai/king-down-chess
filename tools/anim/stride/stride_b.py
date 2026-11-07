@@ -11,7 +11,7 @@ SEED = next((a[7:] for a in sys.argv[4:] if a.startswith('--seed=')), None)
 ONLY = [a for a in sys.argv[4:] if not a.startswith('--')]
 TILE = 112.0  # game px per board square (scene.mjs TILE; flat top-down board, same in x and y)
 HEIGHT = {'pawn': 96, 'knight': 112, 'bishop': 114, 'rook': 132, 'queen': 120, 'archer': 120, 'paladin': 124,
-          'maester': 112, 'ogre': 136, 'guard': 114}  # character-runtime.mjs HEIGHT, default 130
+          'maester': 112, 'ogre': 136, 'guard': 114}  # character-runtime.mjs MEASURED_HEIGHT: strides stay in these units
 BACK_MAX, FWD_TOL, PERP_MAX, TOUCH = 0.5, 0.03, 0.10, 0.15
 FOOT_MIN = 0.4
 FACINGS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
