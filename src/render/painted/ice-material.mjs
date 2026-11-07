@@ -56,7 +56,8 @@ const ICE_FRONT = [[-51, 8], [-47, -20], [-31, -38], [-12, -46], [7, -32], [22, 
 function iceScale(frame) {
   if (!frame.height) return [1, 1];
   const sx = Math.max(1, ((frame.half ?? 0) + 4) / 58);
-  return [sx, Math.min(1.44, Math.max(1, frame.front ? frame.height / 82 : (frame.height + 12) / 111))];
+  // The back face stays under 160 units tall, inside the thaw's sprite.
+  return [sx, Math.max(1, frame.front ? frame.height / 82 : Math.min(1.44, (frame.height + 12) / 111))];
 }
 function drawFreeze(ctx, frame) {
   const { grow, melt, life } = materialState(frame.progress);
