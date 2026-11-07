@@ -10,7 +10,7 @@ On Slow 3G (2000 ms latency, 400 kbit/s) at 390x844, the game page shows empty p
 ## Change
 
 1. `index.html`: a styled line, "Loading the board…", shows from the first paint until the class `local-ready`.
-2. The title pictures and the New game emblems load lazily: a closed dialog does not load them.
+2. The title pictures load lazily: when the title does not open, they do not load. (The New game emblems stay eager: a lazy emblem below the fold does not load until the player scrolls, and `tools/verify-new-game.mjs` checks that every emblem loads.)
 3. `src/render/painted/after-board.mjs`: effect atlases (fire, clouds, swap bells), king ground layers and fallen figures start to load when the scene's first load ends (also on a failed picture). The animated frame banks already load after the board.
 
 ## Verification
