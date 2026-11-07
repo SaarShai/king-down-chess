@@ -297,6 +297,21 @@ try {
     assert.equal(server.requests.filter(r => r.path === '/auth/v1/otp').length, 2);
     await close();
   }
+  {
+    // /play/ has its own page shell: the form fills it, and the code step survives a reload.
+    const { page, close } = await open({ email: true, phone: true });
+    await page.route('**/api/status', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ account_access: 'open', valid_for_ms: 5000 }) }));
+    await page.goto(base + 'play/');
+    await page.fill('input[name=email]', 'player@example.com');
+    await page.click('text=Email me a sign-in code');
+    await page.locator('input[name=code]').waitFor();
+    await page.reload();
+    await page.locator('input[name=code]').waitFor();
+    assert.match(await page.locator('.email-code').innerText(), /Code sent to player@example.com/);
+    const [input, form] = await page.locator('input[name=code], .email-code').evaluateAll(els => els.map(e => e.getBoundingClientRect().width).reverse());
+    assert.equal(Math.round(input), Math.round(form), 'the field fills the form');
+    await close();
+  }
   ok('Email code: shown only when the settings enable it; a wrong code stays on the step; the right code signs in and starts the account; a new code can be asked for');
 
   // 6. Home refreshes with a newer game from the account; the computer waits for Continue. (Lessons are parked: docs/PARKED.md.)

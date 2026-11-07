@@ -20,8 +20,9 @@ repository.
    with Google, GitHub, Facebook and an email code. Turn **Email** on only after
    `plugin-deploy/review-signup-hook.sql` is applied and enabled as the **Before User Created** hook,
    and `plugin-deploy/oauth-audience-hook.sql` as the **Custom Access Token** hook. The second hook
-   refuses a password sign-in for each address not in `kingdown_auth.password_accounts`. The mail
-   setup is in `docs/specs/email-sign-in/issues/01-email-code.md`.
+   refuses a password sign-in for each address not in `kingdown_auth.password_accounts`. Keep both
+   hooks and **Confirm email** on: with Confirm email off, anyone can make a confirmed account for an
+   address that is not theirs. The mail setup is in `docs/specs/email-sign-in/issues/01-email-code.md`.
 
 ## What 0001 makes
 

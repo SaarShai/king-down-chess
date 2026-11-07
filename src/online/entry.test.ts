@@ -95,7 +95,7 @@ it('signs in with an email code in two steps and returns to the current game', a
   expect(code.value).toBe('');
 });
 
-it.each([[429, 'Too many tries. Wait a minute and try again.'], [422, 'Could not send a code to that address. Check it and try again.'], [500, 'Could not reach the sign-in service. Check your connection and try again.'], [undefined, 'Could not reach the sign-in service. Check your connection and try again.']])('a refused email send with status %s stays on the first step', async (status, words) => {
+it.each([[429, 'Too many tries. Wait a minute and try again.'], [422, 'Could not send a code to that address. Check it and try again.'], [500, 'The sign-in service has a problem. Try again later.'], [undefined, 'Could not reach the sign-in service. Check your connection and try again.']])('a refused email send with status %s stays on the first step', async (status, words) => {
   vi.mocked(readWebAccountAccess).mockResolvedValue({ enabled: true, expiresAt: 5000 });
   providers.mockResolvedValue(['github', 'email']);
   sendEmailCode.mockReset().mockRejectedValue(Object.assign(new Error('private upstream detail'), { status }));
@@ -105,6 +105,26 @@ it.each([[429, 'Too many tries. Wait a minute and try again.'], [422, 'Could not
   email.value = 'player@kingdown.example'; await form.onsubmit!({ preventDefault() {} });
   expect(body.querySelectorAll('p')[0].textContent).toBe(words);
   expect(code.parentElement!.hidden).toBe(true); expect(email.disabled).toBe(false);
+});
+
+it('keeps the old code step when a new send fails, and names a suspended account', async () => {
+  vi.mocked(readWebAccountAccess).mockResolvedValue({ enabled: true, expiresAt: 5000 });
+  providers.mockResolvedValue(['email']);
+  sendEmailCode.mockReset().mockResolvedValueOnce(undefined).mockRejectedValueOnce(Object.assign(new Error('x'), { status: 429 }));
+  verifyEmailCode.mockReset().mockRejectedValue(Object.assign(new Error('x'), { status: 403, code: 'user_banned' }));
+  vi.stubGlobal('location', { href: 'https://kingdown.test/play/', assign: vi.fn() });
+  await import('./entry');
+  const form = body.querySelectorAll('form')[0], [email, code] = form.querySelectorAll('input'), status = body.querySelectorAll('p')[0], submit = () => form.onsubmit!({ preventDefault() {} });
+  email.value = 'first@kingdown.example'; await submit();
+  body.querySelectorAll('button').find(button => button.textContent === 'Change email or get a new code')!.onclick!();
+  expect(code.parentElement!.hidden).toBe(true);
+  email.value = 'second@kingdown.example'; await submit();
+  expect(status.textContent).toBe('Too many tries. Wait a minute and try again.');
+  expect(code.parentElement!.hidden).toBe(false);
+  expect(code.parentElement!.children[0].textContent).toBe('Code sent to first@kingdown.example');
+  code.value = '123456'; await submit();
+  expect(verifyEmailCode).toHaveBeenCalledExactlyOnceWith('first@kingdown.example', '123456');
+  expect(status.textContent).toBe('This account is suspended. To ask for a review, write to hello@kingdown.dev.');
 });
 
 it('signs in the entered staging account once, clears the password and returns to the current game', async () => {

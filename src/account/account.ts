@@ -6,7 +6,7 @@
  */
 import { Sync, stamp, type SavedGameAccess, type Section } from './sync';
 import type { Client, Provider, SignInOption } from './client';
-import { emailCodeForm } from './email-code';
+import { emailCodeForm, forgetEmailCode } from './email-code';
 import { AUTH_KEY } from './session';
 import { canWriteLocal } from './local';
 export type User = { name: string; avatar: string | null; provider: string };
@@ -25,7 +25,8 @@ const text = (v: unknown): string | null => (typeof v === 'string' && v.trim() ?
 /** Name, picture and provider from what the sign-in service sent. */
 export function userOf(u: AuthUser | null | undefined): User | null {
   if (!u) return null;
-  const m = u.user_metadata ?? {}, avatar = text(m.avatar_url) ?? text(m.picture);
+  // The Auth API lets anyone set the metadata of an email account, so only a social service's is used.
+  const m = u.app_metadata?.provider === 'email' ? {} : u.user_metadata ?? {}, avatar = text(m.avatar_url) ?? text(m.picture);
   return {
     name: text(m.full_name) ?? text(m.name) ?? text(m.user_name) ?? 'Player',
     avatar: avatar && /^https:\/\//.test(avatar) ? avatar : null,
@@ -41,7 +42,7 @@ export function accountHtml(user: User | null, facebook: boolean, available: rea
     return '<p>Sign in to save your games on every device.</p>'
       + PROVIDERS.filter(([p]) => available.includes(p) && (facebook || p !== 'facebook'))
         .map(([p, name]) => `<button type="button" data-provider="${p}">${LOGO[p]}<span>Continue with ${name}</span></button>`).join('')
-      + '<small>We get only your name, picture, email address and an account number. Other players never see your email.</small>'
+      + `<small>${available.includes('email') ? 'With an email code, we get only your email address and an account number. Google, GitHub and Facebook also send your name and picture.' : 'We get only your name, picture, email address and an account number.'} Other players never see your email.</small>`
       + links;
   }
   const via = user.provider === 'email' ? 'email' : PROVIDERS.find(([p]) => p === user.provider)?.[1];
@@ -78,7 +79,8 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
     const hadFocus = body.contains(document.activeElement);
     body.innerHTML = accountHtml(user, facebook, providers);
     // One form across redraws, so a code on its way keeps its step and typed address.
-    if (!user && providers.includes('email')) body.querySelector('small')!.before(emailForm ??= emailCodeForm(load, say, () => { emailForm = null; }));
+    if (user) { emailForm = null; forgetEmailCode(); }
+    else if (providers.includes('email')) body.querySelector('small')!.before(emailForm ??= emailCodeForm(load, say));
     if (!user && !checkingProviders && !providers.length) body.insertAdjacentHTML('beforeend', '<button type="button" data-act="retry-signin">Try again</button>');
     body.querySelector('img')?.addEventListener('error', e => (e.target as HTMLElement).remove());
     if (hadFocus) body.querySelector('button')?.focus();
