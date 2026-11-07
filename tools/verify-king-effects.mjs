@@ -293,10 +293,10 @@ try {
   const preview = await newPage({ viewport: { width: 1440, height: 900 } });
   const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
   const mime = { '.mjs': 'text/javascript', '.html': 'text/html', '.css': 'text/css', '.png': 'image/png', '.webp': 'image/webp', '.svg': 'image/svg+xml' };
-  // The managed site serves the build; fulfill this page's source-only docs and public art from this checkout.
+  // The managed site serves the build; fulfill this page's source-only docs, renderer modules and public art from this checkout.
   await preview.route('**/*', async route => {
     const pathname = decodeURIComponent(new URL(route.request().url()).pathname);
-    if (!/^\/(docs|public)\//.test(pathname)) return route.continue();
+    if (!/^\/(docs|src|public)\//.test(pathname)) return route.continue();
     const file = resolve(sourceRoot, `.${pathname}`);
     assert.ok(isInside(sourceRoot, file), 'preview source stays inside the checkout');
     await route.fulfill({ path: file, contentType: mime[extname(file)] || 'application/octet-stream' });
