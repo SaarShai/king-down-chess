@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createCharacterRuntime, anchorAt, bankPointToWorld, idleBankAt, facingOf, frameAt, turnRoute, reverseRoute, type RuntimeBank } from './painted/character-runtime.mjs';
+import { createCharacterRuntime, anchorAt, bankPointToWorld, idleBankAt, facingOf, figureHeight, frameAt, turnRoute, reverseRoute, walkStride, type RuntimeBank } from './painted/character-runtime.mjs';
 const bank = (from = 'SE', to = 'S'): RuntimeBank => ({ id: `${from}-${to}`, character: 'pawn', army: 'white', kind: 'turn', from, to, facing: 'SE', durationMs: 120, nearest: true, pivot: [384,700], canvasSize: [768,768], bodyHeightPx: 600, registrationHeightPx: 600, frames: [0,60,120].map(timeMs => ({ url: `frame-${timeMs}`, timeMs })) });
+
+it('sets the final figure heights, and a walk stride follows its figure', () => {
+ expect(['pawn','maester','knight','queen','beast','bishop','guard','ogre','rook'].map(figureHeight)).toEqual([82,84,129,132,104,125,108,116,132]);
+ expect(walkStride({character:'maester',strideSquares:.84})).toBeCloseTo(.63);
+ expect(walkStride({character:'knight',strideSquares:1})).toBeCloseTo(129/112);
+ expect(walkStride({character:'rook',strideSquares:.9})).toBe(.9);
+});
 
 describe('ready character playback', () => {
  it('decodes a selected capture route before its bounded preparation', async () => {
@@ -372,7 +379,7 @@ describe('ready character playback', () => {
    const sample=(t:number)=>runtime.action(prepared,t,1000,0) as {bank:string;time:number;pivot:number[];scale:number};
    expect(sources.filter(s=>s.includes(`${army}-move-`))).toHaveLength(3);
    expect([0,499,500,999,1000].map(t=>sample(t).time)).toEqual([0,0,100,100,200]);
-   expect(sample(0)).toMatchObject({bank:`${army}-move`,pivot:[100,200],scale:96/400});
+   expect(sample(0)).toMatchObject({bank:`${army}-move`,pivot:[100,200],scale:82/400});
    expect(sample(-1).bank).toBe(`${army}-turn`);expect(sample(1001).bank).toBe(`${army}-turn`);
    const opposite=await runtime.prepare('pawn',army,'SE',false,true);
    expect((runtime.action(opposite,500,1000,0) as {bank:string}).bank).toBe(`${army}-idle`);

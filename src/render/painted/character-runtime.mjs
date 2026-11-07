@@ -40,10 +40,17 @@ export function idleBankAt(clips,turns,restFacing,time) {
  return null;
 }
 const jumps=character=>character==='knight'||character==='paladin';
-const HEIGHT={pawn:96,knight:112,bishop:114,rook:132,queen:120,archer:120,paladin:124,maester:112,ogre:136,guard:114};
+const HEIGHT={pawn:82,knight:129,bishop:125,rook:132,queen:132,archer:120,paladin:124,maester:84,ogre:116,guard:108,beast:104};
+// The figure heights at which the catalog's strideSquares and contactCorrection were measured. The owner's
+// final sizes changed the figures, not those numbers; tools/anim/stride still measures at these heights.
+const MEASURED_HEIGHT={pawn:96,knight:112,bishop:114,queen:120,maester:112,ogre:136,guard:114,beast:130};
 /** Board px per bank px of a body bank; figureHeight: how tall a character stands on the board. */
 export const bankScale=bank=>bank.boardScale??(HEIGHT[bank.character]??130)/bank.registrationHeightPx;
 export const figureHeight=character=>HEIGHT[character]??130;
+/** A number that was measured in board px on the figure, at the figure's size today. */
+export const measuredScale=character=>figureHeight(character)/(MEASURED_HEIGHT[character]??figureHeight(character));
+/** Squares per walk cycle at the figure's size today: a smaller figure's painted step covers less floor. */
+export const walkStride=bank=>bank.strideSquares*measuredScale(bank.character);
 export const DECODED_BUDGET=64*1024*1024;
 // Bound the wait for optional art so a stalled request cannot hold up a move indefinitely.
 const LOAD_TIMEOUT=1000,IMAGE_TIMEOUT=5000,RETRY_DELAY=5000;

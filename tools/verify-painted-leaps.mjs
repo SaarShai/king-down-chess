@@ -29,7 +29,7 @@ try{
   const landed=frames.find(f=>f.time>=bank.contactMs),foot=await page.evaluate(s=>view.scene.foot(s),to);
   assert.deepEqual(landed.foot,foot,`${name}: exact target at contact`);
   assert.deepEqual(frames.at(-1).foot,foot,`${name}: no final position step`);
-  assert(frames.every(f=>f.scale===(character==='knight'?112:124)/bank.registrationHeightPx));
+  assert(frames.every(f=>f.scale===(character==='knight'?129:124)/bank.registrationHeightPx));
   assert(trace.every(t=>t.memory.peakBytes<=64*1024*1024&&t.memory.active<=6),`${name}: cache limits`);
   assertNoErrors(errors);
   const video=page.video();await context.close();await rename(await video.path(),join(env('PLAYABLE_OUT'),`${name}.webm`));
