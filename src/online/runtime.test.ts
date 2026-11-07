@@ -480,6 +480,19 @@ it('publishes only the current invitation when two previews return out of order'
   } finally { host.dispose?.(); vi.unstubAllGlobals(); }
 });
 
+it('keeps a held preview and its link when the shared runtime shows the join screen', async () => {
+  const { browser } = browserAt('/j#K7QX2M'), pending = held<JoinPreview>();
+  const host = createBrowserRuntime({ preview: () => pending.promise } as unknown as OnlineClient, 'a'), results = vi.fn(); host.onResult = results;
+  try {
+    await host.connect();
+    host.route?.('join');
+    pending.resolve({ code: 'K7QX2M' } as JoinPreview); await pending.promise;
+    expect(results).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ _meta: { preview: { code: 'K7QX2M' } }, structuredContent: { screen: 'join' } }));
+    expect(browser.location.hash).toBe('#K7QX2M');
+    expect(browser.history.pushState).not.toHaveBeenCalled();
+  } finally { host.dispose?.(); vi.unstubAllGlobals(); }
+});
+
 it('invalidates a held preview when the shared runtime navigates away', async () => {
   const { browser } = browserAt('/j#K7QX2M'), pending = held<JoinPreview>();
   const host = createBrowserRuntime({ preview: () => pending.promise } as unknown as OnlineClient, 'a'), results = vi.fn(); host.onResult = results;

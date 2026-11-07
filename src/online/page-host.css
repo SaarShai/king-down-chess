@@ -4,6 +4,10 @@
 body { height: auto; min-height: 100dvh; overflow: auto; }
 #app-root { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 #app-root :is(button, input, select, .seg-row label) { min-width: 48px; min-height: 48px; }
+/* The web page has no host composer under the frame, so the frame and its floor reach the window bottom. */
+#app-frame { --composer-gap: 0px; }
+/* A card check is the 48 px box itself: it sits in the tile corner, inside the scroll box of the pool. */
+#app-root #setup-card-pool .card-use { top: 0; right: 0; width: 48px; height: 48px; padding: 0; }
 #app-root #game-table .coin { width: 48px; height: 48px; min-width: 48px; min-height: 48px; }
 @container table-screen (max-width: 319px) {
   #app-root #game-table .player-strip:has(.card-coin) { min-height: 56px; }
@@ -12,6 +16,9 @@ body { height: auto; min-height: 100dvh; overflow: auto; }
 .account-entry h1, .account-entry p { margin: 0; }
 .account-entry a { position: relative; text-align: center; }
 .account-entry a::after { content: ''; position: absolute; inset: -1px 0; min-height: 24px; }
+.email-code, .email-code label { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; gap: 8px; }
+.email-code [hidden] { display: none; }
+.email-code input { box-sizing: border-box; width: 100%; min-height: 48px; font-size: 16px; /* iOS zooms on a smaller field */ }
 .staging-sign-in, .staging-sign-in label { display: grid; gap: 8px; }
 .staging-sign-in { border-top: 1px solid currentColor; padding-top: 16px; }
 .staging-sign-in h2 { margin: 0; font-size: 1rem; }

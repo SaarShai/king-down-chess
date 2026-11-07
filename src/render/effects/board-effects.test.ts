@@ -18,7 +18,8 @@ vi.mock('./indications', () => ({ SIGNAL_DURATION_MS: 4800, ring: vi.fn(), link:
 vi.mock('./check', () => ({ CHECK_ONSET_MS: 440, CHECK_SETTLE_MS: 240, CHECK_WITHDRAW_MS: 220, drawCheck: vi.fn(), drawWithdrawal: vi.fn() }));
 afterEach(() => vi.clearAllMocks());
 const ctx = { save() {}, restore() {}, translate() {}, scale() {} } as unknown as CanvasRenderingContext2D;
-const sceneAt = (flipped: boolean) => ({ cell: (sq: number) => ({ col: flipped ? 7 - sq % 8 : sq % 8, row: flipped ? sq >> 3 : 7 - (sq >> 3) }), foot: (sq: number) => ({ x: sq * 10, y: sq * 20 }) }) as unknown as PaintedScene;
+const size = { height: 82, half: 40 };
+const sceneAt = (flipped: boolean) => ({ cell: (sq: number) => ({ col: flipped ? 7 - sq % 8 : sq % 8, row: flipped ? sq >> 3 : 7 - (sq >> 3) }), foot: (sq: number) => ({ x: sq * 10, y: sq * 20 }), figureBox: () => ({ x: 0, foot: 0, top: -82, l: -40, r: 40 }) }) as unknown as PaintedScene;
 
 it.each([false, true])('puts material backs under figures and fronts/pips only after their screen row (%s)', flipped => {
   const f = fixtures.freeze, effects = new StateEffects(), scene = sceneAt(flipped);
@@ -127,7 +128,7 @@ it.each([false, true])('draws approved Freeze residue in its row without a live 
   drawBoardEffects(ctx, scene, 'under', undefined, effects, {}, 390, 410, true, false, null, 0, undefined, f.expired!.board);
   drawBoardEffects(ctx, scene, 'over', scene.cell(35).row, effects, {}, 390, 410, true, false, null, 0, undefined, f.expired!.board);
   expect(vi.mocked(drawFreezeRelease).mock.calls).toEqual([
-    [ctx, scene.foot(35), false, .5, 35], [ctx, scene.foot(35), true, .5, 35],
+    [ctx, scene.foot(35), false, .5, 35, size], [ctx, scene.foot(35), true, .5, 35, size],
   ]);
   expect(drawFreeze).not.toHaveBeenCalled(); expect(pips).not.toHaveBeenCalled();
   // The ice finishes on its own square when its piece walks away or falls, and under a move through that square.
@@ -154,5 +155,5 @@ it('a capture of a frozen piece starts its thaw on the first drawn frame', () =>
   effects.sync(f.rules, f.after, 0, true);
   drawBoardEffects(ctx, scene, 'under', undefined, effects, {}, 390, 500, true, false, null, 0, new Set([35]), f.after.board);
   expect(drawFreeze).not.toHaveBeenCalled();
-  expect(vi.mocked(drawFreezeRelease).mock.calls).toEqual([[ctx, scene.foot(35), false, 0, 35]]);
+  expect(vi.mocked(drawFreezeRelease).mock.calls).toEqual([[ctx, scene.foot(35), false, 0, 35, size]]);
 });

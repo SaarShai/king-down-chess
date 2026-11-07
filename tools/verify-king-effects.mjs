@@ -64,7 +64,7 @@ try {
 
   // 2. Animations Off: no effect is drawn (the board equals one drawn with the effects switched off), no redraw loop.
   await pace(page, 'off'); await drawn(page, 0);
-  // The kings without their effects are new figures: their contact shadows are built in idle time (within
+  // The kings without their effects are new figures: their footprints are read in idle time (within
   // half a second) and drawn in one more frame. Then the board must be still.
   for (let i = 0; i < 10 && await framesIn(page, 300) > 0; i++);
   assert.deepEqual(await effects(page), []);

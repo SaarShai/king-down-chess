@@ -2,7 +2,8 @@
 // Shared by the board trial (prototype.mjs) and the game's painted look (src/render/PaintedView.ts).
 // Rules helpers are passed in, so the scene never bundles its own copy of the engine.
 import { clamp } from './painted-mesh.mjs';
-import {createCharacterRuntime,facingOf,anchorAt,bankPointToWorld,bankScale,figureHeight} from './character-runtime.mjs';
+import {createCharacterRuntime,facingOf,anchorAt,bankPointToWorld,bankScale,figureHeight,measuredScale,walkStride} from './character-runtime.mjs';
+import {PIECE_STILLS} from './piece-stills.mjs';
 import {strikeReach,strikeStance,crushPose,impalePose,thrownPose,bitePose,slashLine,drawCut,drawSlashArc,drawCrush,drawBurst,drawDust,drawChips,drawBitten,drawBiteHit} from './fx-melee.mjs';
 import * as archer from './wrist-bow/aiming.mjs';
 import * as pawn from './lance/aiming.mjs';
@@ -24,7 +25,8 @@ import {KING_FILES} from './king-sheets.mjs';
 import {DEATHS,THEMED,drawDeath,kingBodyBounds} from './king-captures.mjs';
 import * as pawnIdle from './idle.mjs';
 import {CLIPS,frameAt,drawFrame as drawClipFrame,inCell} from './clips.mjs';
-import {SHADE,shadowField,shadowWeights,fxFade} from './contact-shadow.mjs';
+import {afterBoard,boardReady} from './after-board.mjs';
+import {SHADE,shadowField,shadowWeights,fxFade,poolShape,poolAlpha,glidePool} from './contact-shadow.mjs';
 import {SHOT,rangedPlan,heldClock,rangedFrame,drawDissolve,drawFlash,struckAt} from './fx-ranged.mjs';
 export const SIZE=960, PAD=32, TILE=112;
 /** The floor round the board, by default: the trial, the trailer and the plugin page draw it. */
@@ -77,7 +79,7 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
   let entry=kingArt[design];
   if(!entry){
    const image=corsImage();
-   entry=kingArt[design]={image:null,loaded:new Promise((resolve,reject)=>{image.onload=()=>{entry.image=image;lyingArt(design);wake();resolve();};image.onerror=reject;})};
+   entry=kingArt[design]={image:null,loaded:new Promise((resolve,reject)=>{image.onload=()=>{entry.image=image;afterBoard(()=>lyingArt(design));wake();resolve();};image.onerror=reject;})};
    image.src=KING_FILES[design];
   }
   return entry;
@@ -89,6 +91,23 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
   if(!image){image=lyingArts[design]=corsImage();image.onload=()=>wake();image.src=FALLEN_FILES[design];demise.prepare();}
   return image.naturalWidth?image:null;
  }
+ // A figure at rest draws its runtime rest frame (a still picture, piece-stills.mjs) until the runtime has that frame:
+ // the same pivot and size, so the change to the animated art does not show.
+ const stillArt={},publicUrl=path=>new URL(path,import.meta.url).href;
+ function stillImage(value){
+  const character=characterOf(value),army=armyOf(value),meta=characterRuntime?PIECE_STILLS[character]?.[army]:null;if(!meta)return null;
+  const key=`${character}:${army}`;let entry=stillArt[key];
+  if(!entry){
+   const image=corsImage();
+   entry=stillArt[key]={body:null,done:false,loaded:new Promise(resolve=>{image.onload=()=>{entry.done=true;entry.body={image,pivot:meta.pivot,size:meta.size,scale:bankScale({character,boardScale:meta.boardScale,registrationHeightPx:meta.registrationHeightPx}),unitHeight:meta.registrationHeightPx,footprint:meta.footprint};wake();resolve();};image.onerror=()=>{entry.done=true;resolve();};})};
+   image.src=publicUrl(`/ui/pieces/${character}-${army[0]}.webp`);
+  }
+  return entry;
+ }
+ // (Not when the loaded package has no body for it: then its legacy drawings move it, so it rests as one of them too.)
+ const stillBody=value=>bodyRuntime?.stats.manifestReady&&!bodyRuntime.has(characterOf(value),armyOf(value))?null:stillImage(value)?.body??null;
+ // The loads still pending for the figures on the board, or null when none is.
+ const warmStills=()=>{const waits=[...new Set(position.board)].filter(Boolean).map(stillImage).filter(entry=>entry&&!entry.done).map(entry=>entry.loaded);return waits.length?Promise.all(waits):null;};
  const boardArt=corsImage();
  // Clips load after the first frame with motion on, or when a selection needs one. They never gate readiness.
  // Choose the clip at selection time, so a late sheet never starts a clip in the middle of a selection.
@@ -99,12 +118,12 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
   if(characterRuntime&&!bodyWarm)return;
   for(const key of name?[name]:Object.keys(clipArt))if(!clipArt[key].src&&(!characterRuntime||[...position.board].some(value=>value&&CLIP_OF[typeOf(value)]===key&&!bodyRuntime.has(characterOf(value),armyOf(value)))))clipArt[key].src=CLIPS[key].file;
  }
- const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.132,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.1166,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
-specs[O]={anchor:ogre.ANCHOR,hit:ogre.HIT,scale:.155};
-specs[N]={anchor:knight.ANCHOR,hit:knight.HIT,scale:.125};
+ const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.1128,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.1166,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
+specs[O]={anchor:ogre.ANCHOR,hit:ogre.HIT,scale:.1322};
+specs[N]={anchor:knight.ANCHOR,hit:knight.HIT,scale:.144};
 const newMotions={ [B]:bishop,[R]:rook,[G]:guard };
-// Owner 2026-10-04: the Guard and the Archer 10% larger on the board (.12 → .132, .106 → .1166).
-for(const [type,scale] of [[B,.13],[R,.155],[G,.132]])specs[type]={anchor:newMotions[type].ANCHOR,hit:newMotions[type].HIT,scale};
+// These scales follow HEIGHT in character-runtime.mjs: the hit points, the effects and the old sprites use them.
+for(const [type,scale] of [[B,.1425],[R,.155],[G,.125]])specs[type]={anchor:newMotions[type].ANCHOR,hit:newMotions[type].HIT,scale};
 const courtNames={[Q]:'queen',[L]:'paladin',[M]:'maester',[K]:'king',[S]:'beast'};
 for(const [type,name] of Object.entries(courtNames)){
  specs[type]={anchor:court.ANCHOR,hit:court.HIT,scale:court.figures[name].scale};
@@ -133,7 +152,7 @@ for(const [type,name] of Object.entries(courtNames)){
  const cell=s=>({col:flipped?7-(s&7):s&7,row:flipped?s>>3:7-(s>>3)});
  const foot=s=>{const c=cell(s);return {x:PAD+(c.col+.5)*TILE,y:PAD+(c.row+.5)*TILE+40};};
  const sideFacing=value=>colorOf(value)?-1:1;
- // A victim thrown up keeps its contact shadow on the floor (pose.ground). (Atmosphere off, its old oval rises with it
+ // A victim thrown up keeps its pool on the floor (pose.ground). (Atmosphere off, its old oval rises with it
  // as it always did: the trial and the trailer draw as before.)
  const onFloor=point=>lively.atmosphere?{ground:point}:{};
  const poseFor=(value,square)=>({foot:foot(square),scale:specs[typeOf(value)].scale,facing:sideFacing(value),angle:0});
@@ -188,7 +207,7 @@ const blank=document.createElement('canvas');blank.width=blank.height=1;
 const fxCanvas=document.createElement('canvas');fxCanvas.width=SIZE;fxCanvas.height=SIZE+headroom;let fallCanvas=null;
 // fx: {cut} splits along a slash; {frost, shatter} ices the figure then breaks it into wedges;
 // {ranged} is a ranged capture's victim (fx-ranged.mjs).
-// shadow: false when its contact shadow is already on the floor (render() draws them all before any figure, those
+// shadow: false when its pool is already on the floor (render() draws them all before any figure, those
 // of figures with an effect too, fading as the effect takes them: fxFade).
 function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
  if(opacity<=0)return;
@@ -209,7 +228,7 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
  if(fx?.ranged){
   // A ranged capture's victim (fx-ranged.mjs): only its lit frames go through the effect layer.
   if(fx.ranged.kind==='shot'&&!fx.ranged.flash)return drawPiece(out,value,pose,opacity,extension,null,false);
-  const c=fxCanvas.getContext('2d'),d={...fx.ranged,box:victimBox(pose),
+  const c=fxCanvas.getContext('2d'),d={...fx.ranged,box:victimBox(pose,typeOf(value)),
    clear(){c.setTransform(res,0,0,res,0,headroom*res);c.globalCompositeOperation='source-over';c.globalAlpha=1;c.clearRect(0,-headroom,SIZE,SIZE+headroom);return c;},
    draw(g,{dx=0}={}){drawPiece(g,value,{...pose,foot:{x:pose.foot.x+dx,y:pose.foot.y}},1,extension,null,false);},
    layer(x,y,w,h){out.save();out.globalAlpha=opacity;out.drawImage(fxCanvas,x*res,(y+headroom)*res,w*res,h*res,x,y,w,h);out.restore();}};
@@ -254,12 +273,12 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
  if(fx?.bitten){drawBitten(out,fx.bitten,()=>drawPiece(out,value,pose,opacity,extension,null,false));return;}
  const spec=specs[typeOf(value)],ground=pose.ground??pose.foot;
  out.save();out.globalAlpha=opacity;
- // (the charcoal army's pale rim fades out at the soles, where it meets the contact shadow; base: board units to
+ // (the charcoal army's pale rim fades out at the soles, where it meets the pool; base: board units to
  // device px, before the figure's own frame)
  const fade=lively.atmosphere&&colorOf(value)&&out!==closeup?.ctx,base=fade?out.getTransform():null;
  if(lively.atmosphere){if(shadow)contactShadow(out,value,pose,opacity);}
  else{const k=clamp(1-(pose.lift??0)/TILE*.4,.6,1)*(pose.shadow??1);out.fillStyle='#343a2229';out.beginPath();out.ellipse(ground.x,ground.y-2,210*pose.scale*k,36*pose.scale*k,0,0,Math.PI*2);out.fill();}
- if(pose.bank){const b=pose.bank,k=b.scale*pose.scale/spec.scale;out.translate(pose.foot.x,pose.foot.y);out.scale(k*(pose.sx??1),k*(pose.sy??1));out.rotate((pose.rotation??0)*pose.facing);out.shadowColor=colorOf(value)?'rgba(250,246,232,.85)':'rgba(28,24,16,.8)';out.shadowBlur=3*res;out.drawImage(b.image,-b.pivot[0],-b.pivot[1]);out.restore();return;}
+ if(pose.bank||pose.still){const b=pose.bank??pose.still,k=b.scale*pose.scale/spec.scale;if(typeOf(value)===K)drawnKings[colorOf(value)]=kings[colorOf(value)];out.translate(pose.foot.x,pose.foot.y);out.scale(k*(pose.sx??1),k*(pose.sy??1));out.rotate((pose.rotation??0)*pose.facing);out.shadowColor=colorOf(value)?'rgba(250,246,232,.85)':'rgba(28,24,16,.8)';out.shadowBlur=3*res;if(b.size)out.drawImage(b.image,-b.pivot[0],-b.pivot[1],b.size[0],b.size[1]);else out.drawImage(b.image,-b.pivot[0],-b.pivot[1]);out.restore();return;}
  out.translate(pose.foot.x,pose.foot.y);out.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));out.rotate(pose.rotation??0);
  // A clip's drawing is one atlas cell, at its clip's factor of the sprite's size.
  const clip=pose.clip,anchor=clip?inCell(clip.name,spec.anchor):spec.anchor;
@@ -282,41 +301,38 @@ function clipSprite(value,{name,index}){
  if(!canvas){canvas=document.createElement('canvas');work.set(`clip:${name}`,canvas);}
  drawClipFrame(canvas,clipArt[name],name,colorOf(value),index);return canvas;
 }
-// Contact shadows (atmosphere on; contact-shadow.mjs has the parts and their strengths), made once per still sprite
-// from its own outline and drawn with multiply, so the shade keeps the floor's own colour (dark wood gets a deeper
-// one than light stone, or it would not read).
-// Outlines by sprite key; stamps by sprite key and the side the figure faces (the light stays top left).
-const outlines=new Map(),stamps=new Map(),EMPTY={empty:true};
+// The soft pool under each figure (atmosphere on; contact-shadow.mjs has the numbers): one stamp, stretched to each
+// figure's footprint and drawn with multiply, so the shade keeps the floor's own colour (dark wood gets a deeper one
+// than light stone, or it would not read). A bank's frame has its footprint from the table the character runtime loads.
+// A still sprite has one from its own outline.
+// Outlines by sprite key; footprints by sprite key and the side the figure faces.
+const outlines=new Map(),stillPrints=new Map(),EMPTY={empty:true};
 // The key of a figure's still sprite: type:side[:design][:effect] (sprite() caches it under this key).
 function spriteKey(value,sheet=null){
  const type=typeOf(value),side=colorOf(value),design=type===K?kings[side]:null,fig=figureOf(value);
  return design?`${type}:${side}:${design}${sheet?':effect':''}`:`${type}:${side}${fig?`:${fig.src}`:''}`;
 }
-// A figure's stamps, or null while they are not built. Missing ones are built when the browser is idle (within half
-// a second), so the first frame does not wait for them; until then the figure has a plain pool (fallbackShape), and
-// the stamps fade in over it. Both facings of a figure are built together, so a figure turning round never lacks
-// its shadow, and the stamps of one build appear together.
-const queued=new Map(),built=new Map();let idleBuild=0;
+// A still sprite's footprint, or null while it is not read. Missing ones are read when the browser is idle (within half
+// a second), so the first frame does not wait for them; until then the figure has a typical pool (fallbackShape), and
+// its pool glides to its own.
+const queued=new Map();let idleBuild=0;
 const requestBuild=()=>globalThis.requestIdleCallback?requestIdleCallback(buildQueued,{timeout:500}):setTimeout(buildQueued,0);
-function shadowStamps(value,sheet,f){
- const key=spriteKey(value,sheet),set=stamps.get(`${key}:${f}`);if(set)return set;
+function stillPrint(value,sheet,f){
+ const key=spriteKey(value,sheet),print=stillPrints.get(`${key}:${f}`);if(print)return print;
  if(!queued.has(key)){queued.set(key,[value,sheet]);idleBuild||=requestBuild();}
  return null;
 }
-// Reads the floor's darkness and every queued outline in one go, then builds stamps while the idle time lasts (and
-// goes on in the next), and shows them all when every queued figure has its own.
-function buildQueued(deadline){
+// Reads the floor's darkness and every queued outline in one go, then measures them.
+function buildQueued(){
  idleBuild=0;readFloor();readOutlines([...queued.values()]);
+ const count=queued.size;
  for(const [key,[value,sheet]] of queued){
-  if(built.has(key))continue;
   // (Not drawable yet, as a king whose sheet is loading: asked for again when it is drawn.)
-  const outline=outlines.get(key);if(!outline){queued.delete(key);continue;}
-  if(built.size&&deadline?.timeRemaining()<=0){idleBuild=requestBuild();return;}
-  const since={t:null},spec=specs[typeOf(value)];
-  built.set(key,[1,-1].map(f=>{const set=buildStamps(outline,spec,f);return set?{...set,since}:EMPTY;}));
+  const outline=outlines.get(key);queued.delete(key);if(!outline)continue;
+  const spec=specs[typeOf(value)];
+  for(const f of [1,-1])stillPrints.set(`${key}:${f}`,shadowField(outline,spec,f)??EMPTY);
  }
- for(const [key,[right,left]] of built){stamps.set(`${key}:1`,right);stamps.set(`${key}:-1`,left);queued.delete(key);}
- if(built.size){built.clear();wake();}
+ if(count)wake();
 }
 // The alpha of still sprites not read yet, at q px per board unit: [[value, sheet]]. All of them are read back in
 // one go: each readback waits for the GPU, and one per figure would stall.
@@ -338,26 +354,8 @@ function readOutlines(figures){
   outlines.set(key,{alpha,n});
  }
 }
-// The stamps of one facing: the fields as canvases, x, y, w, h in board units round the ground point (at spec.scale).
-function buildStamps(outline,spec,f){
- const field=shadowField(outline,spec,f,TILE);if(!field)return null;
- const {W,H,OX,OY}=field,q=SHADE.q;
- const stamp=buf=>{
-  // Cropped to what is not empty.
-  let x0=W,y0=H,x1=-1,y1=-1;
-  for(let Y=0;Y<H;Y++)for(let X=0;X<W;X++)if(buf[Y*W+X]>.004){if(X<x0)x0=X;if(X>x1)x1=X;if(Y<y0)y0=Y;if(Y>y1)y1=Y;}
-  if(x1<0)return null;
-  const w=x1-x0+1,h=y1-y0+1,canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
-  const cx=canvas.getContext('2d'),img=cx.createImageData(w,h),[r,g,b]=SHADE.rgb;
-  for(let Y=0;Y<h;Y++)for(let X=0;X<w;X++){const i=(Y*w+X)*4;img.data[i]=r;img.data[i+1]=g;img.data[i+2]=b;img.data[i+3]=Math.round(255*Math.min(1,buf[(Y+y0)*W+X+x0]));}
-  cx.putImageData(img,0,0);
-  return {canvas,x:(x0-OX)/q,y:(y0-OY)/q,w:w/q,h:h/q};
- };
- const {scale,tall,span,cx,pd,body}=field;
- return {scale,tall,span,cx,pd,body,core:stamp(field.core),soft:stamp(field.soft)};
-}
-// A figure's measures before its stamps are built, from its scale alone (a typical figure's: a stand-in for a moment).
-const fallbackShape=spec=>({scale:spec.scale,tall:900*spec.scale,span:330*spec.scale,cx:0,pd:SHADE.pool,body:[220*spec.scale,220*spec.scale]});
+// A figure's measures before its own are read, from its scale alone (a typical figure's: a stand-in for a moment).
+const fallbackShape=spec=>({scale:spec.scale,tall:900*spec.scale,span:330*spec.scale,cx:0,cy:0,tilt:0,body:[220*spec.scale,220*spec.scale]});
 // How dark the painted floor is at a point: 0 on the light stone, 1 on the dark wood. Read from the board art once
 // (96 x 96, calibrated by the mean of the light and the dark square centres), so it follows a flipped board; it is
 // read with the outlines, in idle time (its CPU copy of the art costs a first frame about 10 ms). Until then: the
@@ -381,58 +379,64 @@ function groundDark(p){
  u=clamp(u,0,n-1.001);v=clamp(v,0,n-1.001);const i=Math.floor(u),j=Math.floor(v),fu=u-i,fv=v-j,at=(x,y)=>floorMap[y*n+x];
  return (at(i,j)*(1-fu)+at(i+1,j)*fu)*(1-fv)+(at(i,j+1)*(1-fu)+at(i+1,j+1)*fu)*fv;
 }
-// A soft oval of shade at x, y (rx, ry): a plateau that softens (0..1) as the figure rises.
-function shadeOval(out,x,y,rx,ry,alpha,soft){
- if(alpha<=.004)return;
- out.save();out.globalAlpha=alpha;out.translate(x,y);out.scale(rx,ry);
- const g=out.createRadialGradient(0,0,0,0,0,1),rgb=SHADE.rgb.join(',');
- for(const [at,rest,lifted] of [[0,1,1],[.5,.92,.72],[.8,.45,.3],[1,0,0]])g.addColorStop(at,`rgba(${rgb},${rest+(lifted-rest)*soft})`);
- out.fillStyle=g;out.beginPath();out.arc(0,0,1,0,Math.PI*2);out.fill();out.restore();
+// The pool's stamp, made once: a soft oval, drawn at any size. No canvas or gradient per frame.
+let poolStamp=null;
+function poolCanvas(){
+ if(poolStamp)return poolStamp;
+ const n=128,canvas=document.createElement('canvas');canvas.width=canvas.height=n;
+ const g=canvas.getContext('2d'),img=g.createImageData(n,n),[r,gr,b]=SHADE.rgb;
+ for(let y=0;y<n;y++)for(let x=0;x<n;x++){const i=(y*n+x)*4;img.data[i]=r;img.data[i+1]=gr;img.data[i+2]=b;img.data[i+3]=Math.round(255*poolAlpha((x+.5)/n*2-1,(y+.5)/n*2-1));}
+ g.putImageData(img,0,0);return poolStamp=canvas;
 }
-// The frame being drawn (render() sets it): a new set of stamps fades in from the first frame that draws it, and
-// the board stays awake until the fade ends (shadowsFading). With motion off (lively.idle false: Animations Off or
-// reduced motion) the stamps show at once.
-let frameTime=0,shadowsFading=false;
-// The figure's contact shadow on the floor (pose.ground, or under its feet); shadowWeights says how much of each part
-// shows. In the air the pool slides a little away from the light and hands over to an oval; a figure that tips
-// over or lies on the floor has a pool under its body, along its lower edge.
-function contactShadow(out,value,pose,opacity) {
+// The frame being drawn (render() sets it). The drawn pool of each square glides to its figure's footprint, and the board
+// stays awake until it arrives (poolsGliding). With motion off (lively.idle false: Animations Off or reduced motion)
+// it lands at once.
+let frameTime=0,poolsGliding=false;
+const glides=new Map();
+// The drawn pool of the figure on a square. A figure that is new there starts on its footprint.
+function glided(square,value,target){
+ const at=glides.get(square);
+ if(!at||at.value!==value||!lively.idle){glides.set(square,{value,time:frameTime,...target});return target;}
+ glidePool(at,target,frameTime-at.time);at.time=frameTime;if(!at.settled)poolsGliding=true;return at;
+}
+// The figure's pool on the floor (pose.ground, or under its feet); shadowWeights says how much shows. In the air the
+// pool slides a little away from the light; a figure that tips over or lies on the floor has a pool under its body,
+// along its lower edge. square: the board's own figure on that square, whose pool glides (none: the frame's own).
+function contactShadow(out,value,pose,opacity,square=null) {
  if(pose.lying)return; // (painted under him)
- const w=shadowWeights(pose,opacity);if(w.shown<=.004)return;
  const type=typeOf(value),design=type===K?kings[colorOf(value)]:null;
- if(design&&!pose.sheet&&!kingArt[design]?.image)return; // (the figure is not drawn yet either)
- const ground=pose.ground??pose.foot,sx=pose.sx??1,sy=pose.sy??1,set=shadowStamps(value,pose.sheet,pose.facing*sx<0?-1:1);
- if(set?.empty)return;
- const fade=!set?0:lively.idle?clamp((frameTime-(set.since.t??=frameTime))/160,0,1):1,shape=set??fallbackShape(specs[type]);
- if(set&&fade<1)shadowsFading=true;
- const dk=out===closeup?.ctx?0:groundDark(ground),pick=([light,dark])=>light+(dark-light)*dk;
- // A squash widens the shadow; a figure that shrinks (a victim) shrinks it.
- const k=pose.scale/shape.scale,m=Math.max(Math.abs(sx),sy),wide=k*m,deep=k*Math.min(1,m),shrink=1-.3*(1-Math.exp(-w.air/30));
- out.save();out.globalCompositeOperation='multiply';
- out.translate(ground.x+SHADE.shear*SHADE.cast*w.h*.6,ground.y+SHADE.cast*w.h*.4);
- if(fade>0)for(const [stamp,alpha] of [[set.soft,pick(SHADE.soft)*w.soft],[set.core,pick(SHADE.core)*w.core]]){
-  if(!stamp||alpha*w.shown*fade<=.004)continue;
-  out.globalAlpha=alpha*w.shown*fade;out.drawImage(stamp.canvas,stamp.x*wide*shrink,stamp.y*deep*shrink,stamp.w*wide*shrink,stamp.h*deep*shrink);
+ // The footprint in board units: from this frame in the table, or from the still sprite.
+ const row=(pose.bank??pose.still)?.footprint;
+ if(!row&&design&&!pose.sheet&&!kingArt[design]?.image)return; // (the figure is not drawn yet either)
+ // A king's still sheet loads in idle time, also for a bank body: his effects and his fall draw from it.
+ if(row&&design)stillPrint(value,pose.sheet,1);
+ const sx=pose.sx??1,sy=pose.sy??1,mirror=pose.facing*sx<0?-1:1,m=Math.max(Math.abs(sx),sy),spec=specs[type];
+ let print,k,tall;
+ if(row){const b=pose.bank??pose.still,side=sx<0?-1:1;k=b.scale*pose.scale/spec.scale;tall=b.unitHeight*k;print={span:row[0]*k*m,cx:row[1]*k*m*side,cy:row[2]*k*Math.min(1,m),tilt:side*(row[3]??0)/100};}
+ else{const still=stillPrint(value,pose.sheet,mirror);if(still?.empty)return;const shape=still??fallbackShape(spec);k=pose.scale/shape.scale;tall=shape.tall*k;print={span:shape.span*k*m,cx:shape.cx*k*m,cy:shape.cy*k*Math.min(1,m),tilt:shape.tilt};}
+ const w=shadowWeights(pose,opacity,row?(row[4]??0)*k:0);if(w.shown<=.004)return;
+ if(!floorMap&&boardArt.naturalWidth)idleBuild||=requestBuild();
+ const shape=poolShape(print,tall,TILE),pool=square==null?shape:glided(square,value,shape);
+ const ground=pose.ground??pose.foot,dk=out===closeup?.ctx?0:groundDark(ground),floor=SHADE.pool[0]+(SHADE.pool[1]-SHADE.pool[0])*dk,stamp=poolCanvas();
+ const alpha=floor*w.pool*w.shown,slideX=SHADE.slide[0]*w.h,slideY=SHADE.slide[1]*w.h;
+ if(alpha>.004){
+  const rx=pool.rx*w.size,ry=pool.ry*w.size;
+  out.save();out.globalCompositeOperation='multiply';out.globalAlpha=alpha;out.translate(ground.x+slideX+pool.x,ground.y+slideY+pool.y);if(pool.tilt)out.rotate(pool.tilt);out.drawImage(stamp,-rx,-ry,2*rx,2*ry);out.restore();
  }
- // Until the stamps come: a plain pool where theirs will be.
- if(fade<1){const {span,tall,pd}=fallbackShape(specs[type]),A=Math.max(span/2+5,.16*tall+4)*1.15;shadeOval(out,.75*wide*shrink,pd*deep*shrink,A*wide*shrink,clamp(.3*A,5.75,12.6)*deep*shrink,.85*pick(SHADE.soft)*Math.max(w.soft,w.core)*w.shown*(1-fade),.6);}
- const {span,cx,pd,tall}=shape,rx=Math.max(8,span/2+3);
- shadeOval(out,cx*wide,pd*deep,rx*wide*(1-.3*w.air/(w.air+30)),clamp(.3*rx,4.5,8)*deep*(1-.3*w.air/(w.air+30)),pick(SHADE.air)*w.oval*w.shown,w.plateau);
- if(w.lying){
-  const sn=Math.sin(pose.rotation);
-  shadeOval(out,pose.foot.x-ground.x+pose.facing*sx*sn*tall/2*k,pose.foot.y-ground.y+lowerEdge(value,pose,shape)-1.5*k,(Math.abs(sn)*tall/2+6)*k,5*k,pick(SHADE.soft)*w.lying*w.shown,.3);
+ if(w.lying&&floor*w.lying*w.shown>.004){
+  const sn=Math.sin(pose.rotation),rx=(Math.abs(sn)*.5+.05)*tall,ry=.042*tall,x=pose.foot.x+pose.facing*sx*sn*tall/2,y=pose.foot.y+lowerEdge(value,pose)-.0125*tall;
+  out.save();out.globalCompositeOperation='multiply';out.globalAlpha=floor*w.lying*w.shown;out.drawImage(stamp,x-rx,y-ry,2*rx,2*ry);out.restore();
  }
- out.restore();
 }
-// How far below its foot point a tipped figure's lower edge is (board units; shape: its stamps, or fallbackShape).
-function lowerEdge(value,pose,shape=null){
+// How far below its foot point a tipped figure's lower edge is (board units).
+function lowerEdge(value,pose){
  const r=pose.rotation??0;if(!r)return 0;
- shape??=stamps.get(`${spriteKey(value,pose.sheet)}:${pose.facing*(pose.sx??1)<0?-1:1}`)??fallbackShape(specs[typeOf(value)]);
- if(!shape.body)shape=fallbackShape(specs[typeOf(value)]);
+ let shape=stillPrint(value,pose.sheet,pose.facing*(pose.sx??1)<0?-1:1);
+ if(!shape?.body)shape=fallbackShape(specs[typeOf(value)]);
  return (Math.sin(r)<0?shape.body[0]:shape.body[1])*Math.abs(Math.sin(r))*(pose.sy??1)*pose.scale/shape.scale;
 }
 // The charcoal army's pale readability rim fades out from 5.5 to 1.5 units above its soles (and along a lying
-// figure's lower edge), so the contact shadow meets the hem and the soles instead of a light ring. The rim alone is
+// figure's lower edge), so the pool meets the hem and the soles instead of a light ring. The rim alone is
 // a shadow: the sprite lands off the canvas and the shadow offset brings its blur back.
 // stillRim: a still sprite's, made once in its own frame at a quarter of its size, blurred as the board's shadowBlur
 // (5 device px at 1 px per unit) blurs it at the board's scale; drawn with the sprite. No shadowBlur each frame.
@@ -591,13 +595,13 @@ function vortex(out,foot,phase,strength) {
   return target?aimed(value,pose,target):pose;
  }
  // A ranged victim's drawn bounds, upright (its bank frame's outline; a sprite figure: from its hit point).
- function victimBox(pose){
-  const shape=bankShape(pose);if(shape)return shape;
+ function victimBox(pose,type){
+  const shape=bankShape(pose,type);if(shape)return shape;
   const h=(specs[K].anchor.y-specs[K].hit.y)*pose.scale,x=pose.foot.x,foot=pose.foot.y;return {x,foot,top:foot-h*1.9,l:x-h*.62,r:x+h*.62};
  }
  // Read the outline of the exact frame, then use the same pivot and scale as drawPiece.
  const bankShapes=new WeakMap();
- function bankShape(pose){
+ function bankShape(pose,type=K){
   const b=pose.bank;if(!b)return null;
   let shape=bankShapes.get(b.image);
   if(!shape){
@@ -608,7 +612,7 @@ function vortex(out,foot,phase,strength) {
    shape={l,r,top,n};bankShapes.set(b.image,shape);
   }
   if(shape.r<0)return null;
-  return kingBodyBounds(shape,b,pose.foot,pose.scale/specs[K].scale);
+  return kingBodyBounds(shape,b,pose.foot,pose.scale/specs[type].scale);
  }
  // A king's effect this frame, or null. k fades the whole effect as he falls; g fades what stands on his
  // square while he moves (it grows back on the new square).
@@ -652,7 +656,7 @@ function vortex(out,foot,phase,strength) {
    soul:lively.kings?g=>kingFx.soul(g,{design,side,pose,rotation:fallen.rotation,ms}):null};
  }
  function render(time=performance.now()) {
- frames++;effectFrames=[];frameTime=time;shadowsFading=false;drawnBefore=fxDrawn.length;fxDrawn=[];nextSince=new Map();
+ frames++;effectFrames=[];frameTime=time;poolsGliding=false;drawnBefore=fxDrawn.length;fxDrawn=[];nextSince=new Map();
  const a0=animation,elapsed=a0?clamp((time-a0.start)/a0.speed-(a0.runtime?.beforeMs??0),0,a0.actionDuration??a0.duration):0,since=a0?.shakeAt!=null?effectTimeAt(a0,elapsed)-a0.shakeAt:fallen?fallMs(time)-IMPACT:-1,shake=!reducedMotion&&since>=0&&since<240?7*(1-since/240):0;
  effectTime=a0?.effect?clamp((time-a0.start)/(a0.speed*a0.duration),0,1):0;
  const shown=a0?.effect?.position(effectTime)??position;
@@ -676,7 +680,7 @@ function vortex(out,foot,phase,strength) {
   if(index!==null){p.clip={name,index};clipShown={name,frame:index};}
   else{const i=idleAt(ms-(name?CLIPS[name].duration:0));Object.assign(p,{ground:p.foot,foot:{x:p.foot.x,y:p.foot.y-i.lift},sx:i.sx,sy:i.sy,shadow:i.shadow});}
  }
- // The tell: a fixed lift; the contact shadow stays on the board.
+ // The tell: a fixed lift; the pool stays on the board.
  if(lifted!==null&&liftTell&&!reducedMotion&&!animation&&poses.has(lifted)){
   const p=poses.get(lifted).pose,lift=3*SIZE/(canvas.getBoundingClientRect().width||SIZE);
   Object.assign(p,{ground:p.ground??p.foot,foot:{x:p.foot.x,y:p.foot.y-lift},lift});
@@ -697,8 +701,8 @@ function vortex(out,foot,phase,strength) {
    const origin=project(id,release)??project('arrowhead-smoke',release),secondary=project('near-palm',release),target=a.target;
    if(origin&&target){
     const options={elapsedMs:elapsed-release,origin:[origin.x,origin.y],target:[target.x,target.y],scale:bankBody.scale*bank.bodyHeightPx/640,seed:a.move.from*64+a.move.to};
-    if(kind==='queen'){options.secondaryOrigin=secondary?[secondary.x,secondary.y]:undefined;options.emissionMs=Math.min(240,(bank.beatTimes.releaseHoldEnd??bank.beatTimes.recovery)-release);options.originAt=(launch,palm)=>{const p=project(palm?'near-palm':'far-palm',release+launch);return p?[p.x,p.y]:null;};const body=victim?.pose.bank,at=victim?.pose.foot??target;Object.assign(options,{victim,foot:[at.x,at.y],height:body?body.unitHeight*body.scale*victim.pose.scale/specs[typeOf(victim.value)].scale:Math.max(60,(at.y-target.y)*2.3)});r.effect.player.pose(options);}
-    if(r.ranged)rangedFrame(ctx,{plan:r.ranged,elapsed,release,origin,target,victim,box:()=>victimBox(victim.pose),player:r.effect.player,scale:options.scale,seed:options.seed,effects,res});
+    if(kind==='queen'){options.secondaryOrigin=secondary?[secondary.x,secondary.y]:undefined;options.emissionMs=Math.min(240,(bank.beatTimes.releaseHoldEnd??bank.beatTimes.recovery)-release);options.originAt=(launch,palm)=>{const p=project(palm?'near-palm':'far-palm',release+launch);return p?[p.x,p.y]:null;};const body=victim?.pose.bank,at=victim?.pose.foot??target;Object.assign(options,{victim,bounds:[0,-headroom,SIZE,SIZE],foot:[at.x,at.y],height:body?body.unitHeight*body.scale*victim.pose.scale/specs[typeOf(victim.value)].scale:Math.max(60,(at.y-target.y)*2.3)});r.effect.player.pose(options);}
+    if(r.ranged)rangedFrame(ctx,{plan:r.ranged,elapsed,release,origin,target,victim,box:()=>victimBox(victim.pose,typeOf(victim.value)),player:r.effect.player,scale:options.scale,seed:options.seed,effects,res});
     else effects.push(()=>r.effect.player.draw(ctx,options));
     effectFrames.push({kind,at:time,speed:a.speed,bodyDurationMs:bank.durationMs,bodyTime:bankBody.time,releaseMs:release,durationMs:r.ranged?.effectMs??r.effect.player.durationMs,elapsedMs:options.elapsedMs,origin,target,foot:a.from.foot,pivot:bankBody.pivot,scale:bankBody.scale});
    }
@@ -808,7 +812,7 @@ function vortex(out,foot,phase,strength) {
    const s=court.BEAM;
    actor.extension=court.actionAt(t/duration);
    actor.pose={...a.from,foot:mix(a.from.foot,a.to.foot,ease((t-s.walk[0])/(s.walk[1]-s.walk[0])))};
-   rangedFrame(ctx,{plan:{kind:'maester'},elapsed:t,release:s.on,origin:bankAnchor(['ocular'],world(court.maesterLens(colorOf(a.value),actor.extension),actor.pose,M)),target:a.target,victim,box:()=>victimBox(victim.pose),scale:1,seed:a.move.from*64+a.move.to,effects,res});
+   rangedFrame(ctx,{plan:{kind:'maester'},elapsed:t,release:s.on,origin:bankAnchor(['ocular'],world(court.maesterLens(colorOf(a.value),actor.extension),actor.pose,M)),target:a.target,victim,box:()=>victimBox(victim.pose,typeOf(victim.value)),scale:1,seed:a.move.from*64+a.move.to,effects,res});
   }
   else if(a.type==='move'){
    const slide=a.move.from===a.move.to?0:420,k=ease(t/(slide||1));
@@ -857,7 +861,7 @@ function vortex(out,foot,phase,strength) {
    actor.pose={...a.from,ground,lift,foot:{x:ground.x,y:ground.y-lift},rotation:motion.rotation};
    actor.extension=motion.crouch;
    const correction=a.runtime?.movement?.contactCorrection;
-   if(correction&&t>=correction[0]&&t<correction[1])actor.pose.foot.y+=correction[2]*ease((t-correction[0])/(correction[1]-correction[0]));
+   if(correction&&t>=correction[0]&&t<correction[1])actor.pose.foot.y+=correction[2]*measuredScale('knight')*ease((t-correction[0])/(correction[1]-correction[0]));
    const {since,life,fx}=sinceContact(a,t,elapsed);
    if(since>=0){
     if(victim){const d=impalePose(victim.pose,since,life,strike.dir);victim.pose=d.pose;victim.opacity=d.opacity;}
@@ -928,6 +932,8 @@ function vortex(out,foot,phase,strength) {
   }
  }
  if(bodyRuntime&&animation?.rookFrom&&animation.rookLocal!=null&&poses.has(animation.move.castle.from)){const a=animation,body=bodyRuntime.action(a.rookRuntime,a.rookLocal,a.rookWalk);if(body)poses.get(a.move.castle.from).pose.bank=body;}
+ // A figure at rest with no runtime frame yet: its still picture.
+ if(characterRuntime)for(const [sq,u] of poses)if(!u.pose.bank&&!u.pose.clip&&!u.fx&&!u.extension&&!u.pose.angle&&!(animation&&!animation.effect&&animation.move.from===sq)){const still=stillBody(u.value);if(still)u.pose.still=still;}
  bodyFrames=[...poses].filter(([,u])=>u.pose.bank).map(([square,u])=>({square,bank:u.pose.bank.bank,sourceSha256:u.pose.bank.sourceSha256,sourceBankSha256:u.pose.bank.sourceBankSha256,opacity:u.opacity,struck:!!u.fx?.ranged,time:u.pose.bank.time,foot:{...u.pose.foot},pivot:[...u.pose.bank.pivot],scale:u.pose.bank.scale}));
  const ordered=[...poses].sort((a,b)=>a[1].pose.foot.y-b[1].pose.foot.y);
  if(animation&&!animation.effect){const i=ordered.findIndex(([sq])=>sq===animation.move.from);ordered.push(...ordered.splice(i,1));}
@@ -941,13 +947,13 @@ function vortex(out,foot,phase,strength) {
  // it leaves the ground: what stays on the floor in its own place ('back'), the piece itself over every figure ('front').
  const late=[];
  // Each figure's final pose first (a king's effect may change his: Stratus floats, Shadow has his own sheet, the
- // ivory Spirit lights his floor), then every contact shadow on the floor before any figure: a shadow drawn after
+ // ivory Spirit lights his floor), then every pool on the floor before any figure: a shadow drawn after
  // a figure would darken it. A figure with its own effect (unit.fx) has its shadow fade as the effect takes it.
  const kingFxOf=new Map();
  for(const [sq,unit] of ordered)if(typeOf(unit.value)===K){const fx=kingEffect(sq,unit,time);if(fx)kingFxOf.set(sq,fx);}
  if(animation?.theme==='stratus'){const actor=poses.get(animation.move.from),victim=poses.get(animation.move.captures[0]),pose=kingFxOf.get(animation.move.from)?.pose??actor?.pose;const shape=pose&&bankShape(pose);if(shape&&victim?.fx?.death)victim.fx.death.king=shape;}
  if(fall)demise.floor(ctx,fall);
- if(lively.atmosphere)for(const [sq,unit] of ordered){const fade=fxFade(unit.fx);if(fade>0)contactShadow(ctx,unit.value,kingFxOf.get(sq)?.pose??unit.pose,unit.opacity*fade);}
+ if(lively.atmosphere)for(const [sq,unit] of ordered){const fade=fxFade(unit.fx);if(fade>0)contactShadow(ctx,unit.value,kingFxOf.get(sq)?.pose??unit.pose,unit.opacity*fade,sq);}
  for(const [sq,unit] of ordered){
   if(!animation||animation.effect)over(Math.floor((unit.pose.foot.y-40-PAD)/TILE)-1);
   const fx=kingFxOf.get(sq);
@@ -1029,7 +1035,7 @@ function drawEncounter(a,t) {
     if(document.readyState&&document.readyState!=='complete')globalThis.addEventListener('load',start,{once:true});else start();
    }
   });
-  if((a&&!a.done&&(!a.preparing||a.exitReady||a.rewind))||(wanted&&aimAngle!==wanted.angle)||(fallen&&fallMs(time)<DEMISE)||time<awakeUntil||shadowsFading||clipShown||idleOut)wake(false);
+  if((a&&!a.done&&(!a.preparing||a.exitReady||a.rewind))||(wanted&&aimAngle!==wanted.angle)||(fallen&&fallMs(time)<DEMISE)||time<awakeUntil||poolsGliding||clipShown||idleOut)wake(false);
   else{previousTime=0;if((idling()&&bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected])))||time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
  }
  function idling(){return lively.idle&&!reducedMotion&&!animation&&selected!==null&&!!position.board[selected]&&fallen?.sq!==selected;}
@@ -1047,7 +1053,7 @@ function drawEncounter(a,t) {
  // (he stayed, as with Death Touch, or came back); its fade-out during the move stays seamless.
  function endMove(keepSource=false){
   selectionGeneration++;pendingIdle=null;idleOut=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();
-  if(animation){cancelAnimation(animation);if(!keepSource)kingSince.delete(animation.move.from);if(animation.move.swap)kingSince.delete(animation.move.to);}
+  if(animation){const {from,to}=animation.move;if(glides.has(from)&&from!==to){glides.set(to,glides.get(from));glides.delete(from);}cancelAnimation(animation);if(!keepSource)kingSince.delete(animation.move.from);if(animation.move.swap)kingSince.delete(animation.move.to);}
   animation=null;
  }
  function reserveSelected(sq){
@@ -1061,7 +1067,7 @@ function drawEncounter(a,t) {
    a.runtime=prepared;a.legacyDuration=a.duration;a.actionDuration=prepared.attack?.durationMs??a.duration;
    const painted=prepared.movement?.kind==='move'&&(a.type==='move'||a.type==='gait')&&a.move.from!==a.move.to;
    const distance=painted?Math.hypot((a.move.to&7)-(a.move.from&7),(a.move.to>>3)-(a.move.from>>3)):0;
-   const pace=painted?paintedPace(distance,prepared.movement.durationMs,prepared.movement.strideSquares):null;
+   const pace=painted?paintedPace(distance,prepared.movement.durationMs,walkStride(prepared.movement)):null;
    if(painted&&!pace){prepared.releaseMovementStart?.();prepared.releaseMovement?.();prepared.movement=null;}
    if(!prepared.attack&&!prepared.movement&&(a.type==='move'||a.type==='gait')&&a.move.from!==a.move.to){
     prepared.before=[];prepared.after=[];prepared.beforeMs=0;prepared.afterMs=0;
@@ -1087,7 +1093,7 @@ function drawEncounter(a,t) {
  const ROOK_ROUND=.62,ROOK_SETTLE=260;
  function planRook(a){
   const prepared=a.rookPrepared,squares=Math.abs((a.move.castle.to&7)-(a.move.castle.from&7))+.3;
-  const pace=prepared?.movement?.kind==='move'?paintedPace(squares,prepared.movement.durationMs,prepared.movement.strideSquares):null;
+  const pace=prepared?.movement?.kind==='move'?paintedPace(squares,prepared.movement.durationMs,walkStride(prepared.movement)):null;
   if(pace){prepared.movementRate=pace.rate;a.rookRuntime=prepared;a.rookWalk=pace.duration;a.rookEnd=prepared.beforeMs+pace.duration+prepared.afterMs;}
   else{releasePrepared(prepared);a.rookRuntime=null;a.rookWalk=GAITS.glide.duration(squares)*1.5;a.rookEnd=a.rookWalk;}
   a.duration=Math.max(a.duration,a.rookEnd+ROOK_SETTLE);
@@ -1222,12 +1228,12 @@ function drawEncounter(a,t) {
   /** Board square under a point in canvas pixels, or null. */
   squareAt(x,y){y-=headroom;const col=Math.floor((x-PAD)/TILE),row=Math.floor((y-PAD)/TILE);if(col<0||col>7||row<0||row>7)return null;return flipped?row*8+(7-col):(7-row)*8+col;},
   // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
-  load(){demise.prepare();const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;warmBodies();wake();});},
+  load(){afterBoard(()=>demise.prepare());const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{const start=()=>{ready=true;warmBodies();wake();},stills=warmStills();return stills?stills.then(start):start();}).finally(boardReady);},
   /** New position: ends any finished or running animation. */
   setPosition(next){const a=animation,m=a?.move;
    if(a?.done&&!a.rewind&&!a.effect&&!reducedMotion&&m.from!==m.to&&!m.captures.length&&!m.swap&&!m.shove&&!m.promo&&!m.selfRemove&&!m.power&&typeOf(a.value)===K&&kings[colorOf(a.value)]==='stratus'&&next.board[m.from]===0&&next.board[m.to]===a.value)landed={animation:a,source:position,post:next,sourceEntry:kingSince.get(m.from)};
    else if(landed&&next!==landed.post)landed=null;
-   const selectedValue=selected===null?null:position.board[selected],keepIdle=!animation&&idleReady&&selectedValue&&selectedValue===next.board[selected]&&LARGE_IDLE.has(characterOf(selectedValue)),keepSource=!!animation?.rewind?.doneAtSource&&animation.done&&next===position&&position.board[m.from]===animation.value;if(m&&!animation.effect&&smokeStreams.has(m.from)&&next.board[m.to]===position.board[m.from]){const smoke=smokeStreams.get(m.from);smokeStreams.delete(m.from);smokeStreams.set(m.to,smoke);}else if([...position.board].some((v,sq)=>v!==next.board[sq]))smokeStreams.clear();if(!keepIdle)endMove(keepSource);lifted=null;position=next;if(selected!==null&&selectedValue!==position.board[selected])selectedAt=null;aimAngle=0;warmBodies();if(!keepIdle)reserveSelected(selected);wake();},
+   const selectedValue=selected===null?null:position.board[selected],keepIdle=!animation&&idleReady&&selectedValue&&selectedValue===next.board[selected]&&LARGE_IDLE.has(characterOf(selectedValue)),keepSource=!!animation?.rewind?.doneAtSource&&animation.done&&next===position&&position.board[m.from]===animation.value;if(m&&!animation.effect&&smokeStreams.has(m.from)&&next.board[m.to]===position.board[m.from]){const smoke=smokeStreams.get(m.from);smokeStreams.delete(m.from);smokeStreams.set(m.to,smoke);}else if([...position.board].some((v,sq)=>v!==next.board[sq]))smokeStreams.clear();if(!keepIdle)endMove(keepSource);lifted=null;position=next;if(selected!==null&&selectedValue!==position.board[selected])selectedAt=null;aimAngle=0;warmBodies();warmStills();if(!keepIdle)reserveSelected(selected);wake();},
   setSelected(sq,destinations=[],captures=[]){
    const value=sq==null?null:position.board[sq],from=value?foot(sq):null;
    const direction=to=>{const p=foot(to);return facingOf(p.x-from.x,p.y-from.y);};
@@ -1248,10 +1254,10 @@ function drawEncounter(a,t) {
   setLifted(sq,lift=true){lifted=sq;liftTell=lift;wake();},
   get lifted(){return lifted;},
   setAim(sq){aimSquare=sq;wake();},
-  // (The contact shadows are kept: no sprite depends on the side shown.)
+  // (The footprints are kept: no sprite depends on the side shown.)
   setFlipped(on){if(on!==flipped)landed=null;flipped=on;idle.clear();wake();},
   /** [white, black] king designs ('frost' … 'shadow'): each side's king figure. */
-  setKings(next){if(next[0]===kings[0]&&next[1]===kings[1])return;if(landed&&next[colorOf(landed.animation.value)]!==kings[colorOf(landed.animation.value)])landed=null;if(animation?.exitBody||animation?.rewind&&next[colorOf(animation.value)]!==kings[colorOf(animation.value)])endMove();const value=selected!==null?position.board[selected]:null,selectedDesign=value?characterOf(value):null,keepIdle=!animation&&idleReady&&LARGE_IDLE.has(selectedDesign)&&next[colorOf(value)]===kings[colorOf(value)];if(!keepIdle){selectionGeneration++;pendingIdle=null;idleOut=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}kings=[...next];if(selectedDesign&&selectedDesign!==characterOf(value))selectedAt=null;for(const design of kings){kingImage(design).loaded.catch(()=>{});if(lively.kings)kingFx.has(design);}if(!keepIdle)reserveSelected(selected);wake();},
+  setKings(next){if(next[0]===kings[0]&&next[1]===kings[1])return;if(landed&&next[colorOf(landed.animation.value)]!==kings[colorOf(landed.animation.value)])landed=null;if(animation?.exitBody||animation?.rewind&&next[colorOf(animation.value)]!==kings[colorOf(animation.value)])endMove();const value=selected!==null?position.board[selected]:null,selectedDesign=value?characterOf(value):null,keepIdle=!animation&&idleReady&&LARGE_IDLE.has(selectedDesign)&&next[colorOf(value)]===kings[colorOf(value)];if(!keepIdle){selectionGeneration++;pendingIdle=null;idleOut=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}kings=[...next];if(selectedDesign&&selectedDesign!==characterOf(value))selectedAt=null;for(const design of kings){kingImage(design).loaded.catch(()=>{});if(lively.kings)afterBoard(()=>kingFx.has(design));}if(!keepIdle)reserveSelected(selected);wake();},
   get kings(){return [...kings];},
   /** Restart the visible ground loops together for the effects workshop. */
   restartKingGround(){landed=null;const since=performance.now();for(const entry of kingSince.values()){entry.since=since;entry.offset=0;delete entry.resume;delete entry.lastG;}wake();},
@@ -1278,11 +1284,11 @@ function drawEncounter(a,t) {
   /** Backing pixels per board unit (1 = 960 px wide), so the board stays sharp on high-density screens. */
   setResolution(k){if(k===res)return;res=k;canvas.width=fxCanvas.width=Math.round(SIZE*k);canvas.height=fxCanvas.height=Math.round((SIZE+headroom)*k);ctx.setTransform(k,0,0,k,0,0);wake();},
   /**
-   * Opt in to quiet-move gaits (moves), the selected figure's idle breath (idle), the stone frame, contact shadows
+   * Opt in to quiet-move gaits (moves), the selected figure's idle breath (idle), the stone frame, soft pools
    * and warm light (atmosphere), the kings' idle effects (kings), each king's own death for what he takes
    * (captures) and the resting pawns' small actions (pawns).
    */
-  setLively(options){Object.assign(lively,options);if(lively.kings)for(const design of kings)kingFx.has(design);wake();},
+  setLively(options){Object.assign(lively,options);if(lively.kings)afterBoard(()=>{for(const design of kings)kingFx.has(design);});wake();},
   /** The king designs whose effects the last frame drew (for checks). */
   get effects(){return [...fxDrawn];},
   /** The clip drawing the last frame showed ({name, frame}), or null (for checks). */
@@ -1304,7 +1310,9 @@ function drawEncounter(a,t) {
   /** Draw every frame for the next `ms` (a decoration's own short animation, such as markers appearing). */
   keepAwake(ms){awakeUntil=Math.max(awakeUntil,performance.now()+ms);wake();},
   /** A see-through copy of a figure standing on `square` (a move preview); for setDecorate. */
-  ghost(out,value,square,opacity=.4){if(ready&&value){const pose=poseFor(value,square);pose.bank=bodyRuntime?.rest(characterOf(value),armyOf(value));drawPiece(out,value,pose,opacity);}},
+  /** Board-unit bounds {x,foot,top,l,r} of figure `value` standing at rest on `square`; from its height while its frames load. */
+  figureBox(value,square){const pose=poseFor(value,square);pose.bank=bodyRuntime?.rest(characterOf(value),armyOf(value))??null;const h=figureHeight(characterOf(value)),{x,y}=pose.foot;return bankShape(pose,typeOf(value))??{x,foot:y,top:y-h,l:x-h*.4,r:x+h*.4};},
+  ghost(out,value,square,opacity=.4){if(ready&&value){const pose=poseFor(value,square);pose.bank=bodyRuntime?.rest(characterOf(value),armyOf(value));if(!pose.bank)pose.still=stillBody(value);drawPiece(out,value,pose,opacity);}},
   /** Animate a move on the current position. Resolves true at the final frame, false if cancelled. */
   play(move,{speed=1,onContact=null,gait=null,effect=null}={}){
    if(disposed)return Promise.resolve(false);

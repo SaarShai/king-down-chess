@@ -1,0 +1,11 @@
+Project asset: King Down, a painted 2D fantasy chess game. Reference 1 is a sheet of painted clouds and wind gusts from this game: match its hand-painted gouache exactly. Reference 2 is the Stratus king figure from the game: match its paint, its ink edge and its blue.
+
+Paint one landscape image, 1536 x 1024, on a perfectly flat, solid, pure magenta background, colour #FF00FF, the same value edge to edge: no gradient, no vignette, no cast shadow, no glow, no text, no labels, no borders, no grid lines.
+
+The image holds FOUR separate painted wind ribbons, stacked in four rows, each ribbon centred in its own quarter-height row, with wide clear magenta between rows and at the image edges. No ribbon touches another ribbon or the image edge.
+
+EACH RIBBON is one long horizontal band of swirling wind, about 1400 pixels long and 130 pixels tall at its thickest, so about ten times longer than tall. It tapers smoothly to a fine pointed tip at BOTH ends, with no curl, no scroll and no hook at either end. It is thickest in its middle third. Its body has a gentle wave along its length. Inside it, two or three long painted brush streaks run along the length, like air flowing. Each ribbon has a different wave, all the same scale.
+
+COLOUR AND PAINT: the same hand-painted gouache as the gusts in reference 1. Warm ivory light along the top edge, pale blue-gray and soft Stratus blue (#7FA6CF) shade in the lower half, and a broken thin darker slate-blue line (#2F5378) painted along the lower edge, like the inked edge of the figures. Solid, fully opaque paint with crisp painted edges. No blur, no glow, no spray, no separate fragments, no thin wisps, no holes. Not vector, not glossy, not photographic. No ground, no figure.
+
+Guides: the travel-clouds.webp sheet and the Stratus king figure. Cut from a magenta key and packed as four ribbons, 512 x 48 each.

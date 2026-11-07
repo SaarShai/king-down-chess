@@ -32,8 +32,13 @@ const offline = [{
   reason: 'the fake server refuses each request on purpose (down), and the browser logs each refused request',
 }];
 
+const wrongCode = [{
+  pattern: /^Failed to load resource: the server responded with a status of 403 \(Forbidden\)$/,
+  reason: 'the email code check sends a wrong code on purpose, and the browser logs the refusal',
+}];
+
 /** A page with the fake server. `row` is the player's user_data row; `down` makes every request fail. */
-async function open({ query = '', stored = null, row = null, down = false, phone = false, verifier = false, delay = 0, title = false, saved = null } = {}) {
+async function open({ query = '', stored = null, row = null, down = false, phone = false, verifier = false, delay = 0, title = false, saved = null, email = false } = {}) {
   const ctx = await browser.newContext(phone ? { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true } : { viewport: { width: 1280, height: 900 } });
   await ctx.addInitScript(([s, v, t, save]) => {
     if (!t) sessionStorage.setItem('kingdown.title-seen', '1');
@@ -52,7 +57,13 @@ async function open({ query = '', stored = null, row = null, down = false, phone
     const json = (status, body) => r.fulfill({ status, contentType: 'application/json', body: body === undefined ? '' : JSON.stringify(body) });
     if (req.method() === 'OPTIONS') return r.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' } });
     // The public auth settings list the enabled providers (src/account/providers.ts).
-    if (url.pathname === '/auth/v1/settings') return json(200, { external: { google: true, github: true, facebook: true } });
+    if (url.pathname === '/auth/v1/settings') return json(200, { external: { google: true, github: true, facebook: true, email } });
+    if (url.pathname === '/auth/v1/otp') return json(200, {});
+    if (url.pathname === '/auth/v1/verify') {
+      if (JSON.parse(req.postData()).token !== '123456') return json(403, { code: 403, error_code: 'otp_expired', msg: 'Token has expired or is invalid' });
+      const fresh = session();
+      return json(200, { ...fresh, user: { ...fresh.user, app_metadata: { provider: 'email', providers: ['email'] }, user_metadata: {} } });
+    }
     if (url.pathname === '/auth/v1/authorize') return r.fulfill({ contentType: 'text/html', body: '<p>sign-in page</p>' });
     if (url.pathname === '/auth/v1/token') return json(200, session());
     if (url.pathname === '/auth/v1/logout') return json(204);
@@ -72,7 +83,7 @@ async function open({ query = '', stored = null, row = null, down = false, phone
   });
   const page = await ctx.newPage();
   await page.clock.install();
-  server.errors = trapErrors(page, down ? offline : []);
+  server.errors = trapErrors(page, down ? offline : email ? wrongCode : []);
   page.on('request', r => { if (/assets\/client-/.test(r.url())) server.scripts.push(r.url()); });
   page.on('dialog', d => d.accept());
   await page.goto(base + query);
@@ -249,6 +260,59 @@ try {
     await close();
   }
   ok('Delete my account: the confirm names what goes, Keep deletes nothing, delete_my_account then sign-out; the game plays on, saved here only; Sign out works');
+
+  // Email code: the address, a wrong code, then the right code. Only the settings say whether the form shows.
+  for (const phone of [false, true]) {
+    const { page, server, close } = await open({ phone, email: true });
+    await signedOutSettings(page);
+    if (phone) assert.deepEqual(await small(page), [], 'the email controls are at least 44 px');
+    assert.deepEqual(await page.locator('#account-body form input').evaluateAll(els => els.filter(e => e.offsetParent).map(e => e.name)), ['email']);
+    await page.fill('#account-body input[name=email]', 'player@example.com');
+    await page.click('#account-body >> text=Email me a sign-in code');
+    await page.locator('#account-body input[name=code]').waitFor();
+    assert.match(await page.locator('#account-note').innerText(), /We sent a code to player@example.com/);
+    const sent = JSON.parse(server.requests.find(r => r.path === '/auth/v1/otp').body);
+    assert.equal(sent.email, 'player@example.com'); assert.equal(sent.create_user, true);
+    await page.fill('#account-body input[name=code]', '000000');
+    await page.click('#account-body form button[type=submit]');
+    await page.waitForFunction(() => /wrong or has expired/.test(document.querySelector('#account-note').textContent));
+    await page.fill('#account-body input[name=code]', '123456');
+    await page.click('#account-body form button[type=submit]');
+    await page.locator('#account-body >> text=Signed in with email').waitFor();
+    assert.deepEqual(JSON.parse(server.requests.filter(r => r.path === '/auth/v1/verify').at(-1).body).type, 'email');
+    assert.equal(await page.locator('#account-body form').count(), 0, 'signed in, the form goes');
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.auth')).user.app_metadata.provider), 'email');
+    await close();
+  }
+  {
+    const { page, server, close } = await open({ email: true });
+    await signedOutSettings(page);
+    await page.fill('#account-body input[name=email]', 'player@example.com');
+    await page.click('#account-body >> text=Email me a sign-in code');
+    await page.click('#account-body >> text=Change email or get a new code');
+    assert.equal(await page.locator('#account-body input[name=email]').inputValue(), 'player@example.com');
+    assert.equal(await page.locator('#account-body input[name=code]').isVisible(), false);
+    await page.click('#account-body >> text=Email me a sign-in code');
+    await page.locator('#account-body input[name=code]').waitFor();
+    assert.equal(server.requests.filter(r => r.path === '/auth/v1/otp').length, 2);
+    await close();
+  }
+  {
+    // /play/ has its own page shell: the form fills it, and the code step survives a reload.
+    const { page, close } = await open({ email: true, phone: true });
+    await page.route('**/api/status', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ account_access: 'open', valid_for_ms: 5000 }) }));
+    await page.goto(base + 'play/');
+    await page.fill('input[name=email]', 'player@example.com');
+    await page.click('text=Email me a sign-in code');
+    await page.locator('input[name=code]').waitFor();
+    await page.reload();
+    await page.locator('input[name=code]').waitFor();
+    assert.match(await page.locator('.email-code').innerText(), /Code sent to player@example.com/);
+    const [input, form] = await page.locator('input[name=code], .email-code').evaluateAll(els => els.map(e => e.getBoundingClientRect().width).reverse());
+    assert.equal(Math.round(input), Math.round(form), 'the field fills the form');
+    await close();
+  }
+  ok('Email code: shown only when the settings enable it; a wrong code stays on the step; the right code signs in and starts the account; a new code can be asked for');
 
   // 6. Home refreshes with a newer game from the account; the computer waits for Continue. (Lessons are parked: docs/PARKED.md.)
   {

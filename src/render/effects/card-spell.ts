@@ -1,5 +1,7 @@
 import type { PaintedScene } from '../painted/scene.mjs';
+import { windArc } from '../painted/wind-art.mjs';
 import type { CardFrame, CardLayer, Point } from './card-types';
+import { PUFF_H, PUFF_W, PUFFS, puffArt } from './cloud-art';
 
 // Local spell material. The caller owns the figures, board state and persistent wards.
 const TAU = Math.PI * 2;
@@ -54,7 +56,7 @@ function kingFoot(scene: PaintedScene, event: CardFrame) {
   const sq = event.before.board.findIndex(p => !!p && (p & 15) === 6 && (p >> 4) === event.before.turn);
   return scene.foot(sq >= 0 ? sq : event.move.from);
 }
-// Painted opaque lumps, cached once per palette. A stack of them hides a figure completely: no figure ever shows through another.
+// Drawn opaque lumps, cached once per palette (the Curse ink, and the stand-in for the painted puffs). A stack of them hides a figure completely: no figure ever shows through another.
 const CLOUDS = { storm: ['#f6f9fc', '#a9b9cc', '#5d6d88', '#1c2740'], silk: ['#fdf5ff', '#c9b0ee', '#7f5fb8', '#2e1a58'], ink: ['#7d5f9c', '#46325f', '#261b3b', '#0d0818'] };
 type Cloud = keyof typeof CLOUDS;
 const LUMP = 128, lumpCache = new Map<string, HTMLCanvasElement>();
@@ -76,12 +78,33 @@ function lump(cloud: Cloud, variant: number, shade: number) {
   lumpCache.set(key, canvas);
   return canvas;
 }
+// The storm and silk columns use the painted puffs of the air moves (cloud-art.ts), shaded once per depth. Until that
+// sheet has loaded, the drawn lump stands in, so the column still hides the figure change.
+const PUFF_TINT = { storm: 'slate', silk: 'lilac' } as const;
+const puffCache = new Map<string, HTMLCanvasElement>();
+function paintedLump(cloud: Cloud, variant: number, shade: number) {
+  if (cloud === 'ink') return null;
+  const key = `${cloud}${variant}:${shade}`, cached = puffCache.get(key);
+  if (cached) return cached;
+  const art = puffArt(PUFF_TINT[cloud], variant);
+  if (!art) return null;
+  const canvas = document.createElement('canvas'); canvas.width = art.canvas.width; canvas.height = art.canvas.height;
+  const g = canvas.getContext('2d')!;
+  g.drawImage(art.canvas, 0, 0);
+  if (shade) { g.globalCompositeOperation = 'source-atop'; g.globalAlpha = shade * .27; g.fillStyle = CLOUDS[cloud][3]; g.fillRect(0, 0, canvas.width, canvas.height); }
+  puffCache.set(key, canvas);
+  return canvas;
+}
 function drawLump(ctx: CanvasRenderingContext2D, cloud: Cloud, i: number, shade: number, x: number, y: number, r: number, opacity: number) {
   if (r <= 0 || opacity <= 0) return;
   const before = ctx.globalAlpha; ctx.globalAlpha = before * opacity;
-  ctx.drawImage(lump(cloud, i % 3, shade), x - r, y - r, r * 2, r * 2);
+  const puff = paintedLump(cloud, i % PUFFS, shade);
+  if (puff) ctx.drawImage(puff, x - r * PUFF_SCALE, y - r * PUFF_SCALE * PUFF_H / PUFF_W, r * PUFF_SCALE * 2, r * PUFF_SCALE * 2 * PUFF_H / PUFF_W);
+  else ctx.drawImage(lump(cloud, i % 3, shade), x - r, y - r, r * 2, r * 2);
   ctx.globalAlpha = before;
 }
+/** A painted puff is drawn this much wider than the drawn lump of the same radius, since its lobes do not fill the cell. */
+const PUFF_SCALE = 1.2;
 // A bright centre for dark squares and a dark rim for light squares. One cached sprite per palette.
 const ORBS = { teal: ['#effffb', '#5fe6cf', '#0f8380'], ice: ['#ffffff', '#a4d8f5', '#2c6aa6'], violet: ['#f1d6ff', '#9a4fd8', '#2b1147'], gold: ['#fffbe6', '#ffd978', '#e0981f'] };
 type Orb = keyof typeof ORBS;
@@ -99,22 +122,11 @@ function drawOrb(ctx: CanvasRenderingContext2D, kind: Orb, p: Point, r: number, 
   ctx.drawImage(image, p.x - r, p.y - r, r * 2, r * 2);
   ctx.globalAlpha = before;
 }
-/** A filled crescent on the front of an orbit. It tapers to nothing at both ends and at the sides of the column. */
-function band(ctx: CanvasRenderingContext2D, c: Point, rx: number, ry: number, start: number, length: number, width: number, colour: string, opacity: number) {
+/** A painted wind ribbon on the front of an orbit, from `start` for `length`, cut to the near half of the column. */
+function band(ctx: CanvasRenderingContext2D, c: Point, rx: number, ry: number, start: number, length: number, thick: number, cloud: Cloud, i: number, opacity: number) {
   const a = Math.max(.08, start), b = Math.min(Math.PI - .08, start + length);
   if (b <= a || opacity <= 0) return;
-  const steps = 10;
-  ctx.save(); ctx.globalAlpha *= opacity; ctx.fillStyle = colour; ctx.beginPath();
-  for (let i = 0; i <= steps; i++) {
-    const v = a + (b - a) * i / steps, w = width * Math.sin(i / steps * Math.PI) * Math.sin(v);
-    const x = c.x + Math.cos(v) * rx, y = c.y + Math.sin(v) * ry - w / 2;
-    if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
-  }
-  for (let i = steps; i >= 0; i--) {
-    const v = a + (b - a) * i / steps, w = width * Math.sin(i / steps * Math.PI) * Math.sin(v);
-    ctx.lineTo(c.x + Math.cos(v) * rx, c.y + Math.sin(v) * ry + w / 2);
-  }
-  ctx.closePath(); ctx.fill(); ctx.restore();
+  windArc(ctx, c.x, c.y, rx, ry, a, b, thick * Math.min(1, (b - a) / 1.2), opacity, i, { tint: cloud === 'silk' ? 'lilac' : null });
 }
 /**
  * The figure change. The column rises from the ground and is fully opaque by SHROUD_COVER. The board removes the old
@@ -147,9 +159,7 @@ function shroud(ctx: CanvasRenderingContext2D, p: Point, t: number, cloud: Cloud
     const rx = (64 - h * 12) * (1 + (1 - a) * .22) + l * 44, ry = rx * .34;
     const at = { x: p.x, y: p.y - 4 - h * (SHROUD_HEIGHT + 12) * a - l * (30 + h * 34) };
     const start = ((i * 1.9 + spin * 1.5) % (Math.PI * 2)) - .9, opacity = a * (1 - ease((l - .2) / .8));
-    band(ctx, { x: at.x, y: at.y + 5 }, rx, ry, start, 2.4, 22, CLOUDS[cloud][2], opacity * .8);
-    band(ctx, { x: at.x, y: at.y + 2 }, rx, ry, start, 2.4, 19, CLOUDS[cloud][1], opacity);
-    band(ctx, { x: at.x, y: at.y - 2 }, rx, ry, start + .2, 2, 10, CLOUDS[cloud][0], opacity);
+    band(ctx, { x: at.x, y: at.y + 2 }, rx, ry, start, 2.4, 26, cloud, i, opacity);
   }
   // The peak: the column flares at the moment the new figure stands behind it.
   const flare = life(t, SHROUD_CLEAR - .1, SHROUD_CLEAR + .08);

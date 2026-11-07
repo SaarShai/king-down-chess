@@ -1,121 +1,132 @@
-// Contact shadows on the painted board (scene.mjs draws them when the atmosphere is on): the numbers, apart from
-// any canvas, so they can be tested. Distances are in board units; an outline grid has q px per unit.
-//   core  a dark band under what touches the floor (soles, a hem, a tower base, a spear butt);
-//   soft  a pool as wide as that contact, with the legs' short shadow cast down and to the right, away from the
-//         board's warm top-left light;
-//   oval  drawn each frame in its place as the figure leaves the floor, where it will land;
-//   lying a pool under the body of a figure that tips over or lies on the floor.
+// The soft pool on the painted board (scene.mjs draws it when the atmosphere is on): the numbers, apart from any
+// canvas, so they can be tested. Every length scales with the figure: a footprint and its height come in one unit, and
+// only the square (tile) caps a pool, which keeps it off the next square's feet.
+//   footprint  what really touches the floor in one drawing, measured once (tools/build-character-footprints.mjs for
+//              the frames of a bank, shadowField for a still sprite);
+//   poolShape  the soft oval of that footprint;
+//   glidePool  the drawn pool follows its target over about 70 ms, so a new frame, facing or bank never pops;
+//   weights    how much pool shows as a figure rises, tips over or lies on the floor.
 import {clamp} from './painted-mesh.mjs';
 
 // Strengths are [light stone, dark wood]: a shadow takes the mix by how dark the floor under it is.
-export const SHADE={q:1.5,shear:.6,cast:.26,rgb:[40,30,24],core:[.62,.94],soft:[.45,.7],air:[.6,.7],pool:.4};
+export const SHADE={q:1.5,rgb:[40,30,24],pool:[.5,.72],slide:[.094,.104]};
 const ease=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
+const median=a=>a.sort((u,v)=>u-v)[a.length>>1];
 
 /**
- * A figure's shadow fields from the alpha of its still sprite ({alpha, n}: n × n, drawn at q px per unit), facing f
- * (1 right, -1 left: the outline mirrors, the cast does not). spec: {anchor, scale} (the anchor stands on the floor).
- * Returns null for an empty sprite, else the contact measures and two fields (core, soft) of 0–1 values, W × H at
- * q px per unit, with the ground point at (OX, OY):
- *   tall  height above the soles; span, cx: width and centre of the contact; pd: the pool's centre below the soles;
- *   body  the body's half widths left and right of the anchor in the unmirrored sprite (where a lying figure's
- *         lower edge is).
+ * What touches the floor in one drawing. alpha: w × h, 0–255; (ax, ay): the ground point; tall: the figure's height in
+ * the same pixels. Returns null for an empty drawing, else, in those pixels from the ground point:
+ *   span, cx  width and centre of the contact;
+ *   cy        how far below the ground point the contact lies (negative: above it);
+ *   tilt      the slope of the line of feet, in radians (positive: the right side lower);
+ *   air       how far the soles are above the ground point (a baked leap);
+ *   left, right  the lower body's half widths from the ground point (median edges; thin parts do not count).
  */
-export function shadowField({alpha,n},spec,f,tile=112){
- // x across, mirrored for a figure facing left; d down the screen; h the height above the soles.
- const {q,shear,cast}=SHADE,s=spec.scale,ax=spec.anchor.x*s*q,ay=spec.anchor.y*s*q,X=x=>f*(x-ax)/q;
+export function footprint(alpha,w,h,ax,ay,tall){
+ // Each column's lowest solid point. The sole: the lowest level that more than a thin part reaches, so a spear
+ // butt or a sword point lower than the feet does not set it.
+ const bottom=new Int32Array(w).fill(-1);
+ for(let x=0;x<w;x++)for(let y=h-1;y>=0;y--)if(alpha[y*w+x]>=128){bottom[x]=y;break;}
+ const solid=[...bottom].filter(b=>b>=0).sort((u,v)=>v-u);if(!solid.length)return null;
+ const sole=solid[Math.min(solid.length-1,Math.floor(tall*.05))];
+ // The lower body: median edges over the lowest 40% of the figure. A run thinner than a limb (a spear shaft) does not
+ // make an edge, and a part that only some rows have (a tail, a hem's tip, smoke) does not move the median.
+ const lefts=[],rights=[],limb=Math.max(2,tall*.035);
+ for(let y=Math.max(0,Math.round(sole-.4*tall));y<=Math.min(h-1,sole);y++){
+  let l=-1,r=-1,run=0;
+  for(let x=0;x<w;x++){if(alpha[y*w+x]>=128){if(++run>=limb){if(l<0)l=x-run+1;r=x;}}else run=0;}
+  if(l>=0){lefts.push(l);rights.push(r);}
+ }
+ const l=lefts.length?median(lefts):ax-.15*tall,r=rights.length?median(rights):ax+.15*tall,wide=Math.max(r-l,1),middle=(l+r)/2;
+ // Each column's weight: its touch (fully within tall/24 of the sole, not at all past tall/7: further back the higher
+ // it is, a back foot, the far side of a hem) times how solid it is over its lowest tall/15 (a foot, a hem or a tower
+ // base fully; a blade slanting down to the floor, a pointed toe little).
+ const weight=new Float32Array(w),near=tall/24,far=tall/7,run=tall/15;let total=0;
+ for(let x=0;x<w;x++){
+  const b=bottom[x];if(b<0)continue;
+  const touch=1-ease((sole-b-near)/(far-near));if(!touch)continue;
+  const y0=Math.max(0,Math.round(b-run));let k=0;for(let y=y0;y<=b;y++)k+=alpha[y*w+x]>=128;
+  const firm=k/(b-y0+1);weight[x]=touch*firm*firm;total+=weight[x];
+ }
+ // A run of columns thinner than a limb stands on nothing: a spear butt, a sword's point.
+ for(let x=0;x<=w;x++){
+  if(x<w&&weight[x])continue;
+  let a=x;while(a>0&&weight[a-1])a--;
+  if(x-a<limb)for(let i=a;i<x;i++){total-=weight[i];weight[i]=0;}
+ }
+ if(total<=0)return null;
+ // The middle 94% of that weight, its mean height and its slope.
+ let sum=0,first=-1,last=-1,mx=0,my=0;
+ for(let x=0;x<w;x++){const v=weight[x];if(!v)continue;sum+=v;if(first<0&&sum>=total*.03)first=x;if(last<0&&sum>=total*.97)last=x;mx+=v*x;my+=v*bottom[x];}
+ mx/=total;my/=total;
+ let cov=0,vary=0;for(let x=0;x<w;x++){const v=weight[x];if(v){cov+=v*(x-mx)*(bottom[x]-my);vary+=v*(x-mx)*(x-mx);}}
+ const contact=last-first,narrow=clamp(contact/(.3*tall),0,1),tilt=vary?clamp(.8*Math.atan(cov/vary)*narrow,-.2,.2):0;
+ // The lower body keeps it honest: no narrower than most of that body (a back foot the sole did not reach), no wider
+ // (a tail on the floor), and the centre stays under the body.
+ const span=clamp(contact,.6*wide,1.05*wide),cx=clamp((first+last)/2,middle-.18*wide,middle+.18*wide);
+ return {span,cx:cx-ax,cy:my-ay,tilt,air:Math.max(0,ay-sole),left:ax-l,right:r-ax};
+}
+/**
+ * The soft oval of a footprint: a little wider than the contact, as deep as a disc seen at this angle, nudged away from
+ * the board's warm top-left light. fp and tall in one unit, tile in the same.
+ */
+export function poolShape(fp,tall,tile=Infinity){
+ // Past a third of the square, width and depth grow more and more slowly: a wide figure stays off the next square, and
+ // still shows how much wider it stands facing one way than another.
+ const A=Math.max(fp.span/2+.04*tall,.19*tall),raw=1.3*A,knee=.34*tile,room=.16*tile;
+ const rx=raw<=knee?raw:knee+room*(1-Math.exp(-(raw-knee)/room));
+ return {x:fp.cx+.006*tall,y:fp.cy+.03*tall,rx,ry:.32*Math.min(rx,knee)+.13*Math.max(0,rx-knee),tilt:fp.tilt??0};
+}
+/** The shared stamp of every pool: alpha 0–1 at (u, v) in -1..1, full inside, soft to its rim. */
+export const poolAlpha=(u,v)=>{const e=1-u*u-v*v;return e>0?Math.min(1,e*1.25):0;};
+
+const GLIDE_MS=70;
+/**
+ * A drawn pool follows its target: state {x, y, rx, ry, tilt} moves in place toward target over dt ms and comes back.
+ * A long gap (the board slept, a hidden tab) lands on the target. state.settled says when there is no more to do.
+ */
+export function glidePool(state,target,dt){
+ const k=dt>400?1:1-Math.exp(-Math.max(0,dt)/GLIDE_MS);let settled=true;
+ for(const key of ['x','y','rx','ry','tilt']){
+  const left=(target[key]-state[key])*(1-k),still=Math.abs(left)<(key==='tilt'?.002:.05);
+  state[key]=still?target[key]:target[key]-left;if(!still)settled=false;
+ }
+ state.settled=settled;return state;
+}
+/**
+ * A figure's footprint from the alpha of its still sprite ({alpha, n}: n × n, drawn at q px per unit), facing f (1 right,
+ * -1 left: the outline mirrors). spec: {anchor, scale} (the anchor stands on the floor). Null for an empty sprite, else
+ * in board units at spec.scale: scale, tall (height above the anchor), span, cx, cy, tilt, air, and body: the half
+ * widths left and right of the anchor in the unmirrored sprite (where a lying figure's lower edge is).
+ */
+export function shadowField({alpha,n},spec,f){
+ const q=SHADE.q,s=spec.scale,ax=spec.anchor.x*s*q,ay=spec.anchor.y*s*q;
  let top=n;for(let i=0;i<alpha.length;i++)if(alpha[i]>24){top=Math.floor(i/n);break;}
- const tall=Math.max(20,(ay-top)/q),castTop=tall*.38,y0=Math.max(0,Math.floor(ay-castTop*q));
- // What touches the floor: each column's lowest solid point stands on it, further back the higher it is (a back
- // foot, the far side of a hem): fully within 4 units of the lowest sole, not at all past 10.
- const bottom=new Int16Array(n).fill(-1);
- for(let x=0;x<n;x++)for(let y=n-1;y>=0;y--)if(alpha[y*n+x]>=128){bottom[x]=y;break;}
- const sole=Math.max(...bottom);if(sole<0)return null;
- const touch=Float32Array.from(bottom,b=>b<0?0:1-ease((sole-b-4*q)/(6*q)));
- // How firmly each column stands there: its touch times how solid it is over its lowest 8 units (a foot, a hem or a
- // tower base fully; a blade slanting down to the floor, a pointed toe little).
- const firm=touch.map((t,x)=>{if(!t)return 0;let k=0;for(let y=Math.max(0,bottom[x]-8*q);y<=bottom[x];y++)k+=alpha[y*n+x]>=128;return t*k/(8*q+1);});
- // The pool spans the middle 94% of the contact, weighed by touch × firmness, so a spear butt, a cape's tip or a
- // sword does not pull it aside.
- let total=0,sum=0,first=-1,last=-1;for(let x=0;x<n;x++)total+=firm[x]*touch[x];
- for(let x=0;x<n;x++){sum+=firm[x]*touch[x];if(first<0&&sum>=total*.03)first=x;if(last<0&&sum>=total*.97)last=x;}
- const span=Math.abs(X(last)-X(first)),cx=(X(first)+X(last))/2;
- // The body's half widths: the median edges over the middle 60% of its height.
- const left=[],right=[];
- for(let y=Math.round(top+.2*(ay-top));y<=top+.8*(ay-top);y++){let l=-1,r=-1;for(let x=0;x<n;x++)if(alpha[y*n+x]>=128){if(l<0)l=x;r=x;}if(l>=0){left.push((ax-l)/q);right.push((r-ax)/q);}}
- const median=a=>a.length?a.sort((u,v)=>u-v)[a.length>>1]:tall*.15;
- // The pool: an ellipse a little wider than the contact (but off the next square's feet), as deep as a disc seen at
- // this angle, nudged away from the light, darkest under the body (each disc reaches a little past its axes: that
- // is its soft rim).
- const A0=Math.max(span/2+5,.16*tall+4),mid=cx+.75,pd=SHADE.pool,A=Math.min(A0*1.15,.4*tile),B=clamp(.3*A0,5,11)*1.15;
- // How far the short cast reaches.
- let x0=0,x1=0,reach=0;
- for(let y=y0;y<n;y++){const h=(ay-y)/q,dx=h<0?0:shear*cast*h,d=h<0?-h:cast*h;let l=-1,r=-1;
-  for(let x=0;x<n;x++)if(alpha[y*n+x]>=10){if(l<0)l=x;r=x;}
-  if(l<0)continue;
-  const pl=Math.min(X(l),X(r))+dx,pr=Math.max(X(l),X(r))+dx;if(pl<x0)x0=pl;if(pr>x1)x1=pr;if(d>reach)reach=d;
- }
- // Floor grid at q px per unit: x across, d down the screen (0 at the ground point).
- const gx0=Math.min(x0,mid-A)-8,gx1=Math.max(x1,mid+A)+8,gd0=Math.min(-4,pd-B,(sole-ay)/q-13)-8,gd1=Math.max(reach,pd+B,(sole-ay)/q+4)+8;
- const OX=Math.ceil(-gx0*q),OY=Math.ceil(-gd0*q),W=OX+Math.ceil(gx1*q)+1,H=OY+Math.ceil(gd1*q)+1;
- const tight=new Float32Array(W*H),wide=new Float32Array(W*H),shade=new Float32Array(W*H);
- const put=(buf,x,d,v)=>{const X=Math.round(x*q)+OX,Y=Math.round(d*q)+OY;if(X>=0&&X<W&&Y>=0&&Y<H){const i=Y*W+X;if(v>buf[i])buf[i]=v;}};
- // The core: under each column that stands there a tight band from 2.2 units behind its lowest point to 2.2 in
- // front, and a wider, softer one to 3.5 in front at half strength.
- for(let x=0;x<n;x++){const t=firm[x];if(!t)continue;const d=(bottom[x]-ay)/q;
-  for(let k=-2.2*q;k<=3.5*q;k++){if(k<=2.2*q)put(tight,X(x),d+k/q,t);put(wide,X(x),d+k/q,t);}
- }
- // The short cast: what is below the anchor lies where it is drawn; above it, the lower legs fall down and right.
- for(let y=y0;y<n;y++){const h=(ay-y)/q,fade=h<0?1:(1-h/castTop)**1.5;
-  for(let x=0;x<n;x++){const v=alpha[y*n+x]/255;if(v<.04)continue;
-   if(h<0)put(shade,X(x),-h,v);else put(shade,X(x)+shear*cast*h,cast*h,v*fade);
-  }
- }
- blur(tight,W,H,q,q);blur(wide,W,H,2.4*q,2.4*q);blur(shade,W,H,2.4*q,1.4*q);
- const disc=(x,d)=>{const e=1-((x-mid)/A)**2-((d-pd)/B)**2;return e>0?e*Math.sqrt(e):0;};
- for(let Y=0;Y<H;Y++){const d=(Y-OY)/q;for(let X=0;X<W;X++){const i=Y*W+X;
-  shade[i]=1-(1-Math.min(1,shade[i])*.55)*(1-disc((X-OX)/q,d)*.9);tight[i]=1-(1-Math.min(1,tight[i]))*(1-.5*Math.min(1,wide[i]));
- }}
- return {scale:s,tall,span,cx,pd,body:[median(left),median(right)],sole:(sole-ay)/q,W,H,OX,OY,core:tight,soft:shade};
-}
-// Gaussian blur in place (three box passes each way); sx, sy: standard deviations in px.
-export function blur(buf,W,H,sx,sy){
- const tmp=new Float32Array(Math.max(W,H));
- const pass=(len,count,stride,step,r)=>{
-  if(r<1)return;
-  for(let line=0;line<count;line++){
-   const o=line*stride;
-   for(let p=0;p<3;p++){
-    let sum=0;for(let i=0;i<len;i++)tmp[i]=buf[o+i*step];
-    for(let i=0;i<=r&&i<len;i++)sum+=tmp[i];
-    for(let i=0;i<len;i++){buf[o+i*step]=sum/(2*r+1);if(i+r+1<len)sum+=tmp[i+r+1];if(i-r>=0)sum-=tmp[i-r];}
-   }
-  }
- };
- const radius=sigma=>Math.round(Math.sqrt(sigma*sigma+.25)-.5);
- pass(W,H,W,1,radius(sx));pass(H,W,1,W,radius(sy));
+ const tall=Math.max(20,(ay-top)/q),fp=footprint(alpha,n,n,ax,ay,tall*q);if(!fp)return null;
+ return {scale:s,tall,span:fp.span/q,cx:f*fp.cx/q,cy:fp.cy/q,tilt:f*fp.tilt,air:fp.air/q,body:[fp.left/q,fp.right/q]};
 }
 
 /**
- * How much of each part shows (0–1, before the floor's own strength), from the pose fields the shadow reads:
- * ground (the floor point), foot, lift and shadow (< 1: higher), rotation, and lit (this figure lights its own
- * floor, 0–1: the ivory Spirit's glow). opacity: the figure's, times any fade of its own (fxFade).
- *   shown  of all of it; core, soft, oval, lying: of each part; plateau: how soft the oval is (0 flat, 1 soft);
+ * How much pool shows (0–1, before the floor's own strength), from the pose fields the shadow reads: ground (the floor
+ * point), foot, lift and shadow (< 1: higher), rotation, and lit (this figure lights its own floor, 0–1: the ivory
+ * Spirit's glow). opacity: the figure's, times any fade of its own (fxFade). baked: how high the drawing itself has
+ * the figure (a leap's frames), in board units.
+ *   shown  of all of it; pool: of the standing pool; lying: of the pool under the body;
+ *   size   the standing pool's size as the figure rises;
  *   h, air: how high the figure is, and that made higher still by pose.shadow (a smaller shadow).
- * As a figure rises, the contact goes first, then the pool hands over to the oval, which grows lighter and softer
- * with height: the shadow never gets darker as it rises. As one tips over, the contact goes by about 27°, the
- * standing pool by 44°, and the pool under the body grows as it nears the floor.
+ * As a figure rises, its pool lies where it will land, a smaller oval that grows lighter with height: it never gets
+ * darker as it rises. As one tips over, the standing pool goes by about 44°, and the pool under the body grows as it
+ * nears the floor.
  */
-export function shadowWeights(pose,opacity=1){
+export function shadowWeights(pose,opacity=1,baked=0){
  const ground=pose.ground??pose.foot,s=clamp(pose.shadow??1,0,1);
  // (pose.shadow near 0 hides it: atmosphere off, a king's capture draws its victim's old oval with .001.)
  const shown=opacity*(1-(pose.lit??0))*clamp((s-.02)/.3,0,1);
- const h=Math.max(pose.lift??0,ground.y-pose.foot.y,0),air=h+10*(1-s),up=1-Math.exp(-air/8);
+ const h=Math.max(pose.lift??0,ground.y-pose.foot.y,baked,0),air=h+10*(1-s),up=1-Math.exp(-air/8);
  const r=Math.abs(pose.rotation??0),stand=clamp((Math.cos(r)-.72)/.26,0,1);
  return {shown,h,air,
-  core:Math.exp(-air/4)*clamp(1-(r-.22)/.25,0,1),
-  soft:(1-up)*stand,
-  oval:up*(1-.45*clamp(air/45,0,1))*stand,
-  plateau:clamp(air/24,0,1),
+  pool:(1-.35*up-.2*clamp(air/45,0,1))*stand,
+  size:1-.3*air/(air+30),
   lying:clamp((Math.sin(Math.min(r,Math.PI/2))-.25)/.7,0,1)};
 }
 /** A figure's own effect (unit.fx in scene.mjs) fades its shadow as the effect takes the figure off the floor: 0–1. */

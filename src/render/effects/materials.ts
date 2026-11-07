@@ -1,6 +1,6 @@
 import { paintChar, paintEmber, paintFlame } from './fire-art';
 import { materialState, type MaterialFrame } from '../painted/ice-material.mjs';
-export { materialState, drawFreeze, drawIceWall, type MaterialFrame } from '../painted/ice-material.mjs';
+export { materialState, iceScale, drawFreeze, drawIceWall, type MaterialFrame } from '../painted/ice-material.mjs';
 const hash = (n: number) => { const v = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return v - Math.floor(v); };
 
 /** Painted flames from the fire atlas stand round a clear pocket: tall behind and on the flanks, low in front, so the figure stays readable. */

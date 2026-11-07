@@ -44,6 +44,9 @@
 #app-root button.emblem { transition: transform 80ms ease-out, background-color 120ms; }
 #app-root #board:focus { outline-width: 3px; outline-offset: -3px; box-shadow: none !important; }
 #app-root #board:focus::after { content: ''; position: absolute; inset: 3px; z-index: 5; pointer-events: none; border: 2px solid var(--focus-gold); }
+/* A board focus from a pointer or a pointer Send shows no frame; keyboard focus keeps it. */
+#app-root #board:focus:not(:focus-visible) { outline: none; }
+#app-root #board:focus:not(:focus-visible)::after { content: none; }
 #app-root #game-table .table-back:focus, #app-root .seg-row label:has(input:focus) { outline-offset: -2px; box-shadow: inset 0 0 0 4px var(--focus-gold) !important; }
 #app-root label.mode:has(input:focus) { outline-offset: -2px; box-shadow: inset 0 0 0 6px var(--focus-gold) !important; }
 #app-root label:has(input:focus) { opacity: 1; }

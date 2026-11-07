@@ -15,7 +15,19 @@ function along(t,q,dx,dy,out){
  const ex=t.ex+dx*q,ey=t.ey+dy*q,mx=ex-t.sx,my=ey-t.sy,d=Math.hypot(mx,my)||1,bow=Math.sin(Math.PI*q**.72)*t.bend;
  out.x=t.sx+mx*q-my/d*bow;out.y=t.sy+my*q+mx/d*bow;return out;
 }
-/** The attack's fixed numbers. o: origin, secondaryOrigin, originAt, target, foot, height, seed, emissionMs, contactMs. */
+// True when a thorn's tip and the stem and trail behind it stay inside bounds [left, top, right, bottom] on all its way.
+function inside(t,[left,top,right,bottom]){
+ const p={x:0,y:0},n={x:0,y:0},back=t.length+30;
+ for(let i=0;i<=24;i++){
+  along(t,i/24,0,0,p);along(t,Math.min(1,i/24+.03),0,0,n);
+  const a=i<24?Math.atan2(n.y-p.y,n.x-p.x):Math.atan2(p.y-t.sy,p.x-t.sx),bx=p.x-Math.cos(a)*back,by=p.y-Math.sin(a)*back;
+  if(Math.min(p.x,bx)<left||Math.max(p.x,bx)>right||Math.min(p.y,by)<top||Math.max(p.y,by)>bottom)return false;
+ }
+ return true;
+}
+// A petal's upward speed, cut so it turns below the top of the bounds.
+const rise=(vy,y,size,bounds)=>bounds&&vy<0?-Math.min(-vy,Math.sqrt(1040*Math.max(0,y-bounds[1]-size))):vy;
+/** The attack's fixed numbers. o: origin, secondaryOrigin, originAt, target, foot, height, seed, emissionMs, contactMs, bounds (optional: the canvas edges). */
 export function makePlan(o){
  const rng=random(o.seed),palms=o.secondaryOrigin?2:1,contact=o.contactMs,n=palms===2?PER_PALM:PER_PALM*2,H=o.height,thorns=[];
  const away=Math.sign(o.foot[0]-o.origin[0])||(o.seed&1?1:-1);
@@ -25,7 +37,9 @@ export function makePlan(o){
   if(o.originAt){const p=o.originAt(launchMs,palm);if(p)start=p;}
   const first=order===0,lx=first?o.target[0]-o.foot[0]:(rng()-.5)*.44*H,ly=first?o.target[1]-o.foot[1]:-(.24+rng()*.42)*H;
   const ex=o.foot[0]+lx,ey=o.foot[1]+ly,distance=Math.hypot(ex-start[0],ey-start[1]),fan=i/(n-1)*2-1+(palm?.18:-.18);
-  const t={palm,launchMs,hitMs:contact+order*HIT_STAGGER,sx:start[0],sy:start[1],ex,ey,lx,ly,bend:fan*(Math.min(distance*.16,44)+Math.max(0,300-distance)*.3)+(rng()-.5)*10,exponent:1.15+rng()*.3+Math.max(0,300-distance)/300,length:68+rng()*18,angle:0};
+  const bend=fan*(Math.min(distance*.16,44)+Math.max(0,300-distance)*.3)+(rng()-.5)*10,t={palm,launchMs,hitMs:contact+order*HIT_STAGGER,sx:start[0],sy:start[1],ex,ey,lx,ly,bend,exponent:1.15+rng()*.3+Math.max(0,300-distance)/300,length:68+rng()*18,angle:0};
+  // A bow that would leave the canvas (o.bounds) flattens until the thorn, stem and trail stay inside.
+  if(o.bounds)for(const k of [.75,.5,.25,0]){if(inside(t,o.bounds))break;t.bend=bend*k;}
   const a=along(t,.98,0,0,{x:0,y:0});t.angle=Math.atan2(ey-a.y,ex-a.x);
   thorns.push(t);
  }
@@ -35,10 +49,10 @@ export function makePlan(o){
  for(let i=0;i<14;i++){
   const at=FALL_AT+rng()*150,life=Math.min(DEMISE_MS-at,170+rng()*130);victimAt(plan,contact+at,s);
   const lx=(rng()-.5)*.6*H,ly=-(.1+rng()*.8)*H,[wx,wy]=bodyPoint(s,plan.foot,lx,ly);
-  plan.petals.push({at,life,x:wx,y:wy,vx:(rng()-.5)*260+away*70,vy:-60-rng()*200,spin:(rng()-.5)*14,angle:rng()*6.3,size:10+rng()*8,v:Math.floor(rng()*8),flutter:9+rng()*10});
+  plan.petals.push({at,life,x:wx,y:wy,vx:(rng()-.5)*260+away*70,vy:rise(-60-rng()*200,wy,18,o.bounds),spin:(rng()-.5)*14,angle:rng()*6.3,size:10+rng()*8,v:Math.floor(rng()*8),flutter:9+rng()*10});
  }
  // Two or three petals thrown from each palm with the first thorns.
- for(const t of thorns)if(plan.puffs.length<4&&t.launchMs<VOLLEY_MS*.5)plan.puffs.push({at:t.launchMs,life:260+rng()*120,x:t.sx,y:t.sy,vx:Math.cos(t.angle)*60+(rng()-.5)*90,vy:Math.sin(t.angle)*60-60-rng()*60,spin:(rng()-.5)*12,angle:rng()*6.3,size:9+rng()*5,v:Math.floor(rng()*8),flutter:10+rng()*8});
+ for(const t of thorns)if(plan.puffs.length<4&&t.launchMs<VOLLEY_MS*.5)plan.puffs.push({at:t.launchMs,life:260+rng()*120,x:t.sx,y:t.sy,vx:Math.cos(t.angle)*60+(rng()-.5)*90,vy:rise(Math.sin(t.angle)*60-60-rng()*60,t.sy,14,o.bounds),spin:(rng()-.5)*12,angle:rng()*6.3,size:9+rng()*5,v:Math.floor(rng()*8),flutter:10+rng()*8});
  return plan;
 }
 // How the victim stands at elapsed ms from the release: shifted, tightened, turned and faded. Fills and returns out.

@@ -110,6 +110,11 @@ the bank and updates the catalog manifest. A repeated promotion of the same cand
 Promotion does not change `runtime-selection.json`. The owner re-pins the selection after review, and the next
 `tools/build-character-runtime.mjs` run makes the bank public. Do not deploy from this tool.
 
+`tools/convert-character-runtime-webp.mjs` also writes `footprints.json`, the soft pool's table of what touches the
+floor in each frame. After any other change to a package's frames, run `node tools/build-character-footprints.mjs`
+(about 25 seconds). A frame not in the table has its character's standing pool, so a missed run shows no fault: look
+for a pool that does not follow its figure. The table is not pinned; the manifest and the catalog do not change.
+
 For the painted walk batch, `promote-painted-moves.py --candidate <catalog> --target <frozen-catalog>` copies the
 content-hashed banks under the catalog lock. It checks the target base, rebuilds the package, and compares every
 file. Add `--cache <WebP package>` to reuse the converted frames of a package that holds the same source hashes;

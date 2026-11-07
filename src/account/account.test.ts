@@ -20,6 +20,25 @@ describe('Settings → Account', () => {
     expect(buttons(accountHtml(null, true, ['github']))).toEqual(['Continue with GitHub']);
   });
 
+  it('signed in with an email code: says so, with the default name', () => {
+    const user = userOf({ app_metadata: { provider: 'email' }, user_metadata: {} });
+    expect(user).toEqual({ name: 'Player', avatar: null, provider: 'email' });
+    expect(accountHtml(user, false)).toContain('Signed in with email');
+  });
+
+  it('ignores a name and picture that a stranger set on an email account', () => {
+    expect(userOf({ app_metadata: { provider: 'email' }, user_metadata: { full_name: 'Any text', avatar_url: 'https://evil.example/x.png' } })).toEqual({ name: 'Player', avatar: null, provider: 'email' });
+  });
+
+  it('says what an email code gives only when email is on', () => {
+    expect(accountHtml(null, false, ['github', 'email'])).toContain('With an email code, we get only your email address');
+    expect(accountHtml(null, false, ['github'])).toContain('We get only your name, picture');
+  });
+
+  it('email is no provider button', () => {
+    expect(buttons(accountHtml(null, false, ['github', 'email']))).toEqual(['Continue with GitHub']);
+  });
+
   it('shows no provider before settings load, or when all are disabled', () => {
     expect(buttons(accountHtml(null, false))).toEqual([]);
     expect(buttons(accountHtml(null, true, []))).toEqual([]);

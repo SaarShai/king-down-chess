@@ -44,23 +44,34 @@ test('painted travel mixes the linear path with the pose step', () => {
  for(const t of [0,10,159,160,300,479,639])assert.ok(Math.abs(at(t,0)-t/640)<1e-12,`s=0 at ${t}`);
  assert.equal(at(100,1),0);
  assert.equal(at(159,1),0);
- for(const [t,start] of [[160,160],[319,160],[480,480],[639,480]])assert.ok(Math.abs(at(t,1)-start/640)<1e-12,`s=1 at ${t}`);
- // Two pose cycles in one move: the step carries on from the first cycle to the second.
+ // The held path reaches the square when the last pose on screen (480 ms) starts.
+ for(const [t,start] of [[160,160],[319,160],[480,480],[639,480]])assert.ok(Math.abs(at(t,1)-start/480)<1e-12,`s=1 at ${t}`);
+ // Two pose cycles in one move: the step carries on from the first cycle to the second; the last pose starts at 1120.
  const two=(t,mix)=>paintedTravel(t,640,2,frames,640,mix);
- assert.ok(Math.abs(two(100,1)-160/1280)<1e-12);
- assert.ok(Math.abs(two(330,1)-640/1280)<1e-12);
- assert.ok(Math.abs(two(639,1)-1120/1280)<1e-12);
+ assert.ok(Math.abs(two(100,1)-160/1120)<1e-12);
+ assert.ok(Math.abs(two(330,1)-640/1120)<1e-12);
+ assert.equal(two(639,1),1);
  let previous=0;
  for(const move of [at,two]){
   let held=0;previous=0;  for(let t=0;t<=640;t+=2){
    const u=move(t,.5),step=move(t,1);
    assert.ok(u>=previous-1e-12,`monotonic at ${t}`);
    assert.ok(step>=held-1e-12,`step monotonic at ${t}`);
-   assert.ok(u>=step-1e-12&&u<=move(t,0)+1e-12,`between at ${t}`);
+   const linear=move(t,0);assert.ok(u>=Math.min(step,linear)-1e-12&&u<=Math.max(step,linear)+1e-12,`between at ${t}`);
    previous=u;held=step;
   }
  }
- for(const [t,start] of [[50,0],[200,160],[500,480],[630,480]])assert.ok(Math.abs(at(t,1)-start/640)<1e-12,`hold at ${t}`);
+ for(const [t,start] of [[50,0],[200,160],[500,480],[630,480]])assert.ok(Math.abs(at(t,1)-start/480)<1e-12,`hold at ${t}`);
+});
+test('painted travel ends on the square without a snap, for any pose count', () => {
+ for(const count of [4,6,8,16])for(const [duration,rate,cycle] of [[600,1,640],[909,1,800],[678,1,720],[480,1,640],[2240,2,640]]){
+  const frames=[...Array(count)].map((_,i)=>({timeMs:i*cycle/count}));
+  // On the last 60 fps frame of the walk only the linear half of the path is still short.
+  const frame=1000/60,last=paintedTravel(duration-frame,duration,rate,frames,cycle);
+  assert.ok(1-last<=.5*frame/duration+1e-12,`${count} poses, ${duration} ms: ${last}`);
+ }
+ // One pose for the whole walk: the body moves on the linear path.
+ assert.equal(paintedTravel(50,100,1,[{timeMs:0},{timeMs:320}],640),.5);
 });
 test('every gait named by a figure exists', () => {
   for (const g of Object.values(GAIT_OF)) assert.ok(GAITS[g], g);

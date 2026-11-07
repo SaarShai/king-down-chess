@@ -88,7 +88,7 @@ it('F7: the offline install does not fetch optional clip sheets', () => {
 it('precaches the manifest and the startup effect modules but no frames or optional runtime files', () => {
   const { bundle, files } = fixture();
   const effect = `character-runtime/effects/${'b'.repeat(64)}`;
-  const startup = ['character-runtime/manifest.json', `${effect}/effect.mjs`, `${effect}/smoke.mjs`];
+  const startup = ['character-runtime/manifest.json', 'character-runtime/footprints.json', `${effect}/effect.mjs`, `${effect}/smoke.mjs`];
   const onDemand = [`character-runtime/assets/${'a'.repeat(64)}.webp`, `${effect}/effect.json`, `${effect}/assets/image.png`];
   const excluded = ['character-runtime/assets.json', 'character-runtime/assets/private.json', `${effect}/provenance/source.json`, `${effect}/provenance/source.mjs`, `${effect}/sources.json`];
   files.push(...startup, ...onDemand, ...excluded);
