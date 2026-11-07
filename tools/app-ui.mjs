@@ -131,6 +131,8 @@ export async function boardHelp(page, act, options = {}) {
 
 export async function setPace(page, value) {
   await openMenu(page);
+  // The pace is not off yet: a press during a move's animation only skips the animation (PaintedView), so press again.
+  if (!await page.evaluate(() => document.getElementById('menu-sheet').open)) await openMenu(page);
   await page.selectOption('#pace', value);
   await page.locator('#menu-close').click();
 }
