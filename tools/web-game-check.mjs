@@ -404,13 +404,17 @@ try {
     await page.goto(origin + soloPath);
     await page.locator('[data-screen="board"]:not([hidden])').waitFor();
     await page.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
-    let computerSent, releaseComputer, heldId;
+    let computerSent, releaseComputer, heldDropped, heldId;
     const sent = new Promise(resolve => { computerSent = resolve; }), released = new Promise(resolve => { releaseComputer = resolve; });
+    const dropped = new Promise(resolve => { heldDropped = resolve; });
+    // Only the first computer call is held, and it never reaches the server. The route stays until that call is
+    // aborted: with no route left, the browser lets a held request go on (about one run in five failed so).
+    // The reloaded page's resend of the same call goes through.
     const holdComputer = async route => {
       const body = route.request().postDataJSON();
-      if (body?.action?.type !== 'computer') return route.continue();
+      if (body?.action?.type !== 'computer' || heldId) return route.continue();
       heldId = body.command_id; computerSent(); await released;
-      await route.abort('aborted').catch(() => {});
+      await route.abort('aborted').catch(() => {}); heldDropped();
     };
     await page.route('**/api/games/*/commands', holdComputer);
     const canvas = page.locator('#board canvas'), box = await canvas.boundingBox(); assert(box);
@@ -419,7 +423,6 @@ try {
     await page.locator('#end-turn[aria-disabled="false"]').click();
     await sent;
     const moved = await readSolo();
-    await page.unroute('**/api/games/*/commands', holdComputer);
     const computerCalls = [];
     const logComputer = response => {
       const request = response.request(), body = request.method() === 'POST' && request.postDataJSON();
@@ -427,7 +430,8 @@ try {
     };
     page.on('response', logComputer);
     await page.goto(origin + '/play/');
-    releaseComputer();
+    releaseComputer(); await dropped;
+    await page.unroute('**/api/games/*/commands', holdComputer);
     await page.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert.equal(new URL(page.url()).pathname, soloPath, 'Recovery names the source game in the URL');
     // A tap during a board animation only skips it (owner pick A8 a), so Back waits for the board to stop.
