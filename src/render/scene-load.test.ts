@@ -64,6 +64,15 @@ it('draws a figure at rest from its still picture, at its rest frame\'s pivot an
  expect(scene.characterFrames).toHaveLength(0);
 });
 
+it('drops a still picture when the loaded package has no body for that figure', async () => {
+ stillsLoad = true;
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})})));
+ const b=board(true,true);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ const drawn=b.draws.length;scene.setSelected(null);await vi.advanceTimersByTimeAsync(48);
+ expect(scene.characterMemory.manifestReady).toBe(true);
+ expect(b.draws.slice(drawn).some(src=>src.includes('/ui/pieces/'))).toBe(false);
+});
+
 it('prefetches only the selected capture and its full king turn route', async () => {
  const base={character:'king-frost',army:'white',canvasSize:[32,32],pivot:[16,28],bodyHeightPx:20,registrationHeightPx:20};
  const idle={...base,id:'idle',kind:'idle',facing:'SE',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0}]};

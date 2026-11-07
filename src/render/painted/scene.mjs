@@ -103,7 +103,8 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
   }
   return entry;
  }
- const stillBody=value=>stillImage(value)?.body??null;
+ // (Not when the loaded package has no body for it: then its legacy drawings move it, so it rests as one of them too.)
+ const stillBody=value=>bodyRuntime?.stats.manifestReady&&!bodyRuntime.has(characterOf(value),armyOf(value))?null:stillImage(value)?.body??null;
  const warmStills=()=>Promise.all([...new Set(position.board)].filter(Boolean).map(value=>stillImage(value)?.loaded));
  const boardArt=corsImage();
  // Clips load after the first frame with motion on, or when a selection needs one. They never gate readiness.
