@@ -30,19 +30,13 @@ begin
   -- Approval D8 a: a password session only for an address in kingdown_auth.password_accounts (review-signup-hook.sql).
   -- The Before User Created hook sees only new accounts, and a Google or GitHub player can add a password to an
   -- existing account (auth.updateUser). So Auth refuses the session here. With no list installed, it refuses them all.
-  -- A refresh keeps the session's method in amr. An app code exchange makes a new session with only
-  -- oauth_provider/authorization_code in amr. Auth's app_metadata shows whether the account has a social sign-in.
-  -- An account with no social sign-in gets no new token after its address leaves the list.
-  if event ->> 'authentication_method' = 'password' or coalesce(claims -> 'amr' @> '[{"method": "password"}]', false)
-    or not exists (
-      select from jsonb_array_elements_text(coalesce(claims -> 'app_metadata' -> 'providers', '[]'::jsonb)) as p(provider)
-      where p.provider <> 'email'
-    ) then
+  -- A refresh keeps the session's method in amr. An email code session has method otp, so it passes.
+  if event ->> 'authentication_method' = 'password' or coalesce(claims -> 'amr' @> '[{"method": "password"}]', false) then
     if to_regclass('kingdown_auth.password_accounts') is not null then
       listed := exists (select from kingdown_auth.password_accounts a where a.email = lower(claims ->> 'email'));
     end if;
     if not listed then
-      return jsonb_build_object('error', jsonb_build_object('http_code', 403, 'message', 'Sign in with Google or GitHub.'));
+      return jsonb_build_object('error', jsonb_build_object('http_code', 403, 'message', 'Sign in with Google, GitHub or an email code.'));
     end if;
   end if;
   -- client_id is an Auth-issued claim, never user_metadata or a caller-supplied URL.

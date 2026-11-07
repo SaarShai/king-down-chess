@@ -16,14 +16,13 @@ repository.
    Before 0008: the user disappears from **Authentication → Users**, with its `profiles` and
    `user_data` rows. After 0008: the user stays, and `account_deletions` has a row with `run_after`
    7 days later; the deletions job deletes the account then.
-5. **Authentication → Sign In / Providers**: turn **Email** off, and keep **Allow anonymous sign-ins**
-   off. The game signs in only with Google, GitHub and Facebook. With Email on, anyone can make
-   accounts through the API with any name, and every account gets a profile. The one exception is the
-   OpenAI review account (approval D8 a): turn Email on only after
-   `plugin-deploy/review-signup-hook.sql` is applied and enabled as the **Before User Created** hook.
-   That hook refuses every email sign-up whose address is not in `kingdown_auth.password_accounts`, and
-   `public.kingdown_access_token_hook` refuses a password sign-in for every such address, also when a
-   Google or GitHub account adds a password.
+5. **Authentication → Sign In / Providers**: keep **Allow anonymous sign-ins** off. The game signs in
+   with Google, GitHub, Facebook and an email code. Turn **Email** on only after
+   `plugin-deploy/review-signup-hook.sql` is applied and enabled as the **Before User Created** hook,
+   and `plugin-deploy/oauth-audience-hook.sql` as the **Custom Access Token** hook. The second hook
+   refuses a password sign-in for each address not in `kingdown_auth.password_accounts`. Keep both
+   hooks and **Confirm email** on: with Confirm email off, anyone can make a confirmed account for an
+   address that is not theirs. The mail setup is in `docs/specs/email-sign-in/issues/01-email-code.md`.
 
 ## What 0001 makes
 

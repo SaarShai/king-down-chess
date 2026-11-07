@@ -1,4 +1,5 @@
 import { AUTH_KEY } from '../account/session';
+import { emailCodeForm } from '../account/email-code';
 import { stagingPasswordSignInEnabled } from '../account/public-config';
 import { configureRuntime } from '../account-game/host';
 import { onlineClient } from './client';
@@ -11,7 +12,7 @@ import './page-host.css';
 
 document.title = 'King Down';
 document.body.replaceChildren();
-function message(words: string, providers: readonly ('google' | 'github')[] = [], retry = false, testSignIn = false) {
+function message(words: string, providers: readonly ('google' | 'github')[] = [], retry = false, testSignIn = false, emailCode = false) {
   document.body.replaceChildren();
   const main = document.createElement('main'); main.className = 'account-entry';
   const title = document.createElement('h1'); title.textContent = 'King Down';
@@ -28,6 +29,10 @@ function message(words: string, providers: readonly ('google' | 'github')[] = []
     };
     main.append(button);
   }
+  if (emailCode) main.append(emailCodeForm(getClient, words => { line.textContent = words; }, () => {
+    const route = parseAccountRoute(new URL(location.href));
+    location.assign(route ? accountPath(route) : '/play/');
+  }));
   if (retry) {
     const button = document.createElement('button'); button.textContent = 'Try again'; button.onclick = () => location.reload(); main.append(button);
   }
@@ -68,8 +73,10 @@ const signInHost: SignInHost = { location, history, storage: sessionStorage, now
 async function signInMessage(words: string) {
   message('Checking sign-in options…');
   try {
-    const providers = (await (await getClient()).providers()).filter(provider => provider !== 'facebook');
-    message(providers.length ? words : 'Provider sign-in is temporarily unavailable. Try again later.', providers, !providers.length, true);
+    const options = await (await getClient()).providers(), email = options.includes('email');
+    const providers = options.filter(provider => provider === 'google' || provider === 'github');
+    const any = providers.length > 0 || email;
+    message(any ? words : 'Sign-in is temporarily unavailable. Try again later.', providers, !any, true, email);
   } catch { message('Sign-in options could not load. Check your connection and try again.', [], true, true); }
 }
 try {

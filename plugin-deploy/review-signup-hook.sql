@@ -1,15 +1,13 @@
 -- INSTALLATION TEMPLATE ONLY: do not include in automatic game migrations.
 -- Contract: https://supabase.com/docs/guides/auth/auth-hooks/before-user-created-hook
--- Approval D8 a: one review account signs in with an email and a password; every player uses Google or GitHub.
--- With the Email provider on, anyone can make a password account through the Auth API. This hook lets a new account
--- in only through Google, GitHub or Facebook, or with an email address in kingdown_auth.password_accounts. It refuses
--- every other sign-up: email, phone, anonymous and unknown. The same list limits password sign-ins:
--- public.kingdown_access_token_hook (oauth-audience-hook.sql) refuses a password session for every other address,
--- also for an existing Google or GitHub account that adds a password. An account with no social sign-in gets no new
--- token after its address leaves the list, also for an app code exchange or refresh. This hook sees only new accounts.
+-- Players sign up with Google, GitHub, Facebook or an email code. This hook refuses every other sign-up: phone,
+-- anonymous and unknown. The Auth API cannot tell a code sign-up from a password sign-up here, so a password account
+-- can be made through the API. It gets no session: public.kingdown_access_token_hook (oauth-audience-hook.sql) refuses
+-- a password session for each address not in kingdown_auth.password_accounts (approval D8 a, the review account), also
+-- for an existing account that adds a password. This hook sees only new accounts.
 -- Order: apply oauth-audience-hook.sql and this file as the admin role; enable public.kingdown_before_user_created in
--- Authentication > Hooks > Before User Created; add the addresses (below); only then turn the Email provider on and
--- make the accounts (docs/submission/checklist.md, owner step 2).
+-- Authentication > Hooks > Before User Created; only then turn the Email provider on
+-- (docs/specs/email-sign-in/issues/01-email-code.md). A review account also needs its address in the list (below).
 begin;
 create schema if not exists kingdown_auth;
 revoke all on schema kingdown_auth from public, anon, authenticated;
@@ -28,11 +26,10 @@ declare
   provider text := event -> 'user' -> 'app_metadata' ->> 'provider';
   address text := lower(event -> 'user' ->> 'email');
 begin
-  if provider in ('google', 'github', 'facebook')
-    or provider = 'email' and exists (select from kingdown_auth.password_accounts a where a.email = address) then
+  if provider in ('google', 'github', 'facebook') or provider = 'email' and address like '_%@_%' then
     return '{}'::jsonb;
   end if;
-  return jsonb_build_object('error', jsonb_build_object('http_code', 403, 'message', 'Sign up with Google or GitHub.'));
+  return jsonb_build_object('error', jsonb_build_object('http_code', 403, 'message', 'Sign up with Google, GitHub or email.'));
 end;
 $$;
 revoke execute on function public.kingdown_before_user_created(jsonb) from public, anon, authenticated;
