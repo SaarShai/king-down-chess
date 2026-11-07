@@ -62,8 +62,9 @@ it('ships every attack frame as an accepted key or a listed in-between, with tra
    expect(bank.frames.slice(index+1).find((x:any)=>keys.has(x.sourceSha256))?.sourceSha256,`${name} ${f.timeMs}`).toBe(f.sources[1]);
   }
  }
- // 43 smooth banks put the second key back at its painted time: pawn 12, maester 14, Spirit 16, Stratus 1.
- expect(retimed).toBe(43);
+ // 27 smooth banks put the second key back at its painted time: pawn 12, maester 14, Stratus 1. The Spirit
+ // records hold the times of their new painted run, so Spirit no longer counts.
+ expect(retimed).toBe(27);
  const cues=JSON.parse(readFileSync(resolve('docs/specs/character-animation-samples/painted-attack-cues.json'),'utf8'));
  for(const cue of cues){
   const bank=attacks.find((b:any)=>b.character===cue.character&&b.army===cue.army&&b.facing===cue.facing);
