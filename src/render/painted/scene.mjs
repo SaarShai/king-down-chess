@@ -259,7 +259,7 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
  const fade=lively.atmosphere&&colorOf(value)&&out!==closeup?.ctx,base=fade?out.getTransform():null;
  if(lively.atmosphere){if(shadow)contactShadow(out,value,pose,opacity);}
  else{const k=clamp(1-(pose.lift??0)/TILE*.4,.6,1)*(pose.shadow??1);out.fillStyle='#343a2229';out.beginPath();out.ellipse(ground.x,ground.y-2,210*pose.scale*k,36*pose.scale*k,0,0,Math.PI*2);out.fill();}
- if(pose.bank){const b=pose.bank,k=b.scale*pose.scale/spec.scale;out.translate(pose.foot.x,pose.foot.y);out.scale(k*(pose.sx??1),k*(pose.sy??1));out.rotate((pose.rotation??0)*pose.facing);out.shadowColor=colorOf(value)?'rgba(250,246,232,.85)':'rgba(28,24,16,.8)';out.shadowBlur=3*res;out.drawImage(b.image,-b.pivot[0],-b.pivot[1]);out.restore();return;}
+ if(pose.bank){const b=pose.bank,k=b.scale*pose.scale/spec.scale;if(typeOf(value)===K)drawnKings[colorOf(value)]=kings[colorOf(value)];out.translate(pose.foot.x,pose.foot.y);out.scale(k*(pose.sx??1),k*(pose.sy??1));out.rotate((pose.rotation??0)*pose.facing);out.shadowColor=colorOf(value)?'rgba(250,246,232,.85)':'rgba(28,24,16,.8)';out.shadowBlur=3*res;out.drawImage(b.image,-b.pivot[0],-b.pivot[1]);out.restore();return;}
  out.translate(pose.foot.x,pose.foot.y);out.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));out.rotate(pose.rotation??0);
  // A clip's drawing is one atlas cell, at its clip's factor of the sprite's size.
  const clip=pose.clip,anchor=clip?inCell(clip.name,spec.anchor):spec.anchor;
@@ -386,9 +386,12 @@ function glided(square,value,target){
 function contactShadow(out,value,pose,opacity,square=null) {
  if(pose.lying)return; // (painted under him)
  const type=typeOf(value),design=type===K?kings[colorOf(value)]:null;
- if(design&&!pose.sheet&&!kingArt[design]?.image)return; // (the figure is not drawn yet either)
  // The footprint in board units: from this frame in the table, or from the still sprite.
- const sx=pose.sx??1,sy=pose.sy??1,mirror=pose.facing*sx<0?-1:1,row=pose.bank?.footprint,m=Math.max(Math.abs(sx),sy),spec=specs[type];
+ const row=pose.bank?.footprint;
+ if(!row&&design&&!pose.sheet&&!kingArt[design]?.image)return; // (the figure is not drawn yet either)
+ // A king's still sheet loads in idle time, also for a bank body: his effects and his fall draw from it.
+ if(row&&design)stillPrint(value,pose.sheet,1);
+ const sx=pose.sx??1,sy=pose.sy??1,mirror=pose.facing*sx<0?-1:1,m=Math.max(Math.abs(sx),sy),spec=specs[type];
  let print,k,tall;
  if(row){const b=pose.bank,side=sx<0?-1:1;k=b.scale*pose.scale/spec.scale;tall=b.unitHeight*k;print={span:row[0]*k*m,cx:row[1]*k*m*side,cy:row[2]*k*Math.min(1,m),tilt:side*(row[3]??0)/100};}
  else{const still=stillPrint(value,pose.sheet,mirror);if(still?.empty)return;const shape=still??fallbackShape(spec);k=pose.scale/shape.scale;tall=shape.tall*k;print={span:shape.span*k*m,cx:shape.cx*k*m,cy:shape.cy*k*Math.min(1,m),tilt:shape.tilt};}
