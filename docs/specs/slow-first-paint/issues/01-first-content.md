@@ -19,8 +19,8 @@ Chromium, Slow 3G, 390x844, service worker off, a full board (`?fen=` with all p
 
 | Build | Loading line | First contentful paint | Board ready | MB before ready |
 | --- | --- | --- | --- | --- |
-| origin/main 1f7fe166b | none | 88.5 s | 88.5 s | 3.18 |
-| this branch | 2.1 s | 2.1 s | 59.6 s | 2.44 |
+| origin/main 1f7fe166b | none | 88.2 s | 88.2 s | 3.18 |
+| this branch | 2.4 s | 2.2 s | 61.4 s | 2.54 |
 
 Fast link, Chromium and WebKit: the effect atlases and fallen figures load after the board; the title opens with 19 of 19 pictures; the loading line hides and the table shows.
 
