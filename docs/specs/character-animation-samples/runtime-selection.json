@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "ready",
-  "catalogSha256": "3ea5a5f3203716d14027dd3bebea08ec6f7c8e8e26b577345cf333b99807dd01",
+  "catalogSha256": "22f06a1cf3a2b39708e876ccd13c3c61daac3d46f8878876e9d95a81d081a691",
   "entries": [
     {
       "character": "pawn",
@@ -6761,8 +6761,8 @@
       "kind": "movement-study",
       "id": "white-leap-N",
       "direction": "N",
-      "manifest": "banks/cb51a0afe0b3bcdd5a5c81ff625c6b8a12b6fcd9d57ce968f245fb0543f2763d.json",
-      "sha256": "cb51a0afe0b3bcdd5a5c81ff625c6b8a12b6fcd9d57ce968f245fb0543f2763d"
+      "manifest": "banks/d41be4bdec941249446cbb7ed17b80175d3552ec06b26fa2878a146684ad3278.json",
+      "sha256": "d41be4bdec941249446cbb7ed17b80175d3552ec06b26fa2878a146684ad3278"
     },
     {
       "character": "knight",
@@ -6770,8 +6770,8 @@
       "kind": "movement-study",
       "id": "white-leap-NE",
       "direction": "NE",
-      "manifest": "banks/5a97f1a4b801ae9d5ede1dc6c07105edfa784b85c4c3e06cb5ca219201880260.json",
-      "sha256": "5a97f1a4b801ae9d5ede1dc6c07105edfa784b85c4c3e06cb5ca219201880260"
+      "manifest": "banks/b4639e7d809814c97284f0d509d98971eb6c4f56d9adc5e9ede04f63c72e766b.json",
+      "sha256": "b4639e7d809814c97284f0d509d98971eb6c4f56d9adc5e9ede04f63c72e766b"
     },
     {
       "character": "knight",
@@ -6779,8 +6779,8 @@
       "kind": "movement-study",
       "id": "white-leap-E",
       "direction": "E",
-      "manifest": "banks/e5478881016d41a49392878fba4eeaf5bbb30aab0272829150473b1b9e825e28.json",
-      "sha256": "e5478881016d41a49392878fba4eeaf5bbb30aab0272829150473b1b9e825e28"
+      "manifest": "banks/e112cd748ed0bc4eb4da4a87d0ec61cbb0aa12b8c7023cb16f1a4a74c4ffc314.json",
+      "sha256": "e112cd748ed0bc4eb4da4a87d0ec61cbb0aa12b8c7023cb16f1a4a74c4ffc314"
     },
     {
       "character": "knight",
@@ -6788,8 +6788,8 @@
       "kind": "movement-study",
       "id": "white-leap-SE",
       "direction": "SE",
-      "manifest": "banks/b30357cff81a784f5a2de7777bf979c36eedf8c35c0be98a343c55a892346c4e.json",
-      "sha256": "b30357cff81a784f5a2de7777bf979c36eedf8c35c0be98a343c55a892346c4e"
+      "manifest": "banks/57f8dcfade21e67d0c335c88c4e38ac10bba592189332532a969e4c86d470ef4.json",
+      "sha256": "57f8dcfade21e67d0c335c88c4e38ac10bba592189332532a969e4c86d470ef4"
     },
     {
       "character": "knight",
@@ -6797,8 +6797,8 @@
       "kind": "movement-study",
       "id": "white-leap-S",
       "direction": "S",
-      "manifest": "banks/c8fe975309db7b1dbd6566f382b87120738f07daef374157e480f9fabb3e5a5a.json",
-      "sha256": "c8fe975309db7b1dbd6566f382b87120738f07daef374157e480f9fabb3e5a5a"
+      "manifest": "banks/1baa969cb13e9613d4a5cfd40041ce235602bffea08a92917a3b0cba54dd5238.json",
+      "sha256": "1baa969cb13e9613d4a5cfd40041ce235602bffea08a92917a3b0cba54dd5238"
     },
     {
       "character": "knight",
@@ -6806,8 +6806,8 @@
       "kind": "movement-study",
       "id": "white-leap-SW",
       "direction": "SW",
-      "manifest": "banks/1d311387f5138bda58480500dd1a7820cb5a2dfb334f344317da8ec5a910685e.json",
-      "sha256": "1d311387f5138bda58480500dd1a7820cb5a2dfb334f344317da8ec5a910685e"
+      "manifest": "banks/235b61e6bd713a55e93d3d298b99924c0dec47c811d094236bea527de4492dae.json",
+      "sha256": "235b61e6bd713a55e93d3d298b99924c0dec47c811d094236bea527de4492dae"
     },
     {
       "character": "knight",
@@ -6815,8 +6815,8 @@
       "kind": "movement-study",
       "id": "white-leap-W",
       "direction": "W",
-      "manifest": "banks/e718615606b133c98a0c5cbee3da6ef51bff5687c545d79e53ac0f0437433692.json",
-      "sha256": "e718615606b133c98a0c5cbee3da6ef51bff5687c545d79e53ac0f0437433692"
+      "manifest": "banks/b5d1d3f829ea8c689ee57532c47c53822bf9c2235c0a0e0e95353caf560ab8b1.json",
+      "sha256": "b5d1d3f829ea8c689ee57532c47c53822bf9c2235c0a0e0e95353caf560ab8b1"
     },
     {
       "character": "knight",
@@ -6824,8 +6824,8 @@
       "kind": "movement-study",
       "id": "white-leap-NW",
       "direction": "NW",
-      "manifest": "banks/a61c72b3842054d4f6168e99baaf1bef35a941d01ff8f0fa451847bcc24b0ee5.json",
-      "sha256": "a61c72b3842054d4f6168e99baaf1bef35a941d01ff8f0fa451847bcc24b0ee5"
+      "manifest": "banks/17164918fa8225a311f80d8dacb2fc86b4dc6fcefa4df17f826200f81a2611d6.json",
+      "sha256": "17164918fa8225a311f80d8dacb2fc86b4dc6fcefa4df17f826200f81a2611d6"
     },
     {
       "character": "knight",
@@ -6833,8 +6833,8 @@
       "kind": "movement-study",
       "id": "black-leap-N",
       "direction": "N",
-      "manifest": "banks/181824bd63a22514baed8208cfb6ff74dfccf04efc51525b52eb851d95132c2c.json",
-      "sha256": "181824bd63a22514baed8208cfb6ff74dfccf04efc51525b52eb851d95132c2c"
+      "manifest": "banks/22ebb1c5579d2976358f7762cacc8da8232aa51c6a33bb8c71e3834a9f7e4945.json",
+      "sha256": "22ebb1c5579d2976358f7762cacc8da8232aa51c6a33bb8c71e3834a9f7e4945"
     },
     {
       "character": "knight",
@@ -6842,8 +6842,8 @@
       "kind": "movement-study",
       "id": "black-leap-NE",
       "direction": "NE",
-      "manifest": "banks/04b444b99ebb95b62b0fd8ffa029e0ac33213fcacf3bbdc9890a2aa13ca60170.json",
-      "sha256": "04b444b99ebb95b62b0fd8ffa029e0ac33213fcacf3bbdc9890a2aa13ca60170"
+      "manifest": "banks/c64f7996539e1431db909bc227b3d9070d90dfd9bc13055a1fd3b7bf2b41ae11.json",
+      "sha256": "c64f7996539e1431db909bc227b3d9070d90dfd9bc13055a1fd3b7bf2b41ae11"
     },
     {
       "character": "knight",
@@ -6851,8 +6851,8 @@
       "kind": "movement-study",
       "id": "black-leap-E",
       "direction": "E",
-      "manifest": "banks/fa7f39d1436dd4c7fd5356be1a1efb1e57a85535ca769af8ab918094fa025b7e.json",
-      "sha256": "fa7f39d1436dd4c7fd5356be1a1efb1e57a85535ca769af8ab918094fa025b7e"
+      "manifest": "banks/2b54e2bfdfbc9901da0689832de1519a32731abcb4f99dc7dff99cc9fe0c331e.json",
+      "sha256": "2b54e2bfdfbc9901da0689832de1519a32731abcb4f99dc7dff99cc9fe0c331e"
     },
     {
       "character": "knight",
@@ -6860,8 +6860,8 @@
       "kind": "movement-study",
       "id": "black-leap-SE",
       "direction": "SE",
-      "manifest": "banks/3d866d8703026fd6df290158abe3885550c62dc23b83aaabcde80e713adb8149.json",
-      "sha256": "3d866d8703026fd6df290158abe3885550c62dc23b83aaabcde80e713adb8149"
+      "manifest": "banks/9f298ac346387fbd961c7ebfd4ff072a144e3ed22f912d0552b0c74e544048ea.json",
+      "sha256": "9f298ac346387fbd961c7ebfd4ff072a144e3ed22f912d0552b0c74e544048ea"
     },
     {
       "character": "knight",
@@ -6869,8 +6869,8 @@
       "kind": "movement-study",
       "id": "black-leap-S",
       "direction": "S",
-      "manifest": "banks/79d6bda1724f5dca947f0cf2f471a3ff132305c88a8a444a9717376799009248.json",
-      "sha256": "79d6bda1724f5dca947f0cf2f471a3ff132305c88a8a444a9717376799009248"
+      "manifest": "banks/5d3cd53b49089a1c558ff7f2fbf782684047c8eab2461881fed73ca3bf145a9d.json",
+      "sha256": "5d3cd53b49089a1c558ff7f2fbf782684047c8eab2461881fed73ca3bf145a9d"
     },
     {
       "character": "knight",
@@ -6878,8 +6878,8 @@
       "kind": "movement-study",
       "id": "black-leap-SW",
       "direction": "SW",
-      "manifest": "banks/e90b3f9e42bff1937854f8d3643a85b01c259089278dfbacacc8e6dd514b0c19.json",
-      "sha256": "e90b3f9e42bff1937854f8d3643a85b01c259089278dfbacacc8e6dd514b0c19"
+      "manifest": "banks/bbc91bd9abc54d780801324aa33196518dd53a74e72a9a425ebc7fa5baf15483.json",
+      "sha256": "bbc91bd9abc54d780801324aa33196518dd53a74e72a9a425ebc7fa5baf15483"
     },
     {
       "character": "knight",
@@ -6887,8 +6887,8 @@
       "kind": "movement-study",
       "id": "black-leap-W",
       "direction": "W",
-      "manifest": "banks/31e7ff030b92cddad8b73084d351346d16b2b0e4fe8404e1c8873d1037375e37.json",
-      "sha256": "31e7ff030b92cddad8b73084d351346d16b2b0e4fe8404e1c8873d1037375e37"
+      "manifest": "banks/4f1bacbc1789daddf03cce3e722877d2a7231aa63033b38810483693cb3d2e5f.json",
+      "sha256": "4f1bacbc1789daddf03cce3e722877d2a7231aa63033b38810483693cb3d2e5f"
     },
     {
       "character": "knight",
@@ -6896,8 +6896,8 @@
       "kind": "movement-study",
       "id": "black-leap-NW",
       "direction": "NW",
-      "manifest": "banks/a3b2f3d99e4056bb1203ad13af9d59ec3c1c7b0bd3bf5e26b3266dc4b338523e.json",
-      "sha256": "a3b2f3d99e4056bb1203ad13af9d59ec3c1c7b0bd3bf5e26b3266dc4b338523e"
+      "manifest": "banks/dbe776af9aec9ff6df2260c6c95483cf8976da13d469e65dac6a4d0c4ea3f9a0.json",
+      "sha256": "dbe776af9aec9ff6df2260c6c95483cf8976da13d469e65dac6a4d0c4ea3f9a0"
     },
     {
       "character": "paladin",
@@ -6905,8 +6905,8 @@
       "kind": "movement-study",
       "id": "white-charge-N",
       "direction": "N",
-      "manifest": "banks/ca702d2b2fa38a869233db924c4a0132715f2b5fc957e6a7a3095cb133e25a29.json",
-      "sha256": "ca702d2b2fa38a869233db924c4a0132715f2b5fc957e6a7a3095cb133e25a29"
+      "manifest": "banks/0739deec31221e2a05207948995b35d8da6666e5e47a8efaac926cdf44638b56.json",
+      "sha256": "0739deec31221e2a05207948995b35d8da6666e5e47a8efaac926cdf44638b56"
     },
     {
       "character": "paladin",
@@ -6914,8 +6914,8 @@
       "kind": "movement-study",
       "id": "white-charge-E",
       "direction": "E",
-      "manifest": "banks/a1f18a0f08c4f45a5d68cd5f954935d502bc88ffb79bda6d99eaa646dd3504f0.json",
-      "sha256": "a1f18a0f08c4f45a5d68cd5f954935d502bc88ffb79bda6d99eaa646dd3504f0"
+      "manifest": "banks/83ed1976c597675b75b3a507b331dc198aedf1f97256eee37d1f218acd292f3b.json",
+      "sha256": "83ed1976c597675b75b3a507b331dc198aedf1f97256eee37d1f218acd292f3b"
     },
     {
       "character": "paladin",
@@ -6923,8 +6923,8 @@
       "kind": "movement-study",
       "id": "white-charge-SE",
       "direction": "SE",
-      "manifest": "banks/1c3f20e9c62d590428b3940b6366578533224cfb61f73323ac4590020449d8a2.json",
-      "sha256": "1c3f20e9c62d590428b3940b6366578533224cfb61f73323ac4590020449d8a2"
+      "manifest": "banks/551f2c1ddf6c801f2df0f820a7a428d52e99fd0deef2093b37f8d9117e03ab57.json",
+      "sha256": "551f2c1ddf6c801f2df0f820a7a428d52e99fd0deef2093b37f8d9117e03ab57"
     },
     {
       "character": "paladin",
@@ -6932,8 +6932,8 @@
       "kind": "movement-study",
       "id": "white-charge-S",
       "direction": "S",
-      "manifest": "banks/140cdd336ad2fb332535328ac9e6205f223499f9ce61fa4e5dfc7fda00145691.json",
-      "sha256": "140cdd336ad2fb332535328ac9e6205f223499f9ce61fa4e5dfc7fda00145691"
+      "manifest": "banks/0371b6ed4ffca5bf9894949ddccfe9e9d185283889f8ac6b277e95cbf4a42613.json",
+      "sha256": "0371b6ed4ffca5bf9894949ddccfe9e9d185283889f8ac6b277e95cbf4a42613"
     },
     {
       "character": "paladin",
@@ -6941,8 +6941,8 @@
       "kind": "movement-study",
       "id": "white-charge-SW",
       "direction": "SW",
-      "manifest": "banks/794f813d0879fc500b30a9e9dc7aba4b44bebc379503ab0dc4c9065ba633b5f3.json",
-      "sha256": "794f813d0879fc500b30a9e9dc7aba4b44bebc379503ab0dc4c9065ba633b5f3"
+      "manifest": "banks/d7fcc04e185b2010b4f3cd04b23c3498d8016607f49c9d75af5d170cd5f45562.json",
+      "sha256": "d7fcc04e185b2010b4f3cd04b23c3498d8016607f49c9d75af5d170cd5f45562"
     },
     {
       "character": "paladin",
@@ -6950,8 +6950,8 @@
       "kind": "movement-study",
       "id": "white-charge-W",
       "direction": "W",
-      "manifest": "banks/476a1540c0fadb970d2ece16704ed3ff4d4fb9a1b569d2bf1c81585ef7cc4498.json",
-      "sha256": "476a1540c0fadb970d2ece16704ed3ff4d4fb9a1b569d2bf1c81585ef7cc4498"
+      "manifest": "banks/0509edad01a433ec57351d42ea99d91fa004b35475faf8561a0a1c71bf4dd536.json",
+      "sha256": "0509edad01a433ec57351d42ea99d91fa004b35475faf8561a0a1c71bf4dd536"
     },
     {
       "character": "paladin",
@@ -6959,8 +6959,8 @@
       "kind": "movement-study",
       "id": "black-charge-N",
       "direction": "N",
-      "manifest": "banks/dfe5c545287008272558563047786d8a38aca6df44301341f25d90f0659e2086.json",
-      "sha256": "dfe5c545287008272558563047786d8a38aca6df44301341f25d90f0659e2086"
+      "manifest": "banks/4b410b9fc188095669cf1167d5993984993cc688eaf3e7b872b5b5c1e6709119.json",
+      "sha256": "4b410b9fc188095669cf1167d5993984993cc688eaf3e7b872b5b5c1e6709119"
     },
     {
       "character": "paladin",
@@ -6968,8 +6968,8 @@
       "kind": "movement-study",
       "id": "black-charge-E",
       "direction": "E",
-      "manifest": "banks/1ef236a13d5c7f1e50f519bdd918bd589ad5264b829b39f1f1cac3032761fb2a.json",
-      "sha256": "1ef236a13d5c7f1e50f519bdd918bd589ad5264b829b39f1f1cac3032761fb2a"
+      "manifest": "banks/56041430858b5818d380405fc74efb209073340134dc7e152fd2a64b6ceda8e4.json",
+      "sha256": "56041430858b5818d380405fc74efb209073340134dc7e152fd2a64b6ceda8e4"
     },
     {
       "character": "paladin",
@@ -6977,8 +6977,8 @@
       "kind": "movement-study",
       "id": "black-charge-SE",
       "direction": "SE",
-      "manifest": "banks/3d3dfe9a5cb2f24ab5c9212567ac81e8a9c74386fed9693fa6794b865e7e5d17.json",
-      "sha256": "3d3dfe9a5cb2f24ab5c9212567ac81e8a9c74386fed9693fa6794b865e7e5d17"
+      "manifest": "banks/1bc175236ac266d84f39bec6b41595569694dbdf97ecdffab16e049cdd5ecfcc.json",
+      "sha256": "1bc175236ac266d84f39bec6b41595569694dbdf97ecdffab16e049cdd5ecfcc"
     },
     {
       "character": "paladin",
@@ -6986,8 +6986,8 @@
       "kind": "movement-study",
       "id": "black-charge-S",
       "direction": "S",
-      "manifest": "banks/2a159eead762bdc5418ceb4c834928c88fbc45f361a0129f110021390c2b36a0.json",
-      "sha256": "2a159eead762bdc5418ceb4c834928c88fbc45f361a0129f110021390c2b36a0"
+      "manifest": "banks/0179638847f649b4529f42c2428c90548fc95a392eec840faf70e8bf484f229d.json",
+      "sha256": "0179638847f649b4529f42c2428c90548fc95a392eec840faf70e8bf484f229d"
     },
     {
       "character": "paladin",
@@ -6995,8 +6995,8 @@
       "kind": "movement-study",
       "id": "black-charge-SW",
       "direction": "SW",
-      "manifest": "banks/534d5e8f0221d058370718dc9599b8c518fa9cc70fd9c19882a6e98095952e40.json",
-      "sha256": "534d5e8f0221d058370718dc9599b8c518fa9cc70fd9c19882a6e98095952e40"
+      "manifest": "banks/c07c6c274329b9db7fbce7cf2da369f8c2b2e96dc7f3ba90f3b1c615e0bd646d.json",
+      "sha256": "c07c6c274329b9db7fbce7cf2da369f8c2b2e96dc7f3ba90f3b1c615e0bd646d"
     },
     {
       "character": "paladin",
@@ -7004,8 +7004,8 @@
       "kind": "movement-study",
       "id": "black-charge-W",
       "direction": "W",
-      "manifest": "banks/bc4ac1ceab63d1da218a9c3c1d1335157913acc079f672a98e4f645dc730722d.json",
-      "sha256": "bc4ac1ceab63d1da218a9c3c1d1335157913acc079f672a98e4f645dc730722d"
+      "manifest": "banks/9cebb0e8531e9219c8883085cefffcd9e9911d7d3867f8a235fcc824b06c05d1.json",
+      "sha256": "9cebb0e8531e9219c8883085cefffcd9e9911d7d3867f8a235fcc824b06c05d1"
     },
     {
       "character": "paladin",
@@ -7013,8 +7013,8 @@
       "kind": "movement-study",
       "id": "white-charge-NE",
       "direction": "NE",
-      "manifest": "banks/a6d3c95155e09933e2d08ab04fd226c4ee47457588897e5124a6e8f9462c724a.json",
-      "sha256": "a6d3c95155e09933e2d08ab04fd226c4ee47457588897e5124a6e8f9462c724a"
+      "manifest": "banks/b352d26c743b8bb0bc42899fdc88b19b5682e3ebde690fcdd62c80eff82846d0.json",
+      "sha256": "b352d26c743b8bb0bc42899fdc88b19b5682e3ebde690fcdd62c80eff82846d0"
     },
     {
       "character": "paladin",
@@ -7022,8 +7022,8 @@
       "kind": "movement-study",
       "id": "white-charge-NW",
       "direction": "NW",
-      "manifest": "banks/83ed4f6434bc3eea179dd36219ea8ecf150acb309500d5fa7ac017b820bad6e7.json",
-      "sha256": "83ed4f6434bc3eea179dd36219ea8ecf150acb309500d5fa7ac017b820bad6e7"
+      "manifest": "banks/ac05d82028ee5fa1184c14d4d86b2d205921d35b697896c700cf9e4724fbe854.json",
+      "sha256": "ac05d82028ee5fa1184c14d4d86b2d205921d35b697896c700cf9e4724fbe854"
     },
     {
       "character": "paladin",
@@ -7031,8 +7031,8 @@
       "kind": "movement-study",
       "id": "black-charge-NE",
       "direction": "NE",
-      "manifest": "banks/3c5b926a8e39b1359baf2cdbacd9abce288f175f082c053180fe6af58e6d767f.json",
-      "sha256": "3c5b926a8e39b1359baf2cdbacd9abce288f175f082c053180fe6af58e6d767f"
+      "manifest": "banks/d85d4ee4b89afe25e0bc0f8662bfe73cddf71632f25504b35d8f6dd3dc9be54c.json",
+      "sha256": "d85d4ee4b89afe25e0bc0f8662bfe73cddf71632f25504b35d8f6dd3dc9be54c"
     },
     {
       "character": "paladin",
@@ -7040,8 +7040,8 @@
       "kind": "movement-study",
       "id": "black-charge-NW",
       "direction": "NW",
-      "manifest": "banks/ce549fcd496533d412f34ea6adf373a535996d6859174599c8f67d1828e12c43.json",
-      "sha256": "ce549fcd496533d412f34ea6adf373a535996d6859174599c8f67d1828e12c43"
+      "manifest": "banks/93e0e8a1414015c80ad84a8b29c98410f8c2935d3715b519818b2c57d9dd3409.json",
+      "sha256": "93e0e8a1414015c80ad84a8b29c98410f8c2935d3715b519818b2c57d9dd3409"
     }
   ],
   "strideSource": {
