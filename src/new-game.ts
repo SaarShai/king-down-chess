@@ -145,7 +145,7 @@ export function newGameDialog(start: (s: Setup) => void, preset: () => Partial<R
     $(`pick-${c}`).innerHTML = `<h3 id="pick-${c}-title">${SIDE[c]}'s king <span class="who"></span></h3>`
       + `<div class="emblems" role="group" aria-labelledby="pick-${c}-title">${KING_NAMES.map(k =>
         `<button type="button" class="emblem" data-king="${k}" aria-pressed="false" title="${k} king: ${KINGS[k].map(p => POWER_NAME[p]).join(' or ')}">`
-        + emblemArt(k, `<img src="./ui/emblems/${k.toLowerCase()}.webp" alt="" width="128" height="128" decoding="async" />`)
+        + emblemArt(k, `<img src="./ui/emblems/${k.toLowerCase()}.webp" alt="" width="128" height="128" loading="lazy" decoding="async" />`)
         + `<span class="em-name">${k}</span></button>`).join('')}</div>`
       + `<div class="power-choice" role="group" aria-label="${SIDE[c]}'s power">`
       + '<button type="button" data-slot="0"></button><button type="button" data-slot="1"></button>'

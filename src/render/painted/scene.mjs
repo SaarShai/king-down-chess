@@ -24,6 +24,7 @@ import {KING_FILES} from './king-sheets.mjs';
 import {DEATHS,THEMED,drawDeath,kingBodyBounds} from './king-captures.mjs';
 import * as pawnIdle from './idle.mjs';
 import {CLIPS,frameAt,drawFrame as drawClipFrame,inCell} from './clips.mjs';
+import {afterBoard,boardReady} from './after-board.mjs';
 import {SHADE,shadowField,shadowWeights,fxFade,poolShape,poolAlpha,glidePool} from './contact-shadow.mjs';
 import {SHOT,rangedPlan,heldClock,rangedFrame,drawDissolve,drawFlash,struckAt} from './fx-ranged.mjs';
 export const SIZE=960, PAD=32, TILE=112;
@@ -77,7 +78,7 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
   let entry=kingArt[design];
   if(!entry){
    const image=corsImage();
-   entry=kingArt[design]={image:null,loaded:new Promise((resolve,reject)=>{image.onload=()=>{entry.image=image;lyingArt(design);wake();resolve();};image.onerror=reject;})};
+   entry=kingArt[design]={image:null,loaded:new Promise((resolve,reject)=>{image.onload=()=>{entry.image=image;afterBoard(()=>lyingArt(design));wake();resolve();};image.onerror=reject;})};
    image.src=KING_FILES[design];
   }
   return entry;
@@ -1207,7 +1208,7 @@ function drawEncounter(a,t) {
   /** Board square under a point in canvas pixels, or null. */
   squareAt(x,y){y-=headroom;const col=Math.floor((x-PAD)/TILE),row=Math.floor((y-PAD)/TILE);if(col<0||col>7||row<0||row>7)return null;return flipped?row*8+(7-col):(7-row)*8+col;},
   // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
-  load(){demise.prepare();const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;warmBodies();wake();});},
+  load(){afterBoard(()=>demise.prepare());const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;warmBodies();wake();}).finally(boardReady);},
   /** New position: ends any finished or running animation. */
   setPosition(next){const a=animation,m=a?.move;
    if(a?.done&&!a.rewind&&!a.effect&&!reducedMotion&&m.from!==m.to&&!m.captures.length&&!m.swap&&!m.shove&&!m.promo&&!m.selfRemove&&!m.power&&typeOf(a.value)===K&&kings[colorOf(a.value)]==='stratus'&&next.board[m.from]===0&&next.board[m.to]===a.value)landed={animation:a,source:position,post:next,sourceEntry:kingSince.get(m.from)};
@@ -1236,7 +1237,7 @@ function drawEncounter(a,t) {
   // (The footprints are kept: no sprite depends on the side shown.)
   setFlipped(on){if(on!==flipped)landed=null;flipped=on;idle.clear();wake();},
   /** [white, black] king designs ('frost' … 'shadow'): each side's king figure. */
-  setKings(next){if(next[0]===kings[0]&&next[1]===kings[1])return;if(landed&&next[colorOf(landed.animation.value)]!==kings[colorOf(landed.animation.value)])landed=null;if(animation?.exitBody||animation?.rewind&&next[colorOf(animation.value)]!==kings[colorOf(animation.value)])endMove();const value=selected!==null?position.board[selected]:null,selectedDesign=value?characterOf(value):null,keepIdle=!animation&&idleReady&&LARGE_IDLE.has(selectedDesign)&&next[colorOf(value)]===kings[colorOf(value)];if(!keepIdle){selectionGeneration++;pendingIdle=null;idleOut=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}kings=[...next];if(selectedDesign&&selectedDesign!==characterOf(value))selectedAt=null;for(const design of kings){kingImage(design).loaded.catch(()=>{});if(lively.kings)kingFx.has(design);}if(!keepIdle)reserveSelected(selected);wake();},
+  setKings(next){if(next[0]===kings[0]&&next[1]===kings[1])return;if(landed&&next[colorOf(landed.animation.value)]!==kings[colorOf(landed.animation.value)])landed=null;if(animation?.exitBody||animation?.rewind&&next[colorOf(animation.value)]!==kings[colorOf(animation.value)])endMove();const value=selected!==null?position.board[selected]:null,selectedDesign=value?characterOf(value):null,keepIdle=!animation&&idleReady&&LARGE_IDLE.has(selectedDesign)&&next[colorOf(value)]===kings[colorOf(value)];if(!keepIdle){selectionGeneration++;pendingIdle=null;idleOut=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}kings=[...next];if(selectedDesign&&selectedDesign!==characterOf(value))selectedAt=null;for(const design of kings){kingImage(design).loaded.catch(()=>{});if(lively.kings)afterBoard(()=>kingFx.has(design));}if(!keepIdle)reserveSelected(selected);wake();},
   get kings(){return [...kings];},
   /** Restart the visible ground loops together for the effects workshop. */
   restartKingGround(){landed=null;const since=performance.now();for(const entry of kingSince.values()){entry.since=since;entry.offset=0;delete entry.resume;delete entry.lastG;}wake();},
@@ -1267,7 +1268,7 @@ function drawEncounter(a,t) {
    * and warm light (atmosphere), the kings' idle effects (kings), each king's own death for what he takes
    * (captures) and the resting pawns' small actions (pawns).
    */
-  setLively(options){Object.assign(lively,options);if(lively.kings)for(const design of kings)kingFx.has(design);wake();},
+  setLively(options){Object.assign(lively,options);if(lively.kings)afterBoard(()=>{for(const design of kings)kingFx.has(design);});wake();},
   /** The king designs whose effects the last frame drew (for checks). */
   get effects(){return [...fxDrawn];},
   /** The clip drawing the last frame showed ({name, frame}), or null (for checks). */
