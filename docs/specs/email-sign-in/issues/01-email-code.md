@@ -15,7 +15,7 @@ The owner asks that players can sign up with their email. A player types an addr
 
 Do steps 1 and 2 once. Do steps 3 to 6 on production (`utqzovjmclfyojedmwok`) and on staging (`puhspsyjyzaghmgtkzqd`), with SMTP on each. Merge only after step 8. Production Supabase has Email on today, so a deploy before the setup shows a form that fails.
 
-1. The owner makes a Resend account, adds `kingdown.dev`, and adds its DNS records at Porkbun.
+1. In the Resend account that the owner already uses for other sites, the owner adds `kingdown.dev` and adds its DNS records at Porkbun. The free plan allows 3 domains. Its email limits are shared across the account.
 2. The owner makes a Resend API key.
 3. In Supabase, Authentication → Emails → SMTP Settings: host `smtp.resend.com`, port `465`, user `resend`, the key as password, sender `King Down <signin@kingdown.dev>`.
 4. In Authentication → Email Templates, change **Magic Link** and **Confirm signup**. Each body is the code only, with no link:
