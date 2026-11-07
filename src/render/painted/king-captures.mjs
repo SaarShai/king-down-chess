@@ -16,6 +16,7 @@
 // Units are board units (the board is 960 wide).
 import {clamp} from './painted-mesh.mjs';
 import {LEAF_GRADIENT,VINE} from './mud-palette.mjs';
+import {windArc,windStroke} from './wind-art.mjs';
 import {bandRadius,bodySpan,flameTongues,frostDeath,funnel,funnelBody,funnelDust,heatLight,onBoardFloor,shadowDeath,spiritFlash,spiritMotes,spiritSquash} from './fx-kings.mjs';
 
 export const DEATHS={
@@ -380,25 +381,12 @@ function mound(out,d,u,fade){
 }
 
 // —— Stratus ——
-// His emblem's wind colours (src/power-motion.css on claude/power-motion: gusts #6795c4 and #92b8e0),
-// with a pale core so a streak reads on the dark wood too.
-const WIND=[['rgba(52,92,136,.5)',5,1],['rgba(103,149,196,.92)',3.2,.5],['rgba(223,241,255,.95)',1.3,0]];
-// A streak of wind along an arc from (x, y) at `angle`, `len` long, bending by `bend`, ending in a curl;
-// shown from tail to head (0..1 each).
-function gust(out,x,y,angle,len,bend,head,tail,alpha,curl=1){
+// A painted wind ribbon (wind-art.mjs) along an arc from (x, y) at `angle`, `len` long, bending by `bend`;
+// shown from tail to head (0..1 each), its tips on the part that shows.
+function gust(out,x,y,angle,len,bend,head,tail,alpha,i){
  if(alpha<=.01||head<=tail)return;
- const pts=[],n=18;
- for(let i=0;i<=n;i++){const f=i/n,a=angle+bend*f;pts.push([x+Math.cos(angle)*len*f+Math.cos(angle+Math.PI/2)*bend*len*f*f*.5,y+Math.sin(angle)*len*f+Math.sin(angle+Math.PI/2)*bend*len*f*f*.5,a]);}
- // The curl: a short spiral past the end.
- const [ex,ey,ea]=pts[n];for(let k=1;k<=10;k++){const th=ea+curl*k*.6,r=4.5*(1-k/12);pts.push([ex+Math.cos(ea)*1.5+Math.cos(th-curl*Math.PI/2)*r+Math.cos(ea+curl*Math.PI/2)*4.5,ey+Math.sin(ea)*1.5+Math.sin(th-curl*Math.PI/2)*r+Math.sin(ea+curl*Math.PI/2)*4.5]);}
- const a=Math.floor(tail*(pts.length-1)),b=Math.ceil(head*(pts.length-1));
- out.save();out.lineCap='round';out.lineJoin='round';out.globalAlpha=alpha;
- for(const [colour,w,dy] of WIND){
-  out.strokeStyle=colour;out.lineWidth=w;out.beginPath();
-  for(let i=a;i<=b;i++)i===a?out.moveTo(pts[i][0],pts[i][1]+dy):out.lineTo(pts[i][0],pts[i][1]+dy);
-  out.stroke();
- }
- out.restore();
+ const c=Math.cos(angle),s=Math.sin(angle),at=u=>{const f=tail+(head-tail)*u,b=bend*len*f*f*.5;return {x:x+c*len*f-s*b,y:y+s*len*f+c*b};};
+ windStroke(out,at,11*Math.min(1,(head-tail)*len/45),alpha,i);
 }
 // Where the thrown piece is at d.t. Three ways off the board:
 //   side  away from the king, over the board and past its edge, in an arc over the pieces in its way;
@@ -468,9 +456,8 @@ function throwOff(out,d){
   const floorK=1-span(t,D.throw[0],D.throw[0]+260);
   funnelDust(out,d.foot.x,d.foot.y,t,bandRadius(Math.min(half,46)+12,2),ease(t/D.gust)*floorK);
   for(let i=0;i<2;i++){const p=clamp((t-i*140)/520,0,1),rx=10+40*ease(p),a=(1-p)*floorK*.85;if(p<=0||p>=1)continue;
-   out.save();out.lineCap='round';
-   for(const [colour,lw,dy] of WIND){out.globalAlpha=a;out.strokeStyle=colour;out.lineWidth=lw*1.35;for(let j=0;j<3;j++){const a0=(i?-1:1)*(.6+1.6*p)+j*TAU/3;out.beginPath();out.ellipse(d.foot.x,d.foot.y-3+dy,rx,rx*.3,0,a0,a0+1.2);out.stroke();}}
-   out.restore();}
+   for(let j=0;j<3;j++){const a0=(i?-1:1)*(.6+1.6*p)+j*TAU/3;windArc(out,d.foot.x,d.foot.y-3,rx,rx*.3,a0,a0+1.2,8,a,i*3+j);}
+  }
   // Its shadow on the board while it is in the air: dark enough for the dark wood, smaller the higher it is.
   if(t<D.end&&opacity>.01){
    const k=clamp(1-airborne/220,.45,1),r=half*1.3*q*(.6+.4*k);
@@ -490,7 +477,7 @@ function throwOff(out,d){
     const ph=frac(fly*2.4+i*.27),yy=cy+(i-1.5)*height*.26*q,len=(52+24*rand(i,40))*q+20,x0=cx-away*(Math.min(half,22)*q+6);
     const head=clamp(ph*1.7,0,1),tail=clamp(ph*1.7-.7,0,1),dir=away>0?-.08+.16*rand(i,42):Math.PI+.08-.16*rand(i,42);
     const gx=x0,gy=yy;
-    gust(out,gx,gy,dir,len,(rand(i,43)-.5)*.5,head,tail,.9*opacity*ease(fly*6),i%2?1:-1);
+    gust(out,gx,gy,dir,len,(rand(i,43)-.5)*.5,head,tail,.9*opacity*ease(fly*6),i);
    }
    out.restore();
   }
