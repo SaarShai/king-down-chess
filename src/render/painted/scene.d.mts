@@ -88,6 +88,8 @@ export interface PaintedScene {
   redraw(): void;
   /** Draw every frame for the next `ms` milliseconds (a decoration's own short animation). */
   keepAwake(ms: number): void;
+  /** Board-unit bounds of figure `piece` standing at rest on `square`: foot x and y, head top, left and right. */
+  figureBox(piece: number, square: number): { x: number; foot: number; top: number; l: number; r: number };
   /** A see-through copy of figure `piece` standing on `square` (a move preview), drawn into `ctx`; for setDecorate. */
   ghost(ctx: CanvasRenderingContext2D, piece: number, square: number, opacity?: number): void;
   /** onContact fires once when the strike lands (not for plain moves or swaps). */

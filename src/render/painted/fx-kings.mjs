@@ -3,6 +3,7 @@
 // All tables are made once; a frame allocates no canvas. Units are board units (a tile is 112).
 import {clamp} from './painted-mesh.mjs';
 import {BONE,drawCrack,drawHand} from './skeleton-hands.mjs';
+import {windArc} from './wind-art.mjs';
 
 const TAU=Math.PI*2;
 const ease=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
@@ -210,9 +211,27 @@ function shadowArm(c,d,arm,up,grip,dy,t,i){
  // Fingers close toward the body (flip: they curl to -x).
  drawHand(c,wx,wy,{side:d.side?1:0,size:k,flip:p.x>d.hit.x,angle:lean+(p.x>d.hit.x?-.5:.5)*grip,rise:1,curl:.1+.9*grip,floor:d.foot.y+1,reach:400});
 }
+// The rift: three painted openings with their cracks (shadow-rift.webp, prompt in shadow-rift-prompt.txt). The
+// opening takes LENS of a cell's width and height; its cracks run out from both ends.
+const RIFTS=[[2,5,556,102],[2,120,556,96],[2,229,556,101]],LENS={w:.64,h:.55};
+let riftSheet=null;
+if(typeof Image!=='undefined'){const image=new Image();image.crossOrigin='anonymous';image.onload=()=>{riftSheet=image;};image.src=new URL('./shadow-rift.webp',import.meta.url).href;}
+// The opening is w across and h deep from its middle at full size, as the drawn crack was (the painted one is
+// flatter, so it keeps DEPTH of that depth). It tears out from the middle and deepens as it opens. Until the sheet
+// has loaded, the drawn crack stands in.
+const DEPTH=.9;
+function drawRift(out,x,y,w,h,open,seed){
+ const wide=Math.min(1,open*1.3);
+ if(!riftSheet){drawCrack(out,x,y,w*wide,h*open,3,{points:12,branches:3,glow:'rgba(70,30,110,.35)'});return;}
+ const [sx,sy,sw,sh]=RIFTS[seed%RIFTS.length],dw=w*2/LENS.w,dh=h*2*DEPTH/LENS.h*(.35+.65*open);
+ out.save();
+ out.beginPath();out.ellipse(x,y,dw/2*wide+2,dh,0,0,TAU);out.clip();
+ out.drawImage(riftSheet,sx,sy,sw,sh,x-dw/2,y-dh/2,dw,dh);
+ out.restore();
+}
 export function shadowDeath(out,d,D){
  const t=d.t,open=ease(t/D.open)*(1-ease(span(t,...D.close))),sink=easeIn(span(t,...D.sink)),height=d.foot.y-d.top,s=bodySpan(d),half=clamp((s.r-s.l)/2,24,56);
- onBoardFloor(out,d,()=>{if(open>.01)drawCrack(out,d.foot.x,d.foot.y-2,(half+24)*Math.min(1,open*1.3),(15+half*.12)*open,3,{points:12,branches:3,glow:'rgba(70,30,110,.35)'});});
+ onBoardFloor(out,d,()=>{if(open>.01)drawRift(out,d.foot.x,d.foot.y-2,half+24,15+half*.12,open,Math.round((d.foot.x+d.foot.y)/112));});
  if(t<D.sink[1]){
   const c=d.clear(),dy=sink*(height+18),up=ease(span(t,D.hands[0],D.hands[1])),grip=ease(span(t,D.hands[1]-70,D.hands[1]+70));
   ARMS.forEach((arm,i)=>{if(!arm.front)shadowArm(c,d,arm,up,grip,dy,t,i);});
@@ -294,26 +313,17 @@ function softRing(out,x,y,r,w,alpha){
 }
 
 // —— Stratus ——
-// A real funnel: it widens upward (rx grows with the band), with wide soft bands of his emblem's blue under a
-// pale core; a darker line under them holds on the cream squares. front: the near halves.
+// A real funnel: it widens upward (rx grows with the band), with painted wind ribbons (wind-art.mjs) of his
+// emblem's ivory and blue; their dark lower edge holds on the cream squares. front: the near halves.
 const BANDS=6;
 export function bandRadius(w,i){return w*(.62+.62*i/(BANDS-1));}
-const FUNNEL_STROKES=[['rgba(52,92,136,.42)',7,1.2],['rgba(103,149,196,.9)',4,.5],['rgba(232,245,255,.95)',1.4,-.3]];
 export function funnel(out,cx,foot,height,w,t,alpha,front,clear=null){
  if(alpha<=.01)return;
- out.save();out.lineCap='round';
+ const keep=(a,x)=>(Math.sin(a)>0)===front&&!(clear&&(x-clear.x)*clear.side>0);
  for(let i=0;i<BANDS;i++){
-  const y=foot-height*(.04+.22*i),rx=bandRadius(w,i),ry=Math.max(5,rx*.27),a0=t/(105+i*5)*(i%2?1:-1)+i*1.3;
-  for(const [colour,lw,dy] of FUNNEL_STROKES){
-   out.globalAlpha=alpha*(.72+.28*(i/(BANDS-1)));out.strokeStyle=colour;out.lineWidth=lw*(.72+.42*i/(BANDS-1));
-   for(let j=0;j<2;j++){
-    const s0=a0+j*Math.PI,s1=s0+2.05,n=14;out.beginPath();let on=false;
-    for(let m=0;m<=n;m++){const a=s0+(s1-s0)*m/n,near=Math.sin(a)>0,px=cx+Math.cos(a)*rx,py=y+Math.sin(a)*ry+dy;if(near!==front||clear&&(px-clear.x)*clear.side>0){on=false;continue;}on?out.lineTo(px,py):out.moveTo(px,py);on=true;}
-    out.stroke();
-   }
-  }
+  const f=i/(BANDS-1),y=foot-height*(.04+.22*i),rx=bandRadius(w,i),ry=Math.max(5,rx*.27),a0=t/(105+i*5)*(i%2?1:-1)+i*1.3;
+  for(let j=0;j<2;j++)windArc(out,cx,y,rx,ry,a0+j*Math.PI,a0+j*Math.PI+2.05,9+5*f,alpha*(.72+.28*f),i*2+j,{keep});
  }
- out.restore();
 }
 // The body of the wind behind the piece and the dust it raises round its foot.
 export function funnelBody(out,cx,foot,height,w,alpha){

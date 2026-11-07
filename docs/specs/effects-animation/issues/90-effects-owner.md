@@ -50,3 +50,10 @@ The owner (2026-11-06) rejected five effects that the ledger had graded good: "t
 - Firewall draws painted flames from the fire atlas round a clear pocket, tall behind and on the flanks and low in front. The per-pixel `fire.ts` and its blur are gone.
 - Phone cost, 390 wide, DPR 3, CPU 4x slower, Apple GPU not slowed: the six atlases are 440 kB and 11.6 MB decoded. First draw takes 10 to 33 ms each. A warm play of every effect holds 57 to 60 fps with no frame over 34 ms. The first Flight and the first Firewall in a session show one frame of 107 to 165 ms and then none. This stays as it is: it happens once and at 4x only.
 - A software renderer gives no result: a plain pawn move runs at 3 to 5 fps there.
+
+## Batch 6
+The owner's rule from Batch 4 also applies to three king effects that were still drawn by code.
+- Sacrifice (and Morph, which uses the same column): the storm column is the painted puffs of `travel-clouds.webp`, shaded by depth, with painted wind ribbons round it. The drawn lumps stay only for Curse and as the stand-in before the sheet loads, so the column always hides the figure change.
+- Stratus capture: the whirlwind rings, the throw gusts and the floor rings are painted wind ribbons (`wind-bands.webp`, `wind-art.mjs`), bent along their paths in upright strips.
+- Shadow capture: the crack is a painted rift with inked cracks and a violet depth (`shadow-rift.webp`). It tears out from the middle as it opens.
+- Timing, sizes and rules do not change. Check: fake-clock frames of each effect in both armies on light and dark squares, Chromium and WebKit; old and new side by side in `~/kd-runs/painted-effects/compare.gif`.

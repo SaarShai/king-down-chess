@@ -63,7 +63,7 @@ it.each([false, true])('keeps the cloth banner clear and its whole box active (p
     await page.mouse.up();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
   } finally { await page.close(); }
-});
+}, 20_000); // two widths and two presses in a real browser: more than the 5 s default on a busy CI runner
 
 it.each(['Done', 'Stamp', 'Delete'])('gives Workshop %s a clear banner and a full-opacity disabled frame', async name => {
   const page = await fixture(false, '', 1280);

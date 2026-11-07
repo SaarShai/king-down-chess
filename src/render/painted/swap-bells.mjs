@@ -2,6 +2,7 @@
 // turquoise arc ties the two bells, the bells hop past each other and clank down on the other squares, then lift off
 // the figures. The figures change squares only while the opaque bells hide them.
 // Painted sprites from one small atlas (swap-bells-prompt.txt). Nothing here allocates per frame.
+import {afterBoard} from './after-board.mjs';
 const ATLAS_URL=new URL('../../../docs/2d-first-pieces/board/swap-bells.webp',import.meta.url).href;
 const ATLAS={"bell":[0,0,250,319],"ring":[252,0,300,300],"cogs":[[0,581,48,48],[50,581,38,38],[90,581,30,30]],"bolts":[[0,321,720,89],[0,412,720,87],[0,501,720,78]],"puffs":[[814,501,90,75],[906,501,90,73],[554,0,90,91],[722,501,90,78]],"flare":[722,412,84,86]};
 const clamp=t=>Math.max(0,Math.min(1,t)),smooth=t=>{t=clamp(t);return t*t*(3-2*t);},span=(p,[a,b])=>clamp((p-a)/(b-a));
@@ -45,7 +46,7 @@ function preload(){
  asked=true;
  const image=Object.assign(new Image(),{crossOrigin:'anonymous'});image.onload=()=>{atlas=image;};image.onerror=()=>{asked=false;};image.src=ATLAS_URL;
 }
-preload();
+afterBoard(preload);
 /** True once the bells can be drawn. The scene asks once per swap, so a swap never changes look half way. */
 export function swapArtReady(){preload();return atlas!==null;}
 function bellShadow(){

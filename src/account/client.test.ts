@@ -4,7 +4,7 @@ import { connect } from './client';
 import { AUTH_KEY } from './session';
 
 const sdk = vi.hoisted(() => ({ auth: {
-  getSession: vi.fn(), onAuthStateChange: vi.fn(), signInWithOAuth: vi.fn(), signInWithPassword: vi.fn(), exchangeCodeForSession: vi.fn(), signOut: vi.fn(),
+  getSession: vi.fn(), onAuthStateChange: vi.fn(), signInWithOAuth: vi.fn(), signInWithPassword: vi.fn(), signInWithOtp: vi.fn(), verifyOtp: vi.fn(), exchangeCodeForSession: vi.fn(), signOut: vi.fn(),
 } }));
 const createClient = vi.hoisted(() => vi.fn((_url: string, _key: string, _options: unknown) => sdk));
 vi.mock('@supabase/supabase-js', () => ({ createClient }));
@@ -34,6 +34,22 @@ describe('account identity client', () => {
     await expect(connect(AUTH_KEY).signInWithPassword('player-one@kingdown.example', 'fixture-password')).rejects.toThrow('only in staging');
     expect(sdk.auth.signInWithPassword).not.toHaveBeenCalled();
   });
+  it('sends an email code, makes a new account for a new address, and returns the session of the right code', async () => {
+    const client = connect(AUTH_KEY);
+    sdk.auth.signInWithOtp.mockResolvedValueOnce({ data: {}, error: null });
+    await client.sendEmailCode('player@kingdown.example');
+    expect(sdk.auth.signInWithOtp).toHaveBeenLastCalledWith({ email: 'player@kingdown.example', options: { shouldCreateUser: true } });
+    sdk.auth.signInWithOtp.mockResolvedValueOnce({ data: {}, error: new Error('refused') });
+    await expect(client.sendEmailCode('player@kingdown.example')).rejects.toThrow('refused');
+    sdk.auth.verifyOtp.mockResolvedValueOnce({ data: { session: session('user', 'token') }, error: null });
+    expect(await client.verifyEmailCode('player@kingdown.example', '123456')).toEqual({ userId: 'user', accessToken: 'token' });
+    expect(sdk.auth.verifyOtp).toHaveBeenLastCalledWith({ email: 'player@kingdown.example', token: '123456', type: 'email' });
+    sdk.auth.verifyOtp.mockResolvedValueOnce({ data: { session: null }, error: new Error('expired') });
+    await expect(client.verifyEmailCode('player@kingdown.example', '123456')).rejects.toThrow('expired');
+    sdk.auth.verifyOtp.mockResolvedValueOnce({ data: { session: null }, error: null });
+    await expect(client.verifyEmailCode('player@kingdown.example', '123456')).rejects.toThrow('Sign-in did not finish');
+  });
+
   it('passes four entered staging accounts to normal password auth and requires a complete session', async () => {
     vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging');
     vi.stubEnv('VITE_SUPABASE_URL', 'https://puhspsyjyzaghmgtkzqd.supabase.co');

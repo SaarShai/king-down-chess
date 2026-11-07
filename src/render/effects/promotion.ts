@@ -53,36 +53,45 @@ export function loadAscension(): Promise<void> {
   return loading ??= (async () => { sprites = makeSprites(); })().catch(() => { loading = undefined; });
 }
 
-function under(ctx: CanvasRenderingContext2D, foot: { x: number; y: number }, { t }: Frame) {
+// The canvas edges in board units: the light shapes itself to fit inside them, so no edge cuts it.
+interface Edges { top: number; right: number }
+
+function under(ctx: CanvasRenderingContext2D, foot: { x: number; y: number }, { t }: Frame, { right }: Edges) {
   if (!sprites) return;
-  const grow = ease(t / .3), size = 150 + 110 * ease((t - ASCENSION_SWAP) / .4), alpha = grow * (1 - ease((t - .55) / .43));
+  const grow = ease(t / .3), size = Math.min(150 + 110 * ease((t - ASCENSION_SWAP) / .4), 2 * foot.x, 2 * (right - foot.x)), alpha = grow * (1 - ease((t - .55) / .43));
   if (alpha <= 0) return;
   ctx.save(); ctx.globalAlpha *= alpha;
   ctx.drawImage(sprites.pool, foot.x - size / 2, foot.y + 4 - size / 4, size, size / 2);
   ctx.restore();
 }
 
-function light(ctx: CanvasRenderingContext2D, foot: { x: number; y: number }, { t, material }: Frame) {
+function light(ctx: CanvasRenderingContext2D, foot: { x: number; y: number }, { t, material }: Frame, { top, right }: Edges) {
   if (!sprites || material <= 0) return;
-  const open = ease((t - .44) / .42), width = 176 * (.42 + .58 * ease(t / .2)) * (1 - .88 * open), height = 350 * ease(t / .24) + 60 * open;
+  // The column is no taller than the space above its base, so its own faded top shows on the back rank too.
+  const open = ease((t - .44) / .42), width = 176 * (.42 + .58 * ease(t / .2)) * (1 - .88 * open), base = foot.y + 20 - 90 * open, height = Math.min(350 * ease(t / .24) + 60 * open, base - top);
   ctx.save();
   // The column clears from the feet up as it narrows.
   ctx.globalAlpha *= 1 - ease((t - .74) / .24);
-  ctx.drawImage(sprites.column, foot.x - width / 2, foot.y + 20 - height - 90 * open, width, height);
+  ctx.drawImage(sprites.column, foot.x - width / 2, base - height, width, height);
   ctx.restore();
   const radius = 120 * (.34 + .66 * ease((t - .05) / .23)), alpha = ease((t - .04) / .16) * (1 - ease((t - .42) / .3));
   if (alpha > 0) {
     ctx.save(); ctx.globalAlpha *= alpha;
-    ctx.drawImage(sprites.burst, foot.x - radius, foot.y - 64 - radius, radius * 2, radius * 2);
+    // Near an edge the burst moves in until it fits; its opaque core still covers the figures.
+    const x = Math.max(radius, Math.min(right - radius, foot.x)), y = Math.max(top + radius, foot.y - 64);
+    ctx.drawImage(sprites.burst, x - radius, y - radius, radius * 2, radius * 2);
     ctx.restore();
   }
 }
 
 // Each mote: where it leaves the burst, how far it flies out, how high it rises, its size and start.
 const MOTES = [[-44, -62, 44, 13, .44], [44, 58, 58, 12, .46], [-58, -44, 96, 10, .49], [56, 42, 108, 11, .47], [-30, -24, 146, 12, .52], [26, 26, 132, 10, .5], [-62, -70, 8, 9, .45], [60, 76, 20, 9, .48]] as const;
-function motes(ctx: CanvasRenderingContext2D, foot: { x: number; y: number }, { t }: Frame) {
+function motes(ctx: CanvasRenderingContext2D, foot: { x: number; y: number }, { t }: Frame, { top, right }: Edges) {
   if (!sprites) return;
-  for (const [x, out, rise, size, start] of MOTES) {
+  for (const mote of MOTES) {
+    const [, , , size, start] = mote, end = foot.x + mote[0] + mote[1];
+    // A mote that would fly out past a side flies to the other side; one that would rise past the top rises less.
+    const side = end - size < 0 || end + size > right ? -1 : 1, x = mote[0] * side, out = mote[1] * side, rise = Math.min(mote[2], foot.y - 66 - top - size);
     const u = clamp((t - start) / (1 - start));
     if (u <= 0 || u >= 1) continue;
     const fly = 1 - (1 - u) * (1 - u), s = size * ease(u / .12) * (1 - .35 * u);
@@ -106,13 +115,13 @@ export class PromotionPlayback implements SceneEffect {
   position(t: number): Position { return t >= 1 ? this.after : this.shown; }
   draw(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row: number | undefined, t: number): void {
     if (t >= 1) return;
-    const frame = ascension(t), foot = scene.foot(this.move.to);
-    if (layer === 'under') { under(ctx, foot, frame); return; }
+    const frame = ascension(t), foot = scene.foot(this.move.to), edges = { top: -scene.headroom, right: scene.SIZE };
+    if (layer === 'under') { under(ctx, foot, frame, edges); return; }
     // The figures stay in their board row, under any figure in front of them.
     if (row !== scene.cell(this.move.to).row) return;
     if (frame.pawn) scene.ghost(ctx, this.before.board[this.move.from], this.move.to, 1);
     else scene.ghost(ctx, this.after.board[this.move.to], this.move.to, 1);
-    light(ctx, foot, frame);
-    motes(ctx, foot, frame);
+    light(ctx, foot, frame, edges);
+    motes(ctx, foot, frame, edges);
   }
 }
