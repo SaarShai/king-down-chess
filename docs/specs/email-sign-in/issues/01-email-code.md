@@ -1,8 +1,8 @@
 # Sign in with an email code
 
-Status: ready-for-human. The code is on `claude/email-code-sign-in`. Production is unchanged.
+Status: done. Setup and tests passed on 7 November 2026 (see Results). Players see the form after the next deploy.
 
-The owner asks that players can sign up with their email. A player types an address and gets a six-digit code. A new address makes a new account. There is no password.
+The owner asks that players can sign up with their email. A player types an address and gets an eight-digit code (the Supabase setting; the field takes up to 10). A new address makes a new account. There is no password.
 
 ## Plan and acceptance
 
@@ -29,6 +29,14 @@ Do steps 1 and 2 once. Do steps 3 to 6 on production (`utqzovjmclfyojedmwok`) an
 6. Paste `plugin-deploy/oauth-audience-hook.sql` in the SQL Editor, then `plugin-deploy/review-signup-hook.sql`. Keep both hooks and **Confirm email** on. The public settings must show `mailer_autoconfirm: false`.
 7. Test production, because a staging build cannot reach it: run `npm run preview` on a build with the production URL and the stage unset, then sign in with a code at a test address. Also sign in at a confirmed address with a code on staging.
 8. Check the password gate on production. Give the test account a password, then call `/auth/v1/token?grant_type=password`. The answer must be 403 with `Sign in with Google, GitHub or an email code.` A good code sign-in does not show this.
+
+## Results (7 November 2026)
+
+- Resend shows `kingdown.dev` verified (Ireland). The key `kingdown-supabase` has sending access only. A copy is in the git-ignored `.secrets/resend.env` of the main checkout.
+- Both projects: custom SMTP on with the values in step 3, both templates set, email limit 30 an hour (already the value), public settings `mailer_autoconfirm: false`.
+- Both hooks are on both projects; the live function hashes match this branch. Direct hook calls on production: email sign-up passes, phone is refused, Google passes, an unlisted password session gets 403, an `otp` session passes.
+- Real mail, through the Auth API, to Resend's test inbox (`delivered+prod@resend.dev`, `delivered+staging@resend.dev`): on each project a new address (Confirm signup) and then the confirmed address (Magic Link) got the code from `signin@kingdown.dev`, and the code signed in: HTTP 200, provider `email`, `amr` `otp`. A used code got 403 `otp_expired`. Each session was signed out.
+- Not run: the form in a production build (the browser check covers the form on a fake auth server), and the password call in step 8, which needs a password on a production account. The direct hook call covers that refusal.
 
 ## Risks
 
