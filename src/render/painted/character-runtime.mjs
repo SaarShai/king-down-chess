@@ -73,15 +73,23 @@ export function restBankOf(all) {
 }
 export const DECODED_BUDGET=64*1024*1024;
 // Bound the wait for optional art so a stalled request cannot hold up a move indefinitely.
-const LOAD_TIMEOUT=1000,IMAGE_TIMEOUT=5000,RETRY_DELAY=5000;
+const LOAD_TIMEOUT=1000,IMAGE_TIMEOUT=5000,RETRY_DELAY=5000,LEAP_HOLD=200;
 const connected=()=>globalThis.navigator?.onLine!==false;
 function bounded(promise,ms=LOAD_TIMEOUT,signal){
  return new Promise(resolve=>{let done=false;const finish=value=>{if(done)return;done=true;clearTimeout(timer);signal?.removeEventListener('abort',abort);resolve(value);},abort=()=>finish(null),timer=setTimeout(abort,Math.max(0,ms));signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();Promise.resolve(promise).then(finish,()=>finish(null));});
 }
 export function createCharacterRuntime({url=new URL('/character-runtime/manifest.json',import.meta.url).href,wake=()=>{},fetcher=fetch,image=()=>Object.assign(new Image(),{crossOrigin:'anonymous'}),drawnEffects=[]}={}) {
- let banks=[],disposed=false,bytes=0,peakBytes=0,active=0,activeFrame=null, idlePins=new Set(),idleGeneration=0,idleLoads=null,moveGeneration=0,moveLoads=null,movePrefetchActive=false;
+ let banks=[],disposed=false,bytes=0,peakBytes=0,active=0,activeFrame=null, idlePins=new Set(),idleGeneration=0,idleLoads=null,moveGeneration=0,moveLoads=null,movePins=null,movePrefetchActive=false;
  let effectEntries={},currentEffect=null,effectBytes=0,smokeBytes=0,smokeClass=null,smokeImage=null,smokeLoading=null,smokeBlocked=false;
  const images=new Map(),loading=new Map(),failed=new Map(),stills=new Set(),pins=new Map(),queue=[],activeJobs=new Set(),effectRetryAt=new Map(),effectLoads=new Map();
+ // The link as frames arrive (leapWait): latency, the time from a request to its decoded frame; interval, the time
+ // between two decoded frames while all six slots are busy; full, the last such frame.
+ const link={latency:null,interval:null,full:null};
+ function measure(job,full){
+  const now=performance.now(),took=now-job.began;link.latency=link.latency==null?took:link.latency*.7+took*.3;
+  if(full&&link.full!=null){const gap=now-link.full;link.interval=link.interval==null?gap:link.interval*.7+gap*.3;}
+  link.full=full?now:null;
+ }
  function reserve(frames){const keys=[...new Set(frames.map(f=>f.url))];for(const key of keys)pins.set(key,(pins.get(key)??0)+1);let held=true;return ()=>{if(!held)return;held=false;for(const key of keys){const n=pins.get(key);if(n>1)pins.set(key,n-1);else pins.delete(key);}trim();};}
  let manifestReady=false,manifestLoading=null,manifestRetryAt=0,footprints=null,footprintsLoading=null;
  // Optional art never asks the network while the browser reports no connection: offline play keeps the plain figure.
@@ -133,10 +141,10 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   while(active<6&&queue.length&&!disposed&&connected()){
    if(movePrefetchActive&&!queue[0].priority)break;
    if([...activeJobs].some(job=>job.priority>queue[0].priority))break;
-   const job=queue.shift(),{frame}=job,art=image();active++;
+   const job=queue.shift(),{frame}=job,art=image();active++;job.began=performance.now();
    let done=false;const timer=setTimeout(()=>finish(false),IMAGE_TIMEOUT);
    function finish(ok,cancelled=false){
-    if(done)return;done=true;clearTimeout(timer);art.onload=art.onerror=null;active--;activeJobs.delete(job);loading.delete(frame.url);
+    if(done)return;done=true;clearTimeout(timer);art.onload=art.onerror=null;if(ok)measure(job,active>=6);active--;activeJobs.delete(job);loading.delete(frame.url);
     if(!ok){art.removeAttribute?.('src');if(!disposed&&!cancelled)failed.set(frame.url,performance.now()+RETRY_DELAY);}else failed.delete(frame.url);job.resolve();pump();
    }
    job.cancel=()=>finish(false,true);activeJobs.add(job);
@@ -177,6 +185,28 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   await bounded(loads.promise,ms,signal);loads.release();
  }
  const endpoints=bank=>[bank.frames[0],bank.frames.at(-1)];
+ // When a loading frame is decoded at the link seen so far: an active load after its latency (a load past it is late
+ // and takes as long again), a queued one also behind the frames before it in the queue.
+ const spacing=()=>link.interval??link.latency/6;
+ function eta(frame){
+  const job=loading.get(frame.url);if(!job)return Infinity;
+  if(activeJobs.has(job)){const took=performance.now()-job.began;return took<=link.latency?link.latency-took:took;}
+  const place=queue.indexOf(job);return place<0?Infinity:link.latency+(place+1)*spacing();
+ }
+ // A jump starts once, at the link seen so far, its first frame is decoded one frame before the jump clock reaches it
+ // (lead ms after the start) and each other needed frame at most LEAP_HOLD ms after it: the pose before it holds that
+ // long. A fast link starts at once, also while its frames still load; a slow link waits for its frames, up to ms.
+ // True when the frames are due in time.
+ async function leapWait(frames,lead,ms,signal){
+  const deadline=performance.now()+ms;
+  for(;;){
+   const left=frames.filter(f=>!images.has(f.url));
+   if(!left.length||link.latency!=null&&left.every(f=>eta(f)+spacing()<lead+f.timeMs+(f===frames[0]?0:LEAP_HOLD)))return true;
+   const loads=left.map(f=>loading.get(f.url)?.promise).filter(Boolean);
+   if(!loads.length||performance.now()>=deadline||signal?.aborted)return false;
+   await bounded(Promise.race(loads),deadline-performance.now(),signal);
+  }
+ }
  // Hold the start only until, at the decode rate seen so far, each strike frame still loading is ready one frame before
  // the attack clock reaches it (lead ms after the start), so a fast link starts at once and a slow decode waits.
  async function strikeWait(frames,lead,ms,signal){
@@ -252,29 +282,41 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   smoke(){return smokeClass&&smokeImage?new smokeClass(smokeImage):null;},
   warm,
   async prefetchMoves(character,army,directions,captures=[]){
-   const generation=++moveGeneration;movePrefetchActive=true;moveLoads?.release();moveLoads=null;
+   const generation=++moveGeneration;movePrefetchActive=true;moveLoads?.release();moveLoads=null;movePins?.();movePins=null;
    try{
     await bounded(loadManifest());if(disposed||generation!==moveGeneration)return;
     const all=forPiece(character,army),rest=idle(character,army),turns=all.filter(b=>b.kind==='turn');
     // Decode capture starts before the click; the move keeps its existing wait limit.
     const attacks=all.filter(b=>b.kind==='attack'&&captures.includes(b.facing));
     // Past half the budget, a further capture prefetches only its first frames, so two large strikes do not evict each other.
-    // A jump first prefetches its first frames toward each legal target, then its needed frames, while they fit in that half.
     let prefetchBytes=0;const counted=new Set();
     const moves=all.filter(b=>(jumps(character)?b.kind==='movement':b.kind==='move')&&directions.includes(b.facing)),leaps=jumps(character)?moves:[];
-    for(const [bank,part] of [...attacks.map(b=>[b]),...(leaps.length?[]:moves.map(b=>[b])),...leaps.map(b=>[b,'first']),...leaps.map(b=>[b,'needed'])]){
+    const routeOf=bank=>rest?turnRoute(turns,rest.facing,bank.facing):null;
+    for(const bank of [...attacks,...(leaps.length?[]:moves)]){
      if(disposed||generation!==moveGeneration)return;
-     if(part&&prefetchBytes>DECODED_BUDGET/2)break;
-     const capture=bank.kind==='attack',route=rest?turnRoute(turns,rest.facing,bank.facing):null;
+     const capture=bank.kind==='attack',route=routeOf(bank);
      if(capture&&(!rest||route===null))continue;
-     const frames=[...(capture?prefetchBytes<=DECODED_BUDGET/2?strike(bank):bank.frames.slice(0,4):part?leapPlan(bank)[part]:bank.frames),...(rest?[rest.frames[0]]:[]),...(route??[]).flatMap(part=>capture&&character.startsWith('king-')?part.bank.frames:endpoints(part.bank))];
+     const frames=[...(capture?prefetchBytes<=DECODED_BUDGET/2?strike(bank):bank.frames.slice(0,4):bank.frames),...(rest?[rest.frames[0]]:[]),...(route??[]).flatMap(part=>capture&&character.startsWith('king-')?part.bank.frames:endpoints(part.bank))];
      const loads=loadPreparation(frames,1);moveLoads=loads;await loads.promise;
-     if(capture||part)for(const f of frames)if(!counted.has(f.url)){counted.add(f.url);prefetchBytes+=images.get(f.url)?.size??0;}
+     if(capture)for(const f of frames)if(!counted.has(f.url)){counted.add(f.url);prefetchBytes+=images.get(f.url)?.size??0;}
+     if(moveLoads===loads){moveLoads=null;loads.release();}
+    }
+    // A jump prefetches toward all legal targets in one queue, so the loads overlap: the first frame and turn of each,
+    // then the needed frames of all (leapPlan) in the order the clocks reach them (a turn first delays a jump), while
+    // they fit in that half. They stay decoded while the piece is selected, so the idle play of the figures cannot push
+    // them out.
+    if(leaps.length&&!disposed&&generation===moveGeneration){
+     const frames=[],of=(bank,list)=>list.map(frame=>[bank,frame]),lead=b=>(routeOf(b)??[]).reduce((n,p)=>n+p.bank.durationMs,0);
+     const due=leaps.flatMap(b=>leapPlan(b).needed.map(f=>[b,f,lead(b)+f.timeMs])).sort((x,y)=>x[2]-y[2]);
+     for(const [bank,f] of [...leaps.flatMap(b=>[...of(b,[b.frames[0]]),...(rest?of(rest,[rest.frames[0]]):[]),...(routeOf(b)??[]).flatMap(p=>of(p.bank,endpoints(p.bank)))]),...due]){
+      if(counted.has(f.url))continue;const size=bank.canvasSize[0]*bank.canvasSize[1]*4;if(prefetchBytes+size>DECODED_BUDGET/2)break;counted.add(f.url);prefetchBytes+=size;frames.push(f);
+     }
+     movePins=reserve(frames);const loads=loadPreparation(frames,1);moveLoads=loads;await loads.promise;
      if(moveLoads===loads){moveLoads=null;loads.release();}
     }
    }finally{if(generation===moveGeneration){movePrefetchActive=false;pump();}}
   },
-  releaseMovePrefetch(){moveGeneration++;movePrefetchActive=false;suspendPump++;try{moveLoads?.release();moveLoads=null;}finally{suspendPump--;}},
+  releaseMovePrefetch(){moveGeneration++;movePrefetchActive=false;suspendPump++;try{moveLoads?.release();moveLoads=null;movePins?.();movePins=null;}finally{suspendPump--;}},
   async reserveIdle(character,army){
    idleLoads?.release();idleLoads=null;const generation=++idleGeneration;await bounded(loadManifest());if(disposed||generation!==idleGeneration)return false;
    const rest=idle(character,army),all=forPiece(character,army).filter(b=>b.kind==='idle');
@@ -325,8 +367,8 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    // A capture's start frames stay decoded while the selection's own loads run on, or the old figure would play it.
    const releasePins=movement||capture?reserve([...start,...strikeFrames]):null;
    let releaseFallback=releasePins&&(()=>{strikeLoads?.release();releasePins();});
-   // A jump starts once its first frames are decoded; its other frames stream in during play (leapPlan).
-   const leap=movement&&jumps(character)?leapStream(movement):null,required=leap?leap.first:movement?.frames??[];
+   // A jump streams its frames during play (leapPlan, leapWait).
+   const leap=movement&&jumps(character)?leapStream(movement):null,required=leap?[]:movement?.frames??[],beforeMs=before.reduce((n,p)=>n+p.bank.durationMs,0);
    // A jump bank can be partly cached; its stream keeps those frames while its missing frames load.
    let releaseMovement=leap?leap.release:null;
    if(movement||strikeFrames.length){suspendPump++;try{startLoads=loadPreparation(start);if(leap)leap.advance(0);else if(movement)movementLoads=loadPreparation(movement.frames);else strikeLoads=loadPreparation(strikeFrames);}finally{suspendPump--;pump();}}
@@ -336,10 +378,11 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    const sizes=new Map(start.map(frame=>[frame.url,images.get(frame.url).size]));
    let releaseMovementStart=null;
    if(movement){
-    await bounded(leap?Promise.all(required.map(frame=>loading.get(frame.url)?.promise)):movementLoads.promise,remaining(),signal);
+    // A jump that is not due in time by the limit still plays once its first frames are decoded.
+    const onTime=leap?await leapWait(leap.needed,beforeMs,remaining(),signal)||leap.first.every(frame=>images.has(frame.url)):(await bounded(movementLoads.promise,remaining(),signal),remaining()>0);
     movementLoads?.release();
     if(disposed||signal?.aborted){releaseMovement?.();releaseFallback();return null;}
-    if(!remaining()||required.some(frame=>!images.has(frame.url))){movement=null;releaseMovement?.();releaseMovement=null;}
+    if(!onTime||required.some(frame=>!images.has(frame.url))){movement=null;releaseMovement?.();releaseMovement=null;}
     else {releaseMovementStart=reserve([movement.frames[0]]);releaseMovement??=reserve([movement.frames.at(-1)]);}
    }
    const effect=attack?await bounded(loadSeparate(character),remaining(),signal):null;
@@ -354,9 +397,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
     if(disposed||signal?.aborted||!remaining()||start.some(frame=>!images.has(frame.url))){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}
    }
    if(movement&&required.some(frame=>!images.has(frame.url))){movement=null;releaseMovementStart?.();releaseMovement?.();releaseMovementStart=null;releaseMovement=null;}
-   const beforeMs=before.reduce((n,p)=>n+p.bank.durationMs,0);
    if(strikeLoads){await strikeWait(strikeFrames,beforeMs,remaining(),signal);if(disposed||signal?.aborted){releaseFallback?.();return null;}}
-   if(leap&&movement){await strikeWait(leap.needed,beforeMs,remaining(),signal);if(disposed||signal?.aborted){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}}
    return {rest,attack,movement,leap:movement&&leap,effect,chain,before,after:back,releaseMovementStart,releaseMovement,releaseFallback,beforeMs,afterMs:back.reduce((n,p)=>n+p.bank.durationMs,0)};
   },
   action(prepared,time,duration,contact,boundary){
