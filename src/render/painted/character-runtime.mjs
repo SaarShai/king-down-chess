@@ -306,7 +306,13 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   const size=bank.kind==='attack'?[entry.art.naturalWidth,entry.art.naturalHeight]:bank.canvasSize,offset=bank.canvasSize.map((n,i)=>(n-size[i])/2);
   return {url:frame.url,image:entry.art,pivot:bank.pivot.map((n,i)=>n-offset[i]),scale:bankScale(bank),bank:bank.id,sourceSha256:frame.sourceSha256,sourceBankSha256:bank.sourceSha256,time:frame.timeMs,canvasSize:size,unitHeight:bank.registrationHeightPx,footprint:footprintOf(frame,bank),effectAnchor:frame.effectAnchor??anchorAt(bank,'arrowhead-smoke',frame.timeMs)??anchorAt(bank,'arrow',frame.timeMs)};
  }
- function routeSample(route,time){for(const part of route){if(time<=part.bank.durationMs)return sample(part.bank,part.reverse?part.bank.durationMs-time:time,true,part.reverse,true);time-=part.bank.durationMs;}const last=route.at(-1);return last?sample(last.bank,last.reverse?0:last.bank.durationMs,true,last.reverse,true):null;}
+ // A part whose frames up to the clock still load (a streamed start) holds the last decoded pose of the parts before it.
+ function routeSample(route,time){
+  if(!route.length)return null;
+  let i=0;for(;i<route.length-1&&time>route[i].bank.durationMs;i++)time-=route[i].bank.durationMs;
+  for(let t=Math.min(time,route[i]?.bank.durationMs);i>=0;i--,t=route[i]?.bank.durationMs){const part=route[i],body=sample(part.bank,part.reverse?part.bank.durationMs-t:t,true,part.reverse,true);if(body)return body;}
+  return null;
+ }
  return {
   ready:()=>bounded(loadManifest()).then(()=>{}),
   has:(character,army)=>{if(!manifestReady)void loadManifest();return !!idle(character,army);},
@@ -317,6 +323,8 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    const generation=++moveGeneration;movePrefetchActive=true;moveLoads?.release();moveLoads=null;movePins?.();movePins=null;
    try{
     await bounded(loadManifest());if(disposed||generation!==moveGeneration)return;
+    // A capture also needs its separate effect (the Archer's arrow); it loads now, not at the click.
+    if(captures.length)void loadSeparate(character);
     const all=forPiece(character,army),rest=idle(character,army),turns=all.filter(b=>b.kind==='turn');
     // Decode capture starts before the click; the move keeps its existing wait limit.
     const attacks=all.filter(b=>b.kind==='attack'&&captures.includes(b.facing));
@@ -382,7 +390,6 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    const attack=capture?all.find(b=>b.kind==='attack'&&b.facing===direction):null;
    const playable=b=>b.facing===direction&&Number.isFinite(b.durationMs)&&b.durationMs>0&&b.frames?.length&&(b.kind!=='move'||Number.isFinite(b.strideSquares)&&b.strideSquares>0);
    let movement=!capture?(jumps(character)?all.find(b=>b.kind==='movement'&&playable(b))??null:all.find(b=>b.kind==='move'&&playable(b))||oneSquare&&all.find(b=>b.kind==='movement'&&playable(b))||null):null;
-   const movementRequested=!!movement;
    const turns=all.filter(b=>b.kind==='turn'),before=turnRoute(turns,rest.facing,direction),after=before&&reverseRoute(before);
    // A missing edge keeps the rest body coherent instead of jumping to an unsupported facing.
    if(before===null)return null;
@@ -405,33 +412,42 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    const leap=movement&&jumps(character)?leapStream(movement):null,required=leap?[]:movement?.frames??[],beforeMs=before.reduce((n,p)=>n+p.bank.durationMs,0);
    // A jump bank can be partly cached; its stream keeps those frames while its missing frames load.
    let releaseMovement=leap?leap.release:null;
-   if(movement||strikeFrames.length){suspendPump++;try{startLoads=loadPreparation(start);if(leap)leap.advance(0);else if(movement)movementLoads=loadPreparation(movement.frames);else strikeLoads=loadPreparation(strikeFrames);}finally{suspendPump--;pump();}}
-   else startLoads=loadPreparation(start);
-   await bounded(startLoads.promise,remaining(),signal);startLoads.release();
-   if(disposed||signal?.aborted||!remaining()||start.some(frame=>!images.has(frame.url))){movementLoads?.release();releaseMovement?.();releaseFallback?.();return null;}
-   const sizes=new Map(start.map(frame=>[frame.url,images.get(frame.url).size]));
+   // All requests go in before the loader runs, so it cancels no request that a later frame of this move takes over.
+   suspendPump++;try{startLoads=loadPreparation(start);if(leap)leap.advance(0);else if(movement)movementLoads=loadPreparation(movement.frames);else if(strikeFrames.length)strikeLoads=loadPreparation(strikeFrames);}finally{suspendPump--;pump();}
+   await bounded(startLoads.promise,remaining(),signal);
+   // At the limit a start frame that is still loading streams during play: the clock holds the decoded frame before
+   // it. A failed frame, or an undecoded first pose (the rest and the route's first frame), keeps the plain figure.
+   const decoded=frame=>images.has(frame.url),due=frame=>decoded(frame)||loading.has(frame.url);
+   const firstPose=[rest.frames[0],...(before.length?[before[0].reverse?before[0].bank.frames.at(-1):before[0].bank.frames[0]]:attack?[attack.frames[0]]:[])];
+   const streams=()=>start.every(due)&&firstPose.every(decoded);
+   if(start.every(decoded))startLoads.release();
+   else{const loads=startLoads,old=releaseFallback;releaseFallback=()=>{loads.release();old?.();};}
+   if(disposed||signal?.aborted||!streams()){movementLoads?.release();releaseMovement?.();releaseFallback?.();return null;}
+   const sizes=new Map(start.filter(decoded).map(frame=>[frame.url,images.get(frame.url).size]));
    let releaseMovementStart=null;
    if(movement){
     // A jump that is not due in time by the limit still plays once its first frames are decoded: on a slow link it
     // waits up to LEAP_LATE ms more for its stream to come in time, as a held pose shows more than a later start.
-    const onTime=leap?await leapWait(leap,beforeMs,remaining(),signal)||leap.first.every(frame=>images.has(frame.url))&&(await leapWait(leap,beforeMs,LEAP_LATE,signal),true):(await bounded(movementLoads.promise,remaining(),signal),remaining()>0);
-    movementLoads?.release();
+    // A walk plays once its first frame is decoded; its other frames stream.
+    const onTime=leap?await leapWait(leap,beforeMs,remaining(),signal)||leap.first.every(frame=>images.has(frame.url))&&(await leapWait(leap,beforeMs,LEAP_LATE,signal),true):(await bounded(movementLoads.promise,remaining(),signal),decoded(required[0])&&required.every(due));
+    if(!movementLoads||required.every(decoded))movementLoads?.release();
+    else{const loads=movementLoads,old=releaseMovement;releaseMovement=()=>{loads.release();old?.();};}
     if(disposed||signal?.aborted){releaseMovement?.();releaseFallback();return null;}
-    if(!onTime||required.some(frame=>!images.has(frame.url))){movement=null;releaseMovement?.();releaseMovement=null;}
-    else {releaseMovementStart=reserve([movement.frames[0]]);releaseMovement??=reserve([movement.frames.at(-1)]);}
+    if(!onTime){movement=null;releaseMovement?.();releaseMovement=null;}
+    else {releaseMovementStart=reserve([movement.frames[0]]);if(!leap){const pin=reserve([movement.frames.at(-1)]),loads=releaseMovement;releaseMovement=()=>{loads?.();pin();};}}
    }
    const effect=attack?await bounded(loadSeparate(character),remaining(),signal):null;
-   if(disposed||signal?.aborted||!remaining()&&!movementRequested||attack&&effectEntries[character]&&!effect){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}
-   if(start.some(frame=>!images.has(frame.url))){
+   if(disposed||signal?.aborted||attack&&effectEntries[character]&&!effect){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}
+   if(!start.every(due)){
     const missing=[...sizes].reduce((sum,[key,size])=>sum+(images.has(key)?0:size),0);
     for(const cached of effectLoads.values()){
      if(bytes+effectBytes+smokeBytes+missing<=DECODED_BUDGET)break;
      if(!cached.pending&&cached!==currentEffect){effectLoads.delete(cached.character);effectBytes-=cached.size;}
     }
     await prepareFrames(start,remaining(),signal);
-    if(disposed||signal?.aborted||!remaining()||start.some(frame=>!images.has(frame.url))){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}
+    if(disposed||signal?.aborted||!streams()){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}
    }
-   if(movement&&required.some(frame=>!images.has(frame.url))){movement=null;releaseMovementStart?.();releaseMovement?.();releaseMovementStart=null;releaseMovement=null;}
+   if(movement&&!required.every(due)){movement=null;releaseMovementStart?.();releaseMovement?.();releaseMovementStart=null;releaseMovement=null;}
    if(strikeLoads){await strikeWait(strikeFrames,beforeMs,remaining(),signal);if(disposed||signal?.aborted){releaseFallback?.();return null;}}
    return {rest,attack,movement,leap:movement&&leap,effect,chain,before,after:back,releaseMovementStart,releaseMovement,releaseFallback,beforeMs,afterMs:back.reduce((n,p)=>n+p.bank.durationMs,0)};
   },
@@ -441,7 +457,8 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    if(boundary==='turn-end')return routeSample(prepared.before,prepared.beforeMs)??sample(prepared.rest,0,false);
    const attack=prepared.attack;
    if(prepared.chain){let t=time;for(const bite of prepared.chain){if(t<bite.turnMs)return routeSample(bite.turn,t)??sample(bite.attack,0,false);t-=bite.turnMs;if(t<=bite.attack.durationMs||bite===prepared.chain.at(-1))return sample(bite.attack,Math.min(t,bite.attack.durationMs),true,false,true)??sample(prepared.rest,0,false);t-=bite.attack.durationMs;}}
-   if(attack){return sample(attack,Math.min(time,attack.durationMs),true,false,true)??sample(prepared.rest,0,false);}
+   // An attack frame that still loads holds the turn's last pose toward the target.
+   if(attack){return sample(attack,Math.min(time,attack.durationMs),true,false,true)??routeSample(prepared.before,prepared.beforeMs)??sample(prepared.rest,0,false);}
    if(prepared.movement){const move=prepared.movement,frames=move.frames;if(boundary==='end'&&move.kind==='move')return routeSample(prepared.after,0)??sample(prepared.rest,0,false);const frame=boundary==='start'?frames[0]:boundary==='end'?frames.at(-1):null;const clock=move.kind==='move'?time*(prepared.movementRate??1)%move.durationMs:duration>0?time/duration*move.durationMs:0;prepared.leap?.advance(frames.indexOf(frame??frameAt(move,clock)));const body=sample(move,clock,true,false,true,frame);if(body)return body;}
    return routeSample(prepared.before,prepared.beforeMs)??sample(prepared.rest,0,false);
   },

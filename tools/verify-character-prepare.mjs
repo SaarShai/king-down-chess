@@ -41,16 +41,19 @@ try {
    await page.waitForFunction(()=>!view.scene.animating&&!view.pos.board[12]&&view.pos.board[20],null,{timeout:4000});
    assert(Date.now()-start<3500,'move settles with a stalled image');
    const trace=await page.evaluate(()=>prepareTrace);
-   const moving=trace.filter(s=>s.animating&&s.playing==='hop'&&s.foot&&Math.abs(s.foot.y-trace[0].foot.y)>56);
-   assert(moving.length,'the fallback pawn hop moves with the turn image still held');
-   assert(moving.every(s=>s.bank===rest.id&&s.sha===rest.frames[0].sourceSha256),'the fallback keeps the painted rest body during the hop');
+   // A frame still loading at the limit streams: the pawn plays its painted walk and never draws the held frame.
+   const walk=banks.find(b=>b.kind==='move'&&b.facing==='N');assert(walk);
+   const moving=trace.filter(s=>s.animating&&s.foot&&Math.abs(s.foot.y-trace[0].foot.y)>56);
+   assert(moving.length,'the pawn moves with the turn image still held');
+   assert(moving.some(s=>s.playing==='paintedWalk'&&s.bank===walk.id),'the pawn walks with its painted walk while the turn image is held');
+   assert(trace.every(s=>s.sha!==blocked.sourceSha256),'the held turn image is never drawn');
    release();await page.click('#undo');await page.waitForFunction(board=>!view.scene.animating&&view.pos.board.every((v,i)=>v===board[i]),original,{timeout:5000});
    const previous=await page.evaluate(()=>prepareTrace.length);
    for(const square of [12,20]){const p=await page.evaluate(s=>view.screenOf(s),square);await page.mouse.click(p.x,p.y);}
    await page.waitForFunction(()=>!view.scene.animating&&!view.pos.board[12]&&view.pos.board[20],null,{timeout:5000});
    const recovered=await page.evaluate(index=>prepareTrace.slice(index),previous);assert(recovered.some(s=>s.sha===undefined?false:s.sha===blocked.sourceSha256),'a later move uses the recovered turn image');
   }
-  assertNoErrors(errors);console.log(`ok stalled turn image: ${cancel?'Undo during preparation':'bounded fallback and Undo'}`);await page.close();
+  assertNoErrors(errors);console.log(`ok stalled turn image: ${cancel?'Undo during preparation':'streamed walk and Undo'}`);await page.close();
  }
  // Check real HTTP cancellation and concurrency, not just the runtime counters.
  const server=createServer();let active=0,peak=0,started=0,closed=0,notify=()=>{};const responses=new Set();
