@@ -22,7 +22,7 @@
     {
       "character": "maester",
       "status": "ready",
-      "module": "effect.mjs",
+      "module": "effect.js",
       "contactMs": 30,
       "files": [
         {
@@ -43,7 +43,7 @@
           "sha256": "8fa7849c754feff014e22c1d4a055a797c62a591843c13c51e98049f79689681"
         },
         {
-          "path": "effect.mjs",
+          "path": "effect.js",
           "source": "../directional-attacks/effects/maester-beam-2b4bf67f5fd54eff/effect.mjs",
           "sha256": "bace2a3b4eb987908c95028f6de4ced21f06656637d3847d84b46225db936c7d"
         }
@@ -52,7 +52,7 @@
     {
       "character": "queen",
       "status": "ready",
-      "module": "effect.mjs",
+      "module": "effect.js",
       "contactMs": 600,
       "files": [
         {
@@ -67,7 +67,7 @@
           "sha256": "8a9b623c70b1cd08e060fb4c67eca0220cbe4d21c22aa0b06bc368de28c563d4"
         },
         {
-          "path": "effect.mjs",
+          "path": "effect.js",
           "source": "../directional-attacks/effects/queen-thorns-2c7a631202cf0170/effect.mjs",
           "sha256": "f024b2f86293825da2503628d19fb8553509c026d3fe1f551f0e6e8ffcf6742e"
         }
@@ -76,7 +76,7 @@
     {
       "character": "archer",
       "status": "ready",
-      "module": "effect.mjs",
+      "module": "effect.js",
       "contactMs": 220,
       "files": [
         {
@@ -103,12 +103,12 @@
           "sha256": "a3a09575254c74590e10d1b9888ff4d8126b501692fb91816eb30c0402512924"
         },
         {
-          "path": "effect.mjs",
+          "path": "effect.js",
           "source": "../army-effects-review/effects/arrow-flight/effect.mjs",
           "sha256": "82bb03c68eaf122e3f6968e8b74f3257acf7475efa4c5e92088ffe5f42c849d0"
         },
         {
-          "path": "smoke.mjs",
+          "path": "smoke.js",
           "source": "../army-effects-review/effects/smoke.mjs",
           "sha256": "932988432a19d16a95412997060f01c9912ddb463a19d78f36f04b816b4fe42b",
           "rewriteSmokeTextureURL": true
