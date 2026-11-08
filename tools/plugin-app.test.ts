@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import { pauseClock } from './lib/page-clock.mjs';
-import { startHarness, waitForSourceApp } from './plugin-ui-harness';
+import { remountWidget as remount, startHarness, waitForSourceApp } from './plugin-ui-harness';
 // A frame read can take more than the 1 s poll default under full-suite load in CI (runs 40225675633, 40223950211).
 // The board fixture also raises it (1000 ms × STEP); this file has no STEP, so it uses a fixed 5 s.
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000, expect: { poll: { timeout: 5000 } } });
@@ -31,13 +31,6 @@ async function settled(page: Page) {
     await new Promise(resolve => setTimeout(resolve, 10));
   }
   await page.frameLocator('iframe').locator('html').evaluate(() => new Promise(resolve => requestAnimationFrame(() => resolve(undefined))));
-}
-/** Remounts the newest widget. The old frame keeps its screen until the harness ends its teardown, so a wait or read
- * right after the click can still reach it; return only after the old iframe leaves the page. */
-async function remount(page: Page) {
-  const old = await page.locator('iframe').last().elementHandle();
-  await page.locator('#remount').click();
-  await page.waitForFunction(old => !old!.isConnected, old);
 }
 // Spec J2, D2: the first test, while the shared player has no saved setup and no game.
 it('takes a new player from the home card to a draft move and the turn press', async () => {
