@@ -122,7 +122,16 @@ try {
   await page.evaluate(() => { const s = document.getElementById('pace'); s.value = 'normal'; s.dispatchEvent(new Event('change')); });
   // 2c'. Quiet moves have a gait (Rook glide, Pawn hop, King walk), under 500 ms at Normal; Fast halves
   // it, a tap skips it, Off shows only the result. Timed in the page from the first animated frame.
+  // These are the gaits without painted walks: each move runs in its own context whose manifest has no banks. With
+  // the real manifest a move waits for it and plays the painted walk (2.3 s for the Rook), so the gait was timed
+  // only when the manifest came after the click. A fresh context, because the service worker has cached the manifest.
   const quiet = async (fen, from, to, pace, tapAfter = null) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    await context.route('**/character-runtime/manifest.json', route => route.fulfill({ json: { schemaVersion: 1, banks: [], effects: {} } }));
+    const page = await context.newPage(), at = sq => page.evaluate(sq => window.view.screenOf(sq), sq);
+    await page.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1'));
+    trapErrors(page);
+    try {
     const u = new URL(url); u.searchParams.set('fen', fen);
     await page.goto(u.href);
     await page.waitForFunction(sq => window.view?.pos?.board[sq] > 0, from);
@@ -150,6 +159,7 @@ try {
       throw e;
     });
     return r;
+    } finally { await context.close(); }
   };
   const glides = [];
   for (const [fen, from, to, gait] of [['7k/8/8/8/8/8/8/R6K w - - 0 1', 0, 24, 'glide'], ['7k/8/8/8/8/8/4P3/K7 w - - 0 1', 12, 28, 'hop'], ['7k/p7/8/8/8/8/8/3K4 w - - 0 1', 3, 4, 'walk']]) {
