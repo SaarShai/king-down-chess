@@ -64,7 +64,7 @@ The other cleanup periods do not touch Muse data: boards after 7 days, outbox ro
 
 - In the game: Settings → Account → Delete my account. By email: hello@kingdown.dev (`public/delete-data.html`).
 - A request starts a seven-day grace (168 hours, in UTC). A new sign-in cancels it (`supabase/migrations/0008_accounts_safety.sql`, `supabase/migrations/0020_deletion_utc.sql`). A report hold can delay it (`src/online/jobs.ts`, `runDeletions`).
-- After the grace, the daily job ends the open games, deletes the games against the computer and their commands, and deletes the Supabase user (`kingdown_jobs.delete_account`, `supabase/migrations/0022_friend_invites.sql`). The tool counters go with the user (`on delete cascade`). The token check then refuses each later call (`src/plugin/auth.ts`).
+- After the grace, the daily job ends the open games (`runDeletions`, `src/online/jobs.ts`). Then `kingdown_jobs.delete_account` deletes the games against the computer and their commands, and deletes the Supabase user (`supabase/migrations/0022_friend_invites.sql`). The tool counters go with the user (`on delete cascade`). The token check then refuses each later call (`src/plugin/auth.ts`).
 - Records that stay: the deletion record, the reserved handle, games against people with the handle of that game, and report evidence for at most 12 months (`public/privacy.html`).
 - Logs and backups: logs end after their periods (section 4). Release and platform backups: see the owner facts in section 4.
 
@@ -83,7 +83,13 @@ The other cleanup periods do not touch Muse data: boards after 7 days, outbox ro
 
 - Callers: each call needs a bearer token that Supabase signed, with the exact audience `https://kingdown.dev/muse/mcp`, a client ID on the allow list (`KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS`), the role `authenticated`, and a live session (`src/plugin/auth.ts`). The actor is the `sub` of the token, never a tool field (`src/muse/http.ts`).
 - Games: each tool acts only on the games of the actor. A game without a seat of the actor gives `FORBIDDEN` (`seatOf`, `src/match/service.ts`). No position of a game against a person goes to Muse (`src/muse/tools.test.ts`).
-- Database: row-level security is on for each game table, and the browser roles get nothing (`supabase/README.md`; `supabase/migrations/0006_games.sql`, `supabase/migrations/0014_plugin_tool_tries.sql`). The server connects as `kingdown_plugin_runtime`: no superuser, no RLS bypass, and grants on named columns only (`plugin-deploy/runtime-role.sql`).
+- Database: row-level security is on for each game table, and the browser roles get nothing (`supabase/README.md`; `supabase/migrations/0006_games.sql`, `supabase/migrations/0014_plugin_tool_tries.sql`).
+- The server connects as `kingdown_plugin_runtime` (`plugin-deploy/runtime-role.sql`). It is a login role with no superuser, no database or role creation, no replication and no RLS bypass. Its policies let it see all rows of each table that it can use, so the server code, not RLS, keeps each caller to the games of that caller. Its rights on the Muse data:
+  - `games`, `game_players`, `game_commands`: select and insert on the full table; update on named columns of `games` and `game_players` only; no delete (block 3).
+  - `plugin_tool_tries`: select; insert of `user_id` and `tool`; update of `window_start` and `tries` (block 11).
+  - `profiles`: select of named columns only, for example `id` and `handle` (blocks 3 and 5).
+  - `auth.users`: no access. The role deletes an account only through `kingdown_jobs.delete_account` (block 4).
+- The role also has table-wide rights on other tables, for example select and delete on `plugin_matches` and `plugin_match_invites` (block 1), select, insert and delete on `game_invites` (block 3), insert and delete on `relations` (block 5), and delete on `plugin_boards` and on reports older than 12 months (blocks 9 and 10). The blocks are the transactions of the file, in order.
 - Changes: code reaches main only by a reviewed pull request; deploys and DNS changes need the word of the owner (`AGENTS.md`).
 - [owner fact: who has admin access to Supabase, Vercel, GitHub and the DNS host, and how the owner reviews that access.]
 
@@ -113,7 +119,7 @@ The other cleanup periods do not touch Muse data: boards after 7 days, outbox ro
 
 ## 12. Privacy notice
 
-- The Connector Terms ask for a public privacy notice. `public/privacy.html` is the notice. It does not name Meta yet: step 4 of ticket 16 adds Meta as a recipient, and `tools/privacy-policy.docs.test.ts` checks it.
+- The Connector Terms ask for a public privacy notice. `public/privacy.html` is the notice. It names Meta only for the hidden Facebook sign-in, under Meta's privacy policy. It does not yet name Meta as a recipient of Muse data: step 4 of ticket 16 adds that, and `tools/privacy-policy.docs.test.ts` checks it.
 
 ## Owner facts
 
