@@ -681,9 +681,11 @@ export async function main() {
       active.on('console',recordOfflineError);
       active.on('requestfailed',recordFailedClip);
       offline = true; await persistent.setOffline(true);
-      if (output === tree && allowlist.includes('character-runtime/manifest.json')) {
-        const manifest = await active.evaluate(async () => (await fetch('/character-runtime/manifest.json', { cache: 'reload' })).json());
-        assert.ok(Array.isArray(manifest.banks), 'The installed character manifest is available offline');
+      if (output === tree && allowlist.includes('character-runtime/index.json')) {
+        const index = await active.evaluate(async () => (await fetch('/character-runtime/index.json', { cache: 'reload' })).json());
+        assert.ok(index.parts && typeof index.parts === 'object', 'The installed character index is available offline');
+        const part = await active.evaluate(async path => (await fetch(`/character-runtime/${path}`, { cache: 'reload' })).json(), Object.values(index.parts)[0]);
+        assert.ok(Array.isArray(part.banks), 'The installed character parts are available offline');
       }
       await active.goto(origin); await readyBoard(active); assert.deepEqual(await lanMoves(active), ['e2-e4']);
       const saved = await active.evaluate(() => localStorage.getItem('kingdown.save'));

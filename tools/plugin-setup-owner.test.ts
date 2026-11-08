@@ -191,6 +191,11 @@ it('F-115 names the main menu in the heading and back controls, and the invite h
 
 async function sections() {
   const page = await open(), frame = page.frameLocator('iframe');
+  // Each card tile in view runs <card-motion>: a shader compile, texture uploads and 30 draws a second, in software WebGL
+  // (SwiftShader) in headless Chromium. Under load that held the renderer, so each action waited for stable frames, and
+  // the card pool tests passed 15 s (run 42490964216). These tests check the pool and the sections, not card motion;
+  // with reduced motion, <card-motion> loads no pictures and draws nothing.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await frame.locator('#home-games:not(:disabled)').click();
   await frame.locator('#setup-options summary').click();
   return { page, frame };

@@ -13,6 +13,7 @@ import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { ENGINES } from './plugin-runtime-build.mjs';
 import { isCharacterRuntimePublic, isCharacterRuntimeStartup } from './lib/character-runtime-public.mjs';
 import { privateRuntimeData, validateManifest, validateRuntimeImage } from './lib/character-runtime-guard.mjs';
+import { splitManifest } from './lib/character-runtime-split.mjs';
 import { CHATGPT_PLUGIN, PARKED_PATHS } from './chatgpt-plugin.mjs';
 
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
@@ -57,6 +58,13 @@ try {
     if (file === 'manifest.json') validateManifest(JSON.parse(contents.toString('utf8')));
     validateRuntimeImage(contents, file);
     assert(!/(?:^|\/)provenance\/|(?:^|\/)sources\.json$/.test(file), `No provenance in published runtime: ${file}`);
+  }
+  // The index and the parts that the game loads hold the published manifest, and only it.
+  if (await exists(join(runtimeDir, 'manifest.json'))) {
+    const { index, files } = splitManifest(validateManifest(JSON.parse(await readFile(join(runtimeDir, 'manifest.json'), 'utf8'))));
+    assert.equal(await readFile(join(runtimeDir, 'index.json'), 'utf8'), index, 'The runtime index is the published manifest');
+    assert.deepEqual((await readdir(join(runtimeDir, 'parts'))).sort(), Object.keys(files).map(path => path.slice('parts/'.length)).sort(), 'One runtime part for each character and army');
+    for (const [path, text] of Object.entries(files)) assert.equal(await readFile(join(runtimeDir, path), 'utf8'), text, `The runtime part is the published manifest: ${path}`);
   }
   const immutable = config.routes.find(route => route.src === '^/character-runtime/assets/[a-f0-9]{64}\\.webp$');
   assert.match(immutable?.headers?.['Cache-Control'] ?? '', /max-age=31536000.*immutable/);

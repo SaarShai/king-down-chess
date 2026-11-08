@@ -8,7 +8,8 @@ import { skillPlan } from '../ai/skill';
 import type { RuntimeSearch } from './index';
 
 setEvaluator('linear');
-function choose(context: RuntimeSearch): string {
+/** `askedAt` (epoch ms, `performance.timeOrigin` based) is when the caller asked; the cap includes the time since then. */
+function choose(context: RuntimeSearch & { askedAt?: number }): string {
   setRules(context.rules);
   setDesignValue(RULES.design);
   const { level, maxTimeMs, maxDepth: depth } = context.options;
@@ -16,6 +17,8 @@ function choose(context: RuntimeSearch): string {
   const maxDepth = depth === undefined ? (level ? undefined : 4) : depth;
   const plan = level && skillPlan(level, context.ply);
   if (plan) timeMs = Math.min(maxTimeMs ?? plan.timeMs, plan.timeMs);
+  // A slow worker start (1.1 s on a loaded CI runner) cannot take more than half the search budget.
+  if (typeof context.askedAt === 'number') timeMs = Math.max(timeMs / 2, timeMs - (performance.timeOrigin + performance.now() - context.askedAt));
   resetSearchState();
   const result = search(context.pos, { timeMs, maxDepth, temperature: plan ? plan.temperature : undefined, history: context.history });
   if (plan && plan.blunder > 0 && Math.random() < plan.blunder) return context.legal[Math.floor(Math.random() * context.legal.length)];

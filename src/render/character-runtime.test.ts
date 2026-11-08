@@ -955,10 +955,45 @@ describe('ready character playback', () => {
    expect(runtime.has('pawn','white')).toBe(true);runtime.dispose();
   } finally {vi.useRealTimers();}
  });
+ it('loads from an index only the part of the figure that it is asked for, and backs off a failed part', async () => {
+  vi.useFakeTimers();
+  try {
+   const idle=(army:string)=>({...bank(),id:`idle-${army}`,army,kind:'idle'});
+   const asked:string[]=[];let fail=true;
+   const index={schemaVersion:2,effects:{},parts:{'pawn:white':'parts/pawn.white.json','pawn:black':'parts/pawn.black.json'}};
+   const runtime=createCharacterRuntime({url:'https://example.invalid/package/index.json',fetcher:vi.fn(async(url:string)=>{asked.push(url);
+    if(url.endsWith('/index.json'))return {ok:true,json:async()=>index} as Response;
+    if(url.endsWith('/pawn.black.json')&&fail){fail=false;throw Error('offline');}
+    // A part holds only its own figure's banks; a stray bank is left out.
+    return {ok:true,json:async()=>({banks:[idle(url.includes('white')?'white':'black'),{...idle('white'),character:'rook'}]})} as Response;}) as unknown as typeof fetch,
+    image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(_:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+   await runtime.ready();expect(runtime.stats).toMatchObject({manifestReady:true,manifestPending:false});
+   expect(runtime.has('pawn','white')).toBe(false);expect(runtime.stats.manifestPending).toBe(true);
+   await vi.advanceTimersByTimeAsync(0);expect(runtime.has('pawn','white')).toBe(true);expect(runtime.has('rook','white')).toBe(false);
+   expect(asked.filter(url=>url.includes('/parts/'))).toEqual(['https://example.invalid/package/parts/pawn.white.json']);
+   await runtime.warm('pawn','black');expect(runtime.has('pawn','black')).toBe(false);
+   // A failed part is not waited for again (manifestPending) and comes back after the retry delay.
+   for(let i=0;i<20;i++)runtime.has('pawn','black');expect(runtime.stats.manifestPending).toBe(false);
+   await vi.advanceTimersByTimeAsync(5000);runtime.has('pawn','black');await vi.advanceTimersByTimeAsync(0);expect(runtime.has('pawn','black')).toBe(true);
+   expect(asked.filter(url=>url.endsWith('/pawn.black.json'))).toHaveLength(2);
+   expect(asked.filter(url=>url.endsWith('/index.json'))).toHaveLength(1);
+   expect(runtime.has('archer','white')).toBe(false);await vi.advanceTimersByTimeAsync(0);expect(asked.some(url=>url.includes('archer'))).toBe(false);
+   runtime.dispose();
+  } finally {vi.useRealTimers();}
+ });
+ it('prepares a move from the part that loads within the limit', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const attack={...idle,id:'attack-SE',kind:'attack',durationMs:90,frames:Array.from({length:6},(_,i)=>({url:`attack-${i}`,timeMs:i*15}))};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/index.json',fetcher:vi.fn(async(url:string)=>({ok:true,json:async()=>url.endsWith('/index.json')?{schemaVersion:2,effects:{},parts:{'pawn:white':'parts/pawn.white.json'}}:{banks:[idle,attack]}})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(_:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const prepared=await runtime.prepare('pawn','white','SE',true);
+  expect((prepared as {attack?:{id:string}}|null)?.attack?.id).toBe('attack-SE');
+  runtime.dispose();
+ });
  it('backs off a failed manifest and accepts a later retry', async () => {
   vi.useFakeTimers();
   try {
-   let attempts=0;const runtime=createCharacterRuntime({fetcher:vi.fn(async(url:string)=>{if(url.endsWith('manifest.json'))attempts++;if(attempts===1)throw Error('offline');return {ok:true,json:async()=>({schemaVersion:1,banks:[{...bank(),kind:'idle'}]})} as Response;}) as unknown as typeof fetch});
+   let attempts=0;const runtime=createCharacterRuntime({fetcher:vi.fn(async(url:string)=>{if(url.endsWith('/index.json'))attempts++;if(attempts===1)throw Error('offline');return {ok:true,json:async()=>({schemaVersion:1,banks:[{...bank(),kind:'idle'}]})} as Response;}) as unknown as typeof fetch});
    await runtime.ready();for(let i=0;i<50;i++)runtime.has('pawn','white');await vi.advanceTimersByTimeAsync(4999);expect(attempts).toBe(1);
    await vi.advanceTimersByTimeAsync(1);runtime.has('pawn','white');await vi.advanceTimersByTimeAsync(0);expect(attempts).toBe(2);expect(runtime.has('pawn','white')).toBe(true);runtime.dispose();
   } finally {vi.useRealTimers();}

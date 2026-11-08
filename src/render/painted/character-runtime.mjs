@@ -92,7 +92,8 @@ export const connected=()=>globalThis.navigator?.onLine!==false||globalThis.loca
 function bounded(promise,ms=LOAD_TIMEOUT,signal){
  return new Promise(resolve=>{let done=false;const finish=value=>{if(done)return;done=true;clearTimeout(timer);signal?.removeEventListener('abort',abort);resolve(value);},abort=()=>finish(null),timer=setTimeout(abort,Math.max(0,ms));signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();Promise.resolve(promise).then(finish,()=>finish(null));});
 }
-export function createCharacterRuntime({url=new URL('/character-runtime/manifest.json',import.meta.url).href,wake=()=>{},fetcher=fetch,image=()=>Object.assign(new Image(),{crossOrigin:'anonymous'}),drawnEffects=[],lateEffects=[]}={}) {
+// url: the package index (index.json: tools/lib/character-runtime-split.mjs), or a whole manifest with every bank (schema 1).
+export function createCharacterRuntime({url=new URL('/character-runtime/index.json',import.meta.url).href,wake=()=>{},fetcher=fetch,image=()=>Object.assign(new Image(),{crossOrigin:'anonymous'}),drawnEffects=[],lateEffects=[]}={}) {
  let banks=[],disposed=false,bytes=0,peakBytes=0,active=0,activeFrame=null, idlePins=new Set(),idleGeneration=0,idleLoads=null,moveGeneration=0,moveLoads=null,movePins=null,movePrefetchActive=false;
  let effectEntries={},currentEffect=null,effectBytes=0,smokeBytes=0,smokeClass=null,smokeImage=null,smokeLoading=null,smokeBlocked=false;
  const images=new Map(),loading=new Map(),failed=new Map(),stills=new Set(),pins=new Map(),queue=[],activeJobs=new Set(),effectRetryAt=new Map(),effectLoads=new Map();
@@ -126,10 +127,12 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  // time is not the link's.
  const stopped=new Set();
  function reserve(frames){const keys=[...new Set(frames.map(f=>f.url))];for(const key of keys)pins.set(key,(pins.get(key)??0)+1);let held=true;return ()=>{if(!held)return;held=false;for(const key of keys){const n=pins.get(key);if(n>1)pins.set(key,n-1);else pins.delete(key);}trim();};}
- let manifestReady=false,manifestLoading=null,manifestRetryAt=0,footprints=null,footprintsLoading=null;
+ let manifestReady=false,manifestLoading=null,manifestRetryAt=0,footprints=null,footprintsLoading=null,partPaths=null;
+ // An index names one part for each character and army; a figure's banks load with its part (loadPiece).
+ const parts=new Map();
  // On the website, optional art never asks the network while the browser reports no connection: offline play keeps
  // the plain figure. The iOS app reads its bundled frames (connected()).
- const reconnect=()=>{if(disposed)return;failed.clear();manifestRetryAt=0;effectRetryAt.clear();void loadManifest().then(()=>{if(!disposed)wake();});if(manifestReady)loadFootprints();};
+ const reconnect=()=>{if(disposed)return;failed.clear();manifestRetryAt=0;for(const part of parts.values())part.retryAt=0;effectRetryAt.clear();void loadManifest().then(()=>{if(!disposed)wake();});if(manifestReady)loadFootprints();};
  const listening=typeof globalThis.addEventListener==='function';
  if(listening)globalThis.addEventListener('online',reconnect);
  // The soft pool's table (tools/build-character-footprints.mjs) comes with the manifest and never holds it up: without
@@ -141,11 +144,25 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  function loadManifest(){
   if(disposed||manifestReady||!connected()||performance.now()<manifestRetryAt)return Promise.resolve();
   if(!manifestLoading)manifestLoading=Promise.resolve().then(()=>fetcher(url)).then(r=>{if(!r.ok)throw Error('Character package unavailable');return r.json();}).then(m=>{
-   if(m?.schemaVersion!==1||!Array.isArray(m.banks))throw Error('Invalid character package');
-   if(!disposed){banks=m.banks;effectEntries=m.effects??{};restChoices.clear();manifestReady=true;loadFootprints();wake();}
+   const index=m?.schemaVersion===2&&m.parts&&typeof m.parts==='object'&&!Array.isArray(m.parts);
+   if(!index&&(m?.schemaVersion!==1||!Array.isArray(m.banks)))throw Error('Invalid character package');
+   if(!disposed){banks=index?[]:m.banks;partPaths=index?m.parts:null;effectEntries=m.effects??{};restChoices.clear();manifestReady=true;loadFootprints();wake();}
   }).catch(()=>{manifestRetryAt=performance.now()+RETRY_DELAY;}).finally(()=>{manifestLoading=null;});
   return manifestLoading;
  }
+ function loadPart(character,army){
+  const key=`${character}:${army}`,path=partPaths&&Object.hasOwn(partPaths,key)?partPaths[key]:null;
+  if(typeof path!=='string'||disposed||!connected())return Promise.resolve();
+  let part=parts.get(key);if(!part)parts.set(key,part={ready:false,loading:null,retryAt:0});
+  if(part.ready||part.loading||performance.now()<part.retryAt)return part.loading??Promise.resolve();
+  part.loading=Promise.resolve().then(()=>fetcher(new URL(path,url).href)).then(r=>{if(!r.ok)throw Error('Character part unavailable');return r.json();}).then(p=>{
+   if(!Array.isArray(p?.banks))throw Error('Invalid character part');
+   if(!disposed&&!part.ready){banks=[...banks,...p.banks.filter(b=>b.character===character&&b.army===army)];restChoices.delete(key);part.ready=true;wake();}
+  }).catch(()=>{part.retryAt=performance.now()+RETRY_DELAY;}).finally(()=>{part.loading=null;});
+  return part.loading;
+ }
+ // The banks of one figure: the package, then its part when the package is an index.
+ const loadPiece=(character,army)=>manifestReady?loadPart(character,army):loadManifest().then(()=>loadPart(character,army));
  const forPiece=(character,army)=>banks.filter(b=>b.character===character&&b.army===army);
  const restChoices=new Map();
  const idle=(character,army)=>{
@@ -338,7 +355,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   await smokeLoading;
  }
  async function warm(character,army,full=false){
-  await bounded(loadManifest());const bank=idle(character,army);if(!bank)return;
+  await bounded(loadPiece(character,army));const bank=idle(character,army);if(!bank)return;
   if(character==='archer')void loadSmoke();
   stills.add(bank.frames[0].url);const starts=full?forPiece(character,army).filter(b=>b.kind==='idle').flatMap(b=>b.frames.slice(0,6)):bank.frames.slice(0,1);await Promise.all(starts.map(frame=>loadFrame(frame)));if(!disposed)wake();
  }
@@ -361,15 +378,15 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  }
  return {
   ready:()=>bounded(loadManifest()).then(()=>{}),
-  has:(character,army)=>{if(!manifestReady)void loadManifest();return !!idle(character,army);},
-  get stats(){return {bytes:bytes+effectBytes+smokeBytes,peakBytes,framesLoaded:images.size,active,queued:queue.length,manifestReady,manifestLoading:!!manifestLoading,manifestPending:!!manifestLoading&&!manifestRetryAt};},
+  has:(character,army)=>{const bank=idle(character,army);if(!bank)void(manifestReady?loadPart(character,army):loadManifest());return !!bank;},
+  get stats(){return {bytes:bytes+effectBytes+smokeBytes,peakBytes,framesLoaded:images.size,active,queued:queue.length,manifestReady,manifestLoading:!!manifestLoading,manifestPending:!!manifestLoading&&!manifestRetryAt||[...parts.values()].some(part=>part.loading&&!part.retryAt)};},
   smoke(){return smokeClass&&smokeImage?new smokeClass(smokeImage):null;},
   warm,
   async prefetchMoves(character,army,directions,captures=[]){
    const generation=++moveGeneration;movePrefetchActive=true;moveLoads?.release();moveLoads=null;movePins?.();movePins=null;
    try{
     // A late manifest still prefetches the selection when it comes: the click ends this wait (releaseMovePrefetch).
-    await loadManifest();if(disposed||generation!==moveGeneration)return;
+    await loadPiece(character,army);if(disposed||generation!==moveGeneration)return;
     // A capture also needs its separate effect (the Archer's arrow); it loads now, not at the click.
     if(captures.length)void loadSeparate(character);
     const all=forPiece(character,army),rest=idle(character,army),turns=all.filter(b=>b.kind==='turn').map(thinTurn);
@@ -409,7 +426,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   },
   releaseMovePrefetch(){moveGeneration++;movePrefetchActive=false;suspendPump++;try{moveLoads?.release(true);moveLoads=null;movePins?.();movePins=null;}finally{suspendPump--;}},
   async reserveIdle(character,army){
-   idleLoads?.release();idleLoads=null;const generation=++idleGeneration;await bounded(loadManifest());if(disposed||generation!==idleGeneration)return false;
+   idleLoads?.release();idleLoads=null;const generation=++idleGeneration;await bounded(loadPiece(character,army));if(disposed||generation!==idleGeneration)return false;
    const rest=idle(character,army),all=forPiece(character,army).filter(b=>b.kind==='idle');
    if(!rest||!all.length||all.some(b=>b.facing!==rest.facing||b.frames[0].url!==rest.frames[0].url||b.frames.at(-1).url!==rest.frames[0].url))return false;
    if(forPiece(character,army).some(b=>b.kind==='turn'&&((b.from===rest.facing&&b.frames[0].url!==rest.frames[0].url)||(b.to===rest.facing&&b.frames.at(-1).url!==rest.frames[0].url))))return false;
@@ -434,7 +451,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   rest(character,army,time=0,active=false){const bank=idle(character,army);if(!bank)return null;if(active){const all=forPiece(character,army),choice=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time);if(choice){const next=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time+160);if(next&&next.bank!==choice.bank)for(const frame of next.bank.frames.slice(0,6))void loadFrame(frame);return sample(choice.bank,choice.time,true,choice.reverse,true)??sample(bank,0,false);}}return sample(bank,0,false);},
   async prepare(character,army,direction,capture,oneSquare=false,signal,bites=null){
    const deadline=performance.now()+LOAD_TIMEOUT,remaining=()=>Math.max(0,deadline-performance.now());
-   await bounded(loadManifest(),remaining(),signal);if(disposed||signal?.aborted||!remaining())return null;
+   await bounded(loadPiece(character,army),remaining(),signal);if(disposed||signal?.aborted||!remaining())return null;
    const all=forPiece(character,army),rest=idle(character,army);if(!rest)return null;
    const attack=capture?all.find(b=>b.kind==='attack'&&b.facing===direction):null;
    const playable=b=>b.facing===direction&&Number.isFinite(b.durationMs)&&b.durationMs>0&&b.frames?.length&&(b.kind!=='move'||Number.isFinite(b.strideSquares)&&b.strideSquares>0);
@@ -517,6 +534,6 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    if(prepared.movement){const move=prepared.movement,frames=move.frames;if(boundary==='end'&&move.kind==='move')return routeSample(prepared.after,0)??sample(prepared.rest,0,false);const frame=boundary==='start'?frames[0]:boundary==='end'?frames.at(-1):null;const clock=move.kind==='move'?time*(prepared.movementRate??1)%move.durationMs:duration>0?time/duration*move.durationMs:0;prepared.leap?.advance(frames.indexOf(frame??frameAt(move,clock)));const body=sample(move,clock,true,false,true,frame);if(body)return body;}
    return routeSample(prepared.before,prepared.beforeMs)??sample(prepared.rest,0,false);
   },
-  dispose(){disposed=true;observer?.disconnect();clearTimeout(paceTimer);if(listening)globalThis.removeEventListener('online',reconnect);banks=[];footprints=null;restChoices.clear();images.clear();idlePins.clear();pins.clear();activeFrame=null;bytes=0;effectBytes=0;smokeBytes=0;currentEffect=null;effectLoads.clear();smokeClass=null;smokeImage=null;for(const job of activeJobs)job.cancel();for(const job of queue)job.resolve();queue.length=0;loading.clear();},
+  dispose(){disposed=true;observer?.disconnect();clearTimeout(paceTimer);if(listening)globalThis.removeEventListener('online',reconnect);banks=[];parts.clear();footprints=null;restChoices.clear();images.clear();idlePins.clear();pins.clear();activeFrame=null;bytes=0;effectBytes=0;smokeBytes=0;currentEffect=null;effectLoads.clear();smokeClass=null;smokeImage=null;for(const job of activeJobs)job.cancel();for(const job of queue)job.resolve();queue.length=0;loading.clear();},
  };
 }
