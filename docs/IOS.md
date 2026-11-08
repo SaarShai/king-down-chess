@@ -10,6 +10,18 @@ The iOS app is a Capacitor shell around the same web build as kingdown.dev. Deci
 
 A check build with no signing: `xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`.
 
+## TestFlight upload
+
+The owner's Xcode account signs (team `6M9C2YSWT4`, automatic signing). Each upload needs a build number higher than the last one in App Store Connect: raise `CURRENT_PROJECT_VERSION` in `ios/App/App.xcodeproj/project.pbxproj` (both configurations) in the change that ships. Build 1.0 (1) is the first.
+
+```bash
+npm run ios:sync production
+xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath "$TMPDIR/App.xcarchive" -allowProvisioningUpdates archive
+xcodebuild -exportArchive -archivePath "$TMPDIR/App.xcarchive" -exportOptionsPlist ios/ExportOptions.plist -exportPath "$TMPDIR/upload" -allowProvisioningUpdates
+```
+
+`ios/ExportOptions.plist` uploads to App Store Connect and keeps the build number from the project. App Store Connect then processes the build for TestFlight (minutes to an hour) and sends an email if it finds a fault.
+
 ## Rules the code depends on
 
 - The page origin is `capacitor://localhost`, and it never changes: a new scheme or host gives the app a new web storage area, so the local saves and the session are lost. Do not set `server.hostname`, `iosScheme` or a committed `server.url` in `capacitor.config.json`.

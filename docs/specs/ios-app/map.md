@@ -33,7 +33,7 @@ An internal TestFlight build of King Down on the owner's iPhone, built from this
 - **Native touches.** Haptics, share sheets, push turn alerts (APNs and a server sender) and Game Center lower the App Review 4.2 risk. Which ones depend on the redesign.
 - **Universal links.** Invite (`/j#<key>`) and game (`/g/<id>`) links can open the app. This needs the association file on kingdown.dev (the parked-plugin build deletes `.well-known` today) and the Associated Domains entitlement, and it depends on the redesign's invite flow.
 - **Google, GitHub and Sign in with Apple** in the app, after the review sign-in path is chosen.
-- **Touch and layout polish** (touch-action, the long-press menu, hover-only rules, 16 px selects, safe areas in landscape): the redesign may replace the screens first.
+- **Touch and layout polish** (touch-action, the long-press menu, hover-only rules, 16 px selects and text fields, safe areas in landscape; iOS zooms the page when a smaller field gets focus, seen on the staging test-account form): the redesign may replace the screens first.
 - **Web storage on iOS.** Whether iOS can clear the app's localStorage (the session and the local saves) needs a device test; native storage is the fallback.
 - **An iOS build check in CI.** A macOS runner costs more minutes; decide when the app changes often.
 
