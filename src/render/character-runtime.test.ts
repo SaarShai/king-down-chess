@@ -79,6 +79,45 @@ describe('ready character playback', () => {
    expect(aborted).toEqual([]);expect(started.length).toBe(new Set(started).size);
   }finally{runtime.dispose();vi.useRealTimers();}
  });
+ it('starts a selected King capture at once when one turn frame stalls, and holds the pose before it', async () => {
+  // Live: 1 in 20 frame requests waits more than 500 ms for its first byte. One such request among the 50 frames of a
+  // King capture held the start until the 1 s limit in 1 of 4 runs.
+  vi.useFakeTimers();
+  const idle={...bank(),id:'idle',character:'king-frost',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const turn={...bank('SE','N'),id:'turn',character:'king-frost',nearest:false,frames:[idle.frames[0],...Array.from({length:8},(_,i)=>({url:i===3?'stall':`turn-${i}`,timeMs:(i+1)*15}))]};
+  const attack={...idle,id:'attack-N',kind:'attack',facing:'N',contactMs:120,durationMs:320,frames:Array.from({length:8},(_,i)=>({url:`attack-${i}`,timeMs:i*40}))};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,attack]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){setTimeout(()=>img.onload?.(),s.endsWith('/stall')?3000:30);}};return img as unknown as HTMLImageElement;}});
+  try{
+   const ready=runtime.ready();await vi.advanceTimersByTimeAsync(10);await ready;const warm=runtime.warm('king-frost','white');await vi.advanceTimersByTimeAsync(40);await warm;
+   void runtime.prefetchMoves('king-frost','white',[],['N']);await vi.advanceTimersByTimeAsync(1500);
+   runtime.releaseMovePrefetch();let prepared:unknown=undefined;void runtime.prepare('king-frost','white','N',true).then(p=>{prepared=p;});
+   await vi.advanceTimersByTimeAsync(50);
+   expect(prepared).toMatchObject({attack:{id:'attack-N'}});
+   // The stalled frame's slot shows the decoded turn frame before it.
+   expect(runtime.action(prepared as never,-120+60,320,120)).toMatchObject({url:'turn-2'});
+   expect(runtime.action(prepared as never,-120+75,320,120)).toMatchObject({url:'turn-4'});
+  }finally{runtime.dispose();vi.useRealTimers();}
+ });
+ it('loads a capture in clock order, and loads again a warm frame that the selection stopped', async () => {
+  vi.useFakeTimers();
+  const idle={...bank(),id:'idle',character:'king-frost',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const others=Array.from({length:6},(_,i)=>({...idle,id:`other-${i}`,character:`other-${i}`,frames:[{url:`other-${i}`,timeMs:0}]}));
+  const turn={...bank('SE','N'),id:'turn',character:'king-frost',frames:[idle.frames[0],...Array.from({length:8},(_,i)=>({url:`turn-${i}`,timeMs:(i+1)*15}))]};
+  const attack={...idle,id:'attack-N',kind:'attack',facing:'N',contactMs:120,durationMs:320,frames:Array.from({length:8},(_,i)=>({url:`attack-${i}`,timeMs:i*40}))};
+  const started:string[]=[];
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,attack,...others]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){started.push(s.split('/').at(-1)!);setTimeout(()=>img.onload?.(),s.includes('/other-')?300:30);}};return img as unknown as HTMLImageElement;}});
+  try{
+   const ready=runtime.ready();await vi.advanceTimersByTimeAsync(10);await ready;const warm=runtime.warm('king-frost','white');await vi.advanceTimersByTimeAsync(40);await warm;
+   // The board warms the other figures: six slow loads fill the six slots when the King is selected.
+   for(const other of others)void runtime.warm(other.character,'white');await vi.advanceTimersByTimeAsync(10);
+   expect(runtime.stats.active).toBe(6);started.length=0;
+   void runtime.prefetchMoves('king-frost','white',[],['N']);await vi.advanceTimersByTimeAsync(2000);
+   expect(started.filter(s=>s.startsWith('turn-')||s.startsWith('attack-'))).toEqual([...Array.from({length:8},(_,i)=>`turn-${i}`),...Array.from({length:4},(_,i)=>`attack-${i}`)]);
+   for(const other of others)expect(runtime.rest(other.character,'white')).toMatchObject({url:other.frames[0].url});
+  }finally{runtime.dispose();vi.useRealTimers();}
+ });
  it('plays a capture whose frames still load at the limit and holds the decoded poses', async () => {
   vi.useFakeTimers();
   const idle={...bank(),id:'idle',character:'king-frost',kind:'idle',frames:[{url:'rest',timeMs:0}]};
