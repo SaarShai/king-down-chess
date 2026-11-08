@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { runInNewContext } from 'node:vm';
 import { join, resolve } from 'node:path';
 import type { OutputAsset, OutputBundle, OutputChunk } from 'rolldown';
-import { build } from 'vite';
+import { build, loadConfigFromFile, mergeConfig } from 'vite';
 import { expect, it } from 'vitest';
 import { offlineCacheFiles } from '../vite.config';
 import { isCharacterRuntimePublic } from './lib/character-runtime-public.mjs';
@@ -142,10 +142,14 @@ function site() {
   return { dir, write };
 }
 
-const compile = (root: string) => build({
-  configFile: resolve('vite.config.ts'), root, envFile: false, logLevel: 'silent',
+// A configFile build bundles and runs vite.config.ts again: it parses each file in src for the error forms, runs git
+// and builds the engine worker, about 0.3 s that is the same for each fixture. Under CI load one such build passed the
+// 5 s test limit (run 42361145582). Load the config once, at import, so a build does only the fixture (about 40 ms).
+const userConfig = (await loadConfigFromFile({ command: 'build', mode: 'production' }, resolve('vite.config.ts')))!.config;
+const compile = (root: string) => build(mergeConfig(userConfig, {
+  configFile: false, root, envFile: false, logLevel: 'silent',
   build: { assetsInlineLimit: 0, rollupOptions: { input: { index: join(root, 'index.html'), play: join(root, 'play.html') } } },
-});
+}));
 const lists = (worker: string) => ({
   allowlist: JSON.parse(/const ALLOWLIST = (\[.*\]);/.exec(worker)![1]) as string[],
   precache: JSON.parse(/const PRECACHE = (\[.*\]);/.exec(worker)![1]) as string[],
