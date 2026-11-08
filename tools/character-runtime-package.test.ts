@@ -3,7 +3,7 @@ import { registerBanks } from './build-character-runtime.mjs';
 import { afterEach, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import sharp from 'sharp';
@@ -182,14 +182,46 @@ it.each([0,2,3])('rejects a PNG colour key for colour type %i', async colour => 
  expect(()=>stripPng(Buffer.concat([png.subarray(0,33),key,png.subarray(33)]))).toThrow('needs conversion to RGBA');
 });
 
-it('records the source and output hashes of every effect image', () => {
+it('records the source, PNG and WebP hashes of every effect image', () => {
  const root=resolve('public/character-runtime'),manifest=JSON.parse(readFileSync(join(root,'manifest.json'),'utf8'));
  const selection=JSON.parse(readFileSync(resolve('docs/specs/character-animation-samples/runtime-effects.json'),'utf8'));
  for(const entry of selection.entries){
   const dir=resolve(root,manifest.effects[entry.character].module,'..');
   const records=JSON.parse(readFileSync(join(dir,'provenance/runtime-assets.json'),'utf8'));
-  const expected=entry.files.filter((file:any)=>file.outputSha256).map((file:any)=>({path:file.path,sourceSha256:file.sha256,sha256:file.outputSha256}));
+  const expected=entry.files.filter((file:any)=>file.outputSha256).map((file:any)=>({path:file.path.replace(/\.png$/,'.webp'),sourceSha256:file.sha256,pngSha256:file.outputSha256,sha256:expect.any(String),encoding:'webp-q90-alpha-lossless'}));
   expect(records).toEqual(expected);
   for(const record of records)expect(createHash('sha256').update(readFileSync(join(dir,record.path))).digest('hex')).toBe(record.sha256);
  }
+});
+
+// A capture loads its effect art at play time: on a 1.6 Mbps link (200 KB/s) a large file makes the shot start late.
+it('keeps each play-time effect texture a WebP of at most 256 KB', () => {
+ const root=resolve('public/character-runtime'),manifest=JSON.parse(readFileSync(join(root,'manifest.json'),'utf8'));
+ for(const effect of Object.values(manifest.effects) as {module:string}[]){
+  const dir=resolve(root,effect.module,'..'),assets=readdirSync(join(dir,'assets'));
+  expect(assets.length).toBeGreaterThan(0);
+  for(const name of assets){expect(name).toMatch(/\.webp$/);expect(statSync(join(dir,'assets',name)).size).toBeLessThanOrEqual(256*1024);}
+ }
+ expect(statSync(resolve('docs/2d-first-pieces/king-stratus/cloud-bank.webp')).size).toBeLessThanOrEqual(320*1024);
+});
+
+it('converts each effect texture to WebP with exact alpha and points its module at it', async () => {
+ scratch=mkdtempSync(join(tmpdir(),'kingdown-webp-effect-'));const source=join(scratch,'source'),out=join(scratch,'out'),id='e'.repeat(64),dir=join(source,'effects',id);
+ mkdirSync(join(source,'assets'),{recursive:true});mkdirSync(join(dir,'assets'),{recursive:true});
+ const pixels=Buffer.alloc(8*8*4);for(let i=0;i<pixels.length;i+=4){pixels[i]=200;pixels[i+1]=150;pixels[i+2]=20;pixels[i+3]=(i/4)%8*30;}
+ const png=await sharp(pixels,{raw:{width:8,height:8,channels:4}}).png().toBuffer(),hash=(b:Buffer)=>createHash('sha256').update(b).digest('hex');
+ const module=Buffer.from("export const loadEffect=()=>['golden-arrow'].map(name=>`assets/${name}.png`);");
+ const meta=Buffer.from(JSON.stringify({sprite:`assets/${hash(png)}.png`,sha256:hash(png)}));
+ writeFileSync(join(dir,'assets/golden-arrow.png'),png);writeFileSync(join(dir,`assets/${hash(png)}.png`),png);writeFileSync(join(dir,'effect.mjs'),module);writeFileSync(join(dir,'effect.json'),meta);
+ writeFileSync(join(dir,'sources.json'),JSON.stringify([{path:'assets/golden-arrow.png',sha256:hash(png),sourceSha256:'a'.repeat(64)},{path:`assets/${hash(png)}.png`,sha256:hash(png),sourceSha256:'b'.repeat(64)},{path:'effect.mjs',sha256:hash(module),sourceSha256:hash(module)},{path:'effect.json',sha256:hash(meta),sourceSha256:hash(meta)}]));
+ writeFileSync(join(source,'assets.json'),'[]');writeFileSync(join(source,'manifest.json'),JSON.stringify({schemaVersion:1,effects:{archer:{module:`effects/${id}/effect.mjs`,smoke:null,decodedBytes:256,contactMs:1}},banks:[]}));
+ execFileSync(process.execPath,[resolve('tools/convert-character-runtime-webp.mjs'),source,out],{stdio:'pipe'});
+ const effect=JSON.parse(readFileSync(join(out,'manifest.json'),'utf8')).effects.archer,folder=resolve(out,effect.module,'..');
+ expect(effect).toMatchObject({smoke:null,decodedBytes:256,contactMs:1});expect(effect.module).not.toContain(id);
+ expect(readFileSync(join(folder,'effect.mjs'),'utf8')).toContain('assets/${name}.webp');
+ const webp=readFileSync(join(folder,'assets/golden-arrow.webp')),json=JSON.parse(readFileSync(join(folder,'effect.json'),'utf8'));
+ // The beam's sprite keeps its PNG-hash name with the WebP extension; the hash field names the WebP bytes.
+ expect(json).toEqual({sprite:`assets/${hash(png)}.webp`,sha256:hash(webp)});expect(readFileSync(join(folder,json.sprite)).equals(webp)).toBe(true);expect((await sharp(webp).metadata()).format).toBe('webp');
+ const alpha=await sharp(webp).ensureAlpha().extractChannel('alpha').raw().toBuffer();for(let i=0;i<alpha.length;i++)expect(alpha[i]).toBe(pixels[i*4+3]);
+ writeFileSync(join(dir,'assets/golden-arrow.png'),'changed');expect(()=>execFileSync(process.execPath,[resolve('tools/convert-character-runtime-webp.mjs'),source,join(scratch,'bad')],{stdio:'pipe'})).toThrow(/Effect file hash mismatch/);
 });

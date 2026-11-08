@@ -65,7 +65,7 @@ export function sampleParticles({elapsedMs, origin, target, secondaryOrigin, see
 
 export async function loadEffect(baseURL = import.meta.url) {
   const sprite = new Image();
-  sprite.src = new URL('./assets/thorn-shard-native-v1.png', baseURL).href;
+  sprite.src = new URL('./assets/thorn-shard-native-v1.webp', baseURL).href;
   await sprite.decode();
   return {
     durationMs,

@@ -209,8 +209,8 @@ try {
   const art = [...new Set(resource.result.contents[0].text.match(new RegExp(`${origin}/plugin-art/[\\w-]+\\.(?:webp|png|svg|woff2)`, 'g')))];
   const counts = Object.fromEntries(['webp', 'png', 'svg', 'woff2'].map(type => [type, art.filter(file => file.endsWith(`.${type}`)).length]));
   for (const name of ['scroll.webp']) assert(art.some(file => file.includes(`/${name.slice(0,-5)}-`)), `The page names ${name}`);
-  // Two PNGs: the app icon and the Stratus cloud bank (PR #92's king floor).
-  assert(counts.webp >= 20); assert.equal(counts.png, 2); assert(art.some(file => file.includes('/cloud-bank-')), 'The page names cloud-bank.png'); assert.equal(counts.svg, 24); assert.equal(counts.woff2, 4);
+  // One PNG: the app icon. The Stratus cloud bank (PR #92's king floor) is WebP.
+  assert(counts.webp >= 20); assert.equal(counts.png, 1); assert(art.some(file => file.includes('/cloud-bank-')), 'The page names cloud-bank.webp'); assert.equal(counts.svg, 24); assert.equal(counts.woff2, 4);
   // Ticket 12: each setup art file stays on the plugin origin.
   for (const name of ['archer-w','paladin-w','guard-w','maester-w','beast-w','ogre-w','rook-w','bishop-w','knight-w','queen-w','frost','flame','stratus','mud','spirit','shadow','shadow-b','freeze','icewall','sacrifice','march','leap','salvation','mimic','vault','skylift','back']) assert(art.some(file => file.includes(`/${name}-`)), `Setup names ${name}.webp`);
   // Ticket 14: the plain opponent portrait and the remembered king stay on the plugin origin.
