@@ -76,7 +76,8 @@ export function restBankOf(all) {
 export const DECODED_BUDGET=64*1024*1024;
 // Bound the wait for optional art so a stalled request cannot hold up a move indefinitely.
 const LOAD_TIMEOUT=1000,IMAGE_TIMEOUT=5000,RETRY_DELAY=5000,LEAP_HOLD=200,POSE_HOLD=150,LEAP_LATE=500,FAST_FRAME=20;
-const connected=()=>globalThis.navigator?.onLine!==false;
+// The iOS app (capacitor:) has every frame on the device, so it loads them also with no connection.
+export const connected=()=>globalThis.navigator?.onLine!==false||globalThis.location?.protocol==='capacitor:';
 function bounded(promise,ms=LOAD_TIMEOUT,signal){
  return new Promise(resolve=>{let done=false;const finish=value=>{if(done)return;done=true;clearTimeout(timer);signal?.removeEventListener('abort',abort);resolve(value);},abort=()=>finish(null),timer=setTimeout(abort,Math.max(0,ms));signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();Promise.resolve(promise).then(finish,()=>finish(null));});
 }
@@ -115,7 +116,8 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  const stopped=new Set();
  function reserve(frames){const keys=[...new Set(frames.map(f=>f.url))];for(const key of keys)pins.set(key,(pins.get(key)??0)+1);let held=true;return ()=>{if(!held)return;held=false;for(const key of keys){const n=pins.get(key);if(n>1)pins.set(key,n-1);else pins.delete(key);}trim();};}
  let manifestReady=false,manifestLoading=null,manifestRetryAt=0,footprints=null,footprintsLoading=null;
- // Optional art never asks the network while the browser reports no connection: offline play keeps the plain figure.
+ // On the website, optional art never asks the network while the browser reports no connection: offline play keeps
+ // the plain figure. The iOS app reads its bundled frames (connected()).
  const reconnect=()=>{if(disposed)return;failed.clear();manifestRetryAt=0;effectRetryAt.clear();void loadManifest().then(()=>{if(!disposed)wake();});if(manifestReady)loadFootprints();};
  const listening=typeof globalThis.addEventListener==='function';
  if(listening)globalThis.addEventListener('online',reconnect);
