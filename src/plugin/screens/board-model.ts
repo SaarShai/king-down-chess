@@ -7,6 +7,8 @@ import { TAG_POWER, type CardName, type Color, type Move, type Position, type Ru
 import { toFen, toLan } from '../../rules/setup';
 import { turnLine, turnOf, type Mode } from '../../turn';
 import { pendingHere, staleRead, type Page } from '../../account-game/state';
+import type { ReportCategory } from '../../account/profile';
+import type { ToolResult } from '../queue';
 
 export type BoardMove = { pre: Position; pos: Position; move: Move; lan: string; words: string };
 export function stripLine(side: Color, rating?: NonNullable<View['opponent']>['rating'], level?: View['level']): string {
@@ -176,4 +178,22 @@ export function boardActions(view: View, elapsed = 0): { abort: boolean; claim: 
   const missed = playing && view.kind !== 'solo' && view.turn !== view.seat && view.deadline_at !== null
     && Date.parse(view.deadline_at) <= Date.parse(view.server_now) + elapsed;
   return { abort: view.abort_open, claim: missed ? view.abort_open ? 'end' : 'win' : null };
+}
+
+/** Block and Report act on a human opponent only: not solo, not the computer, not a deleted account. */
+export const humanOpponent = (view: View) => view.kind !== 'solo' && !!view.opponent && !view.opponent.computer && !view.opponent.deleted;
+export const REPORT_REASONS: Record<ReportCategory, string> = {
+  computer_help: 'Gets help from a computer', rating_manipulation: 'Cheats to change ratings', leaving_or_stalling: 'Leaves or stalls games',
+  offensive_handle: 'Offensive handle', harassment: 'Harassment', child_safety_or_illegal: 'Child safety or illegal content', other: 'Other',
+};
+/** The kingdown_report arguments: a handle report for an offensive handle, else a player report. */
+export function reportArgs(view: View, category: ReportCategory, note: string) {
+  const text = note.trim();
+  return { game_id: view.game_id, target: category === 'offensive_handle' ? 'handle' : 'player', category, ...text && { note: text } };
+}
+/** The line after a sent report; a refused report throws its error text. */
+export function reportReply(result: ToolResult) {
+  if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' ') || 'The report did not go. Try again.');
+  const id = result._meta?.id;
+  return typeof id === 'number' ? `Report sent. Reference ${id}.` : 'Report sent.';
 }

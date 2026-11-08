@@ -1600,6 +1600,26 @@ try {
     await frame.locator('#board-menu:not(:disabled)').waitFor();
     assert.equal((await tool('kingdown_block', { game_id: friend.game_id }))._meta.blocked, false);
     await frame.locator('#context-note').filter({hasText:'Player unblocked. Follows stay off.'}).waitFor();
+    // Ticket 13: Report player sends a reason and a note. A refused report keeps both and shows the error.
+    const refuseReport = route => route.request().postDataJSON().name === 'kingdown_report'
+      ? route.fulfill({ json: { isError: true, content: [{ type: 'text', text: 'Too many reports. Wait one hour, then try again.' }] } }) : route.continue();
+    await page.route('**/fixture-tool', refuseReport);
+    await frame.locator('#board-menu').click(); await frame.locator('#menu-report-player').click();
+    await frame.locator('#board-sheet-title').filter({ hasText: 'Report player' }).waitFor();
+    await frame.locator('#board-sheet select').selectOption('harassment');
+    await frame.locator('#board-sheet textarea').fill('Rude words');
+    await frame.locator('#board-sheet textarea').press('Shift+Tab');
+    assert(await frame.locator('#board-sheet select').evaluate(el => document.activeElement === el), 'Shift+Tab goes from Note back to Reason');
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Send', exact: true }).click();
+    await frame.locator('#board-sheet [role="alert"]').filter({ hasText: 'Too many reports.' }).waitFor();
+    assert.equal(await frame.locator('#board-sheet select').inputValue(), 'harassment', 'A refused report keeps the reason');
+    assert.equal(await frame.locator('#board-sheet textarea').inputValue(), 'Rude words', 'A refused report keeps the note');
+    await page.unroute('**/fixture-tool', refuseReport);
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Send', exact: true }).click();
+    await frame.locator('#board-sheet-title').filter({ hasText: 'Report sent' }).waitFor();
+    await frame.locator('#board-sheet').filter({ hasText: /Report sent\. Reference \d+\./ }).waitFor();
+    assert.deepEqual((await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_report'))).at(-1).arguments, { game_id: friend.game_id, target: 'player', category: 'harassment', note: 'Rude words' });
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Close', exact: true }).last().click();
     // The end card can block a person, and Profile keeps the undo path.
     const resigned = await tool('kingdown_resign', { game_id: friend.game_id });
     await page.evaluate(result=>window.harnessShow(result),resigned);

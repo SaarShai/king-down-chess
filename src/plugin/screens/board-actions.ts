@@ -2,7 +2,8 @@ import { errorText } from '../../account-game/types';
 import { call, client, memory } from '../../account-game/runtime';
 import type { View } from '../../match/protocol';
 import { boardSheet, closeBoardSheet, sendBoardCommand } from './board';
-import { boardActions } from './board-model';
+import type { ReportCategory } from '../../account/profile';
+import { boardActions, humanOpponent, REPORT_REASONS, reportArgs, reportReply } from './board-model';
 const words = (value: string) => { const p = document.createElement('p'); p.textContent = value; return p; };
 const button = (label: string, click: () => void, id?: string) => { const b = document.createElement('button'); b.textContent = label; b.onclick = click; if (id) b.id = id; return b; };
 export function confirmBoardAction(title: string, detail: string, label: string, send: () => void, cancel = 'Keep playing') {
@@ -46,7 +47,7 @@ export function actionButtons(view: View, elapsed: number, hidden: Set<string>, 
 
 /** Read the saved relation without delaying the Menu's other controls. */
 export function playerBlockButton(view: View, close = () => {}): HTMLButtonElement[] {
-  if (view.kind === 'solo' || !view.opponent || view.opponent.computer || view.opponent.deleted) return [];
+  if (!humanOpponent(view)) return [];
   let blocked: boolean | undefined, reading = false;
   const row = button('Loading block setting…', () => {
     if (reading || memory.view?.game_id !== view.game_id) return;
@@ -68,4 +69,35 @@ export function playerBlockButton(view: View, close = () => {}): HTMLButtonEleme
     finally { reading = false; row.disabled = (document.getElementById('reload') as HTMLButtonElement).disabled; row.removeAttribute('aria-busy'); }
   }
   void read(); return [row];
+}
+
+/** Report player (App Review 1.2): a reason, an optional note, and kingdown_report with the game id. */
+export function playerReportButton(view: View, close = () => {}, id = 'menu-report-player'): HTMLButtonElement[] {
+  if (!humanOpponent(view)) return [];
+  return [button('Report player', () => {
+    close();
+    const form = document.createElement('form'); form.className = 'report-form';
+    form.innerHTML = '<label>Reason<select required><option value="">Choose a reason</option></select></label><label>Note (optional)<textarea maxlength="1000" rows="3"></textarea></label><p role="alert"></p><div><button type="button">Cancel</button><button type="submit" class="primary">Send</button></div>';
+    const reason = form.querySelector('select')!, note = form.querySelector('textarea')!, error = form.querySelector('p')!, [cancel, send] = form.querySelectorAll('button');
+    for (const [value, label] of Object.entries(REPORT_REASONS)) reason.add(new Option(label, value));
+    cancel.onclick = closeBoardSheet;
+    // The board's own Escape handler runs only while the board screen is mounted; the seat screen opens this dialog too.
+    const escape = (event: KeyboardEvent) => {
+      if (!form.closest('dialog')?.open) return document.removeEventListener('keydown', escape);
+      if (event.key === 'Escape') { event.preventDefault(); closeBoardSheet(); }
+    };
+    document.addEventListener('keydown', escape);
+    form.onsubmit = async event => {
+      event.preventDefault(); if (send.disabled) return;
+      send.disabled = true; error.textContent = '';
+      try {
+        const sent = reportReply(await client.call('kingdown_report', reportArgs(view, reason.value as ReportCategory, note.value)));
+        const done = button('Close', closeBoardSheet); done.className = 'primary';
+        boardSheet('Report sent', words(sent), done);
+      // shortcut: a report is not idempotent, so a Send after a timeout can store a second copy. The owner sees two reports.
+      } catch (failure) { error.textContent = errorText(failure); }
+      finally { send.disabled = false; }
+    };
+    boardSheet('Report player', form);
+  }, id)];
 }
