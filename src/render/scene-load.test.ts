@@ -51,8 +51,8 @@ function board(motion: boolean, characterRuntime = false, largeRuntime = false, 
 
 afterEach(() => { scene?.dispose(); vi.useRealTimers(); vi.unstubAllGlobals(); stillsLoad = false; });
 
-// The footprint table follows the manifest; the manifest is what starts the downloads.
-const manifestFetches=(fetcher:{mock:{calls:[string][]}})=>fetcher.mock.calls.filter(([url])=>String(url).endsWith('manifest.json')).length;
+// The footprint table follows the package index; the index is what starts the downloads.
+const manifestFetches=(fetcher:{mock:{calls:[string][]}})=>fetcher.mock.calls.filter(([url])=>String(url).endsWith('/index.json')).length;
 it('draws a figure at rest from its still picture, at its rest frame\'s pivot and size, until the runtime loads', async () => {
  stillsLoad = true;
  vi.stubGlobal('fetch',vi.fn(()=>new Promise(()=>{})));
@@ -131,9 +131,26 @@ it('waits for a late manifest inside the limit and plays the painted capture, no
  const idle={...base,id:'idle',kind:'idle',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
  const attack={...base,id:'attack',kind:'attack',durationMs:600,frames:[{url:'runtime-attack.png',timeMs:0}]};
  let send=()=>{};
- vi.stubGlobal('fetch',vi.fn((url:string)=>String(url).endsWith('manifest.json')?new Promise(resolve=>{send=()=>resolve({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack]})});}):Promise.resolve({ok:false})));
+ vi.stubGlobal('fetch',vi.fn((url:string)=>String(url).endsWith('/index.json')?new Promise(resolve=>{send=()=>resolve({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack]})});}):Promise.resolve({ok:false})));
  const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/1p6/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
  expect(scene.characterMemory).toMatchObject({manifestReady:false,manifestPending:true});
+ const playing=scene.play({from:8,to:17,captures:[17]});await vi.advanceTimersByTimeAsync(400);
+ send();await vi.advanceTimersByTimeAsync(160);
+ expect(scene.characterFrames.find(f=>f.square===8)?.bank).toBe('attack');
+ await vi.advanceTimersByTimeAsync(2000);await expect(playing).resolves.toBe(true);
+});
+
+it('waits for a late part of the index inside the limit and plays the painted capture', async () => {
+ const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600,facing:'NE'};
+ const idle={...base,id:'idle',kind:'idle',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const attack={...base,id:'attack',kind:'attack',durationMs:600,frames:[{url:'runtime-attack.png',timeMs:0}]};
+ let send=()=>{};const asked:string[]=[];
+ vi.stubGlobal('fetch',vi.fn((url:string)=>{asked.push(String(url));return String(url).endsWith('/index.json')?Promise.resolve({ok:true,json:async()=>({schemaVersion:2,effects:{},parts:{'pawn:white':'parts/pawn.white.json','pawn:black':'parts/pawn.black.json','king-frost:white':'parts/king-frost.white.json','rook:white':'parts/rook.white.json'}})})
+  :String(url).endsWith('/parts/pawn.white.json')?new Promise(resolve=>{send=()=>resolve({ok:true,json:async()=>({banks:[idle,attack]})});}):Promise.resolve({ok:false});}));
+ const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/1p6/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ // Only the parts of the figures on the board load: no rook.
+ expect(asked.filter(url=>url.includes('/parts/')).sort()).toEqual(['/character-runtime/parts/king-frost.white.json','/character-runtime/parts/pawn.black.json','/character-runtime/parts/pawn.white.json'].map(path=>expect.stringContaining(path)));
+ expect(scene.characterMemory).toMatchObject({manifestReady:true,manifestPending:true});
  const playing=scene.play({from:8,to:17,captures:[17]});await vi.advanceTimersByTimeAsync(400);
  send();await vi.advanceTimersByTimeAsync(160);
  expect(scene.characterFrames.find(f=>f.square===8)?.bank).toBe('attack');

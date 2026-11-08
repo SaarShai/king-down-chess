@@ -68,7 +68,7 @@ try{
   await page.route('**/character-runtime/**',async route=>{
    const pathname=new URL(route.request().url()).pathname;const path=pathname.slice(pathname.lastIndexOf('/character-runtime/')+'/character-runtime/'.length);
    if(!pathname.includes('/character-runtime/'))return route.continue();
-   if(path==='manifest.json')return route.fulfill({json:manifest});
+   if(path==='index.json')return route.fulfill({json:manifest});
    assert(!path.includes('..'));return route.fulfill({body:await readFile(join(assets,path)),contentType:path.endsWith('.webp')?'image/webp':path.endsWith('.png')?'image/png':'text/javascript'});
   });
   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
@@ -128,7 +128,7 @@ try{
  }
  if(real.length){
   const page=await browser.newPage({viewport:{width:1100,height:950},serviceWorkers:'block',reducedMotion:'no-preference'}),errors=trapErrors(page);
-  await page.route('**/character-runtime/**',async route=>{const path=new URL(route.request().url()).pathname.split('/character-runtime/')[1];if(path==='manifest.json')return route.fulfill({json:manifest});assert(!path.includes('..'));return route.fulfill({body:await readFile(join(assets,path)),contentType:path.endsWith('.webp')?'image/webp':path.endsWith('.png')?'image/png':'text/javascript'});});
+  await page.route('**/character-runtime/**',async route=>{const path=new URL(route.request().url()).pathname.split('/character-runtime/')[1];if(path==='index.json')return route.fulfill({json:manifest});assert(!path.includes('..'));return route.fulfill({body:await readFile(join(assets,path)),contentType:path.endsWith('.webp')?'image/webp':path.endsWith('.png')?'image/png':'text/javascript'});});
   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
   const url=new URL(`http://127.0.0.1:${server.httpServer.address().port}/`);url.searchParams.set('fen','7k/8/8/8/3P4/8/8/K7 w - - 0 1');url.searchParams.set('players','human,human');
   await page.goto(url.href);await page.waitForFunction(()=>window.view?.scene?.characterFrames?.some(f=>f.square===27),null,{timeout:15000});await page.evaluate(()=>view.ready());
