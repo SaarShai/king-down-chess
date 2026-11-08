@@ -53,7 +53,8 @@ html { font-variant-numeric: lining-nums; }
 /* iOS zooms the page when a field under 16px gets focus. */
 .report-form :is(select, textarea) { width: 100%; font-size: 16px; }
 .report-form textarea { box-sizing: border-box; padding: 6px 10px; font-family: var(--font-body); color: var(--ink); background: var(--vellum); border: 1px solid var(--stone-700); border-radius: var(--radius-sm); resize: vertical; }
-.report-form p:empty { display: none; }
+/* The alert stays rendered: some screen readers do not read a live region that was display: none. */
+.report-form p { margin: 0; }
 .report-form > div { display: flex; justify-content: flex-end; gap: var(--space-2); }
 .report-form > div button { width: auto; min-width: 96px; justify-content: center; }
 .code-row .join { width: auto; min-width: 96px; justify-content: center; }

@@ -447,5 +447,6 @@ test('Report player shows for a human opponent only and sends the game id', () =
   expect(reportArgs(view(), 'offensive_handle', '  ')).toEqual({ game_id: 'game', target: 'handle', category: 'offensive_handle' });
   expect(reportArgs(view(), 'harassment', ' Rude words \n')).toEqual({ game_id: 'game', target: 'player', category: 'harassment', note: 'Rude words' });
   expect(reportReply({ content: [{ type: 'text', text: '' }], _meta: { id: 42, created_at: '2026-11-08T00:00:00Z' } })).toBe('Report sent. Reference 42.');
+  expect(reportReply({ content: [{ type: 'text', text: '' }] })).toBe('Report sent.');
   expect(() => reportReply({ isError: true, content: [{ type: 'text', text: 'Too many reports. Wait one hour, then try again.' }] })).toThrow('Too many reports. Wait one hour, then try again.');
 });

@@ -194,5 +194,6 @@ export function reportArgs(view: View, category: ReportCategory, note: string) {
 /** The line after a sent report; a refused report throws its error text. */
 export function reportReply(result: ToolResult) {
   if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' ') || 'The report did not go. Try again.');
-  return `Report sent. Reference ${result._meta?.id}.`;
+  const id = result._meta?.id;
+  return typeof id === 'number' ? `Report sent. Reference ${id}.` : 'Report sent.';
 }

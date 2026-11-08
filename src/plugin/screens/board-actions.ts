@@ -81,7 +81,7 @@ export function playerReportButton(view: View, close = () => {}, id = 'menu-repo
     const reason = form.querySelector('select')!, note = form.querySelector('textarea')!, error = form.querySelector('p')!, [cancel, send] = form.querySelectorAll('button');
     for (const [value, label] of Object.entries(REPORT_REASONS)) reason.add(new Option(label, value));
     cancel.onclick = closeBoardSheet;
-    // The board's own Escape handler runs on the board screen only; the seat and end screens open this dialog too.
+    // The board's own Escape handler runs only while the board screen is mounted; the seat screen opens this dialog too.
     const escape = (event: KeyboardEvent) => {
       if (!form.closest('dialog')?.open) return document.removeEventListener('keydown', escape);
       if (event.key === 'Escape') { event.preventDefault(); closeBoardSheet(); }
@@ -94,6 +94,7 @@ export function playerReportButton(view: View, close = () => {}, id = 'menu-repo
         const sent = reportReply(await client.call('kingdown_report', reportArgs(view, reason.value as ReportCategory, note.value)));
         const done = button('Close', closeBoardSheet); done.className = 'primary';
         boardSheet('Report sent', words(sent), done);
+      // shortcut: a report is not idempotent, so a Send after a timeout can store a second copy. The owner sees two reports.
       } catch (failure) { error.textContent = errorText(failure); }
       finally { send.disabled = false; }
     };
