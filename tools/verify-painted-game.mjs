@@ -127,7 +127,7 @@ try {
   // only when the manifest came after the click. A fresh context, because the service worker has cached the manifest.
   const quiet = async (fen, from, to, pace, tapAfter = null) => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-    await context.route('**/character-runtime/manifest.json', route => route.fulfill({ json: { schemaVersion: 1, banks: [], effects: {} } }));
+    await context.route('**/character-runtime/index.json', route => route.fulfill({ json: { schemaVersion: 1, banks: [], effects: {} } }));
     const page = await context.newPage(), at = sq => page.evaluate(sq => window.view.screenOf(sq), sq);
     await page.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1'));
     trapErrors(page);
