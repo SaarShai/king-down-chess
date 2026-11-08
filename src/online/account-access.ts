@@ -1,4 +1,5 @@
 import { withPrivateCachePolicy } from './cache-policy';
+import { apiOrigin } from '../platform';
 
 export type WebAccountStatus =
  | { account_access: 'open'; valid_for_ms: number }
@@ -19,7 +20,7 @@ export async function readWebAccountAccess(): Promise<CheckedWebAccountAccess> {
   let start = 0;
   const response = await withPrivateCachePolicy(() => {
    start = performance.now();
-   return fetch('/api/status', { cache: 'no-store', credentials: 'omit', referrer: '', referrerPolicy: 'no-referrer', redirect: 'error' });
+   return fetch(apiOrigin + '/api/status', { cache: 'no-store', credentials: 'omit', referrer: '', referrerPolicy: 'no-referrer', redirect: 'error' });
   });
   if (!response.ok || !/^application\/json(?:\s*;|$)/i.test(response.headers.get('Content-Type') ?? '')) throw new TypeError('Account status is unavailable');
   const status = parseWebAccountStatus(await response.json()), expiresAt = start + status.valid_for_ms;
