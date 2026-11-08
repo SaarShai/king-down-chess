@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.setConfig({ testTimeout: 60_000 }); // each case runs a real script or hook in a child process; under load one takes more than vitest's 5 s
 import { tempRepo } from './lib/temp-repo.mjs';
 import { PARKED_PATHS } from './chatgpt-plugin.mjs';
+import { MUSE_PATHS } from './muse-connector.mjs';
 
 const script = fileURLToPath(new URL('./deploy.sh', import.meta.url));
 const liveCheck = fileURLToPath(new URL('./deploy-live-check.mjs', import.meta.url));
@@ -59,6 +60,7 @@ function setup() {
   cpSync(keepAssets, join(repo.dir, 'tools', 'deploy-keep-assets.mjs'));
   cpSync(pluginLiveCheck, join(repo.dir, 'tools', 'deploy-plugin-live-check.mjs'));
   cpSync(pluginSwitch, join(repo.dir, 'tools', 'chatgpt-plugin.mjs'));
+  cpSync(fileURLToPath(new URL('./muse-connector.mjs', import.meta.url)), join(repo.dir, 'tools', 'muse-connector.mjs'));
   repo.write('vercel.json', readFileSync(fileURLToPath(new URL('../vercel.json', import.meta.url)), 'utf8'));
   repo.write('app.txt', 'one\n');
   repo.git('add', '.');
@@ -1212,7 +1214,7 @@ function pluginFolder() {
 
 describe('deploy-plugin-live-check.mjs', () => {
   const parkedFolder = () => { const folder = join(buildFolder({}), 'functions/mcp.func'); mkdirSync(folder, { recursive: true }); return folder; };
-  const parkedRequests = [...PARKED_PATHS, '/plugin-art/deploy-check-0000.webp'].flatMap(path => [`GET ${path}`, `POST ${path}`]).sort();
+  const parkedRequests = [...PARKED_PATHS, ...MUSE_PATHS, '/plugin-art/deploy-check-0000.webp'].flatMap(path => [`GET ${path}`, `POST ${path}`]).sort();
 
   it('checks that each parked plugin path answers 404 when the build has no consent script', async () => {
     const live = await pluginSite('parked');

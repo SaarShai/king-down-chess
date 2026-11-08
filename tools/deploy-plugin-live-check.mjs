@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { PARKED_PATHS } from './chatgpt-plugin.mjs';
+import { MUSE_PATHS } from './muse-connector.mjs';
 
 const [folder, origin, ...extra] = process.argv.slice(2);
 const limit = Number(process.env.DEPLOY_LIVE_TIMEOUT_MS || 120_000);
@@ -20,7 +21,7 @@ if (base.origin !== origin || (base.protocol !== 'https:' && !['127.0.0.1', 'loc
 const plugin = existsSync(join(folder, 'consent.mjs'));
 const script = plugin ? readFileSync(join(folder, 'consent.mjs')) : undefined;
 // One made-up art name per parked check: the parked tree has no board art.
-const parkedPaths = [...PARKED_PATHS, '/plugin-art/deploy-check-0000.webp'];
+const parkedPaths = [...PARKED_PATHS, ...MUSE_PATHS, '/plugin-art/deploy-check-0000.webp'];
 const artDir = join(folder, '../../static/plugin-art'), configFile = join(folder, '../../config.json');
 const routes = existsSync(configFile) ? JSON.parse(readFileSync(configFile, 'utf8')).routes ?? [] : [];
 // One file per art format checks the static routes without a player token.
