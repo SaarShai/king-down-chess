@@ -49,10 +49,10 @@
   "charcoalColourError": 12.62,
   "atlas": {
    "file": "rook/slam.webp",
-   "bytes": 1243744,
-   "width": 2576,
-   "height": 2648,
-   "sha256": "3f54c2b5b01295dabc2d2d02d4be28889f249c2d088b4be75a930c849f5f0acc"
+   "bytes": 505904,
+   "width": 2216,
+   "height": 2280,
+   "sha256": "814a44a8249ae0d7ec3c75faa4ad9d1c205d6734bde66ff9d34c6f70c28a4a0b"
   },
   "boardSheet": {
    "file": "rook/rook.webp",

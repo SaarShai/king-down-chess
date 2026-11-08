@@ -10,12 +10,13 @@ export const DARK_SINK_MS = 1500;
 export const DARK_LEAVES = .19;
 const DARK_SETTLED = .8;
 const ATLAS_URL = new URL('./dark-gate.webp', import.meta.url).href;
-const HANDS_URL = new URL('../../../docs/2d-first-pieces/king-shadow/hands/film-poses.webp', import.meta.url).href;
+const HANDS_URL = new URL('../../../docs/2d-first-pieces/king-shadow/hands/film-poses-144.webp', import.meta.url).href;
 type Rect = readonly [number, number, number, number];
 const RIM: Rect = [0, 0, 300, 289], CRACK: Rect = [302, 0, 275, 280], SWIRL: Rect = [579, 0, 200, 200];
 const TENDRILS: readonly Rect[] = [[0, 291, 110, 120], [112, 291, 109, 120], [223, 291, 102, 120], [327, 291, 120, 81]];
 const COLLARS: readonly Rect[] = [[449, 291, 170, 64], [621, 291, 170, 66], [0, 413, 170, 56], [172, 413, 170, 60]];
-// The hand film: 65 frames in 192 px cells, 8 to a row. The ivory hands come first; they read on the ink for both armies.
+// The hand film: 65 frames in 192 px cells, 8 to a row (the file stores each cell at 144 px; the draw keeps 192 px units).
+// The ivory hands come first; they read on the ink for both armies.
 // Frame 0 is open, 16 reach, 32 half clutch, 48 clutch.
 const CELL = 192, COLS = 8, WRIST_X = 96, WRIST_Y = 176;
 const OPEN = 0, REACH = 16, CLUTCH = 48;
@@ -87,11 +88,11 @@ function drawTendrils(ctx: CanvasRenderingContext2D, at: Point, size: number, gr
 /** One bone hand, its wrist on the ink at (x, surface). `rise`, 0..1, is how far it stands out of the ink. */
 function drawHand(ctx: CanvasRenderingContext2D, x: number, surface: number, size: number, rise: number, frame: number, lean: number, flip: boolean) {
   if (!hands || rise <= .01) return;
-  const k = .37 * size, f = Math.round(frame), sx = (f % COLS) * CELL, sy = Math.floor(f / COLS) * CELL;
+  const k = .37 * size, f = Math.round(frame), src = hands.naturalWidth / COLS, sx = (f % COLS) * src, sy = Math.floor(f / COLS) * src;
   ctx.save();
   ctx.beginPath(); ctx.rect(x - 90, surface - 200, 180, 202); ctx.clip();
   ctx.translate(x, surface + (1 - rise) * CELL * k * .95); ctx.rotate(lean); ctx.scale(flip ? -k : k, k);
-  ctx.drawImage(hands, sx, sy, CELL, CELL, -WRIST_X, -WRIST_Y, CELL, CELL);
+  ctx.drawImage(hands, sx, sy, src, src, -WRIST_X, -WRIST_Y, CELL, CELL);
   ctx.restore();
 }
 

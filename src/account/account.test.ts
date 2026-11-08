@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { accountHtml, userOf } from './account';
@@ -6,12 +6,20 @@ import { accountHtml, userOf } from './account';
 const buttons = (html: string) => [...html.matchAll(/<button[^>]*>(.*?)<\/button>/g)].map(m => m[1].replace(/<[^>]*>/g, ''));
 
 describe('Settings → Account', () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.resetModules(); });
   it('signed out: the reason to sign in, Google and GitHub, and the privacy and terms links', () => {
     const html = accountHtml(null, false, ['google', 'github']);
     expect(html).toContain('Sign in to save your games on every device');
     expect(buttons(html)).toEqual(['Continue with Google', 'Continue with GitHub']);
     expect(html).toContain('href="/privacy.html"');
     expect(html).toContain('href="/terms.html"');
+  });
+
+  it('the app links to its stage site, because its own page path opens nothing there', async () => {
+    vi.stubGlobal('location', new URL('capacitor://localhost/')); vi.stubEnv('VITE_KINGDOWN_STAGE', ''); vi.resetModules();
+    const html = (await import('./account')).accountHtml(null, false, ['email']);
+    expect(html).toContain('href="https://kingdown.dev/privacy.html"');
+    expect(html).toContain('href="https://kingdown.dev/terms.html"');
   });
 
   it('Facebook shows only with its flag', () => {
