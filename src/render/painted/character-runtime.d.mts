@@ -13,7 +13,7 @@ export function thinTurn(bank: RuntimeBank): RuntimeBank;
 export function turnRoute(banks: RuntimeBank[], from: string, to: string): { bank: RuntimeBank; reverse: boolean }[] | null;
 export function createCharacterRuntime(options?: { url?: string; wake?: () => void; fetcher?: typeof fetch; image?: () => HTMLImageElement; drawnEffects?: string[]; lateEffects?: string[] }): {
  ready(): Promise<void>;
- readonly stats: { bytes: number; peakBytes: number; framesLoaded: number; active: number; queued: number; manifestReady: boolean; manifestLoading: boolean };
+ readonly stats: { bytes: number; peakBytes: number; framesLoaded: number; active: number; queued: number; manifestReady: boolean; manifestLoading: boolean; manifestPending: boolean };
  has(character: string, army: string): boolean;
  smoke(): { tick(dt: number, anchor: number[], scale?: number): void; draw(ctx: CanvasRenderingContext2D): void } | null;
  warm(character: string, army: string, full?: boolean): Promise<void>;

@@ -277,7 +277,9 @@ describe('production PaintedView card invocation and scene lifecycle', () => {
         advance(effect.duration * .02);
         expect(contact).toHaveBeenCalledTimes(move.captures.length ? 1 : 0);
       }
-      advance(10000); await running;
+      // A second move of the card can start while the character manifest is in transfer: it waits for it (microtasks).
+      for (let i = 0; i < 4; i++) { advance(10000); for (let k = 0; k < 50; k++) await Promise.resolve(); }
+      await running;
       expect(scene.animating).toBe(false);
       // A walk that keeps the plain path reports contact as any plain move does (a Knight also at a quiet landing).
       if (effect) expect(contact).toHaveBeenCalledTimes(move.captures.length ? 1 : 0);

@@ -1303,7 +1303,7 @@ function drawEncounter(a,t) {
   get actionTotal(){const a=animation;return a&&!a.done&&!a.preparing&&!a.effect?a.duration:null;},
   get characterExit(){return animation?.exitStart??null;},
   get characterWarmupSettled(){return bodyWarm&&bodyRuntime?.stats.manifestReady&&bodyRuntime.stats.framesLoaded>0&&bodyRuntime.stats.active===0&&bodyRuntime.stats.queued===0;},
-  get characterMemory(){return bodyRuntime?.stats??{bytes:0,peakBytes:0,framesLoaded:0,active:0,queued:0,manifestReady:false,manifestLoading:false};},
+  get characterMemory(){return bodyRuntime?.stats??{bytes:0,peakBytes:0,framesLoaded:0,active:0,queued:0,manifestReady:false,manifestLoading:false,manifestPending:false};},
   get characterEffects(){return effectFrames;},
   setDecorate(fn){decorate=fn;wake();},
   redraw(){wake();},
@@ -1321,8 +1321,9 @@ function drawEncounter(a,t) {
    const {base,verb}=effect?{base:{type:'effect',move,start:performance.now(),speed,duration:effect.duration,effect},verb:'Playing card…'}:plan(move,speed,gait);
    return new Promise(resolve=>{
     if(bodyRuntime&&!effect&&move.promo)void bodyRuntime.warm(ART[move.promo],armyOf(base.value));
-    // A manifest still in transfer is waited for inside the prepare limit: a late manifest no longer slides the still picture at once.
-    const available=!effect&&!!bodyRuntime&&(bodyRuntime.has(characterOf(base.value),armyOf(base.value))||bodyRuntime.stats.manifestLoading);
+    // A first manifest load still in transfer (manifestPending) is waited for inside the prepare limit: a late manifest
+    // no longer slides the still picture at once. A retry after a failed load is not waited for.
+    const available=!effect&&!!bodyRuntime&&(bodyRuntime.has(characterOf(base.value),armyOf(base.value))||bodyRuntime.stats.manifestPending);
     const a=animation={...base,resolve,onContact,bodyUnavailable:!!bodyRuntime&&!available};onStatus(verb);
     if(idleOut){if(idleOut.square===move.from)pendingIdle=idleOut;idleOut=null;}
     const lastPose=pendingIdle?.pose;

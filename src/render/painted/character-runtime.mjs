@@ -360,7 +360,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  return {
   ready:()=>bounded(loadManifest()).then(()=>{}),
   has:(character,army)=>{if(!manifestReady)void loadManifest();return !!idle(character,army);},
-  get stats(){return {bytes:bytes+effectBytes+smokeBytes,peakBytes,framesLoaded:images.size,active,queued:queue.length,manifestReady,manifestLoading:!!manifestLoading};},
+  get stats(){return {bytes:bytes+effectBytes+smokeBytes,peakBytes,framesLoaded:images.size,active,queued:queue.length,manifestReady,manifestLoading:!!manifestLoading,manifestPending:!!manifestLoading&&!manifestRetryAt};},
   smoke(){return smokeClass&&smokeImage?new smokeClass(smokeImage):null;},
   warm,
   async prefetchMoves(character,army,directions,captures=[]){
