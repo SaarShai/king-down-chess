@@ -20,7 +20,8 @@ export function shadowHandsAt(t,period){
  return out;
 }
 
-// Sixteen FILM intervals per gap, with all keys registered to the same wrist in a 192 px cell.
+// Sixteen FILM intervals per gap, with all keys registered to the same wrist in a 192 px cell. The image may store
+// the cells smaller (film-poses-144.webp): the source cell is its width over COLS, the draw stays in 192 px units.
 const CELL=192,COLS=8,ROWS=9,PIVOT={x:96,y:176};
 const KEYS=[.12,.34,.50,.65,.85];
 export function shadowHandFrame(u){
@@ -32,14 +33,14 @@ export function shadowHandFrame(u){
 /** Draw one complete painted hand, clipped by the near edge of its floor crevice. */
 export function drawPaintedShadowHand(ctx,image,x,y,h){
  if(h.rise<=.01||h.alpha<=.001)return;
- const sx=(h.frame%COLS)*CELL,sy=(h.side*ROWS+Math.floor(h.frame/COLS))*CELL,k=.2625*h.size;
+ const src=(image.naturalWidth||image.width)/COLS,sx=(h.frame%COLS)*src,sy=(h.side*ROWS+Math.floor(h.frame/COLS))*src,k=.2625*h.size;
  ctx.save();ctx.globalAlpha*=h.alpha;
  ctx.beginPath();ctx.moveTo(x-60,y-72);ctx.lineTo(x+60,y-72);
  ctx.lineTo(x+60,h.lip.at(-1)[1]);
  for(let i=h.lip.length-1;i>=0;i--)ctx.lineTo(...h.lip[i]);
  ctx.lineTo(x-60,h.lip[0][1]);ctx.closePath();ctx.clip();
  ctx.translate(x,y+(1-h.rise)*43*h.size);ctx.rotate(h.angle);ctx.scale(h.flip?-1:1,1);
- ctx.drawImage(image,sx,sy,CELL,CELL,-PIVOT.x*k,-PIVOT.y*k,CELL*k,CELL*k);
+ ctx.drawImage(image,sx,sy,src,src,-PIVOT.x*k,-PIVOT.y*k,CELL*k,CELL*k);
  ctx.restore();
  ctx.save();ctx.globalAlpha*=h.alpha;
  ctx.strokeStyle='rgba(13,10,15,.9)';ctx.lineWidth=2*h.size;ctx.lineJoin='round';

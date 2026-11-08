@@ -205,6 +205,13 @@ it('keeps each play-time effect texture a WebP of at most 256 KB', () => {
  expect(statSync(resolve('docs/2d-first-pieces/king-stratus/cloud-bank.webp')).size).toBeLessThanOrEqual(320*1024);
 });
 
+// Two sheets of many frames that the game loads in play: the Shadow hand film (130 frames) and the Rook slam clip (52 drawings).
+// Each is stored at the board's largest display size (film-poses-144.webp: pack-runtime.mjs; slam.webp: clips/build.mjs).
+it('keeps the Shadow hand film and the Rook slam atlas small', () => {
+ expect(statSync(resolve('docs/2d-first-pieces/king-shadow/hands/film-poses-144.webp')).size).toBeLessThanOrEqual(352*1024);
+ expect(statSync(resolve('docs/2d-first-pieces/rook/slam.webp')).size).toBeLessThanOrEqual(512*1024);
+});
+
 it('converts each effect texture to WebP with exact alpha and points its module at it', async () => {
  scratch=mkdtempSync(join(tmpdir(),'kingdown-webp-effect-'));const source=join(scratch,'source'),out=join(scratch,'out'),id='e'.repeat(64),dir=join(source,'effects',id);
  mkdirSync(join(source,'assets'),{recursive:true});mkdirSync(join(dir,'assets'),{recursive:true});

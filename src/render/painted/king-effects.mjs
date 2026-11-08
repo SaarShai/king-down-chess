@@ -24,7 +24,7 @@ const LAVA_MASK=new URL('../../../docs/2d-first-pieces/king-flame/lava-mask.webp
 const LAVA_GROUND=new URL('../../../docs/2d-first-pieces/king-flame/ground-fissures.webp',import.meta.url).href;
 const MUD_PLANTS=new URL('../../../docs/2d-first-pieces/king-mud/ground-plants.webp',import.meta.url).href;
 const CLOUD_BANK=new URL('../../../docs/2d-first-pieces/king-stratus/cloud-bank.webp',import.meta.url).href;
-const HAND_BANK=new URL('../../../docs/2d-first-pieces/king-shadow/hands/film-poses.webp',import.meta.url).href;
+const HAND_BANK=new URL('../../../docs/2d-first-pieces/king-shadow/hands/film-poses-144.webp',import.meta.url).href;
 const SMOKE_MASK=new URL('../../../docs/2d-first-pieces/king-shadow/smoke-mask.webp',import.meta.url).href;
 const TAU=Math.PI*2;
 const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
