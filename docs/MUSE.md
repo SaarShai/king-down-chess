@@ -40,7 +40,7 @@ With the connector on, the server needs the same settings as the ChatGPT plugin 
 
 ## Deploy
 
-Staging: every staging deploy (`python3 tools/release/staging.py`) serves the connector at `https://kingdown-staging.vercel.app/muse/mcp`. The staging project's `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` holds only the staging Muse client ID ([ticket 11](specs/muse-connector/issues/11-staging-oauth.md)), and staging runs migration 0023. Live only after the Muse review passes and the owner says so.
+Staging: a staging deploy (`python3 tools/release/staging.py`) of a branch with this switch serves the connector at `https://kingdown-staging.vercel.app/muse/mcp`. Before the first such deploy, three steps are done by hand (2026-11-08, [ticket 11](specs/muse-connector/issues/11-staging-oauth.md)): migration 0023 in the staging SQL editor, the Muse row of the audience hook, and the staging Preview value `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` set to only the Muse client ID. `staging.py` does none of them. If one is wrong, the server stops at start and every staging path, `/api/*` too, answers 503; `staging.py` moves the alias before its `/api/status` check, so set the alias back to the previous deployment by hand. Live only after the Muse review passes and the owner says so.
 
 ## Owner steps
 
