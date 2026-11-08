@@ -100,7 +100,8 @@ export class LocalMatch {
   snapshot(): Promise<MatchSnapshot> { return this.call('snapshot'); }
   apply(command: MoveCommand): Promise<MatchSnapshot> { return this.call('apply', command); }
   async chooseMove(options: ChooseMoveOptions = {}): Promise<string> {
-    const deadline = performance.now() + 15000;
+    // The time cap counts from this call: the search worker subtracts its own start-up from the search budget.
+    const askedAt = performance.timeOrigin + performance.now(), deadline = performance.now() + 15000;
     let input = options;
     if (!this.supportsLevels && options.level !== undefined) {
       if (!['beginner', 'casual', 'club', 'strong'].includes(options.level)) throw new Error('Malformed level');
@@ -112,7 +113,7 @@ export class LocalMatch {
     const context = searchContext(value);
     if (this.closed) throw new Error('Match closed');
     this.searchWorker ??= this.watch(compiled ? new NodeWorker(new URL('./search-worker.mjs', import.meta.url)) : tsWorker(new URL('./search-worker.ts', import.meta.url)), 'Search');
-    const lan = await this.call<unknown>('search', context, this.searchWorker, deadline);
+    const lan = await this.call<unknown>('search', { ...context, askedAt }, this.searchWorker, deadline);
     if (typeof lan !== 'string' || context.legal.filter(move => move === lan).length !== 1) throw new MatchError('Search returned illegal or ambiguous move');
     const current = await this.call<MatchSnapshot>('snapshot', undefined, this.worker, deadline);
     if (current.revision !== context.revision) throw new MatchError('Stale search revision');
