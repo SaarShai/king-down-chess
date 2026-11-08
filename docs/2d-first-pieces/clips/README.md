@@ -22,7 +22,7 @@ node docs/2d-first-pieces/clips/build.mjs <samples folder>
 
 The samples folder holds the reviewed sample sheets and manifests (`knight-tap-frames-v2.*`, `rook-slam-hq.*`). By default it is `docs/specs/character-animation-samples/preview/assets`. `provenance.json` records the SHA-256 of each source sheet.
 
-The script does not repaint a drawing. It fits one scale and one translation for each clip: the clip's rest drawing against the board's still sprite. It mirrors the Rook as the board does. Each drawing keeps the registration anchor of its sample manifest. The atlas stores each drawing at 0.36 of sprite size, which is more than the board's largest display needs.
+The script does not repaint a drawing. It fits one scale and one translation for each clip: the clip's rest drawing against the board's still sprite. It mirrors the Rook as the board does. Each drawing keeps the registration anchor of its sample manifest. Each clip has its own atlas scale (`factor`). The Knight atlas stores each drawing at 0.36 of sprite size. The Rook atlas stores it at 0.31: the board's largest display (his scale 0.155 at resolution 2). The Rook atlas uses WebP quality 75 and quantized alpha (about 0.5 MB, not 1.2 MB); at board size and at 2x it shows no change.
 
 The Rook slam drawings are a redrawn Rook. So the board's Rook sheet `rook/rook.webp` is the clip's rest drawing (both armies), and the build writes it too. The figure does not change when the clip starts and ends. The build stops if the rest drawing does not fit the sheet windows (`CELLS`, `mirrorOrigin` in `src/render/painted/rook/motion.mjs`).
 

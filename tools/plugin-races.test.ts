@@ -5,7 +5,7 @@ import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
-import { startHarness, waitForSourceApp } from './plugin-ui-harness';
+import { remountWidget, startHarness, waitForSourceApp } from './plugin-ui-harness';
 // A frame read can take more than the 1 s poll default under full-suite load in CI (plugin-app runs 40225675633, 40223950211).
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000, expect: { poll: { timeout: 5000 } } });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
@@ -570,7 +570,7 @@ it('R9: a failed connect shows an enabled Try again that connects again (a.out 9
   try {
     const mounts = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length);
     await page.evaluate(() => { (window as any).rejectNextConnect = true; });
-    await page.locator('#remount').click();
+    await remountWidget(page);
     const line = frame.locator('#error, #home-error').filter({ hasText: 'Could not connect to the game' });
     await line.waitFor();
     // The widget offers a Try again that connects again and mounts the page.

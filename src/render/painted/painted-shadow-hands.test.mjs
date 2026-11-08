@@ -23,7 +23,11 @@ test('painted Shadow hands leave pauses, overlap at most two, and repeat at the 
 test('each painted hand draws one coherent pose behind the near crevice lip',()=>{
  const calls=[],ctx={globalAlpha:1,save(){},restore(){},beginPath(){},moveTo(){},lineTo(){},closePath(){},clip(){calls.push('clip');},translate(){},rotate(){},scale(){},drawImage(...args){calls.push(args);},stroke(){calls.push('lip');}};
  const hand={side:0,frame:32,size:1,rise:1,alpha:1,angle:0,flip:false,lip:[[-12,0],[0,2],[12,0]]};
- drawPaintedShadowHand(ctx,{},0,0,hand);
+ drawPaintedShadowHand(ctx,{naturalWidth:1152},0,0,{...hand,frame:33});
+ // film-poses-144.webp: 144 px cells in the file, the same 192 px cell (at .2625) on the board.
+ assert.deepEqual(calls.filter(Array.isArray)[0].slice(1,5),[144,576,144,144]);
+ assert.ok(Math.abs(calls.filter(Array.isArray)[0][7]-192*.2625)<1e-9);
+ calls.length=0;drawPaintedShadowHand(ctx,{},0,0,hand);
  assert.equal(calls.filter(Array.isArray).length,1);
  assert.equal(calls[0],'clip');assert.equal(calls.at(-1),'lip');
  calls.length=0;drawPaintedShadowHand(ctx,{},0,0,{...hand,rise:0});assert.equal(calls.length,0);

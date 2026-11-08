@@ -9,6 +9,7 @@ import type { Client, Provider, SignInOption } from './client';
 import { emailCodeForm, forgetEmailCode } from './email-code';
 import { AUTH_KEY } from './session';
 import { canWriteLocal } from './local';
+import { apiOrigin } from '../platform';
 export type User = { name: string; avatar: string | null; provider: string };
 type AuthUser = { user_metadata?: Record<string, unknown>; app_metadata?: Record<string, unknown> };
 
@@ -36,8 +37,9 @@ export function userOf(u: AuthUser | null | undefined): User | null {
 
 /** The Account section's content. The name and picture come from outside the game, so both are escaped. */
 export function accountHtml(user: User | null, facebook: boolean, available: readonly SignInOption[] = []): string {
-  const links = '<p class="account-links"><a href="/privacy.html" target="_blank" rel="noopener">Privacy</a>'
-    + '<a href="/terms.html" target="_blank" rel="noopener">Terms</a></p>';
+  // The app's own page path opens nothing there (capacitor://localhost); its stage's site opens in the system browser.
+  const links = `<p class="account-links"><a href="${apiOrigin}/privacy.html" target="_blank" rel="noopener">Privacy</a>`
+    + `<a href="${apiOrigin}/terms.html" target="_blank" rel="noopener">Terms</a></p>`;
   if (!user) {
     return '<p>Sign in to save your games on every device.</p>'
       + PROVIDERS.filter(([p]) => available.includes(p) && (facebook || p !== 'facebook'))

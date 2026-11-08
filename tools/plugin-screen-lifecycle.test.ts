@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { chromium, type Browser, type Page } from 'playwright';
-import { startHarness, waitForSourceApp } from './plugin-ui-harness';
+import { remountWidget, startHarness, waitForSourceApp } from './plugin-ui-harness';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 vi.setConfig({ testTimeout: 20_000, hookTimeout: 30_000 });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
@@ -87,7 +87,7 @@ it.each(['card:Haste', 'king', 'seat-king', 'seat-menu', 'seat-abort'])('preserv
     await page.evaluate(() => (window as any).harnessTeardown());
     await expect.poll(async () => (await state(page)).sheet).toBe(sheet);
     expect(await frame.locator('#menu-sheet, #seat-menu-sheet').count()).toBe(0);
-    await page.locator('#remount').click();
+    await remountWidget(page);
     await frame.locator(name.startsWith('seat-') && name !== 'seat-king' ? '#seat-menu-sheet' : '#menu-sheet').waitFor();
     await expect.poll(async () => (await state(page)).sheet).toBe(sheet);
     await frame.locator(name.startsWith('seat-') && name !== 'seat-king' ? '#seat-menu-close' : '#menu-close').click();
@@ -143,7 +143,7 @@ it.each(['pieces', 'cards'])('clears the old %s sheet on a remount', async sheet
     await frame.locator('html').evaluate((_, sheet) => { const app = (window as any).harnessApp; app.client.state.sheet = sheet; app.client.save(); }, sheet);
     await expect.poll(async () => (await state(page)).sheet).toBe(sheet);
     await page.evaluate(() => (window as any).harnessTeardown());
-    await page.locator('#remount').click();
+    await remountWidget(page);
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     await expect.poll(async () => (await state(page)).sheet).toBeUndefined();
     expect(await frame.locator('#menu-sheet').count()).toBe(0);

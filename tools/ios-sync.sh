@@ -12,6 +12,6 @@ case "$stage" in
 esac
 VITE_SUPABASE_PUBLISHABLE_KEY=$(node tools/release/publishable-key.mjs "$site"); export VITE_SUPABASE_PUBLISHABLE_KEY
 npm run build
-# shortcut: the app carries all of dist/ (about 260 MB, mostly character frames); stream the frames before the App Store build.
+# The app carries all of dist/ (about 257 MB, mostly character frames): docs/specs/ios-app/issues/09-frames.md.
 npx cap sync ios
 echo "ios-sync: $stage build copied to ios/App/App/public"
