@@ -34,4 +34,5 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 - The specs folder, `docs/specs/`, holds the specs and the tickets. They are committed, so a cloud session and the next session see them.
 - `TASKS.md` is the index of open items; each line links to its spec, ticket or archive section. `docs/QUEUE.md` holds the runs.
 - The tracker files (`TASKS.md`, `LESSONS.md`, the topic files in `docs/lessons/`, `docs/QUEUE.md`) change only on main. A branch records its progress in its ticket.
+- A direct push to main runs only the gate, not the doc lints. Run `npm run test:docs` before you push a tracker change: for example, the Open items of `TASKS.md` must stay under 5,000 bytes (`tools/steering.docs.test.ts`).
 - AGENTS.md sets the run and approval rules. Record a run in docs/QUEUE.md. A visual change needs the owner's approval.
