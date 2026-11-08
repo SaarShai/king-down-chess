@@ -12,6 +12,8 @@ export const RAY={holdMs:240,beamMs:340,reach:30,scan:[40,200,340],dissolve:[320
 // Archer, in ms from the arrow's contact: struck, staggers, falls, lies, gone. The arrow fades before the action ends.
 export const SHOT={flightMs:220,flash:70,jolt:70,stagger:200,land:430,rest:490,fade:[470,620],arrowEnd:560,end:620};
 const ARROW_SCALE=3,ARROW_FAT=1.8,FLASH_SCALE=8,RAY_SCALE=2.1;
+/** The ranged kinds. rangedFrame draws their shot also while the painted effect still loads (player null). */
+export const RANGED=['maester','archer'];
 /** The added beats of a ranged attack: how long the body holds, where the action ends and how long the effect draws. */
 export function rangedPlan(kind,attack,release){
  if(kind==='maester')return {kind,hold:{at:release,ms:RAY.holdMs},end:attack.durationMs+RAY.holdMs,effectMs:RAY.beamMs};

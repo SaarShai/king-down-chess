@@ -1,9 +1,10 @@
 /** Convert a retained PNG runtime package without changing its source or geometry. */
 import { createHash } from 'node:crypto';
-import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
 import sharp from 'sharp';
 import { writeFootprints } from './build-character-footprints.mjs';
+import { convertRuntimeEffects } from './character-runtime-effects.mjs';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const args = process.argv.slice(2), cacheAt = args.indexOf('--cache'), cacheArg = cacheAt < 0 ? null : args[cacheAt + 1];
@@ -21,7 +22,8 @@ const cacheDir = cacheArg ? resolve(cacheArg) : null;
 const cache = cacheDir ? new Map(JSON.parse(await readFile(resolve(cacheDir, 'assets.json'))).map(asset => [asset.sourceSha256, asset])) : new Map();
 await mkdir(output); // Refuse an existing output, including partial prior builds.
 await mkdir(resolve(output, 'assets'));
-await cp(resolve(source, 'effects'), resolve(output, 'effects'), { recursive: true });
+await mkdir(resolve(output, 'effects'));
+if (manifest.effects) manifest.effects = await convertRuntimeEffects(source, output, manifest.effects);
 const converted = new Map();
 const counts = { reused: 0, converted: 0 };
 let next = 0;

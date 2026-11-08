@@ -3,8 +3,8 @@
   "durationMs": 320,
   "assets": [
     {
-      "path": "assets/golden-arrow.png",
-      "sha256": "9f34fa050729667c3b3454f6cfbd23b4db5f863dbe181dcd4df52e95a21a2368",
+      "path": "assets/golden-arrow.webp",
+      "sha256": "22539b1bdfea8521c4ac4ccd68d5d50e84023cac2facce8170dc60bdbc1652e3",
       "nativeDimensions": [
         1774,
         887
@@ -29,8 +29,8 @@
       "nativeToPreviewScale": 0.055
     },
     {
-      "path": "assets/contact-flash.png",
-      "sha256": "64f63c8f20f0e25ff133e9b1e283559797007bf2232d5266d55796498fdbff8b",
+      "path": "assets/contact-flash.webp",
+      "sha256": "cd5b36a1a4e0b250f5932cf52bbc28d566677a98b8cd206967aa891a9fb6d84e",
       "nativeDimensions": [
         1774,
         887
@@ -55,8 +55,8 @@
       "nativeToPreviewScale": 0.052
     },
     {
-      "path": "assets/golden-wisp.png",
-      "sha256": "c5f0b5302f4c7ddd7d8b5caf06f855dbd7e76e61351fe9b4fd813d40954482b9",
+      "path": "assets/golden-wisp.webp",
+      "sha256": "5dfec1f8f603739d8b52aeea7a23ac28e0518bbc3423d135855b1a908bb26480",
       "nativeDimensions": [
         1254,
         1254
