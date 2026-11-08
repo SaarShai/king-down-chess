@@ -28,7 +28,7 @@
 <nav><a href="./">← King Down</a><a href="./privacy.html">Privacy</a><a href="./terms.html">Terms</a><a href="./delete-data.html">Delete your data</a></nav>
 <main>
 <h1>Privacy policy</h1>
-<p class="meta">Last updated: 7 November 2026</p>
+<p class="meta">Last updated: 8 November 2026</p>
 <p>King Down is a chess game at <a href="https://kingdown.dev">kingdown.dev</a>, made by Saar Shai. This page says what data the game uses, why, and how you control it. Questions: <a href="mailto:hello@kingdown.dev">hello@kingdown.dev</a>.</p>
 
 <p>The website has sign-in, cloud saves, games against people, ratings and badges.</p>
@@ -58,7 +58,8 @@
   <li>the pieces you have unlocked on the website;</li>
   <li>reports, the reported handle or picture choice, and records of action on a report;</li>
   <li>alerts about your games against other players (that it is your move), and notices about an action on a report or about an appeal;</li>
-  <li>a request to delete your account, with its dates.</li>
+  <li>a request to delete your account, with its dates;</li>
+  <li id="muse-link">the OAuth link that lets your Muse connection use your King Down account.</li>
 </ul>
 <p>Other players see your handle, preset picture, rating and the games you play with them. They never see your email address.</p>
 
@@ -74,6 +75,7 @@
 <p>Like most websites, our servers keep short technical logs. Vercel records each request to kingdown.dev, with its time, address (URL), result and your IP address. Supabase records each sign-in, with its time and your IP address. When a game action fails, our server logs the time, the tool name and an error code, but not your moves or your messages. We use these logs only to keep the game running, find faults and stop abuse. Vercel keeps them for 1 day. Supabase keeps them for the log period of our Supabase plan, at most 90 days.</p>
 <p id="fault-reports">To find and fix faults, the website sends fault reports to our server. A report holds the fault type and name, and an approved code message with private values removed (at most 300 characters). Variable values use a fixed mark. Other messages use one fixed text. No code location is sent or stored. The report holds the route path with IDs removed. Other paths use one fixed text. It includes the current build commit (other builds use one fixed text), browser family and major version, phone or desktop size class, and fault group code. Server faults hold the fault name, approved message and route, without code file locations or browser details. We store these reports, their counts and their first and last times in Supabase for 30 days. Reports are not linked to your account. They hold no account number, IP address, full browser string, moves, player messages or game IDs. They hold no URL query or fragment. We use no third-party tracking tool.</p>
 <p id="chatgpt-app">A test version of King Down ran as an app in ChatGPT. That app is closed, and King Down sends no data to OpenAI now. If you used it, OpenAI received what the app sent to ChatGPT: a short summary for the chat and the board data that ChatGPT showed (the position, the moves, and the handles and pictures of the players). OpenAI handles that data under its own privacy policy. We never received your ChatGPT conversation. We keep the records of that app under the rules on this page. The daily job deletes the record of which game a ChatGPT board showed after 7 days. To end the link between a ChatGPT connection and your King Down account, delete your account or write to us.</p>
+<p id="muse-connector">You can play King Down in Muse, the AI agent of Meta. To connect them, you sign in to King Down from Muse and approve the link (OAuth through Supabase). Then you can start and play games against the computer in Muse, and see the turn status of your games. King Down sends Muse the result of each action: the board as text, the moves, the game status and links to your games on kingdown.dev. These results hold no handle, picture or email address. King Down uses the words of a move only to find that move, and does not store them. Muse sends King Down only the tool calls, not your Muse conversation. Meta and King Down are independent controllers of this data under Meta's Data Protection Requirements. Meta can use your requests, the tool calls and their results under its own terms and privacy policy, for example to improve Muse and adapt it to you. When you disconnect King Down in Muse, or ask us to delete your data, we delete the data that King Down received through Muse.</p>
 
 <h2>How long we keep it</h2>
 <p>A confirmed deletion request starts a seven-day grace period. A new sign-in cancels it. A token refresh does not. After the period, the daily job deletes your account, email address, profile, settings, cloud saves, ratings, rating history, badges, alerts and games against the computer. It ends your open games first. A report hold can delay deletion.</p>
