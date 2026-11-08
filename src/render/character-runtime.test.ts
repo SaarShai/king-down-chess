@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createCharacterRuntime, anchorAt, bankPointToWorld, idleBankAt, facingOf, figureHeight, frameAt, turnRoute, reverseRoute, walkStride, type RuntimeBank } from './painted/character-runtime.mjs';
+import { createCharacterRuntime, anchorAt, bankPointToWorld, idleBankAt, facingOf, figureHeight, frameAt, thinTurn, turnRoute, reverseRoute, walkStride, type RuntimeBank } from './painted/character-runtime.mjs';
 const bank = (from = 'SE', to = 'S'): RuntimeBank => ({ id: `${from}-${to}`, character: 'pawn', army: 'white', kind: 'turn', from, to, facing: 'SE', durationMs: 120, nearest: true, pivot: [384,700], canvasSize: [768,768], bodyHeightPx: 600, registrationHeightPx: 600, frames: [0,60,120].map(timeMs => ({ url: `frame-${timeMs}`, timeMs })) });
 
 it('sets the final figure heights, and a walk stride follows its figure', () => {
@@ -94,9 +94,9 @@ describe('ready character playback', () => {
    runtime.releaseMovePrefetch();let prepared:unknown=undefined;void runtime.prepare('king-frost','white','N',true).then(p=>{prepared=p;});
    await vi.advanceTimersByTimeAsync(50);
    expect(prepared).toMatchObject({attack:{id:'attack-N'}});
-   // The stalled frame's slot shows the decoded turn frame before it.
-   expect(runtime.action(prepared as never,-120+60,320,120)).toMatchObject({url:'turn-2'});
-   expect(runtime.action(prepared as never,-120+75,320,120)).toMatchObject({url:'turn-4'});
+   // The capture plays the thinned turn (every second pose); the stalled frame's slot shows the kept pose before it.
+   expect(runtime.action(prepared as never,-120+60,320,120)).toMatchObject({url:'turn-1'});
+   expect(runtime.action(prepared as never,-120+80,320,120)).toMatchObject({url:'turn-5'});
   }finally{runtime.dispose();vi.useRealTimers();}
  });
  it('loads a capture in clock order, and loads again a warm frame that the selection stopped', async () => {
@@ -114,14 +114,49 @@ describe('ready character playback', () => {
    for(const other of others)void runtime.warm(other.character,'white');await vi.advanceTimersByTimeAsync(10);
    expect(runtime.stats.active).toBe(6);started.length=0;
    void runtime.prefetchMoves('king-frost','white',[],['N']);await vi.advanceTimersByTimeAsync(2000);
-   expect(started.filter(s=>s.startsWith('turn-')||s.startsWith('attack-'))).toEqual([...Array.from({length:8},(_,i)=>`turn-${i}`),...Array.from({length:4},(_,i)=>`attack-${i}`)]);
+   expect(started.filter(s=>s.startsWith('turn-')||s.startsWith('attack-'))).toEqual(['turn-1','turn-3','turn-5','turn-7',...Array.from({length:4},(_,i)=>`attack-${i}`)]);
    for(const other of others)expect(runtime.rest(other.character,'white')).toMatchObject({url:other.frames[0].url});
+  }finally{runtime.dispose();vi.useRealTimers();}
+ });
+ it('thins a turn to about every second pose, keeps its first and last pose and its time', () => {
+  const turn={...bank(),frames:Array.from({length:9},(_,i)=>({url:`t-${i}`,timeMs:i*15}))};
+  const thin=thinTurn(turn);
+  expect(thin.frames.map(f=>f.url)).toEqual(['t-0','t-2','t-4','t-6','t-8']);
+  expect(thin.durationMs).toBe(120);expect(thinTurn(turn)).toBe(thin);
+  // Each kept pose shows from the midpoint after the pose before it to the midpoint before the next.
+  expect([0,14,16,50,104,106,120].map(t=>frameAt(thin,t).url)).toEqual(['t-0','t-0','t-2','t-4','t-6','t-8','t-8']);
+  expect(thinTurn({...turn,frames:turn.frames.slice(0,8)}).frames.map(f=>f.url)).toEqual(['t-0','t-2','t-4','t-5','t-7']);
+  // A turn of three poses, and a bank that is not a turn, stay as they are.
+  expect(thinTurn(bank()).frames).toHaveLength(3);
+  const idle={...turn,kind:'idle'};expect(thinTurn(idle)).toBe(idle);
+ });
+ it('prefetches a selected capture with the thinned turn when the manifest comes after the 1 s bound', async () => {
+  // Live: the 911 KB manifest came up to 2.7 s after the click. The selection prefetch stopped after 1 s and loaded
+  // nothing; the move then loaded all its frames after the click.
+  vi.useFakeTimers();
+  const idle={...bank(),id:'idle',character:'king-frost',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const turn={...bank('SE','N'),id:'turn',character:'king-frost',frames:[idle.frames[0],...Array.from({length:8},(_,i)=>({url:`turn-${i}`,timeMs:(i+1)*15}))]};
+  const attack={...idle,id:'attack-N',kind:'attack',facing:'N',contactMs:120,durationMs:320,frames:Array.from({length:8},(_,i)=>({url:`attack-${i}`,timeMs:i*40}))};
+  let send=()=>{};const started:string[]=[];
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn((url:string)=>new Promise(resolve=>{if(url.endsWith('manifest.json'))send=()=>resolve({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,attack]})});})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){started.push(s.split('/').at(-1)!);setTimeout(()=>img.onload?.(),30);}};return img as unknown as HTMLImageElement;}});
+  try{
+   void runtime.prefetchMoves('king-frost','white',[],['N']);await vi.advanceTimersByTimeAsync(1500);
+   send();await vi.advanceTimersByTimeAsync(500);
+   expect(started).toEqual(['rest','turn-1','turn-3','turn-5','turn-7','attack-0','attack-1','attack-2','attack-3']);
+   runtime.releaseMovePrefetch();const preparing=runtime.prepare('king-frost','white','N',true);await vi.advanceTimersByTimeAsync(10);
+   const prepared=await preparing;expect(prepared).toMatchObject({attack:{id:'attack-N'}});
+   // The turn plays the kept poses at their times: turn-0 is not asked for, its slot shows the pose nearest to it.
+   expect(runtime.action(prepared as never,-120+20,320,120)).toMatchObject({url:'turn-1'});
+   expect(runtime.action(prepared as never,-120+40,320,120)).toMatchObject({url:'turn-1'});
+   expect(runtime.action(prepared as never,-120+50,320,120)).toMatchObject({url:'turn-3'});
+   expect(started).not.toContain('turn-0');
   }finally{runtime.dispose();vi.useRealTimers();}
  });
  it('plays a capture whose frames still load at the limit and holds the decoded poses', async () => {
   vi.useFakeTimers();
   const idle={...bank(),id:'idle',character:'king-frost',kind:'idle',frames:[{url:'rest',timeMs:0}]};
-  const turn={...bank('SE','N'),id:'turn',character:'king-frost',nearest:false,frames:[idle.frames[0],{url:'turn-0',timeMs:40},{url:'late-turn',timeMs:80},{url:'late-end',timeMs:120}]};
+  const turn={...bank('SE','N'),id:'turn',character:'king-frost',nearest:false,frames:[idle.frames[0],{url:'turn-skipped',timeMs:30},{url:'turn-0',timeMs:60},{url:'late-turn',timeMs:90},{url:'late-end',timeMs:120}]};
   const attack={...idle,id:'attack-N',kind:'attack',facing:'N',frames:Array.from({length:4},(_,i)=>({url:`late-attack-${i}`,timeMs:i*10}))};
   const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,attack]})})) as unknown as typeof fetch,
    image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){if(!s.includes('/late-'))queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});

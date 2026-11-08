@@ -39,6 +39,17 @@ export function idleBankAt(clips,turns,restFacing,time) {
  for(const part of sequence){if(t<part.durationMs)return {bank:part.bank,time:part.reverse?part.durationMs-t:t,reverse:part.reverse};t-=part.durationMs;}
  return null;
 }
+// A turn is a short sequence: a capture or a walk plays about every second pose of it, the first and the last pose
+// kept and the others evenly spaced. Each pose keeps its time and shows from the midpoint after the pose before it to
+// the midpoint before the next, so the turn takes as long. A King capture's four turns then load about 16 frames, not 31.
+const thinned=new WeakMap();
+export function thinTurn(bank) {
+ if(bank.kind!=='turn'||bank.frames.length<4)return bank;
+ let out=thinned.get(bank);if(out)return out;
+ const n=bank.frames.length-1,m=Math.ceil(n/2),keep=[...new Set(Array.from({length:m+1},(_,j)=>Math.round(j*n/m)))].map(k=>bank.frames[k]);
+ const frames=keep.map((f,j)=>({...f,visibleIntervalMs:[j?(keep[j-1].timeMs+f.timeMs)/2:0,j<keep.length-1?(f.timeMs+keep[j+1].timeMs)/2:bank.durationMs]}));
+ out={...bank,frames};thinned.set(bank,out);return out;
+}
 const jumps=character=>character==='knight'||character==='paladin';
 const unique=frames=>{const seen=new Set();return frames.filter(f=>!seen.has(f.url)&&seen.add(f.url));};
 /** A jump streams. first: its frames up to the crouch key and its landing; it starts once they are decoded. needed:
@@ -355,10 +366,11 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   async prefetchMoves(character,army,directions,captures=[]){
    const generation=++moveGeneration;movePrefetchActive=true;moveLoads?.release();moveLoads=null;movePins?.();movePins=null;
    try{
-    await bounded(loadManifest());if(disposed||generation!==moveGeneration)return;
+    // A late manifest still prefetches the selection when it comes: the click ends this wait (releaseMovePrefetch).
+    await loadManifest();if(disposed||generation!==moveGeneration)return;
     // A capture also needs its separate effect (the Archer's arrow); it loads now, not at the click.
     if(captures.length)void loadSeparate(character);
-    const all=forPiece(character,army),rest=idle(character,army),turns=all.filter(b=>b.kind==='turn');
+    const all=forPiece(character,army),rest=idle(character,army),turns=all.filter(b=>b.kind==='turn').map(thinTurn);
     // Decode capture starts before the click; the move keeps its existing wait limit.
     const attacks=all.filter(b=>b.kind==='attack'&&captures.includes(b.facing));
     // Past half the budget, a further capture prefetches only its first frames, so two large strikes do not evict each other.
@@ -425,7 +437,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    const attack=capture?all.find(b=>b.kind==='attack'&&b.facing===direction):null;
    const playable=b=>b.facing===direction&&Number.isFinite(b.durationMs)&&b.durationMs>0&&b.frames?.length&&(b.kind!=='move'||Number.isFinite(b.strideSquares)&&b.strideSquares>0);
    let movement=!capture?(jumps(character)?all.find(b=>b.kind==='movement'&&playable(b))??null:all.find(b=>b.kind==='move'&&playable(b))||oneSquare&&all.find(b=>b.kind==='movement'&&playable(b))||null):null;
-   const turns=all.filter(b=>b.kind==='turn'),before=turnRoute(turns,rest.facing,direction),after=before&&reverseRoute(before);
+   const turns=all.filter(b=>b.kind==='turn').map(thinTurn),before=turnRoute(turns,rest.facing,direction),after=before&&reverseRoute(before);
    // A missing edge keeps the rest body coherent instead of jumping to an unsupported facing.
    if(before===null)return null;
    const routeFrames=character.startsWith('king-')&&capture?p=>p.bank.frames:p=>endpoints(p.bank);

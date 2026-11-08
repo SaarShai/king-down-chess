@@ -9,6 +9,7 @@ export function measuredScale(character: string): number;
 export function walkStride(bank: { character: string; strideSquares?: number }): number;
 export function facingOf(dx: number, dy: number): string;
 export function frameAt(bank: RuntimeBank, time: number): RuntimeFrame;
+export function thinTurn(bank: RuntimeBank): RuntimeBank;
 export function turnRoute(banks: RuntimeBank[], from: string, to: string): { bank: RuntimeBank; reverse: boolean }[] | null;
 export function createCharacterRuntime(options?: { url?: string; wake?: () => void; fetcher?: typeof fetch; image?: () => HTMLImageElement; drawnEffects?: string[]; lateEffects?: string[] }): {
  ready(): Promise<void>;

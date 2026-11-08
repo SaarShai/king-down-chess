@@ -1321,7 +1321,8 @@ function drawEncounter(a,t) {
    const {base,verb}=effect?{base:{type:'effect',move,start:performance.now(),speed,duration:effect.duration,effect},verb:'Playing card…'}:plan(move,speed,gait);
    return new Promise(resolve=>{
     if(bodyRuntime&&!effect&&move.promo)void bodyRuntime.warm(ART[move.promo],armyOf(base.value));
-    const available=!effect&&bodyRuntime?.has(characterOf(base.value),armyOf(base.value));
+    // A manifest still in transfer is waited for inside the prepare limit: a late manifest no longer slides the still picture at once.
+    const available=!effect&&!!bodyRuntime&&(bodyRuntime.has(characterOf(base.value),armyOf(base.value))||bodyRuntime.stats.manifestLoading);
     const a=animation={...base,resolve,onContact,bodyUnavailable:!!bodyRuntime&&!available};onStatus(verb);
     if(idleOut){if(idleOut.square===move.from)pendingIdle=idleOut;idleOut=null;}
     const lastPose=pendingIdle?.pose;
