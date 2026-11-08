@@ -19,8 +19,8 @@ Before App Store submission, how does the app get the character frames (`/charac
 | --- | --- |
 | The frames are 10,720 WebP files, 229.9 MB in total (mean 21.4 kB, largest 45.9 kB). `dist/` is 257.3 MB in 11,120 files. Without the frames, it is 27.4 MB in 400 files. `ios/App/App/public` holds the same 10,720 frames. | `find` and `stat` on this worktree |
 | A zip of `dist/` is about 255 MB. A zip of the frames alone is about 231 MB; the rest is about 24 MB. WebP does not compress again, so the store download is near the full size (estimate). | `zip -r` in the scratchpad |
-| Each frame name is the SHA-256 of its bytes. The manifest gives each frame a URL relative to `manifest.json`. | `tools/build-character-runtime.mjs:11,111`; `src/render/painted/character-runtime.mjs:83,182` |
-| `tools/build-character-runtime.mjs` writes `public/character-runtime/` (the frames and the manifest) from a pinned catalog. It deletes each frame that the new manifest does not name. The frames are plain Git files (no LFS). | `tools/build-character-runtime.mjs:227`; `.gitattributes` |
+| Each frame name is the SHA-256 of its bytes. The manifest gives each frame a URL relative to `manifest.json`. | `tools/convert-character-runtime-webp.mjs:59`; `src/render/painted/character-runtime.mjs:83,182` |
+| `tools/convert-character-runtime-webp.mjs` writes `public/character-runtime/` (the WebP frames and the manifest) from the PNG package of `tools/build-character-runtime.mjs`. It refuses a folder that exists, so each package is a new tree, and a frame that the new manifest does not name is gone. The frames are plain Git files (no LFS). | `tools/convert-character-runtime-webp.mjs:23,59`; `.gitattributes` |
 | Frame change rate, 2026-11-01 to 2026-11-07: 14,200 different frames (310.9 MB) went into Git. Later commits removed about 3,480 of them. The manifest changed in 15 commits. | `git log --raw -- public/character-runtime/assets` |
 | The deploy publishes one full prebuilt tree with `vercel deploy --prebuilt --prod`. `deploy-keep-assets.mjs` keeps only the files under `/assets/`, one build back. It keeps no frame. | `tools/deploy.sh:335-337`; `tools/deploy-keep-assets.mjs:1-6` |
 | **A new deploy removes old frames from kingdown.dev.** A frame that commit `10dc57004` (2026-11-05) removed answers HTTP 404. A current frame answers 200 `image/webp`. The 404 also has `Cache-Control: public, max-age=31536000, immutable`, because the frame route sets that header on every path that matches. | `curl` on 2026-11-08; `tools/plugin-server-build.mjs:22` |
@@ -53,7 +53,7 @@ Before App Store submission, how does the app get the character frames (`/charac
 
 ## 4. Recommendation
 
-Choose A for the first App Store submission. A gives a complete animated game that also plays offline (good for 4.2), with no version skew and no new code. An update carries only the new frames and the manifest, because a frame that does not change keeps its name and bytes. At this week's rate, that is about 127 MB three days after a build. The cost is a first download of about 255 MB, above the 200 MB line. On cellular, that is a question to the user, not a refusal. Remove the `shortcut:` comment at `tools/ios-sync.sh:15`: all of `dist/` is now the decision.
+Choose A for the first App Store submission. A gives a complete animated game that also plays offline (good for 4.2), with no version skew and no new code. An update carries only the new frames and the manifest, because a frame that does not change keeps its name and bytes. At this week's rate, that is about 127 MB three days after a build. The cost is a first download of about 255 MB, above the 200 MB line. On cellular, that is a question to the user, not a refusal. This change removes the `shortcut:` comment at `tools/ios-sync.sh:15`: all of `dist/` is now the decision.
 
 Examine the choice again when one of these conditions is true: the store download is more than 500 MB (a proposed budget), store data shows lost installs, or the owner wants new art to reach players between app releases. Then choose C if the floor can go to iOS 26. If not, choose B. Make a test build of the chosen seam at that time.
 
@@ -64,6 +64,9 @@ Examine the choice again when one of these conditions is true: the store downloa
 - **Cache rule for B.** Keep only a 200 `image/webp` response whose SHA-256 is equal to its name. A 404 also has the immutable header, so never keep a 404.
 
 ## 6. Open items
+
+Items 1 and 3 are in [Show bundled frames offline and check effects on old iOS](../../specs/ios-app/issues/14-offline-frames.md).
+
 
 1. **The offline line (the smallest change).** At `character-runtime.mjs:79`, write `const connected=()=>globalThis.navigator?.onLine!==false||globalThis.location?.protocol==='capacitor:';` (plain Node imports this file, so do not import `src/platform.ts`, and guard `location`). Update the comment at `:118`. Add a unit test that stubs `navigator.onLine` false and a `capacitor:` location and expects frames to load. This is animation runtime code: coordinate it with the animation work. Test on an iPhone in Airplane Mode with Wi-Fi off; the simulator has no Airplane Mode (it uses the Mac's network).
 2. After the first upload, read the real download size in App Store Connect (App File Sizes). The 255 MB is a zip estimate.

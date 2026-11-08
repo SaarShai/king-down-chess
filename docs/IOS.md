@@ -18,5 +18,5 @@ A check build with no signing: `xcodebuild -project ios/App/App.xcodeproj -schem
 - A released app keeps calling the live `/api` while it waits in review and on old phones, so `/api` changes stay backward compatible.
 - Keep the generated native project close to the Capacitor template: the Capacitor 9 move uses `npx cap migrate`. The settings changed by hand are the team, the device family (iPhone), the orientation (portrait), `ITSAppUsesNonExemptEncryption` in `Info.plist` and `PrivacyInfo.xcprivacy` in the app target's resources.
 - A change to what the app or `/api` collects updates `ios/App/App/PrivacyInfo.xcprivacy` and [the store answers](specs/ios-app/store-answers.md) in the same change.
-- A link from the app to a site page uses `apiOrigin` + the path. A relative link opens nothing in the app, because its page is `capacitor://localhost`.
+- A link from the app to a site page uses `apiOrigin` + the path. In the app (page `capacitor://localhost`), a relative `target="_blank"` link opens nothing, and a relative same-tab link opens the bundled copy in the game's web view with no way back.
 - The app icon comes from `PLAYABLE_BROWSER=chromium node docs/perf/make-icons.mjs` (opaque PNG; App Store Connect refuses alpha).

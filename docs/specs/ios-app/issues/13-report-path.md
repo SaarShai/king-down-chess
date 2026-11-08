@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 11
+Blocked by: none
 Parent: [iOS app map](../map.md)
 Labels: wayfinder:task
 
@@ -12,7 +12,7 @@ How does a player report another player from the app? App Review guideline 1.2 r
 
 ## Context
 
-The server takes reports (`POST /api/reports`, `src/online/safety.ts:20-22`), but no screen sends one. Reports go by email through `public/support.html` today. Blocking works (`src/plugin/screens/board-actions.ts:57`). Details: [store answers](../store-answers.md), section 6, item 2.
+The server takes reports (`POST /api/reports`, `src/online/safety.ts:20-22`), and the transport already sends one (`src/online/runtime.ts:78` dispatches `kingdown_report` to `src/online/client.ts:91`), but no screen calls it. Use that transport as the seam. Reports go by email through `public/support.html` today. Blocking works (`src/plugin/screens/board-actions.ts:57`). Details: [store answers](../store-answers.md), section 6, item 2.
 
 ## Steps
 
