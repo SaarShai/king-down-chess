@@ -393,7 +393,9 @@ describe('ready character playback', () => {
    expect(started.filter(s=>s.startsWith('leap-'))).toEqual(['leap-0','leap-1','leap-2','leap-3','leap-4','leap-6','leap-8','leap-5','leap-7']);
    const at=(t:number)=>(runtime.action(prepared,t,450,0) as {url:string}).url;
    expect(at(260)).toBe('leap-3');
-   expect(cancelled).toEqual(['leap-4']);
+   // The passed frame in transfer runs on, and is the nearer pose once decoded.
+   expect(cancelled).toEqual([]);
+   held.get('leap-4')!();await vi.advanceTimersByTimeAsync(0);expect(at(260)).toBe('leap-4');
    held.get('leap-5')!();await vi.advanceTimersByTimeAsync(0);
    expect(at(260)).toBe('leap-5');expect(at(450)).toBe('rest');
    prepared.releaseMovementStart?.();prepared.releaseMovement?.();prepared.releaseFallback?.();
@@ -421,6 +423,37 @@ describe('ready character playback', () => {
    expect(late.prepared.movement?.id).toBe('black-leap');expect(late.at).toBeGreaterThanOrEqual(400);expect(late.at).toBeLessThan(1000);
    late.prepared.releaseMovementStart?.();late.prepared.releaseMovement?.();late.prepared.releaseFallback?.();
   }finally{runtime.dispose();vi.useRealTimers();}
+ });
+ it('streams a selected jump on a slow link in fewer slots: it starts soon, loads no frame twice and holds no needed pose 150 ms past its slot', async () => {
+  vi.useFakeTimers();vi.advanceTimersByTime(100);
+  const idle={...bank(),character:'knight',id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const times=[0,50,100,150,200,250,300,352.5,405,457.5,510,576,642,708,774,840,893.4,946.8,1000.2,1053.6,1107,1142.75,1178.5,1214.25,1250,1300,1350];
+  const leap={...idle,id:'leap',kind:'movement',nearest:false,durationMs:1350,canvasSize:[388,388] as [number,number],frames:times.map((timeMs,i)=>({url:`leap-${i}`,timeMs}))};
+  // The link of the slow-link probe: the first byte 150 ms after the request, then 200 bytes a millisecond that all
+  // transfers share; a frame is 20 kB. The resource timing of each frame comes before its load event.
+  let report=(_list:{getEntries():unknown[]})=>{};
+  vi.stubGlobal('PerformanceObserver',class{constructor(callback:typeof report){report=callback;}observe(){}disconnect(){}});
+  const flows=new Set<{ready:number;left:number;end:()=>void}>(),starts:string[]=[];
+  const link=setInterval(()=>{const now=performance.now(),ready=[...flows].filter(f=>f.ready<=now);for(const f of ready){f.left-=2000/ready.length;if(f.left<=0){flows.delete(f);f.end();}}},10);
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,leap]})})) as unknown as typeof fetch,
+   image:()=>{let flow:{ready:number;left:number;end:()=>void}|null=null;const img={naturalWidth:388,naturalHeight:388,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:()=>{if(flow)flows.delete(flow);},set src(s:string){
+    if(s.endsWith('/rest')){queueMicrotask(()=>img.onload?.());return;}
+    const began=performance.now();starts.push(s.split('/').at(-1)!);
+    flow={ready:began+150,left:20000,end:()=>{report({getEntries:()=>[{name:s,requestStart:began,responseStart:began+150,responseEnd:performance.now(),transferSize:20000}]});img.onload?.();}};flows.add(flow);
+   }};return img as unknown as HTMLImageElement;}});
+  try{
+   // Select, then click one second later, as the probe does.
+   void runtime.prefetchMoves('knight','white',['SE']);await vi.advanceTimersByTimeAsync(1000);runtime.releaseMovePrefetch();
+   let prepared:any=null,wait=0;const click=performance.now();void runtime.prepare('knight','white','SE',false,false).then(p=>{prepared=p;wait=performance.now()-click;});
+   while(!prepared&&performance.now()-click<2000)await vi.advanceTimersByTimeAsync(10);
+   expect(prepared?.movement?.id).toBe('leap');
+   let late=0;
+   for(let t=0;t<=1350;t+=10){const body=runtime.action(prepared,t,1350,0) as {time:number};const next=times.find(x=>x>body.time)??1350;late=Math.max(late,t-next);await vi.advanceTimersByTimeAsync(10);}
+   // Main: six transfers share the link, the click stops the selection's transfers and loads them again, and the jump
+   // waits 760 ms.
+   expect(late).toBeLessThanOrEqual(150);expect(wait).toBeLessThanOrEqual(400);expect(new Set(starts).size).toBe(starts.length);
+   prepared.releaseMovementStart?.();prepared.releaseMovement?.();prepared.releaseFallback?.();
+  }finally{clearInterval(link);runtime.dispose();vi.unstubAllGlobals();vi.useRealTimers();}
  });
  it('keeps a partly cached jump while its missing frames load under cache pressure', async()=>{
   const idle={...bank(),character:'paladin',id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
