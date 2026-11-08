@@ -1,0 +1,6 @@
+{
+  "appId": "dev.kingdown.app",
+  "appName": "King Down",
+  "webDir": "dist",
+  "backgroundColor": "#f2e9d6"
+}

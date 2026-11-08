@@ -12,7 +12,9 @@ function inviteKey(value: string): string | null {
 
 /** Read only the path and a checked invite fragment. The caller checks the origin. */
 export function parseAccountRoute(url: URL): AccountEntryRoute | undefined {
-  if (!/^https?:$/.test(url.protocol) || url.username || url.password || /[%\\]/.test(url.pathname)) return;
+  // The iOS app's page is capacitor://localhost (src/platform.ts).
+  const page = /^https?:$/.test(url.protocol) || url.protocol === 'capacitor:' && url.host === 'localhost';
+  if (!page || url.username || url.password || /[%\\]/.test(url.pathname)) return;
   const path = url.pathname;
   if (/^\/play\/friend\/?$/.test(path)) return { screen: 'new-friend' };
   if (path === '/play' || path === '/play/') return { screen: 'play' };

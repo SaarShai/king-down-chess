@@ -7,7 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { createServer, request, type Server } from 'node:http';
 import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createApiHandler, createInternalHandler, type ApiOptions } from '../api/http';
+import { APP_ORIGIN, createApiHandler, createInternalHandler, type ApiOptions } from '../api/http';
 import { AuthenticationError } from '../plugin/auth';
 import { MatchServiceError, GameService } from '../match/service';
 import { PostgresMatchStore } from '../match/store';
@@ -77,6 +77,15 @@ suite('first-party fault HTTP and database writes', () => {
   const response = await post(); expect(response.status).toBe(204); expect(await response.text()).toBe('');
   expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull();
   expect(await rows()).toMatchObject([{ count: '1', routes: ['/g/:game'], browsers: ['Safari 18'] }]);
+ });
+ it('accepts a cross-site report from the iOS app origin after its preflight', async () => {
+  const preflight = await fetch(origin + '/api/client-errors', { method: 'OPTIONS', headers: { Origin: APP_ORIGIN, 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'content-type' } });
+  expect([preflight.status, preflight.headers.get('Access-Control-Allow-Origin'), preflight.headers.get('Access-Control-Allow-Methods')]).toEqual([204, APP_ORIGIN, 'POST']);
+  const send = (site: string) => fetch(origin + '/api/client-errors', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: APP_ORIGIN, 'Sec-Fetch-Site': site }, body: JSON.stringify(report()) });
+  const response = await send('cross-site');
+  expect([response.status, response.headers.get('Access-Control-Allow-Origin')]).toEqual([204, APP_ORIGIN]);
+  expect((await send('same-site')).status).toBe(204);
+  expect(await rows()).toMatchObject([{ count: '1' }]);
  });
  it('drops a wrong or absent origin, wrong shape, bad JSON and oversized body', async () => {
   for (const site of ['https://wrong.example', 'null', null]) expect((await post(report(), site)).status).toBe(204);

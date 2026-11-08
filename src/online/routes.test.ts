@@ -40,6 +40,12 @@ describe('account routes', () => {
   it('R02 refuses credentials and non-web protocols', () => {
     expect(parse('https://user:pass@kingdown.test/play/')).toBeUndefined();
     expect(parse('file:///play/')).toBeUndefined();
+    expect(parse('capacitor://other.test/play/')).toBeUndefined();
+  });
+  it('R02 reads the iOS app page', () => {
+    expect(parse('capacitor://localhost/play/')).toEqual({ screen: 'play' });
+    expect(parse(`capacitor://localhost/g/${gameId}`)).toEqual({ screen: 'game', gameId });
+    expect(parse('capacitor://localhost/')).toBeUndefined();
   });
 
   it.each([
