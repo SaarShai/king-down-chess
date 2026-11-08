@@ -1094,4 +1094,15 @@ describe('ready character playback', () => {
    online=true;listeners.get('online')?.();await vi.waitFor(()=>expect(fetcher).toHaveBeenCalledWith('https://example.invalid/manifest.json'));
   }finally{runtime.dispose();expect(listeners.has('online')).toBe(false);vi.unstubAllGlobals();}
  });
+ it.each([['capacitor:',true],['https:',false]])('with no connection on %s loads bundled frames: %s', async (protocol,loads) => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]},sources:string[]=[];
+  const fetcher=vi.fn(async(_url:string)=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle]})}));
+  vi.stubGlobal('navigator',{onLine:false});vi.stubGlobal('location',{protocol});
+  const runtime=createCharacterRuntime({url:`${protocol}//localhost/manifest.json`,fetcher:fetcher as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:()=>{},set src(s:string){sources.push(s);queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  try{
+   await runtime.ready();expect(runtime.has('pawn','white')).toBe(loads);await runtime.warm('pawn','white');
+   expect(sources).toEqual(loads?[`${protocol}//localhost/rest`]:[]);
+  }finally{runtime.dispose();vi.unstubAllGlobals();}
+ });
 });

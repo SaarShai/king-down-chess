@@ -229,6 +229,13 @@ it('does not request optional clips offline', async () => {
  expect(b.clips()).toHaveLength(2);
 });
 
+it('loads bundled clips offline in the iOS app', async () => {
+ const b=board(true);vi.stubGlobal('navigator',{onLine:false});vi.stubGlobal('location',{protocol:'capacitor:'});
+ void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ scene.setSelected(1);await vi.advanceTimersByTimeAsync(16);
+ expect(b.clips()).toHaveLength(2);
+});
+
 it('removes page listeners when the scene is disposed', async () => {
  const b=board(true,true),listeners=new Map<string,EventListener>();
  Object.assign(document,{readyState:'interactive'});
