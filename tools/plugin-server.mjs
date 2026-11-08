@@ -144,8 +144,8 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
       view: (actor, gameId, since) => games.view(actor, gameId, since),
       inbox: actor => games.inbox(actor),
       previewDraft: (actor, gameId, input) => games.previewDraft(actor, gameId, input),
-      // A move in a game against the computer asks for a computer turn, so it shares that counter (0014 lists the tools).
-      toolTry: (actor, tool) => service.toolTry(actor, tool === 'kingdown_move' ? 'kingdown_computer' : tool),
+      // Each counted tool names its limit (COUNTERS in src/muse/tools.ts; 0014 lists the limits).
+      toolTry: (actor, tool) => service.toolTry(actor, tool),
     } }) : undefined;
   const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET });
   const api = createApiHandler({ games, accounts: new AccountService(store), safety: new SafetyService(store), players: service, publicOrigin,
