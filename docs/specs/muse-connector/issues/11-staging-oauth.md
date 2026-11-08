@@ -26,7 +26,7 @@ Does the connector answer on staging with a real Supabase OAuth token?
   - The resource check accepts `/muse/mcp`.
   - The Muse row maps the client to `https://kingdown-staging.vercel.app/muse/mcp`, and the ChatGPT row stays.
   - The hook function was already current (it has the password-account check), so it was not replaced.
-- Migration 0023 has not run on staging: both surface checks allow only `web` and `chatgpt`. It runs with the staging deploy (step 4).
+- 2026-11-08, step 3: the agent ran migration 0023 in the staging SQL editor (both surface checks now allow `muse`), and set the staging Preview value `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` to only the Muse client ID (the parked ChatGPT plugin does not read it). `MUSE_CONNECTOR` is on for staging builds only (`KINGDOWN_STAGE=staging`).
 
 ## Done when
 
