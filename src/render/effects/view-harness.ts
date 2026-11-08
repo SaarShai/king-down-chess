@@ -26,6 +26,9 @@ export function dom(reduced = false) {
   vi.stubGlobal('DOMMatrix', class { scale() { return this; } translate() { return this; } });
   vi.stubGlobal('setTimeout', () => 0);
   vi.stubGlobal('clearTimeout', () => {});
+  // No character package is served: the figures stay plain. A real request would fail only after a network attempt,
+  // while this clock runs synchronously, and a move waits for a manifest still in transfer.
+  vi.stubGlobal('fetch', () => Promise.resolve({ ok: false, json: async () => null }));
   vi.stubGlobal('Image', class { width = 1152; height = 1152; naturalWidth = 1152; complete = true; onload?: () => void; set src(_: string) { queueMicrotask(() => this.onload?.()); } decode() { return Promise.resolve(); } });
   vi.stubGlobal('matchMedia', () => media);
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });

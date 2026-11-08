@@ -125,6 +125,21 @@ it('uses the attack for a capture even when a painted walk exists', async () => 
  await vi.advanceTimersByTimeAsync(2000);await expect(playing).resolves.toBe(true);
 });
 
+it('waits for a late manifest inside the limit and plays the painted capture, not the still picture', async () => {
+ // Live: when the manifest came after the click, the move slid the still picture at once (1660 ms).
+ const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600,facing:'NE'};
+ const idle={...base,id:'idle',kind:'idle',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const attack={...base,id:'attack',kind:'attack',durationMs:600,frames:[{url:'runtime-attack.png',timeMs:0}]};
+ let send=()=>{};
+ vi.stubGlobal('fetch',vi.fn((url:string)=>String(url).endsWith('manifest.json')?new Promise(resolve=>{send=()=>resolve({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack]})});}):Promise.resolve({ok:false})));
+ const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/1p6/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ expect(scene.characterMemory).toMatchObject({manifestReady:false,manifestPending:true});
+ const playing=scene.play({from:8,to:17,captures:[17]});await vi.advanceTimersByTimeAsync(400);
+ send();await vi.advanceTimersByTimeAsync(160);
+ expect(scene.characterFrames.find(f=>f.square===8)?.bank).toBe('attack');
+ await vi.advanceTimersByTimeAsync(2000);await expect(playing).resolves.toBe(true);
+});
+
 it('raises the painted cadence to the cap for a long move', async () => {
  const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600,facing:'N'};
  const idle={...base,id:'idle',kind:'idle',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
