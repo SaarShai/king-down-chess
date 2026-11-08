@@ -31,7 +31,7 @@ try {
   await choices.goto(`${origin}/authorize?authorization_id=${authorizationId}`);
   await choices.getByRole('button', { name: 'Try again', exact: true }).waitFor();
   assert.equal(await choices.locator('[data-provider]:visible').count(), 0, 'A failed provider response offers no social provider');
-  // The review password path is off while the ChatGPT plugin is parked (src/plugin/consent.ts REVIEW_PASSWORD_SIGNIN).
+  // This tree has no Muse connector, so it has no review password path (src/plugin/consent.ts REVIEW_PASSWORD_SIGNIN).
   assert.equal(await choices.locator('#password-signin').isVisible(), false, 'A settings failure offers no password sign-in');
   providerSettings = { external: { github: true, google: false, facebook: true } };
   await choices.getByRole('button', { name: 'Try again', exact: true }).click();
@@ -66,8 +66,8 @@ try {
   assert.equal(createHash('sha256').update(exchange.code_verifier).digest('base64url'), signInUrl.searchParams.get('code_challenge'));
   assert.equal(new URL(signin.url()).searchParams.get('authorization_id'), authorizationId);
   await signin.close();
-  // Approval D8 a gave the one review account a password sign-in. It is off while the ChatGPT plugin is parked: the page
-  // shows no password form and asks for no password grant. A signed-in session still sees the same account choice.
+  // Only a build that serves the Muse connector has the review password sign-in. In this tree the page shows no password
+  // form and asks for no password grant. A signed-in session still sees the same account choice.
   const review = await browser.newPage(); trapErrors(review);
   const grants = [];
   await review.route('https://project.supabase.co/**', async route => {

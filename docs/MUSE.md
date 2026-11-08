@@ -45,3 +45,26 @@ Staging first ([ticket 11](specs/muse-connector/issues/11-staging-oauth.md)), wi
 ## Owner steps
 
 The portal account and business verification, the Supabase OAuth client, the hook SQL, deploy words, the review accounts and the submission are the owner's. The map's open tickets list them in order.
+
+## Review accounts
+
+Meta's reviewers sign in with two allow-listed password accounts ([ticket 15](specs/muse-connector/issues/15-review-accounts.md)). A build that serves the connector shows "Sign in with email and password" on the consent page (`REVIEW_PASSWORD_SIGNIN` in `src/plugin/consent.ts` follows `KINGDOWN_MUSE`). Other builds hide it. The page is not the guard; Supabase is:
+
+- The Before User Created hook (`plugin-deploy/review-signup-hook.sql`) lets in each `email` account that has an address.
+- The Custom Access Token hook (`plugin-deploy/oauth-audience-hook.sql`) refuses a password session for each address that is not in `kingdown_auth.password_accounts`. This also applies to a refresh and to the token that Muse gets.
+- Email and **Confirm email** are on, on staging and on production. So an account must have a confirmed address before it can sign in with a password.
+
+Owner steps on staging (project `puhspsyjyzaghmgtkzqd`). You type the passwords; agents never see them.
+
+1. Choose two new addresses in lower case that no King Down account uses, for example two plus-addresses of a mailbox that you read. Do not use the address of your own account: Supabase links accounts that have the same verified address.
+2. In **SQL Editor → New query**, replace the two placeholders and press **Run**. It is safe to run again.
+
+   ```sql
+   insert into kingdown_auth.password_accounts(email) values ('<first review address>'), ('<second review address>') on conflict (email) do nothing;
+   ```
+
+3. In **Authentication → Users → Add user → Create new user**, type the first address and a new long password. Keep **Auto Confirm User** on, then press **Create user**. Do the same for the second address. Keep both passwords in your password manager.
+4. In the Muse portal, type each address and its password in one test account. Notes: "On the King Down page, open 'Sign in with email and password'."
+5. After a staging deploy that serves the connector, run the portal's sign-in test with each account (or the MCP Inspector OAuth flow of [ticket 11](specs/muse-connector/issues/11-staging-oauth.md), step 5).
+
+For production (project `utqzovjmclfyojedmwok`), do steps 1 to 3 again before the release that turns the connector on ([ticket 17](specs/muse-connector/issues/17-submit.md)). First read the list (`select email from kingdown_auth.password_accounts;`): each address in it can get a password session. To stop an account, remove it from the list, then end its sessions: `delete from kingdown_auth.password_accounts where email = '<address>';` and `delete from auth.sessions where user_id in (select id from auth.users where lower(email) = '<address>');`.

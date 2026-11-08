@@ -63,6 +63,17 @@ it('omits the website recorder and the parked ChatGPT plugin surface from the em
  } finally { rmSync(out, { recursive: true, force: true }); }
 }, 60_000);
 
+it('shows the review password form only in a build that serves the Muse connector', async () => {
+  const out = mkdtempSync(join(tmpdir(), 'consent-password-'));
+  try {
+    // Text of the password path only (src/plugin/consent.ts). A build without the Muse connector folds that path away.
+    for (const [name, options, shown] of [['muse', { muse: true }, true], ['chatgpt', { chatgpt: true, muse: false }, false]] as const) {
+      const script = readFileSync(join(await buildPluginServer(join(out, name), options), 'consent.mjs'), 'utf8');
+      for (const text of ['Signing in…', ' or use email']) expect(script.includes(text), `${name}: ${text}`).toBe(shown);
+    }
+  } finally { rmSync(out, { recursive: true, force: true }); }
+}, 120_000);
+
 it('refuses a recovery rehearsal on a parked build instead of reporting a pass', () => {
   const release = mkdtempSync(join(tmpdir(), 'parked-release-')), recovery = mkdtempSync(join(tmpdir(), 'parked-recovery-'));
   try {
