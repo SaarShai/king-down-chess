@@ -99,7 +99,7 @@ let earlyIndex=null;
 // the package-index request at scene creation; the next runtime with the same URL and fetcher takes that response once.
 // (WebKit's fetch() does not use a <link rel=preload as=fetch>, so the page cannot preload it.)
 export function prefetchCharacterIndex(fetcher=fetch){
- if(earlyIndex||!connected())return;
+ if(earlyIndex?.fetcher===fetcher||!connected())return;
  // A request that fails before a runtime takes it is dropped, so the runtime asks again instead of waiting RETRY_DELAY.
  const response=Promise.resolve().then(()=>fetcher(indexUrl()));response.catch(()=>{if(earlyIndex?.response===response)earlyIndex=null;});earlyIndex={fetcher,response};
 }

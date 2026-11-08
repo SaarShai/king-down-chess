@@ -53,6 +53,8 @@ afterEach(() => { scene?.dispose(); vi.useRealTimers(); vi.unstubAllGlobals(); s
 
 // The footprint table follows the package index; the index is what starts the downloads.
 const manifestFetches=(fetcher:{mock:{calls:[string][]}})=>fetcher.mock.calls.filter(([url])=>String(url).endsWith('/index.json')).length;
+// The package index (669 bytes) starts at scene creation; character art waits for the first frame and page load.
+const artFetches=(fetcher:{mock:{calls:[string][]}})=>fetcher.mock.calls.length-manifestFetches(fetcher);
 it('draws a figure at rest from its still picture, at its rest frame\'s pivot and size, until the runtime loads', async () => {
  stillsLoad = true;
  vi.stubGlobal('fetch',vi.fn(()=>new Promise(()=>{})));
@@ -220,13 +222,13 @@ it.each([false, true])('F7: the board is ready with stalled clips (motion %s), a
   expect(b.clips()).toHaveLength(motion ? 2 : 0);
 });
 
-it('starts character downloads after the first board frame', async () => {
+it('starts character art after the first board frame, and only the package index before it', async () => {
  const fetcher=vi.fn(async(_url:string)=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})}));
  vi.stubGlobal('fetch',fetcher);
  const b=board(true,true);void scene.load();
- await vi.advanceTimersByTimeAsync(0);expect(fetcher).not.toHaveBeenCalled();
+ await vi.advanceTimersByTimeAsync(0);expect(manifestFetches(fetcher)).toBe(1);expect(artFetches(fetcher)).toBe(0);
  b.decodeBoard();await vi.advanceTimersByTimeAsync(16);
- expect(scene.frames).toBe(1);expect(b.draws.some(src=>src.includes('stone-board'))).toBe(true);expect(fetcher).not.toHaveBeenCalled();
+ expect(scene.frames).toBe(1);expect(b.draws.some(src=>src.includes('stone-board'))).toBe(true);expect(artFetches(fetcher)).toBe(0);
  await vi.advanceTimersByTimeAsync(16);expect(manifestFetches(fetcher)).toBe(1);
 });
 
@@ -285,7 +287,7 @@ it('waits for page load before starting character downloads', async () => {
  Object.assign(document,{readyState:'interactive'});
  vi.stubGlobal('addEventListener',(name:string,fn:()=>void)=>{if(name==='load')onLoad=fn;});vi.stubGlobal('removeEventListener',()=>{});
  void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
- expect(scene.frames).toBeGreaterThan(0);expect(fetcher).not.toHaveBeenCalled();
+ expect(scene.frames).toBeGreaterThan(0);expect(artFetches(fetcher)).toBe(0);
  onLoad();await vi.advanceTimersByTimeAsync(0);expect(manifestFetches(fetcher)).toBe(1);
 });
 
@@ -297,7 +299,7 @@ it('starts after load even if a worker install never becomes ready', async () =>
  vi.stubGlobal('navigator',{serviceWorker:{ready:new Promise(()=>{})}});
  vi.stubGlobal('addEventListener',(name:string,fn:(event?: any)=>void)=>listeners.set(name,fn));
  void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
- expect(fetcher).not.toHaveBeenCalled();expect(listeners.has('load')).toBe(true);
+ expect(artFetches(fetcher)).toBe(0);expect(listeners.has('load')).toBe(true);
  listeners.get('load')!();await vi.advanceTimersByTimeAsync(0);expect(manifestFetches(fetcher)).toBe(1);
  listeners.get('pageshow')!({persisted:true});await vi.advanceTimersByTimeAsync(0);expect(manifestFetches(fetcher)).toBe(1);
 });
@@ -312,7 +314,7 @@ it('starts on a restored page when load did not run', async () => {
  const fetcher=vi.fn(async(_url:string)=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})}));vi.stubGlobal('fetch',fetcher);
  const b=board(true,true),listeners=new Map<string,(event?: any)=>void>();Object.assign(document,{readyState:'interactive'});
  vi.stubGlobal('addEventListener',(name:string,fn:(event?: any)=>void)=>listeners.set(name,fn));
- void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);expect(fetcher).not.toHaveBeenCalled();
+ void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);expect(artFetches(fetcher)).toBe(0);
  listeners.get('pageshow')!({persisted:true});await vi.advanceTimersByTimeAsync(0);expect(manifestFetches(fetcher)).toBe(1);
  listeners.get('load')!();await vi.advanceTimersByTimeAsync(0);expect(manifestFetches(fetcher)).toBe(1);
 });
