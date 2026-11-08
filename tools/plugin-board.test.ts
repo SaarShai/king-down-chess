@@ -444,7 +444,10 @@ it.each([[true, 393, 852], [true, 320, 568], [false, 393, 852]] as const)('uses 
     await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
     await frame.locator('#board canvas').waitFor({ state: 'visible' });
     await frame.locator('#seat-veil-layer .veil').waitFor();
-    expect(await frame.locator('#seat-veil-layer').innerText()).toBe(computer ? 'Their side stays hidden until you are ready.' : 'Their side stays hidden until both players are ready.');
+    // placeVeil sizes the veil from the board canvas, after board.ready() and on each board resize. A placement before the
+    // canvas has its size gives a 0 x 0 veil until the next one. WebKit's innerText leaves out the text of an empty box that
+    // clips its overflow, so a read in that time gets '' (WebKit runs 42369216400, 42368633075).
+    await expect.poll(() => frame.locator('#seat-veil-layer').innerText(), { timeout: 3000 * STEP }).toBe(computer ? 'Their side stays hidden until you are ready.' : 'Their side stays hidden until both players are ready.');
   }
   finally { await page.close(); }
 });
