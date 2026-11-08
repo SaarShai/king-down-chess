@@ -12,7 +12,7 @@ A check build with no signing: `xcodebuild -project ios/App/App.xcodeproj -schem
 
 ## TestFlight upload
 
-The owner's Xcode account signs (team `6M9C2YSWT4`, automatic signing). Each upload needs a build number higher than the last one in App Store Connect: raise `CURRENT_PROJECT_VERSION` in `ios/App/App.xcodeproj/project.pbxproj` (both configurations) in the change that ships. Build 1.0 (1) is the first.
+The owner's Xcode account signs (team `6M9C2YSWT4`, automatic signing). An upload to the internal group "Owner" is an agent step of [ticket 08](specs/ios-app/issues/08-testflight.md), which the owner started; external testing and App Review submission need the owner's word (AGENTS.md). Each upload needs a build number higher than the last one in App Store Connect: raise `CURRENT_PROJECT_VERSION` in `ios/App/App.xcodeproj/project.pbxproj` (both configurations) in the change that ships. Build 1.0 (1) is the first.
 
 ```bash
 npm run ios:sync production
@@ -28,7 +28,7 @@ xcodebuild -exportArchive -archivePath "$TMPDIR/App.xcarchive" -exportOptionsPli
 - `src/platform.ts` is the one seam between the website and the app: `inApp` for app-only behavior, `apiOrigin` for `/api` calls. A new `/api` call uses `apiOrigin`.
 - The server allows exactly one other origin, `APP_ORIGIN` in `src/api/http.ts`. A server change that touches the origin checks keeps the app tests in `src/api/http.test.ts` green.
 - A released app keeps calling the live `/api` while it waits in review and on old phones, so `/api` changes stay backward compatible.
-- Keep the generated native project close to the Capacitor template: the Capacitor 9 move uses `npx cap migrate`. The settings changed by hand are the team, the device family (iPhone), the orientation (portrait), `ITSAppUsesNonExemptEncryption` in `Info.plist`, `PrivacyInfo.xcprivacy` in the app target's resources and the deployment target.
+- Keep the generated native project close to the Capacitor template: the Capacitor 9 move uses `npx cap migrate`. The settings changed by hand are the team, the device family (iPhone), the orientation (portrait), `ITSAppUsesNonExemptEncryption` and `UIRequiredDeviceCapabilities` (arm64) in `Info.plist`, `PrivacyInfo.xcprivacy` in the app target's resources and the deployment target.
 - The app's lowest iOS (`IPHONEOS_DEPLOYMENT_TARGET`, 16.4) is the web build's `build.target` in `vite.config.ts`. Change both together, then run `npm run ios:sync`: it writes `CapApp-SPM/Package.swift` again from the project.
 - A change to what the app or `/api` collects updates `ios/App/App/PrivacyInfo.xcprivacy` and [the store answers](specs/ios-app/store-answers.md) in the same change.
 - A link from the app to a site page uses `apiOrigin` + the path. In the app (page `capacitor://localhost`), a relative `target="_blank"` link opens nothing, and a relative same-tab link opens the bundled copy in the game's web view with no way back.

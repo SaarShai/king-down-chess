@@ -1,7 +1,7 @@
 # Make the first internal TestFlight build
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 05
 Parent: [iOS app map](../map.md)
 Labels: wayfinder:task
@@ -26,10 +26,12 @@ What does the owner do once, and what does the agent run, to put a build on the 
 
 2026-11-08:
 
-- Owner step 1: the owner signed in to Xcode with the team's Apple ID. Owner step 2: the owner accepted the updated Program License Agreement; before that, the App Store export failed with "PLA Update available". The agent made the app record: King Down, Apple ID `6832224765`, bundle ID `dev.kingdown.app` (registered by the export as "XC dev kingdown app"), SKU `kingdown-ios`, primary language English (U.K.), the game's spelling, and Full Access.
-- Agent steps 1 and 2: `npm run ios:sync production`, then a Release archive. The export made the distribution certificate and the profile "iOS Team Store Provisioning Profile: dev.kingdown.app". The commands and the build number rule are in `docs/IOS.md`.
+- The owner asked the agent to bring him to each sign-in ("signing in - open side panes and get me to where you need me to sign in") after the agent named the steps that follow them: the app record, the upload and the testing group.
+- Owner step 1: the owner signed in to Xcode with the team's Apple ID. Owner step 2: the owner accepted the updated Program License Agreement; before that, a local App Store export (destination `export`) failed with "PLA Update available". The agent made the app record: King Down, Apple ID `6832224765`, bundle ID `dev.kingdown.app` (registered by the export as "XC dev kingdown app"), SKU `kingdown-ios`, primary language English (U.K.), the game's spelling, and Full Access.
+- Agent steps 1 and 2: `npm run ios:sync production`, then a Release archive. After the agreement, the local export made the distribution certificate and the profile "iOS Team Store Provisioning Profile: dev.kingdown.app". Then the export with `ios/ExportOptions.plist` (destination `upload`) sent build 1.0 (1) to App Store Connect in 6 minutes, after release 18 was live (the upload shares the link with the release checks). The commands and the build number rule are in `docs/IOS.md`.
 - A readiness check of the archive (bundle, third-party SDKs, web payload) found nothing that stops the upload. It found the iOS floor fault: the game code needs iOS 16.4, and the app said 15.0. The archive for the upload has `MinimumOSVersion` 16.4.
-- Open: the upload of build 1.0 (1), then owner step 3 (internal testing group) and the install on the owner's iPhone.
+- Owner step 3: the agent made the internal group "Owner" with automatic distribution and added the owner (the only App Store Connect user) as its tester.
+- Open: App Store Connect processing of build 1.0 (1), then the install on the owner's iPhone through TestFlight and a game against the computer.
 
 ## Done when
 

@@ -24,6 +24,7 @@ An internal TestFlight build of King Down on the owner's iPhone, built from this
 - [Choose how test builds get the game files](issues/04-assets.md): all of `dist/` (about 280 MB) for TestFlight.
 - [Choose the app identity, devices and orientation](issues/05-identity.md): `dev.kingdown.app`, King Down, iPhone only, portrait, iOS 16.4, HTTPS-only encryption answer.
 - [Check the game in WKWebView](issues/06-webview-probe.md): no service worker, the cache gate passes, local play and the computer work in the simulator.
+- [Deploy the app origin to staging and play online in the app](issues/07-staging-online.md): online play passes in the app against staging (invite, moves both ways, a 2-minute background return, resignation); the invite link is the site's `/j` link.
 - [Choose how the store build gets character frames](issues/09-frames.md): bundle all frames, as for TestFlight; the app never asks the site for a frame, so deploys cannot break a released app; one offline line in the runtime is open ([ticket 14](issues/14-offline-frames.md)).
 - [Write the privacy manifest and the store answers](issues/11-privacy.md): `PrivacyInfo.xcprivacy` with six linked, non-tracking types; the answers are in [store-answers.md](store-answers.md) (13+, export NO); the owner enters them.
 

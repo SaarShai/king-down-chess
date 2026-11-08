@@ -44,7 +44,7 @@ When you add, move or remove an entry at the top of `docs/`, change its line her
 ## Release, hosting and the plugin
 
 - [HOSTING.md](HOSTING.md): Where is the site, how does a deploy work, and where are the secret files? **Source of truth for the site, the deploy and DNS.**
-- [IOS.md](IOS.md): How do I build and run the iOS app, and which origin rules does its code depend on? **Source of truth for the iOS app build.**
+- [IOS.md](IOS.md): How do I build, run and upload the iOS app to TestFlight, and which origin rules does its code depend on? **Source of truth for the iOS app build.**
 - [plugin-preparation.md](plugin-preparation.md): How do I set up and check the private plugin and its match service on this Mac?
 - [match-foundation.md](match-foundation.md): How do I use the match module for validated moves, saves and replays?
 - [plugin-beta-support.md](plugin-beta-support.md): What must a private beta prove, and how do I support its players?
