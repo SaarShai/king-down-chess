@@ -1,7 +1,8 @@
 /** Draws the app icons from the painted ivory Frost King (docs/2d-first-pieces/king-frost/king.webp).
- *  PLAYABLE_BROWSER=chromium node docs/perf/make-icons.mjs  →  public/icons/*.png */
+ *  PLAYABLE_BROWSER=chromium node docs/perf/make-icons.mjs  →  public/icons/*.png and the iOS app icon */
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync } from 'node:fs';
+import sharp from 'sharp';
 const art = 'data:image/webp;base64,' + readFileSync(new URL('../2d-first-pieces/king-frost/king.webp', import.meta.url)).toString('base64');
 // Head, crown and shoulders of the left (ivory) figure, in source pixels; the maskable icon zooms out
 // so the crown stays inside the 80 % safe circle.
@@ -10,10 +11,12 @@ const ICONS = [
   { file: 'icon-512.png', size: 512, crop: [265, 0, 400] },
   { file: 'apple-touch-icon.png', size: 180, crop: [265, 0, 400] },
   { file: 'maskable-512.png', size: 512, crop: [215, -70, 520] },
+  // App Store Connect refuses an app icon with an alpha channel.
+  { file: '../../ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png', size: 1024, crop: [265, 0, 400], opaque: true },
 ];
 const browser = await chromium.launch({ channel: process.env.PLAYABLE_BROWSER });
 const page = await browser.newPage();
-for (const { file, size, crop: [x, y, s] } of ICONS) {
+for (const { file, size, crop: [x, y, s], opaque } of ICONS) {
   const png = await page.evaluate(async ({ art, size, x, y, s }) => {
     const img = new Image(); img.src = art; await img.decode();
     const c = document.createElement('canvas'); c.width = c.height = size;
@@ -26,6 +29,7 @@ for (const { file, size, crop: [x, y, s] } of ICONS) {
     g.drawImage(img, x, y, s, s, 0, 0, size, size);
     return c.toDataURL('image/png');
   }, { art, size, x, y, s });
-  writeFileSync(new URL(`../../public/icons/${file}`, import.meta.url), Buffer.from(png.split(',')[1], 'base64'));
+  const bytes = Buffer.from(png.split(',')[1], 'base64');
+  writeFileSync(new URL(`../../public/icons/${file}`, import.meta.url), opaque ? await sharp(bytes).removeAlpha().png().toBuffer() : bytes);
 }
 await browser.close();

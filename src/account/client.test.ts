@@ -27,6 +27,14 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe('account identity client', () => {
+  it('offers only the email code in the iOS app', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ external: { google: true, github: true, email: true } }))));
+    expect(await connect(AUTH_KEY).providers()).toEqual(['google', 'github', 'email']);
+    vi.stubGlobal('location', new URL('capacitor://localhost/'));
+    vi.resetModules();
+    const app = await import('./client');
+    expect(await app.connect(AUTH_KEY).providers()).toEqual(['email']);
+  });
   // A build outside staging cannot open the staging project (public-config.test.ts), so it uses the production one here.
   it.each([undefined, ''])('refuses password sign-in outside staging (stage %s)', async stage => {
     if (stage !== undefined) vi.stubEnv('VITE_KINGDOWN_STAGE', stage);

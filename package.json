@@ -39,9 +39,12 @@
     "plugin:serve": "node plugin-server-dist/server.mjs",
     "plugin:build:vercel": "node tools/plugin-server-build.mjs --vercel --chatgpt",
     "build:vercel": "npm run build && node tools/plugin-server-build.mjs --site",
-    "check:vercel": "node tools/vercel-check.mjs"
+    "check:vercel": "node tools/vercel-check.mjs",
+    "ios:sync": "bash tools/ios-sync.sh"
   },
   "dependencies": {
+    "@capacitor/core": "8.6.0",
+    "@capacitor/ios": "8.6.0",
     "@modelcontextprotocol/ext-apps": "^2.0.3",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "@supabase/supabase-js": "^2.117.2",
@@ -51,6 +54,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.6.0",
     "@gltf-transform/core": "4.5.0",
     "@gltf-transform/extensions": "4.5.0",
     "@gltf-transform/functions": "4.5.0",

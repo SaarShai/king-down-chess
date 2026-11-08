@@ -25,6 +25,8 @@ import type { WebAccountStatus } from '../online/account-access';
 export const MAX_API_BODY = 16 * 1024;
 /** Routes that can build or play a match share a bound for each instance, as /mcp has. */
 export const MAX_ACTIVE_ENGINE = 4;
+/** The iOS app's page (src/platform.ts): the one other origin. It sends a bearer token and no cookies, so CORS adds no ambient authority. */
+export const APP_ORIGIN = 'capacitor://localhost';
 const AUTH_DOWN = new Set(['ERR_JOSE_GENERIC', 'ERR_JWKS_TIMEOUT', 'ERR_JWKS_INVALID']); // the key set did not load
 const sha256 = (text: string) => createHash('sha256').update(text).digest();
 
@@ -186,16 +188,23 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
  const recorder = import.meta.env?.KINGDOWN_ERROR_RECORDER !== false ? arguments[0] as ApiOptions : undefined;
  const admitError = import.meta.env?.KINGDOWN_ERROR_RECORDER !== false ? errorAdmission() : undefined;
  return async (req, res) => {
+  const app = req.headers.origin === APP_ORIGIN, site = req.headers['sec-fetch-site'];
+  if (app) { res.setHeader('Access-Control-Allow-Origin', APP_ORIGIN); res.setHeader('Vary', 'Origin'); }
+  const preflight = (methods: string) => {
+   req.resume(); res.writeHead(204, { 'Cache-Control': 'no-store', 'Access-Control-Allow-Methods': methods, 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Max-Age': '600' }); res.end();
+  };
   const notFound = () => {
    res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Content-Type-Options', 'nosniff');
    req.resume(); respond(res, 404, { code: 'NOT_FOUND', message: 'Not found' });
   };
   // Fault reports need no account or account-access switch.
-  if (import.meta.env?.KINGDOWN_ERROR_RECORDER !== false && req.url?.split(/[?#]/, 1)[0] === '/api/client-errors' && req.method === 'POST') {
+  const reports = import.meta.env?.KINGDOWN_ERROR_RECORDER !== false && req.url?.split(/[?#]/, 1)[0] === '/api/client-errors';
+  if (reports && app && req.method === 'OPTIONS' && req.headers.host?.toLowerCase() === new URL(origin).host) { preflight('POST'); return; }
+  if (reports && req.method === 'POST') {
    res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Content-Type-Options', 'nosniff');
    try {
-    if (recorder?.recordError && req.headers.host?.toLowerCase() === new URL(origin).host && req.headers.origin === origin
-     && (!req.headers['sec-fetch-site'] || req.headers['sec-fetch-site'] === 'same-origin') && admitError!()) {
+    if (recorder?.recordError && req.headers.host?.toLowerCase() === new URL(origin).host
+     && (req.headers.origin === origin && (!site || site === 'same-origin') || app && (!site || site === 'cross-site')) && admitError!()) {
      const report = await readClientError(req);
      if (report) await recorder.recordError(report);
     }
@@ -209,9 +218,10 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
   const route = matches.find(r => r.method === req.method), allowed = matches.filter(r => operations.has(r.key));
   if (route ? !operations.has(route.key) : !allowed.length) { notFound(); return; }
   if (guard(req, res, origin) === undefined) return;
-  // Same origin only, so no CORS headers ever: a browser sends Origin on a cross-site call (and every preflight).
-  const site = req.headers['sec-fetch-site'];
-  if (req.headers.origin !== undefined && req.headers.origin !== origin || site !== undefined && site !== 'same-origin' && site !== 'none') { respond(res, 403, { code: 'FORBIDDEN', message: 'Cross-origin requests are refused' }); return; }
+  // Same origin, or the iOS app's exact origin with CORS: a browser sends Origin on a cross-site call (and every preflight).
+  const crossSite = site !== undefined && site !== 'same-origin' && site !== 'none';
+  if (app ? crossSite && site !== 'cross-site' : req.headers.origin !== undefined && req.headers.origin !== origin || crossSite) { respond(res, 403, { code: 'FORBIDDEN', message: 'Cross-origin requests are refused' }); return; }
+  if (app && req.method === 'OPTIONS') { preflight(allowed.map(r => r.method).join(', ')); return; }
   if (!route) { req.resume(); res.setHeader('Allow', allowed.map(r => r.method).join(', ')); respond(res, 405, { code: 'NOT_ALLOWED', message: 'Method not allowed' }); return; }
   const engine = ['POST /api/games', 'POST /api/games/find', 'POST /api/games/:id/accept', 'POST /api/invites/redeem', 'POST /api/games/:id/commands', 'POST /api/games/:id/preview'].includes(route.key);
   let body: unknown, release: (() => void) | undefined;
