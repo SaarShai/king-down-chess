@@ -16,5 +16,7 @@ A check build with no signing: `xcodebuild -project ios/App/App.xcodeproj -schem
 - `src/platform.ts` is the one seam between the website and the app: `inApp` for app-only behavior, `apiOrigin` for `/api` calls. A new `/api` call uses `apiOrigin`.
 - The server allows exactly one other origin, `APP_ORIGIN` in `src/api/http.ts`. A server change that touches the origin checks keeps the app tests in `src/api/http.test.ts` green.
 - A released app keeps calling the live `/api` while it waits in review and on old phones, so `/api` changes stay backward compatible.
-- Keep the generated native project close to the Capacitor template: the Capacitor 9 move uses `npx cap migrate`. The settings changed by hand are the team, the device family (iPhone), the orientation (portrait) and `ITSAppUsesNonExemptEncryption` in `Info.plist`.
+- Keep the generated native project close to the Capacitor template: the Capacitor 9 move uses `npx cap migrate`. The settings changed by hand are the team, the device family (iPhone), the orientation (portrait), `ITSAppUsesNonExemptEncryption` in `Info.plist` and `PrivacyInfo.xcprivacy` in the app target's resources.
+- A change to what the app or `/api` collects updates `ios/App/App/PrivacyInfo.xcprivacy` and [the store answers](specs/ios-app/store-answers.md) in the same change.
+- A link from the app to a site page uses `apiOrigin` + the path. A relative link opens nothing in the app, because its page is `capacitor://localhost`.
 - The app icon comes from `PLAYABLE_BROWSER=chromium node docs/perf/make-icons.mjs` (opaque PNG; App Store Connect refuses alpha).
