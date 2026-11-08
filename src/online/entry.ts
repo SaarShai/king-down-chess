@@ -7,6 +7,7 @@ import { createBrowserRuntime } from './runtime';
 import { beginAccountSignIn, consumeSignInReturn, type SignInHost } from './sign-in';
 import { accountPath, parseAccountRoute } from './routes';
 import { readWebAccountAccess } from './account-access';
+import { apiOrigin } from '../platform';
 import template from '../plugin/index.html?raw';
 import './page-host.css';
 
@@ -89,7 +90,7 @@ try {
     else {
       const parsed = new DOMParser().parseFromString(template, 'text/html'); parsed.querySelectorAll('script').forEach(script => script.remove());
       document.body.replaceChildren(...Array.from(parsed.body.childNodes));
-      const api = onlineClient({ token: async () => { const current = await auth.readSession(); return current?.userId === session.userId ? current.accessToken : null; } });
+      const api = onlineClient({ origin: apiOrigin, token: async () => { const current = await auth.readSession(); return current?.userId === session.userId ? current.accessToken : null; } });
       const host = createBrowserRuntime(api, session.userId);
       host.onAccessLost = () => {
         const main = message('This game is not available to this account. You can open your own games.');

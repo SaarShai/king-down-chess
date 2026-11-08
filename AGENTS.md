@@ -42,6 +42,7 @@
 - The game is public at https://kingdown.dev. `tools/deploy.sh` is the only deploy path.
 - Every deploy publishes to the world: deploy only what the owner asked to put online. A DNS change needs the owner's go. Do not test the site while signed in to the owner's account.
 - [HOSTING.md](docs/HOSTING.md) holds the site, deploy, DNS and secret-file facts.
+- iOS app: [IOS.md](docs/IOS.md) holds the build, the run and the origin rules; read it before you change `src/platform.ts`, the `/api` origin checks or `ios/`.
 
 ## Working with the owner
 - Open decisions go in one block at the end of a status message: a one-sentence rule, two or three numbers, the agent's pick, what happens on yes. Fix clear faults. Taste choices and rule changes need the owner's word, unless the approved spec delegates them.

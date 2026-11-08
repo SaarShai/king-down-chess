@@ -8,6 +8,7 @@ import type { Remote, Row } from './sync';
 import type { AccountSession } from './session';
 import { publicAccountConfig, stagingPasswordSignInEnabled } from './public-config';
 import { availableProviders, type Provider } from './providers';
+import { inApp } from '../platform';
 
 export type { Provider, SignInOption } from './providers';
 
@@ -31,7 +32,8 @@ export function connect(storageKey: string, { manualCallback = false }: { manual
     if (error) for (const k of [storageKey, `${storageKey}-code-verifier`]) localStorage.removeItem(k);
   };
   return {
-    providers: () => availableProviders(url, publishableKey),
+    // shortcut: the iOS app offers only the email code; Google or GitHub there needs ASWebAuthenticationSession and Sign in with Apple (App Review 4.8).
+    providers: async () => (await availableProviders(url, publishableKey)).filter(option => !inApp || option === 'email'),
     /** Called with the session now and on every change (null when signed out). */
     onSession(cb: (s: Session | null) => void): () => void {
       let active = true;

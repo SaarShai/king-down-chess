@@ -7,7 +7,7 @@ import { DEFAULT_OPTIONS } from '../match/setup';
 import { createArguments, readSetup } from '../plugin/screens/setup-model';
 import { MatchServiceError } from '../match/service';
 import { AuthenticationError, AuthenticationUnavailable } from '../plugin/auth';
-import { createApiHandler, createInternalHandler, MAX_ACTIVE_ENGINE, MAX_API_BODY, sessionVerifier, type ApiOptions } from './http';
+import { APP_ORIGIN, createApiHandler, createInternalHandler, MAX_ACTIVE_ENGINE, MAX_API_BODY, sessionVerifier, type ApiOptions } from './http';
 import type { Pool } from 'pg';
 import { createWebAccountAccess } from './account-access';
 import { readWebAccountAccess } from '../online/account-access';
@@ -238,6 +238,25 @@ describe('website API boundary', () => {
   expect([preflight.status, preflight.headers.get('Access-Control-Allow-Origin')]).toEqual([403, null]);
   expect((await call('/api/me/games', { token, headers: { Origin: address, 'Sec-Fetch-Site': 'same-origin' } })).status).toBe(200);
   expect(await raw('/api/me/games', { Host: 'evil.example', Authorization: `Bearer ${token}` })).toBe(403);
+  expect(games.inbox).toHaveBeenCalledTimes(1);
+ });
+ it('serves the iOS app origin with exact CORS and still needs the bearer token', async () => {
+  const token = await sign(), app = { Origin: APP_ORIGIN, 'Sec-Fetch-Site': 'cross-site' };
+  const preflight = await fetch(`${address}/api/games`, { method: 'OPTIONS', headers: { ...app, 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'authorization,content-type' } });
+  expect([preflight.status, preflight.headers.get('Access-Control-Allow-Origin'), preflight.headers.get('Access-Control-Allow-Methods'), preflight.headers.get('Access-Control-Allow-Headers'), preflight.headers.get('Vary'), preflight.headers.get('Access-Control-Allow-Credentials')])
+   .toEqual([204, APP_ORIGIN, 'POST', 'Authorization, Content-Type', 'Origin', null]);
+  const read = await call('/api/me/games', { token, headers: app });
+  expect([read.status, read.headers.get('Access-Control-Allow-Origin'), read.headers.get('Vary')]).toEqual([200, APP_ORIGIN, 'Origin']);
+  const status = await call('/api/status', { headers: app });
+  expect([status.status, status.headers.get('Access-Control-Allow-Origin')]).toEqual([200, APP_ORIGIN]);
+  const signedOut = await call('/api/me/games', { headers: app });
+  expect([signedOut.status, signedOut.headers.get('Access-Control-Allow-Origin')]).toEqual([401, APP_ORIGIN]);
+  for (const headers of [{ Origin: APP_ORIGIN, 'Sec-Fetch-Site': 'same-site' }, { Origin: 'capacitor://other.example', 'Sec-Fetch-Site': 'cross-site' }, { Origin: 'ionic://localhost' }] as Record<string, string>[]) {
+   const response = await call('/api/me/games', { token, headers });
+   expect([JSON.stringify(headers), response.status]).toEqual([JSON.stringify(headers), 403]);
+   if (headers.Origin !== APP_ORIGIN) expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull();
+  }
+  expect(await raw('/api/me/games', { ...app, Host: 'evil.example', Authorization: `Bearer ${token}` })).toBe(403);
   expect(games.inbox).toHaveBeenCalledTimes(1);
  });
  it('answers 404 and 405 for unknown routes and methods, bounds the body and refuses malformed JSON', async () => {

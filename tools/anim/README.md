@@ -110,6 +110,10 @@ the bank and updates the catalog manifest. A repeated promotion of the same cand
 Promotion does not change `runtime-selection.json`. The owner re-pins the selection after review, and the next
 `tools/build-character-runtime.mjs` run makes the bank public. Do not deploy from this tool.
 
+`tools/convert-character-runtime-webp.mjs` also converts each separate effect's textures (the Archer's arrow, the
+Maester's beam, the Queen's thorn) to WebP in the frames' encoding and points its module at them, so a capture's effect
+arrives on a slow link. A test keeps each effect texture at 256 KB or less.
+
 `tools/convert-character-runtime-webp.mjs` also writes `footprints.json`, the soft pool's table of what touches the
 floor in each frame. After any other change to a package's frames, run `node tools/build-character-footprints.mjs`
 (about 25 seconds). A frame not in the table has its character's standing pool, so a missed run shows no fault: look

@@ -30,7 +30,7 @@ function board(motion: boolean, characterRuntime = false, largeRuntime = false, 
     decode() { return this.src.includes('stone-board') ? decoded : Promise.resolve(); }
   }
   const context: object = new Proxy({}, { get: (target, key) => key === 'drawImage'
-    ? (image: Art, ...args: number[]) => { if (image.src) { draws.push(image.src); drawArgs.push({src:image.src,args}); } if (image.src?.includes('cloud-bank.png') && args.length === 4) clouds.push(Reflect.get(target, 'globalAlpha')); }
+    ? (image: Art, ...args: number[]) => { if (image.src) { draws.push(image.src); drawArgs.push({src:image.src,args}); } if (image.src?.includes('cloud-bank.webp') && args.length === 4) clouds.push(Reflect.get(target, 'globalAlpha')); }
     : key === 'rotate' ? (angle: number) => { rotations.push(angle); }
     : key === 'getImageData' || key === 'createImageData' ? () => ({ data: new Uint8ClampedArray(4) })
     : key in target ? Reflect.get(target, key) : () => context });
