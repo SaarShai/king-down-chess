@@ -18,6 +18,16 @@ Does the connector answer on staging with a real Supabase OAuth token?
 4. Owner: give the word to deploy the branch to staging (AGENTS.md).
 5. Agent: check the metadata, a 401 challenge, and `tools/list` with a token from the MCP Inspector's OAuth flow against a staging test account.
 
+## Progress
+
+- 2026-11-08, steps 1 and 2 done on staging (the owner's sign-in, the agent's clicks):
+  - The OAuth server is on, and dynamic registration is off.
+  - The public client "Muse" has client ID `04bffb8b-1fbb-4ca0-a87b-482ad79de209` and the three redirect URIs of ticket 05.
+  - The resource check accepts `/muse/mcp`.
+  - The Muse row maps the client to `https://kingdown-staging.vercel.app/muse/mcp`, and the ChatGPT row stays.
+  - The hook function was already current (it has the password-account check), so it was not replaced.
+- Migration 0023 has not run on staging: both surface checks allow only `web` and `chatgpt`. It runs with the staging deploy (step 4).
+
 ## Done when
 
 The MCP Inspector signs in through `/authorize` on staging and lists the six tools, and a game started there shows on kingdown-staging.vercel.app.
