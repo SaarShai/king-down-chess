@@ -21,8 +21,9 @@ no turn, walk or attack gesture. Seen on King captures, Archer shots, Pawn walks
 
 ## Change
 
-- `releaseMovePrefetch()` keeps the requests already on the network. The next `prepare()` takes them over; a load of
-  higher priority still cancels the others. `prepare()` queues all its requests before the loader runs.
+- `releaseMovePrefetch()` keeps the requests already on the network, so the next `prepare()` takes them over (PR 308
+  made the same change for the leaps). `prepare()` queues all its requests before the loader runs, so it cancels none
+  of them before a later frame of the move takes it over.
 - At the limit, a start or walk frame that is still loading streams during play. The clock holds the last decoded
   frame before it, also across turn parts, and an attack holds the turn's last pose. A failed frame, or an undecoded
   first pose, still gives the still picture.
