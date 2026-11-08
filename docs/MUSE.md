@@ -57,14 +57,14 @@ Meta's reviewers sign in with two allow-listed password accounts ([ticket 15](sp
 Owner steps on staging (project `puhspsyjyzaghmgtkzqd`). You type the passwords; agents never see them.
 
 1. Choose two new addresses in lower case that no King Down account uses, for example two plus-addresses of a mailbox that you read. Do not use the address of your own account: Supabase links accounts that have the same verified address.
-2. In **SQL Editor → New query**, replace the two placeholders and press **Run**. It is safe to run again.
+2. In **Authentication → Users → Add user → Create new user**, type the first address and a new long password. Keep **Auto Confirm User** on, then press **Create user**. Do the same for the second address. Keep both passwords in your password manager.
+3. Then, so that the list names only accounts that exist: in **SQL Editor → New query**, replace the two placeholders and press **Run**. It is safe to run again.
 
    ```sql
    insert into kingdown_auth.password_accounts(email) values ('<first review address>'), ('<second review address>') on conflict (email) do nothing;
    ```
 
-3. In **Authentication → Users → Add user → Create new user**, type the first address and a new long password. Keep **Auto Confirm User** on, then press **Create user**. Do the same for the second address. Keep both passwords in your password manager.
 4. In the Muse portal, type each address and its password in one test account. Notes: "On the King Down page, open 'Sign in with email and password'."
 5. After a staging deploy that serves the connector, run the portal's sign-in test with each account (or the MCP Inspector OAuth flow of [ticket 11](specs/muse-connector/issues/11-staging-oauth.md), step 5).
 
-For production (project `utqzovjmclfyojedmwok`), do steps 1 to 3 again before the release that turns the connector on ([ticket 17](specs/muse-connector/issues/17-submit.md)). First read the list (`select email from kingdown_auth.password_accounts;`): each address in it can get a password session. To stop an account, remove it from the list, then end its sessions: `delete from kingdown_auth.password_accounts where email = '<address>';` and `delete from auth.sessions where user_id in (select id from auth.users where lower(email) = '<address>');`.
+For production (project `utqzovjmclfyojedmwok`), do steps 1 to 3 again before the release that turns the connector on ([ticket 17](specs/muse-connector/issues/17-submit.md)). First read the list (`select email from kingdown_auth.password_accounts;`): each address in it can get a password session. Remove the old OpenAI review address and each other old address, unless it is still necessary (for example an App Review account of iOS [ticket 10](specs/ios-app/issues/10-review-sign-in.md)). To stop an account, remove it from the list, then end its sessions: `delete from kingdown_auth.password_accounts where email = '<address>';` and `delete from auth.sessions where user_id in (select id from auth.users where lower(email) = '<address>');`.

@@ -80,6 +80,7 @@ it('gives a Muse build the Muse consent words and the review password form, and 
       expect(page).not.toMatch(/cannot read the chat|see your email address|picture/);
       for (const id of ['client-name', 'account', 'redirect', 'approve', 'deny', 'password-form']) expect(page).toContain(`id="${id}"`);
     }
+    await expect(buildPluginServer(join(out, 'both'), { chatgpt: true, muse: true })).rejects.toThrow('not both');
   } finally { rmSync(out, { recursive: true, force: true }); }
 }, 120_000);
 

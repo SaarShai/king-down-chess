@@ -33,7 +33,7 @@ async function main(): Promise<void> {
         if (error) throw error;
       } catch { busy(false); say('Sign-in could not start. Try again.'); }
     };
-    // The one review account (approval D8 a). The before-user-created hook refuses every other password sign-up.
+    // The review accounts (ticket 15). The access token hook refuses a password session for each other address.
     const email = document.getElementById('password-email') as HTMLInputElement, password = document.getElementById('password-value') as HTMLInputElement;
     document.getElementById('password-signin')!.hidden = !REVIEW_PASSWORD_SIGNIN;
     document.getElementById('password-form')!.onsubmit = async event => {

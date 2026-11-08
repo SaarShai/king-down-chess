@@ -53,6 +53,8 @@ function museConsent(html) {
  *  the consent page and the OAuth function paths. The checks of the parked plugin source pass `chatgpt: true`.
  *  `muse` (default: tools/muse-connector.mjs) adds the Muse handler, the consent page and the Muse routes. */
 export async function buildPluginServer(outDir = resolve('plugin-server-dist'), { vercel = false, site, chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNECTOR } = {}) {
+  // The server refuses both at start too (tools/plugin-server.mjs): one OAuth client list serves one connector.
+  if (chatgpt && muse) throw new Error('Build the ChatGPT plugin or the Muse connector, not both');
   vercel ||= Boolean(site);
   const routes = vercel ? vercelRoutes(site, { chatgpt, muse }) : [];
   const staging = process.env.KINGDOWN_STAGE === 'staging';
