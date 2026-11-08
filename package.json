@@ -38,6 +38,7 @@
     "plugin:server:check": "node tools/plugin-server-check.mjs",
     "plugin:serve": "node plugin-server-dist/server.mjs",
     "muse:dev": "tsx tools/muse-dev.mjs",
+    "muse:docs": "tsx tools/muse-tool-docs.ts",
     "plugin:build:vercel": "node tools/plugin-server-build.mjs --vercel --chatgpt",
     "build:vercel": "npm run build && node tools/plugin-server-build.mjs --site",
     "check:vercel": "node tools/vercel-check.mjs",

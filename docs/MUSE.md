@@ -22,7 +22,9 @@ npx @modelcontextprotocol/inspector
 KINGDOWN_TEST_FILE='src/muse/*.test.ts' npm test
 ```
 
-`src/muse/*.test.ts` covers the word matching, the board text, the tools over the fixture (both protocol eras) and the HTTP edge (guards, bearer check, metadata). `tools/plugin-server-check.mjs` checks that a build with the connector off has no Muse tool code and answers 404 on the Muse paths.
+`src/muse/*.test.ts` covers the word matching, the board text, the tools over the fixture (both protocol eras) and the HTTP edge (guards, bearer check, metadata).
+
+After a tool change, run `npm run muse:docs`: it writes [specs/muse-connector/tool-docs.md](specs/muse-connector/tool-docs.md) from the tool listing, and the doc lint `tools/muse-tool-docs.docs.test.ts` fails until you do. `tools/plugin-server-check.mjs` checks that a build with the connector off has no Muse tool code and answers 404 on the Muse paths.
 
 ## The switch
 
