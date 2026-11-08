@@ -3,7 +3,7 @@ import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page, type FrameLocator } from 'playwright';
-import { startHarness } from './plugin-ui-harness';
+import { remountWidget, startHarness } from './plugin-ui-harness';
 import { DEFAULT_OPTIONS, switches } from '../src/match/setup';
 // A frame read can take more than the 1 s poll default under full-suite load in CI (plugin-app runs 40225675633, 40223950211).
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000, expect: { poll: { timeout: 5000 } } });
@@ -406,7 +406,7 @@ it('opens the human game when the friend joins before a saved wait remounts', as
   try {
     await start(page, 'friend'); await frame.locator('#friend-new').click(); await frame.locator('#friend-link span').waitFor();
     const code = await linkCode(frame);
-    await buddy(page, 'kingdown_join', { code }); await page.locator('#remount').click();
+    await buddy(page, 'kingdown_join', { code }); await remountWidget(page);
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
   } finally { await page.close(); }
 });

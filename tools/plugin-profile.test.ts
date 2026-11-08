@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser } from 'playwright';
 import sharp from 'sharp';
-import { startHarness } from './plugin-ui-harness';
+import { remountWidget, startHarness } from './plugin-ui-harness';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 import { randomUUID } from 'node:crypto';
 import type { AccountNotice } from '../src/account/profile';
@@ -236,7 +236,7 @@ it('reads a fresh profile after a remount and removes the provisional mark', asy
     await frame.locator('#profile-rating .q:not([hidden])').waitFor();
     const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_profile').length);
     await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { record: { ...record, totals: { played: 24, won: 13, drawn: 3, lost: 8 }, rating: { rating: 1600.6, rd: 90, volatility: .06, provisional: false } } } } });
-    await page.locator('#remount').click();
+    await remountWidget(page);
     // A remount loads the whole page again; a CI runner needs more than the 1 s poll default.
     await expect.poll(() => frame.locator('#profile-rating b').textContent(), { timeout: 5000 }).toBe('1601');
     expect(await frame.locator('#profile-rating .q').isVisible()).toBe(false);
