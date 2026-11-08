@@ -1,6 +1,6 @@
 // The privacy policy must say what the code does (approval items D9 a, D12 a, D14 a): each cleanup period of the
-// daily job, the Settings control by its exact name, OpenAI as a recipient, each kind of stored alert, and what a
-// deletion keeps. A changed period, label or alert kind fails here.
+// daily job, the Settings control by its exact name, OpenAI and Meta as recipients, each kind of stored alert, and what
+// a deletion keeps. A changed period, label or alert kind fails here.
 import { readdirSync, readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 
@@ -42,6 +42,21 @@ test('the policy mentions ChatGPT only in the note about the closed app', () => 
  const outside = policy.replace(/<p id="chatgpt-app">[\s\S]*?<\/p>/, '');
  expect(outside).not.toMatch(/ChatGPT|OpenAI/);
  expect(text).toContain('The daily job deletes the record of which game a ChatGPT board showed after 7 days');
+});
+
+test('the policy names Meta as a recipient of the Muse connector, and Muse only there and in the stored link', () => {
+ const paragraph = policy.match(/<p id="muse-connector">([\s\S]*?)<\/p>/)?.[1];
+ expect(paragraph).toBeDefined();
+ for (const words of ['You can play King Down in Muse, the AI agent of Meta', 'approve the link (OAuth through Supabase)', 'start and play games against the computer in Muse',
+  'King Down sends Muse the result of each action: the board as text, the moves, the game status and links to your games on kingdown.dev', 'These results hold no handle, picture or email address',
+  'King Down uses the words of a move only to find that move, and does not store them', 'Muse sends King Down only the tool calls, not your Muse conversation',
+  'Meta and King Down are independent controllers of this data under Meta\'s Data Protection Requirements', 'Meta can use your requests, the tool calls and their results under its own terms and privacy policy',
+  'When you disconnect King Down in Muse, or ask us to delete your data, we delete the data that King Down received through Muse']) expect(paragraph).toContain(words);
+ // The results hold no handle, picture or email address: the Muse tools (src/muse/tools.ts) never name one.
+ expect(readFileSync('src/muse/tools.ts', 'utf8')).not.toMatch(/\bhandles?\b|avatar|picture|email/i);
+ expect(text).toContain('the OAuth link that lets your Muse connection use your King Down account');
+ const outside = policy.replace(/<p id="muse-connector">[\s\S]*?<\/p>/, '').replace(/<li id="muse-link">[\s\S]*?<\/li>/, '');
+ expect(outside).not.toMatch(/Muse/);
 });
 
 test('the policy has no placeholder left from the draft', () => {
