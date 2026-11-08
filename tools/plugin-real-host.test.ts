@@ -17,7 +17,12 @@ beforeAll(async () => { folder = await mkdtemp(join(tmpdir(), 'kingdown-real-hos
   execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe', timeout: 30_000 });
   const boardPath = join(folder, 'board.html');
   harness = await startHarness({ boardPath, sourcePage: true }); built = await startHarness({ boardPath });
-  browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' }); });
+  browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' });
+  // The first page of a source harness has Vite transform the app's source modules; on a loaded runner that passed the
+  // 5 s wait of the first test (run 42499763088). This page takes that cost under the hook limit (as plugin-setup-owner).
+  const warm = await browser.newPage();
+  try { await warm.goto(harness.url); await warm.frameLocator('iframe').first().locator('#home-play:not(:disabled)').waitFor({ timeout: 30_000 }); }
+  finally { await warm.close(); } });
 afterAll(async () => { await browser?.close(); await harness?.close(); await built?.close(); await rm(folder, { recursive: true, force: true }); });
 const CLASSIC = { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false };
 // Node's fetch, not page.request: the offline test takes the browser offline, not the friend.

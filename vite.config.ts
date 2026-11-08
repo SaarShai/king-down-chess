@@ -1,6 +1,7 @@
 import { sourceErrorForms } from './tools/lib/error-forms.mjs';
 import { isCharacterRuntimePublic, isCharacterRuntimeStartup } from './tools/lib/character-runtime-public.mjs';
 import { privateRuntimeData, validateManifest, validateRuntimeImage } from './tools/lib/character-runtime-guard.mjs';
+import { splitManifest, writeRuntimeParts } from './tools/lib/character-runtime-split.mjs';
 import { pluginSymbols } from './tools/lib/plugin-symbols.mjs';
 import { buildWorker } from './tools/plugin-runtime-build.mjs';
 import { configDefaults, defineConfig, type Plugin } from 'vitest/config';
@@ -74,6 +75,9 @@ function offlineBuild(): Plugin {
         else if (Object.keys(meta).length === 0 || ['archer-golden-arrow-flight-v1', 'queen-thorns-directional-v1'].includes(meta.id)) writeFileSync(path, '{}\n');
         else throw new Error(`Unknown character effect metadata: ${path}`);
       }
+      // The game loads the index and the parts of its figures, not the whole manifest (tools/lib/character-runtime-split.mjs).
+      const manifest = join(outDir, 'character-runtime/manifest.json');
+      if (existsSync(manifest)) writeRuntimeParts(join(outDir, 'character-runtime'), validateManifest(JSON.parse(readFileSync(manifest, 'utf8'))));
       const files = walk(outDir).map(path => relative(outDir, path).split(sep).join('/')).filter(f => f !== 'sw.js' && !f.startsWith('.well-known/')).sort();
       for (const file of files.filter(file => file.startsWith('character-runtime/'))) {
         const contents = readFileSync(join(outDir, file));
@@ -83,7 +87,7 @@ function offlineBuild(): Plugin {
       }
       const template = readFileSync(join(publicDir, 'sw.js'), 'utf8');
       const hash = createHash('sha256').update(template); // a change to the worker itself is a new version too
-      for (const f of files.filter(file => !file.startsWith('character-runtime/') || isCharacterRuntimeStartup(file))) hash.update(f).update(readFileSync(join(outDir, f)));
+      for (const f of files.filter(file => !file.startsWith('character-runtime/') || isCharacterRuntimeStartup(file) || file === 'character-runtime/manifest.json')) hash.update(f).update(readFileSync(join(outDir, f)));
       const { allowlist, precache } = offlineCacheFiles(bundle, root, files);
       if (!precache.every(file => allowlist.includes(file))) throw new Error('Offline file is not public');
       let sw = template;
@@ -93,6 +97,28 @@ function offlineBuild(): Plugin {
         if (sw.includes(marker)) throw new Error(`sw.js template marker remains: ${marker}`);
       }
       writeFileSync(join(outDir, 'sw.js'), sw);
+    },
+  };
+}
+
+/** The dev server answers the runtime's index and parts from public/character-runtime/manifest.json, as the build writes them. */
+function characterRuntimeParts(): Plugin {
+  let cached: { mtime: number, index: string, files: Record<string, string> } | null = null;
+  return {
+    name: 'character-runtime-parts',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const path = /^\/character-runtime\/(index\.json|parts\/[^/?]+\.json)(?:\?|$)/.exec(req.url ?? '')?.[1];
+        const source = join(server.config.publicDir, 'character-runtime/manifest.json');
+        if (!path || !existsSync(source)) return next();
+        const mtime = statSync(source).mtimeMs;
+        if (cached?.mtime !== mtime) cached = { mtime, ...splitManifest(validateManifest(JSON.parse(readFileSync(source, 'utf8')))) };
+        const { index, files } = cached!, body = path === 'index.json' ? index : files[path];
+        if (body === undefined) return next();
+        res.setHeader('Content-Type', 'application/json');
+        res.end(body);
+      });
     },
   };
 }
@@ -115,7 +141,7 @@ export default defineConfig({
   // Vite 8's default target, pinned: the iOS app floor (IPHONEOS_DEPLOYMENT_TARGET 16.4) depends on it. Raise both together.
   build: { copyPublicDir: false, target: ['chrome111', 'edge111', 'firefox114', 'safari16.4', 'ios16.4'] },
   css: { postcss: { plugins: [sharedSeatSelectors()] } },
-  plugins: [pluginSymbols(), offlineBuild(), { name: 'account-engine-identity', apply: 'build', async config() {
+  plugins: [pluginSymbols(), offlineBuild(), characterRuntimeParts(), { name: 'account-engine-identity', apply: 'build', async config() {
     return { define: { __KINGDOWN_PAGE_ENGINE__: JSON.stringify((await buildWorker()).engine) } };
   } }],
   // Vitest collects the source, tools and Claude hook tests. Painted .mjs tests use node:test (npm test).

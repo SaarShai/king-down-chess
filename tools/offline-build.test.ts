@@ -85,11 +85,11 @@ it('F7: the offline install does not fetch optional clip sheets', () => {
   expect(precache).toContain('assets/knight-Abcd1234.webp');
 });
 
-it('precaches the manifest and the startup effect modules but no frames or optional runtime files', () => {
+it('precaches the index, the parts and the startup effect modules but no frames, whole manifest or optional runtime files', () => {
   const { bundle, files } = fixture();
   const effect = `character-runtime/effects/${'b'.repeat(64)}`;
-  const startup = ['character-runtime/manifest.json', 'character-runtime/footprints.json', `${effect}/effect.js`, `${effect}/smoke.js`];
-  const onDemand = [`character-runtime/assets/${'a'.repeat(64)}.webp`, `${effect}/effect.json`, `${effect}/assets/image.png`];
+  const startup = ['character-runtime/index.json', 'character-runtime/parts/king-frost.white.json', 'character-runtime/footprints.json', `${effect}/effect.js`, `${effect}/smoke.js`];
+  const onDemand = ['character-runtime/manifest.json', `character-runtime/assets/${'a'.repeat(64)}.webp`, `${effect}/effect.json`, `${effect}/assets/image.png`];
   const excluded = ['character-runtime/assets.json', 'character-runtime/assets/private.json', `${effect}/provenance/source.json`, `${effect}/provenance/source.js`, `${effect}/sources.json`];
   files.push(...startup, ...onDemand, ...excluded);
   const { allowlist, precache } = offlineCacheFiles(bundle, root, files);
@@ -338,7 +338,7 @@ function worker(dir: string, source: string) {
   };
   return {
     origin, entries, requests, notFound, request,
-    manifest: new URL('character-runtime/manifest.json', origin).href,
+    manifest: new URL('character-runtime/index.json', origin).href,
     install: async () => {
       const waits: Promise<unknown>[] = [];
       listeners.get('install')!({ waitUntil: (promise: Promise<unknown>) => waits.push(promise) });
@@ -369,19 +369,40 @@ it('gives the first online reload after a package deploy the new manifest and 0 
     write('public/character-runtime/manifest.json', manifest(newFrame));
     await compile(dir);
     expect(existsSync(join(dir, 'dist', oldFrame))).toBe(false);
-    // The page asks for the manifest, then for the frame that the manifest names.
-    const page = await (await installed.request('character-runtime/manifest.json')).json();
-    const frame = await installed.request(page.banks[0].frames[0].url);
+    // The page asks for the index, then for the knight's part, then for the frame that the part names.
+    const page = await (await installed.request('character-runtime/index.json')).json();
+    expect(page.parts).toEqual({ 'knight:white': 'parts/knight.white.json' });
+    const part = await (await installed.request(`character-runtime/${page.parts['knight:white']}`)).json();
+    const frame = await installed.request(part.banks[0].frames[0].url);
     expect(frame.status).toBe(200);
     expect(Buffer.from(await frame.arrayBuffer())).toEqual(art(2));
     expect(installed.notFound).toEqual([]);
     expect(await installed.entries.get(installed.manifest)!.json()).toEqual(page);
+    expect(await installed.entries.get(new URL('character-runtime/parts/knight.white.json', installed.origin).href)!.json()).toEqual(part);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-it('serves the installed manifest and startup effect module from the cache when offline', async () => {
+it('builds the index and one part for each character and army; the whole manifest stays public but not offline', async () => {
   const { dir, write } = site();
-  const installedCopy = '{"schemaVersion":1,"effects":{},"banks":[]}', nextDeploy = '{"schemaVersion":2,"effects":{},"banks":[]}';
+  const bank = (character: string, army: string, id: string) => ({ character, army, id, kind: 'idle', frames: [{ url: `assets/${'a'.repeat(64)}.webp` }], beatTimes: {}, effectAnchors: [] });
+  const manifest = { schemaVersion: 1, sourceToRuntimeScale: 0.5, effects: {}, banks: [bank('knight', 'white', 'a'), bank('king-frost', 'black', 'b'), bank('knight', 'white', 'c')] };
+  write('public/character-runtime/manifest.json', JSON.stringify(manifest));
+  try {
+    await compile(dir);
+    const runtime = join(dir, 'dist/character-runtime');
+    expect(JSON.parse(readFileSync(join(runtime, 'index.json'), 'utf8'))).toEqual({ schemaVersion: 2, sourceToRuntimeScale: 0.5, effects: {}, parts: { 'knight:white': 'parts/knight.white.json', 'king-frost:black': 'parts/king-frost.black.json' } });
+    expect(JSON.parse(readFileSync(join(runtime, 'parts/knight.white.json'), 'utf8')).banks.map((b: { id: string }) => b.id)).toEqual(['a', 'c']);
+    expect(readdirSync(join(runtime, 'parts')).sort()).toEqual(['king-frost.black.json', 'knight.white.json']);
+    const { allowlist, precache } = lists(readFileSync(join(dir, 'dist/sw.js'), 'utf8'));
+    for (const file of ['character-runtime/index.json', 'character-runtime/parts/knight.white.json', 'character-runtime/parts/king-frost.black.json']) expect(precache).toContain(file);
+    expect(allowlist).not.toContain('character-runtime/manifest.json');
+    expect(JSON.parse(readFileSync(join(runtime, 'manifest.json'), 'utf8')).banks).toHaveLength(3);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+it('serves the installed index and startup effect module from the cache when offline', async () => {
+  const { dir, write } = site();
+  const installedCopy = '{"schemaVersion":1,"effects":{},"banks":[]}', nextDeploy = '{"schemaVersion":3,"effects":{},"parts":{}}';
   const effect = `character-runtime/effects/${'b'.repeat(64)}/smoke.js`, module = 'export class ArrowSmoke {}';
   write('public/character-runtime/manifest.json', installedCopy);
   write(`public/${effect}`, module);
@@ -390,9 +411,9 @@ it('serves the installed manifest and startup effect module from the cache when 
     const page = worker(dir, readFileSync(join(dir, 'dist/sw.js'), 'utf8'));
     await page.install();
     // A later deploy must not reach the page while it is offline.
-    writeFileSync(join(dir, 'dist/character-runtime/manifest.json'), nextDeploy);
+    writeFileSync(join(dir, 'dist/character-runtime/index.json'), nextDeploy);
     page.goOffline();
-    expect(await (await page.request('character-runtime/manifest.json')).json()).toEqual(JSON.parse(installedCopy));
+    expect(await (await page.request('character-runtime/index.json')).json()).toEqual({ schemaVersion: 2, effects: {}, parts: {} });
     expect(await (await page.request(effect)).text()).toBe(module);
     // Only the worker's own revalidation fails, once for each file; the page gets the install copies.
     expect(page.requests).toEqual([page.manifest, new URL(effect, page.origin).href]);

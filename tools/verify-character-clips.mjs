@@ -22,7 +22,7 @@ const sheets = page => Promise.all(['tap', 'slam'].map(name =>
   page.waitForEvent('requestfinished', { predicate: request => new URL(request.url()).pathname.includes('/' + name + '-') })));
 // No runtime bodies: the scene falls back to the clips (src/render/painted/scene.mjs, loadClips). The answer is
 // a valid manifest, not a 404: the service worker precaches the manifest, and a 404 stops its install (part 2 waits for it).
-const noBodies = context => context.route('**/character-runtime/manifest.json', route => route.fulfill({ json: { schemaVersion: 1, banks: [], effects: {} } }));
+const noBodies = context => context.route('**/character-runtime/index.json', route => route.fulfill({ json: { schemaVersion: 1, banks: [], effects: {} } }));
 const pace = (page, value) => page.evaluate(v => { const s = document.getElementById('pace'); s.value = v; s.dispatchEvent(new Event('change')); }, value);
 async function open(options = {}, { clock = false, fen = FEN, bodies = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, ...options });

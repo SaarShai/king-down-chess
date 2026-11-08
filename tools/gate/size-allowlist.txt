@@ -2,7 +2,7 @@
 # A file over 2,000,000 bytes can go into git only when this file holds its path and a reason.
 # Format: the path from the top of the work tree, one or more spaces, the reason. No space in a path.
 # A line with no reason is a gate fault. tools/gate.test.ts fails when a listed path is absent or small.
-public/character-runtime/manifest.json  Ready character package index; 842 banks and their frame references must reach the game in one file
+public/character-runtime/manifest.json  Ready character package; every bank and its frame references in one source file, which the build splits into index.json and one part per character and army (tools/lib/character-runtime-split.mjs)
 public/character-runtime/assets.json  Ready character package asset index; 8,003 frame records (smooth attack in-betweens included) map each source hash to its WebP file
 docs/visual-design/workshop/motion-desktop.webm  Set A motion preview video (desktop) for the owner; motion-preview.html shows it
 docs/visual-design/workshop/motion-phone.webm  Set A motion preview video (phone) for the owner; motion-preview.html shows it

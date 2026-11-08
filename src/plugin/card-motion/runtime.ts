@@ -68,9 +68,10 @@ const allowed = () => !document.hidden && !matchMedia('(prefers-reduced-motion: 
 const clock = () => performance.now() / 1000 / LOOP_SECONDS % 1;
 
 function wake() {
-  if (frozen !== undefined) return;
-  if (!allowed()) { for (const card of live) card.clear(); return; }
-  if (!raf && shown.size) raf = requestAnimationFrame(tick);
+  if (frozen === undefined && !allowed()) { for (const card of live) card.clear(); return; }
+  // Only a card that can draw loads its pictures: with reduced motion or a hidden tab, no fetch and no texture upload.
+  for (const card of shown) card.load();
+  if (frozen === undefined && !raf && shown.size) raf = requestAnimationFrame(tick);
 }
 function tick(now: number) {
   raf = 0;
@@ -96,7 +97,7 @@ class CardMotion extends (typeof HTMLElement === 'undefined' ? Object as unknown
     seen ??= new IntersectionObserver(entries => {
       for (const entry of entries) {
         const card = entry.target as CardMotion;
-        if (entry.isIntersecting) { shown.add(card); card.load(); } else { shown.delete(card); card.clear(); }
+        if (entry.isIntersecting) shown.add(card); else { shown.delete(card); card.clear(); }
       }
       wake();
     });

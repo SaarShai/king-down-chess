@@ -28,6 +28,7 @@ The server takes reports (`POST /api/reports`, `src/online/safety.ts:20-22`), an
 - Tests: `src/plugin/screens/board-model.test.ts` (the guard, the labels, the payloads, the reply, the error); the plugin-ui browser check, board Menu (a refused send keeps the fields and shows the alert, then a send to the fixture server shows the reference; Shift+Tab goes from Note back to Reason); typecheck.
 - Independent review of `72b050e7b`: ship, no must-fix. `6516a24f2` applies its should-fix items: the textarea in the sheet's Tab trap, the browser check, the alert stays in the accessibility tree, the reference only when the reply has an id, and store-answers item 2 marked fixed. Accepted risk: when a send times out after the server stored the report, a second send stores a duplicate.
 - Step 3, open: at 13:44 UTC the simulator app (staging build of this branch) showed "Log in": it had lost the P3 sign-in from the ticket 07 test, but its local game was still there. An agent cannot sign in a test account (it has no password), so the in-app test waits: the owner signs P3 in again in the simulator, or tests Report in the next TestFlight build.
+- Build 1.0 (2) (commit `ab232a624`, merged in PR 330 as `b9efa2568`) went to App Store Connect at 14:44 UTC; the Owner group gets it after processing. It has Report player. Open: the owner sends a report from an online game on the iPhone.
 
 ## Done when
 
