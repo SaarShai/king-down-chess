@@ -17,11 +17,13 @@ export interface PluginHttpOptions {
   /** Explicit local process mode; never a production authentication fallback. */
   localDev?: boolean;
 }
+type Handler = (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 class SlotRefused extends Error { constructor(readonly status: 429 | 503, readonly body: object) { super('Request slot refused'); } }
-function respond(res: ServerResponse, status: number, value: unknown): void {
+export function respond(res: ServerResponse, status: number, value: unknown): void {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(JSON.stringify(value));
 }
+export function methodNotAllowed(res: ServerResponse, allow: string, error = 'Method not allowed'): void { res.setHeader('Allow', allow); respond(res, 405, { error }); }
 /** Pre-parse once so a JSON-RPC batch cannot fan out workers behind one admission slot. */
 async function requestBody(req: IncomingMessage, res: ServerResponse): Promise<{ value: unknown } | undefined> {
   const tooLarge = () => { res.setHeader('Connection', 'close'); respond(res, 413, { error: 'Request body too large' }); req.resume(); };
@@ -37,44 +39,57 @@ async function requestBody(req: IncomingMessage, res: ServerResponse): Promise<{
     return { value };
   } catch { respond(res, 400, { error: 'Malformed JSON' }); return; }
 }
-export function createPluginHandler(options: PluginHttpOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
-  const origin = pluginOrigin(options.publicOrigin), expectedHost = new URL(origin).host;
-  if (options.localDev) {
-    if (process.env.NODE_ENV === 'production' || !isLoopback(new URL(origin).hostname) || options.auth) throw new Error('Local personas require an explicit loopback-only development process');
-  } else if (!options.auth || options.auth.resource !== `${origin}/mcp`) throw new Error('Resource-bound OAuth configuration is required');
-  const allowedOrigins = new Set([origin, 'https://chatgpt.com', 'https://chat.openai.com']);
-  const metadataUrl = `${origin}/.well-known/oauth-protected-resource/mcp`;
+/** The production auth or the explicit loopback mode, checked before a handler serves anything. */
+export function checkMode(origin: string, resource: string, auth: PluginAuth | undefined, localDev: boolean | undefined): void {
+  if (localDev) {
+    if (process.env.NODE_ENV === 'production' || !isLoopback(new URL(origin).hostname) || auth) throw new Error('Local personas require an explicit loopback-only development process');
+  } else if (!auth || auth.resource !== resource) throw new Error('Resource-bound OAuth configuration is required');
+}
+/** The Host, Origin and peer checks and the CORS answer for an allowed origin; false when it refused the request. */
+export function trustedRequest(req: IncomingMessage, res: ServerResponse, origin: string, allowedOrigins: Set<string>, localDev?: boolean): boolean {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  if (req.headers.host?.toLowerCase() !== new URL(origin).host.toLowerCase() || (req.headers.origin !== undefined && !allowedOrigins.has(req.headers.origin))) { respond(res, 403, { error: 'Untrusted host or origin' }); return false; }
+  if (localDev && !isLoopback(req.socket.remoteAddress ?? '')) { respond(res, 403, { error: 'Local development requires a loopback peer' }); return false; }
+  if (req.headers.origin) {
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Expose-Headers', 'WWW-Authenticate, MCP-Protocol-Version');
+  }
+  if (!req.url?.startsWith('/')) { respond(res, 400, { error: 'Malformed request target' }); return false; }
+  return true;
+}
+export function preflight(res: ServerResponse, headers = 'Authorization, Content-Type, MCP-Protocol-Version'): void {
+  res.writeHead(204, { 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': headers, 'Access-Control-Max-Age': '600' }); res.end();
+}
+export type Consent = NonNullable<PluginHttpOptions['consent']>;
+/** The public OAuth consent page (/authorize) and its script (/consent.mjs). */
+export function serveConsent(req: IncomingMessage, res: ServerResponse, path: string, consent: Consent): void {
+  if (req.method !== 'GET') { methodNotAllowed(res, 'GET'); return; }
+  res.setHeader('Content-Security-Policy', `default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src ${consent.supabaseOrigin}; base-uri 'none'; frame-ancestors 'none'; form-action 'none'`);
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Content-Type', path === '/authorize' ? 'text/html; charset=utf-8' : 'text/javascript; charset=utf-8');
+  res.end(path === '/authorize' ? consent.html : consent.script);
+}
+/** Wraps each method so that the caller can wait for all work, also after the client disconnects. */
+export function tracked<T extends object>(target: T): { value: T; settled(): Promise<void> } {
+  const work = new Set<Promise<unknown>>();
+  const value = new Proxy(target, { get(target, key) {
+    const method = Reflect.get(target, key); if (typeof method !== 'function') return method;
+    return (...args: unknown[]) => {
+      const task = Promise.resolve().then(() => Reflect.apply(method, target, args)); work.add(task);
+      void task.finally(() => work.delete(task)).catch(() => {}); return task;
+    };
+  } });
+  // A tool can read, then create a game and a board; drain sequential follow-on work too.
+  return { value, async settled() { while (work.size) await Promise.allSettled([...work]); } };
+}
+export type Serve = (req: IncomingMessage, res: ServerResponse, actorId: string, body: unknown) => Promise<void>;
+/** Authenticates a POST, takes the instance and user slots, reads the body, and keeps the slots until `serve` returns. */
+export function createGate({ auth, localDev, metadataUrl }: { auth?: PluginAuth; localDev?: boolean; metadataUrl: string }, serve: Serve): Handler {
   let active = 0;
   const activeUsers = new Map<string, number>();
   return async (req, res) => {
-    res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    if (req.headers.host?.toLowerCase() !== expectedHost.toLowerCase() || (req.headers.origin !== undefined && !allowedOrigins.has(req.headers.origin))) { respond(res, 403, { error: 'Untrusted host or origin' }); return; }
-    if (options.localDev && !isLoopback(req.socket.remoteAddress ?? '')) { respond(res, 403, { error: 'Local development requires a loopback peer' }); return; }
-    if (req.headers.origin) {
-      res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
-      res.setHeader('Vary', 'Origin');
-      res.setHeader('Access-Control-Expose-Headers', 'WWW-Authenticate, MCP-Protocol-Version');
-    }
-    if (!req.url?.startsWith('/')) { respond(res, 400, { error: 'Malformed request target' }); return; }
-    const path = new URL(req.url, origin).pathname;
-    if ((path === '/authorize' || path === '/consent.mjs') && options.consent) {
-      if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); respond(res, 405, { error: 'Method not allowed' }); return; }
-      res.setHeader('Content-Security-Policy', `default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src ${options.consent.supabaseOrigin}; base-uri 'none'; frame-ancestors 'none'; form-action 'none'`);
-      res.setHeader('Referrer-Policy', 'no-referrer');
-      res.setHeader('Content-Type', path === '/authorize' ? 'text/html; charset=utf-8' : 'text/javascript; charset=utf-8');
-      res.end(path === '/authorize' ? options.consent.html : options.consent.script); return;
-    }
-    if (path === '/.well-known/oauth-protected-resource' || path === '/.well-known/oauth-protected-resource/mcp') {
-      if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); respond(res, 405, { error: 'Method not allowed' }); return; }
-      if (!options.auth) { respond(res, 404, { error: 'OAuth is unavailable in local persona mode' }); return; }
-      respond(res, 200, options.auth.metadata); return;
-    }
-    if (path !== '/mcp') { respond(res, 404, { error: 'Not found' }); return; }
-    if (req.method === 'OPTIONS') {
-      res.writeHead(204, { 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type, MCP-Protocol-Version', 'Access-Control-Max-Age': '600' }); res.end(); return;
-    }
-    if (req.method !== 'POST') { res.setHeader('Allow', 'POST, OPTIONS'); respond(res, 405, { error: 'Stateless MCP accepts POST requests' }); return; }
     let admittedActor: string | undefined;
     // Take both slots once the token names its user, before the slow provider check, so sign-in waits count too.
     const admit = (actorId: string) => {
@@ -86,7 +101,7 @@ export function createPluginHandler(options: PluginHttpOptions): (req: IncomingM
     try {
       let actorId: string;
       try {
-        if (options.localDev) {
+        if (localDev) {
           const actor = req.headers['x-kingdown-dev-actor'];
           if (typeof actor !== 'string' || !ACTOR_UUID.test(actor) || req.headers.authorization) throw new AuthenticationError();
           actorId = actor.toLowerCase(); admit(actorId);
@@ -94,39 +109,16 @@ export function createPluginHandler(options: PluginHttpOptions): (req: IncomingM
           const authorization = req.headers.authorization;
           const match = typeof authorization === 'string' && /^Bearer ([A-Za-z0-9._~-]+)$/i.exec(authorization);
           if (!match) throw new AuthenticationError();
-          actorId = await options.auth!.verify(match[1], admit);
+          actorId = await auth!.verify(match[1], admit);
         }
       } catch (error) {
         if (error instanceof SlotRefused) { res.setHeader('Retry-After', '1'); respond(res, error.status, error.body); return; }
         if (error instanceof AuthenticationUnavailable) { res.setHeader('Retry-After', '5'); respond(res, 503, { error: error.message }); return; }
-        if (options.auth) res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${metadataUrl}", scope="openid"`);
+        if (auth) res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${metadataUrl}", scope="openid"`);
         respond(res, 401, { error: 'Authentication required' }); return;
       }
       const body = await requestBody(req, res); if (!body || res.destroyed) return;
-      const work = new Set<Promise<unknown>>();
-      // Keep the admission slot until service work settles, even after the client disconnects.
-      const service = new Proxy(options.service, { get(target, key) {
-        const method = Reflect.get(target, key); if (typeof method !== 'function') return method;
-        return (...args: unknown[]) => {
-          const task = Promise.resolve().then(() => Reflect.apply(method, target, args)); work.add(task);
-          void task.finally(() => work.delete(task)).catch(() => {}); return task;
-        };
-      } });
-      const server = createPluginServer({ service, actorId, resourceHtml: options.resourceHtml, publicOrigin: origin });
-      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true, maxRequestBodySize: MAX_MCP_BODY });
-      let closed = false;
-      const close = async () => { if (!closed) { closed = true; await server.close(); } };
-      let disconnected!: () => void;
-      const responseClosed = new Promise<void>(resolve => { disconnected = resolve; });
-      res.once('close', () => { disconnected(); void close().catch(() => {}); });
-      try { await server.connect(transport); await Promise.race([transport.handleRequest(req, res, body.value), responseClosed]); }
-      catch { if (!res.headersSent) respond(res, 500, { error: 'Request failed' }); else res.destroy(); }
-      finally {
-        try { await close(); } finally {
-          // kingdown_open can read the inbox, then create a game and a board; drain sequential follow-on work too.
-          while (work.size) await Promise.allSettled([...work]);
-        }
-      }
+      await serve(req, res, actorId, body.value);
     } finally {
       if (admittedActor) {
         active--;
@@ -134,5 +126,38 @@ export function createPluginHandler(options: PluginHttpOptions): (req: IncomingM
         if (left) activeUsers.set(admittedActor, left); else activeUsers.delete(admittedActor);
       }
     }
+  };
+}
+export function createPluginHandler(options: PluginHttpOptions): Handler {
+  const origin = pluginOrigin(options.publicOrigin);
+  checkMode(origin, `${origin}/mcp`, options.auth, options.localDev);
+  const allowedOrigins = new Set([origin, 'https://chatgpt.com', 'https://chat.openai.com']);
+  const gate = createGate({ auth: options.auth, localDev: options.localDev, metadataUrl: `${origin}/.well-known/oauth-protected-resource/mcp` }, async (req, res, actorId, body) => {
+    // Keep the admission slot until service work settles, even after the client disconnects.
+    const service = tracked(options.service);
+    const server = createPluginServer({ service: service.value, actorId, resourceHtml: options.resourceHtml, publicOrigin: origin });
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true, maxRequestBodySize: MAX_MCP_BODY });
+    let closed = false;
+    const close = async () => { if (!closed) { closed = true; await server.close(); } };
+    let disconnected!: () => void;
+    const responseClosed = new Promise<void>(resolve => { disconnected = resolve; });
+    res.once('close', () => { disconnected(); void close().catch(() => {}); });
+    try { await server.connect(transport); await Promise.race([transport.handleRequest(req, res, body), responseClosed]); }
+    catch { if (!res.headersSent) respond(res, 500, { error: 'Request failed' }); else res.destroy(); }
+    finally { try { await close(); } finally { await service.settled(); } }
+  });
+  return async (req, res) => {
+    if (!trustedRequest(req, res, origin, allowedOrigins, options.localDev)) return;
+    const path = new URL(req.url!, origin).pathname;
+    if ((path === '/authorize' || path === '/consent.mjs') && options.consent) { serveConsent(req, res, path, options.consent); return; }
+    if (path === '/.well-known/oauth-protected-resource' || path === '/.well-known/oauth-protected-resource/mcp') {
+      if (req.method !== 'GET') { methodNotAllowed(res, 'GET'); return; }
+      if (!options.auth) { respond(res, 404, { error: 'OAuth is unavailable in local persona mode' }); return; }
+      respond(res, 200, options.auth.metadata); return;
+    }
+    if (path !== '/mcp') { respond(res, 404, { error: 'Not found' }); return; }
+    if (req.method === 'OPTIONS') { preflight(res); return; }
+    if (req.method !== 'POST') { methodNotAllowed(res, 'POST, OPTIONS', 'Stateless MCP accepts POST requests'); return; }
+    await gate(req, res);
   };
 }
