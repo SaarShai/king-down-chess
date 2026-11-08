@@ -4,6 +4,7 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 
 ## Open items
 
+- **iOS app** · `needs-info` · Foundation merged (PR 313) and live with release 17 (2026-11-08): the app reaches `/api` on staging and kingdown.dev. Owner: a staging test sign-in in the simulator (ticket 07), Xcode sign-in or an App Store Connect API key and the app record `dev.kingdown.app` (ticket 08), the store answers (ticket 11). · [map](docs/specs/ios-app/map.md)
 - **ChatGPT app and submission** · `needs-info` · The combined site and app ship at `3d4c97ae` (2026-10-19). The phone tests and portal steps remain open. · [release proof](docs/specs/web-adaptation/issues/08-release-evidence.md), [submission steps](docs/submission/checklist.md)
 - **Web build** · `ready-for-agent` · Next: ticket 02 on `codex/web-02`. · [index](docs/specs/web-build/README.md)
 - **Accounts and multiplayer** · `needs-info` · Pushed; the ChatGPT MVP builds on it. The 8 [report](docs/research/multiplayer-2026-10-10/README.md) decisions.
