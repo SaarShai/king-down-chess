@@ -13,3 +13,7 @@ FILM returns RGB and forward/backward flow pyramids. Original alpha follows the 
 `film-build.json` records model path, source/output hashes, inference count, registration measures and the numerical warp check. `audit-film.py` independently checks all normalized key frames, gutters, dark opaque pixels and both model warp outputs. Results: `film-audit.json`. `film-alpha-review.png` shows the keys and intermediate frames over both stone colours.
 
 The original ten painted keys remain intact. Runtime uses 65 FILM RGBA frames per army in 192 px cells, with alpha carried by the actual FILM flow fields as described above. Each hand draws one complete frame through its fixed crevice anchor. This is frame interpolation, not an articulated finger rig. Intermediate frames can show softer painted detail in close-up than the original keys.
+
+## Runtime file
+
+The game loads `film-poses-144.webp` (325 KB), not the 2.4 MB lossless `film-poses.webp`. `pack-runtime.mjs` makes it: the same 130 frames in the same grid, each 192 px cell at 144 px, WebP quality 75 with quantized alpha. The board never draws a hand larger than 142 px (the Darkness gate at resolution 2), and at that size and at 2x the two files show no difference. The code keeps 192 px cell units and reads the stored cell size from the image width.

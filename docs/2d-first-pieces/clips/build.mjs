@@ -15,7 +15,7 @@ import {CELLS as ROOK_CELLS,mirrorOrigin as ROOK_MIRROR} from '../../../src/rend
 
 const here=fileURLToPath(new URL('./',import.meta.url)),pieces=here+'../';
 const samples=(process.argv[2]??pieces+'../specs/character-animation-samples/preview/assets').replace(/\/?$/,'/');
-const SPRITE=1152,FACTOR=.36,COLS=8,MARGIN=6;
+const SPRITE=1152,COLS=8,MARGIN=6;
 const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 
 // The board's still sprite for one army, as scene.mjs draws it from the painted sheet `art` (the fit and colour
@@ -26,13 +26,15 @@ const BOARD={
 };
 const CLIPS={
  knight:{
-  sheet:'knight-tap-frames-v2.png',manifest:'knight-tap-frames-v2.json',flop:false,
+  sheet:'knight-tap-frames-v2.png',manifest:'knight-tap-frames-v2.json',flop:false,factor:.36,webp:{quality:88,alphaQuality:100,effort:6},
   // The banked sequence (knight-banked.json): lift, hold, drop, contact, recoil, settle, at 24 fps.
   fps:24,sequence:[0,1,2,3,4,5,6,7,8,8,6,3,0,1,2,1,0,0],
  },
  // The Rook's slam drawings are a redrawn Rook, so his board sheet (`board`) is made from the clip's rest drawing:
  // the figure does not change when the clip starts and ends (ticket character-clips/01, decision 1).
- rook:{sheet:'rook-slam-hq.png',manifest:'rook-slam-hq.json',flop:true,board:'rook/rook.webp'},
+ // factor: the atlas scale of the 1152 px sprite. The Rook's .31 is the board's largest display (his scale .155 at
+ // resolution 2); quality 75 with quantized alpha shows no change at that size and at 2x, and keeps the atlas near 0.5 MB.
+ rook:{sheet:'rook-slam-hq.png',manifest:'rook-slam-hq.json',flop:true,board:'rook/rook.webp',factor:.31,webp:{quality:75,alphaQuality:50,effort:6}},
 };
 
 async function rgba(input){const {data,info}=await sharp(input).ensureAlpha().raw().toBuffer({resolveWithObject:true});return {data,width:info.width,height:info.height};}
@@ -131,7 +133,7 @@ function colourError(a,b){let sum=0,n=0;for(let i=0;i<a.data.length;i+=4)if(a.da
 
 const out={},report={},boardSheets={};
 for(const [name,clip] of Object.entries(CLIPS)){
- const manifest=JSON.parse(await fs.readFile(samples+clip.manifest)),sheetBytes=await fs.readFile(samples+clip.sheet);
+ const FACTOR=clip.factor,manifest=JSON.parse(await fs.readFile(samples+clip.manifest)),sheetBytes=await fs.readFile(samples+clip.sheet);
  const sheet=await rgba(sheetBytes),frames=manifest.frames,sequence=clip.sequence??manifest.sequence,fps=clip.fps??manifest.fps;
  const stills=[await still(name,0),await still(name,1)];
  const placed=fit(stills[0],sheet,frames[0],clip.flop);
@@ -170,7 +172,7 @@ for(const [name,clip] of Object.entries(CLIPS)){
   if(!side)cells.push([col*cw,Math.floor(i/COLS)*ch]);
  }
  const file=`${name}/${name==='knight'?'tap':'slam'}.webp`;
- const atlas=await sharp({create:{width:COLS*cw,height:2*rows*ch,channels:4,background:'#0000'}}).composite(layers).webp({quality:88,alphaQuality:100,effort:6}).toBuffer();
+ const atlas=await sharp({create:{width:COLS*cw,height:2*rows*ch,channels:4,background:'#0000'}}).composite(layers).webp(clip.webp).toBuffer();
  await fs.writeFile(pieces+file,atlas);
  if(clip.board){
   // The rest drawing at full size in sprite space (Charcoal: colour map and shift), put back into the painted sheet's
