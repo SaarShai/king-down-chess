@@ -1,3 +1,4 @@
+import { apiOrigin } from '../platform';
 import { browserFamily, BUILD_ID, ERROR_NAMES, errorFingerprint, errorName, errorRoute, MAX_ERROR_BODY, errorMessage, type ClientErrorReport } from './data';
 
 declare const __KINGDOWN_BUILD__: string;
@@ -29,9 +30,10 @@ export function installErrorRecorder(): void {
     if (new TextEncoder().encode(body).length > MAX_ERROR_BODY) return;
     seen.add(fingerprint);
     let queued = false;
-    try { queued = navigator.sendBeacon?.('/api/client-errors', new Blob([body], { type: 'application/json' })) ?? false; } catch { /* Use fetch if beacon fails. */ }
+    // A cross-origin beacon (the iOS app) sends credentials, which /api does not allow: use fetch there.
+    if (!apiOrigin) try { queued = navigator.sendBeacon?.('/api/client-errors', new Blob([body], { type: 'application/json' })) ?? false; } catch { /* Use fetch if beacon fails. */ }
     if (queued) return;
-    void fetch('/api/client-errors', { method: 'POST', body, headers: { 'Content-Type': 'application/json' }, keepalive: true, credentials: 'omit', referrerPolicy: 'no-referrer' }).catch(() => {});
+    void fetch(apiOrigin + '/api/client-errors', { method: 'POST', body, headers: { 'Content-Type': 'application/json' }, keepalive: true, credentials: 'omit', referrerPolicy: 'no-referrer' }).catch(() => {});
    } catch { /* A recorder fault must not reach the page. */ }
   };
   window.addEventListener('error', event => { try { record('error', event.error, event); } catch { /* Ignore an invalid event. */ } });

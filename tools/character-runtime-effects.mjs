@@ -61,3 +61,49 @@ export async function buildRuntimeEffects(source,output,banks,selectionPath){
  }
  return {effects,cues};
 }
+// The frames' encoding (tools/convert-character-runtime-webp.mjs): lossy colour, lossless alpha.
+export const EFFECT_WEBP={quality:90,alphaQuality:100,exact:true,effort:6};
+const RUNTIME_TEXT=['effect.mjs','smoke.mjs','effect.json'],PNG_REF=/assets\/(\$\{name\}|[\w.-]+)\.png/g;
+/**
+ * The WebP copy of each published effect in `effects` (manifest.effects of the PNG package at `source`): each
+ * texture in the frames' encoding with the same size and alpha, the module, smoke and metadata pointed at it, and a
+ * new folder id. Returns the new manifest.effects. A 1.1 MB PNG arrow is 0.34 MB of WebP, so it arrives on a slow link.
+ */
+export async function convertRuntimeEffects(source,output,effects){
+ const result={};
+ for(const [character,effect] of Object.entries(effects??{})){
+  const from=safe(resolve(source,'effects'),resolve(source,dirname(effect.module)));
+  const files=[],renamed=[];
+  for(const record of JSON.parse(await readFile(resolve(from,'sources.json')))){
+   if(record.path==='provenance/runtime-assets.json')continue;
+   let bytes=await readFile(safe(from,resolve(from,record.path)));
+   if(hash(bytes)!==record.sha256)throw Error(`Effect file hash mismatch: ${record.path}`);
+   if(/^assets\/[\w.-]+\.png$/.test(record.path)){
+    const before=await sharp(bytes).ensureAlpha().raw().toBuffer({resolveWithObject:true}),webp=await sharp(bytes).webp(EFFECT_WEBP).toBuffer();
+    const after=await sharp(webp).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+    if(after.info.width!==before.info.width||after.info.height!==before.info.height)throw Error(`Effect WebP geometry mismatch: ${record.path}`);
+    for(let i=3;i<before.data.length;i+=4)if(after.data[i]!==before.data[i])throw Error(`Effect WebP alpha mismatch: ${record.path}`);
+    const path=record.path.replace(/\.png$/,'.webp');renamed.push([record.sha256,hash(webp)]);
+    files.push({path,bytes:webp,sourceSha256:record.sourceSha256,pngSha256:record.sha256});continue;
+   }
+   files.push({path:record.path,bytes,sourceSha256:record.sourceSha256});
+  }
+  for(const file of files.filter(f=>RUNTIME_TEXT.includes(f.path))){
+   let text=file.bytes.toString('utf8').replace(PNG_REF,'assets/$1.webp');
+   // The metadata's hash fields name the WebP; a file name that is a PNG hash stays (the beam's sprite paths).
+   if(file.path==='effect.json')for(const [png,webp] of renamed)text=text.replace(new RegExp(`("sha256"\\s*:\\s*")${png}"`,'g'),`$1${webp}"`);
+   if(/assets\/[^'"`\s]*\.png/.test(text))throw Error(`Effect still names a PNG: ${file.path}`);
+   for(const [ref] of text.matchAll(/assets\/[\w.-]+\.webp/g))if(!files.some(f=>f.path===ref))throw Error(`Effect names a missing texture: ${file.path} ${ref}`);
+   file.bytes=Buffer.from(text);
+  }
+  const derived=files.filter(f=>f.pngSha256).map(f=>({path:f.path,sourceSha256:f.sourceSha256,pngSha256:f.pngSha256,sha256:hash(f.bytes),encoding:'webp-q90-alpha-lossless'}));
+  files.push({path:'provenance/runtime-assets.json',bytes:Buffer.from(JSON.stringify(derived)+'\n')});
+  const inventory=files.map(f=>({path:f.path,sha256:hash(f.bytes),sourceSha256:f.sourceSha256}));
+  const id=hash(Buffer.from(JSON.stringify(inventory))),dir=resolve(output,'effects',id);
+  for(const file of files){const path=safe(dir,resolve(dir,file.path));await mkdir(dirname(path),{recursive:true});await writeFile(path,file.bytes);}
+  await writeFile(resolve(dir,'sources.json'),JSON.stringify(inventory)+'\n');
+  const moved=path=>path&&`effects/${id}/${relative(from,resolve(source,path))}`;
+  result[character]={...effect,module:moved(effect.module),smoke:moved(effect.smoke)};
+ }
+ return result;
+}
