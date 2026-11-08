@@ -27,7 +27,7 @@ import * as pawnIdle from './idle.mjs';
 import {CLIPS,frameAt,drawFrame as drawClipFrame,inCell} from './clips.mjs';
 import {afterBoard,boardReady} from './after-board.mjs';
 import {SHADE,shadowField,shadowWeights,fxFade,poolShape,poolAlpha,glidePool} from './contact-shadow.mjs';
-import {SHOT,rangedPlan,heldClock,rangedFrame,drawDissolve,drawFlash,struckAt} from './fx-ranged.mjs';
+import {SHOT,RANGED,rangedPlan,heldClock,rangedFrame,drawDissolve,drawFlash,struckAt} from './fx-ranged.mjs';
 export const SIZE=960, PAD=32, TILE=112;
 /** The floor round the board, by default: the trial, the trailer and the plugin page draw it. */
 export const FLOOR='#e6e1cf';
@@ -704,7 +704,7 @@ function vortex(out,foot,phase,strength) {
     if(kind==='queen'){options.secondaryOrigin=secondary?[secondary.x,secondary.y]:undefined;options.emissionMs=Math.min(240,(bank.beatTimes.releaseHoldEnd??bank.beatTimes.recovery)-release);options.originAt=(launch,palm)=>{const p=project(palm?'near-palm':'far-palm',release+launch);return p?[p.x,p.y]:null;};const body=victim?.pose.bank,at=victim?.pose.foot??target;Object.assign(options,{victim,bounds:[0,-headroom,SIZE,SIZE],foot:[at.x,at.y],height:body?body.unitHeight*body.scale*victim.pose.scale/specs[typeOf(victim.value)].scale:Math.max(60,(at.y-target.y)*2.3)});r.effect.player.pose(options);}
     if(r.ranged)rangedFrame(ctx,{plan:r.ranged,elapsed,release,origin,target,victim,box:()=>victimBox(victim.pose,typeOf(victim.value)),player:r.effect.player,scale:options.scale,seed:options.seed,effects,res});
     else effects.push(()=>r.effect.player.draw(ctx,options));
-    effectFrames.push({kind,at:time,speed:a.speed,bodyDurationMs:bank.durationMs,bodyTime:bankBody.time,releaseMs:release,durationMs:r.ranged?.effectMs??r.effect.player.durationMs,elapsedMs:options.elapsedMs,origin,target,foot:a.from.foot,pivot:bankBody.pivot,scale:bankBody.scale});
+    effectFrames.push({kind,painted:!!r.effect.player,at:time,speed:a.speed,bodyDurationMs:bank.durationMs,bodyTime:bankBody.time,releaseMs:release,durationMs:r.ranged?.effectMs??r.effect.player.durationMs,elapsedMs:options.elapsedMs,origin,target,foot:a.from.foot,pivot:bankBody.pivot,scale:bankBody.scale});
    }
    if(victim&&!r.ranged&&!(r.effect.player.pose&&origin&&target))victim.opacity=1-clamp((elapsed-a.contactTime)/180,0,1);
    if(a.move.selfRemove)actor.opacity=1-clamp((elapsed-a.contactTime)/180,0,1);
@@ -1030,7 +1030,7 @@ function drawEncounter(a,t) {
    if(disposed)return;
    if(!reducedMotion)loadClips();
    if(characterRuntime){
-    const start=()=>{if(disposed||bodyRuntime)return;bodyRuntime=createCharacterRuntime({wake:()=>wake(),drawnEffects:['queen']});void bodyRuntime.ready().then(()=>{if(!disposed)return warmBodies();}).then(()=>{bodyWarm=true;loadClips();});};
+    const start=()=>{if(disposed||bodyRuntime)return;bodyRuntime=createCharacterRuntime({wake:()=>wake(),drawnEffects:['queen'],lateEffects:RANGED});void bodyRuntime.ready().then(()=>{if(!disposed)return warmBodies();}).then(()=>{bodyWarm=true;loadClips();});};
     startBodyRuntime=start;globalThis.addEventListener('pageshow',onPageShow);
     if(document.readyState&&document.readyState!=='complete')globalThis.addEventListener('load',start,{once:true});else start();
    }

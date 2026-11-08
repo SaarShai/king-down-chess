@@ -6,7 +6,7 @@ export async function loadEffect(baseURL = import.meta.url) {
   const [arrow, wisp, flash] = await Promise.all(
     ['golden-arrow', 'golden-wisp', 'contact-flash'].map(async name => {
       const image = new Image();
-      image.src = new URL(`assets/${name}.png`, baseURL).href;
+      image.src = new URL(`assets/${name}.webp`, baseURL).href;
       await image.decode();
       return image;
     }),

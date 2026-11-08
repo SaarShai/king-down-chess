@@ -80,7 +80,7 @@ const connected=()=>globalThis.navigator?.onLine!==false;
 function bounded(promise,ms=LOAD_TIMEOUT,signal){
  return new Promise(resolve=>{let done=false;const finish=value=>{if(done)return;done=true;clearTimeout(timer);signal?.removeEventListener('abort',abort);resolve(value);},abort=()=>finish(null),timer=setTimeout(abort,Math.max(0,ms));signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();Promise.resolve(promise).then(finish,()=>finish(null));});
 }
-export function createCharacterRuntime({url=new URL('/character-runtime/manifest.json',import.meta.url).href,wake=()=>{},fetcher=fetch,image=()=>Object.assign(new Image(),{crossOrigin:'anonymous'}),drawnEffects=[]}={}) {
+export function createCharacterRuntime({url=new URL('/character-runtime/manifest.json',import.meta.url).href,wake=()=>{},fetcher=fetch,image=()=>Object.assign(new Image(),{crossOrigin:'anonymous'}),drawnEffects=[],lateEffects=[]}={}) {
  let banks=[],disposed=false,bytes=0,peakBytes=0,active=0,activeFrame=null, idlePins=new Set(),idleGeneration=0,idleLoads=null,moveGeneration=0,moveLoads=null,movePins=null,movePrefetchActive=false;
  let effectEntries={},currentEffect=null,effectBytes=0,smokeBytes=0,smokeClass=null,smokeImage=null,smokeLoading=null,smokeBlocked=false;
  const images=new Map(),loading=new Map(),failed=new Map(),stills=new Set(),pins=new Map(),queue=[],activeJobs=new Set(),effectRetryAt=new Map(),effectLoads=new Map();
@@ -276,7 +276,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
     effectLoads.set(character,selected);effectBytes+=selected.size;trim();
     selected.promise=(async()=>{try{const moduleURL=new URL(entry.module,url).href,mod=await import(/* @vite-ignore */ moduleURL);return {player:await mod.loadEffect(moduleURL),contactMs:entry.contactMs};}catch{return null;}})().then(effect=>{
      if(disposed)return null;
-     selected.pending=false;
+     selected.pending=false;selected.ready=effect;
      if(!effect){effectLoads.delete(character);effectBytes-=selected.size;if(currentEffect===selected)currentEffect=null;effectRetryAt.set(character,performance.now()+RETRY_DELAY);}
      else trim();
      return effect;
@@ -436,7 +436,12 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
     if(!onTime){movement=null;releaseMovement?.();releaseMovement=null;}
     else {releaseMovementStart=reserve([movement.frames[0]]);if(!leap){const pin=reserve([movement.frames.at(-1)]),loads=releaseMovement;releaseMovement=()=>{loads?.();pin();};}}
    }
-   const effect=attack?await bounded(loadSeparate(character),remaining(),signal):null;
+   let effect=attack?await bounded(loadSeparate(character),remaining(),signal):null;
+   // A late effect (lateEffects) still loading at the limit streams like a frame: the shot starts with the figure,
+   // and the effect draws from the first frame after its art is decoded. Until then its player is null.
+   if(!effect&&attack&&lateEffects.includes(character)&&currentEffect?.character===character&&currentEffect.pending){
+    const late=currentEffect;effect={contactMs:effectEntries[character].contactMs,get player(){return late.ready?.player??null;}};
+   }
    if(disposed||signal?.aborted||attack&&effectEntries[character]&&!effect){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}
    if(!start.every(due)){
     const missing=[...sizes].reduce((sum,[key,size])=>sum+(images.has(key)?0:size),0);

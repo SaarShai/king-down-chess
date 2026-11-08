@@ -1010,6 +1010,21 @@ describe('ready character playback', () => {
    delete (globalThis as {__effectProbe?:boolean}).__effectProbe;delete (globalThis as {__effectResolve?:unknown}).__effectResolve;runtime.dispose();
   } finally {vi.useRealTimers();}
  });
+
+ it('streams a late effect: the shot starts at the limit and its player appears when the art is decoded', async () => {
+  vi.useFakeTimers();
+  try {
+   const idle={...bank(),kind:'idle',frames:[{url:'frame-0',timeMs:0}]},attack={...bank(),kind:'attack',facing:'SE'},module='data:text/javascript,export const loadEffect=()=>new Promise(resolve=>{globalThis.__lateResolve=resolve})';
+   const runtime=createCharacterRuntime({url:'https://example.invalid/package/manifest.json',lateEffects:['pawn'],fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack],effects:{pawn:{module,decodedBytes:100,contactMs:50}}})})) as unknown as typeof fetch,
+    image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+   await runtime.warm('pawn','white');const preparing=runtime.prepare('pawn','white','SE',true);
+   await vi.advanceTimersByTimeAsync(1001);const prepared=await preparing as {effect:{contactMs:number,player:unknown}};
+   expect(prepared.effect.contactMs).toBe(50);expect(prepared.effect.player).toBeNull();
+   const player={durationMs:1,draw(){}};(globalThis as {__lateResolve?:(value:object)=>void}).__lateResolve?.(player);await vi.advanceTimersByTimeAsync(0);
+   expect(prepared.effect.player).toBe(player);
+   delete (globalThis as {__lateResolve?:unknown}).__lateResolve;runtime.dispose();
+  } finally {vi.useRealTimers();}
+ });
  it('keeps the previous art available when the optional package fails', async () => {
   const runtime=createCharacterRuntime({fetcher:vi.fn(async()=>{throw Error('offline');}) as unknown as typeof fetch});
   await runtime.ready();expect(runtime.has('pawn','white')).toBe(false);expect(runtime.rest('queen','white',100,true)).toBeNull();expect(await runtime.prepare('pawn','white','E',true)).toBeNull();runtime.dispose();
