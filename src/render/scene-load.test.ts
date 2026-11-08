@@ -582,7 +582,7 @@ it.each(['cancel','reduced'] as const)('restores the king rest frame when a capt
  expect(scene.characterFrames.find(f=>f.square===28)).toMatchObject({bank:rest.bank,time:rest.time,foot:rest.foot,pivot:rest.pivot,scale:rest.scale});
 });
 
-it('exits the raised Stratus idle before a capture even if the turn cannot load', async () => {
+it('exits the raised Stratus idle before a capture even if the turn end still loads', async () => {
  const base={character:'king-stratus',army:'white',canvasSize:[384,384],pivot:[192,345],bodyHeightPx:267,registrationHeightPx:267};
  const idle={...base,id:'idle',kind:'idle',facing:'SE',durationMs:400,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-raised.png',timeMs:100},{url:'runtime-rest.png',timeMs:400}]};
  const turn={...base,id:'turn',kind:'turn',from:'SE',to:'NW',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-deferred.png',timeMs:120}]};
@@ -591,7 +591,8 @@ it('exits the raised Stratus idle before a capture even if the turn cannot load'
  scene.setSelected(28);await vi.advanceTimersByTimeAsync(176);expect(scene.characterFrames.find(f=>f.square===28)?.time).toBe(100);
  scene.setSelected(null);const playing=scene.play({from:28,to:35,captures:[35]});await vi.advanceTimersByTimeAsync(1050);
  expect(scene.characterExit).not.toBeNull();await vi.advanceTimersByTimeAsync(250);
- expect(scene.characterFrames.find(f=>f.square===28)).toBeUndefined();
+ // The turn end streams: the capture holds the turn's first frame, never the plain figure.
+ expect(scene.characterFrames.find(f=>f.square===28)).toMatchObject({bank:'turn',time:0});
  await vi.advanceTimersByTimeAsync(1500);await expect(playing).resolves.toBe(true);
 });
 
