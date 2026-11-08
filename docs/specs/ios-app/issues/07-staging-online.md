@@ -1,7 +1,7 @@
 # Deploy the app origin to staging and play online in the app
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 02
 Parent: [iOS app map](../map.md)
 Labels: wayfinder:task
@@ -29,4 +29,16 @@ Two staging accounts play a full online game with one side in the app, and the b
 - **In the app (WKWebView, iOS 27 simulator).** A probe page in the app calls staging. Before the deploy, both calls fail with `TypeError: Load failed` (CORS). After it, `/api/status` answers 200, and the bearer call passes its preflight and answers 401, which the page can read.
 - **The real staging app.** It keeps its local saved game across a reinstall. "Log in" opens the sign-in page from staging: the email code and the staging test-account form show, and Google and GitHub do not.
 
-Open: steps 2 and 3 need a staging test-account sign-in. The owner types the test password in the simulator (or gives it in chat for the local app), then an agent plays the two-account game and the background return.
+The owner signed in to the staging test account P3 (`playtest-p3@kingdown.example`) in the app on 2026-11-08. Test player P2 played the other side in its saved staging browser session (the parent workspace's `playtest/driver/kd.mjs p2`).
+
+## Answer
+
+Yes. Online play works in the app against staging (iOS 27 simulator, staging build, 2026-11-08):
+
+- **Invite.** In the app, Menu > A friend > Start game makes the invite. Its link is `https://kingdown-staging.vercel.app/j#<key>` (the site, not the app origin), and Copy puts it on the pasteboard. P2 opens it, sees `playtest-p3-bot` as the opponent and joins as Black. The app's invite page shows the board without a tap, 20 to 40 seconds after the join.
+- **Moves both ways.** White e2-e4, Black e7-e5, White d2-d4, Black e5xd4. Each move reaches the other side within seconds, with its animation and the painted figures.
+- **Background return.** The app goes to the Home Screen after its move. P2 captures 46 seconds later. After 2 minutes 7 seconds in the background, the app comes back in the same process (no restart), and within about 2 seconds it shows the capture and "Your move."
+- **Not run:** a game against the computer on the server. The friend game covers the done-when line.
+- **End.** The app resigns (Menu > Resign > Resign). The app shows "You lose · Casual · You resigned." P2 shows "Black wins · Resignation" and the full move list.
+
+Seen on the way, for the redesign (no ticket): the page zooms in when the staging test-account Email field gets focus. iOS does this for a field with a font smaller than 16 px. See "Touch and layout polish" in the map.
