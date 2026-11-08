@@ -50,8 +50,8 @@ html { font-variant-numeric: lining-nums; }
 .field.name { font-family: var(--font-body); letter-spacing: 0; text-transform: none; font-size: var(--fs-lg); }
 .report-form { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; }
 .report-form label { flex-direction: column; align-items: stretch; gap: 4px; }
-/* iOS zooms the page when a field under 16px gets focus. */
-.report-form :is(select, textarea) { width: 100%; font-size: 16px; }
+/* iOS zooms the page when a field under 16px gets focus; --fs-body is 16px. */
+.report-form :is(select, textarea) { width: 100%; font-size: var(--fs-body); }
 .report-form textarea { box-sizing: border-box; padding: 6px 10px; font-family: var(--font-body); color: var(--ink); background: var(--vellum); border: 1px solid var(--stone-700); border-radius: var(--radius-sm); resize: vertical; }
 /* The alert stays rendered: some screen readers do not read a live region that was display: none. */
 .report-form p { margin: 0; }
