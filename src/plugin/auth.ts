@@ -18,11 +18,11 @@ export interface PluginAuth {
   /** `admit` runs after the local token checks and before the provider call; its error passes through unchanged. */
   verify(token: string, admit?: (actorId: string) => void): Promise<string>;
 }
-export function createTokenVerifier({ supabaseUrl, publicOrigin, clientIds, publishableKey }: { supabaseUrl: string; publicOrigin: string; clientIds?: string[]; publishableKey: string }, keys?: JWTVerifyGetKey, request: typeof fetch = fetch): PluginAuth {
+export function createTokenVerifier({ supabaseUrl, publicOrigin, clientIds, publishableKey, resourcePath = '/mcp' }: { supabaseUrl: string; publicOrigin: string; clientIds?: string[]; publishableKey: string; resourcePath?: string }, keys?: JWTVerifyGetKey, request: typeof fetch = fetch): PluginAuth {
   if (!publishableKey) throw new Error('Supabase publishable key is required');
   const base = new URL(supabaseUrl);
   if (base.protocol !== 'https:' || base.username || base.password || base.search || base.hash || base.pathname !== '/') throw new Error('Expected a fixed HTTPS Supabase origin');
-  const issuer = `${base.origin}/auth/v1`, resource = `${pluginOrigin(publicOrigin)}/mcp`;
+  const issuer = `${base.origin}/auth/v1`, resource = `${pluginOrigin(publicOrigin)}${resourcePath}`;
   const jwks = keys ?? createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`), { timeoutDuration: 5000 });
   return {
     issuer, resource,

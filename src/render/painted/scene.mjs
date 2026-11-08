@@ -2,7 +2,7 @@
 // Shared by the board trial (prototype.mjs) and the game's painted look (src/render/PaintedView.ts).
 // Rules helpers are passed in, so the scene never bundles its own copy of the engine.
 import { clamp } from './painted-mesh.mjs';
-import {createCharacterRuntime,facingOf,anchorAt,bankPointToWorld,bankScale,figureHeight,measuredScale,walkStride} from './character-runtime.mjs';
+import {connected,createCharacterRuntime,facingOf,anchorAt,bankPointToWorld,bankScale,figureHeight,measuredScale,walkStride} from './character-runtime.mjs';
 import {PIECE_STILLS} from './piece-stills.mjs';
 import {strikeReach,strikeStance,crushPose,impalePose,thrownPose,bitePose,slashLine,drawCut,drawSlashArc,drawCrush,drawBurst,drawDust,drawChips,drawBitten,drawBiteHit} from './fx-melee.mjs';
 import * as archer from './wrist-bow/aiming.mjs';
@@ -114,7 +114,7 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  const CLIP_OF={[N]:'knight',[R]:'rook'},clipArt=Object.fromEntries(Object.keys(CLIPS).map(name=>[name,corsImage()]));
  const clipReady=name=>!!clipArt[name]?.complete&&clipArt[name].naturalWidth>0;
  function loadClips(name=null){
-  if(disposed||reducedMotion||!frames||globalThis.navigator?.onLine===false)return;
+  if(disposed||reducedMotion||!frames||!connected())return;
   if(characterRuntime&&!bodyWarm)return;
   for(const key of name?[name]:Object.keys(clipArt))if(!clipArt[key].src&&(!characterRuntime||[...position.board].some(value=>value&&CLIP_OF[typeOf(value)]===key&&!bodyRuntime.has(characterOf(value),armyOf(value)))))clipArt[key].src=CLIPS[key].file;
  }
@@ -1303,7 +1303,7 @@ function drawEncounter(a,t) {
   get actionTotal(){const a=animation;return a&&!a.done&&!a.preparing&&!a.effect?a.duration:null;},
   get characterExit(){return animation?.exitStart??null;},
   get characterWarmupSettled(){return bodyWarm&&bodyRuntime?.stats.manifestReady&&bodyRuntime.stats.framesLoaded>0&&bodyRuntime.stats.active===0&&bodyRuntime.stats.queued===0;},
-  get characterMemory(){return bodyRuntime?.stats??{bytes:0,peakBytes:0,framesLoaded:0,active:0,queued:0,manifestReady:false,manifestLoading:false};},
+  get characterMemory(){return bodyRuntime?.stats??{bytes:0,peakBytes:0,framesLoaded:0,active:0,queued:0,manifestReady:false,manifestLoading:false,manifestPending:false};},
   get characterEffects(){return effectFrames;},
   setDecorate(fn){decorate=fn;wake();},
   redraw(){wake();},
@@ -1321,7 +1321,9 @@ function drawEncounter(a,t) {
    const {base,verb}=effect?{base:{type:'effect',move,start:performance.now(),speed,duration:effect.duration,effect},verb:'Playing card…'}:plan(move,speed,gait);
    return new Promise(resolve=>{
     if(bodyRuntime&&!effect&&move.promo)void bodyRuntime.warm(ART[move.promo],armyOf(base.value));
-    const available=!effect&&bodyRuntime?.has(characterOf(base.value),armyOf(base.value));
+    // A first manifest load still in transfer (manifestPending) is waited for inside the prepare limit: a late manifest
+    // no longer slides the still picture at once. A retry after a failed load is not waited for.
+    const available=!effect&&!!bodyRuntime&&(bodyRuntime.has(characterOf(base.value),armyOf(base.value))||bodyRuntime.stats.manifestPending);
     const a=animation={...base,resolve,onContact,bodyUnavailable:!!bodyRuntime&&!available};onStatus(verb);
     if(idleOut){if(idleOut.square===move.from)pendingIdle=idleOut;idleOut=null;}
     const lastPose=pendingIdle?.pose;

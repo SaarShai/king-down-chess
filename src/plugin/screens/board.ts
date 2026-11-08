@@ -26,7 +26,7 @@ import '../../ceremony.css';
 import { client, memory, navigate, queue, routeView, send } from '../../account-game/runtime';
 import { locks, noticeShows, pendingHere, staleRead, type Page, type Store } from '../../account-game/state';
 import { nextGame } from '../../account-game/next-game';
-import { actionButtons, playerBlockButton } from './board-actions';
+import { actionButtons, playerBlockButton, playerReportButton } from './board-actions';
 import { guardEndTaps, updateEnd } from './end';
 import { applyLan, boardActions, cardCoins, cardUseReason, choicesFrom, choiceSources, committedPreview, draftChoices, draftLans, draftTurn, previewSteps, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
 import { policyLabel, policyDetail } from '../../account-game/rating-policy';
@@ -78,7 +78,7 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
     scrim.onclick = () => { if (scrimPressed) closeBoardSheet(); };
     sheet.onkeydown = event => {
       if (event.key === 'Tab') {
-        const buttons = [...sheet.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input, select, [tabindex="0"]')].filter(el => el.getClientRects().length), i = buttons.indexOf(document.activeElement as HTMLElement);
+        const buttons = [...sheet.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input, select, textarea, [tabindex="0"]')].filter(el => el.getClientRects().length), i = buttons.indexOf(document.activeElement as HTMLElement);
         if (event.shiftKey && i <= 0 || !event.shiftKey && i === buttons.length - 1) { event.preventDefault(); buttons[event.shiftKey ? buttons.length - 1 : 0]?.focus({preventScroll:true}); }
       }
     };
@@ -668,7 +668,7 @@ export function boardScreen(store: Store) {
       if (canPlay() && all) choices(moves.filter(c => !c.move.pass && reachable(c)));
       boardSheet('Choose a move', $('choices')); allMoveChoices = all;
     }); chooseMove.className = 'game-action';
-    const actions = [chooseMove, ...view ? [...actionButtons(view, Date.now() - readAt, refused, true), ...playerBlockButton(view)] : []];
+    const actions = [chooseMove, ...view ? [...actionButtons(view, Date.now() - readAt, refused, true), ...playerBlockButton(view), ...playerReportButton(view)] : []];
     for (const action of actions) action.disabled = networkBlocked();
     const policy = view && button(`${policyLabel(view.rating_policy, view.kind)} game`, () => boardSheet(policyLabel(view!.rating_policy, view!.kind), text(policyDetail(view!.rating_policy, view!.kind))));
     boardSheet('Menu', button('Main menu', () => { closeBoardSheet(); navigate('play'); }), button('Moves', showMoves), ...actions, button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('invite'), $('invitation'));

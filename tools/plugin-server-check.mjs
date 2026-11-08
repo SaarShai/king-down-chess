@@ -13,6 +13,7 @@ import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { checkRuntime, summarizeEngines } from './engines-check.mjs';
 import { serveSite } from './web-online-check.mjs';
 import { PARKED_PATHS } from './chatgpt-plugin.mjs';
+import { MUSE_PATHS } from './muse-connector.mjs';
 
 /** A Vercel function's art lives in the enclosing output's static layer. */
 async function staticLayer(directory) {
@@ -96,7 +97,9 @@ try {
     // path answers 404. The website API keeps its sign-in, games and computer turns.
     for (const file of ['board.html', 'plugin-art', 'consent.html', 'consent.mjs']) assert(!existsSync(join(artifact, file)), `The parked build has no ${file}`);
     let parkedCases = 0;
-    for (const path of [...PARKED_PATHS, '/plugin-art/scroll-0123abcd.webp', '/apix']) for (const method of ['GET', 'POST']) {
+    // tools/muse-connector.mjs parks the Muse connector the same way: no tool code in the bundle, and its paths answer 404.
+    if (!app.muse) assert(!(await readFile(join(artifact, 'server.mjs'), 'utf8')).includes('kingdown_new_game'), 'The parked build has no Muse tools');
+    for (const path of [...PARKED_PATHS, ...(app.muse ? [] : MUSE_PATHS), '/plugin-art/scroll-0123abcd.webp', '/apix']) for (const method of ['GET', 'POST']) {
       const response = await fetch(origin + path, { method, headers: { 'X-Kingdown-Dev-Actor': actors[0], 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream', 'MCP-Protocol-Version': '2025-11-25' }, ...(method === 'POST' && { body: '{}' }) });
       assert.equal(response.status, 404, `${method} ${path}`); assert.equal(response.headers.get('cache-control'), 'no-store');
       assert.deepEqual(await response.json(), { code: 'NOT_FOUND', message: 'Not found' }, `${method} ${path}`);
