@@ -102,7 +102,8 @@ export function drawBeastBite(canvas,image,side,angle){
  const jaw=()=>{ctx.beginPath();BEAST_JAW.forEach(([px,py],i)=>i?ctx.lineTo(px,py):ctx.moveTo(px,py));ctx.closePath();};
  ctx.clearRect(0,0,canvas.width,canvas.height);ctx.save();ctx.translate(x,y);
  ctx.save();jaw();ctx.rect(768,0,-768,1024);ctx.clip('evenodd');ctx.drawImage(image,...cell,0,0,768,1024);ctx.restore();
- ctx.save();jaw();ctx.clip();ctx.filter='brightness(.28) saturate(.6)';ctx.drawImage(image,...cell,0,0,768,1024);ctx.restore();
+ // Darken with a black fill on top, not ctx.filter: Safari and iOS draw no canvas filter (a full-colour jaw).
+ ctx.save();jaw();ctx.clip();ctx.drawImage(image,...cell,0,0,768,1024);ctx.globalCompositeOperation='source-atop';ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(0,0,768,1024);ctx.restore();
  ctx.save();ctx.translate(BEAST_HINGE.x,BEAST_HINGE.y);ctx.rotate(angle);ctx.translate(-BEAST_HINGE.x,-BEAST_HINGE.y);jaw();ctx.clip();ctx.drawImage(image,...cell,0,0,768,1024);ctx.restore();
  ctx.restore();
 }

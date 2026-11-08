@@ -4,7 +4,8 @@ import type { Page } from '../../account-game/state';
 import type { View } from '../../match/protocol';
 import { fromFen, toFen, toLan } from '../../rules/setup';
 import { legalMoves, setRules, status, type CardName, type Rules } from '../../rules/engine';
-import { applyLan, choicesFrom, choiceSources, boardActions, cardCoins, cardUseReason, draftChoices, draftTurn, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
+import { REPORT_CATEGORIES } from '../../account/profile';
+import { applyLan, humanOpponent, REPORT_REASONS, reportArgs, reportReply, choicesFrom, choiceSources, boardActions, cardCoins, cardUseReason, draftChoices, draftTurn, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
 
 const view = (fields: Partial<View> = {}): View => ({ rating_policy: 'legacy', game_id: 'game', revision: 2, engine_fingerprint: 'engine-a', created_at: '2026-10-11T00:00:00Z', abort_open: false, seat: 0, kind: 'friend', speed: 'daily', days_per_move: 3, status: 'playing', turn: 1, action: 'waiting', fen: '7k/8/8/8/8/8/P7/K7 b - - 0 1', in_check: false, legal: [], last_commands: [], opponent: null, draw_offer: null, deadline_at: '2026-10-11T00:00:01Z', server_now: '2026-10-11T00:00:00Z', ...fields });
 
@@ -436,4 +437,16 @@ test('only symmetric card swaps reverse; copied Sky Lift retains its card identi
 
 test.each([['beginner','Casual'],['casual','Clever'],['club','Club'],['strong','Strong']] as const)('shows the name for stored level %s', (level, label) => {
   expect(stripLine(1, undefined, level)).toBe(label);
+});
+
+test('Report player shows for a human opponent only and sends the game id', () => {
+  const human = { handle: 'rook_fan', icon: null, computer: false, deleted: false, last_seen_ms: null };
+  expect(humanOpponent(view({ opponent: human }))).toBe(true);
+  for (const hidden of [view({ kind: 'solo', opponent: human }), view({ opponent: null }), view({ opponent: { ...human, computer: true } }), view({ opponent: { ...human, deleted: true } })]) expect(humanOpponent(hidden)).toBe(false);
+  expect(Object.keys(REPORT_REASONS).sort()).toEqual([...REPORT_CATEGORIES].sort());
+  expect(reportArgs(view(), 'offensive_handle', '  ')).toEqual({ game_id: 'game', target: 'handle', category: 'offensive_handle' });
+  expect(reportArgs(view(), 'harassment', ' Rude words \n')).toEqual({ game_id: 'game', target: 'player', category: 'harassment', note: 'Rude words' });
+  expect(reportReply({ content: [{ type: 'text', text: '' }], _meta: { id: 42, created_at: '2026-11-08T00:00:00Z' } })).toBe('Report sent. Reference 42.');
+  expect(reportReply({ content: [{ type: 'text', text: '' }] })).toBe('Report sent.');
+  expect(() => reportReply({ isError: true, content: [{ type: 'text', text: 'Too many reports. Wait one hour, then try again.' }] })).toThrow('Too many reports. Wait one hour, then try again.');
 });

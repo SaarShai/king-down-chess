@@ -66,7 +66,8 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   function register<T extends z.ZodRawShape>(name: string, description: string, shape: T, { visibility, readOnly = false, openWorld = false, destructive = false, idempotent = true, meta, output }: Hints, run: (args: z.infer<z.ZodObject<T>>) => Promise<Reply>) {
     const inputSchema = z.object(shape).strict(); inputs.set(name, inputSchema);
     // Only kingdown_open carries the board: a template on every tool makes ChatGPT redraw the board too often.
-    registerAppTool(server, name, { description, inputSchema, ...(output && { outputSchema: z.object(output).strict() }), annotations: { readOnlyHint: readOnly, destructiveHint: destructive, idempotentHint: idempotent, openWorldHint: openWorld },
+    // The Muse connector installs the v2 MCP SDK, so ext-apps types now name v2's server; this plugin stays on v1 and runs the same.
+    registerAppTool(server as unknown as Parameters<typeof registerAppTool>[0], name, { description, inputSchema, ...(output && { outputSchema: z.object(output).strict() }), annotations: { readOnlyHint: readOnly, destructiveHint: destructive, idempotentHint: idempotent, openWorldHint: openWorld },
       _meta: { ...meta, ui: { ...(name === 'kingdown_open' && { resourceUri: boardResource }), visibility } } }, async (args: z.infer<z.ZodObject<T>>) => {
       try {
         // Every tool that can make a game shares the Create counter: Find can open a new table, and a rematch can make the next game.

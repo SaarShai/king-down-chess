@@ -112,7 +112,8 @@ export default defineConfig({
   server: { host: '127.0.0.1', port: +(process.env.PORT || 5173), strictPort: true },
   preview: { host: '127.0.0.1' },
   worker: { format: 'es' },
-  build: { copyPublicDir: false },
+  // Vite 8's default target, pinned: the iOS app floor (IPHONEOS_DEPLOYMENT_TARGET 16.4) depends on it. Raise both together.
+  build: { copyPublicDir: false, target: ['chrome111', 'edge111', 'firefox114', 'safari16.4', 'ios16.4'] },
   css: { postcss: { plugins: [sharedSeatSelectors()] } },
   plugins: [pluginSymbols(), offlineBuild(), { name: 'account-engine-identity', apply: 'build', async config() {
     return { define: { __KINGDOWN_PAGE_ENGINE__: JSON.stringify((await buildWorker()).engine) } };

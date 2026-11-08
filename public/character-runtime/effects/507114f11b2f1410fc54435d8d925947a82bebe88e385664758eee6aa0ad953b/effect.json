@@ -121,6 +121,6 @@
     "Native generated alpha includes very faint peripheral pixels; no raster cleanup or extraction is applied.",
     "Continuous smoke is a separate preview layer and is outside this module."
   ],
-  "runtimePaths": "All local assets resolve against effect.mjs with URL and Image.decode; no external paths.",
+  "runtimePaths": "All local assets resolve against effect.js with URL and Image.decode; no external paths.",
   "sourceProof": "sources/source-proof.json"
 }

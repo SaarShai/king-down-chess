@@ -60,7 +60,7 @@ Install the audience hook and runtime-role blocks 1–2 once, through the privat
 ## Online games: 0005 to 0014
 
 Apply only missing files in order, after 0001–0004, through the approved privileged SQL Editor path.
-`npm run plugin:db:migrate` applies 0002–0022. Use it only for a disposable test database. Do not run its
+`npm run plugin:db:migrate` applies 0002–0023. Use it only for a disposable test database. Do not run its
 `tsx` entry against a live database. For the 0014 MVP, apply the third to the eleventh blocks of
 `plugin-deploy/runtime-role.sql` to the existing runtime role. The web section below adds block 12.
 The migrations are safe to run again.
@@ -128,7 +128,7 @@ in one short window:
 
 - `0014_plugin_tool_tries.sql`: one counter for each user and tool. Role block 11 grants the server access. Browser roles have no access.
 
-`npm run plugin:db:init-test` applies 0001–0022 twice to a disposable loopback database, and
+`npm run plugin:db:init-test` applies 0001–0023 twice to a disposable loopback database, and
 `src/match/service.db.test.ts`, `src/match/setup.db.test.ts`, `src/match/matchmaking.db.test.ts`,
 `src/match/results.db.test.ts`, `src/online/jobs.db.test.ts`, `src/online/accounts.db.test.ts` and
 `src/api/http.db.test.ts` check them.
@@ -141,7 +141,7 @@ in one short window:
 
 ## Web account access: 0016
 
-For a new database after 0001–0004, apply 0005–0022, then blocks 3–13 of `plugin-deploy/runtime-role.sql`.
+For a new database after 0001–0004, apply 0005–0023, then blocks 3–13 of `plugin-deploy/runtime-role.sql`.
 An existing database needs only the missing files and blocks, under the authority below.
 
 Apply only missing migrations in order through `0016_web_account_access.sql`, then block 12 of
@@ -228,3 +228,10 @@ The migration and test bootstrap tools use `applyMigration` for these phases.
 Schema steps have a five-second lock timeout. If a step fails, stop before the deploy and repeat after the cause is fixed.
 A failed concurrent build can leave an invalid index. Drop only that failed index with `DROP INDEX CONCURRENTLY`, then repeat 0022.
 The file checks for invalid indexes before it attaches constraints. Do not skip that check.
+
+## Muse surface: 0023
+
+- `0023_muse_surface.sql`: adds the surface `muse` to the surface checks of `public.game_players` and `public.game_commands`.
+  The Muse connector writes it. Existing rows and grants stay the same.
+  Apply 0023 on staging before a deploy that turns on the Muse connector.
+  Apply 0023 on production before the release that turns it on.

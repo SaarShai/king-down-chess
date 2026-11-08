@@ -219,13 +219,13 @@ it('converts each effect texture to WebP with exact alpha and points its module 
  const png=await sharp(pixels,{raw:{width:8,height:8,channels:4}}).png().toBuffer(),hash=(b:Buffer)=>createHash('sha256').update(b).digest('hex');
  const module=Buffer.from("export const loadEffect=()=>['golden-arrow'].map(name=>`assets/${name}.png`);");
  const meta=Buffer.from(JSON.stringify({sprite:`assets/${hash(png)}.png`,sha256:hash(png)}));
- writeFileSync(join(dir,'assets/golden-arrow.png'),png);writeFileSync(join(dir,`assets/${hash(png)}.png`),png);writeFileSync(join(dir,'effect.mjs'),module);writeFileSync(join(dir,'effect.json'),meta);
- writeFileSync(join(dir,'sources.json'),JSON.stringify([{path:'assets/golden-arrow.png',sha256:hash(png),sourceSha256:'a'.repeat(64)},{path:`assets/${hash(png)}.png`,sha256:hash(png),sourceSha256:'b'.repeat(64)},{path:'effect.mjs',sha256:hash(module),sourceSha256:hash(module)},{path:'effect.json',sha256:hash(meta),sourceSha256:hash(meta)}]));
- writeFileSync(join(source,'assets.json'),'[]');writeFileSync(join(source,'manifest.json'),JSON.stringify({schemaVersion:1,effects:{archer:{module:`effects/${id}/effect.mjs`,smoke:null,decodedBytes:256,contactMs:1}},banks:[]}));
+ writeFileSync(join(dir,'assets/golden-arrow.png'),png);writeFileSync(join(dir,`assets/${hash(png)}.png`),png);writeFileSync(join(dir,'effect.js'),module);writeFileSync(join(dir,'effect.json'),meta);
+ writeFileSync(join(dir,'sources.json'),JSON.stringify([{path:'assets/golden-arrow.png',sha256:hash(png),sourceSha256:'a'.repeat(64)},{path:`assets/${hash(png)}.png`,sha256:hash(png),sourceSha256:'b'.repeat(64)},{path:'effect.js',sha256:hash(module),sourceSha256:hash(module)},{path:'effect.json',sha256:hash(meta),sourceSha256:hash(meta)}]));
+ writeFileSync(join(source,'assets.json'),'[]');writeFileSync(join(source,'manifest.json'),JSON.stringify({schemaVersion:1,effects:{archer:{module:`effects/${id}/effect.js`,smoke:null,decodedBytes:256,contactMs:1}},banks:[]}));
  execFileSync(process.execPath,[resolve('tools/convert-character-runtime-webp.mjs'),source,out],{stdio:'pipe'});
  const effect=JSON.parse(readFileSync(join(out,'manifest.json'),'utf8')).effects.archer,folder=resolve(out,effect.module,'..');
  expect(effect).toMatchObject({smoke:null,decodedBytes:256,contactMs:1});expect(effect.module).not.toContain(id);
- expect(readFileSync(join(folder,'effect.mjs'),'utf8')).toContain('assets/${name}.webp');
+ expect(readFileSync(join(folder,'effect.js'),'utf8')).toContain('assets/${name}.webp');
  const webp=readFileSync(join(folder,'assets/golden-arrow.webp')),json=JSON.parse(readFileSync(join(folder,'effect.json'),'utf8'));
  // The beam's sprite keeps its PNG-hash name with the WebP extension; the hash field names the WebP bytes.
  expect(json).toEqual({sprite:`assets/${hash(png)}.webp`,sha256:hash(webp)});expect(readFileSync(join(folder,json.sprite)).equals(webp)).toBe(true);expect((await sharp(webp).metadata()).format).toBe('webp');

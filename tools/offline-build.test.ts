@@ -88,9 +88,9 @@ it('F7: the offline install does not fetch optional clip sheets', () => {
 it('precaches the manifest and the startup effect modules but no frames or optional runtime files', () => {
   const { bundle, files } = fixture();
   const effect = `character-runtime/effects/${'b'.repeat(64)}`;
-  const startup = ['character-runtime/manifest.json', 'character-runtime/footprints.json', `${effect}/effect.mjs`, `${effect}/smoke.mjs`];
+  const startup = ['character-runtime/manifest.json', 'character-runtime/footprints.json', `${effect}/effect.js`, `${effect}/smoke.js`];
   const onDemand = [`character-runtime/assets/${'a'.repeat(64)}.webp`, `${effect}/effect.json`, `${effect}/assets/image.png`];
-  const excluded = ['character-runtime/assets.json', 'character-runtime/assets/private.json', `${effect}/provenance/source.json`, `${effect}/provenance/source.mjs`, `${effect}/sources.json`];
+  const excluded = ['character-runtime/assets.json', 'character-runtime/assets/private.json', `${effect}/provenance/source.json`, `${effect}/provenance/source.js`, `${effect}/sources.json`];
   files.push(...startup, ...onDemand, ...excluded);
   const { allowlist, precache } = offlineCacheFiles(bundle, root, files);
   for (const file of startup) { expect(isCharacterRuntimePublic(file)).toBe(true); expect(allowlist).toContain(file); expect(precache).toContain(file); }
@@ -161,7 +161,7 @@ it('publishes only runtime effect metadata and omits provenance', async () => {
   const effect = `character-runtime/effects/${'b'.repeat(64)}`;
   write(`public/${effect}/effect.json`, JSON.stringify({id:'maester-beam',sprite:'assets/beam.png', shaftSourceRect:[1,2,3,4], sourcePath:'/Users/private', flare:{sprite:'assets/flare.png', anchor:[2,3], prompt:'private', provider:'private'}}));
   write(`public/${effect}/provenance/source.json`, '{"prompt":"private"}');
-  write(`public/${effect}/provenance/source.mjs`, 'private');
+  write(`public/${effect}/provenance/source.js`, 'private');
   write(`public/${effect}/sources.json`, 'private');
   write('public/character-runtime/assets.json', 'private');
   write('public/character-runtime/assets/private.json', 'private');
@@ -180,7 +180,7 @@ it('publishes only runtime effect metadata and omits provenance', async () => {
 
 it.each(['/home/private', '/private/tmp/a', '/var/folders/a', 'file:///tmp/a', '{"localPath":"x"}', '{"sourceImagePath":"x"}', '{"sourceFramePath":"x"}', '{"reviewNotes":"x"}', '{"reviewer":"x"}', '/Users/private', '{"prompt":"private"}', '{"provider":"private"}', '.codex', 'generated_images', '{"sourcePath":"private"}', '{"originalPath":"private"}'])('fails a build if published runtime data contains %s', async privateData => {
   const { dir, write } = site();
-  write(`public/character-runtime/effects/${'b'.repeat(64)}/effect.mjs`, privateData);
+  write(`public/character-runtime/effects/${'b'.repeat(64)}/effect.js`, privateData);
   try { await expect(compile(dir)).rejects.toThrow('Private character runtime data'); }
   finally { rmSync(dir, { recursive: true, force: true }); }
 });
@@ -209,7 +209,7 @@ it('rejects unknown manifest fields, metadata chunks and invalid beam field type
 it('rejects a binary path in an iCCP chunk and accepts a JavaScript regex', async () => {
  const {dir,write}=site(), effect=`public/character-runtime/effects/${'b'.repeat(64)}`;
  try {
-  write(`${effect}/effect.mjs`, 'export const f=(x,a)=>x?a:/re/.test(x);');
+  write(`${effect}/effect.js`, 'export const f=(x,a)=>x?a:/re/.test(x);');
   await expect(compile(dir)).resolves.toBeDefined();
   const iccp=Buffer.concat([Buffer.from('89504e470d0a1a0a0000000969434350','hex'),Buffer.from('/Users/za'),Buffer.alloc(4)]);
   write(`${effect}/assets/a.png`, '');writeFileSync(join(dir,`${effect}/assets/a.png`),iccp);
@@ -382,7 +382,7 @@ it('gives the first online reload after a package deploy the new manifest and 0 
 it('serves the installed manifest and startup effect module from the cache when offline', async () => {
   const { dir, write } = site();
   const installedCopy = '{"schemaVersion":1,"effects":{},"banks":[]}', nextDeploy = '{"schemaVersion":2,"effects":{},"banks":[]}';
-  const effect = `character-runtime/effects/${'b'.repeat(64)}/smoke.mjs`, module = 'export class ArrowSmoke {}';
+  const effect = `character-runtime/effects/${'b'.repeat(64)}/smoke.js`, module = 'export class ArrowSmoke {}';
   write('public/character-runtime/manifest.json', installedCopy);
   write(`public/${effect}`, module);
   try {

@@ -39,6 +39,17 @@ export function idleBankAt(clips,turns,restFacing,time) {
  for(const part of sequence){if(t<part.durationMs)return {bank:part.bank,time:part.reverse?part.durationMs-t:t,reverse:part.reverse};t-=part.durationMs;}
  return null;
 }
+// A turn is a short sequence: a capture or a walk plays about every second pose of it, the first and the last pose
+// kept and the others evenly spaced. Each pose keeps its time and shows from the midpoint after the pose before it to
+// the midpoint before the next, so the turn takes as long. A King capture's four turns then load about 16 frames, not 31.
+const thinned=new WeakMap();
+export function thinTurn(bank) {
+ if(bank.kind!=='turn'||bank.frames.length<4)return bank;
+ let out=thinned.get(bank);if(out)return out;
+ const n=bank.frames.length-1,m=Math.ceil(n/2),keep=[...new Set(Array.from({length:m+1},(_,j)=>Math.round(j*n/m)))].map(k=>bank.frames[k]);
+ const frames=keep.map((f,j)=>({...f,visibleIntervalMs:[j?(keep[j-1].timeMs+f.timeMs)/2:0,j<keep.length-1?(f.timeMs+keep[j+1].timeMs)/2:bank.durationMs]}));
+ out={...bank,frames};thinned.set(bank,out);return out;
+}
 const jumps=character=>character==='knight'||character==='paladin';
 const unique=frames=>{const seen=new Set();return frames.filter(f=>!seen.has(f.url)&&seen.add(f.url));};
 /** A jump streams. first: its frames up to the crouch key and its landing; it starts once they are decoded. needed:
@@ -76,7 +87,8 @@ export function restBankOf(all) {
 export const DECODED_BUDGET=64*1024*1024;
 // Bound the wait for optional art so a stalled request cannot hold up a move indefinitely.
 const LOAD_TIMEOUT=1000,IMAGE_TIMEOUT=5000,RETRY_DELAY=5000,LEAP_HOLD=200,POSE_HOLD=150,LEAP_LATE=500,FAST_FRAME=20;
-const connected=()=>globalThis.navigator?.onLine!==false;
+// The iOS app (capacitor:) has every frame on the device, so it loads them also with no connection.
+export const connected=()=>globalThis.navigator?.onLine!==false||globalThis.location?.protocol==='capacitor:';
 function bounded(promise,ms=LOAD_TIMEOUT,signal){
  return new Promise(resolve=>{let done=false;const finish=value=>{if(done)return;done=true;clearTimeout(timer);signal?.removeEventListener('abort',abort);resolve(value);},abort=()=>finish(null),timer=setTimeout(abort,Math.max(0,ms));signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();Promise.resolve(promise).then(finish,()=>finish(null));});
 }
@@ -115,7 +127,8 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  const stopped=new Set();
  function reserve(frames){const keys=[...new Set(frames.map(f=>f.url))];for(const key of keys)pins.set(key,(pins.get(key)??0)+1);let held=true;return ()=>{if(!held)return;held=false;for(const key of keys){const n=pins.get(key);if(n>1)pins.set(key,n-1);else pins.delete(key);}trim();};}
  let manifestReady=false,manifestLoading=null,manifestRetryAt=0,footprints=null,footprintsLoading=null;
- // Optional art never asks the network while the browser reports no connection: offline play keeps the plain figure.
+ // On the website, optional art never asks the network while the browser reports no connection: offline play keeps
+ // the plain figure. The iOS app reads its bundled frames (connected()).
  const reconnect=()=>{if(disposed)return;failed.clear();manifestRetryAt=0;effectRetryAt.clear();void loadManifest().then(()=>{if(!disposed)wake();});if(manifestReady)loadFootprints();};
  const listening=typeof globalThis.addEventListener==='function';
  if(listening)globalThis.addEventListener('online',reconnect);
@@ -349,16 +362,17 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  return {
   ready:()=>bounded(loadManifest()).then(()=>{}),
   has:(character,army)=>{if(!manifestReady)void loadManifest();return !!idle(character,army);},
-  get stats(){return {bytes:bytes+effectBytes+smokeBytes,peakBytes,framesLoaded:images.size,active,queued:queue.length,manifestReady,manifestLoading:!!manifestLoading};},
+  get stats(){return {bytes:bytes+effectBytes+smokeBytes,peakBytes,framesLoaded:images.size,active,queued:queue.length,manifestReady,manifestLoading:!!manifestLoading,manifestPending:!!manifestLoading&&!manifestRetryAt};},
   smoke(){return smokeClass&&smokeImage?new smokeClass(smokeImage):null;},
   warm,
   async prefetchMoves(character,army,directions,captures=[]){
    const generation=++moveGeneration;movePrefetchActive=true;moveLoads?.release();moveLoads=null;movePins?.();movePins=null;
    try{
-    await bounded(loadManifest());if(disposed||generation!==moveGeneration)return;
+    // A late manifest still prefetches the selection when it comes: the click ends this wait (releaseMovePrefetch).
+    await loadManifest();if(disposed||generation!==moveGeneration)return;
     // A capture also needs its separate effect (the Archer's arrow); it loads now, not at the click.
     if(captures.length)void loadSeparate(character);
-    const all=forPiece(character,army),rest=idle(character,army),turns=all.filter(b=>b.kind==='turn');
+    const all=forPiece(character,army),rest=idle(character,army),turns=all.filter(b=>b.kind==='turn').map(thinTurn);
     // Decode capture starts before the click; the move keeps its existing wait limit.
     const attacks=all.filter(b=>b.kind==='attack'&&captures.includes(b.facing));
     // Past half the budget, a further capture prefetches only its first frames, so two large strikes do not evict each other.
@@ -425,7 +439,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    const attack=capture?all.find(b=>b.kind==='attack'&&b.facing===direction):null;
    const playable=b=>b.facing===direction&&Number.isFinite(b.durationMs)&&b.durationMs>0&&b.frames?.length&&(b.kind!=='move'||Number.isFinite(b.strideSquares)&&b.strideSquares>0);
    let movement=!capture?(jumps(character)?all.find(b=>b.kind==='movement'&&playable(b))??null:all.find(b=>b.kind==='move'&&playable(b))||oneSquare&&all.find(b=>b.kind==='movement'&&playable(b))||null):null;
-   const turns=all.filter(b=>b.kind==='turn'),before=turnRoute(turns,rest.facing,direction),after=before&&reverseRoute(before);
+   const turns=all.filter(b=>b.kind==='turn').map(thinTurn),before=turnRoute(turns,rest.facing,direction),after=before&&reverseRoute(before);
    // A missing edge keeps the rest body coherent instead of jumping to an unsupported facing.
    if(before===null)return null;
    const routeFrames=character.startsWith('king-')&&capture?p=>p.bank.frames:p=>endpoints(p.bank);
