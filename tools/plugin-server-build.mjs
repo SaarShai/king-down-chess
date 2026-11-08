@@ -13,11 +13,15 @@ import { sourceErrorForms } from './lib/error-forms.mjs';
 import { ART_HEADERS, ART_TYPES } from './plugin-art-headers.mjs';
 import { STAGING_ORIGIN, STAGING_PROJECT_ID, STAGING_SUPABASE_URL } from './staging-config.mjs';
 import { CHATGPT_PLUGIN } from './chatgpt-plugin.mjs';
+import { MUSE_CONNECTOR, MUSE_PATHS } from './muse-connector.mjs';
 
 /** Site routes keep the domain challenge separate from the plugin function. While the ChatGPT plugin is parked
- *  (tools/chatgpt-plugin.mjs), the tree has no board art and no domain challenge, so it has no route for them. */
-export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN } = {}) {
+ *  (tools/chatgpt-plugin.mjs), the tree has no board art and no domain challenge, so it has no route for them. The Muse
+ *  connector (tools/muse-connector.mjs) routes its paths, and the consent page when the plugin does not serve it, to the
+ *  function; Vercel keeps the request path. */
+export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNECTOR } = {}) {
   const routes = chatgpt ? Object.entries(ART_TYPES).map(([type, contentType]) => ({ src: `^/plugin-art/[\\w-]+\\.${type}$`, headers: { ...ART_HEADERS, 'Content-Type': contentType }, continue: true })) : [];
+  if (muse) for (const path of [...MUSE_PATHS, ...chatgpt ? [] : ['/authorize', '/consent.mjs']]) routes.push({ src: `^${path.replace(/[.]/g, '\\.')}$`, dest: '/mcp' });
   if (site) {
     routes.push({ src: '^/character-runtime/assets/[a-f0-9]{64}\\.webp$', headers: { 'Cache-Control': 'public, max-age=31536000, immutable' }, continue: true });
     const challenge = resolve(site, '.well-known/openai-apps-challenge');
@@ -34,10 +38,11 @@ export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN } = {}) {
 }
 
 /** `chatgpt` (default: the switch in tools/chatgpt-plugin.mjs) adds the plugin surface: the board widget and its art,
- *  the consent page and the OAuth function paths. The checks of the parked plugin source pass `chatgpt: true`. */
-export async function buildPluginServer(outDir = resolve('plugin-server-dist'), { vercel = false, site, chatgpt = CHATGPT_PLUGIN } = {}) {
+ *  the consent page and the OAuth function paths. The checks of the parked plugin source pass `chatgpt: true`.
+ *  `muse` (default: tools/muse-connector.mjs) adds the Muse handler, the consent page and the Muse routes. */
+export async function buildPluginServer(outDir = resolve('plugin-server-dist'), { vercel = false, site, chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNECTOR } = {}) {
   vercel ||= Boolean(site);
-  const routes = vercel ? vercelRoutes(site, { chatgpt }) : [];
+  const routes = vercel ? vercelRoutes(site, { chatgpt, muse }) : [];
   const staging = process.env.KINGDOWN_STAGE === 'staging';
   if (staging && (!site || process.env.VITE_KINGDOWN_STAGE !== 'staging' || process.env.VITE_SUPABASE_URL !== STAGING_SUPABASE_URL || !/^sb_publishable_[A-Za-z0-9_-]+$/.test(process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? ''))) throw new Error('Staging build requires explicit isolated browser settings and the combined site');
   const root = fileURLToPath(new URL('../', import.meta.url));
@@ -53,6 +58,8 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
       // The board art: a static file on Vercel, beside server.mjs for the standalone server (tools/plugin-server.mjs serves it).
       await cp(resolve(boardDir, 'plugin-art'), resolve(vercel ? resolve(output, 'static') : functionDir, 'plugin-art'), { recursive: true });
     } finally { await rm(boardDir, { recursive: true, force: true }); }
+  }
+  if (chatgpt || muse) {
     await cp(resolve(root, 'src/plugin/consent.html'), resolve(functionDir, 'consent.html'));
     await build({ configFile: false, root, publicDir: false, logLevel: 'warn', build: { target: 'es2022', outDir: functionDir, emptyOutDir: false, minify: true, lib: { entry: resolve(root, 'src/plugin/consent.ts'), formats: ['es'], fileName: () => 'consent.mjs' }, rollupOptions: { output: { entryFileNames: 'consent.mjs', codeSplitting: false } } } });
   }
@@ -60,7 +67,7 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
   await buildRuntime(resolve(functionDir, 'runtime'));
   await build({
     configFile: false, root, publicDir: false, logLevel: 'warn', ssr: { noExternal: true },
-    define: { 'import.meta.env.KINGDOWN_ERROR_RECORDER': JSON.stringify(Boolean(site)), 'import.meta.env.KINGDOWN_CHATGPT': JSON.stringify(chatgpt), ...(site && { __KINGDOWN_ERROR_FORMS__: JSON.stringify(sourceErrorForms(resolve(root, 'src'))), __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()) }) },
+    define: { 'import.meta.env.KINGDOWN_ERROR_RECORDER': JSON.stringify(Boolean(site)), 'import.meta.env.KINGDOWN_CHATGPT': JSON.stringify(chatgpt), 'import.meta.env.KINGDOWN_MUSE': JSON.stringify(muse), ...(site && { __KINGDOWN_ERROR_FORMS__: JSON.stringify(sourceErrorForms(resolve(root, 'src'))), __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()) }) },
     plugins: [{ name: 'isolated-match-runtime', enforce: 'pre', resolveId(source, importer) {
       if (!importer || !source.startsWith('.')) return;
       const path = resolve(dirname(importer), source);

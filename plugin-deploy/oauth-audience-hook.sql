@@ -1,7 +1,7 @@
 -- INSTALLATION TEMPLATE ONLY: do not include in automatic game migrations.
 -- Contract: https://supabase.com/docs/guides/auth/auth-hooks/custom-access-token-hook
 -- Enable public.kingdown_access_token_hook in Authentication > Hooks after review.
--- Add only registered/approved OAuth client UUIDs and their exact HTTPS /mcp resource.
+-- Add only registered/approved OAuth client UUIDs and their exact HTTPS resource: /mcp (ChatGPT app) or /muse/mcp (Muse connector).
 -- An existing Custom Access Token hook must retain its behavior when this is integrated.
 -- Safe to run again: paste it again after a change (docs/submission/checklist.md, owner step 2).
 begin;
@@ -9,8 +9,11 @@ create schema if not exists kingdown_oauth;
 revoke all on schema kingdown_oauth from public, anon, authenticated;
 create table if not exists kingdown_oauth.client_resources (
   client_id uuid primary key,
-  resource text not null check (resource ~ '^https://[^/?#@]+/mcp$')
+  resource text not null
 );
+-- Replaced on every run, so a table made by an older copy (only /mcp) also accepts the Muse resource.
+alter table kingdown_oauth.client_resources drop constraint if exists client_resources_resource_check;
+alter table kingdown_oauth.client_resources add constraint client_resources_resource_check check (resource ~ '^https://[^/?#@]+(/muse)?/mcp$');
 alter table kingdown_oauth.client_resources enable row level security;
 revoke all on kingdown_oauth.client_resources from public, anon, authenticated;
 grant usage on schema public, kingdown_oauth to supabase_auth_admin;
@@ -55,5 +58,5 @@ revoke execute on function public.kingdown_access_token_hook(jsonb) from public,
 grant execute on function public.kingdown_access_token_hook(jsonb) to supabase_auth_admin;
 -- Example after registering your real client (replace both placeholders):
 -- insert into kingdown_oauth.client_resources(client_id,resource)
--- values ('YOUR-OAUTH-CLIENT-UUID', 'https://YOUR-PLUGIN-ORIGIN/mcp');
+-- values ('YOUR-OAUTH-CLIENT-UUID', 'https://YOUR-PLUGIN-ORIGIN/mcp'); -- or .../muse/mcp for the Muse client
 commit;

@@ -2,7 +2,7 @@
 // Shared by the board trial (prototype.mjs) and the game's painted look (src/render/PaintedView.ts).
 // Rules helpers are passed in, so the scene never bundles its own copy of the engine.
 import { clamp } from './painted-mesh.mjs';
-import {createCharacterRuntime,facingOf,anchorAt,bankPointToWorld,bankScale,figureHeight,measuredScale,walkStride} from './character-runtime.mjs';
+import {connected,createCharacterRuntime,facingOf,anchorAt,bankPointToWorld,bankScale,figureHeight,measuredScale,walkStride} from './character-runtime.mjs';
 import {PIECE_STILLS} from './piece-stills.mjs';
 import {strikeReach,strikeStance,crushPose,impalePose,thrownPose,bitePose,slashLine,drawCut,drawSlashArc,drawCrush,drawBurst,drawDust,drawChips,drawBitten,drawBiteHit} from './fx-melee.mjs';
 import * as archer from './wrist-bow/aiming.mjs';
@@ -114,7 +114,7 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  const CLIP_OF={[N]:'knight',[R]:'rook'},clipArt=Object.fromEntries(Object.keys(CLIPS).map(name=>[name,corsImage()]));
  const clipReady=name=>!!clipArt[name]?.complete&&clipArt[name].naturalWidth>0;
  function loadClips(name=null){
-  if(disposed||reducedMotion||!frames||globalThis.navigator?.onLine===false)return;
+  if(disposed||reducedMotion||!frames||!connected())return;
   if(characterRuntime&&!bodyWarm)return;
   for(const key of name?[name]:Object.keys(clipArt))if(!clipArt[key].src&&(!characterRuntime||[...position.board].some(value=>value&&CLIP_OF[typeOf(value)]===key&&!bodyRuntime.has(characterOf(value),armyOf(value)))))clipArt[key].src=CLIPS[key].file;
  }
