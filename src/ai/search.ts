@@ -668,7 +668,8 @@ function ttStore(key: number, idx: number, depth: number, s: number, bound: numb
 // Search.
 
 const timeUp = (): boolean => {
-  if ((++nodes & 1023) === 0 && performance.now() > hardDeadline) stop = true;
+  // A node with king powers can cost 125 µs under load, so 1024 nodes overran the deadline by 130 ms; 128 nodes cost 16 ms.
+  if ((++nodes & 127) === 0 && performance.now() > hardDeadline) stop = true;
   return stop;
 };
 

@@ -25,7 +25,7 @@ try {
    const capture=()=>{
     const frame=view.scene.characterFrames.find(f=>f.square===12);
     prepareTrace.push({at:performance.now(),animating:view.scene.animating,playing:view.scene.playing,bank:frame?.bank,sha:frame?.sourceSha256,foot:frame?.foot});
-    if(prepareTrace.length<600)requestAnimationFrame(capture);
+    if(prepareTrace.length<3000)requestAnimationFrame(capture);
    };capture();
   });
   const start=Date.now();for(const square of [12,20]){const p=await page.evaluate(s=>view.screenOf(s),square);await page.mouse.click(p.x,p.y);}
@@ -47,11 +47,18 @@ try {
    assert(moving.length,'the pawn moves with the turn image still held');
    assert(moving.some(s=>s.playing==='paintedWalk'&&s.bank===walk.id),'the pawn walks with its painted walk while the turn image is held');
    assert(trace.every(s=>s.sha!==blocked.sourceSha256),'the held turn image is never drawn');
-   release();await page.click('#undo');await page.waitForFunction(board=>!view.scene.animating&&view.pos.board.every((v,i)=>v===board[i]),original,{timeout:5000});
-   const previous=await page.evaluate(()=>prepareTrace.length);
-   for(const square of [12,20]){const p=await page.evaluate(s=>view.screenOf(s),square);await page.mouse.click(p.x,p.y);}
-   await page.waitForFunction(()=>!view.scene.animating&&!view.pos.board[12]&&view.pos.board[20],null,{timeout:5000});
-   const recovered=await page.evaluate(index=>prepareTrace.slice(index),previous);assert(recovered.some(s=>s.sha===undefined?false:s.sha===blocked.sourceSha256),'a later move uses the recovered turn image');
+   release();
+   // The held image is one 15 ms pose of each turn. The trace samples once a drawn frame, and a long frame on a software
+   // renderer skips that pose (PR 332, browser-default job; 1 of 4 runs here with up to 40 ms frames). So try three moves.
+   let used=false;
+   for(let attempt=0;attempt<3&&!used;attempt++){
+    await page.click('#undo');await page.waitForFunction(board=>!view.scene.animating&&view.pos.board.every((v,i)=>v===board[i]),original,{timeout:5000});
+    const previous=await page.evaluate(()=>prepareTrace.length);
+    for(const square of [12,20]){const p=await page.evaluate(s=>view.screenOf(s),square);await page.mouse.click(p.x,p.y);}
+    await page.waitForFunction(()=>!view.scene.animating&&!view.pos.board[12]&&view.pos.board[20],null,{timeout:5000});
+    used=(await page.evaluate(index=>prepareTrace.slice(index),previous)).some(s=>s.sha===blocked.sourceSha256);
+   }
+   assert(used,'a later move uses the recovered turn image');
   }
   assertNoErrors(errors);console.log(`ok stalled turn image: ${cancel?'Undo during preparation':'streamed walk and Undo'}`);await page.close();
  }
