@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser } from 'playwright';
-import { startHarness, waitForSourceApp } from './plugin-ui-harness';
+import { remountWidget, startHarness, waitForSourceApp } from './plugin-ui-harness';
 
 let folder: string, browser: Browser, harness: Awaited<ReturnType<typeof startHarness>>;
 beforeAll(async () => {
@@ -56,7 +56,7 @@ it.each([{ remount: false, permanent: false }, { remount: true, permanent: false
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((call: any) => call.name === 'kingdown_resume').length)).toBe(1);
     if (permanent) return;
     if (remount) {
-      await page.locator('#remount').click(); await waitForSourceApp(page);
+      await remountWidget(page); await waitForSourceApp(page);
       await frame.locator('#over #retry:not(:disabled)').waitFor();
     }
     await frame.locator('#over #retry').click();

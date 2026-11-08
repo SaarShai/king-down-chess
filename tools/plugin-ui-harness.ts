@@ -196,6 +196,14 @@ if (resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
   for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, async () => { await harness.close(); process.exit(); });
 }
 
+/** Remounts the newest widget. The old frame keeps its screen until the harness ends its teardown, so a wait or read
+ * right after the click can still reach it; return only after the old iframe leaves the page. The DOM click also works
+ * when a check hides the button. */
+export async function remountWidget(page: Page): Promise<void> {
+  const old = await page.locator('iframe').last().elementHandle();
+  await page.locator('#remount').evaluate(button => (button as HTMLButtonElement).click());
+  await page.waitForFunction(old => !old!.isConnected, old);
+}
 /** Source module exports must exist before tests call them; an enabled control can precede the import's completion. */
 export async function waitForSourceApp(page: Page): Promise<void> {
   await page.frameLocator('iframe').locator('html').evaluate("async () => { await window.harnessBoot; window.harnessApp = await import('/src/plugin/app.ts'); }");

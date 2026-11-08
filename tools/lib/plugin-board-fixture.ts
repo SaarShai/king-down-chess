@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Browser, Locator, Page } from 'playwright';
 import { launch, STEP } from './checks.mjs';
-import { startHarness, waitForSourceApp } from '../plugin-ui-harness';
+import { remountWidget, startHarness, waitForSourceApp } from '../plugin-ui-harness';
 import { fromFen, toLan } from '../../src/rules/setup';
 import { legalMoves, RULES, setRules, type Rules } from '../../src/rules/engine';
 import type { View } from '../../src/match/protocol';
@@ -156,7 +156,7 @@ export const boardFen = (page: Page) => page.frameLocator('iframe').locator('htm
 export const getCalls = (page: Page) => page.evaluate(() => ((window as any).harnessCalls ?? []).filter((c: any) => c.name === 'kingdown_get').length);
 export const savedDraft = (page: Page) => page.evaluate(() => (window as any).harnessWidgetState.privateContent?.draft ?? null);
 export async function remountBoard(page: Page) {
-  await page.locator('#remount').evaluate(e => (e as HTMLButtonElement).click());
+  await remountWidget(page);
   const frame = page.frameLocator('iframe');
   await frame.locator('#board[aria-busy="false"][data-animating="false"]').waitFor();
   await frame.locator('html').evaluate('(async () => { window.testBoard = (await import("/src/plugin/board-view.ts")).board; })()');
