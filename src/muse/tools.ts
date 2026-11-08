@@ -10,11 +10,16 @@ import { DEFAULT_OPTIONS } from '../match/setup';
 import { describeMove } from '../move-text';
 import { diagnostic } from '../plugin/diagnostics';
 import { endReason, ending, WHY } from '../plugin/ending';
+import type { TOOL_LIMITS } from '../plugin/service';
 import { DEFAULT_RULES, LETTERS, typeOf, type PieceType } from '../rules/engine';
 import { POOL } from '../rules/setup';
 import { backRankWords, boardWords, checkWords, explainWords } from './board-words';
 import { matchMove, moveChoices, type MoveChoice } from './match-words';
 import { board } from './position';
+
+/** The per-user limit (TOOL_LIMITS) that a counted tool uses before it works: a move can make the computer's turn, so it
+ *  counts as one. The reads count nothing. tools/muse-tool-docs.ts documents these limits. */
+export const COUNTERS = { kingdown_new_game: 'kingdown_create', kingdown_move: 'kingdown_computer' } as const satisfies Record<string, keyof typeof TOOL_LIMITS>;
 
 export interface MuseGames {
   create: GameService['create'];
@@ -22,14 +27,14 @@ export interface MuseGames {
   view: GameService['view'];
   inbox: GameService['inbox'];
   previewDraft: GameService['previewDraft'];
-  toolTry(actor: string, tool: 'kingdown_create' | 'kingdown_move'): Promise<void>;
+  toolTry(actor: string, tool: (typeof COUNTERS)[keyof typeof COUNTERS]): Promise<void>;
 }
 
 /** Computer commands after one turn: the computer plays one action for each call, so a Haste turn takes two. */
 const COMPUTER_CALLS = 8;
 const NEXT_CHOICES = 6;
 /** Fixed sentences for service refusals; the service text never reaches the model. INVALID_MOVE and INVALID_INPUT are the plugin's words. */
-const REFUSED: Record<string, string> = {
+export const REFUSED: Record<string, string> = {
   STALE_REVISION: 'The game changed. Read the game again, then move.', INVALID_MOVE: 'This move is not available. Choose another move.',
   WRONG_TURN: 'It is not your turn.', MATCH_TERMINAL: 'This game is over.', RATE_LIMITED: 'Too many requests. Wait one minute, then try again.',
   UNAVAILABLE: 'The game server is busy. Try again.', NOT_FOUND: 'There is no game with this ID.', FORBIDDEN: 'You do not have a seat in this game.',
@@ -88,7 +93,7 @@ const positionShape = {
 const boardShape = z.object({ ...gameShape, ...positionShape }).partial().shape;
 const choiceShape = z.object({ number: z.number().int(), words: z.string(), move_ids: z.array(z.string()) });
 const revision = z.number().int().min(0).max(MAX_REVISION).describe('The revision of the last result for this game.');
-const gameId = z.uuid().optional(), writeGameId = z.uuid().describe('The game, from kingdown_games or an earlier result.');
+const gameId = z.uuid().optional().describe('The game, from kingdown_games or an earlier result. Default: your most urgent game against the computer.'), writeGameId = z.uuid().describe('The game, from kingdown_games or an earlier result.');
 
 type Out = { lead: string; lines?: string[]; data: Record<string, unknown> };
 
@@ -175,7 +180,7 @@ export function createMuseServer({ games, actorId, publicOrigin }: { games: Muse
     });
 
   tool('kingdown_explain', 'Explain a rule', 'Explains a King Down piece (by name or letter), a square, a king power or a card. Without game_id, it uses your most urgent game against the computer, if any. In a game against the computer, a square names its piece, and your piece also gets the moves it can make now. An unknown topic gives the names of the pieces in play.',
-    'read', z.object({ topic: z.string().min(1).max(60), game_id: gameId }), z.object({ known: z.boolean(), pieces: z.array(z.string()).optional() }), async ({ topic, game_id }) => {
+    'read', z.object({ topic: z.string().min(1).max(60).describe('A piece name or letter, a square, a king power or a card.'), game_id: gameId }), z.object({ known: z.boolean(), pieces: z.array(z.string()).optional() }), async ({ topic, game_id }) => {
       const v = await pick(game_id), solo = v?.kind === 'solo' && !!v.fen && !!v.rules ? v : null;
       const words = explainWords(v?.rules ?? null, topic, solo ? { fen: solo.fen, viewer: solo.seat, legal: solo.legal } : undefined);
       if (words) return { lead: words, data: { known: true } };
@@ -188,10 +193,12 @@ export function createMuseServer({ games, actorId, publicOrigin }: { games: Muse
   tool('kingdown_new_game', 'New game', 'Starts a new King Down game against the computer, with fairy pieces unless classic is true. A new request_id makes a new game; the same request_id on a retry returns the same game. The result gives your colour, the back rank, the computer\'s first move when it plays White, and the board.',
     'write', z.object({
       request_id: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/).describe('A new ID for each new game; the same ID on a retry.'),
-      colour: z.enum(['white', 'black', 'random']).optional(), level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(),
-      king_powers: z.boolean().optional(), classic: z.boolean().optional(),
+      colour: z.enum(['white', 'black', 'random']).optional().describe('Your colour. Default: white.'),
+      level: z.enum(['beginner', 'casual', 'club', 'strong']).optional().describe('The computer level. Default: casual.'),
+      king_powers: z.boolean().optional().describe('King powers on, with your default king. Default: false.'),
+      classic: z.boolean().optional().describe('Classic chess pieces only, with no fairy pieces. Default: false.'),
     }), z.object({ back_rank: z.string(), computer: z.array(z.string()), ...gameShape, ...positionShape }), async ({ request_id, colour = 'white', level = 'casual', king_powers = false, classic = false }) => {
-      await games.toolTry(actorId, 'kingdown_create');
+      await games.toolTry(actorId, COUNTERS.kingdown_new_game);
       const options = { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: king_powers, classic, fairy: !classic };
       let v = await games.create(actorId, { kind: 'solo', level, colour, options }, `muse:${request_id}`);
       // King powers need a seat choice: the default king, as the board's Ready does with no change.
@@ -209,7 +216,7 @@ export function createMuseServer({ games, actorId, publicOrigin }: { games: Muse
     }), z.object({ result: z.enum(['played', 'computer', 'choices', 'refused', 'pending', 'changed']), you: z.array(z.string()), computer: z.array(z.string()), reason: z.string().optional(), move_ids: z.array(z.string()).optional(), choices: z.array(choiceShape).optional(), ...boardShape }),
     async ({ expected_revision, said, move_ids: prior = [], game_id }) => {
       if (said === undefined && !prior.length) throw new Refusal('INVALID_INPUT', 'Say a move, or send move IDs.');
-      await games.toolTry(actorId, 'kingdown_move');
+      await games.toolTry(actorId, COUNTERS.kingdown_move);
       const v = await computerGame(game_id), rules = v.rules!;
       if (v.revision !== expected_revision) return changed(v);
       if (v.result) throw new Refusal('MATCH_TERMINAL', `This game is over. ${endWords(v)}`);
@@ -248,7 +255,7 @@ export function createMuseServer({ games, actorId, publicOrigin }: { games: Muse
     });
 
   tool('kingdown_end', 'End a game', 'Ends a King Down game against the computer: resign (the computer wins) or abort (no result; only before each side has played a turn). When expected_revision is not the game\'s revision, nothing changes and the current state comes back.',
-    'destructive', z.object({ action: z.enum(['resign', 'abort']), expected_revision: revision, game_id: writeGameId }), z.object({ result: z.enum(['ended', 'changed']), ...boardShape }),
+    'destructive', z.object({ action: z.enum(['resign', 'abort']).describe('resign: the computer wins. abort: no result, only before each side has played a turn.'), expected_revision: revision, game_id: writeGameId }), z.object({ result: z.enum(['ended', 'changed']), ...boardShape }),
     async ({ action, expected_revision, game_id }) => {
       const v = await computerGame(game_id);
       if (v.revision !== expected_revision) { const { data: { you, computer, ...data }, ...rest } = changed(v); return { ...rest, data }; }

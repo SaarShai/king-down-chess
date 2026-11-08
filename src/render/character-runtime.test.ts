@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createCharacterRuntime, anchorAt, bankPointToWorld, idleBankAt, facingOf, figureHeight, frameAt, thinTurn, turnRoute, reverseRoute, walkStride, type RuntimeBank } from './painted/character-runtime.mjs';
+import { createCharacterRuntime, prefetchCharacterIndex, anchorAt, bankPointToWorld, idleBankAt, facingOf, figureHeight, frameAt, thinTurn, turnRoute, reverseRoute, walkStride, type RuntimeBank } from './painted/character-runtime.mjs';
 const bank = (from = 'SE', to = 'S'): RuntimeBank => ({ id: `${from}-${to}`, character: 'pawn', army: 'white', kind: 'turn', from, to, facing: 'SE', durationMs: 120, nearest: true, pivot: [384,700], canvasSize: [768,768], bodyHeightPx: 600, registrationHeightPx: 600, frames: [0,60,120].map(timeMs => ({ url: `frame-${timeMs}`, timeMs })) });
 
 it('sets the final figure heights, and a walk stride follows its figure', () => {
@@ -7,6 +7,19 @@ it('sets the final figure heights, and a walk stride follows its figure', () => 
  expect(walkStride({character:'maester',strideSquares:.84})).toBeCloseTo(.63);
  expect(walkStride({character:'knight',strideSquares:1})).toBeCloseTo(129/112);
  expect(walkStride({character:'rook',strideSquares:.9})).toBe(.9);
+});
+
+it('takes the early package-index request once, and drops one that fails', async () => {
+ const index = (url: string) => url.endsWith('/character-runtime/index.json');
+ const ok = vi.fn(async (_url: string) => ({ ok: true, json: async () => ({ schemaVersion: 2, parts: {}, effects: {} }) })) as unknown as typeof fetch;
+ prefetchCharacterIndex(ok); prefetchCharacterIndex(ok);
+ const calls = () => vi.mocked(ok).mock.calls.filter(([url]) => index(String(url))).length;
+ await Promise.resolve(); expect(calls()).toBe(1);
+ const first = createCharacterRuntime({ fetcher: ok }); await first.ready(); expect(calls()).toBe(1); first.dispose();
+ const second = createCharacterRuntime({ fetcher: ok }); await second.ready(); expect(calls()).toBe(2); second.dispose();
+ const down = vi.fn(async () => { throw Error('offline'); }) as unknown as typeof fetch;
+ prefetchCharacterIndex(down); await vi.waitFor(() => expect(down).toHaveBeenCalledTimes(1)); await new Promise(r => setTimeout(r));
+ const third = createCharacterRuntime({ fetcher: down }); await third.ready(); expect(down).toHaveBeenCalledTimes(2); third.dispose();
 });
 
 describe('ready character playback', () => {

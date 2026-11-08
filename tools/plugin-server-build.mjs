@@ -37,10 +37,24 @@ export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNE
   return routes;
 }
 
+/** The consent page of a Muse build: the Muse tools (src/muse/tools.ts) in place of the ChatGPT list in consent.html.
+ *  It names no data limit: the token gives the client the email address and the provider metadata. */
+function museConsent(html) {
+  const chatgpt = /<h2>Let ChatGPT use your King Down account\?<\/h2>(<dl>[\s\S]*?<\/dl>)<p>ChatGPT can:<\/p><ul>[\s\S]*?<\/ul>/;
+  if (!chatgpt.test(html)) throw new Error('consent.html has no ChatGPT access list to replace');
+  return html.replace(chatgpt, (_, details) => `<h2>Let Muse use your King Down account?</h2>${details}<p>Muse can:</p><ul>
+<li>start, play and end games against the computer</li>
+<li>list your unfinished games and show whose turn it is</li>
+<li>show a game and explain its pieces, king powers and cards</li>
+</ul><p>Muse cannot play games against a person.</p>`);
+}
+
 /** `chatgpt` (default: the switch in tools/chatgpt-plugin.mjs) adds the plugin surface: the board widget and its art,
  *  the consent page and the OAuth function paths. The checks of the parked plugin source pass `chatgpt: true`.
  *  `muse` (default: tools/muse-connector.mjs) adds the Muse handler, the consent page and the Muse routes. */
 export async function buildPluginServer(outDir = resolve('plugin-server-dist'), { vercel = false, site, chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNECTOR } = {}) {
+  // The server refuses both at start too (tools/plugin-server.mjs): one OAuth client list serves one connector.
+  if (chatgpt && muse) throw new Error('Build the ChatGPT plugin or the Muse connector, not both');
   vercel ||= Boolean(site);
   const routes = vercel ? vercelRoutes(site, { chatgpt, muse }) : [];
   const staging = process.env.KINGDOWN_STAGE === 'staging';
@@ -60,8 +74,10 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
     } finally { await rm(boardDir, { recursive: true, force: true }); }
   }
   if (chatgpt || muse) {
-    await cp(resolve(root, 'src/plugin/consent.html'), resolve(functionDir, 'consent.html'));
-    await build({ configFile: false, root, publicDir: false, logLevel: 'warn', build: { target: 'es2022', outDir: functionDir, emptyOutDir: false, minify: true, lib: { entry: resolve(root, 'src/plugin/consent.ts'), formats: ['es'], fileName: () => 'consent.mjs' }, rollupOptions: { output: { entryFileNames: 'consent.mjs', codeSplitting: false } } } });
+    const consentHtml = readFileSync(resolve(root, 'src/plugin/consent.html'), 'utf8');
+    await writeFile(resolve(functionDir, 'consent.html'), chatgpt ? consentHtml : museConsent(consentHtml));
+    // KINGDOWN_MUSE shows the review password form (src/plugin/consent.ts).
+    await build({ configFile: false, root, publicDir: false, logLevel: 'warn', define: { 'import.meta.env.KINGDOWN_MUSE': JSON.stringify(muse) }, build: { target: 'es2022', outDir: functionDir, emptyOutDir: false, minify: true, lib: { entry: resolve(root, 'src/plugin/consent.ts'), formats: ['es'], fileName: () => 'consent.mjs' }, rollupOptions: { output: { entryFileNames: 'consent.mjs', codeSplitting: false } } } });
   }
   await cp(resolve(root, 'tools/supabase-ca.crt'), resolve(functionDir, 'supabase-ca.crt'));
   await buildRuntime(resolve(functionDir, 'runtime'));

@@ -34,6 +34,7 @@ What does the owner do once, and what does the agent run, to put a build on the 
 - App Store Connect processed build 1.0 (1) 5 minutes after the upload, with no ITMS email. TestFlight sent the invitation to the owner. The invitation email has no code; its "View in TestFlight" page shows the redeem code.
 - The owner installed the build on an iPhone through TestFlight.
 - Build 1.0 (2) (commit `ab232a624`, merged in PR 330 as `b9efa2568`) went to App Store Connect at 14:44 UTC; the Owner group gets it after processing. It adds Report player (ticket 13), bundled frames offline (ticket 14) and the `.js` effect modules.
+- Build 1.0 (3) (commit `a0956f012`, merged in PR 337 as `282f51647`) went to App Store Connect at 19:48 UTC. It is release 21's main (`2e7d21e0f`) plus the build number, so it has the split character package (PR 334: `index.json` and 34 part files).
 - Open: a game against the computer on the iPhone.
 
 ## Done when

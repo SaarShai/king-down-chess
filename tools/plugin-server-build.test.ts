@@ -63,6 +63,27 @@ it('omits the website recorder and the parked ChatGPT plugin surface from the em
  } finally { rmSync(out, { recursive: true, force: true }); }
 }, 60_000);
 
+it('gives a Muse build the Muse consent words and the review password form, and a ChatGPT build neither', async () => {
+  const out = mkdtempSync(join(tmpdir(), 'consent-password-'));
+  try {
+    for (const [name, options, muse] of [['muse', { muse: true }, true], ['chatgpt', { chatgpt: true, muse: false }, false]] as const) {
+      const output = await buildPluginServer(join(out, name), options);
+      // Text of the password path only (src/plugin/consent.ts). A build without the Muse connector folds that path away.
+      const script = readFileSync(join(output, 'consent.mjs'), 'utf8');
+      for (const text of ['Signing in…', ' or use email']) expect(script.includes(text), `${name}: ${text}`).toBe(muse);
+      const page = readFileSync(join(output, 'consent.html'), 'utf8');
+      if (!muse) { expect(page).toBe(readFileSync('src/plugin/consent.html', 'utf8')); continue; }
+      expect(page).not.toContain('ChatGPT');
+      expect(page).toContain('<h2>Let Muse use your King Down account?</h2>');
+      expect([...page.matchAll(/<li>([^<]+)<\/li>/g)].map(match => match[1])).toEqual(['start, play and end games against the computer', 'list your unfinished games and show whose turn it is', 'show a game and explain its pieces, king powers and cards']);
+      // The token gives the client the email address and the provider metadata (checklist row 44).
+      expect(page).not.toMatch(/cannot read the chat|see your email address|picture/);
+      for (const id of ['client-name', 'account', 'redirect', 'approve', 'deny', 'password-form']) expect(page).toContain(`id="${id}"`);
+    }
+    await expect(buildPluginServer(join(out, 'both'), { chatgpt: true, muse: true })).rejects.toThrow('not both');
+  } finally { rmSync(out, { recursive: true, force: true }); }
+}, 120_000);
+
 it('refuses a recovery rehearsal on a parked build instead of reporting a pass', () => {
   const release = mkdtempSync(join(tmpdir(), 'parked-release-')), recovery = mkdtempSync(join(tmpdir(), 'parked-recovery-'));
   try {

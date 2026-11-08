@@ -2,7 +2,7 @@
 // Shared by the board trial (prototype.mjs) and the game's painted look (src/render/PaintedView.ts).
 // Rules helpers are passed in, so the scene never bundles its own copy of the engine.
 import { clamp } from './painted-mesh.mjs';
-import {connected,createCharacterRuntime,facingOf,anchorAt,bankPointToWorld,bankScale,figureHeight,measuredScale,walkStride} from './character-runtime.mjs';
+import {connected,createCharacterRuntime,prefetchCharacterIndex,facingOf,anchorAt,bankPointToWorld,bankScale,figureHeight,measuredScale,walkStride} from './character-runtime.mjs';
 import {PIECE_STILLS} from './piece-stills.mjs';
 import {strikeReach,strikeStance,crushPose,impalePose,thrownPose,bitePose,slashLine,drawCut,drawSlashArc,drawCrush,drawBurst,drawDust,drawChips,drawBitten,drawBiteHit} from './fx-melee.mjs';
 import * as archer from './wrist-bow/aiming.mjs';
@@ -62,6 +62,7 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  const ctx=canvas.getContext('2d');
  const CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150};
  let bodyRuntime=null, bodyWarm=!characterRuntime, startBodyRuntime=null;
+ if(characterRuntime)prefetchCharacterIndex();
  const onPageShow=event=>{if(event.persisted)startBodyRuntime?.();};
  // These idles move the whole figure, so a quiet move, a deselect or another selection leaves them along the painted frames.
  const LARGE_IDLE=new Set(['king-stratus','king-mud','rook']);
