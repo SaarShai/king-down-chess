@@ -48,7 +48,7 @@ The portal account and business verification, the Supabase OAuth client, the hoo
 
 ## Review accounts
 
-Meta's reviewers sign in with two allow-listed password accounts ([ticket 15](specs/muse-connector/issues/15-review-accounts.md)). A build that serves the connector shows "Sign in with email and password" on the consent page (`REVIEW_PASSWORD_SIGNIN` in `src/plugin/consent.ts` follows `KINGDOWN_MUSE`). Other builds hide it. The page is not the guard; Supabase is:
+Meta's reviewers sign in with two allow-listed password accounts ([ticket 15](specs/muse-connector/issues/15-review-accounts.md)). A build that serves the connector shows "Sign in with email and password" on the consent page (`REVIEW_PASSWORD_SIGNIN` in `src/plugin/consent.ts` follows `KINGDOWN_MUSE`). Other builds hide it. A Muse build also names Muse on that page and lists what the Muse tools can do (`museConsent` in `tools/plugin-server-build.mjs`); a ChatGPT build keeps `src/plugin/consent.html` as it is. The page is not the guard; Supabase is:
 
 - The Before User Created hook (`plugin-deploy/review-signup-hook.sql`) lets in each `email` account that has an address.
 - The Custom Access Token hook (`plugin-deploy/oauth-audience-hook.sql`) refuses a password session for each address that is not in `kingdown_auth.password_accounts`. This also applies to a refresh and to the token that Muse gets.
