@@ -22,7 +22,7 @@ vi.mock('../../ui/object-motion', () => ({ readySeal: runtime.readySeal }));
 vi.mock('../../account-game/art', () => ({ art: (path: string) => path }));
 vi.mock('../board-view', () => ({ board: runtime.board, highlight() {} }));
 vi.mock('./board', () => ({ boardGame: () => runtime.memory.view, closeBoardSheet() {}, sendBoardCommand() {}, skipBoardCeremony() {} }));
-vi.mock('./board-actions', () => ({ playerBlockButton: () => [] }));
+vi.mock('./board-actions', () => ({ playerBlockButton: () => [], playerReportButton: () => [] }));
 
 const listeners = new Map<string, Set<EventListener>>();
 const observers: { disconnect: ReturnType<typeof vi.fn> }[] = [];

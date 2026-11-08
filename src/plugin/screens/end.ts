@@ -6,7 +6,7 @@ import { pollSince, type PollTarget } from '../poll';
 import { PLAIN_KINGS } from '../../rules/engine';
 import { pendingHere, staleRead, type Page } from '../../account-game/state';
 import { boardGame, closeBoardSheet, sendBoardCommand, skipBoardCeremony } from './board';
-import { playerBlockButton } from './board-actions';
+import { playerBlockButton, playerReportButton } from './board-actions';
 import { rematchChoices, rematchNote } from './end-model';
 import { draftFromGame } from './setup';
 import { rankedOffered } from './setup-model';
@@ -167,6 +167,7 @@ export function endScreen(schedule = true) {
   if (blockKey !== nextBlockKey) {
     blockKey = nextBlockKey; blockButtons = playerBlockButton({...view,opponent});
     blockButtons.forEach(button => { button.id = 'end-block-player'; });
+    blockButtons.push(...playerReportButton({...view,opponent}, undefined, 'end-report-player'));
   }
   form.append(...blockButtons);
   $('end-block-status').textContent = memory.blockNotice;
