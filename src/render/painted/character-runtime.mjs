@@ -159,8 +159,10 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  function pump(){
   if(pumping||suspendPump)return;pumping=true;
   if(!connected())while(queue.length){const job=queue.shift();loading.delete(job.frame.url);job.resolve();}
-  if(queue.some(job=>job.priority===2)||[...activeJobs].some(job=>job.priority===2))for(const job of [...activeJobs])if(job.priority<2)job.cancel();
-  while(queue.some(job=>job.priority)&&active>=slots()){const priority=Math.max(...queue.map(job=>job.priority));const victim=[...activeJobs].find(job=>job.priority<priority);if(!victim)break;victim.cancel();}
+  // A load that a higher priority stops goes back in the queue while it is still wanted (a warm rest frame, an idle
+  // frame), so it is not lost: before, the warm rest frame of a selected figure could stay undecoded until its move.
+  if(queue.some(job=>job.priority===2)||[...activeJobs].some(job=>job.priority===2))for(const job of [...activeJobs])if(job.priority<2)job.cancel(true);
+  while(queue.some(job=>job.priority)&&active>=slots()){const priority=Math.max(...queue.map(job=>job.priority));const victim=[...activeJobs].find(job=>job.priority<priority);if(!victim)break;victim.cancel(true);}
   while(active<slots()&&queue.length&&!disposed&&connected()){
    if(movePrefetchActive&&!queue[0].priority)break;
    if([...activeJobs].some(job=>job.priority>queue[0].priority))break;
@@ -168,11 +170,13 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    if(wait>0){if(!paceTimer)paceTimer=setTimeout(()=>{paceTimer=null;pump();},wait);break;}
    const job=queue.shift(),{frame}=job,art=image();active++;job.began=lastStart=performance.now();
    let done=false;const timer=setTimeout(()=>finish(false),IMAGE_TIMEOUT);
-   function finish(ok,cancelled=false){
-    if(done)return;done=true;clearTimeout(timer);art.onload=art.onerror=null;if(ok&&!stopped.delete(frame.url))measure(job,active>=slots());if(cancelled)stopped.add(frame.url);active--;activeJobs.delete(job);loading.delete(frame.url);
+   function finish(ok,cancelled=false,requeue=false){
+    if(done)return;done=true;clearTimeout(timer);art.onload=art.onerror=null;if(ok&&!stopped.delete(frame.url))measure(job,active>=slots());if(cancelled)stopped.add(frame.url);active--;activeJobs.delete(job);
+    if(requeue&&!disposed&&(job.owners||job.shared)){art.removeAttribute?.('src');delete job.cancel;const next=queue.findIndex(item=>item.priority<job.priority);queue.splice(next<0?queue.length:next,0,job);pump();return;}
+    loading.delete(frame.url);
     if(!ok){art.removeAttribute?.('src');if(!disposed&&!cancelled)failed.set(frame.url,performance.now()+RETRY_DELAY);}else failed.delete(frame.url);job.resolve();pump();
    }
-   job.cancel=()=>finish(false,true);activeJobs.add(job);
+   job.cancel=requeue=>finish(false,true,requeue);activeJobs.add(job);
    art.onload=async()=>{
     try{await art.decode?.();if(done||disposed)return finish(false);
      const size=(art.naturalWidth||art.width)*(art.naturalHeight||art.height)*4;
@@ -211,7 +215,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   const loads=loadPreparation(frames,priority);
   await bounded(loads.promise,ms,signal);loads.release();
  }
- const endpoints=bank=>[bank.frames[0],bank.frames.at(-1)];
+ const endpoints=bank=>[bank.frames[0],bank.frames.at(-1)],playOrder=part=>part.reverse?part.bank.frames.slice().reverse():part.bank.frames;
  // When a loading frame is decoded at the link seen so far: an active load after its latency (a load past it is late
  // and takes as long again), a queued one also behind the frames before it in the queue. On a link limited by
  // bandwidth the latency is at least the round trip and the frames of all slots, which share the link.
@@ -238,8 +242,37 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    await bounded(Promise.race(loads),deadline-performance.now(),signal);
   }
  }
- // Hold the start only until, at the decode rate seen so far, each strike frame still loading is ready one frame before
- // the attack clock reaches it (lead ms after the start), so a fast link starts at once and a slow decode waits.
+ // A move's clock from its start: the rest, the turn parts in play order, then an attack's strike, each frame at its time.
+ // A strike frame may still load (late: true), as the strike rule allowed before.
+ function clockOf(rest,route,pick,attack){
+  const clock=[{frame:rest.frames[0],at:0}];let offset=0;
+  for(const part of route){const wanted=new Set(pick(part).map(f=>f.url));for(const f of playOrder(part))if(wanted.has(f.url))clock.push({frame:f,at:offset+(part.reverse?part.bank.durationMs-f.timeMs:f.timeMs)});offset+=part.bank.durationMs;}
+  if(attack)for(const f of strike(attack))clock.push({frame:f,at:offset+f.timeMs,late:true});
+  return clock;
+ }
+ // A move starts once its first poses are decoded and each later pose on its clock is in time: decoded, or a strike
+ // frame that the measured link brings before its time (eta). A pose that is not in time is allowed while the pose
+ // before it holds at most POSE_HOLD ms past its slot; it streams. The last pose must be in time. A King's turn has a
+ // frame every 13 ms, so one stalled request (live: 1 in 20 waits more than 500 ms) no longer holds the start until the
+ // limit. A slow link waits for its frames, up to ms.
+ async function startWait(clock,first,ms,signal){
+  const deadline=performance.now()+ms,decoded=step=>images.has(step.frame.url);
+  const inTime=step=>decoded(step)||step.late&&link.latency!=null&&loading.has(step.frame.url)&&eta(step.frame)+spacing()<=step.at;
+  const ready=()=>{
+   if(!first.every(f=>images.has(f.url)))return false;
+   let held=null;for(const step of clock){if(inTime(step)){if(held!=null&&step.at-held>POSE_HOLD)return false;held=null;}else held??=step.at;}
+   return held==null;
+  };
+  for(;;){
+   if(ready())return;
+   const loads=clock.filter(s=>!decoded(s)).map(s=>loading.get(s.frame.url)?.promise).filter(Boolean);
+   if(!loads.length||!connected()||performance.now()>=deadline||signal?.aborted)return;
+   await bounded(Promise.race(loads),deadline-performance.now(),signal);
+  }
+ }
+ // A chain of captures: hold the start only until, at the decode rate seen so far, each strike frame still loading is
+ // ready one frame before the attack clock reaches it (lead ms after the start), so a fast link starts at once and a
+ // slow decode waits.
  async function strikeWait(frames,lead,ms,signal){
   const began=performance.now(),deadline=began+ms,pending=()=>frames.filter(f=>!images.has(f.url)&&loading.has(f.url)),first=pending().length;
   for(let left=pending();left.length&&performance.now()<deadline&&!signal?.aborted;left=pending()){
@@ -336,7 +369,9 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
      if(disposed||generation!==moveGeneration)return;
      const capture=bank.kind==='attack',route=routeOf(bank);
      if(capture&&(!rest||route===null))continue;
-     const frames=[...(capture?prefetchBytes<=DECODED_BUDGET/2?strike(bank):bank.frames.slice(0,4):bank.frames),...(rest?[rest.frames[0]]:[]),...(route??[]).flatMap(part=>capture&&character.startsWith('king-')?part.bank.frames:endpoints(part.bank))];
+     // A capture loads in the order its clock plays: the rest, the turn toward the target, then the strike.
+     const own=capture?prefetchBytes<=DECODED_BUDGET/2?strike(bank):bank.frames.slice(0,4):bank.frames,lead=[...(rest?[rest.frames[0]]:[]),...(route??[]).flatMap(part=>capture&&character.startsWith('king-')?playOrder(part):endpoints(part.bank))];
+     const frames=capture?[...lead,...own]:[...own,...lead];
      const loads=loadPreparation(frames,1);moveLoads=loads;await loads.promise;
      if(capture)for(const f of frames)if(!counted.has(f.url)){counted.add(f.url);prefetchBytes+=images.get(f.url)?.size??0;}
      if(moveLoads===loads){moveLoads=null;loads.release();}
@@ -414,11 +449,12 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    let releaseMovement=leap?leap.release:null;
    // All requests go in before the loader runs, so it cancels no request that a later frame of this move takes over.
    suspendPump++;try{startLoads=loadPreparation(start);if(leap)leap.advance(0);else if(movement)movementLoads=loadPreparation(movement.frames);else if(strikeFrames.length)strikeLoads=loadPreparation(strikeFrames);}finally{suspendPump--;pump();}
-   await bounded(startLoads.promise,remaining(),signal);
-   // At the limit a start frame that is still loading streams during play: the clock holds the decoded frame before
-   // it. A failed frame, or an undecoded first pose (the rest and the route's first frame), keeps the plain figure.
-   const decoded=frame=>images.has(frame.url),due=frame=>decoded(frame)||loading.has(frame.url);
    const firstPose=[rest.frames[0],...(before.length?[before[0].reverse?before[0].bank.frames.at(-1):before[0].bank.frames[0]]:attack?[attack.frames[0]]:[])];
+   const clock=chain?null:clockOf(rest,before,routeFrames,attack);
+   if(clock)await startWait(clock,firstPose,remaining(),signal);else await bounded(startLoads.promise,remaining(),signal);
+   // A start frame that is still loading streams during play: the clock holds the decoded frame before it. A failed
+   // frame, or an undecoded first pose (the rest and the route's first frame), keeps the plain figure.
+   const decoded=frame=>images.has(frame.url),due=frame=>decoded(frame)||loading.has(frame.url);
    const streams=()=>start.every(due)&&firstPose.every(decoded);
    if(start.every(decoded))startLoads.release();
    else{const loads=startLoads,old=releaseFallback;releaseFallback=()=>{loads.release();old?.();};}
@@ -453,7 +489,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
     if(disposed||signal?.aborted||!streams()){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}
    }
    if(movement&&!required.every(due)){movement=null;releaseMovementStart?.();releaseMovement?.();releaseMovementStart=null;releaseMovement=null;}
-   if(strikeLoads){await strikeWait(strikeFrames,beforeMs,remaining(),signal);if(disposed||signal?.aborted){releaseFallback?.();return null;}}
+   if(strikeLoads){if(!clock)await strikeWait(strikeFrames,beforeMs,remaining(),signal);if(disposed||signal?.aborted){releaseFallback?.();return null;}}
    return {rest,attack,movement,leap:movement&&leap,effect,chain,before,after:back,releaseMovementStart,releaseMovement,releaseFallback,beforeMs,afterMs:back.reduce((n,p)=>n+p.bank.durationMs,0)};
   },
   action(prepared,time,duration,contact,boundary){

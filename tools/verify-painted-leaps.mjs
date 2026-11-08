@@ -42,6 +42,31 @@ if(process.argv[2]==='start'){
     console.log(`${fault?'FAULT':'ok'} ${name} ${kind}: the move starts ${ms} ms after the click${leap?` (limit ${LIMIT[kind]} ms)`:''}`);
    }finally{await context.close();}
   }
+  // King capture h1xg2 with one stalled turn frame (live: 1 in 20 frame requests waits more than 500 ms). The other
+  // requests wait 50 ms and the King is selected 2 s before the click, so the selection prefetch has the rest. A stall
+  // held the start until the 1 s limit; the capture must start within 300 ms, in each of three runs.
+  const stalled=new Set(manifest.banks.filter(b=>b.character.startsWith('king-')&&b.army==='white'&&b.id.endsWith('turn-NE-E')).map(b=>b.frames[4].url.split('/').at(-1)));
+  assert.ok(stalled.size,'the manifest has the white King turns');
+  for(let run=1;run<=3;run++){
+   const context=await browser.newContext({viewport:{width:1000,height:900},serviceWorkers:'block',reducedMotion:'no-preference'});
+   await context.route(/\/character-runtime\/assets\//,async route=>{const stall=stalled.has(new URL(route.request().url()).pathname.split('/').at(-1));await new Promise(resolve=>setTimeout(resolve,stall?2500:50));await route.continue().catch(()=>{});});
+   const page=await context.newPage(),errors=trapErrors(page);
+   try{
+    await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
+    const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('players','human,human');url.searchParams.set('fen','7k/p5G1/8/8/8/8/P5p1/7K w - - 0 1');
+    await page.goto(url.href);await page.waitForFunction(()=>window.view?.scene?.characterFrames?.some(f=>f.square===7));await page.evaluate(()=>view.ready());
+    await page.waitForFunction(()=>view.scene.characterWarmupSettled,null,{timeout:15000});await page.waitForTimeout(500);
+    await page.evaluate(()=>{let downs=0;window.clickAt=null;window.startAt=null;window.total=null;addEventListener('pointerdown',()=>{if(++downs===2)clickAt=performance.now();},true);
+     window.poll=setInterval(()=>{const e=view.scene.actionElapsed;if(clickAt!=null&&startAt==null&&e!=null){startAt=performance.now()-e;total=view.scene.actionTotal;}},4);});
+    const a=await page.evaluate(()=>view.screenOf(7));await page.mouse.click(a.x,a.y);await page.waitForTimeout(2000);
+    const b=await page.evaluate(()=>view.screenOf(14));await page.mouse.click(b.x,b.y);
+    await page.waitForFunction(()=>startAt!=null,null,{timeout:5000});
+    const {ms,total}=await page.evaluate(()=>{clearInterval(poll);return {ms:Math.round(startAt-clickAt),total};});
+    assertNoErrors(errors);rows.push({name:'king capture, one stalled frame',kind:`run ${run}`,ms,total});
+    const fault=ms>300;if(fault)faults.push(`king capture, one stalled frame, run ${run}: ${ms} ms, limit 300 ms`);
+    console.log(`${fault?'FAULT':'ok'} king capture, one stalled frame, run ${run}: the move starts ${ms} ms after the click (limit 300 ms), action ${total} ms`);
+   }finally{await context.close();}
+  }
  }finally{await browser.close();}
  await mkdir(env('PLAYABLE_OUT'),{recursive:true});await writeFile(join(env('PLAYABLE_OUT'),'leap-start.json'),JSON.stringify(rows,null,1));
  assert.deepEqual(faults,[],'a leap starts late');
