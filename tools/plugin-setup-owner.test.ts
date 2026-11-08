@@ -12,6 +12,12 @@ beforeAll(async () => {
   const boardPath = join(folder, 'board.html'); await writeFile(boardPath, await readFile('src/plugin/index.html'));
   harness = await startHarness({ boardPath: process.env.KINGDOWN_SETUP_BASELINE || boardPath, sourcePage: !process.env.KINGDOWN_SETUP_BASELINE });
   browser = await chromium.launch({ headless: true });
+  // The first page of a new harness has Vite transform the app's 370 source modules. On a loaded verify runner that page
+  // passed the 5 s action limit of the file's first test (runs 42371520534, 42366169921, 42361760843). This page takes
+  // that cost under the hook limit, so each test starts on a warm server.
+  const warm = await browser.newPage();
+  try { await warm.goto(harness.url); await warm.frameLocator('iframe').locator('#home-games:not(:disabled)').waitFor({ timeout: 60000 }); }
+  finally { await warm.close(); }
 });
 afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
 async function open() {
