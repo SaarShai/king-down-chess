@@ -60,11 +60,12 @@ const levels = [
 const timeSetup = { fen: 'ragklmso/8/8/8/8/8/8/RAGKLMSO w - - 0 1', kings: 'Spirit:Mercy,Shadow:Darkness', hand: ['Freeze', 'Strike', 'Burn', 'Rally'] } satisfies MatchSetup;
 
 it.each(levels)('$level uses its $cap ms cap in the worker search', async ({ level, cap }) => {
-  const m = await controlled(timeSetup, [0.99], 10);
+  // The search reads the clock each 128 nodes: 1 ms a read keeps an iteration running when the cap comes.
+  const m = await controlled(timeSetup, [0.99], 1);
   const before = await m.snapshot();
   expect(before.legal).toContain(await m.chooseMove({ level, maxTimeMs: 5000 }));
   expect(m.elapsed()).toBeGreaterThanOrEqual(cap);
-  expect(m.elapsed()).toBeLessThanOrEqual(cap + 10);
+  expect(m.elapsed()).toBeLessThanOrEqual(cap + 1);
   expect(await m.snapshot()).toEqual(before);
 });
 

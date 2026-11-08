@@ -115,4 +115,5 @@ it('agrees with the engine through seeded random games', () => {
   process.stdout.write(`random-play coverage ${JSON.stringify({ ...counts, trace: trace.digest('hex') })}\n`);
   expect(counts.positions).toBeGreaterThan(GAMES);
   expect(counts.plies).toBeGreaterThan(GAMES * 20);
-}, Math.max(30_000, GAMES * 500));
+  // 57 games: 6 s idle on a 16-core Mac, 12-34 s on a shared 4-vCPU CI runner (up to 590 ms a game), so allow 1500 ms a game.
+}, Math.max(60_000, GAMES * 1500));
