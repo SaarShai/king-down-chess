@@ -18,7 +18,7 @@ export type CreationMode = 'casual' | 'ranked';
 export const MAX_REVISION = 1100;
 /** The most actions in one turn command. */
 export const TURN_ACTIONS = 4;
-export type Surface = 'web' | 'chatgpt';
+export type Surface = 'web' | 'chatgpt' | 'muse';
 /** Fixed phrases only: a preset never carries free text, a number or a link (part 01, section 8.2). */
 export const PRESETS = ['hello', 'good_luck', 'good_game', 'well_played', 'thanks'] as const;
 export type Preset = typeof PRESETS[number];
