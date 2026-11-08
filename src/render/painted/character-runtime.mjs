@@ -92,8 +92,23 @@ export const connected=()=>globalThis.navigator?.onLine!==false||globalThis.loca
 function bounded(promise,ms=LOAD_TIMEOUT,signal){
  return new Promise(resolve=>{let done=false;const finish=value=>{if(done)return;done=true;clearTimeout(timer);signal?.removeEventListener('abort',abort);resolve(value);},abort=()=>finish(null),timer=setTimeout(abort,Math.max(0,ms));signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();Promise.resolve(promise).then(finish,()=>finish(null));});
 }
+// A function: a module loaded from a blob: URL (verify-character-prepare) has no base for this path.
+const indexUrl=()=>new URL('/character-runtime/index.json',import.meta.url).href;
+let earlyIndex=null;
+// The runtime starts at the first drawn frame and after 'load' (scene.mjs), behind the page's other loads. This starts
+// the package-index request at scene creation; the next runtime with the same URL and fetcher takes that response once.
+// (WebKit's fetch() does not use a <link rel=preload as=fetch>, so the page cannot preload it.)
+export function prefetchCharacterIndex(fetcher=fetch){
+ if(earlyIndex||!connected())return;
+ // A request that fails before a runtime takes it is dropped, so the runtime asks again instead of waiting RETRY_DELAY.
+ const response=Promise.resolve().then(()=>fetcher(indexUrl()));response.catch(()=>{if(earlyIndex?.response===response)earlyIndex=null;});earlyIndex={fetcher,response};
+}
+function fetchIndex(url,fetcher){
+ const early=earlyIndex;if(early&&early.fetcher===fetcher&&url===indexUrl()){earlyIndex=null;return early.response;}
+ return fetcher(url);
+}
 // url: the package index (index.json: tools/lib/character-runtime-split.mjs), or a whole manifest with every bank (schema 1).
-export function createCharacterRuntime({url=new URL('/character-runtime/index.json',import.meta.url).href,wake=()=>{},fetcher=fetch,image=()=>Object.assign(new Image(),{crossOrigin:'anonymous'}),drawnEffects=[],lateEffects=[]}={}) {
+export function createCharacterRuntime({url=indexUrl(),wake=()=>{},fetcher=fetch,image=()=>Object.assign(new Image(),{crossOrigin:'anonymous'}),drawnEffects=[],lateEffects=[]}={}) {
  let banks=[],disposed=false,bytes=0,peakBytes=0,active=0,activeFrame=null, idlePins=new Set(),idleGeneration=0,idleLoads=null,moveGeneration=0,moveLoads=null,movePins=null,movePrefetchActive=false;
  let effectEntries={},currentEffect=null,effectBytes=0,smokeBytes=0,smokeClass=null,smokeImage=null,smokeLoading=null,smokeBlocked=false;
  const images=new Map(),loading=new Map(),failed=new Map(),stills=new Set(),pins=new Map(),queue=[],activeJobs=new Set(),effectRetryAt=new Map(),effectLoads=new Map();
@@ -143,7 +158,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/index.js
  }
  function loadManifest(){
   if(disposed||manifestReady||!connected()||performance.now()<manifestRetryAt)return Promise.resolve();
-  if(!manifestLoading)manifestLoading=Promise.resolve().then(()=>fetcher(url)).then(r=>{if(!r.ok)throw Error('Character package unavailable');return r.json();}).then(m=>{
+  if(!manifestLoading)manifestLoading=Promise.resolve().then(()=>fetchIndex(url,fetcher)).then(r=>{if(!r.ok)throw Error('Character package unavailable');return r.json();}).then(m=>{
    const index=m?.schemaVersion===2&&m.parts&&typeof m.parts==='object'&&!Array.isArray(m.parts);
    if(!index&&(m?.schemaVersion!==1||!Array.isArray(m.banks)))throw Error('Invalid character package');
    if(!disposed){banks=index?[]:m.banks;partPaths=index?m.parts:null;effectEntries=m.effects??{};restChoices.clear();manifestReady=true;loadFootprints();wake();}
