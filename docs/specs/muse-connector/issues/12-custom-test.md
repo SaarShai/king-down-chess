@@ -16,6 +16,10 @@ How does Muse really call and show the connector?
 2. Agent and owner: play a game by text and by voice mode. Record: the MCP era in the server log (`initialize` or the 2026-07-28 envelope), the time of each call, how the text shows (does the letter grid stay monospace? do links show?), how approval prompts show, and whether a refreshed token arrives after an hour.
 3. Agent: turn each finding into a fix ticket or a spec change.
 
+## Progress
+
+- 2026-11-08: blocked. The owner's Muse account opens `https://muse.ai/access`, which says "You're on the waitlist" because Muse is not available in the owner's country or region. The owner can add a custom connector only when Muse opens there, or with a Muse account in a region where Muse is available.
+
 ## Done when
 
 The capability matrix in [spec.md](../spec.md) has a tested, unsupported or unverified mark for each row.
