@@ -23,7 +23,7 @@ Each fact names the file that proves it. The mark **[owner fact: ...]** shows a 
 | New games and moves | The server writes them to the game tables, as the website does. Each command has the surface `muse`. A new game keeps `muse:<request_id>` as its start command ID. | The result of each move goes to Muse (row above). | `supabase/migrations/0023_muse_surface.sql`, `src/match/service.ts` (`command`), `src/muse/tools.ts` (`kingdown_new_game`) |
 | The words of a move (`said`) | The server matches them against the legal moves. It does not store them; only the move that plays goes to the game. | They come from Muse. | `src/muse/tools.ts` (`kingdown_move`), `src/muse/match-words.ts` |
 | Tool counters | One row for each account and counter: the start of the window and the count. | No. | `supabase/migrations/0014_plugin_tool_tries.sql`, `src/match/store.ts` (`toolTry`) |
-| Email address | The server does not read or store it. Each request asks Supabase `/auth/v1/user`, and the server reads only the `id` of the answer. | The access-token hook keeps every claim of the Supabase token. [owner fact: decode one staging token of the Muse client, and record if it has the `email` claim. If it has, Muse keeps the email address inside the token.] | `src/plugin/auth.ts`, `plugin-deploy/oauth-audience-hook.sql` |
+| Email address | The server does not read or store it. Each request asks Supabase `/auth/v1/user`, and the server reads only the `id` of the answer. | The access-token hook keeps every claim of the Supabase token. A staging token of the Muse client (2026-11-08, [ticket 11](issues/11-staging-oauth.md)) has the `email` claim, so Muse keeps the email address inside the token. | `src/plugin/auth.ts`, `plugin-deploy/oauth-audience-hook.sql` |
 | Logs | Vercel records each request (time, URL, result, IP address). Supabase records each sign-in. A failed tool writes the tool name and a fixed error category, with no input and no moves. | No. | `public/privacy.html` ("Where it is kept"), `src/muse/tools.ts`, `src/plugin/diagnostics.ts` |
 
 Sensitive data: none. The connector uses no payment data, health data, location, contacts, messages, photos or government IDs. It has no chat tool and no tool for another person.
@@ -125,7 +125,7 @@ The other cleanup periods do not touch Muse data: boards after 7 days, outbox ro
 
 - [ ] The organization type, the legal name and the country (section 1).
 - [ ] The Vercel function region (section 2).
-- [ ] Whether a Muse access token has the `email` claim (section 2).
+- [x] Whether a Muse access token has the `email` claim (section 2): yes, on staging (ticket 11).
 - [ ] The log periods in the Vercel and Supabase plans (section 4).
 - [ ] When each release backup schema is dropped, and whether `release_backup_20261022` still exists (section 4).
 - [ ] The Supabase platform backup period (section 4).
