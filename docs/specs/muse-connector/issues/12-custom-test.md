@@ -18,7 +18,7 @@ How does Muse really call and show the connector?
 
 ## Progress
 
-- 2026-11-08: blocked. The owner's Muse account opens `https://muse.ai/access`, which says "You're on the waitlist" because Muse is not available in the owner's country or region. The owner can add a custom connector only when Muse opens there, or with a Muse account in a region where Muse is available.
+- 2026-11-08: blocked. The owner's Muse account opens `https://muse.ai/access`, which says "You're on the waitlist" and that Muse is not available in the owner's country or region yet. The owner uses no VPN, and the Mac's address is in the US, so Muse gates the account (a waitlist or the account's region), not the connection. The owner can add a custom connector when Meta gives the account access, or with another Meta account that has access.
 
 ## Done when
 
