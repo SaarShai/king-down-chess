@@ -28,8 +28,8 @@ The owner adds the accounts to the list; agents never see the passwords in chat.
   - Tests: the new case in `tools/plugin-server-build.test.ts` builds the consent page and script with and without the connector. It fails without the new build value, and it fails if a Muse page contains "ChatGPT".
 - Owner steps on staging: [docs/MUSE.md, "Review accounts"](../../../MUSE.md#review-accounts).
 - 2026-11-08, staging done:
-  - The owner made two accounts in the staging dashboard with **Auto Confirm User**: `review1` and `review2` plus-addresses of the owner's mailbox (the staging user list shows them). They are plus-addresses of the owner's mailbox, so mail reaches the owner, and Supabase does not link them to the owner's account. The passwords are in the owner's password manager.
-  - The agent added both addresses to `kingdown_auth.password_accounts` in the staging SQL editor.
+  - The owner made two accounts in the staging dashboard with **Auto Confirm User**: two plus-addresses of the owner's mailbox (`review1` and `review2`; the staging user list shows them), so mail reaches the owner and Supabase does not link them to the owner's account. The passwords are in the owner's password manager.
+  - On the owner's word, the agent added both addresses to `kingdown_auth.password_accounts` in the staging SQL editor.
   - Sign-in test with the first account: on the staging consent page the owner chose "Use another account", then "Sign in with email and password", and approved. The code exchange gave a token with `aud` `https://kingdown-staging.vercel.app/muse/mcp`, the Muse client and the review address. `tools/list` gave the six tools. `kingdown_new_game` started a game, and `kingdown_games` listed only that game. A refresh gave a new token, and the tools still answered.
   - The second account was not tested. It uses the same list and hooks.
-- Still to do: the two portal test-account entries (ticket 17), and the same accounts on production before the release that turns the connector on (docs/MUSE.md).
+- Still to do, in [ticket 17](17-submit.md) steps 2 and 4: the accounts on production, the portal test-account entries and the portal sign-in test with each account.
