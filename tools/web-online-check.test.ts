@@ -24,7 +24,7 @@ describe('web check site routes', () => {
   });
 
   it('uses the build headers for board art when the tree has the ChatGPT plugin', () => {
-    expect(siteRoute(config, '/plugin-art/pawn.svg')).toEqual({ dest: '/plugin-art/pawn.svg', headers: {} });
+    expect(siteRoute({ routes: vercelRoutes(undefined, { chatgpt: false }) }, '/plugin-art/pawn.svg')).toEqual({ dest: '/plugin-art/pawn.svg', headers: {} });
     expect(siteRoute({ routes: vercelRoutes(undefined, { chatgpt: true }) }, '/plugin-art/pawn.svg')).toEqual({
       dest: '/plugin-art/pawn.svg', headers: { ...ART_HEADERS, 'Content-Type': 'image/svg+xml' },
     });

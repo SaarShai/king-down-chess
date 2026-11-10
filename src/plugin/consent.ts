@@ -7,11 +7,12 @@ const authorizationId = new URL(location.href).searchParams.get('authorization_i
 const status = document.getElementById('status')!, signin = document.getElementById('signin')!, consent = document.getElementById('consent')!;
 const accountChoice = document.getElementById('choose-account')!;
 const buttons = [...document.querySelectorAll<HTMLButtonElement>('button')];
-/** Meta's two review accounts sign in here with a password (docs/specs/muse-connector/issues/15-review-accounts.md).
- *  Only a build that serves the Muse connector shows the form (KINGDOWN_MUSE, tools/plugin-server-build.mjs); other
- *  builds hide it and send nothing. The guard is in Supabase: the access token hook refuses a password session for each
- *  address not in kingdown_auth.password_accounts (plugin-deploy/oauth-audience-hook.sql). */
-const REVIEW_PASSWORD_SIGNIN = import.meta.env.KINGDOWN_MUSE === true;
+/** The review accounts sign in here with a password: OpenAI's (approval D8 a) and Meta's two
+ *  (docs/specs/muse-connector/issues/15-review-accounts.md). A build that serves the ChatGPT plugin or the Muse connector
+ *  shows the form (KINGDOWN_CHATGPT, KINGDOWN_MUSE, tools/plugin-server-build.mjs); other builds hide it and send nothing.
+ *  The guard is in Supabase: the access token hook refuses a password session for each address not in
+ *  kingdown_auth.password_accounts (plugin-deploy/oauth-audience-hook.sql). */
+const REVIEW_PASSWORD_SIGNIN = import.meta.env.KINGDOWN_CHATGPT === true || import.meta.env.KINGDOWN_MUSE === true;
 function busy(on: boolean): void { buttons.forEach(button => { button.disabled = on; }); }
 function say(message: string): void { status.textContent = message; }
 function redirect(value: string): void {
