@@ -493,6 +493,8 @@ describe('deploy.sh', () => {
       'npm run build:vercel',
       'npm run check:vercel',
       'node tools/check.mjs web-online',
+      'npm run plugin:check:protocol',
+      'node tools/check.mjs plugin-ui plugin-ui-http',
     ]);
     expect(result.stdout).not.toMatch(/skipped npm test/);
   });
@@ -512,7 +514,7 @@ describe('deploy.sh', () => {
       'npm run build:vercel',
       'npm run check:vercel',
     ]);
-    expect(result.stdout).toMatch(/CI passed at [0-9a-f]{40}; skipped npm test, the browser checks that CI ran and the web journey/);
+    expect(result.stdout).toMatch(/CI passed at [0-9a-f]{40}; skipped npm test, the browser checks that CI ran, the web journey and the plugin checks/);
   });
 
   it('with CI passed on a commit whose workflow has no such step, keeps the browser checks', () => {
@@ -528,7 +530,7 @@ describe('deploy.sh', () => {
       'npm run build:vercel',
       'npm run check:vercel',
     ]);
-    expect(result.stdout).toMatch(/CI passed at [0-9a-f]{40}; skipped npm test and the web journey/);
+    expect(result.stdout).toMatch(/CI passed at [0-9a-f]{40}; skipped npm test, the web journey and the plugin checks/);
   });
 
   it('runs the plugin target without the CI check', () => {

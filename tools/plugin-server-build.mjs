@@ -76,8 +76,8 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
   if (chatgpt || muse) {
     const consentHtml = readFileSync(resolve(root, 'src/plugin/consent.html'), 'utf8');
     await writeFile(resolve(functionDir, 'consent.html'), chatgpt ? consentHtml : museConsent(consentHtml));
-    // KINGDOWN_MUSE shows the review password form (src/plugin/consent.ts).
-    await build({ configFile: false, root, publicDir: false, logLevel: 'warn', define: { 'import.meta.env.KINGDOWN_MUSE': JSON.stringify(muse) }, build: { target: 'es2022', outDir: functionDir, emptyOutDir: false, minify: true, lib: { entry: resolve(root, 'src/plugin/consent.ts'), formats: ['es'], fileName: () => 'consent.mjs' }, rollupOptions: { output: { entryFileNames: 'consent.mjs', codeSplitting: false } } } });
+    // KINGDOWN_CHATGPT and KINGDOWN_MUSE show the review password form (src/plugin/consent.ts).
+    await build({ configFile: false, root, publicDir: false, logLevel: 'warn', define: { 'import.meta.env.KINGDOWN_CHATGPT': JSON.stringify(chatgpt), 'import.meta.env.KINGDOWN_MUSE': JSON.stringify(muse) }, build: { target: 'es2022', outDir: functionDir, emptyOutDir: false, minify: true, lib: { entry: resolve(root, 'src/plugin/consent.ts'), formats: ['es'], fileName: () => 'consent.mjs' }, rollupOptions: { output: { entryFileNames: 'consent.mjs', codeSplitting: false } } } });
   }
   await cp(resolve(root, 'tools/supabase-ca.crt'), resolve(functionDir, 'supabase-ca.crt'));
   await buildRuntime(resolve(functionDir, 'runtime'));

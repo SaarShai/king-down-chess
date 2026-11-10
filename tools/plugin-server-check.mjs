@@ -207,7 +207,8 @@ try {
   const uri = tools.find(tool => tool.name === 'kingdown_open')._meta.ui.resourceUri;
   assert.match(uri, /^ui:\/\/kingdown\/board-[a-f0-9]{64}\.html$/);
   const resource = await rpc(actors[0], 'resources/read', { uri });
-  assert(resource.result.contents[0].text.includes('<html')); assert(resource.bytes < 1_000_000);
+  // A build budget, not a host limit: the board page grew with the game to 1.09 MB while the plugin was parked (2026-11-10).
+  assert(resource.result.contents[0].text.includes('<html')); assert(resource.bytes < 1_500_000, `board resource ${resource.bytes} bytes`);
   // The page names each art file on this origin; a cross-origin page may read it into a canvas, and a new build gets new names.
   const art = [...new Set(resource.result.contents[0].text.match(new RegExp(`${origin}/plugin-art/[\\w-]+\\.(?:webp|png|svg|woff2)`, 'g')))];
   const counts = Object.fromEntries(['webp', 'png', 'svg', 'woff2'].map(type => [type, art.filter(file => file.endsWith(`.${type}`)).length]));

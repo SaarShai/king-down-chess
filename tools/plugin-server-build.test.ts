@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
 import { buildPluginServer, vercelRoutes } from './plugin-server-build.mjs';
+import { CHATGPT_PLUGIN } from './chatgpt-plugin.mjs';
 
 it('routes only the site API boundary to the one MCP function for every method', () => {
   const site = mkdtempSync(join(tmpdir(), 'kingdown-api-routes-'));
@@ -17,13 +18,13 @@ it('routes only the site API boundary to the one MCP function for every method',
       expect(new RegExp(rule.src).test(path), path).toBe(false);
     }
     expect(routes).toContainEqual({ src: '^/internal/.+$', dest: '/internal' });
-    const art = routes.find(route => route.headers?.['Cache-Control'] === 'public, max-age=31536000, immutable')!;
+    const art = routes.find(route => route.headers?.['Cache-Control'] === 'public, max-age=31536000, immutable' && route.src.includes('character-runtime'))!;
     expect(new RegExp(art.src).test(`/character-runtime/assets/${'a'.repeat(64)}.webp`)).toBe(true);
     for (const path of ['/character-runtime/manifest.json', '/character-runtime/assets/other.webp', `/character-runtime/assets/${'a'.repeat(64)}.png`]) expect(new RegExp(art.src).test(path)).toBe(false);
     expect(routes.filter(route => route.src.startsWith('^/plugin-art/'))).toEqual(vercelRoutes());
     expect(vercelRoutes().some(route => new RegExp(route.src).test('/api'))).toBe(false);
-    // The parked ChatGPT plugin (tools/chatgpt-plugin.mjs) has no art routes; with the plugin in, one per art format.
-    expect(vercelRoutes()).toEqual([]);
+    // Without the ChatGPT plugin (tools/chatgpt-plugin.mjs) there are no art routes; with the plugin in, one per art format.
+    expect(vercelRoutes(undefined, { chatgpt: false })).toEqual([]);
     expect(vercelRoutes(undefined, { chatgpt: true }).map(route => route.src)).toEqual(['webp', 'png', 'svg', 'woff2'].map(type => `^/plugin-art/[\\w-]+\\.${type}$`));
   } finally { rmSync(site, { recursive: true, force: true }); }
 });
@@ -49,7 +50,7 @@ it('keeps every isolated operation set equal to the handler route keys', () => {
 it('omits the website recorder and the parked ChatGPT plugin surface from the emitted server', async () => {
  const out = mkdtempSync(join(tmpdir(), 'plugin-without-recorder-'));
  try {
-  const output = await buildPluginServer(out, { vercel: true });
+  const output = await buildPluginServer(out, { vercel: true, chatgpt: false });
   const server = readFileSync(join(output, 'functions/mcp.func/server.mjs'), 'utf8');
   for (const text of ['/api/client-errors', 'client_errors', 'Unlisted message', 'Error message exceeds limit', 'Cannot read properties of [value]', '500ms']) expect(server.includes(text), text).toBe(false);
   expect(server).toContain('King Down API failed');
@@ -63,14 +64,14 @@ it('omits the website recorder and the parked ChatGPT plugin surface from the em
  } finally { rmSync(out, { recursive: true, force: true }); }
 }, 60_000);
 
-it('gives a Muse build the Muse consent words and the review password form, and a ChatGPT build neither', async () => {
+it('gives a Muse build the Muse consent words and both connector builds the review password form', async () => {
   const out = mkdtempSync(join(tmpdir(), 'consent-password-'));
   try {
-    for (const [name, options, muse] of [['muse', { muse: true }, true], ['chatgpt', { chatgpt: true, muse: false }, false]] as const) {
+    for (const [name, options, muse] of [['muse', { chatgpt: false, muse: true }, true], ['chatgpt', { chatgpt: true, muse: false }, false]] as const) {
       const output = await buildPluginServer(join(out, name), options);
-      // Text of the password path only (src/plugin/consent.ts). A build without the Muse connector folds that path away.
+      // Text of the password path only (src/plugin/consent.ts). Each build that serves a connector keeps that path.
       const script = readFileSync(join(output, 'consent.mjs'), 'utf8');
-      for (const text of ['Signing in…', ' or use email']) expect(script.includes(text), `${name}: ${text}`).toBe(muse);
+      for (const text of ['Signing in…', ' or use email']) expect(script.includes(text), `${name}: ${text}`).toBe(true);
       const page = readFileSync(join(output, 'consent.html'), 'utf8');
       if (!muse) { expect(page).toBe(readFileSync('src/plugin/consent.html', 'utf8')); continue; }
       expect(page).not.toContain('ChatGPT');
@@ -92,9 +93,9 @@ it('refuses a recovery rehearsal on a parked build instead of reporting a pass',
     expect(run.stderr).toContain('The parked build (CHATGPT_PLUGIN=false) has no recovery continuation check');
   } finally { rmSync(release, { recursive: true, force: true }); rmSync(recovery, { recursive: true, force: true }); }
 });
-it('keeps the by-hand check of the parked plugin source over compiled HTTP and PostgreSQL (docs/HOSTING.md); CI no longer runs it', () => {
-  expect(readFileSync('.github/workflows/plugin-checks.yml', 'utf8')).not.toContain('plugin:build:chatgpt');
-  expect(readFileSync('docs/HOSTING.md', 'utf8')).toContain('`npm run plugin:server:check -- plugin-server-chatgpt`');
+it('checks the ChatGPT plugin over compiled HTTP and PostgreSQL in CI: the default build serves it', () => {
+  expect(CHATGPT_PLUGIN).toBe(true);
+  expect(readFileSync('.github/workflows/plugin-checks.yml', 'utf8')).toContain('      - run: npm run plugin:build\n      - run: npm run plugin:server:check\n');
   expect(JSON.parse(readFileSync('package.json', 'utf8')).scripts['plugin:build:chatgpt']).toBe('node tools/plugin-server-build.mjs plugin-server-chatgpt --chatgpt');
 });
 it('builds the legacy plugin target with the plugin surface that its release gates test', () => {

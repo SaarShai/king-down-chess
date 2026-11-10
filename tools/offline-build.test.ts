@@ -472,11 +472,17 @@ it.each(["const VERSION = 'dev';", 'const ALLOWLIST = [];', 'const PRECACHE = []
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+/** The ChatGPT plugin function links of a production tree (tools/vercel-check.mjs). */
+function pluginLinks(dir: string) {
+  mkdirSync(join(dir, 'functions/.well-known/oauth-protected-resource'), { recursive: true });
+  for (const [path, target] of [['authorize', 'mcp.func'], ['consent.mjs', 'mcp.func'], ['.well-known/oauth-protected-resource', '../mcp.func'], ['.well-known/oauth-protected-resource/mcp', '../../mcp.func']]) symlinkSync(target, join(dir, `functions/${path}.func`));
+}
+
 it('vercel check rejects an unknown runtime manifest key', () => {
  const dir=mkdtempSync(join(tmpdir(),'kingdown-vercel-manifest-'));
  try {
   mkdirSync(join(dir,'functions/mcp.func'),{recursive:true});mkdirSync(join(dir,'static/character-runtime'),{recursive:true});
-  symlinkSync('mcp.func',join(dir,'functions/internal.func'));
+  symlinkSync('mcp.func',join(dir,'functions/internal.func'));pluginLinks(dir);
   writeFileSync(join(dir,'functions/mcp.func/.vc-config.json'),JSON.stringify({handler:'server.mjs'}));
   writeFileSync(join(dir,'config.json'),JSON.stringify({version:3,routes:[{src:'^/api(?:/.*)?$',dest:'/mcp'}]}));
   writeFileSync(join(dir,'static/character-runtime/manifest.json'),JSON.stringify({schemaVersion:1,effects:{},banks:[],unexpected:'x'}));
@@ -489,7 +495,7 @@ it('vercel check scans runtime image bytes for metadata', () => {
  const dir=mkdtempSync(join(tmpdir(),'kingdown-vercel-image-'));
  try {
   mkdirSync(join(dir,'functions/mcp.func'),{recursive:true});const assets=join(dir,'static/character-runtime/effects', 'b'.repeat(64),'assets');mkdirSync(assets,{recursive:true});
-  symlinkSync('mcp.func',join(dir,'functions/internal.func'));
+  symlinkSync('mcp.func',join(dir,'functions/internal.func'));pluginLinks(dir);
   writeFileSync(join(dir,'functions/mcp.func/.vc-config.json'),JSON.stringify({handler:'server.mjs'}));
   writeFileSync(join(dir,'config.json'),JSON.stringify({version:3,routes:[{src:'^/api(?:/.*)?$',dest:'/mcp'}]}));
   writeFileSync(join(assets,'image.png'),Buffer.from('89504e470d0a1a0a000000006361425800000000','hex'));

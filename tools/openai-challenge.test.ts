@@ -56,9 +56,9 @@ it('adds no challenge route when the site or the token file is absent', () => {
   }
 });
 
-it('adds no challenge route while the ChatGPT plugin is parked, also with a token file', () => {
-  expect(CHATGPT_PLUGIN).toBe(false);
-  for (const routes of [vercelRoutes(site(randomUUID())), vercelRoutes(site('token\n'))]) {
+it('adds no challenge route without the ChatGPT plugin, also with a token file', () => {
+  expect(CHATGPT_PLUGIN).toBe(true);
+  for (const routes of [vercelRoutes(site(randomUUID()), { chatgpt: false }), vercelRoutes(site('token\n'), { chatgpt: false })]) {
     expect(routes.some(route => /well-known|plugin-art/.test(route.src))).toBe(false);
   }
 });
@@ -68,7 +68,7 @@ it('leaves the domain challenge out of a parked site tree', async () => {
   writeFileSync(join(root, 'index.html'), '<!doctype html><title>Parked</title>');
   const out = mkdtempSync(join(tmpdir(), 'kingdown-parked-tree-'));
   sites.push(out);
-  const output = await buildPluginServer(out, { site: root });
+  const output = await buildPluginServer(out, { site: root, chatgpt: false });
   expect(existsSync(join(output, 'static/index.html'))).toBe(true);
   expect(existsSync(join(output, 'static/.well-known'))).toBe(false);
   expect(existsSync(join(output, 'static/plugin-art'))).toBe(false);

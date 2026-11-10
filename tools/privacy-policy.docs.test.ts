@@ -13,7 +13,7 @@ test('the policy gives each cleanup period of the daily job', () => {
  for (const period of periods) expect(text, period).toContain(`${period}`);
 });
 
-test('the policy names the online control as Settings shows it, says the default applies, and names OpenAI for the parked app', () => {
+test('the policy names the online control as Settings shows it, says the default applies, and names OpenAI', () => {
  const label = readFileSync('src/plugin/index.html', 'utf8').match(/<legend>(Who sees when you are online)<\/legend>/)![1];
  const html = readFileSync('src/plugin/index.html', 'utf8') + readFileSync('src/account-game/hall.ts', 'utf8');
  expect(html.match(new RegExp(`Symbols only, Show threats, ${label}\\.`, 'g'))).toHaveLength(1);
@@ -24,9 +24,7 @@ test('the policy names the online control as Settings shows it, says the default
  for (const source of [text, html, readFileSync('docs/submission/review-notes.md', 'utf8')]) expect(source).toContain(limit);
  expect(text).not.toContain('off by default');
  expect(text).toContain('the default applies, and no setting stops it');
- // The ChatGPT app is parked (tools/chatgpt-plugin.mjs): the policy says that it is closed and what OpenAI received.
- expect(text).toContain('That app is closed, and King Down sends no data to OpenAI now');
- expect(text).toContain('OpenAI received what the app sent to ChatGPT');
+ expect(text).toContain('OpenAI receives what the app sends to ChatGPT');
 });
 
 test('the policy names each try counter that the server keeps for an account', () => {
@@ -35,13 +33,7 @@ test('the policy names each try counter that the server keeps for an account', (
  expect([...migrations.matchAll(/create table if not exists public\.(\w+_tries)/g)].map(match => match[1]).sort()).toEqual(['invite_code_tries', 'plugin_tool_tries']);
  expect(text).toContain('how many invitation codes you tried in the last hour');
  // The website API uses the same counter (src/api/http.ts toolTry).
- expect(text).toContain('how many new games, computer turns and reports you asked for in the last minute or hour');
-});
-
-test('the policy mentions ChatGPT only in the note about the closed app', () => {
- const outside = policy.replace(/<p id="chatgpt-app">[\s\S]*?<\/p>/, '');
- expect(outside).not.toMatch(/ChatGPT|OpenAI/);
- expect(text).toContain('The daily job deletes the record of which game a ChatGPT board showed after 7 days');
+ expect(text).toContain('how many new games, new boards, computer turns and reports you asked for on the website or in the ChatGPT app');
 });
 
 test('the policy has no placeholder left from the draft', () => {
