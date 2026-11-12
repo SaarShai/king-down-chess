@@ -4,7 +4,7 @@ Status: draft for the owner. Ticket: [16](issues/16-submission-packet.md), step 
 
 This file gives a value to paste into each field of the Overview step of the Muse Connector Platform form (`/submission`). The field list is in [ticket 10](issues/10-portal-access.md). Fields marked **[owner]** need the owner. The Technical specs step uses [tool-docs.md](tool-docs.md); the data questionnaire uses [data-processing.md](data-processing.md).
 
-The Muse guidelines (https://platform.muse.ai/docs, read 2026-11-12) ask the overview for the intended users, the supported tasks, how the connector improves on browser use, and the account, plan, region and age restrictions (§5.1, §4.3). They ask for factual words (§3.2, §4.3). They give no rule for the name, the icon or the example prompts, and no character limits. The form has no description field: the overview text goes in "Anything else".
+The Muse guidelines (https://platform.muse.ai/docs, read live on 2026-11-12; the research report does not record sections 4.3, 5.1 and 5.2, so the owner checks them again before the submission) ask the overview for the intended users, the supported tasks, how the connector improves on browser use, and the account, plan, region and age restrictions (§5.1, §4.3). They ask for factual words (§3.2, §4.3). They give no rule for the name, the icon or the example prompts, and no character limits. The form has no description field: the overview text goes in "Anything else".
 
 ## Fields
 
@@ -16,7 +16,7 @@ King Down Chess
 
 ### Company or developer
 
-**[owner]** The name that the business verification (Persona) accepts. If the owner submits as a person: `Saar Shai`, the owner that `public/terms.html` names. If he submits as a business: its legal name. The choice is an open owner fact in [data-processing.md](data-processing.md), section 1. §5.2 asks that this name agrees with the website and the listing.
+**[owner]** The name that the business verification (Persona) accepts. If the owner submits as a person: `Saar Shai`, the owner that `public/terms.html` names. If he submits as a business: its legal name. The choice is an open owner fact in [data-processing.md](data-processing.md), section 1. The live guidelines, §5.2 (https://platform.muse.ai/docs, read 2026-11-12; owner check), ask that this name agrees with the website and the listing.
 
 ### Product website
 
@@ -33,7 +33,7 @@ Start a King Down game against the computer at beginner level. I play Black.
 ```
 
 ```text
-In my King Down game, move my knight to f3.
+In my King Down game, move my pawn to e5.
 ```
 
 ```text
@@ -52,7 +52,7 @@ What does the archer do in King Down?
 Resign my King Down game against the computer.
 ```
 
-The tool for each prompt: `kingdown_new_game` (level `beginner`, colour `black`), `kingdown_move` (`said`), `kingdown_games`, `kingdown_view` (no `game_id`: the most urgent game against the computer), `kingdown_explain` (topic `archer`, no game needed), `kingdown_end` (`resign`). If the form takes fewer prompts, use the first four.
+Prompt 2 fits the game of prompt 1: each back rank has eight pawns, and the Black pawn on e7 can go to e5 after any first move of White. The tool for each prompt: `kingdown_new_game` (level `beginner`, colour `black`), `kingdown_move` (`said`; Muse first gets `game_id` and `expected_revision` from `kingdown_games` or `kingdown_view`, or from the result of the new game), `kingdown_games`, `kingdown_view` (no `game_id`: the most urgent game against the computer), `kingdown_explain` (topic `archer`, no game needed), `kingdown_end` (`resign`; it also needs `game_id` and `expected_revision` from an earlier result). If the form takes fewer prompts, use the first four.
 
 ### Connector icon
 
@@ -111,21 +111,21 @@ Players of chess and chess variants who want to play, check or learn King Down i
 
 What it does (6 tools: 3 Read, 3 Write)
 - Start a game against the computer: level (beginner, casual, club, strong), colour, classic chess pieces or fairy pieces, king powers on or off.
-- Play a move from the user's words ("knight to f3"). The server matches the words against the legal moves only. Words that fit several moves give numbered choices; words that fit no move give the reason. Nothing plays on a guess. The computer replies in the same call.
+- Play a move from the user's words ("pawn to e5"). The server matches the words against the legal moves only. Words that fit several moves give numbered choices; words that fit no move give the reason. Nothing plays on a guess. The computer replies in the same call.
 - Show a game as speakable text: a status line, the pieces of each side, a letter grid and a link.
 - List the user's unfinished games, the user's turn first.
 - Explain a piece, a square, a king power or a card.
 - End a game against the computer: resign, or abort before each side has played a turn.
 
 Value beyond the browser
-The game server knows the legal moves and explains why a move is refused. It keeps the user's games and turn status in the user's account, so a game started in Muse continues on kingdown.dev and the other way around. Play needs no screen: each result starts with a sentence for speech, and the computer's reply comes in the same result.
+The game server knows the legal moves and explains why a move is refused. It keeps the user's games and turn status in the user's account, so a game against the computer started in Muse continues on kingdown.dev, and a game against the computer started on kingdown.dev continues in Muse. Play needs no screen: each result starts with a sentence for speech, and the computer's reply comes in the same result.
 
 Limits
 - Moves and new games only against the computer. A game against a person shows only its status and a link; Muse cannot play it. No ranked play, no cards in play, no invitations, no chat with players.
 - No payments and no purchases. King Down is free.
-- A free kingdown.dev account is necessary (Google, GitHub or an email code). The connector reads only the games of the signed-in account. It sends no message and shares nothing outside King Down.
+- A free kingdown.dev account is necessary (sign-in with Google or GitHub). The connector reads only the games of the signed-in account. It sends no message and shares nothing outside King Down.
 - King Down has no age, plan or region limit of its own. Muse's own limits apply (18+, the Muse regions).
-- Rate limits for each account: 60 new games and 120 moves in 60 seconds; reads have no count limit.
+- Rate limits for each account: 60 new games and 120 moves in 60 seconds, counted together with the same actions on kingdown.dev; reads have no count limit.
 
 How reviewers sign in
 Use the two test accounts in the Integration credentials step. On the King Down sign-in page, choose "Sign in with email and password", enter the test account's email and password, then approve the access. If the page shows a signed-in account, choose "Use another account" first. Each test account starts with no games: say "Start a King Down game against the computer" first.
@@ -138,9 +138,9 @@ Check of each claim, against main on 2026-11-12:
 - Words match only legal moves; choices on more than one match; the reason on no match; the computer replies in the same call: `kingdown_move` in `src/muse/tools.ts` and `src/muse/match-words.ts`; [demo-script.md](demo-script.md), scenes 2 and 3.
 - A game against a person gives only its status and a link; moves refuse it with `PERSON_GAME`: `kingdown_view` and `computerGame` in `src/muse/tools.ts`.
 - 3 Read and 3 Write tools, no Sensitive write, no message and no sharing: [tool-docs.md](tool-docs.md).
-- Rate limits: [tool-docs.md](tool-docs.md), "Rate limits" (`COUNTERS` in `src/muse/tools.ts`, `TOOL_LIMITS` in `src/plugin/service.ts`). The HTTP edge limits (3 calls in progress for each account) are in the same file; the overview leaves them out.
+- Rate limits, shared with the website counters: [tool-docs.md](tool-docs.md), "Rate limits" (`COUNTERS` in `src/muse/tools.ts`, `TOOL_LIMITS` in `src/plugin/service.ts`). The HTTP edge limits (3 calls in progress for each account) are in the same file; the overview leaves them out.
 - The same account and games as kingdown.dev: [issues/06-game-backend.md](issues/06-game-backend.md) (`GameService` and Postgres); the link `https://kingdown.dev/g/<game id>` in each result.
-- Sign-in options: `public/privacy.html` (Google, GitHub, email code). The page also has a hidden Facebook option; the overview leaves it out.
+- Sign-in options: the connector consent page offers "Continue with Google", "Continue with GitHub" and, in a Muse build, the review form "Sign in with email and password" (`src/plugin/consent.html`; `src/plugin/consent.ts` shows each social button that the Supabase settings allow). It has no email code. The consent page keeps its own session, apart from the website.
 - The reviewer sign-in words "Sign in with email and password" and "Use another account": [ticket 15](issues/15-review-accounts.md) and `docs/MUSE.md`, "Review accounts". On production this works only after the release that turns the connector on and the production review accounts ([ticket 17](issues/17-submit.md)).
 - Muse is 18+ and runs in some regions only: [the research report](../../research/muse-connector-2026-11-08/muse-platform-contract.md), section 5. King Down's own rule is "children under 13 should sign in only with a parent's permission" (`public/privacy.html`), which is not a limit.
 
