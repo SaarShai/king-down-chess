@@ -1180,6 +1180,10 @@ async function pluginSite(fault = '', files?: Record<string, string> | (() => Re
     if (file !== undefined) { res.setHeader('content-type', contentType(path)); res.end(file); }
     // parked: the live site without the ChatGPT plugin (tools/chatgpt-plugin.mjs) answers 404 for each plugin path.
     else if (fault === 'parked') { if (!(served && siteRoute(req, res, path, served, 'closed'))) res.writeHead(404).end(); }
+    // muse and both: the Muse connector serves its resource; muse parks each ChatGPT path but the consent page.
+    else if (['muse', 'both'].includes(fault) && path === '/.well-known/oauth-protected-resource/muse/mcp') res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ resource: `${url}/muse/mcp`, authorization_servers: ['https://utqzovjmclfyojedmwok.supabase.co/auth/v1'], scopes_supported: ['openid'] }));
+    else if (['muse', 'both'].includes(fault) && path === '/muse/mcp') res.writeHead(401, { 'www-authenticate': `Bearer resource_metadata="${url}/.well-known/oauth-protected-resource/muse/mcp", scope="openid"` }).end('{}');
+    else if (fault === 'muse' && (/^\/(mcp|plugin-art\/|\.well-known\/)/.test(path))) res.writeHead(404).end();
     else if (path === '/.well-known/oauth-protected-resource/mcp' || path === '/.well-known/oauth-protected-resource') {
       if (fault === 'metadata-root' && path === '/.well-known/oauth-protected-resource') { res.writeHead(404).end(); return; }
       res.setHeader('content-type', 'application/json');
@@ -1217,6 +1221,40 @@ function pluginFolder() {
 describe('deploy-plugin-live-check.mjs', () => {
   const parkedFolder = () => { const folder = join(buildFolder({}), 'functions/mcp.func'); mkdirSync(folder, { recursive: true }); return folder; };
   const parkedRequests = [...PARKED_PATHS, ...MUSE_PATHS, '/plugin-art/deploy-check-0000.webp'].flatMap(path => [`GET ${path}`, `POST ${path}`]).sort();
+  // A ChatGPT build checks that the Muse paths answer 404 to GET and POST.
+  const museParked = MUSE_PATHS.flatMap(path => [path, path]);
+  const authorizePath = '/authorize?authorization_id=deploy-check%2Bquery&state=keep%20me';
+  /** A tree with the Muse route; `chatgpt` adds the board widget and the ChatGPT art. */
+  const museFolder = (chatgpt: boolean) => {
+    const folder = chatgpt ? pluginFolder() : join(buildFolder({}), 'functions/mcp.func');
+    mkdirSync(folder, { recursive: true }); writeFileSync(join(folder, 'consent.mjs'), 'consent-v1');
+    if (chatgpt) writeFileSync(join(folder, 'board.html'), 'board');
+    const configFile = join(folder, '../../config.json'), routes = chatgpt ? JSON.parse(readFileSync(configFile, 'utf8')).routes : [];
+    writeFileSync(configFile, JSON.stringify({ version: 3, routes: [...routes, ...MUSE_PATHS.map(path => ({ src: `^${path.replace(/[.]/g, '\\.')}$`, dest: '/mcp' }))] }));
+    return folder;
+  };
+
+  it('checks a Muse build: its metadata, its challenge and the consent page; each ChatGPT path answers 404', async () => {
+    const live = await pluginSite('muse');
+    const result = await runAsync(process.execPath, [pluginLiveCheck, museFolder(false), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '1500' } });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain('Muse connector: metadata and unsigned challenge');
+    const parked = [...PARKED_PATHS.filter(path => !['/authorize', '/consent.mjs'].includes(path)), '/plugin-art/deploy-check-0000.webp'].flatMap(path => [path, path]);
+    expect(live.requests.map(request => request.path).sort()).toEqual(['/.well-known/oauth-protected-resource/muse/mcp', '/muse/mcp', authorizePath, '/consent.mjs', ...parked].sort());
+    expect(live.requests.every(request => !request.cookie && !request.authorization)).toBe(true);
+  });
+
+  it('checks a build that serves both connectors, and fails it while the live site serves only the ChatGPT plugin', async () => {
+    const live = await pluginSite('both');
+    const result = await runAsync(process.execPath, [pluginLiveCheck, museFolder(true), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '1500' } });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain('ChatGPT plugin: both metadata paths');
+    expect(result.stdout).toContain('Muse connector: metadata and unsigned challenge');
+    expect(live.requests.map(request => request.path).sort()).toEqual(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/mcp', ...MUSE_PATHS, authorizePath, '/consent.mjs', '/plugin-art/test-art.webp'].sort());
+    const old = await runAsync(process.execPath, [pluginLiveCheck, museFolder(true), (await pluginSite()).url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '250' } });
+    expect(old.status).toBe(1);
+    expect(old.stderr).toContain('plugin-live-check: FAIL');
+  });
 
   it('checks that each parked plugin path answers 404 when the build has no consent script', async () => {
     const live = await pluginSite('parked');
@@ -1240,7 +1278,7 @@ describe('deploy-plugin-live-check.mjs', () => {
     const result = await runAsync(process.execPath, [pluginLiveCheck, buildFolder({ 'consent.mjs': 'consent-v1' }), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '1500' } });
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain('plugin-live-check: pass');
-    expect(live.requests.map(request => request.path).sort()).toEqual(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/authorize?authorization_id=deploy-check%2Bquery&state=keep%20me', '/consent.mjs', '/mcp']);
+    expect(live.requests.map(request => request.path).sort()).toEqual(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/authorize?authorization_id=deploy-check%2Bquery&state=keep%20me', '/consent.mjs', '/mcp', ...museParked]);
     expect(live.requests.every(request => !request.cookie && !request.authorization)).toBe(true);
   });
 
@@ -1248,7 +1286,7 @@ describe('deploy-plugin-live-check.mjs', () => {
     const live = await pluginSite();
     const result = await runAsync(process.execPath, [pluginLiveCheck, pluginFolder(), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '900000' } });
     expect(result.status, result.stderr).toBe(0);
-    expect(live.requests.map(request => request.path).sort()).toEqual(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/authorize?authorization_id=deploy-check%2Bquery&state=keep%20me', '/consent.mjs', '/mcp', '/plugin-art/test-art.webp']);
+    expect(live.requests.map(request => request.path).sort()).toEqual(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/authorize?authorization_id=deploy-check%2Bquery&state=keep%20me', '/consent.mjs', '/mcp', ...museParked, '/plugin-art/test-art.webp'].sort());
     expect(live.requests.every(request => !request.cookie && !request.authorization)).toBe(true);
   });
 

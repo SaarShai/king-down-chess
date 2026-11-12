@@ -47,7 +47,7 @@ suite('the production schema switch', () => {
   await admin?.end();
  });
  /** Run work as the runtime role in one transaction. It commits only when `keep` is true. */
- const asRuntime = async (work: (client: pg.PoolClient) => Promise<void>, keep = false) => {
+ const asRuntime = async (work: (client: pg.PoolClient) => Promise<unknown>, keep = false) => {
   const client = await admin.connect();
   try {
    await client.query('begin'); await client.query(`set local role ${role}`);

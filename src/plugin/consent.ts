@@ -80,6 +80,9 @@ async function main(): Promise<void> {
   if (data.authorization_id !== authorizationId) throw new Error('Authorization request does not match this page.');
   if (data.user.id !== session.data.session.user.id) throw new Error('Authorization account mismatch');
   const enabled = config.clientIds.includes(data.client.id.toLowerCase()) && data.scope.split(/\s+/).includes('openid');
+  // A build that serves both connectors has both texts (tools/plugin-server-build.mjs); show the one of this client.
+  const connector = config.museClientIds?.includes(data.client.id.toLowerCase()) ? 'muse' : 'chatgpt';
+  for (const part of document.querySelectorAll<HTMLElement>('[data-connector]')) part.hidden = part.dataset.connector !== connector;
   document.getElementById('client-name')!.textContent = data.client.name;
   document.getElementById('account')!.textContent = data.user.email || 'Your signed-in account';
   document.getElementById('redirect')!.textContent = data.redirect_uri;

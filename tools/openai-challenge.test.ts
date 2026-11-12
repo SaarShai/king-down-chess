@@ -50,6 +50,11 @@ it('serves the domain challenge as plain text with no rewrite or redirect when t
   }
 });
 
+it('keeps the domain challenge in a build that serves the Muse connector too', () => {
+  const routes = vercelRoutes(site(randomUUID()), { chatgpt: true, muse: true });
+  expect(routes.filter(route => new RegExp(route.src).test('/.well-known/openai-apps-challenge'))).toEqual([{ src: '^/\\.well-known/openai-apps-challenge$', headers: { 'Content-Type': 'text/plain' }, continue: true }]);
+});
+
 it('adds no challenge route when the site or the token file is absent', () => {
   for (const root of [undefined, site()]) {
     expect(vercelRoutes(root, { chatgpt: true }).some(route => new RegExp(route.src).test('/.well-known/openai-apps-challenge'))).toBe(false);
