@@ -240,7 +240,8 @@ The file checks for invalid indexes before it attaches constraints. Do not skip 
 
 - `0024_muse_disconnect.sql`: deletes the games played through Muse when the user disconnects Muse ([docs/MUSE.md](../docs/MUSE.md), "Disconnect and deletion").
   A Muse game is a game against the computer whose start receipt has the surface `muse`; the file marks the older Muse start receipts by their start command ID `muse:<request_id>`.
-  `public.delete_my_muse_games()` (the Settings button, after `revokeGrant`) and `kingdown_jobs.sweep_muse_games()` (daily, `plugin-deploy/muse-sweep-cron.sql`) call `kingdown_jobs.delete_muse_games`.
+  `public.delete_my_muse_games()` (the Settings button, after `revokeGrant`) and the procedure `kingdown_jobs.sweep_muse_games()` (daily, one transaction for each user, `plugin-deploy/muse-sweep-cron.sql`) call `kingdown_jobs.delete_muse_games`.
   The functions read `auth.sessions` and `kingdown_oauth.client_resources`; no trigger on the auth schema. Browser roles get only the two `public` functions.
+  Run 0024 again after the first deploy whose server writes the surface: it marks the Muse starts of the older server.
   Apply 0024 on staging before a deploy that turns on the Muse connector.
   Apply 0024 on production before the release that turns it on.

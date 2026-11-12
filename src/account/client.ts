@@ -93,8 +93,8 @@ export function connect(storageKey: string, { manualCallback = false }: { manual
     },
     /** Settings → Disconnect Muse (migration 0024): revokes each Muse grant at Supabase, which ends the Muse sessions, then
      *  public.delete_my_muse_games() deletes the games played through Muse. A grant that is gone already is no fault.
-     *  Returns the number of games deleted, or null when a Muse session still exists (the database then deletes nothing;
-     *  the daily sweep deletes the games 30 days after the last use of the link). */
+     *  Returns the number of games deleted, or null when a Muse session still exists or no Muse client is registered (the
+     *  database then deletes nothing; the daily sweep deletes the games 30 days after the last use of the link). */
     async disconnectMuse(): Promise<number | null> {
       const clients = await sb.rpc('muse_client_ids');
       if (clients.error) throw clients.error;

@@ -157,7 +157,7 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
       say('Disconnecting Muse…');
       try {
         const deleted = await (await load()).disconnectMuse();
-        say(deleted === null ? 'Muse is still connected. Try again.' : 'Muse is disconnected. We deleted the games you started in Muse.');
+        say(deleted === null ? 'Could not disconnect Muse. Try again later.' : 'Muse is disconnected. We deleted the games you started in Muse.');
       } catch { say('Could not disconnect Muse. Check your connection and try again.'); }
     } else if (b.dataset.act === 'delete') {
       // Inside another site's frame, a click may not be the player's own (clickjacking).
