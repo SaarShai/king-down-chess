@@ -75,7 +75,8 @@ export const ENABLED_WEB_OPERATIONS = new Set([
 /** `chatgpt: false` (the parked default) serves no MCP, OAuth metadata, consent page or board art: each answers 404.
  *  It also needs no Supabase OAuth server, OAuth client or KINGDOWN_PLUGIN_OAUTH_READY: the website API needs only
  *  SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY. `muse` (default: tools/muse-connector.mjs) serves the Muse connector
- *  with the same OAuth setup and its own resource, /muse/mcp. */
+ *  with the same OAuth setup and its own resource, /muse/mcp. Both can be on: each listed OAuth client maps to the
+ *  resource of one connector (kingdown_oauth.client_resources). */
 export async function configurePlugin(env = process.env, { localDev = false, serverless = false, websiteKeys, websiteCurrentUser, chatgpt = CHATGPT_DEFAULT, muse = MUSE_DEFAULT } = {}) {
   // A parked build has no MCP handler code (see the import below), so it cannot serve the plugin.
   if (chatgpt && import.meta.env?.KINGDOWN_CHATGPT === false) throw new Error('This build parks the ChatGPT plugin; build it with chatgpt: true to serve the plugin');
@@ -106,14 +107,9 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
       page = websiteConfig(env);
     } else {
       if (env.KINGDOWN_PLUGIN_OAUTH_READY !== '1' || !env.SUPABASE_URL) throw new Error('Enable Supabase OAuth, consent/client registration and its resource audience hook before setting KINGDOWN_PLUGIN_OAUTH_READY=1');
-      // shortcut: one OAuth client list (KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS) and the audience hook give each client one
-      // resource, so one deploy serves one connector; give Muse its own client list when both must run at once.
-      if (chatgpt && serveMuse) throw new Error('KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS serves one connector; turn on the ChatGPT plugin or the Muse connector');
       config = consentConfig(env);
-      const verifier = { supabaseUrl: env.SUPABASE_URL, publicOrigin, clientIds: config.clientIds, publishableKey: config.publishableKey };
-      if (chatgpt) auth = createTokenVerifier(verifier);
-      if (serveMuse) museAuth = createTokenVerifier({ ...verifier, resourcePath: '/muse/mcp' });
-      const { issuer } = auth ?? museAuth;
+      // consentConfig checks that SUPABASE_URL is a fixed HTTPS origin; createTokenVerifier uses the same issuer.
+      const issuer = `${config.supabaseUrl}/auth/v1`;
       // RFC 8414 path insertion for an issuer containing /auth/v1; published by Supabase MCP docs.
       const discovery = new URL(`/.well-known/oauth-authorization-server/auth/v1`, issuer);
       const response = await fetch(discovery, { signal: AbortSignal.timeout(5000), redirect: 'error' });
@@ -124,13 +120,28 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
   }
   // A local run serves the consent page too when it has the public Supabase settings.
   page ??= config ?? (localDev && env.SUPABASE_URL ? (chatgpt || serveMuse ? consentConfig : websiteConfig)(env) : undefined);
-  if (page && (chatgpt || serveMuse)) consent = { html: renderConsent(await readFile(new URL('./consent.html', import.meta.url), 'utf8'), page), script: await readFile(new URL('./consent.mjs', import.meta.url), 'utf8'), supabaseOrigin: page.supabaseUrl };
   const resourceHtml = chatgpt ? await readFile(new URL('./board.html', import.meta.url), 'utf8') : undefined;
   const pool = new Pool({ ...pluginDatabaseConfig(db, { localDev, serverless }), max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 10000 });
   if (serverless) attachDatabasePool(pool);
   pool.on('error', error => { console.error('King Down database connection failed', diagnostic(error)); });
-  try { await checkPluginDatabase(pool, config, (auth ?? museAuth)?.resource); }
+  // Each served connector has its own resource. Each listed client must map to one of them, and each connector then
+  // accepts a token only when its aud is that resource and its client maps to it.
+  const resources = [...chatgpt ? [`${publicOrigin}/mcp`] : [], ...serveMuse ? [`${publicOrigin}/muse/mcp`] : []];
+  let clients;
+  try { clients = await checkPluginDatabase(pool, config, resources) ?? []; }
   catch (error) { await pool.end(); throw error; }
+  if (config) {
+    const verifier = resourcePath => {
+      const clientIds = clients.filter(row => row.resource === `${publicOrigin}${resourcePath}`).map(row => row.client_id);
+      // Not a start fault: the other connector and the website still serve. The consent page refuses the request.
+      if (!clientIds.length) console.warn(`King Down serves ${resourcePath} without an OAuth client; list its client in KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS`);
+      return createTokenVerifier({ supabaseUrl: env.SUPABASE_URL, publicOrigin, clientIds, publishableKey: config.publishableKey, resourcePath });
+    };
+    if (chatgpt) auth = verifier('/mcp');
+    if (serveMuse) museAuth = verifier('/muse/mcp');
+  }
+  // The consent page names Muse for a Muse client (src/plugin/consent.ts); each other listed client is ChatGPT's.
+  if (page && (chatgpt || serveMuse)) consent = { html: renderConsent(await readFile(new URL('./consent.html', import.meta.url), 'utf8'), { ...page, museClientIds: museAuth ? clients.filter(row => row.resource === museAuth.resource).map(row => row.client_id) : [] }), script: await readFile(new URL('./consent.mjs', import.meta.url), 'utf8'), supabaseOrigin: page.supabaseUrl };
   const store = new PostgresMatchStore(pool), secret = env.KINGDOWN_INTERNAL_SECRET ?? '', games = new GameService(store, secret);
   const service = new PluginService(store, secret);
   // A dynamic import, so that a parked build (KINGDOWN_CHATGPT=false) leaves the MCP handler out of server.mjs.

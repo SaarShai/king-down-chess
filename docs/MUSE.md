@@ -28,11 +28,18 @@ After a tool change, run `npm run muse:docs`: it writes [specs/muse-connector/to
 
 ## The switch
 
-`MUSE_CONNECTOR` in `tools/muse-connector.mjs` is on only for a staging build (`KINGDOWN_STAGE=staging`, as `tools/release/staging.py` builds). A production build leaves the connector out (`KINGDOWN_MUSE=false`), and `/muse/mcp` answers 404. To serve it, build with `muse: true` (`buildPluginServer`, `vercelRoutes`). One deploy serves the ChatGPT plugin or the Muse connector, not both: they share `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS`.
+`MUSE_CONNECTOR` in `tools/muse-connector.mjs` is on only for a staging build (`KINGDOWN_STAGE=staging`, as `tools/release/staging.py` builds). A production build leaves the connector out (`KINGDOWN_MUSE=false`), and `/muse/mcp` answers 404. To serve it, build with `muse: true` (`buildPluginServer`, `vercelRoutes`, or `--muse` on `tools/plugin-server-build.mjs`).
+
+One build can serve the ChatGPT plugin and the Muse connector at once. `CHATGPT_PLUGIN` (`tools/chatgpt-plugin.mjs`) does not follow this switch: it is on for production and off for staging. So the release that sets `MUSE_CONNECTOR` to true for production keeps the ChatGPT plugin on. In such a build:
+
+- `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` lists both client IDs. Each listed ID must have its row in `kingdown_oauth.client_resources` with the resource of a served connector (`/mcp` or `/muse/mcp`), else the server does not start and every path answers 503.
+- `/mcp` accepts a token only when its `aud` is the `/mcp` resource and its client maps to `/mcp`; `/muse/mcp` does the same for its resource. A served connector without a listed client refuses every token; the server logs a warning and still starts.
+- The consent page has both texts. `src/plugin/consent.ts` shows the Muse text when the client of the authorization maps to `/muse/mcp`, else the ChatGPT text. The review password form stays.
+- Check the tree with `npm run check:vercel -- <tree> --chatgpt --muse` (build it with `node tools/plugin-server-build.mjs <tree> --site --chatgpt --muse`). `tools/deploy-plugin-live-check.mjs` checks the connectors that the tree has.
 
 ## Server settings
 
-With the connector on, the server needs the same settings as the ChatGPT plugin ([plugin-preparation.md](plugin-preparation.md)): `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` (the Muse client ID; not a secret), `KINGDOWN_PLUGIN_OAUTH_READY=1`, and `KINGDOWN_PLUGIN_DATABASE_URL`. Values live in the private env files ([HOSTING.md](HOSTING.md)); never paste them in chat.
+With the connector on, the server needs the same settings as the ChatGPT plugin ([plugin-preparation.md](plugin-preparation.md)): `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` (the Muse client ID, and the ChatGPT client ID when the build serves both; not secrets), `KINGDOWN_PLUGIN_OAUTH_READY=1`, and `KINGDOWN_PLUGIN_DATABASE_URL`. Values live in the private env files ([HOSTING.md](HOSTING.md)); never paste them in chat.
 
 ## Database and Supabase
 

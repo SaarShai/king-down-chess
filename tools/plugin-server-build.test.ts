@@ -81,7 +81,23 @@ it('gives a Muse build the Muse consent words and both connector builds the revi
       expect(page).not.toMatch(/cannot read the chat|see your email address|picture/);
       for (const id of ['client-name', 'account', 'redirect', 'approve', 'deny', 'password-form']) expect(page).toContain(`id="${id}"`);
     }
-    await expect(buildPluginServer(join(out, 'both'), { chatgpt: true, muse: true })).rejects.toThrow('not both');
+    // One build serves both connectors: both texts, each in its [data-connector] part; the ChatGPT part shows first.
+    const both = await buildPluginServer(join(out, 'both'), { chatgpt: true, muse: true, vercel: true });
+    const fn = join(both, 'functions/mcp.func'), page = readFileSync(join(fn, 'consent.html'), 'utf8');
+    expect(page).toContain('<div data-connector="chatgpt"><h2>Let ChatGPT use your King Down account?</h2></div><div data-connector="muse" hidden><h2>Let Muse use your King Down account?</h2></div><dl>');
+    expect(page).toContain('<div data-connector="chatgpt"><p>ChatGPT can:</p><ul>');
+    expect(page).toContain('<div data-connector="muse" hidden><p>Muse can:</p><ul>');
+    expect([...page.matchAll(/<li>([^<]+)<\/li>/g)]).toHaveLength(9);
+    for (const id of ['client-name', 'account', 'redirect', 'approve', 'deny', 'password-form']) expect(page.split(`id="${id}"`)).toHaveLength(2);
+    // The script picks the part from the client of the authorization, and keeps the review password path.
+    const script = readFileSync(join(fn, 'consent.mjs'), 'utf8');
+    for (const text of ['Signing in…', ' or use email', 'museClientIds', '[data-connector]']) expect(script.includes(text), `both: ${text}`).toBe(true);
+    // Both function trees: the ChatGPT board and OAuth paths, and the Muse routes to the one function.
+    for (const path of ['functions/mcp.func/board.html', 'functions/authorize.func', 'functions/consent.mjs.func', 'functions/.well-known/oauth-protected-resource/mcp.func']) expect(existsSync(join(both, path)), path).toBe(true);
+    const routes = JSON.parse(readFileSync(join(both, 'config.json'), 'utf8')).routes;
+    expect(routes.filter((route: { dest?: string }) => route.dest === '/mcp').map((route: { src: string }) => route.src)).toEqual(['^/muse/mcp$', '^/\\.well-known/oauth-protected-resource/muse/mcp$']);
+    const server = readFileSync(join(fn, 'server.mjs'), 'utf8');
+    for (const text of ['/muse/mcp', 'oauth-protected-resource', 'kingdown_new_game', 'kingdown_open']) expect(server.includes(text), text).toBe(true);
   } finally { rmSync(out, { recursive: true, force: true }); }
 }, 120_000);
 

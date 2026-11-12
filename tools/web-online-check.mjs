@@ -18,6 +18,7 @@ import { build } from 'vite';
 import { createLocalJWKSet, exportJWK, generateKeyPair } from 'jose';
 import { buildPluginServer } from './plugin-server-build.mjs';
 import { CHATGPT_PLUGIN, PARKED_PATHS } from './chatgpt-plugin.mjs';
+import { MUSE_CONNECTOR } from './muse-connector.mjs';
 
 export const WORKSHOP_SHELF = JSON.stringify({ v: 1, designs: [{
   v: 1, kind: 'piece', id: 'local-knight', name: 'My Knight', named: true,
@@ -352,7 +353,7 @@ export async function main() {
     const mcp = await page.request.get(`${origin}/mcp`, { maxRedirects: 0 });
     assert.equal(mcp.status(), CHATGPT_PLUGIN ? 405 : 404, 'MCP follows the plugin switch');
     assert.match(mcp.headers()['content-type'], /^application\/json/, 'The compiled server answers with JSON');
-    if (!CHATGPT_PLUGIN) for (const path of PARKED_PATHS) assert.equal((await page.request.get(origin + path, { maxRedirects: 0 })).status(), 404, `${path} is parked`);
+    if (!CHATGPT_PLUGIN) for (const path of PARKED_PATHS.filter(path => !MUSE_CONNECTOR || !['/authorize', '/consent.mjs'].includes(path))) assert.equal((await page.request.get(origin + path, { maxRedirects: 0 })).status(), 404, `${path} is parked`);
     for (const path of ['/play/', `/g/${randomUUID()}`, '/j']) {
       const response = await page.request.get(origin + path, { maxRedirects: 0 });
       assert.equal(response.status(), 200, `${path} serves the public account entry`);
