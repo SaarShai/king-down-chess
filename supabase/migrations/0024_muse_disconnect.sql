@@ -20,7 +20,7 @@ set local lock_timeout = '5s';
 -- Run this file again after the first deploy whose server writes the surface (docs/MUSE.md): an older server writes
 -- unmarked Muse starts until then.
 update public.game_commands c set surface = 'muse' where c.kind = 'start' and c.surface is null and c.command_id like 'muse:%'
-  and exists(select from public.game_players p where p.game_id = c.game_id and p.seat = c.seat and p.last_surface = 'muse');
+  and exists(select from public.game_commands m where m.game_id = c.game_id and m.seat = c.seat and m.surface = 'muse');
 
 -- The Muse OAuth client IDs. None when the audience hook is not installed or has no Muse row.
 create or replace function kingdown_jobs.muse_clients() returns setof uuid
@@ -61,16 +61,28 @@ begin
   return deleted;
 end $$;
 
--- True when a Muse game had a Muse command in the last 24 hours, but its player has no Muse session. That means the
--- session match is broken (for example, Supabase stores another client ID), and a sweep would delete every Muse game.
-create or replace function kingdown_jobs.muse_sweep_unsafe() returns boolean
+-- Why a sweep is not safe now, or null. A broken match between the Supabase sessions and the Muse client row would
+-- make every Muse game look unused, and the sweep would delete them all. Two signs of it:
+--   1. A session of an OAuth client that kingdown_oauth.client_resources does not list (for example, the Muse row has
+--      a wrong client ID). Delete the sessions of old test clients, or list each real client, to clear it.
+--   2. A Muse game had a Muse command in the last 24 hours, but its player has no Muse session.
+-- PL/pgSQL, so that the body is checked at the call (test stand-ins of auth.sessions lack columns).
+drop function if exists kingdown_jobs.muse_sweep_unsafe(); -- a boolean form, only on a review branch
+create or replace function kingdown_jobs.muse_sweep_stop_reason() returns text
 language plpgsql stable security definer set search_path = '' as $$
 begin
-  return exists(select from public.game_commands c
-    join public.games g on g.id = c.game_id and g.kind = 'solo'
-    where c.surface = 'muse' and c.received_at > statement_timestamp() - interval '24 hours' and c.actor_id is not null
-      and exists(select from public.game_commands s where s.game_id = g.id and s.kind = 'start' and s.surface = 'muse')
-      and kingdown_jobs.muse_last_use(c.actor_id) is null);
+  if exists(select from auth.sessions s where s.oauth_client_id is not null
+      and not exists(select from kingdown_oauth.client_resources r where r.client_id = s.oauth_client_id)) then
+    return 'a Supabase session has an OAuth client ID that kingdown_oauth.client_resources does not list';
+  end if;
+  if exists(select from public.game_commands c
+      join public.games g on g.id = c.game_id and g.kind = 'solo'
+      where c.surface = 'muse' and c.received_at > statement_timestamp() - interval '24 hours' and c.actor_id is not null
+        and exists(select from public.game_commands s where s.game_id = g.id and s.kind = 'start' and s.surface = 'muse')
+        and kingdown_jobs.muse_last_use(c.actor_id) is null) then
+    return 'a Muse game had a Muse move in the last 24 hours, but its player has no Muse session';
+  end if;
+  return null;
 end $$;
 
 -- The users who have a Muse game.
@@ -83,20 +95,35 @@ language sql stable security definer set search_path = '' as $$
 $$;
 
 -- The daily sweep: the Muse games of each user whose Muse link had no use in the last 30 days. `deleted` gives the
--- number of games deleted, or -1 when the guard stopped the sweep (a warning in the database log says why).
+-- number of games deleted, or -1 when a guard stopped the sweep (a warning in the database log says why).
 -- With no Muse client row (not set up, or removed in an incident), it deletes nothing.
+-- The cap: one run deletes for at most 20 users or 10 percent of the users with a Muse game, whichever is larger. A
+-- larger run stops with a warning; the owner checks the cause, then runs it by hand with force:
+--   call kingdown_jobs.sweep_muse_games(force => true);
 -- A procedure, so that each user has a transaction of its own: one failure (a lock wait, for example) goes to the log
 -- and does not stop the others, and each user's locks end with that user. A procedure that commits cannot be a
 -- security definer or set the search path, so each name has its schema, and the work is in the definer functions.
--- pg_cron runs it as the owner (postgres). Call it outside a transaction block: call kingdown_jobs.sweep_muse_games();
-create or replace procedure kingdown_jobs.sweep_muse_games(inout deleted integer default null)
+-- pg_cron runs it as the owner (postgres). Call it outside a begin block (a commit inside a block is an error).
+-- The first version of this file (only on a review branch) made a function and then a procedure with one argument.
+drop function if exists kingdown_jobs.sweep_muse_games();
+drop procedure if exists kingdown_jobs.sweep_muse_games(integer);
+create or replace procedure kingdown_jobs.sweep_muse_games(inout deleted integer default null, force boolean default false)
 language plpgsql as $$
-declare uid uuid; n integer;
+declare uid uuid; n integer; reason text; due integer; total integer; cap integer;
 begin
   deleted := 0;
   if not exists(select from kingdown_jobs.muse_clients()) then return; end if;
-  if kingdown_jobs.muse_sweep_unsafe() then
-    raise warning 'King Down Muse sweep stopped: a Muse game had a Muse move in the last 24 hours, but its player has no Muse session. Check the Muse client ID in kingdown_oauth.client_resources and auth.sessions.oauth_client_id.';
+  reason := kingdown_jobs.muse_sweep_stop_reason();
+  if reason is not null then
+    raise warning 'King Down Muse sweep stopped: %. Check the Muse client ID in kingdown_oauth.client_resources and auth.sessions.oauth_client_id.', reason;
+    deleted := -1;
+    return;
+  end if;
+  select count(*) filter (where kingdown_jobs.muse_last_use(u) is null or kingdown_jobs.muse_last_use(u) < statement_timestamp() - interval '30 days'), count(*)
+    into due, total from kingdown_jobs.muse_game_users() u;
+  cap := greatest(20, ceil(total * 0.1)::integer);
+  if due > cap and not force then
+    raise warning 'King Down Muse sweep stopped: it would delete the Muse games of % of % users (the cap is %). Check the cause, then run: call kingdown_jobs.sweep_muse_games(force => true);', due, total, cap;
     deleted := -1;
     return;
   end if;
@@ -129,9 +156,9 @@ $$;
 revoke all on function kingdown_jobs.muse_clients() from public, anon, authenticated;
 revoke all on function kingdown_jobs.muse_last_use(uuid) from public, anon, authenticated;
 revoke all on function kingdown_jobs.delete_muse_games(uuid, timestamptz) from public, anon, authenticated;
-revoke all on function kingdown_jobs.muse_sweep_unsafe() from public, anon, authenticated;
+revoke all on function kingdown_jobs.muse_sweep_stop_reason() from public, anon, authenticated;
 revoke all on function kingdown_jobs.muse_game_users() from public, anon, authenticated;
-revoke all on procedure kingdown_jobs.sweep_muse_games(integer) from public, anon, authenticated;
+revoke all on procedure kingdown_jobs.sweep_muse_games(integer, boolean) from public, anon, authenticated;
 revoke all on function public.delete_my_muse_games() from public, anon, authenticated;
 revoke all on function public.muse_client_ids() from public, anon, authenticated;
 grant execute on function public.delete_my_muse_games() to authenticated;

@@ -61,15 +61,17 @@ suite('Muse disconnect (real PostgreSQL)', () => {
  const button = async (actor: string | null): Promise<number | null> => (await asUser(actor, 'select public.delete_my_muse_games() as n'))[0].n;
  /** Moves every command 2 days back, out of the 24-hour window of the guard. */
  const age = () => admin.query("update public.game_commands set received_at=received_at-interval '2 days'");
- /** The daily sweep, as pg_cron calls it: the number deleted, or -1 when the guard stopped it. */
- async function sweep({ aged = true } = {}): Promise<number> {
+ /** The daily sweep, as pg_cron calls it (or by hand with force): the number deleted, or -1 when a guard stopped it. */
+ async function sweep({ aged = true, force = false } = {}): Promise<number> {
   if (aged) await age();
-  return (await rows('call kingdown_jobs.sweep_muse_games()'))[0].deleted;
+  return (await rows(`call kingdown_jobs.sweep_muse_games(force => ${force})`))[0].deleted;
  }
 
  beforeAll(async () => {
   admin = new pg.Pool({ connectionString: (await ownTestDatabase('muse')).href, max: 3 });
   games = new GameService(new PostgresMatchStore(admin));
+  // Sessions of OAuth clients from a run that stopped early would stop the sweep (its unknown-client guard).
+  await admin.query('delete from auth.sessions where oauth_client_id is not null');
  }, 60_000);
  beforeEach(async () => {
   await admin.query('delete from kingdown_oauth.client_resources');
@@ -184,6 +186,25 @@ suite('Muse disconnect (real PostgreSQL)', () => {
   expect(await sweep({ aged: false })).toBeGreaterThanOrEqual(1);
   expect([await exists(mine), await exists(others)]).toEqual([true, false]);
  });
+
+ it('the guard stops the sweep while a session has an OAuth client that the client table does not list', async () => {
+  // For example, the Muse row was added again with a wrong client ID: the real Muse sessions then look unknown.
+  const me = await user(), unknown = await user(), game = await solo(me, 'muse');
+  await session(unknown, randomUUID(), 3, 1);
+  expect(await sweep()).toBe(-1);
+  expect(await exists(game)).toBe(true);
+  await admin.query('delete from auth.sessions where user_id=$1', [unknown]);
+  expect(await sweep()).toBeGreaterThanOrEqual(1);
+  expect(await exists(game)).toBe(false);
+ });
+
+ it('the cap stops a sweep that would delete for more than 20 users (or 10 percent), until the owner forces it', async () => {
+  const many = await Promise.all(Array.from({ length: 22 }, async () => solo(await user(), 'muse')));
+  expect(await sweep()).toBe(-1);
+  for (const game of many) expect(await exists(game)).toBe(true);
+  expect(await sweep({ force: true })).toBeGreaterThanOrEqual(22);
+  for (const game of many) expect(await exists(game)).toBe(false);
+ }, 30_000);
 
  it('one account that fails (a lock held too long) does not stop the sweep for the others', async () => {
   const stuck = await user(), free = await user(), stuckGame = await solo(stuck, 'muse'), freeGame = await solo(free, 'muse');
