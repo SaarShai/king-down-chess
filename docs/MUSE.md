@@ -28,11 +28,18 @@ After a tool change, run `npm run muse:docs`: it writes [specs/muse-connector/to
 
 ## The switch
 
-`MUSE_CONNECTOR` in `tools/muse-connector.mjs` is on only for a staging build (`KINGDOWN_STAGE=staging`, as `tools/release/staging.py` builds). A production build leaves the connector out (`KINGDOWN_MUSE=false`), and `/muse/mcp` answers 404. To serve it, build with `muse: true` (`buildPluginServer`, `vercelRoutes`). One deploy serves the ChatGPT plugin or the Muse connector, not both: they share `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS`.
+`MUSE_CONNECTOR` in `tools/muse-connector.mjs` is on only for a staging build (`KINGDOWN_STAGE=staging`, as `tools/release/staging.py` builds). A production build leaves the connector out (`KINGDOWN_MUSE=false`), and `/muse/mcp` answers 404. To serve it, build with `muse: true` (`buildPluginServer`, `vercelRoutes`, or `--muse` on `tools/plugin-server-build.mjs`).
+
+One build can serve the ChatGPT plugin and the Muse connector at once. `CHATGPT_PLUGIN` (`tools/chatgpt-plugin.mjs`) does not follow this switch: it is on for production and off for staging. So the release that sets `MUSE_CONNECTOR` to true for production keeps the ChatGPT plugin on. In such a build:
+
+- `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` lists both client IDs. Each listed ID must have its row in `kingdown_oauth.client_resources` with the resource of a served connector (`/mcp` or `/muse/mcp`), else the server does not start and every path answers 503.
+- `/mcp` accepts a token only when its `aud` is the `/mcp` resource and its client maps to `/mcp`; `/muse/mcp` does the same for its resource. A served connector without a listed client refuses every token; the server logs a warning and still starts.
+- The consent page has both texts. `src/plugin/consent.ts` shows the Muse text when the client of the authorization maps to `/muse/mcp`, else the ChatGPT text. The review password form stays.
+- Check the tree with `npm run check:vercel -- <tree> --chatgpt --muse` (build it with `node tools/plugin-server-build.mjs <tree> --site --chatgpt --muse`). `tools/deploy-plugin-live-check.mjs` checks the connectors that the tree has.
 
 ## Server settings
 
-With the connector on, the server needs the same settings as the ChatGPT plugin ([plugin-preparation.md](plugin-preparation.md)): `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` (the Muse client ID; not a secret), `KINGDOWN_PLUGIN_OAUTH_READY=1`, and `KINGDOWN_PLUGIN_DATABASE_URL`. Values live in the private env files ([HOSTING.md](HOSTING.md)); never paste them in chat.
+With the connector on, the server needs the same settings as the ChatGPT plugin ([plugin-preparation.md](plugin-preparation.md)): `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` (the Muse client ID, and the ChatGPT client ID when the build serves both; not secrets), `KINGDOWN_PLUGIN_OAUTH_READY=1`, and `KINGDOWN_PLUGIN_DATABASE_URL`. Values live in the private env files ([HOSTING.md](HOSTING.md)); never paste them in chat.
 
 ## Database and Supabase
 
@@ -43,7 +50,7 @@ With the connector on, the server needs the same settings as the ChatGPT plugin 
 
 ## Disconnect and deletion
 
-The Connector Terms ask for the deletion of user data when the user revokes access. The owner decided on 2026-11-12: a disconnect deletes the games played through Muse ([data-processing.md](specs/muse-connector/data-processing.md), section 5; [ticket 18](specs/muse-connector/issues/18-disconnect-deletion.md)).
+The Connector Terms ask for the deletion of user data when the user revokes access. The owner decided on 2026-11-12: a disconnect deletes the games played through Muse ([data-processing.md](specs/muse-connector/data-processing.md), section 5; [ticket 19](specs/muse-connector/issues/19-disconnect-deletion.md)).
 
 - A game played through Muse is a game against the computer that started in Muse: its start receipt has the surface `muse`. A game that started on the website stays, also when the user moved in it through Muse.
 - Muse sends no signal on a disconnect, and Supabase has no revocation endpoint that Muse can call. Thus two paths:
@@ -69,6 +76,10 @@ Owner steps, on staging first, then on production in the release that turns the 
 ## Deploy
 
 Staging: a staging deploy (`python3 tools/release/staging.py`) of a branch with this switch serves the connector at `https://kingdown-staging.vercel.app/muse/mcp`. Before the first such deploy, three steps are done by hand (2026-11-08, [ticket 11](specs/muse-connector/issues/11-staging-oauth.md)): migration 0023 in the staging SQL editor (and 0024 with the sweep, "Disconnect and deletion" above), the Muse row of the audience hook, and the staging Preview value `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` set to only the Muse client ID. `staging.py` does none of them. If one is wrong, the server stops at start and every staging path, `/api/*` too, answers 503; `staging.py` moves the alias before its `/api/status` check, so set the alias back to the previous deployment by hand. Live only after the Muse review passes and the owner says so.
+
+## Production release
+
+The release that turns the connector on at `https://kingdown.dev/muse/mcp` follows [the production runbook](specs/muse-connector/production-runbook.md): the Supabase dashboard steps, the SQL, the server values, the code change, the deploy, the checks and the rollback. It also parks the ChatGPT plugin, because one build serves only one connector. Read its part 0 first. Its steps marked [503] can stop every server path; each has a check before the deploy.
 
 ## Owner steps
 

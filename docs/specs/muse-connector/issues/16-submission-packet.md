@@ -24,5 +24,6 @@ What does the Muse form need, in final words?
 - Step 3, the data-processing answers: [data-processing.md](../data-processing.md). Each fact names its file. The **[owner fact: ...]** marks, listed at the end of the file, wait for the owner.
 - Step 5, the demo script: [demo-script.md](../demo-script.md), with real results of the in-memory fixture.
 - Review of PR 344 (independent): no must-fix fault. Fixed on the same branch: the true retry behaviour in the tool docs, the real grants of the runtime role, a repeatable demo (the ambiguous and refused scenes now run before the first move), and the notes on the count order, the SDK input-check error, the `runDeletions` reference, the demo word sources and the Meta mention in the privacy page.
-- Step 3, deletion on revocation: the owner chose deletion of the Muse games (2026-11-12). [Ticket 18](18-disconnect-deletion.md) builds it; section 5 of data-processing.md gives the mechanism and the answer.
-- Open: step 1 (the overview) and step 4 (the privacy policy names Meta).
+- Step 3, deletion on revocation: the owner chose deletion of the Muse games (2026-11-12). [Ticket 19](19-disconnect-deletion.md) builds it; section 5 of data-processing.md gives the mechanism and the answer.
+- Step 1, the overview: [overview.md](../overview.md) gives a value for each field of the form's Overview step, with the example prompts and the reviewer sign-in note. Each claim names its file. The fields marked **[owner]** (company or developer, your name, work email) wait for the owner. The icon `public/icons/icon-512.png` is 512 × 512 (2026-11-12).
+- Open: step 4 (the privacy policy names Meta). The overview needs a new read after tickets 12, 13 and 14.
