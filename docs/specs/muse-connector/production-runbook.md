@@ -1,17 +1,17 @@
 # Muse connector: production release runbook
 
-This runbook turns the Muse connector on at `https://kingdown.dev/muse/mcp`. It copies the steps that passed on staging on 2026-11-08 ([ticket 11](issues/11-staging-oauth.md), [ticket 15](issues/15-review-accounts.md)). Do the parts in order. Each part has a check. Do not go to the next part until the check passes.
+This runbook turns the Muse connector on at `https://kingdown.dev/muse/mcp`. The ChatGPT plugin at `https://kingdown.dev/mcp` stays on: one build serves both connectors (PR 354, [ticket 18](issues/18-both-connectors.md)). It copies the steps that passed on staging on 2026-11-08 ([ticket 11](issues/11-staging-oauth.md), [ticket 15](issues/15-review-accounts.md)). Do the parts in order. Each part has a check. Do not go to the next part until the check passes.
 
 - Production Supabase project: `utqzovjmclfyojedmwok` (`https://utqzovjmclfyojedmwok.supabase.co`).
-- Production resource: `https://kingdown.dev/muse/mcp`.
+- Production resources: `https://kingdown.dev/muse/mcp` (Muse, new) and `https://kingdown.dev/mcp` (ChatGPT, no change).
 - `<MUSE_CLIENT_ID>` in this file is the client ID of the production "Muse" OAuth client (part 1). It is not a secret. It is not the staging client ID.
 
-**503 steps.** A wrong value in a step marked **[503]** stops the server at start. Then every server path answers 503: `/api/*` (sign-in, games), `/internal/*` and `/muse/mcp`. The static website still loads, but no player can play online. Each [503] step has a check before the deploy.
+**503 steps.** A wrong value in a step marked **[503]** stops the server at start. Then every server path answers 503: `/api/*` (sign-in, games), `/internal/*`, `/mcp` and `/muse/mcp`. The static website still loads, but no player can play online. Each [503] step has a check before the deploy.
 
 ## Part 0. Decide first (owner)
 
-1. **The ChatGPT plugin stops.** Today one build serves the ChatGPT plugin or the Muse connector, not both (`CHATGPT_PLUGIN` is `!MUSE_CONNECTOR`). So this release makes `/mcp`, its metadata and the OpenAI domain challenge answer 404. The plugin is in the OpenAI review since 2026-11-10 (PRs 348 to 351). Start only when the owner accepts that it stops, or after the change that serves both (part 3, first note).
-2. **Deploy freeze.** From the merge of part 3 until part 7 check 1 passes, no other production deploy may run. After that merge, each deploy of main is a Muse build. Before part 4 it gets the ChatGPT client ID, and every path answers 503. So merge part 3 just before part 4, and do parts 4 to 7 in one session.
+1. **The ChatGPT plugin stays on.** This release adds Muse next to it. The OpenAI review address stays in the password list (part 2.4).
+2. **Deploy freeze.** From part 4 until part 7 check 1 passes, no other production deploy may run. The Muse client ID goes into the production list only in the same release that turns Muse on: a build without Muse (each commit before the part 3 merge) does not serve `/muse/mcp`, so the Muse row does not match, and every path answers 503. Do parts 4 to 7 in one session.
 
 ## Part 1. Production Supabase dashboard (owner)
 
@@ -92,7 +92,7 @@ values ('<MUSE_CLIENT_ID>', 'https://kingdown.dev/muse/mcp')
 on conflict (client_id) do update set resource = excluded.resource;
 ```
 
-Keep the ChatGPT row (resource `https://kingdown.dev/mcp`). A rollback to the ChatGPT build needs it.
+Keep the ChatGPT row (resource `https://kingdown.dev/mcp`). The ChatGPT plugin needs it in this release and after.
 
 Check before deploy (the same read that `checkPluginDatabase` in `tools/plugin-db-check.mjs` does at start):
 
@@ -100,7 +100,7 @@ Check before deploy (the same read that `checkPluginDatabase` in `tools/plugin-d
 select client_id::text, resource from kingdown_oauth.client_resources order by resource;
 ```
 
-There must be exactly one row with client ID `<MUSE_CLIENT_ID>` and resource `https://kingdown.dev/muse/mcp`, with no slash at the end, in lower case. A wrong client ID, a wrong origin or a missing row makes every server path answer 503.
+There must be exactly two rows: the ChatGPT client ID with `https://kingdown.dev/mcp`, and `<MUSE_CLIENT_ID>` with `https://kingdown.dev/muse/mcp`. Each has no slash at the end and is in lower case. A wrong client ID, a wrong origin or a missing row makes every server path answer 503.
 
 ### 2.4 The password accounts list
 
@@ -112,7 +112,7 @@ select email from kingdown_auth.password_accounts order by email;
 
 Each address in the list can get a password session. Remove each address that is not necessary now:
 
-- The OpenAI review address: keep it now. Remove it only after part 7 check 1 passes, when the ChatGPT plugin has stopped (part 0). A rollback before that point brings the ChatGPT plugin back, and OpenAI needs the address again.
+- Keep the OpenAI review address: the ChatGPT plugin stays on.
 - Keep an address that is still in use, for example the App Review account of iOS [ticket 10](../ios-app/issues/10-review-sign-in.md).
 
 For each address to remove (lower case), run both lines. The second line signs the account out on every device and removes its refresh tokens:
@@ -140,39 +140,27 @@ Check: the read of 2.4 shows the two new addresses and no address that you remov
 
 ## Part 3. The code change (agent, pull request; not in this runbook's PR)
 
-Note: a separate PR now makes one build serve both connectors. When it merges, parts 0, 3 and 4 change: the ChatGPT plugin stays on, and its client ID stays in the list next to the Muse client ID.
+The switch `MUSE_CONNECTOR` in `tools/muse-connector.mjs` is on only when `KINGDOWN_STAGE=staging`, and `tools/deploy.sh` refuses `KINGDOWN_STAGE`. So a production build leaves Muse out. PR 354 did most of the work: `CHATGPT_PLUGIN` no longer follows the Muse switch, the live check (`tools/deploy-plugin-live-check.mjs`) checks each served connector, and the tests and checks accept a build with both. One PR to main makes these changes:
 
-The switch `MUSE_CONNECTOR` in `tools/muse-connector.mjs` is on only when `KINGDOWN_STAGE=staging`, and `tools/deploy.sh` refuses `KINGDOWN_STAGE`. So a production build always leaves Muse out. One PR to main makes these changes:
+1. `tools/muse-connector.mjs`: `export const MUSE_CONNECTOR = true;`. `CHATGPT_PLUGIN` stays true for production, so the production build serves both connectors.
+2. Run `npm test`, `npm run test:docs` and `npm run check:vercel` on a production build (no `KINGDOWN_STAGE`).
+3. Docs: the switch section of [MUSE.md](../../MUSE.md#the-switch) and "The ChatGPT plugin" in [HOSTING.md](../../HOSTING.md#the-chatgpt-plugin).
 
-1. `tools/muse-connector.mjs`: `export const MUSE_CONNECTOR = true;` (on for production and staging). Then `CHATGPT_PLUGIN` is false in every build.
-2. `tools/deploy-plugin-live-check.mjs` **(release blocker)**: today a build with `consent.mjs` runs the ChatGPT check. It expects 200 from `/.well-known/oauth-protected-resource/mcp` and 401 from `/mcp`. A Muse build has `consent.mjs` but parks `/mcp`, so this check fails **after** the publish, and `deploy.sh` reports a fault on a site that is live. Add a Muse branch:
-   - `GET /.well-known/oauth-protected-resource/muse/mcp` answers 200, with resource `https://kingdown.dev/muse/mcp` and issuer `https://utqzovjmclfyojedmwok.supabase.co/auth/v1`.
-   - An unsigned `POST /muse/mcp` answers 401 with `Bearer resource_metadata="https://kingdown.dev/.well-known/oauth-protected-resource/muse/mcp", scope="openid"`.
-   - `/authorize` and `/consent.mjs` answer as the ChatGPT check expects (the shared consent page).
-   - The other `PARKED_PATHS` (`/mcp`, the `/mcp` metadata, the root `/.well-known/oauth-protected-resource`, the domain challenge) and the board art answer 404.
-3. Tests and checks that expect the ChatGPT build on production. Change each to follow the switch:
-   - `tools/openai-challenge.test.ts` expects `CHATGPT_PLUGIN` to be true.
-   - `tools/plugin-server-config.test.ts` (near line 92).
-   - `tools/plugin-server-build.test.ts` (near line 97).
-   - `tools/web-online-check.mjs` (lines 353 to 355): `PARKED_PATHS` includes `/authorize` and `/consent.mjs`, which a Muse build serves.
-4. Run `npm test`, `npm run test:docs`, `npm run check:vercel` on a production build (no `KINGDOWN_STAGE`), and `npm run plugin:server:check`. `tools/vercel-check.mjs` and `tools/plugin-server-check.mjs` already read both switches; check that they pass with the production tree.
-5. Docs: the switch section of [MUSE.md](../../MUSE.md#the-switch) and "The ChatGPT plugin" in [HOSTING.md](../../HOSTING.md#the-chatgpt-plugin).
-
-Merge it only after parts 1 and 2 pass and the owner gives the word, just before part 4. The deploy freeze of part 0 starts at this merge.
+Merge it only after parts 1 and 2 pass and the owner gives the word. A deploy of this build before part 4 starts: the server serves `/muse/mcp` with no Muse client, refuses each Muse token and logs a warning. The ChatGPT plugin works. Even so, do part 4 and part 6 in the same session.
 
 ## Part 4. The production server values **[503]**
 
-The production project `kingdown` has seven server keys (`tools/deploy-plugin-env.mjs`). The Muse build changes one value:
+The production project `kingdown` has seven server keys (`tools/deploy-plugin-env.mjs`). The release changes one value:
 
 | Key | Value for the Muse build |
 | --- | --- |
-| `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` | `<MUSE_CLIENT_ID>` only |
+| `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` | `<CHATGPT_CLIENT_ID>,<MUSE_CLIENT_ID>` (both, comma between, no space) |
 | `KINGDOWN_PLUGIN_OAUTH_READY` | `1` (no change) |
 | `KINGDOWN_PLUGIN_ORIGIN` | `https://kingdown.dev` (no change) |
 | `SUPABASE_URL` | `https://utqzovjmclfyojedmwok.supabase.co` (no change) |
 | `SUPABASE_PUBLISHABLE_KEY`, `KINGDOWN_PLUGIN_DATABASE_URL`, `KINGDOWN_INTERNAL_SECRET` | no change |
 
-**The ChatGPT client ID must go out of the list.** At start, `checkPluginDatabase` needs one row with the Muse resource for each listed ID. The ChatGPT client has only its `/mcp` row (`client_id` is the primary key). So if its ID stays in the list, every path answers 503.
+**Both IDs stay in the list.** At start, `checkPluginDatabase` needs, for each listed ID, a row whose resource is one that the build serves. The ChatGPT ID needs its `/mcp` row, and the Muse ID needs its `/muse/mcp` row. A listed ID without such a row makes every path answer 503. If the ChatGPT ID goes out, the server starts, but the ChatGPT plugin refuses every token.
 
 Each start check of `configurePlugin` and the value it needs (a fault in any one gives 503):
 
@@ -182,16 +170,16 @@ Each start check of `configurePlugin` and the value it needs (a fault in any one
 | Client list | `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` is a list of UUIDs, not empty |
 | Supabase OAuth discovery | `https://utqzovjmclfyojedmwok.supabase.co/.well-known/oauth-authorization-server/auth/v1` answers 200, with issuer `https://utqzovjmclfyojedmwok.supabase.co/auth/v1` and scope `openid` |
 | Database | the migrations and runtime grants (no change in this release) |
-| Audience rows | one row for each listed ID with resource `https://kingdown.dev/muse/mcp` (part 2.3) |
+| Audience rows | for each listed ID, one row with a served resource: `https://kingdown.dev/mcp` or `https://kingdown.dev/muse/mcp` (part 2.3) |
 
 Steps:
 
-1. Write down the old value of `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` (the ChatGPT client ID) in the release log. It is not a secret. A rollback (part 8) needs it. Do not make a second copy of the env file: it holds secrets.
-2. Check that the private env file that `tools/deploy.sh --configure` reads (mode 600, seven `KEY=value` lines; [HOSTING.md](../../HOSTING.md)) holds the live values. `--configure` writes all seven keys with `--force`, so an old value in the file replaces the live value. Then change only the `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` line to `<MUSE_CLIENT_ID>`.
+1. Write down the old value of `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` (`<CHATGPT_CLIENT_ID>`) in the release log. It is not a secret. A rollback (part 8) needs it. Do not make a second copy of the env file: it holds secrets.
+2. Check that the private env file that `tools/deploy.sh --configure` reads (mode 600, seven `KEY=value` lines; [HOSTING.md](../../HOSTING.md)) holds the live values. `--configure` writes all seven keys with `--force`, so an old value in the file replaces the live value. Then change only the `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` line to `<CHATGPT_CLIENT_ID>,<MUSE_CLIENT_ID>`.
 3. Check before you send it. This prints a count, not a value; it must print `1`:
 
    ```bash
-   grep -cx 'KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS=<MUSE_CLIENT_ID>' <private-env-file>
+   grep -cx 'KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS=<CHATGPT_CLIENT_ID>,<MUSE_CLIENT_ID>' <private-env-file>
    ```
 
 4. Check the discovery (public, no key):
@@ -203,13 +191,13 @@ Steps:
    It must print `https://utqzovjmclfyojedmwok.supabase.co/auth/v1 true`.
 5. Send the values: `tools/deploy.sh --configure <private-env-file>`. This sets the production values of project `kingdown`. It does not deploy.
 
-**The deploy freeze of part 0 applies.** Vercel gives the new value only to the next deployment. The build and the value must match: a Muse build needs the Muse ID, and a ChatGPT build needs the ChatGPT ID. A mismatch fails the audience check, and every path answers 503.
+**The deploy freeze of part 0 applies.** Vercel gives the new value only to the next deployment. A build without Muse and the two-ID list fail the audience check, and every path answers 503. So no deploy of a commit before the part 3 merge may run after this step.
 
 ## Part 5. The last check before deploy
 
 Run all three checks. Each must pass.
 
-1. SQL: the read of 2.3 shows the Muse row; the reads of 2.1 and 2.2 pass.
+1. SQL: the read of 2.3 shows both rows; the reads of 2.1 and 2.2 pass.
 2. The env file check of part 4, step 3, prints `1`.
 3. `tools/release/live.sh check` (detached in tmux; it runs `tools/deploy.sh` on a fresh `origin/main` and publishes nothing). It must pass on the main commit with the part 3 change.
 
@@ -235,8 +223,8 @@ Unsigned (agent):
    ```
 
    It gives 401 and `Bearer resource_metadata="https://kingdown.dev/.well-known/oauth-protected-resource/muse/mcp", scope="openid"`.
-4. The ChatGPT surface is parked: `https://kingdown.dev/mcp` answers 404.
-5. The consent page: `https://kingdown.dev/authorize` answers 200 and names Muse, not ChatGPT.
+4. The ChatGPT plugin still works: `https://kingdown.dev/.well-known/oauth-protected-resource/mcp` gives `"resource":"https://kingdown.dev/mcp"`, and an unsigned `POST https://kingdown.dev/mcp` (the curl of check 3 with `/mcp`) gives 401 with `resource_metadata="https://kingdown.dev/.well-known/oauth-protected-resource/mcp"`. The deploy's live check also checks both connectors.
+5. The consent page: `https://kingdown.dev/authorize` answers 200 and has both texts. Without a sign-in it shows the ChatGPT text; for the Muse client it shows the Muse text after sign-in (check 8).
 6. The website: open `https://kingdown.dev`, start a game against the computer while signed out, and make one move.
 
 Signed in (owner; the agent does not sign in to the owner's account, AGENTS.md "Hosting"):
@@ -249,12 +237,16 @@ Signed in (owner; the agent does not sign in to the owner's account, AGENTS.md "
 
 Use this when a check of part 7 fails, or when the site answers 503.
 
-1. **Fast (the owner, Vercel dashboard):** project `kingdown` → **Deployments** → the previous production deployment (the ChatGPT build) → **Instant Rollback**. That deployment keeps the server values that it started with (the ChatGPT client ID), and its audience row (`/mcp`) is still in the database, so it starts. Check `https://kingdown.dev/api/status` (200) and `https://kingdown.dev/.well-known/oauth-protected-resource/mcp` (200).
-2. Set the old value back: in the private env file, change the `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` line to the ChatGPT client ID from the release log, then run `tools/deploy.sh --configure <private-env-file>`. **Deploy freeze:** from this step until the revert PR merges, no production deploy may run. Main is still a Muse build, and with the ChatGPT ID it answers 503.
-3. Revert the part 3 PR on a branch and merge the revert PR to main. The freeze ends here.
+If only Muse fails and the site and the ChatGPT plugin work (part 7 checks 1, 4 and 6 pass), use the short rollback: set the list back to `<CHATGPT_CLIENT_ID>` (as in part 4, steps 2 and 5), then run `tools/release/live.sh publish`. The build still serves `/muse/mcp`, but with no Muse client it refuses each Muse token. Revert the part 3 PR later, when the owner says so.
+
+If the site answers 503:
+
+1. **Fast (the owner, Vercel dashboard):** project `kingdown` → **Deployments** → the previous production deployment (the ChatGPT-only build) → **Instant Rollback**. That deployment keeps the server values that it started with (the ChatGPT client ID), and its audience row (`/mcp`) is still in the database, so it starts. Check `https://kingdown.dev/api/status` (200) and `https://kingdown.dev/.well-known/oauth-protected-resource/mcp` (200).
+2. Set the old value back: in the private env file, change the `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` line to `<CHATGPT_CLIENT_ID>` from the release log, then run `tools/deploy.sh --configure <private-env-file>`. Main (with Muse on) starts with this list, and so does the ChatGPT-only build.
+3. Find the cause of the 503 (`vercel logs` of the faulty deployment: "King Down startup failed"). Fix it, or revert the part 3 PR on a branch and merge the revert PR to main.
 4. Run `tools/release/live.sh publish`. After an Instant Rollback, Vercel stops moving the production domain to new deployments by itself. So the new deployment does not get `kingdown.dev`, and the live checks of `tools/deploy.sh --publish` can fail because they read the old deployment.
-5. In project `kingdown` → **Deployments**, open the new deployment of step 4 and press **Promote**. This ends the rollback state, and the domain follows production deployments again. Do not press **Undo Rollback**: it brings back the faulty Muse deployment. Then run `tools/release/live.sh publish` again, so that its live checks read the new deployment and pass.
-6. Keep the database changes. Migration 0023, the new resource check and the Muse row do not change the ChatGPT build. To stop the review accounts, use the two `delete` lines of 2.4 for each review address.
+5. In project `kingdown` → **Deployments**, open the new deployment of step 4 and press **Promote**. This ends the rollback state, and the domain follows production deployments again. Do not press **Undo Rollback**: it brings back the faulty deployment. Then run `tools/release/live.sh publish` again, so that its live checks read the new deployment and pass.
+6. Keep the database changes. Migration 0023, the new resource check and the Muse row do not change the ChatGPT plugin. To stop the review accounts, use the two `delete` lines of 2.4 for each review address.
 7. Do not delete the Muse OAuth client unless the owner says so. A new client gets a new ID, and the portal entry and the audience row must change with it.
 
 If only the Muse part fails (for example the portal test) and the site works, the owner can keep the release live and fix forward. Muse users see the connector only after Meta's review passes.
