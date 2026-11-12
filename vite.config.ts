@@ -4,6 +4,7 @@ import { privateRuntimeData, validateManifest, validateRuntimeImage } from './to
 import { splitManifest, writeRuntimeParts } from './tools/lib/character-runtime-split.mjs';
 import { pluginSymbols } from './tools/lib/plugin-symbols.mjs';
 import { buildWorker } from './tools/plugin-runtime-build.mjs';
+import { MUSE_CONNECTOR } from './tools/muse-connector.mjs';
 import { configDefaults, defineConfig, type Plugin } from 'vitest/config';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -133,7 +134,9 @@ export function sharedSeatSelectors() {
 export default defineConfig({
   // Account routes share the site root; their assets must not resolve below /play/ or /g/.
   base: '/',
-  define: { __KINGDOWN_CHARACTER_RUNTIME__: JSON.stringify(existsSync(new URL('./public/character-runtime/manifest.json', import.meta.url))), __KINGDOWN_ERROR_FORMS__: JSON.stringify(sourceErrorForms()), __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()) },
+  define: { __KINGDOWN_CHARACTER_RUNTIME__: JSON.stringify(existsSync(new URL('./public/character-runtime/manifest.json', import.meta.url))), __KINGDOWN_ERROR_FORMS__: JSON.stringify(sourceErrorForms()), __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()),
+    // Settings shows "Disconnect Muse" only in a build that serves the Muse connector (src/account/account.ts).
+    __KINGDOWN_MUSE__: JSON.stringify(MUSE_CONNECTOR) },
   // Both servers listen on 127.0.0.1, the address that the checks call; a `--host` flag overrides it.
   server: { host: '127.0.0.1', port: +(process.env.PORT || 5173), strictPort: true },
   preview: { host: '127.0.0.1' },

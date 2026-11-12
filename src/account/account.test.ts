@@ -34,6 +34,15 @@ describe('Settings → Account', () => {
     expect(accountHtml(user, false)).toContain('Signed in with email');
   });
 
+  it('shows Disconnect Muse only when signed in, in a build that serves the Muse connector', () => {
+    const user = userOf({ app_metadata: { provider: 'email' }, user_metadata: {} });
+    expect(buttons(accountHtml(user, false, [], true))).toEqual(['Sign out', 'Disconnect Muse', 'Delete my account']);
+    expect(buttons(accountHtml(user, false, [], false))).toEqual(['Sign out', 'Delete my account']);
+    expect(buttons(accountHtml(null, false, ['github'], true))).toEqual(['Continue with GitHub']);
+    // The test build is not a staging build, so the default leaves the button out.
+    expect(buttons(accountHtml(user, false))).not.toContain('Disconnect Muse');
+  });
+
   it('ignores a name and picture that a stranger set on an email account', () => {
     expect(userOf({ app_metadata: { provider: 'email' }, user_metadata: { full_name: 'Any text', avatar_url: 'https://evil.example/x.png' } })).toEqual({ name: 'Player', avatar: null, provider: 'email' });
   });

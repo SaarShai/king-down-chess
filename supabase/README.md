@@ -60,7 +60,7 @@ Install the audience hook and runtime-role blocks 1–2 once, through the privat
 ## Online games: 0005 to 0014
 
 Apply only missing files in order, after 0001–0004, through the approved privileged SQL Editor path.
-`npm run plugin:db:migrate` applies 0002–0023. Use it only for a disposable test database. Do not run its
+`npm run plugin:db:migrate` applies 0002–0024. Use it only for a disposable test database. Do not run its
 `tsx` entry against a live database. For the 0014 MVP, apply the third to the eleventh blocks of
 `plugin-deploy/runtime-role.sql` to the existing runtime role. The web section below adds block 12.
 The migrations are safe to run again.
@@ -128,7 +128,7 @@ in one short window:
 
 - `0014_plugin_tool_tries.sql`: one counter for each user and tool. Role block 11 grants the server access. Browser roles have no access.
 
-`npm run plugin:db:init-test` applies 0001–0023 twice to a disposable loopback database, and
+`npm run plugin:db:init-test` applies 0001–0024 twice to a disposable loopback database, and
 `src/match/service.db.test.ts`, `src/match/setup.db.test.ts`, `src/match/matchmaking.db.test.ts`,
 `src/match/results.db.test.ts`, `src/online/jobs.db.test.ts`, `src/online/accounts.db.test.ts` and
 `src/api/http.db.test.ts` check them.
@@ -141,7 +141,7 @@ in one short window:
 
 ## Web account access: 0016
 
-For a new database after 0001–0004, apply 0005–0023, then blocks 3–13 of `plugin-deploy/runtime-role.sql`.
+For a new database after 0001–0004, apply 0005–0024, then blocks 3–13 of `plugin-deploy/runtime-role.sql`.
 An existing database needs only the missing files and blocks, under the authority below.
 
 Apply only missing migrations in order through `0016_web_account_access.sql`, then block 12 of
@@ -235,3 +235,13 @@ The file checks for invalid indexes before it attaches constraints. Do not skip 
   The Muse connector writes it. Existing rows and grants stay the same.
   Apply 0023 on staging before a deploy that turns on the Muse connector.
   Apply 0023 on production before the release that turns it on.
+
+## Muse disconnect: 0024
+
+- `0024_muse_disconnect.sql`: deletes the games played through Muse when the user disconnects Muse ([docs/MUSE.md](../docs/MUSE.md), "Disconnect and deletion").
+  A Muse game is a game against the computer whose start receipt has the surface `muse`; the file marks the older Muse start receipts by their start command ID `muse:<request_id>`.
+  `public.delete_my_muse_games()` (the Settings button, after `revokeGrant`) and the procedure `kingdown_jobs.sweep_muse_games()` (daily, one transaction for each user, `plugin-deploy/muse-sweep-cron.sql`) call `kingdown_jobs.delete_muse_games`.
+  The functions read `auth.sessions` and `kingdown_oauth.client_resources`; no trigger on the auth schema. Browser roles get only the two `public` functions.
+  Run 0024 again after the first deploy whose server writes the surface: it marks the Muse starts of the older server.
+  Apply 0024 on staging before a deploy that turns on the Muse connector.
+  Apply 0024 on production before the release that turns it on.
