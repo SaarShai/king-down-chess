@@ -53,7 +53,7 @@ Staging: a staging deploy (`python3 tools/release/staging.py`) of a branch with 
 
 ## Production release
 
-The release that turns the connector on at `https://kingdown.dev/muse/mcp` follows [the production runbook](specs/muse-connector/production-runbook.md): the Supabase dashboard steps, the SQL, the server values, the code change, the deploy, the checks and the rollback. It also parks the ChatGPT plugin, because one build serves only one connector. Read its part 0 first. Its steps marked [503] can stop every server path; each has a check before the deploy.
+The release that turns the connector on at `https://kingdown.dev/muse/mcp` follows [the production runbook](specs/muse-connector/production-runbook.md): the Supabase dashboard steps, the SQL, the server values, the code change, the deploy, the checks and the rollback. The ChatGPT plugin stays on: one build serves both connectors. Read its part 0 first. Its steps marked [503] can stop every server path; each has a check before the deploy.
 
 ## Owner steps
 
