@@ -12,6 +12,7 @@ This runbook turns the Muse connector on at `https://kingdown.dev/muse/mcp`. The
 
 1. **The ChatGPT plugin stays on.** This release adds Muse next to it. The OpenAI review address stays in the password list (part 2.4).
 2. **Deploy freeze.** From part 4 until part 7 check 1 passes, no other production deploy may run. The Muse client ID goes into the production list only in the same release that turns Muse on: a build without Muse (each commit before the part 3 merge) does not serve `/muse/mcp`, so the Muse row does not match, and every path answers 503. Do parts 4 to 7 in one session.
+3. **Disconnect and deletion.** Do the owner steps of [docs/MUSE.md, "Disconnect and deletion"](../../MUSE.md#disconnect-and-deletion) in this release: migration 0024 and its check before the deploy, 0024 again after it, the test-account check, and only then the daily sweep.
 
 ## Part 1. Production Supabase dashboard (owner)
 
