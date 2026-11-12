@@ -137,8 +137,9 @@ export class GameService {
   if (!secret || secret.length < 32) return fail('UNAVAILABLE', 503, 'Invitation codes are unavailable. Try again later.');
   return createHmac('sha256', secret).update('kingdown:invite-code:').update(code).digest('hex');
  }
- /** With a command ID, a resent Create (the reply was lost or late) gets the first game; other input is COMMAND_CONFLICT. */
- async create(actor: string, input: unknown, commandId?: string): Promise<View> {
+ /** With a command ID, a resent Create (the reply was lost or late) gets the first game; other input is COMMAND_CONFLICT.
+  * `surface` marks the start receipt: 'muse' marks a game played through Muse (migration 0024 deletes those on a disconnect). */
+ async create(actor: string, input: unknown, commandId?: string, surface: Surface | null = null): Promise<View> {
   actor = id(actor); const options = canonicalCreate(parse(createSchema, input)), key = startKey(options);
   if (options.level && !options.options) fail('INVALID_INPUT', 400, 'A computer level needs game options');
   if (options.kind !== 'solo') await this.requireHandle(actor);
@@ -158,7 +159,7 @@ export class GameService {
    if (send) await this.checkSend(client, actor, recipient);
    if (!await this.store.insert(game, client)) return this.view(actor, game.id);
    const invite = send ? await this.issue(client, game, actor, recipient) : undefined;
-   const view = commandId === undefined ? await this.render(game, seatOf(game, actor), { client, rules: true }) : await this.receipt(client, game, actor, commandId, key);
+   const view = commandId === undefined ? await this.render(game, seatOf(game, actor), { client, rules: true }) : await this.receipt(client, game, actor, commandId, key, surface);
    return { ...view, ...(invite && { invite }) };
   });
  }
@@ -176,10 +177,10 @@ export class GameService {
   return this.render(game, seatOf(game, actor), { client, rules: true });
  }
  /** Writes the start receipt on a game that a start made or reused: a 'start' row with the command ID and the input. */
- private async receipt(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string, commandId: string, key: StartKey): Promise<View> {
+ private async receipt(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string, commandId: string, key: StartKey, surface: Surface | null = null): Promise<View> {
   if (game.revision >= START_RECEIPTS) fail('RATE_LIMITED', 429, 'Too many starts on this open game. Wait for an opponent, or cancel the game.');
   const next = step(game), seat = seatOf(game, actor);
-  await this.write(client, game, next, { seat, actor_id: actor, command_id: commandId, kind: 'start', payload: key, actions: null, surface: null, received_at: new Date() });
+  await this.write(client, game, next, { seat, actor_id: actor, command_id: commandId, kind: 'start', payload: key, actions: null, surface, received_at: new Date() });
   return this.render(next, seat, { client, rules: true });
  }
  private async newGame(actor: string, input: CreateOptions, gameId: string = randomUUID()): Promise<Game> {

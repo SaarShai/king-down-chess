@@ -139,7 +139,7 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
   // The same for the Muse connector (KINGDOWN_MUSE=false leaves it out): the game service on the 'muse' surface.
   const museHandler = import.meta.env?.KINGDOWN_MUSE !== false && serveMuse
     ? (await import('../src/muse/http.ts')).createMuseHandler({ publicOrigin, auth: museAuth, localDev, consent, games: {
-      create: (actor, input, commandId) => games.create(actor, input, commandId),
+      create: (actor, input, commandId) => games.create(actor, input, commandId, 'muse'),
       command: (actor, gameId, input) => games.command(actor, gameId, input, 'muse'),
       view: (actor, gameId, since) => games.view(actor, gameId, since),
       inbox: actor => games.inbox(actor),

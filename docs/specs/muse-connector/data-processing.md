@@ -20,7 +20,7 @@ Each fact names the file that proves it. The mark **[owner fact: ...]** shows a 
 | Handle | Not used. | No. The tools give no handle: not the handle of the user, not the handle of an opponent. | `kingdown_games` description in `src/muse/tools.ts`; the person-game test in `src/muse/tools.test.ts` checks each field of the result |
 | Games against the computer | List, show, play and end the games that the user asks for. | Yes: game ID, colour, status, turn, move number, level, revision, position (FEN), legal-move count, the last moves as words, the board as text, the ending and a link. | Output schemas in [tool-docs.md](tool-docs.md) |
 | Games against a person | Show the turn status. | Only the game ID, colour, status, turn, move number and link. No position and no moves. | `kingdown_view` in `src/muse/tools.ts`; the person-game test in `src/muse/tools.test.ts` |
-| New games and moves | The server writes them to the game tables, as the website does. Each command has the surface `muse`. A new game keeps `muse:<request_id>` as its start command ID. | The result of each move goes to Muse (row above). | `supabase/migrations/0023_muse_surface.sql`, `src/match/service.ts` (`command`), `src/muse/tools.ts` (`kingdown_new_game`) |
+| New games and moves | The server writes them to the game tables, as the website does. Each command has the surface `muse`, the start receipt of a new game too. A new game keeps `muse:<request_id>` as its start command ID. | The result of each move goes to Muse (row above). | `supabase/migrations/0023_muse_surface.sql`, `src/match/service.ts` (`create`, `command`), `tools/plugin-server.mjs` (the Muse adapter), `src/muse/tools.ts` (`kingdown_new_game`) |
 | The words of a move (`said`) | The server matches them against the legal moves. It does not store them; only the move that plays goes to the game. | They come from Muse. | `src/muse/tools.ts` (`kingdown_move`), `src/muse/match-words.ts` |
 | Tool counters | One row for each account and counter: the start of the window and the count. | No. | `supabase/migrations/0014_plugin_tool_tries.sql`, `src/match/store.ts` (`toolTry`) |
 | Email address | The server does not read or store it. Each request asks Supabase `/auth/v1/user`, and the server reads only the `id` of the answer. | The access-token hook keeps every claim of the Supabase token. A staging token of the Muse client (2026-11-08, [ticket 11](issues/11-staging-oauth.md)) has the `email` claim, so Muse keeps the email address inside the token. | `src/plugin/auth.ts`, `plugin-deploy/oauth-audience-hook.sql` |
@@ -39,7 +39,8 @@ Only to run the games that the user asks for in Muse: start a game, show it, pla
 | Data | Period | Proof |
 |---|---|---|
 | Account, profile and settings | While the account is open. | `public/privacy.html`, "How long we keep it" |
-| Games against the computer (Muse games too), with their commands | While the account is open. The deletion job deletes them after the seven-day grace. | `kingdown_jobs.delete_account` in `supabase/migrations/0022_friend_invites.sql`; `game_commands` has `on delete cascade` (`supabase/migrations/0006_games.sql`) |
+| Games against the computer, with their commands | While the account is open. The deletion job deletes them after the seven-day grace. | `kingdown_jobs.delete_account` in `supabase/migrations/0022_friend_invites.sql`; `game_commands` has `on delete cascade` (`supabase/migrations/0006_games.sql`) |
+| Games played through Muse (started in Muse), with their commands | Until the user disconnects Muse on kingdown.dev (deleted at once), or until 30 days after the last use of the Muse link (the daily sweep), or until the account deletion, whichever comes first. | `supabase/migrations/0024_muse_disconnect.sql`; section 5 |
 | Games against a person | After a deletion, they stay in the history of the other player, without the account ID or email address. Muse makes no game against a person. | `public/privacy.html`; [spec.md](spec.md), "Limits of version 1" |
 | Tool counters | One row for each account and counter, used again in each window. It goes with the account (`on delete cascade`). | `supabase/migrations/0014_plugin_tool_tries.sql` |
 | Deletion record | The account ID and the dates stay, to show the deletion. | `public/privacy.html` |
@@ -54,11 +55,17 @@ The other cleanup periods do not touch Muse data: boards after 7 days, outbox ro
 
 ### On revocation
 
-- Each request checks the access token at Supabase (`/auth/v1/user`). The server refuses a token whose session ended, also before the token expires (`src/plugin/auth.ts`; the test "rejects an unexpired signed token after its provider session is revoked" in `src/plugin/auth.test.ts`). The connector keeps no token and no session of its own: each request is stateless (`src/muse/http.ts`). Thus access stops at the next call after Supabase ends the grant.
-- The connector has no store of its own. The data that it writes are games of the King Down account of the user, and they also show on kingdown.dev ([ticket 06](issues/06-game-backend.md)).
-- No code runs when a user disconnects King Down in Muse. Meta names no revocation endpoint (research report, section 2).
-- [owner fact: what Muse does when a user disconnects (a call to a revocation endpoint, or only the deletion of its token), and whether Supabase then ends the grant.]
-- [owner fact: the answer to give. Draft: "When the user revokes access, King Down refuses each later call. The games stay in the King Down account of the user, who controls them on kingdown.dev and deletes them with the account." The Connector Terms ask for the deletion of user data at revocation (research report, section 5). If the owner reads "user data" to include the games played through Muse, a new job must delete them at revocation, and that needs its own ticket.]
+Decision of the owner, 2026-11-12: a disconnect deletes the games played through Muse. The Connector Terms ask for the deletion of user data at revocation (research report, section 5).
+
+- Which games: the games against the computer that started in Muse. Their start receipt has the surface `muse` (`src/match/service.ts`, `create`; the Muse adapter in `tools/plugin-server.mjs`). A game that started on the website stays, also when the user moved in it through Muse: the user made it outside Muse.
+- The signal: Muse names no revocation call (research report, section 2), and Supabase has no token revocation endpoint (RFC 7009): its OAuth server metadata names none, and its router has none (Supabase Auth source, `internal/api/api.go`, `internal/api/jwks.go`). Supabase revokes a grant only by the user's own call `DELETE /auth/v1/user/oauth/grants` (`revokeGrant`). That call sets `auth.oauth_consents.revoked_at` and deletes the sessions of that client (`UserRevokeOAuthGrant`, `internal/api/oauthserver/handlers.go`). Thus a disconnect inside Muse reaches King Down only as a link that is no longer used.
+- Path 1, at once: **Settings → Account → Disconnect Muse** on kingdown.dev. The browser calls `revokeGrant` for each Muse client, then `public.delete_my_muse_games()` (`src/account/client.ts`, `disconnectMuse`). The function deletes the Muse games of the caller when no Muse session exists; a Muse session that still exists keeps them. The button shows only in a build with `MUSE_CONNECTOR` on (`src/account/account.ts`).
+- Path 2, the backstop: a daily pg_cron job (`plugin-deploy/muse-sweep-cron.sql`) runs `kingdown_jobs.sweep_muse_games()`. It deletes the Muse games of each user whose Muse link has no session, or whose newest Muse session refresh (or start) is older than 30 days. This covers a disconnect inside Muse, and a button run whose revoke worked but whose deletion failed.
+- Both paths call `kingdown_jobs.delete_muse_games` (`supabase/migrations/0024_muse_disconnect.sql`): the account lock, then the games locked in ID order, then one delete, as `kingdown_jobs.delete_account` does. The commands and seats go with each game (`on delete cascade`). A second call deletes nothing. No trigger on the auth schema: the functions only read `auth.sessions` and `kingdown_oauth.client_resources`.
+- Access: each request checks the access token at Supabase (`/auth/v1/user`), so access stops at the next call after the revoke (`src/plugin/auth.ts`; the test "rejects an unexpired signed token after its provider session is revoked" in `src/plugin/auth.test.ts`). The connector keeps no token and no session of its own (`src/muse/http.ts`).
+- What stays: games that started on the website, the account, and the Supabase consent row (revoked, or unused after a disconnect inside Muse). Muse keeps what it already received under its own terms.
+- Tests: `src/muse/disconnect.db.test.ts` (which games, the button path, the sweep at 29 and 31 days, a reconnect).
+- Answer for the questionnaire: "When the user disconnects King Down on kingdown.dev (Settings → Account → Disconnect Muse), King Down revokes the link and deletes the games that the user started in Muse at once. When the user disconnects only in Muse, King Down deletes them 30 days after Muse last used the link. Each later call with an old token is refused."
 
 ### On request
 
@@ -103,7 +110,7 @@ The other cleanup periods do not touch Muse data: boards after 7 days, outbox ro
 - The Connector Terms ask for a notice to Meta within 48 hours of a security incident with user data, at vendor-incident@meta.com (research report, section 5; [ticket 10](issues/10-portal-access.md)).
 - Controls that the repository has:
   - Turn the connector off: set `MUSE_CONNECTOR` to `false` (`tools/muse-connector.mjs`) and deploy. Each Muse path then answers 404 (`docs/MUSE.md`).
-  - Stop new Muse tokens, with no deploy: delete the row of the Muse client in `kingdown_oauth.client_resources`. A new token then has no `/muse/mcp` audience, and the server refuses it (`plugin-deploy/oauth-audience-hook.sql`, `src/plugin/auth.ts`). A token from before stays valid until it expires.
+  - Stop new Muse tokens, with no deploy: delete the row of the Muse client in `kingdown_oauth.client_resources`. A new token then has no `/muse/mcp` audience, and the server refuses it (`plugin-deploy/oauth-audience-hook.sql`, `src/plugin/auth.ts`). A token from before stays valid until it expires. Without the row, the Muse sweep deletes nothing and the Disconnect Muse button revokes nothing: add the row again after the incident.
   - Rotate a secret that was shown: the rule in `AGENTS.md`, "Secrets".
   - Find the scope: the Vercel request logs, the Supabase logs and the fault reports (`public/privacy.html`).
 - Draft plan for the owner:
@@ -129,8 +136,8 @@ The other cleanup periods do not touch Muse data: boards after 7 days, outbox ro
 - [ ] The log periods in the Vercel and Supabase plans (section 4).
 - [ ] When each release backup schema is dropped, and whether `release_backup_20261022` still exists (section 4).
 - [ ] The Supabase platform backup period (section 4).
-- [ ] What Muse does on disconnect, and whether Supabase then ends the grant (section 5).
-- [ ] The revocation answer: keep the games in the account, or delete the Muse games at revocation (section 5).
+- [x] What Muse does on disconnect, and whether Supabase then ends the grant (section 5): Muse names no call, and Supabase has no revocation endpoint; the daily sweep covers it.
+- [x] The revocation answer (section 5): delete the Muse games (owner, 2026-11-12).
 - [ ] The TLS versions and HSTS of kingdown.dev on Vercel (section 6).
 - [ ] Encryption at rest at Supabase and Vercel (section 7).
 - [ ] Who has admin access, and how it is reviewed (section 8).

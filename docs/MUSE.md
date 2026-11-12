@@ -37,12 +37,30 @@ With the connector on, the server needs the same settings as the ChatGPT plugin 
 ## Database and Supabase
 
 - Migration `supabase/migrations/0023_muse_surface.sql` adds the `muse` surface to game commands and seats. Run it before a server that writes `muse` (release order in [supabase/README.md](../supabase/README.md)).
+- Migration `supabase/migrations/0024_muse_disconnect.sql` deletes the games played through Muse on a disconnect (next section). Run it before a server that serves the connector, and before the website build that shows "Disconnect Muse".
 - The audience hook template `plugin-deploy/oauth-audience-hook.sql` accepts a `/mcp` or a `/muse/mcp` resource. After a change, run it again in the SQL editor, then add the Muse client's row: `insert into kingdown_oauth.client_resources(client_id, resource) values ('<client id>', 'https://<origin>/muse/mcp');`
 - The Supabase OAuth client for Muse: public, PKCE, with the redirect URIs of [ticket 05](specs/muse-connector/issues/05-account-link.md).
 
+## Disconnect and deletion
+
+The Connector Terms ask for the deletion of user data when the user revokes access. The owner decided on 2026-11-12: a disconnect deletes the games played through Muse ([data-processing.md](specs/muse-connector/data-processing.md), section 5; [ticket 18](specs/muse-connector/issues/18-disconnect-deletion.md)).
+
+- A game played through Muse is a game against the computer that started in Muse: its start receipt has the surface `muse`. A game that started on the website stays, also when the user moved in it through Muse.
+- Muse sends no signal on a disconnect, and Supabase has no revocation endpoint that Muse can call. Thus two paths:
+  1. **Settings → Account → Disconnect Muse** (only in a build with `MUSE_CONNECTOR` on). The browser calls `revokeGrant` for each Muse client (Supabase revokes the consent and deletes the Muse sessions; the next Muse call is refused), then `public.delete_my_muse_games()` deletes the games at once. While a Muse session still exists, the function deletes nothing.
+  2. **The daily sweep** (`kingdown-muse-sweep`, 03:37 UTC) deletes the Muse games of each user whose Muse link has no session, or no use (a token refresh) in the last 30 days. This covers a disconnect inside Muse, and a button run where the revoke worked but the deletion failed.
+- The Muse clients are the rows of `kingdown_oauth.client_resources` with a `/muse/mcp` resource. With no such row, the sweep deletes nothing and the button revokes nothing. The incident step "stop new Muse tokens" (delete the row) thus also pauses the sweep: add the row again after the incident.
+
+Owner steps, on staging first, then on production in the release that turns the connector on (SQL editor of the project):
+
+1. Paste the whole of `supabase/migrations/0024_muse_disconnect.sql` and press **Run**. It is safe to run again.
+2. Check that the functions can read the auth tables and see the Muse client. Run `select kingdown_jobs.muse_last_use('00000000-0000-0000-0000-000000000000') as last_use, (select count(*) from kingdown_jobs.muse_clients()) as clients;`. Expect `last_use` null and `clients` 1, with no error. A "permission denied" error stops the release: tell the agent.
+3. pg_cron must be on (Database → Extensions; `supabase/ops/cron.sql`). Paste `plugin-deploy/muse-sweep-cron.sql` and press **Run**. Check: `select jobname, schedule, active from cron.job where jobname='kingdown-muse-sweep';` gives one active row.
+4. After the deploy, with a test account: connect Muse, start a game in Muse, then press **Settings → Account → Disconnect Muse** on the website. Expect "Muse is disconnected. We deleted the games you started in Muse.", the game gone from the game list, and the next Muse call refused.
+
 ## Deploy
 
-Staging: a staging deploy (`python3 tools/release/staging.py`) of a branch with this switch serves the connector at `https://kingdown-staging.vercel.app/muse/mcp`. Before the first such deploy, three steps are done by hand (2026-11-08, [ticket 11](specs/muse-connector/issues/11-staging-oauth.md)): migration 0023 in the staging SQL editor, the Muse row of the audience hook, and the staging Preview value `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` set to only the Muse client ID. `staging.py` does none of them. If one is wrong, the server stops at start and every staging path, `/api/*` too, answers 503; `staging.py` moves the alias before its `/api/status` check, so set the alias back to the previous deployment by hand. Live only after the Muse review passes and the owner says so.
+Staging: a staging deploy (`python3 tools/release/staging.py`) of a branch with this switch serves the connector at `https://kingdown-staging.vercel.app/muse/mcp`. Before the first such deploy, three steps are done by hand (2026-11-08, [ticket 11](specs/muse-connector/issues/11-staging-oauth.md)): migration 0023 in the staging SQL editor (and 0024 with the sweep, "Disconnect and deletion" above), the Muse row of the audience hook, and the staging Preview value `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` set to only the Muse client ID. `staging.py` does none of them. If one is wrong, the server stops at start and every staging path, `/api/*` too, answers 503; `staging.py` moves the alias before its `/api/status` check, so set the alias back to the previous deployment by hand. Live only after the Muse review passes and the owner says so.
 
 ## Owner steps
 

@@ -3,6 +3,7 @@
  * until Meta verifies the business), sign out, delete the account; and the cloud save while signed in.
  * main.ts loads this after the board is drawn; the Supabase client loads only for a sign-in or a
  * saved session. Without a network, or without an account, the game plays exactly as before.
+ * A build that serves the Muse connector also shows "Disconnect Muse" (migration 0024).
  */
 import { Sync, stamp, type SavedGameAccess, type Section } from './sync';
 import type { Client, Provider, SignInOption } from './client';
@@ -12,6 +13,9 @@ import { canWriteLocal } from './local';
 import { apiOrigin } from '../platform';
 export type User = { name: string; avatar: string | null; provider: string };
 type AuthUser = { user_metadata?: Record<string, unknown>; app_metadata?: Record<string, unknown> };
+declare const __KINGDOWN_MUSE__: boolean;
+/** On only in a build that serves the Muse connector (tools/muse-connector.mjs, vite.config.ts). */
+const MUSE = typeof __KINGDOWN_MUSE__ === 'boolean' && __KINGDOWN_MUSE__;
 
 const PROVIDERS: [Provider, string][] = [['google', 'Google'], ['github', 'GitHub'], ['facebook', 'Facebook']];
 /** Each service's own mark, as its sign-in branding rules ask (Google's sits on white). */
@@ -36,7 +40,7 @@ export function userOf(u: AuthUser | null | undefined): User | null {
 }
 
 /** The Account section's content. The name and picture come from outside the game, so both are escaped. */
-export function accountHtml(user: User | null, facebook: boolean, available: readonly SignInOption[] = []): string {
+export function accountHtml(user: User | null, facebook: boolean, available: readonly SignInOption[] = [], muse = MUSE): string {
   // The app's own page path opens nothing there (capacitor://localhost); its stage's site opens in the system browser.
   const links = `<p class="account-links"><a href="${apiOrigin}/privacy.html" target="_blank" rel="noopener">Privacy</a>`
     + `<a href="${apiOrigin}/terms.html" target="_blank" rel="noopener">Terms</a></p>`;
@@ -53,6 +57,7 @@ export function accountHtml(user: User | null, facebook: boolean, available: rea
     + `<div><b>${esc(user.name)}</b>${via ? `<small>Signed in with ${via}</small>` : ''}</div></div>`
     + '<small>Your settings, lessons and saved game are kept with your account.</small>'
     + '<button type="button" data-act="sign-out">Sign out</button>'
+    + (muse ? '<button type="button" class="quiet" data-act="disconnect-muse">Disconnect Muse</button>' : '')
     + '<button type="button" class="quiet" data-act="delete">Delete my account</button>'
     + links;
 }
@@ -146,6 +151,14 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
       render();
       keep('Signed out. Your games stay on this device.');
       await refreshProviders();
+    } else if (MUSE && b.dataset.act === 'disconnect-muse') {
+      if (window.top !== window.self) return say('Open King Down in its own tab to disconnect Muse.');
+      if (!confirm('Disconnect Muse? Muse can no longer use your account, and we delete the games you started in Muse.')) return;
+      say('Disconnecting Muse…');
+      try {
+        const deleted = await (await load()).disconnectMuse();
+        say(deleted === null ? 'Muse is still connected. Try again.' : 'Muse is disconnected. We deleted the games you started in Muse.');
+      } catch { say('Could not disconnect Muse. Check your connection and try again.'); }
     } else if (b.dataset.act === 'delete') {
       // Inside another site's frame, a click may not be the player's own (clickjacking).
       if (window.top !== window.self) return say('Open King Down in its own tab to delete your account.');
