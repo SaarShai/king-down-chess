@@ -1278,7 +1278,7 @@ describe('deploy-plugin-live-check.mjs', () => {
     const result = await runAsync(process.execPath, [pluginLiveCheck, buildFolder({ 'consent.mjs': 'consent-v1' }), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '1500' } });
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain('plugin-live-check: pass');
-    expect(live.requests.map(request => request.path).sort()).toEqual(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/authorize?authorization_id=deploy-check%2Bquery&state=keep%20me', '/consent.mjs', '/mcp', ...museParked]);
+    expect(live.requests.map(request => request.path).sort()).toEqual(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/authorize?authorization_id=deploy-check%2Bquery&state=keep%20me', '/consent.mjs', '/mcp', ...museParked].sort());
     expect(live.requests.every(request => !request.cookie && !request.authorization)).toBe(true);
   });
 
