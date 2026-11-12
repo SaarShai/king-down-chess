@@ -51,7 +51,7 @@ test('the policy names Meta as a recipient of the Muse connector, and Muse only 
   'King Down sends Muse the result of each action: the board as text, the moves, the game status and links to your games on kingdown.dev', 'These results hold no handle, picture or email address',
   'King Down uses the words of a move only to find that move, and does not store them', 'Muse sends King Down only the tool calls, not your Muse conversation',
   'Meta and King Down are independent controllers of this data under Meta\'s Data Protection Requirements', 'Meta can use your requests, the tool calls and their results under its own terms and privacy policy',
-  'When you disconnect King Down in Muse, or ask us to delete your data, we delete the data that King Down received through Muse']) expect(paragraph).toContain(words);
+  'Settings → Account → Disconnect Muse', 'we also delete those games when Muse has not used the link for 30 days, also when you are still connected']) expect(paragraph).toContain(words);
  // The results hold no handle, picture or email address: the Muse tools (src/muse/tools.ts) never name one.
  expect(readFileSync('src/muse/tools.ts', 'utf8')).not.toMatch(/\bhandles?\b|avatar|picture|email/i);
  expect(text).toContain('the OAuth link that lets your Muse connection use your King Down account');
