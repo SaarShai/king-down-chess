@@ -196,6 +196,25 @@ const cases = {
     // The same order with Start game: the local start stops, and no local game is written.
     await panelRace(page, context, check, 'Start game', '00000000-0000-4000-8000-000000000003', { preload: true });
   },
+  async panel_double_reopen(page, context, check) {
+    // Close, then Change twice before the Back lands: one panel opens after the Back, with one history entry.
+    await page.goto(NEXT); await page.waitForSelector('.home-change');
+    await page.evaluate(() => { const back = history.back.bind(history); window.kdBacks = []; history.back = () => { window.kdBacks.push(back); }; });
+    const start = await page.evaluate(() => history.length), change = page.locator('.home-change'), panel = page.locator('dialog.new-game-panel');
+    await change.click(); await page.waitForSelector('dialog.new-game-panel[open]');
+    await panel.getByRole('button', { name: 'Close', exact: true }).click();
+    check(await page.waitForFunction(() => window.kdBacks.length === 1).then(() => true, () => false), 'the Back of Close is held');
+    await change.click(); await change.click();
+    check(await page.locator('dialog.new-game-panel[open]').count() === 0, 'both opens wait for the held Back');
+    await page.evaluate(() => window.kdBacks.shift()());
+    check(await page.waitForFunction(() => document.querySelectorAll('dialog.new-game-panel[open]').length === 1).then(() => true, () => false), 'one panel opens after the Back');
+    await page.waitForTimeout(300);
+    check(await page.evaluate(() => document.querySelectorAll('dialog.new-game-panel').length === 1 && history.state?.layer === true), 'only one panel and one layer entry');
+    await panel.getByRole('button', { name: 'Close', exact: true }).click();
+    check(await page.waitForFunction(() => window.kdBacks.length === 1).then(() => true, () => false), 'the second Close holds one Back');
+    await page.evaluate(() => window.kdBacks.shift()());
+    check(await page.waitForFunction(n => !history.state?.layer && history.length === n + 1 && !document.querySelector('dialog.new-game-panel'), start).then(() => true, () => false), 'Play with no panel and no extra entry');
+  },
   async panel_reopen_race(page, context, check) {
     // Close, a late reply, then New game again before the Back lands: the game opens; no panel opens over it.
     await panelRace(page, context, check, 'Close', '00000000-0000-4000-8000-000000000004', { reopen: true });

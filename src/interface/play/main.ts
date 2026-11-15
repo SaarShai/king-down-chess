@@ -331,6 +331,7 @@ function openNewGame(source: HTMLElement) {
   shell.settled(() => { if (shell.route.place === 'play') newGameLayer(source); });
 }
 function newGameLayer(source: HTMLElement) {
+  if (document.querySelector('dialog.new-game-panel')) return; // one panel: a second queued open does nothing
   const panel = newGamePanel({
     next: changeDraft(next, accepted()),
     // The game that a start ends: the game in memory, or the stored game, read again at each press.
