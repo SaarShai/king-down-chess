@@ -27,7 +27,7 @@ export const signInText = {
   suspended: 'This account is suspended. To ask for a review, write to hello@kingdown.dev.',
   // S2: the email code.
   emailTitle: 'Continue with email', emailLine: 'We send you a code. No password.', email: 'Email', sendCode: 'Send code', back: 'Back',
-  codeTitle: 'Enter the code', codeLine: (email: string) => `We sent 6 digits to ${email}. The code works for 1 hour.`,
+  codeTitle: 'Enter the code', codeLine: (email: string) => `We sent a code to ${email}. The code works for 1 hour.`,
   code: 'Code', continue: 'Continue', newCode: 'Send a new code',
   badAddress: 'Could not send a code to that address. Check it and try again.',
   badCode: 'That code is wrong or has expired. Try again, or ask for a new code.',
