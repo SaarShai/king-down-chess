@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { readWebAccountAccess } from './account-access';
 import { connect } from '../account/client';
+import { memoryStorage } from '../interface/people/fake-server';
 import { applyLocks } from '../account-game/state';
 
 vi.mock('./account-access', () => ({ readWebAccountAccess: vi.fn() }));
@@ -49,7 +50,7 @@ beforeEach(() => {
   vi.stubGlobal('document', { title: '', body, createElement: (tag: string) => new Element(tag), querySelectorAll: (selector: string) => body.querySelectorAll(selector), querySelector: (selector: string) => selector === '#settings-sheet .new-game-body' ? settings : selector === '#profile-sheet .new-game-body' ? profile : null });
   vi.stubGlobal('DOMParser', class { parseFromString() { return { querySelectorAll: () => [], body: { childNodes: [settings, profile] } }; } });
   vi.stubGlobal('location', { href: 'https://kingdown.test/play/', reload, replace });
-  vi.stubGlobal('history', {}); vi.stubGlobal('sessionStorage', {});
+  vi.stubGlobal('history', {}); vi.stubGlobal('sessionStorage', {}); vi.stubGlobal('localStorage', memoryStorage());
 });
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 

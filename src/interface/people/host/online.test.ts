@@ -1,4 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
+import { accountData } from '../../../account/data';
 import { Game } from '../../../game';
 import { DraftTurn } from '../../play/turn';
 import { memoryStorage } from '../fake-server';
@@ -30,7 +31,7 @@ it('binds deletion to the confirmed account, cleans only its drafts, then signs 
   storage.setItem('kingdown.people-draft.alice.game', 'private'); storage.setItem('kingdown.people-draft.bob.game', 'keep');
   const token = (session: string, at: number) => 'fixture.' + btoa(JSON.stringify({ session_id: session, iat: at })) + '.signature';
   const order: string[] = []; let current = 'alice', accessToken = token('opening-session', 1);
-  const auth = async () => ({ onSession: () => () => {}, readSession: async () => ({ userId: current, accessToken }), signOut: async () => { order.push('signout'); } }) as never;
+  const auth = async () => ({ onSession: () => () => {}, readSession: async () => ({ userId: current, accessToken }), signOutSession: async () => { order.push('signout'); return true; } }) as never;
   const send = vi.fn(async (input: RequestInfo | URL) => {
     if (String(input).endsWith('/deletion')) { accessToken = token('opening-session', 2); order.push('request'); return Response.json({ deletion: { run_after: '2026-12-01T00:00:00Z' } }); }
     return Response.json({ me: { handle: 'alice', icon: null } });
@@ -45,7 +46,7 @@ it('binds deletion to the confirmed account, cleans only its drafts, then signs 
   expect(order).toEqual(['request', 'signout']); expect(host.signedIn).toBe(false);
   expect(storage.getItem('kingdown.people-draft.alice.game')).toBeNull(); expect(storage.getItem('kingdown.people-draft.bob.game')).toBe('keep');
   expect(tab.getItem('kingdown.account-page.alice')).toBeNull(); expect(tab.getItem('kingdown.account-page.bob')).toBe('keep');
-  await host.signIn();
+  accessToken = token('new-session', 3); await host.signIn();
   const { receiptStore, receiptOf } = await import('../receipt');
   await receiptStore('alice', storage).hold(receiptOf('new-game', 1, { type: 'resign' }, 'new-command'));
   expect(storage.getItem('kingdown.account-command.alice')).toContain('new-command');
@@ -57,9 +58,9 @@ it('the three online choices use the existing options with no hidden army orderi
     { fairy: true, arrangement: false, kingPowers: true, cards: true },
   ]);
 });
-it('a reload restores only this account and revision of the unsent turn', () => {
+it('a reload restores only this account and revision of the unsent turn', async () => {
   const storage = memoryStorage(), before = state();
-  before.draft.stage(before.draft.at(12, 28)[0]); keepDraft(storage, 'alice', before);
+  before.draft.stage(before.draft.at(12, 28)[0]); await keepDraft(storage, 'alice', before, accountData('alice', storage));
   const resumed = state(); restoreDraft(storage, 'alice', resumed);
   expect(resumed.draft.steps.map(step => step.move.to)).toEqual([28]);
   const other = state(); restoreDraft(storage, 'bob', other); expect(other.draft.length).toBe(0);
@@ -70,8 +71,9 @@ it.each(['bad json', '{"revision":1,"actions":[7]}', '{"revision":1,"actions":["
   const storage = memoryStorage(), current = state(); storage.setItem(draftKey('alice','game-a'), raw);
   restoreDraft(storage, 'alice', current); expect(current.draft.length).toBe(0);
 });
-it('a draft storage failure reaches the host, so it can tell the player', () => {
-  expect(() => keepDraft({ setItem() { throw Error('full'); } }, 'alice', state())).toThrow('full');
+it('a draft storage failure reaches the host, so it can tell the player', async () => {
+  const storage = { ...memoryStorage(), setItem() { throw Error('full'); } };
+  await expect(keepDraft(storage, 'alice', state(), accountData('alice', storage))).rejects.toThrow('full');
 });
 it('game order puts your move first, then deadlines, results and waiting links', () => {
   const row = (id: string, mine: boolean, state: 'playing' | 'finished' | 'waiting', deadline: string | null = null) => ({ id, mine, state, deadline });
@@ -202,7 +204,7 @@ it('propagates social avatars to home rows while hiding email and deleted photos
     await alice.host.refresh();
     expect(alice.host.inviteUpdates).toHaveLength(1);
     expect(homeInvite(alice.host.inviteUpdates[0])).toMatchObject({ kind: 'declined', name: 'bob', line: 'Invite declined' });
-    alice.host.dismissInvite(alice.host.inviteUpdates[0]);
+    await alice.host.dismissInvite(alice.host.inviteUpdates[0]);
     expect(alice.host.inviteUpdates).toEqual([]);
     await alice.host.refresh();
     expect(alice.host.inviteUpdates).toEqual([]);
@@ -247,7 +249,7 @@ for (const eventFirst of [false, true]) it(`keeps another session and newer sign
   reply(Response.json({ deletion: { run_after: '2026-12-01T00:00:00Z' } })); await rejected;
   if (!eventFirst) { changed({ user: { id: 'bob' } }); await host.signIn(); }
   expect(close).toHaveBeenCalled(); expect(signOut).not.toHaveBeenCalled(); expect(host.userId).toBe('bob');
-  expect(storage.getItem('kingdown.people-draft.alice.game')).toBeNull(); expect(storage.getItem('kingdown.people-draft.bob.game')).toBe('keep');
+  expect(storage.getItem('kingdown.people-draft.alice.game')).toBe('private'); expect(storage.getItem('kingdown.people-draft.bob.game')).toBe('keep');
   for (const key of ['kingdown.email-code', 'kingdown.account-signin', 'kingdown.account-page.alice']) expect(tab.getItem(key)).toBe('new-attempt');
 });
 
@@ -272,11 +274,178 @@ it('a tab with a late sign-out event cannot restore a deleted draft, even after 
     const view = await service.create('alice', { kind: 'friend', options: onlineOptions('pieces') }), link = await service.invite('alice', view.game_id); await service.join('bob', link.token);
     host = (await import('./index')).onlineHost({ auth: async () => ({ onSession() {}, readSession: async () => ({ userId: 'alice', accessToken: 'alice' }) }) as never, storage, fetch: fakeServer(service).fetch, rules: () => 'pieces', setRules() {}, changed() {}, open() {}, home() {}, toast() {} });
     await host.signIn(); await host.open(view.game_id, () => {});
-    host.controller!.stage(host.controller!.state().draft!.at(12, 28)[0]); host.saveDraft();
+    host.controller!.stage(host.controller!.state().draft!.at(12, 28)[0]); await host.saveDraft();
     expect(storage.getItem(draftKey('alice', view.game_id))).toContain('e2-e4');
-    const { receiptStore } = await import('../receipt'), { clearDeletedAccount, deletedAccountKey } = await import('../../../account/local');
+    const { receiptStore } = await import('../receipt'), { clearDeletedAccount } = await import('../../../account/local');
     await receiptStore('alice', storage).clearAccount(() => clearDeletedAccount(storage, 'alice'));
-    host.saveDraft(); expect(storage.getItem(draftKey('alice', view.game_id))).toBeNull();
-    storage.setItem(deletedAccountKey('alice'), 'new-tab-session'); host.saveDraft(); expect(storage.getItem(draftKey('alice', view.game_id))).toBeNull();
+    await host.saveDraft(); expect(storage.getItem(draftKey('alice', view.game_id))).toBeNull();
+    await accountData('alice', storage).confirm(async () => ({ userId: 'alice', accessToken: 'new-tab-session' })); await host.saveDraft(); expect(storage.getItem(draftKey('alice', view.game_id))).toBeNull();
   } finally { host?.stopGame(); await service.close(); }
+});
+
+import { onlineHost } from './index';
+import { receiptStore, receiptOf, receiptKey } from '../receipt';
+import { clearDeletedAccount, deletedAccountKey } from '../../../account/local';
+function deletionStorage() {
+  const memory = memoryStorage();
+  return { ...memory, key: (i: number) => [...memory.records.keys()][i] ?? null, get length() { return memory.records.size; } };
+}
+function deletionGlobals(saved: ReturnType<typeof deletionStorage>) {
+  vi.stubGlobal('location', new URL('https://kingdown.test/next.html'));
+  vi.stubGlobal('history', { state: {}, replaceState() {} });
+  vi.stubGlobal('sessionStorage', memoryStorage());
+  vi.stubGlobal('navigator', { onLine: true });
+  vi.stubGlobal('localStorage', saved);
+  vi.stubGlobal('matchMedia', () => ({ matches: false }));
+  vi.stubGlobal('addEventListener', () => {}); vi.stubGlobal('removeEventListener', () => {});
+}
+const options = { rules: () => 'pieces' as const, setRules() {}, changed() {}, open() {}, home() {}, toast() {} };
+
+it('a delayed startup cannot reopen writes after cleanup', async () => {
+  const saved = deletionStorage(); deletionGlobals(saved);
+  let release!: (value: Response) => void, started!: () => void;
+  const begin = new Promise<void>(resolve => { started = resolve; });
+  const host = onlineHost({ ...options, storage: saved,
+    auth: async () => ({ onSession() {}, readSession: async () => ({ userId: 'alice', accessToken: 'same-session' }) }) as never,
+    fetch: async () => { started(); return new Promise<Response>(resolve => { release = resolve; }); },
+  });
+  const opening = host.signIn(); await begin;
+  await receiptStore('alice', saved).clearAccount(() => clearDeletedAccount(saved, 'alice'));
+  release(Response.json({ me: { handle: 'alice', icon: null } })); await opening;
+  const writer = receiptStore('alice', saved);
+  await writer.hold(receiptOf('private-game', 1, { type: 'resign' }, 'stale-startup')).catch(() => {});
+  expect(JSON.parse(saved.getItem(deletedAccountKey('alice'))!).deleted).toBe(true);
+  expect(saved.getItem(receiptKey('alice'))).toBeNull();
+});
+
+
+it('a late deletion reply keeps data from a new sign-in of the same account', async () => {
+  const saved = deletionStorage(); deletionGlobals(saved);
+  const jwt = (id: string) => 'fixture.' + btoa(JSON.stringify({ session_id: id })) + '.signature';
+  let token = jwt('opening'), reply!: (value: Response) => void, sent!: () => void;
+  const started = new Promise<void>(resolve => { sent = resolve; });
+  const host = onlineHost({ ...options, storage: saved,
+    auth: async () => ({ onSession() {}, readSession: async () => ({ userId: 'alice', accessToken: token }), signOut: vi.fn() }) as never,
+    fetch: async input => String(input).endsWith('/deletion') ? new Promise<Response>(resolve => { reply = resolve; sent(); }) : Response.json({ me: { handle: 'alice', icon: null } }),
+  });
+  await host.signIn();
+  const pending = host.deletion.remove().catch(() => {}); await started;
+  // The server has accepted deletion, but its reply is held. A later sign-in
+  // cancels deletion. The new session saves a new unsent turn on this device.
+  token = jwt('new-sign-in'); await host.signIn();
+  saved.setItem(draftKey('alice', 'new-game'), 'new-private-turn');
+  reply(Response.json({ deletion: { run_after: '2026-12-01T00:00:00Z' } })); await pending;
+  expect(saved.getItem(draftKey('alice', 'new-game'))).toBe('new-private-turn');
+  expect(JSON.parse(saved.getItem(deletedAccountKey('alice'))!).deleted).toBe(false);
+});
+
+it('keeps data from a new session of A when an earlier deletion reply arrives late', async () => {
+  const store = deletionStorage(); deletionGlobals(store);
+  const jwt = (id: string) => 'fixture.' + btoa(JSON.stringify({ session_id: id })) + '.signature';
+  let token = jwt('first-session'), changed = (_session: any) => {}, reply = (_response: Response) => {};
+  let start = () => {}; const started = new Promise<void>(resolve => { start = resolve; });
+  const host = onlineHost({
+    auth: async () => ({ onSession(callback: typeof changed) { changed = callback; }, readSession: async () => ({ userId: 'alice', accessToken: token }), signOut: vi.fn() }) as never,
+    storage: store, fetch: async input => String(input).endsWith('/deletion') ? new Promise<Response>(resolve => { reply = resolve; start(); }) : Response.json({ me: { handle: 'alice', icon: null } }),
+    rules: () => 'pieces', setRules() {}, changed() {}, open() {}, home() {}, toast() {},
+  });
+  await host.signIn(); const pending = host.deletion.remove();
+  const rejected = expect(pending).rejects.toMatchObject({ code: 'UNAUTHENTICATED' }); await started;
+  token = jwt('new-session'); changed({ user: { id: 'alice' }, access_token: token }); await host.signIn();
+  store.setItem('kingdown.people-draft.alice.new-game', 'new session private turn');
+  reply(Response.json({ deletion: { run_after: '2026-12-01T00:00:00Z' } })); await rejected;
+  expect(store.getItem('kingdown.people-draft.alice.new-game')).toBe('new session private turn');
+});
+
+
+it('does not reopen deleted account writers on a plain page load with the old auth session', async () => {
+  const store = deletionStorage(); deletionGlobals(store);
+  await receiptStore('alice', store).clearAccount(() => clearDeletedAccount(store, 'alice'), async () => ({ userId: 'alice', accessToken: 'unchanged-session' }));
+  // The deletion tab still awaits sign-out. This page only reads that existing session.
+  const host = onlineHost({
+    auth: async () => ({ onSession() {}, readSession: async () => ({ userId: 'alice', accessToken: 'unchanged-session' }) }) as never,
+    storage: store, fetch: async () => Response.json({ me: { handle: 'alice', icon: null } }),
+    rules: () => 'pieces', setRules() {}, changed() {}, open() {}, home() {}, toast() {},
+  });
+  await host.signIn();
+  const storeForOldSession = receiptStore('alice', store);
+  await expect(storeForOldSession.hold(receiptOf('game-a', 1, { type: 'turn', actions: ['e2-e4'] }, 'restored-private-command'))).rejects.toThrow('deleted');
+  expect(store.getItem(receiptKey('alice'))).toBeNull();
+});
+
+for (const order of ['cleanup first', 'draft queued first'] as const) it(`deletion between the draft check and write cannot restore the draft: ${order}`, async () => {
+  const saved = deletionStorage(); deletionGlobals(saved);
+  const service = fixtureService();
+  let host: ReturnType<typeof onlineHost> | undefined;
+  const requests: { name: string; run: () => Promise<unknown> }[] = [];
+  let pause = false;
+  const locks = { request: <T>(name: string, run: () => Promise<T>) => pause ? new Promise<T>((resolve, reject) => requests.push({ name, run: () => run().then(resolve, reject) })) : run() };
+  vi.stubGlobal('navigator', { locks, onLine: true });
+  try {
+    await service.handle('alice', { handle: 'alice' }); await service.handle('bob', { handle: 'bob' });
+    const view = await service.create('alice', { kind: 'friend', options: onlineOptions('pieces') });
+    const link = await service.invite('alice', view.game_id); await service.join('bob', link.token);
+    host = onlineHost({ ...options, storage: saved, fetch: fakeServer(service).fetch,
+      auth: async () => ({ onSession() {}, readSession: async () => ({ userId: 'alice', accessToken: 'alice' }) }) as never });
+    await host.signIn(); await host.open(view.game_id, () => {});
+    host.controller!.stage(host.controller!.state().draft!.at(12, 28)[0]);
+    const deleting = accountData('alice', saved, locks); await deleting.write(() => {});
+    pause = true;
+    const draft = order === 'draft queued first' ? host.saveDraft() : undefined;
+    if (draft) await vi.waitFor(() => expect(requests).toHaveLength(1));
+    const cleanup = deleting.close(() => clearDeletedAccount(saved, 'alice'));
+    await vi.waitFor(() => expect(requests).toHaveLength(draft ? 2 : 1));
+    const save = draft ?? host.saveDraft();
+    await vi.waitFor(() => expect(requests).toHaveLength(2));
+    expect(requests.every(r => r.name === receiptKey('alice'))).toBe(true);
+    // The lock grants cleanup first. The old writer has captured its generation.
+    await requests.splice(draft ? 1 : 0, 1)[0].run(); await cleanup;
+    await requests.shift()!.run(); expect(await save).toBe(false);
+    expect(saved.getItem(draftKey('alice', view.game_id))).toBeNull();
+  } finally { host?.stopGame(); await service.close(); }
+});
+
+it('a queued invite seen write cannot restore a record after cleanup', async () => {
+  const saved = deletionStorage(); deletionGlobals(saved);
+  const requests: (() => Promise<unknown>)[] = [];
+  let pause = false;
+  const locks = { request: <T>(_name: string, run: () => Promise<T>) => pause ? new Promise<T>((resolve, reject) => requests.push(() => run().then(resolve, reject))) : run() };
+  vi.stubGlobal('navigator', { locks, onLine: true });
+  const host = onlineHost({ ...options, storage: saved,
+    auth: async () => ({ onSession() {}, readSession: async () => ({ userId: 'alice', accessToken: 'alice' }) }) as never,
+    fetch: async () => Response.json({ me: { handle: 'alice', icon: null } }),
+  });
+  await host.signIn();
+  const deleting = accountData('alice', saved, locks); await deleting.write(() => {}); pause = true;
+  const cleanup = deleting.close(() => clearDeletedAccount(saved, 'alice'));
+  await vi.waitFor(() => expect(requests).toHaveLength(1));
+  const seen = host.dismissInvite({ invite_id: 'private-invite', state: 'declined' } as never);
+  await vi.waitFor(() => expect(requests).toHaveLength(2));
+  await requests.shift()!(); await cleanup; await requests.shift()!(); await seen;
+  expect(saved.getItem('kingdown.invite-seen.alice.private-invite')).toBeNull();
+});
+
+it('a held result seen reply cannot restore a record after cleanup', async () => {
+  const saved = deletionStorage(); deletionGlobals(saved);
+  const service = fixtureService(); let host: ReturnType<typeof onlineHost> | undefined;
+  let sent!: () => void, release!: () => void;
+  const started = new Promise<void>(resolve => { sent = resolve; });
+  const reply = new Promise<void>(resolve => { release = resolve; });
+  try {
+    await service.handle('alice', { handle: 'alice' }); await service.handle('bob', { handle: 'bob' });
+    const view = await service.create('alice', { kind: 'friend', options: onlineOptions('pieces') });
+    const link = await service.invite('alice', view.game_id); await service.join('bob', link.token);
+    await service.command('alice', view.game_id, { command_id: 'resign', expected_revision: 1, action: { type: 'resign' } });
+    const server = fakeServer(service);
+    host = onlineHost({ ...options, storage: saved,
+      auth: async () => ({ onSession() {}, readSession: async () => ({ userId: 'alice', accessToken: 'alice' }) }) as never,
+      fetch: async (input, init) => { const result = await server.fetch(input, init); if (String(input).includes('/record')) { sent(); await reply; } return result; },
+    });
+    await host.signIn(); await host.open(view.game_id, () => {}); await started;
+    await accountData('alice', saved).close(() => clearDeletedAccount(saved, 'alice'));
+    const checked = vi.spyOn(saved, 'getItem');
+    release();
+    await vi.waitFor(() => expect(checked).toHaveBeenCalledWith(deletedAccountKey('alice')));
+    expect(saved.getItem(`kingdown.people-seen.alice.${view.game_id}`)).toBeNull();
+  } finally { release(); host?.stopGame(); await service.close(); }
 });

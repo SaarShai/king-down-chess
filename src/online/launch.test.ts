@@ -111,7 +111,7 @@ function page() {
   const dialog = () => body.children.find(node => node.tag === 'dialog' && node.className.includes('launch-handoff'));
   vi.stubGlobal('document', { body, createElement: (tag: string) => new Node(tag), querySelector: (selector: string) => selector === 'dialog.launch-handoff' ? dialog() ?? null : null });
   vi.stubGlobal('location', { assign }); vi.stubGlobal('sessionStorage', { setItem: (key: string, value: string) => session.set(key, value) });
-  vi.stubGlobal('navigator', { locks: { request: async (_key: string, _options: unknown, run: () => Promise<void>) => run() } });
+  vi.stubGlobal('navigator', { locks: { request: async (_key: string, options: unknown, run?: () => Promise<unknown>) => (run ?? options as () => Promise<unknown>)() } });
   const press = (label: string) => dialog()!.children.find(node => node.tag === 'button' && node.textContent === label)!.onclick!();
   const words = () => dialog()!.children.filter(node => node.tag === 'p' && node.textContent).map(node => node.textContent).join(' ');
   const labels = () => dialog()!.children.filter(node => node.tag === 'button').map(node => node.textContent);

@@ -11,7 +11,7 @@ export const SELECTION_TOOLS = ['kingdown_open', 'kingdown_create', 'kingdown_jo
 export type Draft = { game_tag: string; fen: string; lans: string[]; scope?: { account: string; game: string; revision: number; rules: string; engine: string } };
 export type PageState = { screen: Screen; handle_back?: Screen; name_for_caller?: boolean; settings_back?: Screen; queued?: Screen; sheet?: string; board_id?: string; pending?: Pending; draft?: Draft };
 const SLOTS = 3;
-export type WidgetHost = { pendingScope?: 'account'; savePage?: (state: PageState) => void; accountId?: string; widgetState?: { privateContent?: Partial<PageState> }; setWidgetState?: (state: unknown) => void };
+export type WidgetHost = { pendingScope?: 'account'; savePage?: (state: PageState) => void | boolean | Promise<boolean>; accountId?: string; widgetState?: { privateContent?: Partial<PageState> }; setWidgetState?: (state: unknown) => void };
 
 // The Collection is parked (docs/PARKED.md): a saved Collection page opens Profile, which has no Collection row.
 const pageScreen = (name: unknown) => name === 'collection' ? 'profile' : knownScreen(name);
@@ -44,7 +44,7 @@ export function createPageClient(transport: GameTransport, host?: WidgetHost) {
     // A new plugin board binding must not persist the previous ownership scope before redraw.
     if (state.draft && (state.draft.scope?.account !== accountId() || typeof state.draft.scope?.engine !== 'string' || !state.draft.scope.engine)) state.draft = undefined;
     const pending = state.pending;
-    if (host?.savePage) { host.savePage(state); return; }
+    if (host?.savePage) return host.savePage(state);
     const args = pending && Object.fromEntries(Object.entries(pending.args).filter(([key]) => !['game_id', 'code', 'handle'].includes(key)));
     const game_tag = pending?.game_tag ?? (typeof pending?.args.game_id === 'string' ? pending.args.game_id.slice(0, 8) : undefined);
     host?.setWidgetState?.({ modelContent: {}, privateContent: { ...state, pending: pending && { name: pending.name, args, game_tag, screen: pending.screen, ...(pending.quick && { quick: true }), ...(pending.king !== undefined && { king: pending.king }), error: pending.error, error_screen: pending.error_screen } } });

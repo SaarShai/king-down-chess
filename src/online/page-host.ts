@@ -1,3 +1,4 @@
+import { type AccountData } from '../account/data';
 import type { PageHost, PageViewport, ReadRoute } from '../account-game/client';
 
 function readRoute(value: unknown): ReadRoute | undefined {
@@ -21,12 +22,14 @@ function locationRoute(): ReadRoute | undefined {
 
 const routePath = (route: ReadRoute): string => route.screen === 'game' ? `/g/${encodeURIComponent(route.gameId)}` : route.screen === 'play' ? '/play/' : `/play/${route.screen}`;
 
-export function createWebPageHost(userId: string): PageHost {
+export function createWebPageHost(userId: string, gate?: AccountData): PageHost {
   const key = `kingdown.account-page.${userId}`;
   let current: ReadRoute | undefined, emit: ((route: ReadRoute) => void) | undefined, stop = () => {};
-  function save(route: ReadRoute): boolean {
+  function save(route: ReadRoute): boolean | Promise<boolean> {
     current = route.screen === 'game' ? { screen: 'game', gameId: route.gameId } : { screen: route.screen };
-    try { window.sessionStorage.setItem(key, JSON.stringify(current)); return true; } catch { return false; }
+    const value = JSON.stringify(current);
+    const write = () => { try { window.sessionStorage.setItem(key, value); return true; } catch { return false; } };
+    return gate ? gate.write(write).catch(() => false) : write();
   }
   function restored(): ReadRoute | undefined {
     try { return readRoute(JSON.parse(window.sessionStorage.getItem(key) ?? 'null')); } catch { return; }
@@ -37,7 +40,7 @@ export function createWebPageHost(userId: string): PageHost {
       let active = true, ready = false, hidden = false;
       const take = (route: ReadRoute) => {
         if (!active || !ready || hidden) return;
-        save(route); enter({ ...route });
+        void save(route); enter({ ...route });
       };
       const fromLocation = () => {
         const route = locationRoute();
@@ -79,7 +82,7 @@ export function createWebPageHost(userId: string): PageHost {
     },
     navigate(route) {
       window.history.pushState(null, '', routePath(route));
-      if (emit) emit(route); else save(route);
+      if (emit) emit(route); else void save(route);
     },
     save,
     viewport(): PageViewport {

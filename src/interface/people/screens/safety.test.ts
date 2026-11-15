@@ -26,7 +26,8 @@ beforeAll(async () => {
         storage: localStorage,
         auth: async () => ({ onSession: callback => { window.sessionChanged = callback; },
           readSession: async () => current ? { userId: current, accessToken: 'fixture-' + current } : null,
-          signOut: async () => { current = null; sessionChanged(null); } }),
+          signOut: async () => { current = null; sessionChanged(null); },
+          signOutSession: async expected => { if (expected.userId !== current || expected.accessToken !== 'fixture-' + current) return false; current = null; sessionChanged(null); return true; } }),
         fetch: async (input, init) => {
           const path = new URL(input, location.origin).pathname;
           if (path.endsWith('/deletion')) { if (window.fail) throw Error(); if (window.holdDeletion) await new Promise(resolve => window.deletionReply = resolve); return Response.json({ deletion: { run_after: '2026-12-01T12:00:00Z' } }); }

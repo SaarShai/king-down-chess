@@ -1,3 +1,4 @@
+import { accountData } from '../account/data';
 import { AUTH_KEY } from '../account/session';
 import { emailCodeForm } from '../account/email-code';
 import { stagingPasswordSignInEnabled } from '../account/public-config';
@@ -88,6 +89,7 @@ try {
     const session = returned.status === 'signed-in' ? returned.session : await auth.readSession();
     if (returned.status === 'retry' || !session) await signInMessage(returned.status === 'retry' ? 'Sign-in did not finish. Please try again.' : 'Sign in to play with your account.');
     else {
+      await accountData(session.userId, localStorage).confirm(() => auth.readSession());
       const parsed = new DOMParser().parseFromString(template, 'text/html'); parsed.querySelectorAll('script').forEach(script => script.remove());
       document.body.replaceChildren(...Array.from(parsed.body.childNodes));
       const api = onlineClient({ origin: apiOrigin, token: async () => { const current = await auth.readSession(); return current?.userId === session.userId ? current.accessToken : null; } });

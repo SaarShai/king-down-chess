@@ -6,11 +6,12 @@ import assert from 'node:assert/strict';
 import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
 const browser = await launch();
 const NEXT = new URL('next.html', env('PLAYABLE_URL')).href;
-const MAIN = '.play-home .kd-button[data-kind="main"]', END = '.play-turn .kd-button[data-kind="main"]';
+const MAIN = '.play-home .kd-button[data-kind="main"]', CONTINUE = '.home-game-row[data-kind="computer"]', END = '.play-turn .kd-button[data-kind="main"]';
 async function open(save, kept) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
   // Each write of the save, in order. The seed goes in before the record starts, so it is not a write of the page.
   await context.addInitScript(([save, kept]) => {
+    localStorage.setItem('kingdown.solo-launch-seen', '1');
     if (save) localStorage.setItem('kingdown.save', JSON.stringify(save));
     if (kept) localStorage.setItem('kingdown.save.kept', JSON.stringify(kept));
     window.writes = [];
@@ -61,12 +62,15 @@ try {
   {
     // An old-page save at Strong with the computer to move: Continue, no Versus, the reply writes Club and keeps the stored settings.
     const { page, context } = await open({ back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'ai', coords: false, link: null, daily: null, resigned: null, skill: 'strong', sound: true, pace: 'fast' });
-    assert.equal(await page.locator(MAIN).innerText(), 'Continue');
-    // The saved game card (launch decision 25): the level, the game type and the turn, and who is to move.
-    assert.deepEqual(await page.locator('.home-copy').first().evaluate(copy => [...copy.children].map(node => node.textContent)), ['Club computer', 'Pieces only · Turn 1', 'Computer to move']);
-    await page.click(MAIN); await ready(page);
+    assert.equal(await page.locator(CONTINUE).count(), 1, 'the saved game has one Continue row');
+    assert.deepEqual(await page.locator(CONTINUE + ' .home-game-copy').evaluate(copy => [...copy.children].map(node => node.textContent)), ['Club computer', 'Computer to move']);
+    await page.click(CONTINUE); await ready(page);
     assert.equal(await page.locator('.play-versus').count(), 0, 'Continue shows no Versus');
     assert.deepEqual((await writes(page)).at(-1), { moves: 2, staged: 0, skill: 'club', pace: 'fast', coords: false, sound: true }, 'the reply writes Club and the stored settings');
+    const resumed = await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')));
+    assert.deepEqual(resumed.moves.slice(0, 1), ['e2-e4'], 'the saved first turn stays');
+    assert.deepEqual(resumed.rules.kings, [null, null], 'Continue keeps Pieces only');
+    assert.deepEqual(resumed.rules.hands, [[], []], 'Continue keeps no cards');
     await context.close();
   }
   {
@@ -86,7 +90,8 @@ try {
     }
     for (const [save, kept] of cases) {
       const { page, context } = await open(save, kept);
-      assert.equal(await page.locator(MAIN).innerText(), 'Play the computer', 'no Continue');
+      assert.equal(await page.locator(CONTINUE).count(), 0, 'no Continue row');
+      assert.equal(await page.locator(MAIN).innerText(), 'Play', 'no Continue');
       assert.ok((await page.locator('.play-home .home-note').allInnerTexts()).includes('A game from the earlier version cannot open here yet. It is kept.'), 'the kept line shows');
       const stored = await page.evaluate(() => [localStorage.getItem('kingdown.save'), localStorage.getItem('kingdown.save.kept')]);
       assert.equal(stored[1], stored[0], 'the copy holds the newest bytes');

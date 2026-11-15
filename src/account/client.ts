@@ -6,6 +6,7 @@
 import { createClient, type Session } from '@supabase/supabase-js';
 import type { Remote, Row } from './sync';
 import type { AccountSession } from './session';
+import { authStorage } from './auth-storage';
 import { publicAccountConfig, stagingPasswordSignInEnabled } from './public-config';
 import { availableProviders, type Provider } from './providers';
 import { inApp } from '../platform';
@@ -25,24 +26,45 @@ export function connect(storageKey: string, { manualCallback = false, apple = fa
   const useApple = () => apple && appleSignInEnabled(import.meta.env);
   // PKCE: the sign-in page sends back a one-time code; this browser exchanges it with a verifier it kept.
   const { url, publishableKey } = publicAccountConfig(import.meta.env);
+  const credentials = authStorage(storageKey, { getItem: key => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value), removeItem: key => localStorage.removeItem(key) });
+  const listeners = new Set<(s: Session | null) => void>();
   const sb = createClient(url, publishableKey, { auth: {
-    flowType: 'pkce', persistSession: true, storageKey,
+    flowType: 'pkce', persistSession: true, storageKey, storage: credentials.storage,
     ...(manualCallback ? { detectSessionInUrl: false, experimental: { appendPkceFlowIdToRedirects: true } } : {}),
   } });
+  const signOutSession = async (expected: AccountSession): Promise<boolean> => {
+    await sb.auth.initialize();
+    const removed = await credentials.remove(expected, () => {
+      // Match the auth client's cross-tab event. Send it before a later auth write can take the lock.
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          const channel = new BroadcastChannel(storageKey);
+          channel.postMessage({ event: 'SIGNED_OUT', session: null }); channel.close();
+        } catch { /* The shared storage still closes writers in other tabs. */ }
+      }
+      for (const cb of listeners) setTimeout(() => { void sb.auth.getSession().then(({ data }) => cb(data.session)).catch(() => {}); });
+    });
+    if (!removed) return false;
+    // This request cannot read or remove the stored session, even on a late error.
+    await sb.auth.admin.signOut(expected.accessToken, 'local');
+    return true;
+  };
   const signOut = async (): Promise<void> => {
-    const { error } = await sb.auth.signOut({ scope: 'local' });
-    // Offline with an expired session, the library keeps the session (it could not refresh it to sign
-    // out with): forget it here anyway, or the next visit would be signed in again.
-    if (error) for (const k of [storageKey, `${storageKey}-code-verifier`]) localStorage.removeItem(k);
+    const { data, error } = await sb.auth.getSession();
+    // An expired offline session can fail refresh. Still remove only its stored identity.
+    const expected = accountSession(error ? JSON.parse(await credentials.storage.getItem(storageKey) ?? 'null') : data.session);
+    if (expected) await signOutSession(expected);
   };
   return {
     providers: async () => (await availableProviders(url, publishableKey, { apple: useApple() })).filter(option => !inApp || option === 'email' || option === 'apple'),
     /** Called with the session now and on every change (null when signed out). */
     onSession(cb: (s: Session | null) => void): () => void {
       let active = true;
+      const notify = (s: Session | null) => { if (active) cb(s); };
+      listeners.add(notify);
       // Supabase asks that the callback not await its own calls: run ours after it returns.
       const { data: { subscription } } = sb.auth.onAuthStateChange((_event, s) => { setTimeout(() => { if (active) cb(s); }); });
-      return () => { if (active) { active = false; subscription.unsubscribe(); } };
+      return () => { if (active) { active = false; listeners.delete(notify); subscription.unsubscribe(); } };
     },
     async readSession(): Promise<AccountSession | null> {
       const { data, error } = await sb.auth.getSession();
@@ -100,7 +122,7 @@ export function connect(storageKey: string, { manualCallback = false, apple = fa
       const { error } = await sb.auth.signInWithOAuth({ provider, options: { redirectTo: location.origin + location.pathname } });
       if (error) throw error;
     },
-    signOut,
+    signOut, signOutSession,
     /** public.delete_my_account() asks for the deletion (migration 0008): it runs after a 7-day grace, and a sign-in in the grace cancels it. */
     async deleteAccount(): Promise<void> {
       const { error } = await sb.rpc('delete_my_account');
