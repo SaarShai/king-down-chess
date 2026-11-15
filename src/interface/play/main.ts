@@ -337,6 +337,8 @@ function openNewGame(source: HTMLElement) {
     },
     onStart: async draft => {
       await shell.closeLayer();
+      // A late invite reply can open the online game during that wait: the local start then stops.
+      if (shell.route.place !== 'play') return;
       next = draft; beginNew(root.querySelector<HTMLButtonElement>('.play-home .kd-button[data-kind="main"]') ?? undefined);
     },
     onClose: () => { void shell.closeLayer(); },
