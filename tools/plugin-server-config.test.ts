@@ -209,7 +209,9 @@ it.each(['readiness', 'discovery', 'metadata', 'audience', 'verifier', 'assets',
   expect(command).toHaveBeenCalledWith(actor, '00000000-0000-4000-8000-000000000005', expect.objectContaining({ action: { type: 'resign' } }), 'web');
   // The internal handler answers its own method guard, not a connector failure.
   expect((await call('/internal/daily')).status).toBe(405);
-  for (const path of ['/mcp', '/authorize', '/consent.mjs', '/.well-known/oauth-protected-resource/mcp']) expect((await call(path)).status).toBe(404);
+  for (const path of ['/mcp', '/authorize', '/consent.mjs', '/.well-known/oauth-protected-resource/mcp']) expect((await call(path)).status).toBe(['discovery', 'metadata'].includes(fault) ? 503 : 404);
+  // A provider fault is temporary: the function adapter sets the connector up again (tools/plugin-server.mjs).
+  expect(app.connectorFailed).toBe(['discovery', 'metadata'].includes(fault));
   expect(log).toHaveBeenCalledWith('King Down release', expect.objectContaining({ build: expect.stringMatching(/^(?:[a-f0-9]{40}|dev)$/), chatgpt: false }));
   expect(JSON.stringify(error.mock.calls)).not.toMatch(/private value|private file path|private verifier value|private handler value/);
   expect(pool.end).not.toHaveBeenCalled();

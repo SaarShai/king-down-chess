@@ -100,6 +100,7 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
   let auth, museAuth, config, consent, page;
   const build = typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : 'dev';
   const connectorFault = error => { console.error('King Down connector startup failed', { build, ...diagnostic(error) }); chatgpt = false; serveMuse = false; config = undefined; };
+  let connectorFailed = false;
 
   const localOnline = localDev && env.KINGDOWN_LOCAL_ONLINE === '1';
   if (localDev) {
@@ -122,7 +123,7 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
       if (!response.ok) throw new Error('Supabase OAuth discovery is unavailable');
       const metadata = await response.json();
       if (metadata.issuer !== issuer || !Array.isArray(metadata.scopes_supported) || !metadata.scopes_supported.includes('openid')) throw new Error('Supabase OAuth discovery has an incompatible issuer or scopes');
-    } catch (error) { connectorFault(error); }
+    } catch (error) { connectorFault(error); connectorFailed = env.KINGDOWN_PLUGIN_OAUTH_READY === '1'; }
   }
   // Local personas need no OAuth: `config` stays unset, so no client check or token verifier runs. A local run serves
   // the consent page too when it has the public Supabase settings.
@@ -189,12 +190,13 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
     if (/^\/internal(\/|$)/.test(path)) return internal(req, res);
     if (/^\/api(?:\/|$)/.test(path)) return api(req, res);
     if (museHandler && (MUSE_PATHS.includes(path) || path === '/authorize' || path === '/consent.mjs')) return museHandler(req, res);
-    if (!mcp) return parked(res);
+    // A connector that failed at startup is unavailable, not absent: the function adapter retries its setup.
+    if (!mcp) return connectorFailed ? res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Retry-After': '30' }).end(JSON.stringify({ code: 'UNAVAILABLE', message: 'Try again soon' })) : parked(res);
     if (path.startsWith('/plugin-art/')) return art(path.slice(12), res);
     await mcp(req, res);
   };
   console.info('King Down release', { build, chatgpt, muse: serveMuse });
-  return { handler, pool, publicOrigin, chatgpt, muse: serveMuse, localSolo, localOnline };
+  return { handler, pool, publicOrigin, chatgpt, muse: serveMuse, localSolo, localOnline, connectorFailed };
 }
 /** The parked ChatGPT surface (tools/chatgpt-plugin.mjs): every path outside /api and /internal. */
 function parked(res) {
@@ -210,7 +212,12 @@ async function art(name, res) {
 let configured;
 /** The function adapter never enables local personas. */
 export default async function handler(req, res) {
-  try { configured ??= configurePlugin(process.env, { serverless: true }).catch(error => { configured = undefined; throw error; }); await (await configured).handler(req, res); }
+  try { configured ??= configurePlugin(process.env, { serverless: true }).then(app => {
+      // A provider fault at startup must not park the connector for the life of the process: set up again after 30 s.
+      // shortcut: the earlier pool stays open for its requests in flight; close it if provider faults become frequent.
+      if (app.connectorFailed) setTimeout(() => { configured = undefined; }, 30000).unref();
+      return app;
+    }).catch(error => { configured = undefined; throw error; }); await (await configured).handler(req, res); }
   catch (error) { console.error('King Down startup failed', { build: typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : 'dev', requestId: randomUUID(), ...diagnostic(error) }); if (!res.headersSent) { res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ error: 'King Down server is not configured' })); } else res.destroy(); }
 }
 export async function startPluginServer({ localDev = false } = {}) {
