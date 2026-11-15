@@ -363,7 +363,7 @@ export class PaintedView implements BoardView {
     if (this.pace === 'off') this.scene.setLifted(null);
     if (!shown) { this.stateEffects.settle(); this.overlay = null; this.tail = null; }
     this.scene.setReducedMotion(!shown);
-    this.scene.setLively({ moves: motion, atmosphere: !quiet, captures: motion, idle: motion, kings: shown && !quiet, pawns: shown && !quiet });
+    this.scene.setLively({ ambient: quiet, moves: motion, atmosphere: !quiet, captures: motion, idle: motion, kings: shown && !quiet, pawns: shown && !quiet });
   }
 
   highlight(h: Highlights): void {

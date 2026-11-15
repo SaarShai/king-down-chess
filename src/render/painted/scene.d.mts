@@ -66,12 +66,13 @@ export interface PaintedScene {
    * captures: a piece a king takes dies that king's way (king-captures.mjs);
    * pawns: resting pawns now and then shake the spear, move the helmet or hitch the shield (lance/idle.mjs).
    */
-  setLively(options: { moves?: boolean; idle?: boolean; atmosphere?: boolean; kings?: boolean; captures?: boolean; pawns?: boolean }): void;
+  setLively(options: { ambient?: boolean; moves?: boolean; idle?: boolean; atmosphere?: boolean; kings?: boolean; captures?: boolean; pawns?: boolean }): void;
   /** The king designs whose effects the last frame drew (empty: none). */
   readonly effects: KingDesign[];
   /** The clip drawing the last frame showed, or null: none plays. */
   readonly clip: { name: 'knight' | 'rook'; frame: number } | null;
   /** Resting pawns in the last frame and how many of them were acting. */
+  readonly idles: number[];
   readonly pawns: { resting: number; acting: number };
   /** Frames drawn since the scene was made. */
   readonly frames: number;

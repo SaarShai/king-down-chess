@@ -1,6 +1,7 @@
 // The painted board scene: art, poses, capture animations and effects drawn on one canvas.
 // Shared by the board trial (prototype.mjs) and the game's painted look (src/render/PaintedView.ts).
 // Rules helpers are passed in, so the scene never bundles its own copy of the engine.
+import { idleSchedule } from './idle-schedule.mjs';
 import { clamp } from './painted-mesh.mjs';
 import {connected,createCharacterRuntime,prefetchCharacterIndex,facingOf,anchorAt,bankPointToWorld,bankScale,figureHeight,measuredScale,walkStride} from './character-runtime.mjs';
 import {PIECE_STILLS} from './piece-stills.mjs';
@@ -153,7 +154,8 @@ for(const [type,name] of Object.entries(courtNames)){
  const smokeStreams=new Map();let smokeTime=0;
  // Opt-in liveliness (setLively): quiet-move gaits, the selected figure's idle, the board's frame and light,
  // and each king's own idle effect (king-effects.mjs). All off by default, so the trial and the trailer draw exactly as before.
- const lively={moves:false,idle:false,atmosphere:false,kings:false,captures:false,pawns:false};
+ const idleClocks=idleSchedule();let ambientIdles=new Map();
+ const lively={ambient:false,moves:false,idle:false,atmosphere:false,kings:false,captures:false,pawns:false};
  const kingFx=createKingEffects({sheet:design=>kingArt[design]?.image??null,onLoad:()=>wake()}),queenThorns=createQueenThorns({onLoad:()=>wake()}),demise=createDemise({onLoad:()=>wake()});
  // Square → when a king's effect started there (what stands on his square grows back after a move).
  // drawnBefore: how many kings' effects the frame before drew (none: they all start together now).
@@ -688,7 +690,7 @@ function vortex(out,foot,phase,strength) {
  // The selected figure plays his clip once (if he has one), then breathes from where the clip ends. The clock
  // starts on the first frame that draws him, so a late first frame (a busy page) still shows the first drawing.
  clipShown=null;
- if(idling()&&!bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected]))){
+ if(!lively.ambient&&idling()&&!bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected]))){
   selectedAt??=time;
   const p=poses.get(selected).pose,name=CLIP_OF[typeOf(poses.get(selected).value)]===selectedClip?selectedClip:null,ms=time-selectedAt,index=name?frameAt(name,ms):null;
   if(index!==null){p.clip={name,index};clipShown={name,frame:index};}
@@ -924,18 +926,19 @@ function vortex(out,foot,phase,strength) {
  }
  // Resting pawns (lance/idle.mjs): any pawn that is not selected, moving, struck or aiming.
  pawnsAtRest=0;pawnsActing=0;
- if(lively.pawns&&!reducedMotion)for(const [sq,u] of poses){
+ if(lively.pawns&&!lively.ambient&&!reducedMotion)for(const [sq,u] of poses){
   if(typeOf(u.value)!==P||sq===selected||u.fx||u.extension||u.pose.angle||animation&&!animation.done&&animation.move.from===sq)continue;
   pawnsAtRest++;const rest=pawnIdle.idleAt(sq*2+colorOf(u.value)+1,time);
   if(rest){u.pose={...u.pose,rest};pawnsActing++;}
  }
+ if(lively.ambient)ambientIdles=idleClocks.update(time,new Map([...poses].filter(([sq,u])=>!u.fx&&!u.extension&&!u.pose.angle&&fallen?.sq!==sq).map(([sq,u])=>[sq,u.value])),sq=>bodyRuntime?.idleDuration(characterOf(position.board[sq]),armyOf(position.board[sq]))??0,lively.idle&&!reducedMotion&&!animation);
  if(bodyRuntime){
   if(selected!==null&&idleOut?.square!==selected)selectedAt??=time;
   for(const [sq,u] of poses){
    const actor=animation&&!animation.effect&&animation.move.from===sq,a=actor?animation:null;
    const at=a?.rewind?.kind==='move'?Math.max(a.start,Math.min(a.rewind.at,a.rewind.at-(time-a.rewind.start))):time,elapsed=a?(at-a.start)/a.speed:0,local=a?.drawingMovementStart?0:a?.drawingMovementEndpoint?a.actionDuration:elapsed-(a?.runtime?.beforeMs??0);
    const settling=!actor&&idleOut?.square===sq&&idleOut.value===u.value;
-   let body=settling?idleOut.exit((time-idleOut.start)/200)??bodyRuntime.rest(characterOf(u.value),armyOf(u.value)):a?.exitBody?(a.exitStart==null?a.exitBody:a.exit((time-a.exitStart)/200)):a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,a.runtime.ranged&&local<=a.actionDuration?heldClock(local,a.runtime.ranged.hold):local,a.actionDuration,a.contactTime,a.drawingTurnEndpoint?'turn-end':a.drawingMovementStart?'start':a.drawingMovementEndpoint?'end':undefined):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),time-(selectedAt??time),sq===selected&&!animation&&!reducedMotion&&(characterOf(u.value)!=='king-stratus'||idleReady));
+   let body=settling?idleOut.exit((time-idleOut.start)/200)??bodyRuntime.rest(characterOf(u.value),armyOf(u.value)):a?.exitBody?(a.exitStart==null?a.exitBody:a.exit((time-a.exitStart)/200)):a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,a.runtime.ranged&&local<=a.actionDuration?heldClock(local,a.runtime.ranged.hold):local,a.actionDuration,a.contactTime,a.drawingTurnEndpoint?'turn-end':a.drawingMovementStart?'start':a.drawingMovementEndpoint?'end':undefined):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),lively.ambient?(ambientIdles.get(sq)??0):time-(selectedAt??time),lively.ambient?ambientIdles.has(sq):sq===selected&&!animation&&!reducedMotion&&(characterOf(u.value)!=='king-stratus'||idleReady));
    if(settling&&body)idleOut.body=body;
    if(body){
     if(a?.runtime){
@@ -1052,7 +1055,7 @@ function drawEncounter(a,t) {
    }
   });
   if((a&&!a.done&&(!a.preparing||a.exitReady||a.rewind))||(wanted&&aimAngle!==wanted.angle)||(fallen&&fallMs(time)<DEMISE)||time<awakeUntil||poolsGliding||clipShown||idleOut)wake(false);
-  else{previousTime=0;if((idling()&&bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected])))||time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
+  else{previousTime=0;if(lively.ambient&&lively.idle&&!reducedMotion&&position.board.some(Boolean)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),ambientIdles.size?33:250);}else if((idling()&&bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected])))||time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
  }
  function idling(){return lively.idle&&!reducedMotion&&!animation&&selected!==null&&!!position.board[selected]&&fallen?.sq!==selected;}
  function drawLabels() {
@@ -1073,7 +1076,7 @@ function drawEncounter(a,t) {
   animation=null;
  }
  function reserveSelected(sq){
-  if(sq==null||reducedMotion||!bodyRuntime||!position.board[sq]||!LARGE_IDLE.has(characterOf(position.board[sq])))return;
+  if(lively.ambient||sq==null||reducedMotion||!bodyRuntime||!position.board[sq]||!LARGE_IDLE.has(characterOf(position.board[sq])))return;
   const value=position.board[sq],generation=++selectionGeneration;void bodyRuntime.reserveIdle(characterOf(value),armyOf(value)).then(ok=>{if(ok&&generation===selectionGeneration&&selected===sq&&position.board[sq]===value&&!disposed&&!reducedMotion){idleReady=true;wake();}});
  }
  function startPrepared(a,prepared,now){
@@ -1266,7 +1269,7 @@ function drawEncounter(a,t) {
    selectionGeneration++;
    const ownIdle=sq!==null&&sq!==idleOut?.square&&!!position.board[sq]&&LARGE_IDLE.has(characterOf(position.board[sq]));
    if(ownIdle){pendingIdle=null;idleOut=null;bodyRuntime?.releaseIdle();}
-   else if(idleReady&&lastSelectedBody?.square===selected)pendingIdle=lastSelectedBody;
+   else if(!lively.ambient&&idleReady&&lastSelectedBody?.square===selected)pendingIdle=lastSelectedBody;
    else {pendingIdle=null;if(!idleOut)bodyRuntime?.releaseIdle();}
    idleReady=false;lastSelectedBody=null;selected=sq;selectedAt=null;
    reserveSelected(sq);
@@ -1294,7 +1297,7 @@ function drawEncounter(a,t) {
   /** size: letter height in board units (default 13); a small board on a phone needs more. */
   setCoords(on,size=13,inset=14){coords=on;coordSize=size;coordInset=inset;wake();},
   setLabels(on){labels=on;wake();},
-  setReducedMotion(on){const was=reducedMotion;reducedMotion=on;if(on){landed=null;selectionGeneration++;pendingIdle=null;idleOut=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}if(on&&(animation?.runtime||animation?.preparing||animation?.rewind||animation?.value&&typeOf(animation.value)===K&&animation.move.captures.length))endMove();if(on)awakeUntil=0;else if(was){loadClips();reserveSelected(selected);}wake();},
+  setReducedMotion(on){const was=reducedMotion;reducedMotion=on;if(on){ambientIdles.clear();idleClocks.update(0,new Map(),()=>0,false);landed=null;selectionGeneration++;pendingIdle=null;idleOut=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}if(on&&(animation?.runtime||animation?.preparing||animation?.rewind||animation?.value&&typeOf(animation.value)===K&&animation.move.captures.length))endMove();if(on)awakeUntil=0;else if(was){loadClips();reserveSelected(selected);}wake();},
   /** Lay the king on `sq` down (null: nobody); animate=false shows it already fallen. speed: as in play (.5 is twice as fast). */
   setFallen(sq,animate=true,rotation=-1.5,speed=1){
    const value=sq==null?0:position.board[sq];
@@ -1315,6 +1318,7 @@ function drawEncounter(a,t) {
   /** The clip drawing the last frame showed ({name, frame}), or null (for checks). */
   get clip(){return clipShown&&{...clipShown};},
   /** Resting pawns in the last frame, and how many of them were acting (for checks). */
+  get idles(){return [...ambientIdles.keys()];},
   get pawns(){return {resting:pawnsAtRest,acting:pawnsActing};},
   /** Frames drawn so far (for checks). */
   get frames(){return frames;},
