@@ -8,6 +8,7 @@ import { parseSq, type Rules } from '../../rules/engine';
 import { POWERS_BALANCED, RULES_2017 } from '../../rules/rules';
 import { toFen } from '../../rules/setup';
 import { DraftTurn } from './turn';
+import { DEAL_CARDS } from '../../match/setup';
 import { answerOffer, beforeNewGame, continueLine, gameType, keepCopy, KEPT_KEY, keptOffer, levelOf, OFFERED_KEY, readStored, rulesOf, SaveWriter, SKILLS, snapshot, storedChoice, storedGameType, GAME_KEY, type Prefs } from './saved';
 import { text } from './texts';
 
@@ -118,7 +119,7 @@ describe('decisions 2 and 3: staged steps and resume', () => {
     cards.arm('curse'); cards.stage(cards.options(parseSq('d5'))[0]); started(cards);
     const two = readStored(); expect(two.kind).toBe('resume');
     expect(two.resume!.draft.steps[0].move.power).toBe('curse'); expect(two.resume!.draft.position.used?.[0]).toBe(1);
-    expect(gameType(two.resume!.game.rules)).toBe('cards');
+    expect(gameType(two.resume!.game.rules)).toBe('both');
   });
   it('a reload while the computer thinks resumes with the computer to move', () => {
     store.set(SAVE_KEY, JSON.stringify(handedOver()));
@@ -300,7 +301,7 @@ describe('decision 8: unreadable data and no storage', () => {
 
 describe('owner playtest section 2: a cards game with no king powers', () => {
   it('saves, resumes and names the game; the hand stays and no king has a power', () => {
-    const hand = ['Freeze', 'Haste', 'Flight', 'Mirror'] as Rules['hands'][number];
+    const hand = DEAL_CARDS.slice(0, 4);
     const rules = rulesOf('cards', [null, null], [hand, hand]);
     expect(gameType(rules as Rules)).toBe('cards');
     const draft = draftOf(null, rules); step(draft, 'e2', 'e4'); draft.commit();

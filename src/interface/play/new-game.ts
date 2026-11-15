@@ -4,7 +4,8 @@
  */
 import { Game } from '../../game';
 import { A, G, K, KINGS, L, M, O, P, S, colorOf, typeOf, type Color, type KingName, type PieceType, type PowerName, type Rules } from '../../rules/engine';
-import { POOL, randomBackRank, shuffle } from '../../rules/setup';
+import { GameRules } from '../../game-rules';
+import { POOL, shuffle } from '../../rules/setup';
 import { ALWAYS_ON, DEAL_CARDS, POOL_KINDS } from '../../match/setup';
 import type { CardName, KingChoice } from '../../rules/rules';
 import { hasCards, hasPowers, rulesOf, type GameType, type Level } from './saved';
@@ -51,7 +52,8 @@ export function rulesFor(setup: GameType, random: () => number = Math.random, op
 export function dealArmy(pool: readonly string[] = POOL_KINDS, random: () => number = Math.random): string {
   const letters = poolLetters(pool), specials = new Set(letters.split('').filter(c => 'ALGMSO'.includes(c))).size;
   let back: string;
-  do back = randomBackRank(random, letters);
+  const deal = new GameRules(rulesOf('pieces', [null, null], [[], []]));
+  do back = deal.randomBackRank(random, letters);
   while (specials >= 2 && new Set(back.split('').filter(c => 'ALGMSO'.includes(c))).size < 2);
   return back;
 }
