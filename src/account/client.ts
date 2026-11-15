@@ -26,7 +26,10 @@ export function connect(storageKey: string, { manualCallback = false, apple = fa
   const useApple = () => apple && appleSignInEnabled(import.meta.env);
   // PKCE: the sign-in page sends back a one-time code; this browser exchanges it with a verifier it kept.
   const { url, publishableKey } = publicAccountConfig(import.meta.env);
-  const credentials = authStorage(storageKey, { getItem: key => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value), removeItem: key => localStorage.removeItem(key) });
+  const credentials = authStorage(storageKey, {
+    getItem: key => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value), removeItem: key => localStorage.removeItem(key),
+    get length() { return localStorage.length; }, key: i => localStorage.key(i),
+  });
   const listeners = new Set<(s: Session | null) => void>();
   const sb = createClient(url, publishableKey, { auth: {
     flowType: 'pkce', persistSession: true, storageKey, storage: credentials.storage,

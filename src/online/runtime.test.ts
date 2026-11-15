@@ -651,3 +651,29 @@ it('reports a refused route save and stops route writes after disposal', async (
   runtime.dispose!(); runtime.route!('board', '22222222-2222-4222-8222-222222222222');
   expect(runtime.onSaveRefused).toHaveBeenCalledOnce();
 });
+
+const jwt = (id: string, iat = 1) => 'fixture.' + btoa(JSON.stringify({ session_id: id, iat })) + '.signature';
+for (const path of ['/play/', '/g/game-a']) it(`review7: normal draft saves survive a same-session refresh on ${path}`, async () => {
+  const store = deletionStorage();
+  vi.stubGlobal('navigator', { onLine: true });
+  vi.stubGlobal('window', Object.assign(new EventTarget(), { localStorage: store, sessionStorage: storage(), location: new URL('https://kingdown.test' + path), history: { replaceState() {}, pushState() {} } }));
+  await accountData('alice', store).confirm(async () => ({ userId: 'alice', accessToken: jwt('live') }));
+  const runtime = createBrowserRuntime({} as OnlineClient, 'alice');
+  const refused = vi.fn(); runtime.onSaveRefused = refused;
+  const client = createPageClient(runtime.call, runtime.stateHost);
+  client.state.board_id = 'game-a'; client.state.screen = 'board';
+  client.state.draft = { game_tag: 'game-a', fen: 'private', lans: ['e2-e4'], scope: { account: 'alice', game: 'game-a', revision: 1, rules: 'rules', engine: 'engine' } };
+  const first = client.save();
+  client.state.draft.lans.push('d2-d4');
+  const second = client.save();
+  expect(await first).toBe(true); expect(await second).toBe(true);
+  const mark = store.getItem('kingdown.deleted-account.alice');
+  await accountData('alice', store).confirm(async () => ({ userId: 'alice', accessToken: jwt('live', 2) }));
+  expect(store.getItem('kingdown.deleted-account.alice')).toBe(mark);
+  client.state.draft.lans.push('g1-f3');
+  expect(await client.save()).toBe(true);
+  const restored = createBrowserRuntime({} as OnlineClient, 'alice');
+  const next = createPageClient(restored.call, restored.stateHost);
+  expect(next.state.draft).toEqual(client.state.draft);
+  expect(refused).not.toHaveBeenCalled();
+});

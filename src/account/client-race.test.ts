@@ -174,3 +174,93 @@ it('review6: a real new sign-in opens the current deletion mark', async () => {
   await accountData('alice', store).write(() => store.setItem('draft', 'new-turn'));
   expect(store.getItem('draft')).toBe('new-turn');
 });
+
+it('review7: full storage does not keep credentials on sign-out', async () => {
+  const memory = memoryStorage();
+  const store = { ...memory, setItem(key: string, value: string) {
+    if (key === 'fixture-auth-closed-sessions') throw new DOMException('Storage full', 'QuotaExceededError');
+    memory.setItem(key, value);
+  } };
+  setup(store); harness.fetch.mockResolvedValue(Response.json({}));
+  const client = connect('fixture-auth'), opening = (await client.readSession())!;
+  const receive = vi.fn(); client.onSession(receive);
+  const outcome = await client.signOutSession(opening).then(value => ({ value, error: null }), error => ({ value: false, error: error.name }));
+  expect.soft(memory.getItem('fixture-auth')).toBeNull();
+  expect.soft(harness.fetch).toHaveBeenCalled();
+  expect(outcome).toEqual({ value: true, error: null });
+  await vi.waitFor(() => expect(receive).toHaveBeenCalledWith(null));
+});
+
+it('review8: full storage still permits bound sign-out and removal of credentials', async () => {
+  const memory = memoryStorage(); let capacity = Infinity;
+  const bytes = () => [...memory.records].reduce((sum, [key, value]) => sum + key.length + value.length, 0);
+  const store = { ...memory, get length() { return memory.length; }, setItem(key: string, value: string) {
+    const old = memory.getItem(key);
+    if (bytes() - (old === null ? 0 : key.length + old.length) + key.length + value.length > capacity) throw new DOMException('Storage full', 'QuotaExceededError');
+    memory.setItem(key, value);
+  } };
+  setup(store);
+  store.setItem('fixture-auth-flow-hidden123-code-verifier', 'secret');
+  store.setItem('fixture-auth-flows-code-verifier', JSON.stringify(['visible123'])); harness.fetch.mockResolvedValue(Response.json({}));
+  const client = connect('fixture-auth'), expected = (await client.readSession())!;
+  memory.setItem('unrelated-game-data', 'x'.repeat(4096)); capacity = bytes();
+  const outcome = await client.signOutSession(expected).then(value => ({ value, error: null }), error => ({ value: false, error: error.name }));
+  expect.soft(outcome).toEqual({ value: true, error: null });
+  expect.soft(memory.getItem('fixture-auth')).toBeNull();
+  expect.soft(harness.fetch).toHaveBeenCalled();
+  expect(memory.getItem('fixture-auth-flow-hidden123-code-verifier')).toBeNull();
+  expect(memory.getItem('fixture-auth-flows-code-verifier')).toBeNull();
+  expect(JSON.parse(memory.getItem('fixture-auth-closed-sessions')!)).toHaveLength(1);
+});
+
+it('review8: sign-out clears flows from two concurrent starts in separate clients', async () => {
+  const memory = memoryStorage(); let watch = false, readIndex = false, reads = 0;
+  let release!: () => void;
+  const bothRead = new Promise<void>(resolve => { release = resolve; });
+  const store = { ...memory, get length() { return memory.length; }, getItem(key: string) {
+    if (watch && key === 'fixture-auth-flows-code-verifier') readIndex = true;
+    return memory.getItem(key);
+  } };
+  setup(store);
+  // The lock releases before either caller uses its index snapshot. No holder
+  // is overtaken. This gives the two tabs the same valid empty index read.
+  let tail: Promise<unknown> = Promise.resolve();
+  vi.stubGlobal('navigator', { onLine: true, locks: { request<T>(_name: string, run: () => Promise<T>) {
+    const result = tail.then(async () => {
+      readIndex = false; const value = await run(); const hold = readIndex;
+      if (hold && ++reads === 2) release();
+      return { value, hold };
+    });
+    tail = result.then(() => {}, () => {});
+    return result.then(async ({ value, hold }) => { if (hold) await bothRead; return value; });
+  } } });
+  harness.fetch.mockImplementation(async input => Response.json(String(input).includes('/token') ? session('old-flow-return') : {}));
+  const first = connect('fixture-auth'), expected = (await first.readSession())!;
+  const other = connect('fixture-auth'); await other.readSession();
+  watch = true;
+  const flows = await Promise.all([first.startAccountSignIn('google'), other.startAccountSignIn('github')]);
+  watch = false;
+  expect(reads).toBe(2);
+  expect(JSON.parse(memory.getItem('fixture-auth-flows-code-verifier')!)).toHaveLength(1);
+  for (const flow of flows) expect(memory.getItem(`fixture-auth-flow-${flow.flowId}-code-verifier`)).not.toBeNull();
+  await first.signOutSession(expected);
+  const left = flows.filter(flow => memory.getItem(`fixture-auth-flow-${flow.flowId}-code-verifier`) !== null);
+  expect.soft(left).toEqual([]);
+  for (const flow of flows) await expect(other.finishAccountSignIn('old-flow-code', flow.flowId)).rejects.toThrow();
+  expect(memory.getItem('fixture-auth')).toBeNull();
+});
+
+it('review7: a live session still refreshes after an older session closes', async () => {
+  const store = setup();
+  harness.fetch.mockImplementation(async input => Response.json(
+    String(input).endsWith('/verify') ? session('live', 'alice')
+    : String(input).includes('/token') ? session('live', 'alice', 2) : {}
+  ));
+  const client = connect('fixture-auth'), opening = (await client.readSession())!;
+  await client.signOutSession(opening);
+  await client.verifyEmailCode('alice@example.test', '123456');
+  const result = await harness.auth.refreshSession();
+  expect(result.error).toBeNull();
+  expect((await client.readSession())?.accessToken).toBe(jwt('live', 2));
+  expect(JSON.parse(store.getItem('fixture-auth')!).access_token).toBe(jwt('live', 2));
+});

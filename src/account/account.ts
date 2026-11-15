@@ -148,7 +148,8 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
     } else if (b.dataset.act === 'sign-out') {
       // The last changes go up first (waiting 3 s at most), so the account's copy has them.
       await Promise.race([sync?.flush(), new Promise(r => setTimeout(r, 3000))]);
-      try { await (await load()).signOut(); } catch { try { localStorage.removeItem(AUTH_KEY); } catch { /* blocked */ } }
+      try { await (await load()).signOut(); }
+      catch { keep('Could not finish sign-out. Check your connection and try again.'); return; }
       sync?.stop(); sync = null; userId = ''; user = null;
       render();
       keep('Signed out. Your games stay on this device.');

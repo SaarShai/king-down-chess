@@ -34,7 +34,7 @@ export interface FakeCall { actor: string; method: string; path: string; body: u
 /** A `localStorage` in memory. */
 export function memoryStorage() {
   const records = new Map<string, string>();
-  return { records, getItem: (key: string) => records.get(key) ?? null, setItem: (key: string, value: string) => { records.set(key, value); }, removeItem: (key: string) => { records.delete(key); } };
+  return { records, get length() { return records.size; }, key: (i: number) => [...records.keys()][i] ?? null, getItem: (key: string) => records.get(key) ?? null, setItem: (key: string, value: string) => { records.set(key, value); }, removeItem: (key: string) => { records.delete(key); } };
 }
 const json = (status: number, value: unknown) => status === 204 ? new Response(null, { status }) : new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
 
