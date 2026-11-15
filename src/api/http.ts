@@ -282,15 +282,18 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
 }
 
 export interface InternalOptions { games: GameService; publicOrigin: string; /** at least 32 characters; else /internal answers 503 */ secret?: string; /** the deletion notice; none when mail is not configured */ send?: Sender }
-/** pg_cron calls these through pg_net with the shared secret (supabase/ops/cron.sql). Each job is idempotent. */
-export function createInternalHandler({ games, publicOrigin, secret, send }: InternalOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
+/**
+ * pg_cron calls these through pg_net with the shared secret (supabase/ops/cron.sql). Each job is idempotent.
+ * `startedAt` is the request start, before any server startup work (tools/plugin-server.mjs), so the daily budget holds.
+ */
+export function createInternalHandler({ games, publicOrigin, secret, send }: InternalOptions): (req: IncomingMessage, res: ServerResponse, startedAt?: number) => Promise<void> {
  const origin = pluginOrigin(publicOrigin), expected = secret && secret.length >= 32 ? sha256(secret) : undefined;
- const jobs: Record<string, () => Promise<object>> = {
+ const jobs: Record<string, (deadline: number) => Promise<object>> = {
   '/internal/tick': async () => ({ ended: await sweepDeadlines(games) }),
-  // The cleanup first, so a deletion that fails does not stop it. The deletion emails get what is left of the budget.
-  '/internal/daily': async () => { const deadline = Date.now() + DAILY_BUDGET_MS, cleaned = await cleanup(games); return { deleted: await runDeletions(games, send, deadline), ...cleaned }; },
+  // The cleanup first, so a deletion that fails does not stop it. One budget covers the cleanup, the deletions and the emails.
+  '/internal/daily': async deadline => { const cleaned = await cleanup(games, new Date(), deadline); return { deleted: await runDeletions(games, send, deadline), ...cleaned }; },
  };
- return async (req, res) => {
+ return async (req, res, startedAt = Date.now()) => {
   const path = guard(req, res, origin); if (path === undefined) return;
   req.resume(); // the jobs read no body
   if (!expected) { respond(res, 503, { code: 'UNAVAILABLE', message: 'Internal jobs are not configured' }); return; }
@@ -300,7 +303,7 @@ export function createInternalHandler({ games, publicOrigin, secret, send }: Int
   const job = Object.hasOwn(jobs, path) ? jobs[path] : undefined;
   if (!job) { respond(res, 404, { code: 'NOT_FOUND', message: 'Not found' }); return; }
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); respond(res, 405, { code: 'NOT_ALLOWED', message: 'Method not allowed' }); return; }
-  try { respond(res, 200, await job()); }
+  try { respond(res, 200, await job(startedAt + DAILY_BUDGET_MS)); }
   catch (error) {
    const known = error instanceof MatchServiceError ? error : undefined;
    if (!known) console.error('King Down job failed', { path, requestId: randomUUID(), ...diagnostic(error) });

@@ -25,18 +25,32 @@ signed-out device cannot ask for the state without a new public route).
 - `src/online/mail.ts`: the Resend sender over fetch (the house sender of the removed alert emails)
   and the one message.
 - `src/online/jobs.ts`, `runDeletions(games, send?, deadline?)`: with a sender, read the address
-  before `delete_account`; after all the deletions, send one email for each deleted account, with the
-  idempotency key `kingdown-deletion-<user id>`, one at a time, until the deadline. The daily request
-  gives the job 25 s (`DAILY_BUDGET_MS`; the function stops at 30 s): a slow mail service cannot hold
-  back a deletion, and at the deadline the job stops the send in progress and logs how many emails did
-  not go. A failed read or send logs the fault (no address) and never stops or undoes a deletion.
-  With no sender, the job does not call the helper, so a deploy before 0026 keeps working.
+  before `delete_account`; after the deletions, send one email for each deleted account, with the
+  idempotency key `kingdown-deletion-<user id>`, one at a time (Resend limits the request rate).
+- One time budget for the daily request: 25 s from the request start (`DAILY_BUDGET_MS`; the function
+  stops at 30 s). `tools/plugin-server.mjs` records the start before a cold start's setup and passes it
+  to `createInternalHandler`. The fault cleanup starts no batch with less than 15 s left; no deletion
+  starts with less than 10 s left (`NOTICE_RESERVE_MS`, the time for the emails); the accounts that a
+  run does not reach stay due for the next run, and the log counts them. No email starts after the
+  deadline, and at the deadline the job stops the send in progress. A failed read or send logs the
+  fault (no address) and never stops or undoes a deletion. With no sender, the job does not call the
+  helper, so a deploy before 0026 keeps working.
 - `src/api/http.ts`, `tools/plugin-server.mjs`: the daily job gets the sender when
   `RESEND_API_KEY` and `KINGDOWN_MAIL_FROM` are both set.
 - `tools/deploy-plugin-env.mjs`: accept both mail settings or neither; the key starts `re_`; the
   sender is `King Down <name@kingdown.dev>`.
 - The privacy and delete-data pages (default and launch copies) say that one email confirms the
   deletion and that Resend sends it.
+
+## Limit: best effort (decision 106)
+
+The email is best effort. An email that fails, or that does not go before the deadline, is lost: the
+server keeps no address after the deletion, so nothing can send it again. The log counts these emails,
+with no address. "Not sent" in the log is not proof that no email arrived: the mail service can accept
+an email just before the job stops the request. A stored retry queue is rejected, because it keeps the
+address of a deleted account. The in-app receipt confirms the request in all cases.
+One database call that hangs can still pass the function's 30 s stop; the deletion record and the
+account removal are one transaction, so the next run continues.
 
 ## Release order
 
@@ -54,6 +68,8 @@ say that the email goes, so steps 1 and 2 come before the deploy that publishes 
 
 ## Verification
 
-- `src/online/mail.test.ts`, `src/online/jobs.test.ts` (fake pool; 50 accounts with slow failed sends), `src/online/jobs.db.test.ts`
+- `src/online/mail.test.ts`, `src/online/jobs.test.ts` (fake pool; 50 accounts with slow failed sends;
+  slow deletions with active games; a deadline that passes during a deletion),
+  `tools/plugin-server-daily.test.ts` (the budget counts a 6 s cold start), `src/online/jobs.db.test.ts`
   (PostgreSQL: due, early, held, cancelled; browser roles; a failed send keeps the deletion; the
   runtime role reads only a due address), `tools/deploy-plugin-env.test.ts`, `tools/deploy.test.ts`.

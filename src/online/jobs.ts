@@ -23,17 +23,22 @@ export async function sweepDeadlines(games: GameService, now = new Date()): Prom
  * use the database clock: they are a trust boundary, so no caller's clock can shorten them. A sign-in that cancels
  * the deletion while this runs keeps the account, but the games it ended stay ended. Returns the number deleted.
  * With `send`, each deleted account gets one email that confirms the deletion (Apple guideline 5.1.1(v)). The address
- * is read just before the account goes (migration 0026), and only for a due deletion. The emails go after all the
- * deletions, so a slow mail service cannot hold back a deletion, and they stop at `deadline` (see sendNotices). A notice
- * that fails never stops or undoes a deletion: the log shows it, and there is no address left to try again.
+ * is read just before the account goes (migration 0026), and only for a due deletion. The emails go after the
+ * deletions, so a slow mail service cannot hold back a deletion, and they stop at `deadline` (see sendNotices).
+ * `deadline` is the end of the request's budget: no deletion starts with less than NOTICE_RESERVE_MS left (when there are
+ * emails to send), and the accounts not reached stay due for the next run.
+ * The email is best effort (decision 106): one that fails or does not go in this run is lost, because the server keeps
+ * no address after the deletion. The log counts it, with no address.
  */
 export async function runDeletions(games: GameService, send?: Sender, deadline = Date.now() + DAILY_BUDGET_MS): Promise<number> {
  const pool = games.store.pool;
  const due = await pool.query(`select d.user_id from public.account_deletions d where d.run_after<=now() and d.cancelled_at is null and d.done_at is null
   and not exists(select from public.reports r where d.user_id in (r.reported_id,r.reporter_id) and r.hold_until>now()) order by d.run_after limit 50`);
- let deleted = 0;
- const notices: Mail[] = [];
+ let deleted = 0, reached = 0;
+ const notices: Mail[] = [], reserve = send ? NOTICE_RESERVE_MS : 0;
  for (const { user_id } of due.rows) try {
+  if (deadline - Date.now() < reserve) break;
+  reached++;
   const to: string | null = send ? await pool.query('select kingdown_jobs.deletion_email($1) as address', [user_id])
    .then(result => result.rows[0]?.address ?? null, error => { console.error('King Down deletion notice failed', diagnostic(error)); return null; }) : null;
   const active = await pool.query('select g.id,g.status,g.revision from public.game_players p join public.games g on g.id=p.game_id where p.user_id=$1 and p.active', [user_id]);
@@ -51,12 +56,20 @@ export async function runDeletions(games: GameService, send?: Sender, deadline =
   // ponytail: 50 such players, the oldest, would hold back the rest; the log shows each failure.
   console.error('King Down deletion failed', diagnostic(error));
  }
+ if (reached < due.rows.length) console.warn('King Down deletions left for the next run', { count: due.rows.length - reached });
  if (notices.length) await sendNotices(send!, notices, deadline);
  return deleted;
 }
 
-/** The daily request answers within this time: the deployed function stops at 30 s (tools/plugin-server-build.mjs, maxDuration). */
+/**
+ * The daily request's budget, from the request start (tools/plugin-server.mjs passes it through startup): the deployed
+ * function stops at 30 s (tools/plugin-server-build.mjs, maxDuration).
+ */
 export const DAILY_BUDGET_MS = 25_000;
+/** No deletion starts with less time left than this: it is the time for the emails (and one slow deletion call). */
+export const NOTICE_RESERVE_MS = 10_000;
+/** No fault-cleanup batch starts with less time left than this: it is the time for the deletions and the emails. */
+const CLEANUP_RESERVE_MS = 15_000;
 
 /**
  * Sends the notices one at a time (Resend limits the request rate) until `deadline`. At the deadline the job stops
@@ -69,7 +82,8 @@ async function sendNotices(send: Sender, notices: Mail[], deadline: number): Pro
  try {
   await Promise.race([stopped, (async () => {
    for (const mail of notices) {
-    if (stop.signal.aborted) return;
+    // The timer can fire late, so the clock decides: no send starts after the deadline.
+    if (stop.signal.aborted || Date.now() >= deadline) return;
     await send(mail, stop.signal).catch(error => console.error('King Down deletion notice failed', diagnostic(error)));
     done++;
    }
@@ -84,7 +98,7 @@ async function sendNotices(send: Sender, notices: Mail[], deadline: number): Pro
  * 12 months that no hold covers. The report delete uses the database clock: runtime-role.sql (tenth block) lets this
  * role delete no newer or held report.
  */
-export async function cleanup(games: GameService, now = new Date()): Promise<{ invites: number; outbox: number; boards: number; reports: number }> {
+export async function cleanup(games: GameService, now = new Date(), deadline = Infinity): Promise<{ invites: number; outbox: number; boards: number; reports: number }> {
  const pool = games.store.pool;
  const invites = await pool.query(`delete from public.game_invites i where i.expires_at<=$1
   and not exists(select from public.games g where g.id=i.game_id and g.status='waiting')`, [now]);
@@ -95,7 +109,8 @@ export async function cleanup(games: GameService, now = new Date()): Promise<{ i
   let client;
   try {
    client = await pool.connect();
-   for (;;) {
+   // The next daily run continues a cleanup that the request budget stops.
+   while (deadline - Date.now() >= CLEANUP_RESERVE_MS) {
     await client.query('begin');
     await client.query("set local statement_timeout = '500ms'; set local lock_timeout = '500ms'; set local timezone = 'UTC'");
     const batch = await client.query(`delete from public.client_errors where id in
