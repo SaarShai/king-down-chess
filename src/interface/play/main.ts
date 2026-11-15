@@ -327,6 +327,10 @@ function home(newArmy = false) {
 }
 /** The New game panel (launch decision 26). Its edits stay in the panel until Start game. */
 function openNewGame(source: HTMLElement) {
+  // Close, then New game at once: the panel opens after the pending Back. A late invite reply can leave Play meanwhile.
+  shell.settled(() => { if (shell.route.place === 'play') newGameLayer(source); });
+}
+function newGameLayer(source: HTMLElement) {
   const panel = newGamePanel({
     next: changeDraft(next, accepted()),
     // The game that a start ends: the game in memory, or the stored game, read again at each press.
