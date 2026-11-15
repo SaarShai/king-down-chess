@@ -15,6 +15,7 @@ import { GameService } from '../src/match/service.ts';
 import { PluginService } from '../src/plugin/service.ts';
 import { PostgresMatchStore } from '../src/match/store.ts';
 import { createApiHandler, createInternalHandler, sessionVerifier } from '../src/api/http.ts';
+import { resendSender } from '../src/online/mail.ts';
 import { createWebAccountAccess } from '../src/api/account-access.ts';
 import { AccountService } from '../src/online/accounts.ts';
 import { SafetyService } from '../src/online/safety.ts';
@@ -177,7 +178,8 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
       toolTry: (actor, tool) => service.toolTry(actor, tool),
     } });
   } catch (error) { serveMuse = false; console.error('King Down Muse startup failed', { build, ...diagnostic(error) }); }
-  const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET });
+  // The deletion notice needs both mail settings (tools/deploy-plugin-env.mjs sets both or neither).
+  const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET, send: env.RESEND_API_KEY && env.KINGDOWN_MAIL_FROM ? resendSender(env) : undefined });
   const localSolo = typeof __KINGDOWN_SOLO_LAUNCH__ === 'boolean' ? __KINGDOWN_SOLO_LAUNCH__ : soloLaunch(env.KINGDOWN_SOLO_LAUNCH);
   const api = createApiHandler({ games, accounts: new AccountService(store), safety: new SafetyService(store), players: service, publicOrigin,
     ...(import.meta.env?.KINGDOWN_ERROR_RECORDER !== false && { recordError: createErrorWriter(pool, typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : ''), build: typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : '' }),

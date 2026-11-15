@@ -54,7 +54,7 @@ suite('web account access: switch migration with current game storage', () => {
     create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;`);
    for (const name of baseline) await admin.query(read(`supabase/migrations/${name}`));
    await admin.query(read('plugin-deploy/oauth-audience-hook.sql'));
-   expect(blocks).toHaveLength(14);
+   expect(blocks).toHaveLength(15);
    await admin.query(blocks.slice(0, 11).join('\n').replaceAll('kingdown_plugin_runtime', role));
   });
   runtime = new pg.Pool({ connectionString: own.href, max: 1, options: `-c role=${role}` });

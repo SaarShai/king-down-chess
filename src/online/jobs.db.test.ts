@@ -14,6 +14,7 @@ import { MAX_REVISION } from '../match/protocol';
 import { GameService, TURN_DAYS } from '../match/service';
 import { PostgresMatchStore } from '../match/store';
 import { cleanup, runDeletions, sweepDeadlines } from './jobs';
+import { deletionMail, type Mail } from './mail';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 
@@ -163,6 +164,29 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
   }
  }, 60_000);
 
+ it('gives the notice address only for a due deletion, to no browser role, and a failed notice keeps the deletion', async () => {
+  const [due, early, held, cancelled, opp] = [await user('due'), await user('ear'), await user('hel'), await user('can'), await user('opn')];
+  await admin.query(`insert into public.account_deletions(user_id,run_after,cancelled_at) values
+   ($1,now()-interval '1 minute',null),($2,now()+interval '1 day',null),($3,now()-interval '1 minute',null),($4,now()-interval '1 minute',now())`, [due, early, held, cancelled]);
+  await admin.query(`insert into public.reports(reporter_id,reported_id,target,category,hold_until) values($1,$2,'player','other',now()+interval '1 day')`, [opp, held]);
+  const email = async (id: string) => (await rows('select kingdown_jobs.deletion_email($1) as address', [id]))[0].address;
+  expect([await email(due), await email(early), await email(held), await email(cancelled), await email(opp)]).toEqual([address(due), null, null, null, null]);
+  for (const role of ['anon', 'authenticated']) expect((await rows('select has_function_privilege($1,$2,$3) as allowed', [role, 'kingdown_jobs.deletion_email(uuid)', 'EXECUTE']))[0].allowed, role).toBe(false);
+  // No grant to PUBLIC (an ACL item with no role name before "=").
+  expect(String((await rows("select proacl::text as acl from pg_proc where oid='kingdown_jobs.deletion_email(uuid)'::regprocedure"))[0].acl)).not.toMatch(/[{,]=/);
+  const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+   expect(await runDeletions(games[0], async () => { throw new Error('Resend refused the email (500)'); })).toBe(1);
+   expect(error.mock.calls).toEqual([['King Down deletion notice failed', { name: 'Error', code: 'UNKNOWN' }]]);
+  } finally {
+   error.mockRestore();
+   await admin.query(`update public.reports set hold_until=now()-interval '1 second' where reported_id=$1`, [held]);
+   await admin.query('update public.account_deletions set cancelled_at=now() where user_id=any($1) and done_at is null', [[early, held]]);
+  }
+  expect((await rows('select id from auth.users where id=any($1)', [[due, early, held, cancelled]])).map(row => row.id).sort()).toEqual([early, held, cancelled].sort());
+  expect(await email(due)).toBeNull();
+ }, 60_000);
+
  it('deletes a report 12 months after it was made unless a hold covers it; the runtime role can delete no other report', async () => {
   const role = `jobs_reports_${randomUUID().replaceAll('-', '')}`, password = randomUUID();
   const runtimeUrl = new URL(own.href); runtimeUrl.username = role; runtimeUrl.password = password;
@@ -199,7 +223,12 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
    await move(h, id); at(MINUTE); await move(p, id);
    await admin.query(`insert into public.account_deletions(user_id,run_after) values($1,now()-interval '1 minute')`, [gone]);
    await sweepDeadlines(service, at(MINUTE));
-   expect(await runDeletions(service)).toBe(1);
+   // The role reads the address of a due deletion only (migration 0026), and the notice goes after the deletion.
+   expect((await runtime.query('select kingdown_jobs.deletion_email($1) as address', [h])).rows[0].address).toBeNull();
+   const sent: Mail[] = [];
+   expect(await runDeletions(service, async mail => { sent.push(mail); })).toBe(1);
+   expect(sent).toEqual([{ ...deletionMail(address(gone)), key: `kingdown-deletion-${gone}` }]);
+   expect((await runtime.query('select kingdown_jobs.deletion_email($1) as address', [gone])).rows[0].address).toBeNull();
    await cleanup(service, at());
    expect(await sweepDeadlines(service, at(TURN_DAYS * DAY))).toBeGreaterThanOrEqual(1);
    for (const statement of [

@@ -16,6 +16,7 @@ import { settingsSchema } from '../plugin/settings';
 import { noticesBeforeSchema, type AccountService } from '../online/accounts';
 import type { SafetyService } from '../online/safety';
 import { cleanup, runDeletions, sweepDeadlines } from '../online/jobs';
+import type { Sender } from '../online/mail';
 import { ACTOR_UUID, AuthenticationError, AuthenticationUnavailable, isLoopback, pluginOrigin } from '../plugin/auth';
 import { diagnostic } from '../plugin/diagnostics';
 import { errorAdmission, readClientError, recordServerError, type ErrorWriter } from '../diagnostics/server';
@@ -280,14 +281,14 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
  };
 }
 
-export interface InternalOptions { games: GameService; publicOrigin: string; /** at least 32 characters; else /internal answers 503 */ secret?: string }
+export interface InternalOptions { games: GameService; publicOrigin: string; /** at least 32 characters; else /internal answers 503 */ secret?: string; /** the deletion notice; none when mail is not configured */ send?: Sender }
 /** pg_cron calls these through pg_net with the shared secret (supabase/ops/cron.sql). Each job is idempotent. */
-export function createInternalHandler({ games, publicOrigin, secret }: InternalOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
+export function createInternalHandler({ games, publicOrigin, secret, send }: InternalOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
  const origin = pluginOrigin(publicOrigin), expected = secret && secret.length >= 32 ? sha256(secret) : undefined;
  const jobs: Record<string, () => Promise<object>> = {
   '/internal/tick': async () => ({ ended: await sweepDeadlines(games) }),
   // The cleanup first, so a deletion that fails does not stop it.
-  '/internal/daily': async () => { const cleaned = await cleanup(games); return { deleted: await runDeletions(games), ...cleaned }; },
+  '/internal/daily': async () => { const cleaned = await cleanup(games); return { deleted: await runDeletions(games, send), ...cleaned }; },
  };
  return async (req, res) => {
   const path = guard(req, res, origin); if (path === undefined) return;

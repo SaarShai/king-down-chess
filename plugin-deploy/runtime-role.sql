@@ -199,3 +199,8 @@ commit;
 begin;
 grant execute on function kingdown_jobs.user_avatar(uuid, uuid) to kingdown_plugin_runtime;
 commit;
+
+-- 15. Deletion notice helper (0026). The runtime reads an address only for a due account deletion, to confirm it.
+begin;
+grant execute on function kingdown_jobs.deletion_email(uuid) to kingdown_plugin_runtime;
+commit;

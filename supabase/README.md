@@ -60,7 +60,7 @@ Install the audience hook and runtime-role blocks 1–2 once, through the privat
 ## Online games: 0005 to 0014
 
 Apply only missing files in order, after 0001–0004, through the approved privileged SQL Editor path.
-`npm run plugin:db:migrate` applies 0002–0025. Use it only for a disposable test database. Do not run its
+`npm run plugin:db:migrate` applies 0002–0026. Use it only for a disposable test database. Do not run its
 `tsx` entry against a live database. For the 0014 MVP, apply the third to the eleventh blocks of
 `plugin-deploy/runtime-role.sql` to the existing runtime role. The web section below adds block 12.
 The migrations are safe to run again.
@@ -128,7 +128,7 @@ in one short window:
 
 - `0014_plugin_tool_tries.sql`: one counter for each user and tool. Role block 11 grants the server access. Browser roles have no access.
 
-`npm run plugin:db:init-test` applies 0001–0025 twice to a disposable loopback database, and
+`npm run plugin:db:init-test` applies 0001–0026 twice to a disposable loopback database, and
 `src/match/service.db.test.ts`, `src/match/setup.db.test.ts`, `src/match/matchmaking.db.test.ts`,
 `src/match/results.db.test.ts`, `src/online/jobs.db.test.ts`, `src/online/accounts.db.test.ts` and
 `src/api/http.db.test.ts` check them.
@@ -141,7 +141,7 @@ in one short window:
 
 ## Web account access: 0016
 
-For a new database after 0001–0004, apply 0005–0025, then blocks 3–14 of `plugin-deploy/runtime-role.sql`.
+For a new database after 0001–0004, apply 0005–0026, then blocks 3–15 of `plugin-deploy/runtime-role.sql`.
 An existing database needs only the missing files and blocks, under the authority below.
 
 Apply only missing migrations in order through `0016_web_account_access.sql`, then block 12 of
@@ -170,8 +170,8 @@ Not a migration: the local test database has no pg_cron or pg_net. After the dep
 the SQL Editor for this MVP. `ops/cron.sql` is the source copy. The server reads the same
 secret from `KINGDOWN_INTERNAL_SECRET` (at least 32 characters; without it, `/internal/*` answers 503). It schedules
 `/internal/tick` (each minute), `/internal/daily` (03:17 UTC) and cron history cleanup.
-The MVP sends no email. The file removes `kingdown-outbox` and `kingdown-reminders`
-if an older release made them. Keep `RESEND_API_KEY` and `KINGDOWN_MAIL_FROM` unset.
+The server sends one email only: the deletion notice of 0026. The file removes `kingdown-outbox` and `kingdown-reminders`
+if an older release made them. Set `RESEND_API_KEY` and `KINGDOWN_MAIL_FROM` together, or neither (then no notice goes).
 Cleanup deletes outbox rows that were created or finished at least 30 days ago, including rows with no `done_at` (`src/online/jobs.ts`, `cleanup`).
 Confirm the two internal routes work before you paste the MVP file.
 
@@ -251,3 +251,10 @@ The file checks for invalid indexes before it attaches constraints. Do not skip 
 - `0025_opponent_avatar.sql`: adds `kingdown_jobs.user_avatar(uuid, uuid)` to read an opponent's social sign-in picture only when a game or an invite links the two accounts with no block. Email sign-in keeps no picture. Browser roles keep no access.
   Apply 0025 on staging before a server deploy that calls it. Run block 14 of `plugin-deploy/runtime-role.sql` only when setting up a new runtime role.
   Apply 0025 on production before the release that calls it.
+
+## Deletion notice: 0026
+
+- `0026_deletion_notice.sql`: adds `kingdown_jobs.deletion_email(uuid)`. It gives the account's email address only for a due deletion (grace over, not cancelled, not done, no report hold), on the database clock. The daily job reads it just before `kingdown_jobs.delete_account`, then sends one email through Resend after the deletion (Apple guideline 5.1.1(v)). Browser roles keep no access.
+  The server calls the helper only when `RESEND_API_KEY` and `KINGDOWN_MAIL_FROM` are set. Apply 0026 before you set them; a failed read or send never stops a deletion.
+  Apply 0026 on staging before a server deploy that sets the mail settings. Run block 15 of `plugin-deploy/runtime-role.sql` only when setting up a new runtime role.
+  Apply 0026 on production before the release that sets them.

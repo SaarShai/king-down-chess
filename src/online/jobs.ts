@@ -7,6 +7,7 @@
 import { randomUUID } from 'node:crypto';
 import type { GameService } from '../match/service';
 import { diagnostic } from '../plugin/diagnostics';
+import { deletionMail, type Sender } from './mail';
 
 /** Ends the Daily games past their deadline (loss on time, or the 3-day first-turn cancel) and the waiting games whose invitation ran out. */
 export async function sweepDeadlines(games: GameService, now = new Date()): Promise<number> {
@@ -21,20 +22,28 @@ export async function sweepDeadlines(games: GameService, now = new Date()): Prom
  * aborted), then kingdown_jobs.delete_account checks again under a lock and deletes the account. The grace and the hold
  * use the database clock: they are a trust boundary, so no caller's clock can shorten them. A sign-in that cancels
  * the deletion while this runs keeps the account, but the games it ended stay ended. Returns the number deleted.
+ * With `send`, each deleted account gets one email that confirms the deletion (Apple guideline 5.1.1(v)). The address
+ * is read just before the account goes (migration 0026), and only for a due deletion. A notice that fails never stops
+ * or undoes a deletion: the log shows it, and there is no address left to try again.
  */
-export async function runDeletions(games: GameService): Promise<number> {
+export async function runDeletions(games: GameService, send?: Sender): Promise<number> {
  const pool = games.store.pool;
  const due = await pool.query(`select d.user_id from public.account_deletions d where d.run_after<=now() and d.cancelled_at is null and d.done_at is null
   and not exists(select from public.reports r where d.user_id in (r.reported_id,r.reporter_id) and r.hold_until>now()) order by d.run_after limit 50`);
  let deleted = 0;
  for (const { user_id } of due.rows) try {
+  const to: string | null = send ? await pool.query('select kingdown_jobs.deletion_email($1) as address', [user_id])
+   .then(result => result.rows[0]?.address ?? null, error => { console.error('King Down deletion notice failed', diagnostic(error)); return null; }) : null;
   const active = await pool.query('select g.id,g.status,g.revision from public.game_players p join public.games g on g.id=p.game_id where p.user_id=$1 and p.active', [user_id]);
   // A new command ID each time: the player's own client could send a fixed one first, and the receipt would refuse the job (COMMAND_CONFLICT).
   for (const g of active.rows) await games.command(user_id, g.id, { command_id: randomUUID(), expected_revision: g.revision, action: { type: g.status === 'waiting' || g.status === 'setup' ? 'abort' : 'resign' } })
    // Ended on time meanwhile, or another run already deleted the account (no seat, no solo game): nothing to end.
    // A move that came first (STALE_REVISION) keeps the game active, so delete_account refuses and the next run tries again.
    .catch(error => { if (!['MATCH_TERMINAL', 'FORBIDDEN', 'NOT_FOUND', 'STALE_REVISION'].includes(error?.code)) throw error; });
-  if ((await pool.query('select kingdown_jobs.delete_account($1) as done', [user_id])).rows[0].done) deleted++;
+  if (!(await pool.query('select kingdown_jobs.delete_account($1) as done', [user_id])).rows[0].done) continue;
+  deleted++;
+  // The key makes a repeated send in the same day one email.
+  if (to) await send!({ ...deletionMail(to), key: `kingdown-deletion-${user_id}` }).catch(error => console.error('King Down deletion notice failed', diagnostic(error)));
  } catch (error) {
   // One player whose deletion fails must not stop the others. The row stays due, so each run tries it again.
   // ponytail: 50 such players, the oldest, would hold back the rest; the log shows each failure.
