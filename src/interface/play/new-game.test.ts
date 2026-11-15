@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { armyTypes, changeDraft, createDraft, dealArmy, kingChoices, poolLetters, readOptions, rulesFor, startOf, DEFAULT_OPTIONS, type Choices } from './new-game';
+import { armyTypes, cardLocked, changeDraft, createDraft, dealArmy, kingChoices, poolLetters, poolLocked, levelKey, readPanel, restorePanel, shownKing, readOptions, rulesFor, startOf, DEFAULT_OPTIONS, type Choices } from './new-game';
 import { gameType } from './saved';
 import { A, G, K, M, N, O, P, R, colorOf } from '../../rules/engine';
 
@@ -32,7 +32,7 @@ it('launch decision 26: a level or an unchanged value changes nothing; the side 
   expect(level.game).toBe(draft.game); expect(level.rules).toBe(draft.rules); expect(level.level).toBe('club');
   expect(changeDraft(draft, { setup: 'powers', sideChoice: 'light' }).game).toBe(draft.game);
   const dark = changeDraft(draft, { sideChoice: 'dark' });
-  expect(dark.game).toBe(draft.game); expect(dark.player).toBe(1); expect(dark.back).toBe(draft.back);
+  expect(dark.game.rules.kings[1]).toEqual(DEFAULT_OPTIONS.king); expect(dark.player).toBe(1); expect(dark.back).toBe(draft.back);
   const cards = changeDraft(dark, { setup: 'both' });
   expect(cards.back).toBe(draft.back); expect(gameType(cards.game.rules)).toBe('both'); expect(cards.game.rules.hands[0]).toHaveLength(4);
   expect(cards.player).toBe(1);
@@ -67,6 +67,7 @@ it('owner playtest section 2: your king, the card pool and the piece kinds', () 
   expect(poolLetters(kinds)).toBe('QRRBBNNAA');
   expect(readOptions({ pool: ['Q', 'R', 'B'] }).pool).toEqual(DEFAULT_OPTIONS.pool);
   expect(readOptions({ cardPool: ['Freeze'] }).cardPool).toEqual(DEFAULT_OPTIONS.cardPool);
+  expect(readOptions({ cardPool: DEFAULT_OPTIONS.cardPool.slice(0, 5) }).cardPool).toEqual(DEFAULT_OPTIONS.cardPool);
   expect(readOptions({ king: { king: 'Nobody', power: 'Mercy' }, arrangement: 'manual' })).toMatchObject({ king: null, arrangement: 'manual' });
   expect(readOptions(null)).toEqual(DEFAULT_OPTIONS);
   // A changed king deals again; a changed piece pool deals a new army.
@@ -86,4 +87,51 @@ it('the army row: each type of the side one time, the king first, the pawn last'
   // A known army: the king, the new pieces in the Guide's order, the chess pieces by type, the pawns last.
   const known = createDraft(choices({ setup: 'pieces' }), Math.random, 'ROGAKMNR');
   expect(armyTypes(known.game, 0)).toEqual([[K, 1], [A, 1], [G, 1], [M, 1], [O, 1], [N, 1], [R, 2], [P, 8]].map(([type, count]) => ({ type, count })));
+});
+
+it('first use has playable options and Spirit with Mercy', () => {
+  expect(readOptions(null)).toEqual(DEFAULT_OPTIONS);
+  expect(DEFAULT_OPTIONS.king).toEqual({ king: 'Spirit', power: 'Mercy' });
+  expect(DEFAULT_OPTIONS.arrangement).toBe('random');
+  const draft = createDraft(choices({ setup: 'pieces' }));
+  expect(draft.game.rules.hands).toEqual([[], []]); expect(draft.game.rules.kings).toEqual([null, null]);
+});
+it('pool locks use piece counts and free a box when another kind joins', () => {
+  const pool = ['R', 'B', 'N', 'G']; // Seven pieces from four kinds.
+  expect(poolLetters(pool)).toHaveLength(7);
+  expect(poolLocked(pool, 'G')).toBe(true); expect(poolLocked(pool, 'R')).toBe(true);
+  expect(poolLocked([...pool, 'A'], 'G')).toBe(false);
+  expect(poolLocked(pool, 'A')).toBe(false);
+});
+it('cards use a legal king and keep the preferred power for cards off', () => {
+  const freeze = { king: 'Frost', power: 'Freeze' } as const, leap = { king: 'Mud', power: 'Leap' } as const;
+  expect(shownKing('both', freeze)).toEqual(DEFAULT_OPTIONS.king);
+  expect(shownKing('both', leap)).toEqual({ king: 'Mud', power: 'March' });
+  let draft = createDraft(choices({ setup: 'powers', options: { ...DEFAULT_OPTIONS, king: freeze } }));
+  draft = changeDraft(draft, { setup: 'both' }); expect(draft.options.king).toEqual(freeze); expect(draft.game.rules.kings[0]).toEqual(DEFAULT_OPTIONS.king);
+  draft = changeDraft(draft, { setup: 'powers' }); expect(draft.game.rules.kings[0]).toEqual(freeze);
+});
+it('Pick four caps the choice and leaves selected cards free to go off', () => {
+  const four = DEFAULT_OPTIONS.cardPool.slice(0, 4);
+  expect(cardLocked(four, DEFAULT_OPTIONS.cardPool[4])).toBe(true);
+  expect(cardLocked(four, four[0])).toBe(false);
+  expect(cardLocked(four.slice(0, 2), DEFAULT_OPTIONS.cardPool[4])).toBe(false);
+});
+it('slider keys reach all three stops and stay at the ends', () => {
+  expect(levelKey('casual', 'ArrowLeft')).toBe('casual'); expect(levelKey('casual', 'ArrowRight')).toBe('clever');
+  expect(levelKey('clever', 'ArrowUp')).toBe('club'); expect(levelKey('club', 'ArrowDown')).toBe('clever');
+  expect(levelKey('club', 'End')).toBe('club'); expect(levelKey('club', 'Home')).toBe('casual'); expect(levelKey('casual', 'Tab')).toBe('casual');
+});
+it('sign-in return keeps the draft and an incomplete Pick four choice', () => {
+  const memory = { ...choices({ setup: 'both', level: 'club', sideChoice: 'dark' }), options: { ...DEFAULT_OPTIONS, arrangement: 'manual' }, opponent: 'person', section: 'cards', cardMode: 'four', picked: ['Freeze', 'Haste'] };
+  expect(readPanel(JSON.parse(JSON.stringify(memory)))).toEqual(memory);
+  expect(readPanel(null)).toBeNull(); expect(readPanel({ ...memory, setup: 'other' })).toBeNull();
+});
+
+it('a sign-in reload keeps the exact dealt army, seats, kings and shared cards', () => {
+  const draft = createDraft(choices());
+  const memory = readPanel(JSON.parse(JSON.stringify({ ...choices(), options: draft.options, opponent: 'person', section: null, cardMode: 'all', picked: [], deal: { back: draft.back, rules: draft.rules, player: draft.player } })))!;
+  const restored = restorePanel(memory);
+  expect(restored.player).toBe(draft.player); expect(restored.back).toBe(draft.back); expect(restored.rules).toEqual(draft.rules); sameStart(restored.game, draft.game);
+  expect(readPanel({ ...memory, deal: { ...memory.deal, back: '<bad>' } })!.deal).toBeUndefined();
 });
