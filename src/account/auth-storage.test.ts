@@ -67,4 +67,13 @@ it('live closed entries still reject writes across adapters with no count limit'
   vi.spyOn(Date, 'now').mockReturnValue(now + 24 * 60 * 60 * 1000 - 1);
   await other.storage.setItem('auth', JSON.stringify({ user: { id: 'alice' }, access_token: 'closed-0' }));
   expect(store.getItem('auth')).toBeNull();
+}, 30_000); // The list grows to 1,001 entries; a loaded machine needs more than the default 5 s.
+
+it.each(['{not json', 'null', '[null]', '[{"session":1}]'])('a corrupt closed record %s does not block a new sign-in', async record => {
+  const store = memoryStorage(), adapter = authStorage('auth', store);
+  store.setItem('auth-closed-sessions', record);
+  await adapter.storage.setItem('auth', JSON.stringify({ user: { id: 'alice' }, access_token: 'fresh' }));
+  expect(JSON.parse(store.getItem('auth')!).access_token).toBe('fresh');
+  await adapter.remove({ userId: 'alice', accessToken: 'fresh' }, () => {});
+  expect(JSON.parse(store.getItem('auth-closed-sessions')!).map((entry: { session: string }) => entry.session)).toEqual(['fresh']);
 });

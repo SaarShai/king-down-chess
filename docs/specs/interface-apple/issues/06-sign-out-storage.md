@@ -12,6 +12,8 @@ Under the auth lock, removal clears the matched credentials and all stored flow 
 
 Each closed session has a 24-hour expiry. Each closure write removes expired entries. No count limit drops live entries. If the closure write still fails after removal frees space, the client keeps credentials removed, sends the sign-out event and revokes the token. The event and revoke stay; the stored guard for that closure can be absent.
 
+The account screen binds sign-out to the session that it shows at the click, before the cloud-save wait. It removes only that session. After the reply, it clears the screen and stops the cloud save only if the screen still shows that session or no session. A sign-in from another tab during the waits keeps its credentials, its screen and its cloud save. A corrupt closed record is read as empty, so it cannot block a later sign-in.
+
 ## Review cases
 
 The source tests keep both full-store cases, the actual click-handler case for the same account and another account, and the two-client flow-index race. The flow case checks that both old callbacks fail. The live-session refresh control and normal draft-save controls add coverage. The two draft cases cover both old routes, ordered saves, a stable generation through refresh, and restore.

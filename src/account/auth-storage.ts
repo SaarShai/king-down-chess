@@ -5,7 +5,11 @@ import { sessionKey, type AccountSession } from './session';
 export function authStorage(storageKey: string, store: AccountStore & Pick<Storage, 'length' | 'key'>, locks: LockManager | undefined = browserLocks()) {
   const locked = <T>(run: () => T) => accountLock(`lock:${storageKey}`, locks, run);
   const closedKey = `${storageKey}-closed-sessions`;
-  const closed = (): { session: string; expires: number }[] => JSON.parse(store.getItem(closedKey) ?? '[]');
+  const closed = (): { session: string; expires: number }[] => {
+    let list: unknown;
+    try { list = JSON.parse(store.getItem(closedKey) ?? '[]'); } catch { return []; } // A corrupt record must not block every later sign-in.
+    return Array.isArray(list) ? list.filter(entry => typeof entry?.session === 'string' && typeof entry.expires === 'number') : [];
+  };
   return {
     storage: {
       getItem: (key: string) => locked(() => store.getItem(key)),

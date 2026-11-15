@@ -9,7 +9,7 @@ import { Sync, stamp, type SavedGameAccess, type Section } from './sync';
 import type { Client, Provider, SignInOption } from './client';
 import { emailCodeForm, forgetEmailCode } from './email-code';
 import { allowedAvatarUrl } from './public-config';
-import { AUTH_KEY } from './session';
+import { AUTH_KEY, sessionKey, type AccountSession } from './session';
 import { canWriteLocal } from './local';
 import { apiOrigin, inApp } from '../platform';
 export type User = { name: string; avatar: string | null; provider: string };
@@ -78,6 +78,7 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
   const params = new URLSearchParams(location.search);
   const facebook = params.get('facebook') === '1';
   let client: Promise<Client> | null = null, user: User | null = null, userId = '', lastPull = 0;
+  let shown: AccountSession | null = null;
   let providers: SignInOption[] = [], checkingProviders = false;
   let emailForm: HTMLFormElement | null = null;
   // A signed-out note (a refused sign-in, sign-out, deletion) that the next provider check shows again once.
@@ -98,6 +99,7 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
     const c = m.connect(AUTH_KEY);
     c.onSession(s => {
       user = userOf(s?.user);
+      shown = s ? { userId: s.user.id, accessToken: s.access_token } : null;
       if (user) say('');
       render();
       if ((s?.user.id ?? '') === userId) return;
@@ -146,11 +148,19 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
       say(`Opening ${PROVIDERS.find(([p]) => p === provider)?.[1]}…`);
       try { await (await load()).signIn(provider); } catch { say('Could not reach the sign-in service. Check your connection and try again.'); }
     } else if (b.dataset.act === 'sign-out') {
+      // Bind sign-out to the session on screen now: another tab can sign in during the waits below.
+      let expected = shown;
+      if (!expected) try {
+        const saved = JSON.parse(localStorage.getItem(AUTH_KEY) ?? 'null');
+        if (typeof saved?.user?.id === 'string' && typeof saved.access_token === 'string') expected = { userId: saved.user.id, accessToken: saved.access_token };
+      } catch { /* none */ }
       // The last changes go up first (waiting 3 s at most), so the account's copy has them.
       await Promise.race([sync?.flush(), new Promise(r => setTimeout(r, 3000))]);
-      try { await (await load()).signOut(); }
+      try { if (expected) await (await load()).signOutSession(expected); }
       catch { keep('Could not finish sign-out. Check your connection and try again.'); return; }
-      sync?.stop(); sync = null; userId = ''; user = null;
+      // A later sign-in keeps its screen and cloud save: its own auth event set them up.
+      if (shown && expected && sessionKey(shown) !== sessionKey(expected)) return;
+      sync?.stop(); sync = null; userId = ''; user = null; shown = null;
       render();
       keep('Signed out. Your games stay on this device.');
       await refreshProviders();
