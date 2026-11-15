@@ -45,7 +45,9 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
   };
   function go(next: Route, draw = true) {
     if (JSON.stringify(next) === JSON.stringify(route)) return;
-    history.pushState({ shell: next }, '', routeHash(next)); show(next, draw);
+    // A route change (a late invite reply) closes an open layer; the new place takes the layer's history entry.
+    const open = layer; layer = null; open?.();
+    history[open ? 'replaceState' : 'pushState']({ shell: next }, '', routeHash(next)); show(next, draw);
   }
   window.addEventListener('popstate', event => {
     if (closing) { const done = closing; closing = null; done(); return; }

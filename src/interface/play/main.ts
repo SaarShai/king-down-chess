@@ -342,11 +342,12 @@ function openNewGame(source: HTMLElement) {
     onClose: () => { void shell.closeLayer(); },
   }, art);
   // The panel is outside #app: a background refresh of Play (home()) redraws #app and must not remove the open panel.
-  // A refresh can replace the opener: focus then returns to the same control on the new Play.
-  const opener = ['home-top-new', 'home-side-new', 'home-change'].find(name => source.classList.contains(name));
+  // A refresh can replace the opener: focus then returns to the same control on the new Play, or to its visible
+  // New game control when the first game or invite replaces Change.
+  const controls = ['home-top-new', 'home-side-new', 'home-change'], opener = controls.find(name => source.classList.contains(name));
   panel.element.addEventListener('close', () => {
     panel.element.remove();
-    if (!source.isConnected && opener && document.body.dataset.page === 'home') root.querySelector<HTMLElement>(`.${opener}`)?.focus({ preventScroll: true });
+    if (!source.isConnected && opener && document.body.dataset.page === 'home') [opener, ...controls].map(name => root.querySelector<HTMLElement>(`.${name}`)).find(control => control?.getClientRects().length)?.focus({ preventScroll: true });
   });
   document.body.append(panel.element); panel.open(source); shell.openLayer(() => panel.close());
 }

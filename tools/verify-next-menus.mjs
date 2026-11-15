@@ -32,6 +32,24 @@ const unbroken = (page, selector) => page.locator(selector).evaluateAll(nodes =>
     if (new Set([...range.getClientRects()].map(r => Math.round(r.top))).size > 1) return false;
   } } return true;
 }));
+// A stored session and a stand-in server: no network and no real account. An online game request stays pending.
+const invite = (id, handle) => ({ revision: 1, invite_id: id, game_id: `game-${id}`, direction: 'incoming', recipient_id: 'u-tester', player: { user_id: `u-${handle}`, handle, icon: null }, options: null, expires_at: new Date(Date.now() + 864e5).toISOString(), state: 'open' });
+async function signedIn(context, invites, redeem) {
+  await context.addInitScript(() => {
+    const now = Math.floor(Date.now() / 1000);
+    localStorage.setItem('kingdown.auth', JSON.stringify({ access_token: 'local-check', token_type: 'bearer', expires_in: 86400, expires_at: now + 86400, refresh_token: 'local-check', user: { id: 'u-tester', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' } }));
+  });
+  await context.route(/supabase\.co/, route => route.abort());
+  await context.route('**/api/**', route => {
+    const path = new URL(route.request().url()).pathname, json = body => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+    if (path === '/api/me/settings') return json({ settings: {}, me: { handle: 'tester', icon: null } });
+    if (path === '/api/me/games') return json({ games: [], invitations: invites });
+    if (path === '/api/me/record') return json({ handle: 'tester', icon: null, record: {}, blocks: [], history: [], next_before: null, next_blocks_after: null });
+    if (path === '/api/invites/redeem' && redeem) return redeem(json);
+    if (path.startsWith('/api/games/')) return;
+    return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+  });
+}
 const cases = {
   async code_fault(page, context, check) {
     const pattern = /\/assets\/board-api-[\w-]+\.js$/;
@@ -79,21 +97,9 @@ const cases = {
   },
   async panel_refresh(page, context, check) {
     // A signed-in player opens New game; a new invite arrives through the home poll and redraws Play. The open panel,
-    // its draft choice and the focus stay. A stored session and a stand-in server: no network and no real account.
-    const invite = (id, handle) => ({ revision: 1, invite_id: id, game_id: `game-${id}`, direction: 'incoming', recipient_id: 'u-tester', player: { user_id: `u-${handle}`, handle, icon: null }, options: null, expires_at: new Date(Date.now() + 864e5).toISOString(), state: 'open' });
+    // its draft choice and the focus stay.
     const invites = [invite('i1', 'ada')];
-    await context.addInitScript(() => {
-      const now = Math.floor(Date.now() / 1000);
-      localStorage.setItem('kingdown.auth', JSON.stringify({ access_token: 'local-check', token_type: 'bearer', expires_in: 86400, expires_at: now + 86400, refresh_token: 'local-check', user: { id: 'u-tester', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' } }));
-    });
-    await context.route(/supabase\.co/, route => route.abort());
-    await context.route('**/api/**', route => {
-      const path = new URL(route.request().url()).pathname, json = body => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
-      if (path === '/api/me/settings') return json({ settings: {}, me: { handle: 'tester', icon: null } });
-      if (path === '/api/me/games') return json({ games: [], invitations: invites });
-      if (path === '/api/me/record') return json({ handle: 'tester', icon: null, record: {}, blocks: [], history: [], next_before: null, next_blocks_after: null });
-      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
-    });
+    await signedIn(context, invites);
     await page.goto(NEXT); await page.waitForSelector('.home-invite-row');
     const opener = page.locator('.home-top-new:visible, .home-side-new:visible').first(), openerClass = await opener.evaluate(node => node.classList.contains('home-top-new') ? 'home-top-new' : 'home-side-new');
     await opener.click(); await page.waitForSelector('dialog.new-game-panel[open]');
@@ -111,6 +117,35 @@ const cases = {
       const back = await page.waitForFunction(name => document.activeElement?.classList.contains(name) && document.activeElement.isConnected, openerClass, { timeout: 3000 }).then(() => true, () => false);
       check(back, 'Close returns the focus to New game on the redrawn Play');
     }
+  },
+  async panel_first_invite(page, context, check) {
+    // No games: Play shows Change. The first invite replaces Change with New game while the panel is open.
+    const invites = [];
+    await signedIn(context, invites);
+    await page.goto(NEXT); await page.locator('.home-change').click(); await page.waitForSelector('dialog.new-game-panel[open]');
+    invites.push(invite('i1', 'ada'));
+    check(await page.waitForSelector('.home-invite-row', { timeout: 15000 }).then(() => true, () => false), 'the first invite redraws Play while the panel is open');
+    check(await page.locator('dialog.new-game-panel[open]').count() === 1, 'the panel stays open after the first invite');
+    await page.locator('dialog.new-game-panel').getByRole('button', { name: 'Close', exact: true }).click();
+    const back = await page.waitForFunction(() => { const a = document.activeElement; return !!a?.matches('.home-top-new, .home-side-new') && a.getClientRects().length > 0; }, null, { timeout: 3000 }).then(() => true, () => false);
+    check(back, 'Close returns the focus to the visible New game when Change is gone');
+  },
+  async panel_accept(page, context, check) {
+    // Accept, then open New game before the reply. The reply opens the online game: the panel closes, and its history
+    // entry becomes the game, so Back returns to Play.
+    const invites = [invite('i1', 'ada')], game = '00000000-0000-4000-8000-000000000001';
+    let release; const held = new Promise(done => { release = done; });
+    await signedIn(context, invites, async json => { await held; invites.length = 0; return json({ game_id: game, revision: 1, status: 'setup', seat: 0, kind: 'person', action: 'wait', deadline_at: null }); });
+    await page.goto(NEXT); await page.waitForSelector('.home-invite-row');
+    await page.getByRole('button', { name: 'Accept', exact: true }).click();
+    await page.locator('.home-top-new:visible, .home-side-new:visible').first().click(); await page.waitForSelector('dialog.new-game-panel[open]');
+    release();
+    check(await page.waitForFunction(id => location.hash === `#online=${id}`, game).then(() => true, () => false), 'the late reply opens the online game');
+    check(await page.waitForFunction(() => !document.querySelector('dialog.new-game-panel')).then(() => true, () => false), 'the panel leaves with the route change');
+    check(await page.evaluate(() => !history.state?.layer), 'the game replaces the panel history entry');
+    await page.goBack();
+    check(await page.waitForFunction(() => document.body.dataset.page === 'home' && !location.hash.startsWith('#online')).then(() => true, () => false), 'Back from the game returns to Play');
+    check(await page.locator('dialog.new-game-panel').count() === 0, 'Back shows no panel');
   },
   async you(page, context, check) {
     await page.goto(`${NEXT}#you`); await page.waitForSelector('.you-page');
