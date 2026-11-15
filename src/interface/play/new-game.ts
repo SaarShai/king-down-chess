@@ -3,8 +3,8 @@
  * the side that the next game uses, so the army on the screen is the army of the new game. No DOM and no storage.
  */
 import { Game } from '../../game';
-import { A, G, K, KINGS, L, M, O, P, S, colorOf, typeOf, type Color, type KingName, type PieceType, type PowerName, type Rules } from '../../rules/engine';
 import { GameRules } from '../../game-rules';
+import { A, G, K, KINGS, L, M, O, P, S, colorOf, typeOf, type Color, type KingName, type PieceType, type PowerName, type Rules } from '../../rules/engine';
 import { POOL, shuffle } from '../../rules/setup';
 import { ALWAYS_ON, DEAL_CARDS, POOL_KINDS } from '../../match/setup';
 import type { CardName, KingChoice } from '../../rules/rules';
@@ -23,18 +23,60 @@ export interface GameOptions {
   /** The piece kinds that the deal can use: 7 letters or more of the pool. */
   pool: readonly string[];
   arrangement: 'random' | 'manual';
-  /** The cards that the deal takes four from: 4 or more. */
+  /** All released cards, or the four picked cards. */
   cardPool: readonly CardName[];
-  /** Your king and its power; null deals one at random. A king that the game type does not allow deals at random. */
+  /** Your preferred king and power; null uses Spirit with Mercy. Cards use a legal power until cards go off. */
   king: KingChoice | null;
 }
-export const DEFAULT_OPTIONS: Readonly<GameOptions> = Object.freeze({ pool: POOL_KINDS, arrangement: 'random', cardPool: DEAL_CARDS, king: null });
+export const DEFAULT_OPTIONS: Readonly<GameOptions> = Object.freeze({ pool: POOL_KINDS, arrangement: 'random', cardPool: DEAL_CARDS, king: { king: 'Spirit', power: 'Mercy' } as const });
+/** Keep the preferred power; cards use a legal power until cards go off again. */
+export function shownKing(setup: GameType, preferred: KingChoice | null): KingChoice {
+  const choices = kingChoices(hasCards(setup) ? 'both' : 'powers');
+  return choices.find(c => c.king === preferred?.king && c.power === preferred.power)
+    ?? choices.find(c => c.king === preferred?.king) ?? { king: 'Spirit', power: 'Mercy' };
+}
+/** A kind brings its full pool count. Seven pieces must remain to fill the back rank. */
+export const poolLocked = (pool: readonly string[], kind: string): boolean => pool.includes(kind) && poolLetters(pool.filter(k => k !== kind)).length < 7;
+export const LEVELS: readonly Level[] = ['casual', 'clever', 'club'];
+/** Native slider keys, clamped at the two ends. */
+export function levelKey(level: Level, key: string): Level {
+  const at = LEVELS.indexOf(level);
+  return LEVELS[key === 'Home' ? 0 : key === 'End' ? 2 : Math.max(0, Math.min(2, at + (['ArrowRight', 'ArrowUp'].includes(key) ? 1 : ['ArrowLeft', 'ArrowDown'].includes(key) ? -1 : 0)))];
+}
+export const cardLocked = (picked: readonly CardName[], card: CardName) => picked.length >= 4 && !picked.includes(card);
+/** A sign-in return keeps the panel choices, including an incomplete card choice. */
+export const PANEL_KEY = 'kingdown.new-game-return';
+export interface PanelMemory {
+  setup: GameType; level: Level; sideChoice: SideChoice; options: GameOptions;
+  opponent: 'computer' | 'person'; section: 'pieces' | 'powers' | 'cards' | null;
+  cardMode: 'all' | 'four'; picked: CardName[];
+  deal?: Pick<NewGameDraft, 'back' | 'player' | 'rules'>;
+}
+export function readPanel(value: unknown): PanelMemory | null {
+  if (!value || typeof value !== 'object') return null;
+  const v = value as PanelMemory;
+  if (!['pieces', 'powers', 'cards', 'both'].includes(v.setup) || !LEVELS.includes(v.level) || !['light', 'dark', 'random'].includes(v.sideChoice)) return null;
+  const deal = v.deal, kings = deal?.rules?.kings, hands = deal?.rules?.hands;
+  const validDeal = deal && /^[A-Z]{8}$/.test(deal.back) && [...deal.back].filter(c => c === 'K').length === 1
+    && [...deal.back].every(c => c === 'K' || POOL_KINDS.includes(c)) && (deal.player === 0 || deal.player === 1)
+    && Array.isArray(kings) && kings.length === 2 && kings.every(k => hasPowers(v.setup) ? k && kingChoices(v.setup).some(c => c.king === k.king && c.power === k.power) : k === null)
+    && Array.isArray(hands) && hands.length === 2 && hands.every(h => Array.isArray(h) && h.length === (hasCards(v.setup) ? 4 : 0) && new Set(h).size === h.length && h.every(c => DEAL_CARDS.includes(c))) && hands[0].join() === hands[1].join();
+  return { setup: v.setup, level: v.level, sideChoice: v.sideChoice, options: readOptions(v.options), opponent: v.opponent === 'person' ? 'person' : 'computer',
+    section: ['pieces', 'powers', 'cards'].includes(v.section ?? '') ? v.section : null, cardMode: v.cardMode === 'four' ? 'four' : 'all',
+    picked: Array.isArray(v.picked) ? [...new Set(v.picked.filter(c => DEAL_CARDS.includes(c)))].slice(0, 4) : [],
+    ...(validDeal ? { deal: { back: deal.back, player: deal.player, rules: rulesOf(v.setup, kings, hands) } } : {}) };
+}
+/** Reopen the exact preview after sign-in; the card and king checks above admit only this game's content. */
+export function restorePanel(memory: PanelMemory): NewGameDraft {
+  const draft = createDraft(memory, Math.random, memory.deal?.back);
+  return memory.deal ? { ...draft, ...memory.deal, game: new Game(memory.deal.back, memory.deal.rules) } : draft;
+}
 /** The options of a stored value, each field checked; a wrong field takes its default. */
 export function readOptions(value: unknown): GameOptions {
   const v = (value && typeof value === 'object' ? value : {}) as Partial<Record<keyof GameOptions, unknown>>;
   const pool = Array.isArray(v.pool) && v.pool.every(kind => POOL_KINDS.includes(kind as string)) && new Set(v.pool).size === v.pool.length && poolLetters(v.pool as string[]).length >= 7 ? v.pool as string[] : DEFAULT_OPTIONS.pool;
-  const cardPool = Array.isArray(v.cardPool) && v.cardPool.every(card => DEAL_CARDS.includes(card as CardName)) && new Set(v.cardPool).size === v.cardPool.length && v.cardPool.length >= 4 ? v.cardPool as CardName[] : DEFAULT_OPTIONS.cardPool;
-  const k = v.king as KingChoice | null | undefined, king = k && kingChoices('powers').some(c => c.king === k.king && c.power === k.power) ? { king: k.king, power: k.power } : null;
+  const cardPool = Array.isArray(v.cardPool) && v.cardPool.every(card => DEAL_CARDS.includes(card as CardName)) && new Set(v.cardPool).size === v.cardPool.length && (v.cardPool.length === 4 || v.cardPool.length === DEAL_CARDS.length) ? v.cardPool as CardName[] : DEFAULT_OPTIONS.cardPool;
+  const k = (v.king === undefined ? DEFAULT_OPTIONS.king : v.king) as KingChoice | null | undefined, king = k && kingChoices('powers').some(c => c.king === k.king && c.power === k.power) ? { king: k.king, power: k.power } : null;
   return { pool, arrangement: v.arrangement === 'manual' ? 'manual' : 'random', cardPool, king };
 }
 
@@ -42,7 +84,7 @@ export function readOptions(value: unknown): GameOptions {
 export function rulesFor(setup: GameType, random: () => number = Math.random, options: Pick<GameOptions, 'cardPool' | 'king'> = DEFAULT_OPTIONS, player: Color = 0): Partial<Rules> {
   if (setup === 'pieces') return rulesOf('pieces', [null, null], [[], []]);
   const kings = kingChoices(setup), pick = () => kings[Math.floor(random() * kings.length)];
-  const mine = options.king && kings.find(k => k.king === options.king!.king && k.power === options.king!.power);
+  const mine = hasPowers(setup) ? shownKing(setup, options.king) : null;
   const dealt: [KingChoice | null, KingChoice | null] = hasPowers(setup) ? [pick(), pick()] : [null, null];
   if (mine) dealt[player] = mine;
   const hand = hasCards(setup) ? shuffle([...options.cardPool], random).slice(0, 4) : [];
@@ -50,10 +92,9 @@ export function rulesFor(setup: GameType, random: () => number = Math.random, op
 }
 /** A dealt back rank from the pool, with two different special types at least when the pool has them: two Archers or two Maesters alone are not enough. */
 export function dealArmy(pool: readonly string[] = POOL_KINDS, random: () => number = Math.random): string {
-  const letters = poolLetters(pool), specials = new Set(letters.split('').filter(c => 'ALGMSO'.includes(c))).size;
+  const letters = poolLetters(pool), specials = new Set(letters.split('').filter(c => 'ALGMSO'.includes(c))).size, context = new GameRules();
   let back: string;
-  const deal = new GameRules(rulesOf('pieces', [null, null], [[], []]));
-  do back = deal.randomBackRank(random, letters);
+  do back = context.randomBackRank(random, letters);
   while (specials >= 2 && new Set(back.split('').filter(c => 'ALGMSO'.includes(c))).size < 2);
   return back;
 }

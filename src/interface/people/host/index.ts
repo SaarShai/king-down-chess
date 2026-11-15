@@ -6,6 +6,7 @@ import { AUTH_KEY, type AccountSession } from '../../../account/session';
 import { handleProblem, type Icon } from '../../../account/profile';
 import type { InvitationRow, View } from '../../../match/protocol';
 import { DEFAULT_OPTIONS } from '../../../match/setup';
+import { DEFAULT_OPTIONS as PANEL_OPTIONS, type GameOptions } from '../../play/new-game';
 import { onlineClient, OnlineError } from '../../../online/client';
 import { beginAccountSignIn, consumeSignInReturn, type SignInHost as ReturnHost } from '../../../online/sign-in';
 import { apiOrigin, inApp } from '../../../platform';
@@ -25,7 +26,7 @@ export function inviteURL(token: string, origin = location.origin, app = inApp):
   return url.href;
 }
 
-export const onlineOptions = (rules: Rules) => ({ ...DEFAULT_OPTIONS, arrangement: false, kingPowers: rules === 'powers' || rules === 'both', cards: rules === 'cards' || rules === 'both' });
+export const onlineOptions = (rules: Rules, options: GameOptions = PANEL_OPTIONS) => ({ ...DEFAULT_OPTIONS, pool: [...options.pool], cardPool: [...options.cardPool], arrangement: options.arrangement === 'manual', kingPowers: rules === 'powers' || rules === 'both', cards: rules === 'cards' || rules === 'both' });
 export const draftKey = (user: string, game: string) => `kingdown.people-draft.${user}.${game}`;
 export function keepDraft(storage: Pick<Storage, 'setItem'>, user: string, state: PeopleState) {
   if (!state.view || !state.draft) return;
@@ -201,16 +202,16 @@ export function onlineHost(options: HostOptions) {
         throw error;
       }
     },
-    invite: async (handle, rules) => {
-      const created = await api.create({ kind: 'friend', recipient_handle: handle, colour: 'random', options: onlineOptions(rules) });
+    invite: async (handle, rules, choices) => {
+      const created = await api.create({ kind: 'friend', recipient_handle: handle, colour: 'random', options: onlineOptions(rules, choices) });
       remember(created.view);
     },
     inviteBack: async (handle, rules) => {
       const created = await api.create({ kind: 'friend', recipient_handle: handle, colour: 'random', options: rules ?? onlineOptions(options.rules()) });
       remember(created.view);
     },
-    createLink: async rules => {
-      const created = await api.create({ kind: 'friend', open_link: true, colour: 'random', options: onlineOptions(rules) });
+    createLink: async (rules, choices) => {
+      const created = await api.create({ kind: 'friend', open_link: true, colour: 'random', options: onlineOptions(rules, choices) });
       remember(created.view);
       const link = created.invite ?? await api.invite(created.view.game_id);
       return inviteURL(link.token);

@@ -1,18 +1,22 @@
 /**
  * Play, the games screen (launch decision 25), its piece card, and the New game panel (decision 26). The data and the
- * actions come from main.ts; this file draws them. Decisions 51 and 52: the "Play a person" row stays; the side choice
- * is "Your pieces".
+ * actions come from main.ts; this file draws them. One New game panel serves Computer and Person.
  */
-import { button, icon } from '../ui/kit.js';
-import { A, K, type Color, type PieceType, type Rules } from '../../rules/engine';
+import { button, choiceGroup, closeX, icon, setButtonState } from '../ui/kit.js';
+import { KINGS, LETTERS, type KingName, type Color, type PieceType, type Rules } from '../../rules/engine';
 import type { DraftTurn } from './turn';
-import { pieces, text } from './texts';
+import { panelText, pieces, text } from './texts';
 import { newPieces } from './learning';
 import { sideText, type SideChoice } from './sides';
-import { listRow, pictureChoice, segmented } from './menus';
 import { miniBoard, savedPreview, stateText } from './mini-board';
-import { armyTypes, changeDraft, type NewGameDraft } from './new-game';
-import { typeName, type GameType, type Level } from './saved';
+import { armyTypes, cardLocked, changeDraft, restorePanel, kingChoices, LEVELS, levelKey, poolLetters, poolLocked, shownKing, type GameOptions, type NewGameDraft, type PanelMemory } from './new-game';
+import { hasCards, hasPowers, typeName, typeOfFlags, type GameType, type Level } from './saved';
+import { DEAL_CARDS, POOL_KINDS } from '../../match/setup';
+import { RELEASED_CARDS } from '../../content/cards';
+import { cardText, powerText, ruleLine, POWER_NAME } from '../../powers-ui';
+import { nameSearch, sendPersonLink, type PersonHost } from '../people/screens/person';
+import { nameSheet, signInSheet } from '../people/screens/sign-in';
+import type { PeopleSheet } from '../people/screens/sheet';
 import { calm, ms } from './motion';
 import { computerPortrait, profilePortrait } from '../people/host/portrait';
 import { deadlineLine, gameOrder, type HomeInvite, type PersonGame } from '../people/host/games';
@@ -21,10 +25,9 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', conte
   const node = document.createElement(tag); node.className = className; node.textContent = content; return node;
 };
 export const homeText = {
-  play: 'Play the computer', change: 'Change', army: 'Your next army', tap: 'Tap a figure to read its rule.', yourGame: 'Your game', turn: 'Turn',
-  person: 'Play a person', personLine: 'Opens the online game.', startGame: 'Start game', gameType: 'Game type', side: 'Your pieces',
+  army: 'Your next army', tap: 'Tap a figure to read its rule.', yourGame: 'Your game', turn: 'Turn',
+  startGame: 'Start game', side: 'Your pieces',
   ends: (opponent: string) => `This ends your game against the ${opponent}.`,
-  types: { pieces: 'New pieces. No powers or cards.', powers: 'Each king gets a random power.', cards: 'Each king gets an always-on power. Both players get the same four cards.' } as Record<GameType, string>,
   // Launch decision 46: the levels stay; each line is true (runs/launch/opponent/report.md).
   levels: { casual: 'The easiest level. A good level for a first game.', clever: 'Much stronger than Friendly. It makes some mistakes.', club: 'The strongest level. Much stronger than Focused.' } as Record<Level, string>,
 } as const;
@@ -47,14 +50,12 @@ export interface PlayData {
   status: string;
   people: PersonGame[];
   invites?: HomeInvite[];
-  onPerson(source: HTMLElement): void;
   onPersonGame(id: string): void;
   onAcceptInvite?(id: string): void;
   onDeclineInvite?(id: string): void;
   onInvitePlayer?(id: string, source: HTMLElement): void;
   onDismissInvite?(id: string): void;
   offer(fallback: HTMLButtonElement): HTMLElement | null;
-  onPlay(source: HTMLButtonElement): void;
   onContinue(source: HTMLButtonElement): void;
   onChange(source: HTMLButtonElement): void;
   onRule(type: PieceType): void;
@@ -123,7 +124,6 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
   const home = el('section', 'play-home');
   const title = el('h1', '', text.title); title.tabIndex = -1;
   const start = el('div', 'home-start'), more = el('div', 'home-more');
-  const person = listRow({ label: homeText.person, line: homeText.personLine, lead: icon('you'), onPress: () => d.onPerson(person) }); person.classList.add('home-person');
   const rows: { mine: boolean; deadline: string | null; state: PersonGame['state']; row: HTMLElement }[] = [];
   if (d.resume) {
     const { draft, level, player } = d.resume, preview = savedPreview(draft, player);
@@ -177,19 +177,18 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
     }
     main = button(text.newGame, { onPress: () => d.onChange(main) }); main.classList.add('home-side-new'); more.append(main);
   } else {
-    main = button(text.play, { kind: 'main', onPress: () => d.onPlay(main) });
+    main = button(text.newGame, { kind: 'main', onPress: () => d.onChange(main) }); main.classList.add('home-hero-new');
     const hero = el('div', 'home-hero'), picture = el('picture'), source = el('source'), img = el('img');
     source.media = '(max-width: 599px)'; source.srcset = [400, 600, 800, 1122].map(w => `/interface/home-hero-portrait-${w}.webp ${w}w`).join(', '); source.sizes = 'calc(100vw - 40px)';
     img.src = '/interface/home-hero-wide-640.webp'; img.srcset = [640, 960, 1280, 1672].map(w => `/interface/home-hero-wide-${w}.webp ${w}w`).join(', '); img.sizes = '(min-width: 1120px) 1056px, calc(100vw - 40px)';
     img.width = 1672; img.height = 941; img.alt = ''; img.loading = 'lazy'; img.decoding = 'async'; img.fetchPriority = 'low';
     picture.append(source, img); hero.append(picture, main); home.append(hero, el('p', 'home-intro', text.intro));
-    const summary = el('div', 'home-summary'), change = button(homeText.change, { onPress: () => d.onChange(change) }); change.classList.add('text-button', 'home-change');
-    summary.append(el('p', '', summaryLine(d.next)), change); start.append(summary);
+    const summary = el('div', 'home-summary'); summary.append(el('p', '', summaryLine(d.next))); start.append(summary);
     army = armyRow(d.next, art, d.onRule);
     const block = el('section', 'home-army-block'); block.append(el('h2', 'group-title', homeText.army), army.element, el('p', 'home-hint', homeText.tap)); more.append(block);
   }
   start.append(...(d.status ? [el('p', 'home-note', d.status)] : []), ...[d.offer(main)].filter((node): node is HTMLElement => !!node));
-  if (rows.length) more.append(person); else start.append(person); const columns = el('div', 'home-columns'); columns.append(start, more); home.append(columns);
+  const columns = el('div', 'home-columns'); columns.append(start, more); home.append(columns);
   return { element: home, focus() {
     const type = ruleFrom; ruleFrom = null;
     if (type != null && army?.focus(type)) { home.dataset.restore = 'true'; return; }
@@ -199,68 +198,168 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
 
 export interface PanelData {
   next: NewGameDraft;
-  /** The game that a start ends: an identity key ('' for none) and its red line. Read again at each press. */
+  memory?: PanelMemory | null;
+  people(): Promise<PersonHost>;
+  remember(value: PanelMemory | null): void;
   current(): { key: string; line: string };
-  /** Start the shown candidate (after the panel closes). */
   onStart(draft: NewGameDraft): Promise<void>;
-  /** The panel closes with no start (Close, the scrim, Escape): the history entry of the panel goes. */
+  onInvite(draft: NewGameDraft): void;
   onClose(): void;
 }
-/**
- * The New game panel: a sheet from the bottom on a phone, a centred panel from 600 px. Its edits stay in the panel:
- * Close, the scrim, Escape and Back write nothing and keep the stored choices.
- */
+/** One body-mounted modal. Its draft survives home refresh and sign-in. */
 export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogElement; open(source: HTMLElement): void; close(): void } {
   const dialog = el('dialog', 'kd-dialog new-game-panel'), heading = el('h2', '', text.newGame); heading.id = 'new-game-title';
   dialog.setAttribute('aria-labelledby', heading.id);
-  let draft = d.next, opener: HTMLElement | null = null, starting = false, shownKey = '';
+  const saved = d.memory;
+  let draft = saved ? restorePanel(saved) : d.next, opponent = saved?.opponent ?? 'computer', section = saved?.section ?? null;
+  let cardMode = saved?.cardMode ?? (draft.options.cardPool.length === 4 ? 'four' : 'all'), picked = saved?.picked ?? (cardMode === 'four' ? [...draft.options.cardPool] : []);
+  let opener: HTMLElement | null = null, starting = false, shownKey = '', busy = false;
   const head = el('div', 'panel-head'), body = el('div', 'panel-body'), foot = el('div', 'panel-foot');
-  head.append(heading, button(text.close, { onPress: () => close() }));
-  const warning = el('p', 'panel-warning'), start: HTMLButtonElement = button(homeText.startGame, { kind: 'main', onPress: () => { void begin(); } });
-  const setWarning = () => { const now = d.current(); shownKey = now.key; warning.textContent = now.line; warning.hidden = !now.line; };
-  foot.append(warning, start);
-  const draw = () => {
-    const types = pictureChoice(homeText.gameType, (['pieces', 'powers', 'cards'] as GameType[]).map(value => ({ value, label: typeName[value], description: homeText.types[value], art: value === 'cards' ? art.card(0) : art.figure(value === 'pieces' ? A : K, 0, value === 'pieces' ? { kings: [null, null] } : { kings: [{ king: 'Frost', power: 'Freeze' }, null] }) })), draft.setup);
-    const levels = segmented(text.level, (['casual', 'clever', 'club'] as Level[]).map(value => ({ value, label: text[value] })), draft.level);
-    const levelLine = el('p', 'level-line', homeText.levels[draft.level]);
-    const king = (side: Color) => art.figure(K, side, draft.game.rules);
-    const sides = segmented(homeText.side, (['light', 'dark', 'random'] as SideChoice[]).map(value => {
-      const box = el('span', 'side-kings'); box.append(...(value === 'random' ? [king(0), king(1)] : [king(value === 'dark' ? 1 : 0)]));
-      return { value, label: sideText[value], art: box };
-    }), draft.sideChoice);
-    sides.classList.add('side-choice');
-    const army = el('section', 'panel-army-block'), armyHead = el('h3', 'group-title', homeText.army); army.append(armyHead, armyPictures(draft, art));
-    const change = (key: 'setup' | 'level' | 'sideChoice') => (event: Event) => {
-      draft = changeDraft(draft, { [key]: (event as CustomEvent).detail.value });
-      if (key === 'level') levelLine.textContent = homeText.levels[draft.level];
-      else army.replaceChildren(armyHead, armyPictures(draft, art));
-      if (key === 'setup') sides.querySelectorAll('.side-kings').forEach((box, i) => box.replaceChildren(...(i === 2 ? [king(0), king(1)] : [king(i as Color)])));
-    };
-    types.addEventListener('kd-change', change('setup')); levels.addEventListener('kd-change', change('level')); sides.addEventListener('kd-change', change('sideChoice'));
-    types.dataset.setting = 'setup'; levels.dataset.setting = 'level'; sides.dataset.setting = 'side';
-    body.replaceChildren(types, levels, levelLine, sides, army);
+  const back = button(panelText.back, { icon: 'back' }); back.hidden = true;
+  head.append(back, heading, closeX(text.close, () => close()));
+  const warning = el('p', 'panel-warning'), status = el('p', 'panel-status'); status.setAttribute('role', 'status');
+  const start: HTMLButtonElement = button(homeText.startGame, { kind: 'main', onPress: () => { if (opponent === 'computer') void begin(); else void person('link'); } });
+  const byName = button(panelText.byName, { onPress: () => void person('name') }); byName.classList.add('text-button');
+  const setWarning = () => { const now = d.current(); shownKey = now.key; warning.textContent = now.line; warning.hidden = opponent === 'person' || !now.line; };
+  foot.append(warning, status, byName, start);
+  const memory = (): PanelMemory => ({ setup: draft.setup, level: draft.level, sideChoice: draft.sideChoice, options: draft.options, opponent, section, cardMode, picked, deal: { back: draft.back, player: draft.player, rules: draft.rules } });
+  const edit = (change: Parameters<typeof changeDraft>[1]) => { draft = changeDraft(draft, change); };
+  const options = (change: Partial<GameOptions>) => edit({ options: { ...draft.options, ...change } });
+  const key = (node: HTMLElement, name: string) => { node.dataset.focus = name; return node; };
+  const check = (name: string, checked: boolean, change: (checked: boolean) => void, locked = false) => {
+    const label = el('label', 'panel-check'), input = el('input'); input.type = 'checkbox'; input.checked = checked; input.disabled = locked; input.setAttribute('aria-label', name); key(input, name);
+    label.append(input); input.addEventListener('change', () => { change(input.checked); draw(); }); return label;
   };
+  function levelSlider() {
+    const box = el('section', 'level-control'), label = el('h3', '', text.level); label.id = 'computer-level';
+    const track = el('div', 'level-track'), input = el('input', 'level-range'), labels = el('div', 'level-labels'), line = el('p', 'level-line');
+    input.type = 'range'; input.min = '0'; input.max = '2'; input.step = '1'; input.setAttribute('aria-labelledby', label.id); key(input, 'level');
+    const sync = () => { const at = LEVELS.indexOf(draft.level); input.value = String(at); input.setAttribute('aria-valuetext', text[draft.level]); box.dataset.level = String(at); line.textContent = homeText.levels[draft.level]; labels.querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-pressed', String(at === i))); };
+    input.addEventListener('input', () => { edit({ level: LEVELS[+input.value] }); sync(); });
+    input.addEventListener('keydown', event => { if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return; event.preventDefault(); edit({ level: levelKey(draft.level, event.key) }); sync(); });
+    labels.append(...LEVELS.map((level, i) => { const b = button(text[level], { onPress: () => { edit({ level }); sync(); } }); b.dataset.stop = String(i); return b; }));
+    track.append(el('span', 'level-flow'), input); box.append(label, track, labels, line); sync(); return box;
+  }
+  function piecesSection() {
+    const box = el('div', 'panel-section'), list = el('div', 'pool-list');
+    const fixed = el('p', 'panel-note', panelText.always), lock = el('p', 'panel-note', panelText.poolLock); lock.id = 'pool-lock';
+    for (const letter of POOL_KINDS) {
+      const type = LETTERS.indexOf(letter) as PieceType, name = pieces[type].name, row = el('div', 'pool-row'), locked = poolLocked(draft.options.pool, letter);
+      const figure = art.figure(type, draft.player, draft.game.rules); figure.alt = '';
+      const label = el('span', '', name), count = el('span', 'pool-count', `×${poolLetters([letter]).length}`);
+      const toggle = check(panelText.use(name), draft.options.pool.includes(letter), on => options({ pool: on ? [...draft.options.pool, letter] : draft.options.pool.filter(k => k !== letter) }), locked);
+      if (locked) { toggle.querySelector('input')!.setAttribute('aria-describedby', lock.id); row.dataset.locked = 'true'; }
+      row.append(figure, label, count, toggle); list.append(row);
+    }
+    lock.hidden = !POOL_KINDS.some(k => poolLocked(draft.options.pool, k));
+    const arrangement = choiceGroup(panelText.arrangement, [{ value: 'random', label: panelText.random }, { value: 'manual', label: panelText.manual }], draft.options.arrangement);
+    arrangement.addEventListener('kd-change', event => { options({ arrangement: (event as CustomEvent).detail.value }); draw(); });
+    const army = el('section', 'panel-army-block'); army.append(el('h3', '', opponent === 'computer' ? homeText.army : panelText.exampleArmy), armyPictures(draft, art));
+    box.append(fixed, list, lock, arrangement, el('p', 'panel-note', panelText.manualLine), army); return box;
+  }
+  function powersSection() {
+    const box = el('div', 'panel-section'), grid = el('div', 'king-grid'), chosen = shownKing(draft.setup, draft.options.king), legal = kingChoices(hasCards(draft.setup) ? 'both' : 'powers');
+    grid.setAttribute('role', 'group'); grid.setAttribute('aria-label', panelText.yourKing);
+    for (const king of Object.keys(KINGS) as KingName[]) {
+      const available = legal.filter(k => k.king === king), b = button(king, { disabledReason: available.length ? '' : panelText.unavailable, onPress: () => { options({ king: available[0] }); draw(); } });
+      b.classList.add('king-choice'); b.setAttribute('aria-pressed', String(chosen.king === king)); key(b, king); b.dataset.king = king;
+      const img = el('img'); img.src = `/ui/emblems/${king.toLowerCase()}.webp`; img.alt = ''; b.prepend(img); grid.append(b);
+    }
+    const powers = choiceGroup(panelText.power, legal.filter(k => k.king === chosen.king).map(k => ({ value: k.power, label: POWER_NAME[k.power] })), chosen.power);
+    powers.addEventListener('kd-change', event => { options({ king: { king: chosen.king, power: (event as CustomEvent).detail.value } }); draw(); });
+    box.append(grid, powers, el('p', 'panel-note', ruleLine(powerText(chosen.power, draft.game.rules))));
+    return box;
+  }
+  function cardsSection() {
+    const box = el('div', 'panel-section'), mode = choiceGroup(panelText.chooseCards, [{ value: 'all', label: panelText.allCards }, { value: 'four', label: panelText.four }], cardMode);
+    mode.addEventListener('kd-change', event => { cardMode = (event as CustomEvent).detail.value; options({ cardPool: cardMode === 'all' ? DEAL_CARDS : picked.length === 4 ? picked : DEAL_CARDS }); draw(); });
+    box.append(mode, el('p', 'panel-note', panelText.shared));
+    if (cardMode === 'four') {
+      const count = el('p', 'card-count', panelText.count(picked.length)); count.setAttribute('role', 'status'); box.append(count);
+      const grid = el('div', 'panel-card-grid');
+      for (const [i, card] of RELEASED_CARDS.entries()) {
+        const tile = el('div', 'panel-card'), face = el('button', 'panel-card-art'); face.type = 'button'; face.setAttribute('aria-label', `${card.name} ${text.rule}`); key(face, card.id);
+        const img = art.card(i); img.alt = ''; face.append(img, el('span', '', card.name));
+        face.addEventListener('click', () => {
+          back.hidden = false; back.onclick = () => { draw(); body.querySelector<HTMLElement>(`[data-focus="${card.id}"]`)?.focus(); };
+          heading.textContent = card.name; body.replaceChildren(img.cloneNode(), el('p', 'card-rule', ruleLine(cardText(card.id, draft.game.rules)))); body.classList.add('panel-rule'); foot.hidden = true; heading.focus();
+        });
+        const toggle = check(panelText.use(card.name), picked.includes(card.id), on => { picked = on ? [...picked, card.id] : picked.filter(c => c !== card.id); if (picked.length === 4) options({ cardPool: picked }); }, cardLocked(picked, card.id));
+        tile.append(face, toggle); grid.append(tile);
+      }
+      box.append(grid);
+    }
+    return box;
+  }
+  function draw() {
+    const active = document.activeElement as HTMLElement | null, focus = active?.dataset.focus, radio = active?.getAttribute('role') === 'radio' ? active.textContent : null, scroll = body.scrollTop;
+    heading.textContent = text.newGame; back.hidden = true; back.onclick = null; foot.hidden = false; body.classList.remove('panel-rule');
+    busy = false;
+    const who = choiceGroup(panelText.opponent, [{ value: 'computer', label: text.computer }, { value: 'person', label: panelText.person }], opponent); who.classList.add('opponent-choice');
+    who.addEventListener('kd-change', event => { opponent = (event as CustomEvent).detail.value; draw(); });
+    const rows = el('section', 'game-options'); rows.append(el('h3', 'group-title', panelText.options));
+    for (const name of ['pieces', 'powers', 'cards'] as const) {
+      const on = name === 'pieces' || (name === 'powers' ? hasPowers(draft.setup) : hasCards(draft.setup)), row = el('div', 'option-row'), group = el('div', 'option-group');
+      if (!on && section === name) section = null;
+      const king = shownKing(draft.setup, draft.options.king);
+      const summary = name === 'pieces' ? `${draft.options.pool.length === POOL_KINDS.length ? panelText.allPieces : `${poolLetters(draft.options.pool).length} pieces`} · ${draft.options.arrangement === 'random' ? panelText.random : panelText.manual}`
+        : name === 'powers' ? `${king.king} · ${POWER_NAME[king.power]}` : cardMode === 'all' ? panelText.allCards : panelText.count(picked.length);
+      const title = el('button', 'option-title'); title.type = 'button'; key(title, `open-${name}`); title.dataset.section = name;
+      title.append(el('strong', '', panelText[name]), el('small', '', summary)); title.setAttribute('aria-expanded', String(on && section === name)); title.setAttribute('aria-controls', `options-${name}`); title.disabled = !on;
+      title.addEventListener('click', () => { section = section === name ? null : name; draw(); });
+      if (name !== 'pieces') row.append(check(panelText[name], on, checked => edit({ setup: typeOfFlags(name === 'powers' ? checked : hasPowers(draft.setup), name === 'cards' ? checked : hasCards(draft.setup)) })));
+      row.append(title); if (on) row.append(icon('down')); group.append(row);
+      const preferred = draft.options.king;
+      if (name === 'powers' && on && hasCards(draft.setup) && preferred && (preferred.king !== king.king || preferred.power !== king.power)) {
+        const nameOf = (k: typeof king) => `${k.king} · ${POWER_NAME[k.power]}`;
+        const note = el('p', 'panel-note king-change', panelText.changedKing(nameOf(preferred), nameOf(king))); note.setAttribute('role', 'status'); group.append(note);
+      }
+      if (section === name) { const content = name === 'pieces' ? piecesSection() : name === 'powers' ? powersSection() : cardsSection(); content.id = `options-${name}`; group.append(content); }
+      rows.append(group);
+    }
+    body.replaceChildren(who);
+    if (opponent === 'computer') {
+      const sides = choiceGroup(homeText.side, (['light', 'dark', 'random'] as SideChoice[]).map(value => ({ value, label: sideText[value] })), draft.sideChoice); sides.classList.add('side-choice');
+      sides.addEventListener('kd-change', event => { edit({ sideChoice: (event as CustomEvent).detail.value }); draw(); });
+      body.append(levelSlider(), sides);
+    }
+    body.append(rows); byName.hidden = opponent !== 'person'; setWarning(); status.textContent = '';
+    setButtonState(start, { label: opponent === 'computer' ? homeText.startGame : panelText.send, reason: hasCards(draft.setup) && cardMode === 'four' && picked.length !== 4 ? panelText.needFour : '' });
+    body.scrollTop = scroll;
+    if (focus || radio) queueMicrotask(() => { const target = [...body.querySelectorAll<HTMLElement>('[data-focus], [role="radio"]')].find(n => focus ? n.dataset.focus === focus : n.textContent === radio); target?.focus({ preventScroll: true }); });
+  }
+  // The existing sign-in and name views render inside this panel, with the same history layer.
+  const sheet: PeopleSheet = {
+    element: dialog, get isOpen() { return dialog.open; }, close: () => close(),
+    show(view) { heading.textContent = view.title; body.replaceChildren(...view.body); foot.hidden = true; back.hidden = false; back.onclick = view.back ?? (() => draw()); body.scrollTop = 0; heading.focus(); },
+  };
+  async function person(action: 'name' | 'link') {
+    if (busy || hasCards(draft.setup) && cardMode === 'four' && picked.length !== 4) return;
+    busy = true; status.textContent = panelText.loading;
+    try {
+      const host = await d.people(); if (!dialog.open) return;
+      d.remember(memory());
+      const named = () => { if (!host.me()?.handle) nameSheet(sheet, host, () => draw()); else draw(); };
+      if (!host.me()) { signInSheet(sheet, host, { kind: 'person' }, named); return; }
+      if (!host.me()!.handle) { nameSheet(sheet, host, () => draw()); return; }
+      const scoped = { ...host, createLink: async (rules: GameType) => { const link = await host.createLink(rules, draft.options); d.onInvite(draft); return link; }, invite: async (handle: string, rules: GameType) => { await host.invite(handle, rules, draft.options); d.onInvite(draft); } };
+      if (action === 'name') nameSearch(sheet, scoped, draft.setup, () => draw());
+      else await sendPersonLink(sheet, scoped, draft.setup, () => draw());
+    } catch { status.textContent = panelText.onlineFailed; }
+    finally { busy = false; }
+  }
   dialog.append(head, body, foot);
-  // The departure motion of the kit's dialogs (play/motion.ts), then a native close that keeps no state.
-  const shut = () => { if (!dialog.open) return; dialog.dispatchEvent(new CustomEvent('kd-before-close', { bubbles: true })); dialog.close(); if (opener?.isConnected) opener.focus(); };
+  const shut = () => { if (!dialog.open) return; d.remember(null); dialog.dispatchEvent(new CustomEvent('kd-before-close', { bubbles: true })); dialog.close(); if (opener?.isConnected) opener.focus(); };
   const close = (history = true) => { if (!dialog.open || starting) return; shut(); if (history) d.onClose(); };
   dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
   dialog.addEventListener('click', event => { if (event.target === dialog) close(); });
-  /** The guard is set before any wait: a second press cannot deal, save or mount twice. */
   async function begin() {
-    if (starting || !dialog.open) return;
-    // Another tab can save or end a game while the panel is open: a changed game needs a new press.
+    if (starting || !dialog.open || hasCards(draft.setup) && cardMode === 'four' && picked.length !== 4) return;
     if (d.current().key !== shownKey) { setWarning(); warning.animate([{ opacity: .2 }, { opacity: 1 }], { duration: calm() ? 1 : ms('--dur-msg-in') }); return; }
     starting = true;
-    // A double press: the second press must not land on the page under the closed panel (the Play tab on a phone).
-    // The new game's controls take input at once.
     const swallow = (event: Event) => { if ((event.target as Element).closest('.play-game')) return; event.preventDefault(); event.stopPropagation(); };
     document.addEventListener('click', swallow, true); setTimeout(() => document.removeEventListener('click', swallow, true), ms('--dur-sheet-in') + 300);
     try { shut(); await d.onStart(draft); } finally { starting = false; }
   }
-  return {
-    element: dialog,
-    open(source) { opener = source; draft = d.next; draw(); setWarning(); dialog.showModal(); heading.tabIndex = -1; heading.focus(); },
-    close: () => close(false),
-  };
+  return { element: dialog, open(source) { opener = source; draw(); dialog.showModal(); heading.tabIndex = -1; heading.focus(); }, close: () => close(false) };
 }
