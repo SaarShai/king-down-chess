@@ -2,9 +2,9 @@
  * The control set of the menus (launch decision 24) and the two settings places: You (decision 28) and the in-game
  * Menu (decision 27). Both use one order of settings and the same handlers in main.ts.
  */
-import { button, choiceGroup, icon, switchRow } from '../ui/kit.js';
+import { button, closeX, choiceGroup, icon, switchRow } from '../ui/kit.js';
 import { apiOrigin } from '../../platform';
-import { calm, ms, token } from './motion';
+import { calm, token } from './motion';
 import { text } from './texts';
 import { sideText } from './sides';
 
@@ -67,12 +67,12 @@ const speeds = () => ['normal', 'fast', 'off'].map(value => ({ value, label: tex
 function controls(s: Settings, pictures: { figure: () => Node; symbol: () => Node; hand: () => Node; ribbon: () => Node } | null): Record<Setting, HTMLElement> {
   const pieces = pictures
     ? pictureChoice(text.pieceView, [{ value: 'figures', label: text.figures, art: pictures.figure() }, { value: 'symbols', label: text.symbols, art: pictures.symbol() }], s.pieceView)
-    : segmented(text.pieceView, [{ value: 'figures', label: text.figures }, { value: 'symbols', label: text.symbols }], s.pieceView, true);
+    : switchSetting(text.useSymbols, s.pieceView === 'symbols', on => s.setPieceView(on ? 'symbols' : 'figures'));
   const hand = pictures
     ? pictureChoice(text.handView, [{ value: 'hand', label: text.hand, art: pictures.hand() }, { value: 'ribbon', label: text.ribbon, art: pictures.ribbon() }], s.handView)
-    : segmented(text.handView, [{ value: 'hand', label: text.hand }, { value: 'ribbon', label: text.ribbon }], s.handView, true);
+    : switchSetting(text.useRibbon, s.handView === 'ribbon', on => s.setHandView(on ? 'ribbon' : 'hand'));
   const all: Record<Setting, HTMLElement> = {
-    pieces: changed(pieces, s.setPieceView), hand: changed(hand, s.setHandView),
+    pieces: pictures ? changed(pieces, s.setPieceView) : pieces, hand: pictures ? changed(hand, s.setHandView) : hand,
     coords: switchSetting(text.coordinates, s.coords, s.setCoords), sound: switchSetting(text.sound, s.sound, s.setSound),
     motion: changed(segmented(text.motion, speeds(), s.motion, true), s.setMotion),
   };
@@ -98,24 +98,19 @@ export function youPage(s: Settings, o: { figure: () => HTMLImageElement; symbol
   return page;
 }
 
-/** The in-game Menu (launch decision 27): Back to home and Resign first, the save line, then the setting rows. */
+/** The game Menu keeps Back to home above its switches and Resign at the bottom. */
 export function gameMenu(s: Settings, o: { saveLine: string; onClose(): void; onHome(): void; onResign(source: HTMLButtonElement): void }): HTMLElement {
   const menu = el('div', 'game-menu'), head = el('div', 'menu-head');
-  head.append(el('h3', '', text.menu), button(text.close, { onPress: o.onClose }));
+  head.append(el('h3', '', text.menu), closeX('Close menu', o.onClose));
   const exits = el('div', 'menu-exit'), resign: HTMLButtonElement = button(text.resign, { kind: 'danger', onPress: () => o.onResign(resign) });
-  exits.append(button(text.home, { onPress: o.onHome }), resign);
+  exits.append(button(text.home, { onPress: o.onHome }));
   const rows = el('div', 'menu-settings'), c = controls(s, null);
-  rows.append(...SETTING_ORDER.map(name => c[name]));
-  menu.append(head, exits, ...(o.saveLine ? [el('p', 'menu-note', o.saveLine)] : []), rows);
+  rows.append(...SETTING_ORDER.filter(name => name !== 'motion').map(name => c[name]));
+  menu.append(head, exits, ...(o.saveLine ? [el('p', 'menu-note', o.saveLine)] : []), rows, resign);
   return menu;
 }
-/**
- * The Menu opens with its head and its exit row in place (a short fade), and only the setting rows slide up. A tap
- * soon after the Menu opens lands on the control that it sees (runs/launch/soak/report.md fault 4).
- */
+/** An anchored Menu drops a short distance. Reduced motion shows it at once. */
 export function menuEnter(menu: HTMLElement) {
-  const fixed = [...menu.children].filter(node => !node.classList.contains('menu-settings')), rows = menu.querySelector<HTMLElement>('.menu-settings');
-  const fade = { duration: ms(calm() ? '--dur-reduced-in' : '--dur-sheet-in'), easing: 'linear' };
-  for (const node of fixed) node.animate([{ opacity: 0 }, { opacity: 1 }], fade);
-  rows?.animate(calm() ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: `translateY(${Math.min(rows.clientHeight, 160)}px)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: fade.duration, easing: calm() ? 'linear' : token('--ease-out5') });
+  if (calm()) return;
+  menu.animate([{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 200, easing: token('--ease-out5') });
 }

@@ -156,3 +156,10 @@ progress::-moz-progress-bar { background: var(--info); }
 .kd-resource[data-state='armed'] .kd-pill { color: var(--info); background: var(--info-soft); }
 .kd-game-row { flex-wrap: wrap; }
 .kd-game-copy { flex: 1 1 10rem; }
+
+/* One lifted paper surface for temporary content. */
+.kd-paper, .kd-sheet, .kd-dialog, .kd-toast { background: var(--surface-raised); border: 1px solid var(--divider); border-radius: var(--radius-surface); box-shadow: var(--elevation-panel); }
+.kd-sheet-head > :first-child { flex: 1; }
+
+.people-sheet .people-sheet-panel { border: 1px solid var(--divider); border-radius: var(--radius-surface); background: var(--surface-raised); box-shadow: var(--elevation-panel); }
+.people-sheet .people-sheet-head .kd-x { padding: 0; }

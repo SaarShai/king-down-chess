@@ -5,9 +5,10 @@ import './shell.css';
 import './sides.css';
 import './menus.css';
 import './reading-b.css';
+import { historyGroups, removedHistoryLine, type HistoryLine } from './history';
 import { mountShell, type Route } from './shell';
 import { guidePage, closeGuidePanel } from './guide';
-import { button, confirmDialog, errorState, liveRegion, setButtonState, turnSteps, targetChoice } from '../ui/kit.js';
+import { button, closeX, icon, confirmDialog, errorState, liveRegion, setButtonState, targetChoice } from '../ui/kit.js';
 import { turnControls } from '../ui/turn-controls';
 import type { Board, Move, Pace, Position } from '../board-api';
 import { Game, Engine } from '../../game';
@@ -26,9 +27,9 @@ import { DraftTurn, isDirect, armKey } from './turn';
 import { actorMarks, mergeMarks, previewMarks, resultMarks, stateMarks, type MarkAction } from './marks';
 import { pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, resultText } from './texts';
 import { readingText, effectGroups, checkLines, selectionLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText } from './texts';
-import { calm, cardFly, disarm, ms, screenChange, seal, shake, sheet, token, unseal, setInterfaceMotion, time } from './motion';
+import { calm, cardFly, disarm, ms, screenChange, seal, shake, token, unseal, setInterfaceMotion, time } from './motion';
 import { gameLayout, type Form } from './layout';
-import { finishKind, fitReader, readerNodes, readerView, resetFit, sentences, summaryLabel, type ReaderModel } from './reader';
+import { finishKind, fitReader, readerNodes, readerView, resetFit, sentences, type ReaderModel } from './reader';
 import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, storeChoice as store, storedChoice as stored, storedGameType, type GameType as Setup, type KeptOffer, type Level } from './saved';
 import { arrowStep, cellOf, fileLabelRow, rankLabelColumn, sideText, SIDE_CHOICES, SIDE_KEY, squareAt, type SideChoice } from './sides';
 import { changeDraft, createDraft, OPTIONS_KEY, readOptions, rulesFor, startOf, type NewGameDraft } from './new-game';
@@ -103,19 +104,24 @@ let lastActions: MarkAction[] = [], playingAction: MarkAction | null = null, mar
 let keyed = false;
 document.addEventListener('keydown', () => { keyed = true; }, true); document.addEventListener('pointerdown', () => { keyed = false; }, true);
 const replay = replayController();
-let replySteps: ReplayStep[] = [], replayPosition: Position | null = null, replayStep: ReplayStep | undefined;
+let replySteps: ReplayStep[] = [];
 let learning: { subject: LearnSubject; side: Color; cardIndex?: number } | null = null, panel: ReturnType<typeof learningPanel> | null = null;
-let panelReturn: HTMLElement | null = null;
+let panelReturn: HTMLElement | null = null, ruleAnchor: DOMRect | null = null, ruleReturnLabel = '';
 let last = '', notice = '', resultCause = '', choice: Move[] = [], choiceSquare = -1;
 // The effect groups that the player opened, for this visit only (reading decision 18).
-const expanded = new Set<string>();
+
 // Stage "readingb": the form of the layout, the persistent reader nodes, the open effects summary (its subject key),
 // the computer's card group, and the computer's text while its reply plays.
-let form: Form = 'tall', nodes = readerNodes(), effectsFor = '', rivalGroup: Resource | null = null, acting = '';
+let form: Form = 'tall', nodes = readerNodes(), rivalGroup: Resource | null = null, acting = '';
 let screen: HTMLElement, boardBox: HTMLElement, boardHost: HTMLElement, reader: HTMLElement, detail: HTMLElement, choiceBox: HTMLElement;
 let cells: HTMLButtonElement[] = [], choiceCancel: HTMLButtonElement;
 let menuButton: HTMLButtonElement;
-let controls: ReturnType<typeof turnControls>, steps: ReturnType<typeof turnSteps>;
+let historyStrip: HTMLElement, historyButton: HTMLButtonElement, effectsButton: HTMLButtonElement, scrollPanel: HTMLElement;
+let scrollOpen: 'history' | 'effects' | null = null, floatingSource: HTMLElement | null = null, swallowedPointer = false;
+let erased: HistoryLine | undefined, eraseTimer: ReturnType<typeof setTimeout> | undefined;
+let stopPortrait = () => {};
+
+let controls: ReturnType<typeof turnControls>;
 let resignDialog: ReturnType<typeof confirmDialog>;
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', content = '') => {
   const node = document.createElement(tag); node.className = className; node.textContent = content; return node;
@@ -282,6 +288,7 @@ function onlineActions(state: PeopleState): HTMLElement {
 /** A new game from Play: copy a save that cannot open, then start the shown candidate. */
 const beginNew = (source?: HTMLButtonElement) => { void start(undefined, source); };
 function home(newArmy = false) {
+  stopPortrait();
   if (shell.route.place !== 'play') { if (newArmy) next = createDraft(accepted()); shell.go({ place: 'play' }); return; }
   const enteringHome = document.body.dataset.page !== 'home';
   const active = document.activeElement as HTMLElement | null;
@@ -443,6 +450,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     store(GAME_KEY, setup);
     if (fromHome) next = createDraft(accepted());
   }
+  erased = undefined; clearTimeout(eraseTimer);
   resources = []; shown = null; replySteps = []; resigned = null; liveGame = true; selectTaps = 0; symbolsHint = false;
   ended = false; fault = null; thinking = onlineActive ? !onlineState?.draft : game.pos.turn === cpu() && game.status === 'playing'; cursor = player ? 52 : 12;
   selected = inspected = null; choice = []; reading = 'normal'; last = ''; lastActions = []; playingAction = null; markFocus = undefined; nextMarksAt = 0; notice = ''; resultCause = '';
@@ -468,7 +476,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   if (!onlineActive && face instanceof HTMLImageElement) { face.src = computerPortrait(gameLevel); face.alt = ''; }
   opponent.append(face, who);
   addPower(cpu(), opponent); rivalGroup = cards(cpu()) ? addRivalCards(opponent) : null;
-  menuButton = button(text.menu, { onPress: () => {
+  menuButton = button(text.menu, { icon: 'more', iconOnly: true, onPress: () => {
     cancelReplay(); closeLearning(false); reading = reading === 'menu' ? ended ? 'result' : 'normal' : 'menu'; update();
     (reading === 'menu' ? detail.querySelector<HTMLButtonElement>('button') : menuButton)?.focus({ preventScroll: true });
   } });
@@ -479,7 +487,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   // Pieces only has no resource row; With powers shows the power only (design section 2).
   if (king) addPower(player, mine);
   if (cards(player)) addCards(mine);
-  reader = el('section', 'play-reader'); reader.setAttribute('aria-label', text.last); nodes = readerNodes(); effectsFor = ''; acting = ''; resetFit();
+  reader = el('section', 'play-reader'); reader.id = 'play-panel'; reader.setAttribute('aria-label', text.last); nodes = readerNodes(); acting = ''; resetFit();
   detail = el('div', 'play-detail');
   boardBox = el('div', 'play-board');
   if (!keep) { boardHost = el('div', 'play-board-host'); boardHost.style.visibility = 'hidden'; boardHost.setAttribute('aria-hidden', 'true'); }
@@ -503,14 +511,23 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   choiceBox = el('div', 'play-choices'); boardBox.append(host, grid); // the choice box shows in the reading area
   controls = turnControls(onlineActive ? { ...text, finish: 'Send' } : text, { undo, finish: () => { void finish(); } });
   reader.append(controls.line, detail);
-  steps = turnSteps();
   resignDialog = confirmDialog({ title: text.resignTitle, consequence: onlineActive ? 'Your opponent wins. Your unsent turn does not count.' : text.resignCause, action: text.resign, fallback: controls.finish, onConfirm: () => {
     if (onlineActive) { void people?.controller?.resign(); return; }
     cancelReplay(); closeLearning(false); generation++; engine.cancel(); board?.skip(); thinking = false;
     while (draft.length) draft.undo(); draft.armed = null; shown = null; board?.setPosition(game.pos, game.context);
     ended = true; resigned = player; liveGame = false; save(true); resultCause = text.resigned; reading = 'result'; update(); focusResult(); announce(`${replyText()} ${resultCause}`);
   } });
-  screen.append(opponent, reader, boardBox, mine, controls.element, resignDialog.element);
+  historyStrip = el('div', 'play-history-strip');
+  historyButton = button(text.history, { onPress: () => toggleScroll('history', historyButton) });
+  historyButton.append(icon('down')); historyButton.classList.add('play-history-toggle');
+  effectsButton = button(text.effects, { onPress: () => toggleScroll('effects', effectsButton) });
+  effectsButton.classList.add('play-effects-toggle');
+  historyStrip.append(historyButton, effectsButton);
+  scrollPanel = el('section', 'play-scroll-panel kd-paper'); scrollPanel.id = 'play-scroll';
+  historyButton.setAttribute('aria-controls', scrollPanel.id); effectsButton.setAttribute('aria-controls', scrollPanel.id);
+  scrollPanel.hidden = true; scrollOpen = null;
+  controls.undo.replaceChildren(icon('undo'), el('span', 'kd-sr', text.undo)); controls.undo.classList.add('kd-icon-button');
+  screen.append(opponent, reader, historyStrip, scrollPanel, boardBox, mine, controls.element, resignDialog.element);
   if (fromHome) { root.querySelectorAll('.play-game').forEach(node => node.remove()); screen.style.visibility = 'hidden'; root.append(screen); }
   else root.replaceChildren(screen);
   const onArtError = () => { if (host === boardHost && document.body.dataset.page === 'game') artFailed(generation); };
@@ -628,6 +645,7 @@ document.addEventListener('keydown', event => {
   if (document.body.dataset.page !== 'game' || event.defaultPrevented || (event.target as Element).closest('dialog, input, textarea, select, [contenteditable="true"]')) return;
   if (event.key.toLowerCase() === 'z' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); undo(); return; }
   if (event.key !== 'Escape') return;
+  if (scrollOpen || reader?.dataset.floating === 'true') { event.preventDefault(); closeFloating(); return; }
   if (reading === 'rule') { event.preventDefault(); closeLearning(); return; }
   if (reading === 'menu') { event.preventDefault(); reading = ended ? 'result' : 'normal'; update(); menuButton.focus({ preventScroll: true }); return; }
   cancelReplay();
@@ -644,7 +662,7 @@ function key(event: KeyboardEvent) {
 function clearChoice() { choice = []; choiceBox.replaceChildren(); }
 function tap(square: number) {
   if (fault === 'art' || !onlineActive && writer.blocked) return; // a fault waits for recovery
-  cancelReplay(); endOpening(); skipBoard(); notice = '';
+  cancelReplay(); endOpening(); skipBoard(); lastActions = []; notice = '';
   cells.forEach(cell => cell.classList.remove('square-error')); // a new tap ends the red edge of an earlier refusal
   const activeResource = armedResource(); if (!activeResource) shown = null;
   closeLearning(false);
@@ -723,9 +741,12 @@ function animate(before: Position, move: Move, after: Position): Promise<unknown
 function undo() {
   cancelReplay();
   if (!draft.length || thinking || ended || !onlineActive && writer.blocked) return;
+  const oldHistory = currentHistory();
   closeLearning(false);
   skipBoard(); clearChoice(); draft.undo(); shown = null; resources.forEach(r => { r.hint = undefined; }); selected = draft.chain ? draft.previewMove!.from : null; inspected = null; notice = text.undone;
   lastActions = [...draft.steps, ...(draft.previewMove ? [{ before: draft.now, move: draft.previewMove }] : [])];
+  erased = calm() || matchMedia('(prefers-reduced-motion: reduce)').matches ? undefined : removedHistoryLine(oldHistory, currentHistory());
+  clearTimeout(eraseTimer); if (erased) eraseTimer = setTimeout(() => { erased = undefined; renderHistory(); }, 200);
   save(true); board?.setPosition(draft.position, game.context); update(); announce(text.undone);
 }
 function showChoice(square: number, options: Move[]) {
@@ -738,7 +759,7 @@ function showChoice(square: number, options: Move[]) {
     for (const m of options) group.append(button(choiceLabel(draft.now, m, cards(player)), { onPress: () => { clearChoice(); stage(m); cells[square].focus(); } }));
     choiceBox.append(group);
   }
-  const cancel = button(text.cancel, { onPress: () => { clearChoice(); update(); cells[square].focus(); } });
+  const cancel = closeX('Cancel action choice', () => { clearChoice(); update(); cells[square].focus(); });
   cancel.classList.add('play-choice-cancel'); choiceCancel = cancel;
   update(); choiceBox.querySelector<HTMLButtonElement>('button')?.focus(); announce(`${choicePrompt(options)} ${sqName(square)}.`);
 }
@@ -883,7 +904,7 @@ function update() {
     rivalGroup.control.setAttribute('aria-label', rivalLine(used)); rivalGroup.control.setAttribute('aria-expanded', String(shown === rivalGroup));
   }
   // The reading area takes the opponent strip while a rule or the menu is open, on a short phone or when the rule does not fit. The board does not move.
-  screen.dataset.reading = reading; screen.dataset.borrow = String(reading === 'menu' || reading === 'rule'); renderReader();
+  screen.dataset.reading = reading; screen.dataset.borrow = 'false'; renderReader(); renderHistory(); placeFloating();
   drawMarks();
 }
 const armedResource = () => resources.find(r => r.side === player && draft.armed && r.key === draft.armed);
@@ -892,13 +913,11 @@ function renderReader() {
   const ruleKey = learning ? `${subjectKey(learning.subject)}:${learning.side}:${JSON.stringify(draft.position.used)}` : '';
   if (detail.childElementCount && detail.dataset.mode === reading && (reading === 'menu' || reading === 'result' || (reading === 'rule' && detail.dataset.ruleKey === ruleKey))) return;
   // Help and the menu open and close like a sheet (Exact).
-  const help = (mode?: string) => mode === 'rule' || mode === 'menu', was = detail.dataset.mode;
-  if (help(was) && !help(reading)) sheet(detail, false);
-  panel?.dispose(); panel = null;
+  const was = detail.dataset.mode;
+  panel?.dispose(); panel = null; stopPortrait();
   detail.replaceChildren(); detail.dataset.mode = reading; detail.dataset.ruleKey = ruleKey; detail.scrollTop = 0;
-  if (reading === 'rule' && was !== reading) sheet(detail, true);
   if (reading === 'rule' && learning) {
-    panel = learningPanel(learning.subject, game.context, { pos: draft.position, side: learning.side, cardIndex: learning.cardIndex, close: () => closeLearning(), announce, owner: learning.subject.kind === 'power' ? learning.side === cpu() ? readingText.computerPower : readingText.yourPower : undefined });
+    panel = learningPanel(learning.subject, game.context, { pos: draft.position, side: learning.side, cardIndex: learning.cardIndex, close: () => closeFloating(), announce, owner: learning.subject.kind === 'power' ? learning.side === cpu() ? readingText.computerPower : readingText.yourPower : undefined });
     detail.append(panel.element); return;
   }
   if (reading === 'menu') {
@@ -934,7 +953,6 @@ function renderReader() {
     const cause = lost && resigned == null ? replySteps.map(step => sentence(step.before, step.move, true, cards(cpu()))).filter(Boolean).join(' ') : '';
     body.append(el('h3', '', result.title), el('p', 'play-result-cause', [result.cause, cause].filter(Boolean).join(' ')));
     const rematch = el('p', 'play-rematch-note', `Rematch: ${player ? 'Light' : 'Dark'} pieces. ${({ both: 'New powers and cards.', cards: 'New cards.', powers: 'New powers.', pieces: 'Same army and level.' } as const)[setup]}`);
-    if (replySteps.length) body.append(cause ? showAgainButton() : replyBlock());
     const actions = el('div', 'play-result-actions');
     actions.append(button(text.rematch, { kind: 'main', onPress: () => { void start(); } }), button(text.newGame, { onPress: () => { panelNext = true; home(true); } }), button(text.home, { onPress: () => home() }));
     copy.append(body, rematch, actions);
@@ -960,6 +978,8 @@ function renderReader() {
   }
   const model = readerModel(), view = readerView(model, form, nodes);
   detail.append(view); fitReader(view, model);
+  const portrait = view.querySelector<HTMLImageElement>('.play-art');
+  if (portrait && pieceView === 'figures' && (selected != null || inspected != null) && !shown) void import('./portrait-idle').then(({ portraitIdle }) => { if (portrait.isConnected) stopPortrait = portraitIdle(portrait, () => calm()); });
 }
 const line = (className: string, content: string) => el('p', className, gameWords(content));
 /** After a free action alone (a mark that does not end the turn): what is possible next (reading decision 20). */
@@ -992,7 +1012,6 @@ function readerModel(): ReaderModel {
   const check = choice.length ? { mine: false, lines: [] as string[] } : checkLines(game.context, draft.position, player), checks = check.lines.map(t => line('play-check', t));
   const help = controls.help.textContent ?? '', notices = notice ? [line('play-notice', notice)] : [];
   const m: ReaderModel = { state: turnState(check.mine, code), title: '', named: false, headTools: [], primary: [], secondary: [], tools: [], summary: null };
-  let earlier: HTMLElement | null = null;
   if (!onlineActive && writer.blocked) {
     Object.assign(m, { title: writer.warning, tools: [button('Load the newer game', { onPress: () => {
       const now = readStored();
@@ -1008,10 +1027,10 @@ function readerModel(): ReaderModel {
   else if (res) {
     const armed = res === armedResource();
     // The name, "?" and Cancel (or Close) share the headline row (option e1); the next step comes first in the subject.
-    const parts = subjectModel(m, res.subject, res.side, res.control, res.card ?? undefined, button(armed ? text.cancel : text.close, { onPress: () => {
+    const parts = subjectModel(m, res.subject, res.side, res.control, res.card ?? undefined, closeX(armed ? `Cancel ${res.name}` : `Close ${res.name}`, () => {
       if (armed) pressResource(res); else { shown = null; notice = ''; reading = ended ? 'result' : 'normal'; update(); }
       res.control.focus({ preventScroll: true });
-    } }));
+    }));
     m.primary = [...notices, ...(armed ? [line('play-step', armedStep(draft.armedMoves, draft.now, selected, player))] : []), ...(armed && res.hint ? [line('play-first-step', res.hint)] : []), ...checks];
     m.secondary = [...(parts.owner ? [parts.owner] : []), parts.short, line('play-mark-line', '')];
   } else if (draft.length) {
@@ -1019,14 +1038,11 @@ function readerModel(): ReaderModel {
     const lines = stepLines(), [first = '', ...rest] = sentences(lines.at(-1) ?? ''), last = draft.steps.at(-1), free = freeText();
     Object.assign(m, { title: first, short: last && !last.move.power ? nameOf(last.before.board[last.move.from]) : undefined, art: playedCard(player, last?.move) });
     m.primary = [...rest.map(t => line('play-last', t)), ...(free ? [line('play-free', free)] : help ? [line('play-notice', help)] : []), ...checks];
-    if (lines.length > 1) { steps.update(lines.slice(0, -1)); steps.element.querySelector('.kd-pill')!.textContent = text.notFinal; m.secondary.push(steps.element); }
-    if (replySteps.length) earlier = replyBlock();
   } else if (code && !ended) {
     // The piece's own effect lines come before its general rule (reading decision 18).
     const parts = subjectModel(m, { kind: 'piece', type: typeOf(code) }, colorOf(code), cells[square!]);
     m.primary = [...notices, ...checks];
     m.secondary = [...selectionLines(game.context, draft.position, square!, draft.base.turn, player).map(t => line('play-select-effect', t)), parts.short, line('play-mark-line', '')];
-    if (replySteps.length) earlier = replyBlock();
   } else if (thinking) {
     // The computer chooses: the state alone. The computer acts: the sentence of the step that plays.
     const [first = '', ...rest] = sentences(acting); Object.assign(m, { title: first, secondary: rest.map(t => line('play-last', t)), art: playedCard(cpu(), playingAction?.move) });
@@ -1037,68 +1053,123 @@ function readerModel(): ReaderModel {
     const items = [...said.map(t => line('play-last', t)), ...ends], mine = check.mine ? check.lines[0] : '';
     const title = notice || mine || items.shift()?.textContent || '';
     Object.assign(m, { title, primary: checks.filter(c => c.textContent !== mine), secondary: items, art: actionArt(cpu(), replySteps.at(-1)) });
-    if (replySteps.length) m.tools = [showAgainButton()];
   }
   if (symbolsHint && pieceView === 'figures' && !draft.length) m.primary.push(line('play-symbols-hint', text.symbolsHint));
-  if (earlier) m.secondary.push(earlier);
-  effectsSummary(m);
   if (onlineActive) { m.title = gameWords(m.title); m.state = gameWords(m.state); for (const node of [...m.primary, ...m.secondary]) { const walk = document.createTreeWalker(node, NodeFilter.SHOW_TEXT); while (walk.nextNode()) walk.currentNode.textContent = gameWords(walk.currentNode.textContent ?? ''); } }
   if (writer.warning && !onlineActive) {
     m.primary.unshift(line('play-notice', writer.warning));
   }
   return m;
 }
-/** One summary control for the lasting effects (option a1). A tap puts the source rows in place of the secondary text; a second tap returns it. */
-function effectsSummary(m: ReaderModel) {
-  const groups = effectGroups(game.context, draft.position, draft.base.turn, player);
-  for (const key of expanded) if (!groups.some(group => group.key === key)) expanded.delete(key);
-  if (!groups.length) return;
-  const key = [shown?.name, selected, inspected, draft.length, replySteps.length, thinking, choice.length, notice].join('|'), open = effectsFor === key;
-  const toggle = button(gameWords(summaryLabel(groups.map(group => group.summary), form, text.effects)), { onPress: () => {
-    effectsFor = open ? '' : key; update(); detail.querySelector<HTMLButtonElement>('.play-summary-toggle')?.focus({ preventScroll: true });
-  } });
-  toggle.classList.add('play-summary-toggle', 'play-effect-toggle'); toggle.setAttribute('aria-expanded', String(open));
-  if (open) {
-    if (groups.length === 1) expanded.add(groups[0].key); // one source: the first tap shows its names and squares (option a1)
-    const block = effectsBlock(draft.position, draft.base.turn, true)!; block.id = 'play-effects-open'; m.secondary = [block]; toggle.setAttribute('aria-controls', block.id);
-  }
-  m.summary = toggle;
+/** Temporary panels stay in the rail on wide screens. Outside input closes only. */
+function closeFloating(focus = true) {
+  const ruleLabel = reading === 'rule' ? ruleReturnLabel : '';
+  const target = scrollOpen ? scrollOpen === 'history' ? historyButton : effectsButton : floatingSource;
+  const armed = reading === 'normal' && shown === armedResource() && !!draft.armed;
+  if (armed) { notice = cancelLine(shown!.subject.kind); draft.armed = null; }
+  scrollOpen = null; closeLearning(false); shown = null;
+  if (reading === 'menu') reading = ended ? 'result' : 'normal';
+  update(); const returned = ruleLabel ? detail.querySelector<HTMLElement>(`[aria-label="${CSS.escape(ruleLabel)}"]`) ?? target : target;
+  if (focus && returned?.isConnected) returned.focus({ preventScroll: true });
+  if (armed) announce(notice);
 }
+function toggleScroll(kind: 'history' | 'effects', source: HTMLElement) {
+  const open = scrollOpen !== kind; closeFloating(false); scrollOpen = open ? kind : null;
+  renderHistory(); placeFloating();
+  (open ? scrollPanel.querySelector<HTMLButtonElement>('button') : source)?.focus({ preventScroll: true });
+}
+function currentHistory() {
+  return historyGroups(game.history, stepLines(), (before, move) => gameWords(sentence(before, move, before.turn !== player, cards(before.turn))),
+    (turn, side) => `${Math.ceil(turn / 2)} · ${side === player ? text.you : onlineActive ? 'Opponent' : text.computer}`, text.stagedTurn);
+}
+function renderHistory() {
+  if (!historyStrip) return;
+  const groups = currentHistory(), latest = erased ?? groups[0]?.lines[0];
+  historyButton.querySelector('[data-button-label]')!.textContent = latest?.line ?? text.noHistory;
+  historyButton.setAttribute('aria-label', `${text.history}: ${latest?.line ?? text.noHistory}`);
+  historyButton.setAttribute('aria-expanded', String(scrollOpen === 'history'));
+  historyButton.classList.toggle('play-ink-wipe', !!erased);
+  const effects = effectGroups(game.context, draft.position, draft.base.turn, player);
+  effectsButton.hidden = !effects.length; effectsButton.querySelector('[data-button-label]')!.textContent = `${text.effects} ${effects.length}`;
+  effectsButton.setAttribute('aria-expanded', String(scrollOpen === 'effects'));
+  if (scrollOpen === 'effects' && !effects.length) scrollOpen = null;
+  scrollPanel.hidden = !scrollOpen;
+  if (!scrollOpen) { scrollPanel.dataset.kind = ''; return; }
+  const was = scrollPanel.dataset.kind; scrollPanel.dataset.kind = scrollOpen;
+  const focused = scrollPanel.contains(document.activeElement);
+  const head = el('div', 'play-panel-head'), title = scrollOpen === 'history' ? text.history : text.effects;
+  const heading = el('h3', '', title); heading.id = 'play-scroll-title'; scrollPanel.setAttribute('aria-labelledby', heading.id);
+  head.append(heading, closeX(`Close ${title.toLowerCase()}`, () => closeFloating()));
+  const body = el('div', 'play-panel-body');
+  if (scrollOpen === 'effects') {
+    effects.forEach(group => { const section = el('section'); section.append(el('h4', '', gameWords(group.summary)), ...group.details.map(item => line('', item.line))); body.append(section); });
+  } else {
+    if (erased) { const ink = line('play-history-line play-ink-wipe', erased.line); body.append(ink); }
+    groups.forEach(group => { const section = el('section', 'play-history-turn'); section.append(el('h4', '', group.title)); group.lines.forEach(item => { const ink = line('play-history-line', item.line); ink.dataset.historyKey = item.key; section.append(ink); }); body.append(section); });
+    if (!groups.length && !erased) body.append(line('', text.noHistory));
+  }
+  scrollPanel.replaceChildren(head, body);
+  if (focused) scrollPanel.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+  if (was !== scrollOpen && !calm() && !matchMedia('(prefers-reduced-motion: reduce)').matches) scrollPanel.animate([{ clipPath: 'inset(0 0 100% 0)' }, { clipPath: 'inset(0)' }], { duration: 200, easing: 'ease-out' });
+}
+function placeFloating() {
+  if (!reader || !screen) return;
+  const source = reading === 'menu' ? menuButton : reading === 'rule' ? panelReturn : shown?.control;
+  const wasFloating = reader.dataset.floating === 'true';
+  reader.dataset.floating = String(!!source);
+  reader.classList.toggle('kd-paper', !!source);
+  if (floatingSource && floatingSource !== source) floatingSource.setAttribute('aria-expanded', 'false');
+  floatingSource = source ?? null;
+  if (source) { source.setAttribute('aria-controls', reader.id); source.setAttribute('aria-expanded', 'true'); }
+  reader.setAttribute('aria-label', reading === 'menu' ? text.menu : reading === 'rule' ? text.fullRule : shown?.name ?? text.last);
+  menuButton.setAttribute('aria-expanded', String(reading === 'menu'));
+  const place = (panel: HTMLElement, anchor: HTMLElement) => {
+    const box = screen.getBoundingClientRect(), at = panel === reader && reading === 'rule' && ruleAnchor ? ruleAnchor : anchor.getBoundingClientRect();
+    const rail = screen.dataset.layout === 'wide', left = rail ? parseFloat(screen.style.getPropertyValue('--board-x')) + parseFloat(screen.style.getPropertyValue('--board')) + parseFloat(screen.style.getPropertyValue('--gap')) : Math.max(4, at.left - box.left);
+    const width = Math.min(rail ? parseFloat(screen.style.getPropertyValue('--rail')) : 380, box.width - 8);
+    const below = at.bottom - box.top, above = at.top - box.top;
+    const top = box.height - below < 220 ? Math.max(4, above - 380) : Math.max(4, below);
+    panel.style.setProperty('--panel-left', `${Math.min(left, box.width - width - 4)}px`);
+    panel.style.setProperty('--panel-top', `${top}px`); panel.style.setProperty('--panel-width', `${width}px`);
+    panel.style.setProperty('--panel-height', `${Math.max(88, box.height - below < 220 ? above - top : box.height - top - 8)}px`);
+  };
+  if (source) { place(reader, source); if (!wasFloating && keyed) detail.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true }); }
+  if (scrollOpen) place(scrollPanel, scrollOpen === 'history' ? historyButton : effectsButton);
+}
+function outsidePanel(event: Event) {
+  if (event.type === 'pointerdown') swallowedPointer = false;
+  if (document.body.dataset.page !== 'game' || document.querySelector('dialog[open]')) return;
+  const target = event.target as Node, active = scrollOpen ? scrollPanel : reader?.dataset.floating === 'true' ? reader : null;
+  const control = scrollOpen ? scrollOpen === 'history' ? historyButton : effectsButton : floatingSource;
+  if (!active || active.contains(target) || control?.contains(target)) return;
+  event.preventDefault(); event.stopImmediatePropagation(); closeFloating(); swallowedPointer = event.type === 'pointerdown';
+}
+document.addEventListener('pointerdown', outsidePanel, true);
+document.addEventListener('pointercancel', () => { swallowedPointer = false; }, true);
+document.addEventListener('click', event => {
+  if (swallowedPointer) { swallowedPointer = false; if (event.detail) { event.preventDefault(); event.stopImmediatePropagation(); return; } }
+  outsidePanel(event);
+}, true);
+
 /** The computer's cards (option b1): four named rows; a row opens its rule and arms nothing. */
 function rivalCardsModel(m: ReaderModel, res: Resource) {
   const used = (thinking ? game.pos : draft.position).used?.[cpu()] ?? 0;
   const rows = game.context.rules.hands[cpu()].map((id, k) => {
     const row = button(cardName(id), { onPress: () => {
+      ruleAnchor = row.getBoundingClientRect(); ruleReturnLabel = '';
       cancelReplay(); learning = { subject: { kind: 'card', id }, side: cpu(), cardIndex: k }; panelReturn = res.control; reading = 'rule'; update(); detail.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
     } });
     row.classList.add('play-rival-row'); if (used >> k & 1) row.append(' ', el('small', '', readingBText.used)); return row;
   });
-  const close = button(text.close, { onPress: () => { shown = null; notice = ''; update(); res.control.focus({ preventScroll: true }); } });
+  const close = closeX(`Close ${res.name}`, () => { shown = null; notice = ''; update(); res.control.focus({ preventScroll: true }); });
   const list = el('div', 'play-rival-rows'); list.append(...rows);
   Object.assign(m, { title: res.name, named: true, headTools: [close], primary: [list] });
-}
-/** One toggle for each source of lasting effects; a tap opens its exact lines and closes them again (reading decision 18). */
-function effectsBlock(pos: Position, turn: Color, live: boolean): HTMLElement | null {
-  const groups = effectGroups(game.context, pos, turn, player);
-  if (live) for (const key of expanded) if (!groups.some(group => group.key === key)) expanded.delete(key);
-  if (!groups.length) return null;
-  const block = el('section', 'play-effects'); block.setAttribute('aria-label', text.effects);
-  for (const group of groups) {
-    const list = el('ul', 'play-effect-detail'); list.id = `play-effect-${group.key.replace(/\W/g, '-')}`; list.hidden = !expanded.has(group.key);
-    list.append(...group.details.map(item => el('li', '', gameWords(item.line))));
-    const toggle = button(gameWords(group.summary), { onPress: () => {
-      const open = !expanded.has(group.key); if (open) expanded.add(group.key); else expanded.delete(group.key);
-      toggle.setAttribute('aria-expanded', String(open)); list.hidden = !open;
-    } });
-    toggle.classList.add('play-effect-toggle'); toggle.setAttribute('aria-expanded', String(!list.hidden)); toggle.setAttribute('aria-controls', list.id);
-    block.append(toggle, list);
-  }
-  return block;
 }
 /** The name, New, art and "?" of a piece, power or card (design section 2), with its owner line and short line (A). */
 function subjectModel(m: ReaderModel, subject: LearnSubject, side: Color, source: HTMLElement, cardIndex?: number, action?: HTMLButtonElement) {
   const entry = learningEntry(subject, game.context, draft.position, side, cardIndex);
   const question = button('?', { onPress: () => {
+    ruleAnchor = question.getBoundingClientRect(); ruleReturnLabel = question.getAttribute('aria-label') ?? '';
     cancelReplay(); learning = { subject, side, cardIndex }; panelReturn = source; reading = 'rule'; update(); detail.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
   } }); question.setAttribute('aria-label', `All about the ${entry.name}`);
   const art = subject.kind === 'piece' ? `/ui/pieces/${subject.type === K ? kingFile(side) : `${entry.name.toLowerCase()}-${side ? 'b' : 'w'}`}.webp` : subject.kind === 'power' ? `/ui/pieces/${kingFile(side)}.webp` : cardIndex != null ? cardArt(side, cardIndex) : entry.art;
@@ -1111,47 +1182,11 @@ function closeLearning(focus = true) {
   const was = reading === 'rule'; panel?.dispose(); panel = null; learning = null;
   if (was) reading = 'normal';
   if (was && focus) {
-    update(); const target = detail.querySelector<HTMLButtonElement>('.play-head-tools button, .play-bhead-tools button') ?? (panelReturn?.isConnected ? panelReturn : cells[cursor]); target?.focus({ preventScroll: true });
+    update(); (panelReturn?.isConnected ? panelReturn : cells[cursor])?.focus({ preventScroll: true });
   }
 }
 const replyText = () => [...replySteps.flatMap(step => effectEndLines(game.context, step.before, step.move, step.after, player)), ...replySteps.map(step => sentence(step.before, step.move, true, cards(cpu()))).filter(Boolean)].join(' ');
-function replyBlock() {
-  const block = el('section', 'play-reply');
-  const endedEffects = replySteps.flatMap(step => effectEndLines(game.context, step.before, step.move, step.after, player));
-  endedEffects.forEach(line => block.append(el('p', 'play-effect-end', line)));
-  block.append(el('p', 'play-last', replySteps.map(step => sentence(step.before, step.move, true, cards(cpu()))).filter(Boolean).join(' ')));
-  const again = button('Show again', { onPress: () => { void showAgain(again); } }); block.append(again); return block;
-}
-const showAgainButton = () => { const again = button('Show again', { onPress: () => { void showAgain(again); } }); return again; };
 function cancelReplay() { replay.cancel(); }
-async function showAgain(control: HTMLButtonElement) {
-  if (!board || replay.running || thinking || !replySteps.length) return;
-  endOpening(); board.skip();
-  const shownBoard = board, own = generation;
-  control.setAttribute('aria-busy', 'true'); screen.dataset.replaying = 'true';
-  const current = () => own === generation && board === shownBoard;
-  const restore = () => {
-    replayPosition = null; replayStep = undefined; screen.dataset.replaying = 'false'; control.removeAttribute('aria-busy');
-    shownBoard.setPosition(draft.position, game.context); drawMarks();
-    cells.forEach((cell, square) => cell.setAttribute('aria-label', squareLabel(draft.position, square)));
-    syncReplayEffects(draft.position, draft.base.turn);
-    if (ended && game.status === 'checkmate') void shownBoard.play({ kind: 'fall', square: findKing(game.pos.board, game.pos.turn) });
-  };
-  try { await replay.play(replySteps, shownBoard, game.context, current, restore, (pos, step) => {
-    replayPosition = pos; replayStep = step; drawMarks(); syncReplayEffects(pos);
-    cells.forEach((cell, square) => cell.setAttribute('aria-label', squareLabel(pos, square)));
-  }); } catch (error) { if (current()) refuse(String(error)); }
-}
-/** Replay changes the effect summary only: it adds no list before the current action, and the result card stays as it is (reading decision 18). */
-function syncReplayEffects(pos: Position, turn = pos.turn) {
-  if (reading !== 'normal') return;
-  // B: the one summary control follows the replay; an open summary shows the replayed sources (option a1).
-  const toggle = detail.querySelector<HTMLElement>('.play-summary-toggle'), groups = effectGroups(game.context, pos, turn, player);
-  if (toggle) { toggle.querySelector('[data-button-label]')!.textContent = summaryLabel(groups.map(group => group.summary), form, text.effects); toggle.hidden = !groups.length; }
-  const existing = detail.querySelector('#play-effects-open'), block = existing && effectsBlock(pos, turn, false);
-  if (existing && block) { block.id = 'play-effects-open'; existing.replaceWith(block); } else if (existing) existing.replaceChildren();
-}
-
 const cardArt = (side: Color, k: number) => { const id = game.context.rules.hands[side][k], art = RELEASED_CARDS.find(c => c.id === id)?.art; return `/${art ?? 'ui/cards/back.webp'}`; };
 /** The power as an enamel object: its name and its uses left. The computer's power only reads. */
 function addPower(side: Color, parent: HTMLElement) {
@@ -1227,20 +1262,14 @@ function layout() {
 }
 // The layout runs again when the game box changes size: a resize, a rotation, or safe-area values that arrive or change (iOS need P3).
 const fit = new ResizeObserver(() => layout());
-window.addEventListener('resize', layout);
+window.addEventListener('resize', () => { layout(); placeFloating(); });
 function drawMarks() {
   if (!board) return;
   const source = draft.chain ? draft.previewMove!.from : selected;
   const picked = source != null && !thinking && !ended, targets = picked ? draft.targets(source) : [];
   board.select(picked ? draft.chain ? draft.captures.at(-1)! : source : null, targets, targets.filter(sq => draft.at(source!, sq)[0].captures.includes(sq)));
   const options = !playingAction && performance.now() < nextMarksAt ? [] : playingAction ? [playingAction.move] : picked ? draft.options(source) : !thinking && !ended ? draft.armedMoves : [];
-  const pos = replayPosition ?? playingAction?.before ?? (thinking ? game.pos : draft.position);
-  if (replayPosition) {
-    board.select(null);
-    board.mark(mergeMarks(replayStep ? previewMarks(game.context, replayPosition, [replayStep.move]) : resultMarks(replayPosition, []), stateMarks(game.context, replayPosition)));
-    for (const cell of cells) { const lines = stateDescriptions(game.context, replayPosition, player).filter(state => state.squares.includes(Number(cell.dataset.square))).map(state => state.line); if (lines.length) cell.setAttribute('aria-description', lines.join(' ')); else cell.removeAttribute('aria-description'); }
-    return;
-  }
+  const pos = playingAction?.before ?? (thinking ? game.pos : draft.position);
   const chooseActor = !playingAction && source == null && !!draft.armed && !options.every(isDirect);
   const preview = chooseActor ? actorMarks(draft.now, options, markFocus) : previewMarks(game.context, playingAction?.before ?? draft.now, options, markFocus, playingAction ? [] : draft.captures, picked ? draft.captures.at(-1) ?? source : undefined);
   const focus = preview.rings.find(r => r.role === 'focus')?.square;
@@ -1264,8 +1293,8 @@ function drawMarks() {
     if (descriptions.length) cell.setAttribute('aria-description', descriptions.join(' '));
     else cell.removeAttribute('aria-description');
   }
-  // Playback holds its target. The final marks then stay through selection and inspection.
-  const marks = mergeMarks(resultMarks(pos, playingAction ? lastActions.slice(0, -1) : lastActions), preview, stateMarks(game.context, pos));
+  // Playback holds its target. The next board input clears the opponent cue.
+  const marks = mergeMarks(resultMarks(pos, (playingAction ? lastActions.slice(0, -1) : lastActions).filter(action => action.before.turn === cpu())), preview, stateMarks(game.context, pos));
   if (checkPulse) {
     const t = Math.min(1, (performance.now() - checkPulse.at) / time(200)), half = t < .5 ? t * 2 : (1 - t) * 2;
     for (const ring of marks.rings) if (ring.role === 'state' && ring.square === checkPulse.square) ring.size = (ring.size ?? 1) * (1 + .06 * (1 - (1 - half) ** 3));

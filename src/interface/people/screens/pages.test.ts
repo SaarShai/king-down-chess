@@ -30,7 +30,7 @@ const toasts = (page: Page) => page.evaluate(() => (window as any).peopleDemo.to
 const fail = (page: Page, name: string, fault: unknown) => page.evaluate(([name, fault]) => (window as any).peopleDemo.fail(name, fault), [name, fault] as const);
 const sheet = (page: Page) => page.locator('dialog.people-sheet');
 const title = (page: Page) => sheet(page).locator('h2');
-const press = (page: Page, name: string | RegExp) => sheet(page).getByRole('button', { name, exact: typeof name === 'string' }).click();
+const press = (page: Page, name: string | RegExp) => (name === 'Close' ? sheet(page).locator('.people-sheet-close') : sheet(page).getByRole('button', { name, exact: typeof name === 'string' })).click();
 
 it('Send a link: one game for a fast second tap, busy while it is made, a copy on a computer, the toast, and the focus back on the row', async () => {
   const page = await open('person', '?make=800');
@@ -205,7 +205,7 @@ it('Sign-in does not work now: the computer, another try and Cancel; a suspended
     await fail(page, 'ways', 'network'); await press(page, 'Not now');
     await page.getByRole('button', { name: 'Play a person' }).click();
     await expect.poll(() => title(page).textContent()).toBe('Sign-in does not work now');
-    expect(await sheet(page).getByRole('button').allTextContents()).toEqual(['Close', 'Play the computer', 'Try again', 'Cancel']);
+    expect(await sheet(page).getByRole('button').allTextContents()).toEqual(['Close panel', 'Play the computer', 'Try again', 'Cancel']);
     await press(page, 'Try again');
     await expect.poll(() => title(page).textContent()).toBe('Sign in to play a person');
     await fail(page, 'start:google', 'banned');

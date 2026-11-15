@@ -87,7 +87,7 @@ img { display: block; }
 .play-grid { position: absolute; inset: 0; width: 100%; height: 100%; }
 .play-grid { display: grid; grid-template-columns: repeat(8,1fr); grid-template-rows: repeat(8,1fr); touch-action: none; }
 .play-square { position: relative; border: 0; padding: 0; border-radius: 0; background: transparent; touch-action: none; min-width: 44px; min-height: 44px; }
-[data-file]::after, [data-rank]::before { position: absolute; z-index: 1; font: 700 8px/1 var(--font-title); color: #4f4a3e; background: transparent; padding: 0; letter-spacing: .02em; pointer-events: none; }
+[data-file]::after, [data-rank]::before { position: absolute; z-index: 1; font: 700 12px/1 var(--font-title); color: #4f4a3e; background: transparent; padding: 0; letter-spacing: .02em; pointer-events: none; }
 [data-file]::after { content: attr(data-file); right: 1px; bottom: 1px; }
 [data-rank]::before { content: attr(data-rank); left: 1px; top: 1px; }
 .play-game[data-coords='false'] [data-file]::after, .play-game[data-coords='false'] [data-rank]::before { display: none; }
@@ -203,8 +203,6 @@ img { display: block; }
 .learn-demo-copy p { margin-top: 4px; }
 .learn-new { display: inline-block; vertical-align: middle; margin-left: 8px; font-family: var(--font-reading); font-size: .75rem; font-weight: 600; color: var(--text-muted); }
 .play-first-step { margin-top: 8px; }
-.play-reply > * + * { margin-top: 6px; }
-.play-reply > .kd-button { min-width: 120px; }
 .play-game[data-reading='result'] .play-detail { overflow: hidden; }
 .play-result { height: 100%; }
 .play-result-copy { height: 100%; min-height: 0; display: flex; flex-direction: column; flex-wrap: nowrap; }
@@ -236,10 +234,6 @@ img { display: block; }
 .play-game[data-reading='normal'] .play-detail { display: flex; flex-direction: column; overflow: hidden; }
 .learn-owner { color: var(--text-muted); }
 .play-check { color: var(--danger); font-weight: 600; }
-.play-effect-toggle.kd-button { justify-content: space-between; width: 100%; min-height: 44px; padding: 4px 6px; background: none; border: 0; box-shadow: none; color: var(--info); font-size: var(--type-small); font-weight: 600; text-align: start; }
-.play-effect-toggle::after { content: ''; flex: none; width: 7px; height: 7px; margin: 0 4px 3px 10px; border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg); }
-.play-effect-toggle[aria-expanded='true']::after { margin-bottom: -3px; transform: rotate(-135deg); }
-.play-effect-detail { margin: 0 0 4px; padding: 4px 8px 4px 24px; border-left: 3px solid var(--info); background: var(--info-soft); }
 /* A used power or card keeps a legible name; the art dims, the Ribbon slot goes quiet. */
 .play-game[data-hand='ribbon'] .play-own .play-card[data-spent='true'] { color: var(--text-muted); border-style: dashed; }
 .play-game[data-hand='ribbon'] .play-own .play-power { border-radius: 22px; }
