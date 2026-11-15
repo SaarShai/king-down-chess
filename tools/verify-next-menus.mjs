@@ -36,13 +36,13 @@ const cases = {
   async code_fault(page, context, check) {
     const pattern = /\/assets\/board-api-[\w-]+\.js$/;
     await context.route(pattern, r => r.abort());
-    await page.goto(NEXT); await page.locator(MAIN).click();
+    await page.goto(NEXT); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: 'Start game', exact: true }).click();
     await page.waitForFunction(() => document.querySelector('body > .kd-sr')?.textContent.includes('The board cannot load.'));
     check(await page.locator('.home-load-fault').isVisible(), 'the board-code fault has a visible line');
     check(await page.locator('.home-load-fault').textContent().catch(() => '') === 'The board cannot load. Reload the page.', 'the visible line names the safe step');
     check(await saved(page) === null, 'the failed load writes no game');
     await shot(page, 'code-fault');
-    await context.unroute(pattern); await page.locator(MAIN).click(); await ready(page);
+    await context.unroute(pattern); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
     check(await page.locator('.home-load-fault').count() === 0, 'a new press clears the fault and opens the game');
   },
   async font_fault(page, context, check) {
@@ -65,7 +65,7 @@ const cases = {
   async panel(page, context, check, size) {
     await page.goto(NEXT); await page.waitForSelector('.play-home');
     const before = await saved(page), choices = await page.locator('.home-summary p').innerText();
-    await page.locator('.home-summary button').click();
+    await page.locator('.home-hero button').click();
     await page.getByRole('radio', { name: 'Random', exact: true }).scrollIntoViewIfNeeded();
     check(await unbroken(page, '.side-choice [role="radio"]'), 'side labels keep each word on one line');
     const [w, h] = size.split('x').map(Number), panel = await page.locator('dialog[open]').boundingBox();
@@ -154,7 +154,7 @@ const cases = {
     await shot(page, 'guide-entry');
   },
   async menu(page, context, check, size) {
-    await page.goto(NEXT); await page.locator(MAIN).click(); await ready(page);
+    await page.goto(NEXT); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
     const before = await saved(page);
     await page.getByRole('button', { name: 'Menu', exact: true }).click();
     check((await order(page)).join(',') === 'pieces,hand,coords,sound,motion', 'settings keep one order');
@@ -171,7 +171,7 @@ const cases = {
     await page.waitForTimeout(200); await shot(page, 'safe-menu');
     await page.getByRole('button', { name: 'Back to home', exact: true }).click(); await page.waitForSelector('.play-home');
     check(await saved(page) === before, 'an immediate Menu exit keeps the save');
-    await page.locator(MAIN).click(); await ready(page);
+    await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
     await page.getByRole('button', { name: 'Menu', exact: true }).click(); await page.getByRole('button', { name: 'Resign', exact: true }).click();
     await page.locator('dialog[open]').getByRole('button', { name: 'Resign', exact: true }).click();
     await page.waitForSelector('.play-result', { state: 'attached' });
@@ -180,7 +180,7 @@ const cases = {
   async rematch_art(page, context, check) {
     // Rematch must request a king still that the first game does not use.
     await context.addInitScript(() => localStorage.setItem('kingdown.setup', 'powers'));
-    await page.goto(NEXT); await page.locator(MAIN).click(); await ready(page);
+    await page.goto(NEXT); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
     await page.getByRole('button', { name: 'Menu', exact: true }).click(); await page.getByRole('button', { name: 'Resign', exact: true }).click();
     await page.locator('dialog[open]').getByRole('button', { name: 'Resign', exact: true }).click();
     await page.waitForSelector('.play-result', { state: 'attached' });

@@ -44,10 +44,10 @@ try {
   {
     // A fresh device: With powers (in the New game panel, launch decision 26), a step, Undo, a step, End turn and the reply.
     const { page, context } = await open();
-    await page.click('.home-summary .kd-button'); await page.waitForSelector('dialog.new-game-panel[open]');
-    await page.getByRole('radio', { name: /^With powers(?! and)/ }).click();
+    await page.click('.home-hero button'); await page.waitForSelector('dialog.new-game-panel[open]');
+    await page.getByRole('checkbox', { name: 'With powers', exact: true }).click();
     await page.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
-    assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.setup')), 'powers', 'the last game type is stored');
+    assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.game-type')), 'powers', 'the last game type is stored');
     assert.deepEqual((await writes(page)).map(w => [w.moves, w.staged]), [[0, 0]], 'the new game writes a save with no move');
     await pawnStep(page);
     assert.deepEqual((await writes(page)).at(-1), { moves: 1, staged: 1, skill: 'beginner', pace: 'off', coords: true, sound: false }, 'a step writes the staged turn; reduced motion gives Off');
@@ -86,11 +86,11 @@ try {
     }
     for (const [save, kept] of cases) {
       const { page, context } = await open(save, kept);
-      assert.equal(await page.locator(MAIN).innerText(), 'Play the computer', 'no Continue');
+      assert.equal(await page.locator(MAIN).innerText(), 'New game', 'no Continue');
       assert.ok((await page.locator('.play-home .home-note').allInnerTexts()).includes('A game from the earlier version cannot open here yet. It is kept.'), 'the kept line shows');
       const stored = await page.evaluate(() => [localStorage.getItem('kingdown.save'), localStorage.getItem('kingdown.save.kept')]);
       assert.equal(stored[1], stored[0], 'the copy holds the newest bytes');
-      await page.click(MAIN); await ready(page);
+      await page.click(MAIN); await page.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
       assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.save.kept')), stored[0], 'a new game keeps the rejected bytes');
       await context.close();
     }

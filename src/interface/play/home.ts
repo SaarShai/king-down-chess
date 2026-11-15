@@ -5,7 +5,7 @@
 import { button, choiceGroup, closeX, icon, setButtonState } from '../ui/kit.js';
 import { KINGS, LETTERS, type KingName, type Color, type PieceType, type Rules } from '../../rules/engine';
 import type { DraftTurn } from './turn';
-import { panelText, pieces, powerLines, text } from './texts';
+import { panelText, pieces, text } from './texts';
 import { newPieces } from './learning';
 import { sideText, type SideChoice } from './sides';
 import { miniBoard, savedPreview, stateText } from './mini-board';
@@ -13,7 +13,7 @@ import { armyTypes, cardLocked, changeDraft, restorePanel, kingChoices, LEVELS, 
 import { hasCards, hasPowers, typeName, typeOfFlags, type GameType, type Level } from './saved';
 import { DEAL_CARDS, POOL_KINDS } from '../../match/setup';
 import { RELEASED_CARDS } from '../../content/cards';
-import { POWER_NAME } from '../../powers-ui';
+import { cardText, powerText, ruleLine, POWER_NAME } from '../../powers-ui';
 import { nameSearch, sendPersonLink, type PersonHost } from '../people/screens/person';
 import { nameSheet, signInSheet } from '../people/screens/sign-in';
 import type { PeopleSheet } from '../people/screens/sheet';
@@ -253,7 +253,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     }
     const powers = choiceGroup(panelText.power, legal.filter(k => k.king === chosen.king).map(k => ({ value: k.power, label: POWER_NAME[k.power] })), chosen.power);
     powers.addEventListener('kd-change', event => { options({ king: { king: chosen.king, power: (event as CustomEvent).detail.value } }); draw(); });
-    box.append(grid, powers, el('p', 'panel-note', powerLines[chosen.power] ?? ''));
+    box.append(grid, powers, el('p', 'panel-note', ruleLine(powerText(chosen.power, draft.game.rules))));
     return box;
   }
   function cardsSection() {
@@ -268,7 +268,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
         const img = art.card(i); img.alt = ''; face.append(img, el('span', '', card.name));
         face.addEventListener('click', () => {
           back.hidden = false; back.onclick = () => { draw(); body.querySelector<HTMLElement>(`[data-focus="${card.id}"]`)?.focus(); };
-          heading.textContent = card.name; body.replaceChildren(img.cloneNode(), el('p', 'card-rule', powerLines[card.id] ?? '')); body.classList.add('panel-rule'); foot.hidden = true; heading.focus();
+          heading.textContent = card.name; body.replaceChildren(img.cloneNode(), el('p', 'card-rule', ruleLine(cardText(card.id, draft.game.rules)))); body.classList.add('panel-rule'); foot.hidden = true; heading.focus();
         });
         const toggle = check(panelText.use(card.name), picked.includes(card.id), on => { picked = on ? [...picked, card.id] : picked.filter(c => c !== card.id); if (picked.length === 4) options({ cardPool: picked }); }, cardLocked(picked, card.id));
         tile.append(face, toggle); grid.append(tile);
