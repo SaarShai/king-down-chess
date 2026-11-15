@@ -13,6 +13,7 @@
 // faults that prove the runner: selftest-dirty writes a scratch file into the checkout, selftest-fail
 // fails, selftest-hang never ends, selftest-hold sleeps 15 s so that two runs can be seen together.
 export const checks = [
+  { name: 'owner-playtest-r2', script: 'tools/verify-owner-playtest-r2.mjs', limit: 480, channel: 'chromium', byName: true, external: true },
   { name: 'owner-playtest-b', script: 'tools/verify-owner-playtest-b.mjs', previewPort: 5443, limit: 300, channel: 'chromium', byName: true },
   // Uses the local online stack at PLAYABLE_URL; it must keep the lane's assigned port.
   { name: 'next-arrange', script: 'tools/verify-next-arrange.mjs', limit: 480, channel: 'chromium', byName: true, external: true },

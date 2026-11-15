@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { visibleBounds } from './lib/visible-bounds.mjs';
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { chromium } from '/Users/za/Documents/king down chess (new)/app/node_modules/playwright/index.mjs';
 const out = process.env.PLAYABLE_OUT ?? '/Users/za/Documents/king down (fresh)/runs/launch/owner-playtest/build/b-shots';
@@ -59,6 +60,8 @@ async function panel(page,size,source,selector,name,closeName){
  assert.equal(await page.locator('.play-square[aria-selected="true"]').count(),selected,name+' outside tap only closes');
 }
 async function readerFits(page, size, active = false) {
+ for (const selector of ['.play-step', '.play-arrange-rule', '.play-target']) if (await page.locator('.play-detail ' + selector).count()) await visibleBounds(page, '.play-detail ' + selector);
+ if (await page.locator('.play-detail button').count()) await visibleBounds(page, '.play-detail button', true);
  const data = await page.evaluate(() => {
   const reader = document.querySelector('.play-reader'), detail = document.querySelector('.play-detail'), board = document.querySelector('.play-board');
   const bounds = detail.getBoundingClientRect(), text = [];
@@ -98,7 +101,13 @@ async function targetTurn(size, power = false) {
  await page.keyboard.press('Escape');
  const source = page.locator(power ? '.play-own .play-power' : '.play-own .play-card').filter({ hasText: 'Freeze' });
  await source.tap(); await readerFits(page, size, true); await shot(page, size, power ? 'power-targets' : 'card-armed-targets');
- await page.locator('.play-square[data-square="57"]').tap();
+ const before = await page.evaluate(() => localStorage.getItem('kingdown.save'));
+ await page.locator('.play-square[data-square="24"]').tap();
+ assert.equal(await page.locator('.play-game').getAttribute('data-armed'), 'freeze', 'a non-target tap keeps the action armed');
+ assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.save')), before, 'a non-target tap leaves the game unchanged');
+ const target = page.locator('.play-square[data-square="57"]');
+ if (size[0] === 360 || size[0] === 390) { await target.focus(); await page.keyboard.press(size[0] === 360 ? 'Enter' : 'Space'); }
+ else await target.tap();
  assert.equal(await page.locator('.play-game').getAttribute('data-armed'), '', 'target input plays the action');
  assert.equal(await source.getAttribute('data-spent'), 'true', 'the card or power use is spent');
  assert.match(await page.locator('.play-history-toggle').textContent(), /Freeze/);

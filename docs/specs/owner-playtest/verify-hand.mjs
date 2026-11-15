@@ -1,6 +1,7 @@
 // Lane H: run against this worktree's Vite server on port 5444. All account replies are local fixtures.
 import { chromium } from '/Users/za/Documents/king down chess (new)/app/node_modules/playwright/index.mjs';
 import assert from 'node:assert/strict';
+import { visibleBounds } from '../../../tools/lib/visible-bounds.mjs';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 const origin = (process.env.PLAYABLE_URL ?? 'http://127.0.0.1:5444').replace(/\/$/, ''), out = process.env.PLAYABLE_OUT;
@@ -76,6 +77,14 @@ try {
       check(await page.locator('.play-own .play-card[data-spent="true"]').count() >= 1, `${type}: a whole turn and the computer reply keep the used state`);
       await page.locator('.play-rival-cards').click();
       check(await page.locator('.play-rival-rows button').count() === 4, `${type}: the stack opens all opponent cards`);
+      await visibleBounds(page, '.play-rival-rows button', true);
+      for (let i = 0; i < 4; i++) {
+        const name = await page.locator('.play-rival-rows button').nth(i).innerText();
+        await page.locator('.play-rival-rows button').nth(i).click(); await page.locator('.learn-panel').waitFor();
+        check((await page.locator('.learn-top').innerText()).includes(name.split('\n')[0].replace(/ Used$/, '')), `${type}: opponent card ${i + 1} opens its rule`);
+        await page.keyboard.press('Escape'); await page.locator('.play-rival-cards').click();
+      }
+      await shot(page, `${type}-opponent-cards`);
       if (size[0] === 390 && type === 'both') {
         await page.keyboard.press('Escape');
         await page.getByRole('button', { name: 'Menu', exact: true }).click();
