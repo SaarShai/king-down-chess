@@ -13,7 +13,7 @@ Verify the faults in the two lane checks. Fix the major faults and the small, sa
 - Open the sign-in sheet after its ways load. At 1.5 seconds, show the service sheet. A later answer does not replace it.
 - The opener stays busy until the sheet opens. A second tap cannot open another sheet.
 - Close ends the sheet task. A late answer cannot reopen it or continue a join.
-- Use product copy for email and code validation. Remove non-digit characters before the six-digit limit.
+- Use product copy for email and code validation. Remove non-digit characters before the ten-digit limit (the field takes 6 to 10, decision 109).
 - Keep error status lines in the tree. Link each email and code field to its status line.
 - Show the ready name and picture after the check. Keep the busy button height stable. Focus and show the link when the copy fails.
 - Add Try again to a failed landing read. Restore focus after a landing state change.

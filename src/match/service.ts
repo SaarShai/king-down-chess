@@ -132,6 +132,8 @@ async function play(game: Game, mover: Seat, lans: string[] | 'computer', engine
 
 export class GameService {
  constructor(readonly store: PostgresMatchStore, private readonly inviteSecret = process.env.KINGDOWN_INTERNAL_SECRET) {}
+ /** The same service over another store: the daily job gives its game commands a time bound this way (src/online/budget.ts). */
+ withStore(store: PostgresMatchStore): GameService { return new GameService(store, this.inviteSecret); }
  private codeHash(code: string): string {
   const secret = this.inviteSecret;
   if (!secret || secret.length < 32) return fail('UNAVAILABLE', 503, 'Invitation codes are unavailable. Try again later.');
