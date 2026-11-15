@@ -3,8 +3,9 @@
  * the side that the next game uses, so the army on the screen is the army of the new game. No DOM and no storage.
  */
 import { Game } from '../../game';
+import { GameRules } from '../../game-rules';
 import { A, G, K, KINGS, L, M, O, P, S, colorOf, typeOf, type Color, type KingName, type PieceType, type PowerName, type Rules } from '../../rules/engine';
-import { POOL, randomBackRank, shuffle } from '../../rules/setup';
+import { POOL, shuffle } from '../../rules/setup';
 import { ALWAYS_ON, DEAL_CARDS, POOL_KINDS } from '../../match/setup';
 import type { CardName, KingChoice } from '../../rules/rules';
 import { hasCards, hasPowers, rulesOf, type GameType, type Level } from './saved';
@@ -91,9 +92,9 @@ export function rulesFor(setup: GameType, random: () => number = Math.random, op
 }
 /** A dealt back rank from the pool, with two different special types at least when the pool has them: two Archers or two Maesters alone are not enough. */
 export function dealArmy(pool: readonly string[] = POOL_KINDS, random: () => number = Math.random): string {
-  const letters = poolLetters(pool), specials = new Set(letters.split('').filter(c => 'ALGMSO'.includes(c))).size;
+  const letters = poolLetters(pool), specials = new Set(letters.split('').filter(c => 'ALGMSO'.includes(c))).size, context = new GameRules();
   let back: string;
-  do back = randomBackRank(random, letters);
+  do back = context.randomBackRank(random, letters);
   while (specials >= 2 && new Set(back.split('').filter(c => 'ALGMSO'.includes(c))).size < 2);
   return back;
 }

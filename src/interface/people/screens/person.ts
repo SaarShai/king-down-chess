@@ -82,14 +82,19 @@ function inviter(sheet: PeopleSheet, host: PersonHost, status: HTMLElement, rule
 /** P2, the main view. */
 export function personSheet(sheet: PeopleSheet, host: PersonHost, start: Rules = host.rules) {
   const status = statusLine(), now = host.now ?? Date.now;
-  const chosen = start;
+  const chosen = start; let sending = false;
   const again = node('section', 'people-again'); again.hidden = true;
   const main: HTMLButtonElement = button(personText.link, { kind: 'main', onPress: () => void send() });
   const search = () => nameSearch(sheet, host, chosen, () => personSheet(sheet, host, chosen));
   let byName: HTMLButtonElement = button(personText.byName, { onPress: search });
 
   const invite = inviter(sheet, host, status, () => chosen);
-  async function send() { await sendPersonLink(sheet, host, chosen, () => personSheet(sheet, host, chosen)); }
+  async function send() {
+    if (sending) return;
+    sending = true;
+    try { await sendPersonLink(sheet, host, chosen, () => personSheet(sheet, host, chosen)); }
+    finally { sending = false; }
+  }
 
   // The main action and its status line stay in view on a short screen (people.css, `.people-main`).
   const action = node('div', 'people-main');
@@ -125,7 +130,7 @@ export async function sendPersonLink(sheet: PeopleSheet, host: PersonHost, rules
         catch (error) { if ((error as Error)?.name === 'AbortError') return; }
       }
       if (await (host.copy ?? copyText)(link)) { host.toast(personText.linkCopied); sheet.close(); return; }
-      linkInput.value = link; linkField.hidden = false; say(status, personText.copyLink); linkInput.focus(); linkInput.select();
+      linkInput.value = link; linkField.hidden = false; say(status, personText.copyLink); linkInput.focus(); linkInput.select(); linkInput.scrollIntoView({ block: 'center' });
     } catch (error) { if (sheet.isOpen) say(status, inviteProblem(error, null, host.online?.() ?? navigator.onLine)); }
     finally { busy = false; setButtonState(main, { label: personText.link }); }
   }

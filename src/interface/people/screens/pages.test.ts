@@ -31,6 +31,15 @@ const fail = (page: Page, name: string, fault: unknown) => page.evaluate(([name,
 const sheet = (page: Page) => page.locator('dialog.people-sheet');
 const title = (page: Page) => sheet(page).locator('h2');
 const press = (page: Page, name: string | RegExp) => sheet(page).getByRole('button', { name, exact: typeof name === 'string' }).click();
+/** The shared New game panel owns the game choice; this fixture opens the invite view with that choice. */
+async function gameChoice(page: Page, rules: string) {
+  expect(await sheet(page).getByRole('radio').count()).toBe(0);
+  await press(page, 'Close');
+  await page.evaluate(value => (window as any).peopleDemo.host.setRules(value), rules);
+  await page.getByRole('button', { name: 'Play a person', exact: true }).click();
+  await expect.poll(() => title(page).textContent()).toBe('Play a person');
+}
+
 
 it('Send a link: one game for a fast second tap, busy while it is made, a copy on a computer, the toast, and the focus back on the row', async () => {
   const page = await open('person', '?make=800');
@@ -72,7 +81,7 @@ it('Play again: 3 rows at most, Invite with the chosen game, and the quiet name 
   try {
     await expect.poll(() => sheet(page).locator('.people-again .people-row').count()).toBe(3);
     expect(await sheet(page).locator('.people-again').innerText()).toContain('You win, 2 days ago');
-    await sheet(page).getByRole('radio', { name: 'With powers', exact: true }).click();
+    await gameChoice(page, 'powers');
     await press(page, 'Invite dana-r');
     await expect.poll(() => toasts(page)).toEqual(['Invite sent to dana-r. dana-r sees it in Play.']);
     expect(await calls(page)).toContain('rules:powers');
@@ -385,7 +394,7 @@ it('a failed copy focuses the visible link and a new rule choice makes a new lin
       const facts = await link.evaluate(e => { const r = e.getBoundingClientRect(); return { focused: e === document.activeElement, visible: r.top >= 0 && r.bottom <= innerHeight }; });
       expect(facts).toEqual({ focused: true, visible: true });
       expect(await sheet(page).getByRole('status').textContent()).toBe('Copy this link and send it to your friend.');
-      await sheet(page).getByRole('radio', { name: 'With powers', exact: true }).click();
+      await gameChoice(page, 'powers');
       expect(await link.isVisible()).toBe(false);
       await press(page, 'Send a link');
       await expect.poll(() => calls(page)).toContain('createLink:powers');

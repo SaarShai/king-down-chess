@@ -236,10 +236,10 @@ it.each(['pieces', 'powers', 'cards', 'both'] as const)('both invite paths carry
     await host.host.invite('bob', rules, choices);
     const named = host.views.at(-1)!;
     const link = await host.host.createLink(rules, choices), token = new URL(link).hash.slice('#join='.length);
-    const preview = await service.preview('bob', { token });
+    const preview = await service.preview('bob', token);
     const expected = onlineOptions(rules, choices);
     expect(named.options).toEqual(expected); expect(preview.options).toEqual(expected);
-    const joined = await service.join('bob', { token }); expect(joined.options).toEqual(expected);
+    const joined = await service.join('bob', token); expect(joined.options).toEqual(expected);
     const creates = server.calls.filter(call => call.method === 'POST' && call.path === '/api/games');
     expect(creates).toHaveLength(2); expect(creates.map(call => (call.body as { options: unknown }).options)).toEqual([expected, expected]);
   } finally { await service.close(); }

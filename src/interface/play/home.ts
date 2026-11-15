@@ -240,7 +240,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     lock.hidden = !POOL_KINDS.some(k => poolLocked(draft.options.pool, k));
     const arrangement = choiceGroup(panelText.arrangement, [{ value: 'random', label: panelText.random }, { value: 'manual', label: panelText.manual }], draft.options.arrangement);
     arrangement.addEventListener('kd-change', event => { options({ arrangement: (event as CustomEvent).detail.value }); draw(); });
-    const army = el('section', 'panel-army-block'); army.append(el('h3', '', homeText.army), armyPictures(draft, art));
+    const army = el('section', 'panel-army-block'); army.append(el('h3', '', opponent === 'computer' ? homeText.army : panelText.exampleArmy), armyPictures(draft, art));
     box.append(fixed, list, lock, arrangement, el('p', 'panel-note', panelText.manualLine), army); return box;
   }
   function powersSection() {

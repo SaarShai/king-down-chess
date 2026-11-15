@@ -249,7 +249,7 @@ export const readingBText = { rivalCards: 'Computer’s cards', used: 'Used', no
 /** The shared New game panel (owner playtest decisions 88 to 93). */
 export const panelText = {
   opponent: 'Opponent', person: 'Person', options: 'Game options', pieces: 'Pieces', powers: 'With powers', cards: 'With cards',
-  allPieces: 'All pieces', pool: 'Piece pool', always: 'The king and eight pawns are always in.', poolLock: 'Keep at least 7 pieces in the pool. Add another kind to unlock a box.',
+  allPieces: 'All pieces', exampleArmy: 'Example army', pool: 'Piece pool', always: 'The king and eight pawns are always in.', poolLock: 'Keep at least 7 pieces in the pool. Add another kind to unlock a box.',
   arrangement: 'Starting arrangement', random: 'Random', manual: 'Manual', manualLine: 'Arrange your pieces on the board before the first move.',
   yourKing: 'Your king', power: 'King power', unavailable: 'Not available with cards.',
   changedKing: (from: string, to: string) => `With cards, ${to} replaces ${from}. Turn cards off to restore it.`,
