@@ -16,6 +16,7 @@ import { POWER_NAME } from '../../powers-ui';
 import { toFen } from '../../rules/setup';
 import type { Pace } from '../../render/PaintedView';
 import { DraftTurn } from './turn';
+import { pendingArrangement } from './arrange';
 import { pieces, text } from './texts';
 
 export type Level = 'casual' | 'clever' | 'club';
@@ -114,8 +115,9 @@ function sortSave(save: Save, raw: string | undefined, partial: boolean): Stored
   const kept: Stored = { kind: 'kept', save, raw, settings: save };
   if (partial) return kept;
   const player = playerOf(save), empty: Stored = { kind: 'empty', save, settings: save };
-  if (!save.moves.length && player !== 1) return empty;
-  const game = savedGame(save), staged = stagedPlies(game, save.staged);
+  const game = savedGame(save);
+  if (!save.moves.length && player !== 1 && (player === null || !pendingArrangement(localStorage, game, player))) return empty;
+  const staged = stagedPlies(game, save.staged);
   if (turnEnded(game, game.history.length - staged, save.resigned ?? null)) return { kind: 'finished', save, settings: save };
   if (player === null || !opens(save, game)) return save.moves.length ? kept : empty;
   try { return { kind: 'resume', save, settings: save, resume: { game, draft: restore(game, staged, player), player } }; } catch { return kept; }

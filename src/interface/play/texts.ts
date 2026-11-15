@@ -255,3 +255,10 @@ export const panelText = {
   count: (n: number) => `${n} of 4`, needFour: 'Pick four cards to start.', use: (name: string) => `Use ${name}`,
   send: 'Send link', byName: 'Invite by name', back: 'Back', closeRule: 'Back to cards', loading: 'Opening online play…', onlineFailed: 'Online play cannot load. Try again.',
 } as const;
+/** The same board step for a solo game and each online seat (owner playtest 90). */
+export const arrangeText = {
+  title: 'Arrange your back rank', instruction: 'Tap two pieces to swap.',
+  keys: 'Arrows move along your back rank. Enter or Space picks and swaps.',
+  ready: 'Ready', confirming: 'Confirming your choice…', legal: 'Select Ready to start.', wait: 'Ready. Wait for the other player.',
+  choose: 'Choose a piece on your back rank.', selected: 'Choose a second piece.',
+};

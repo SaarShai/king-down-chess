@@ -60,6 +60,13 @@ function run(names: string[], failBuild = false, shell: Record<string, string> =
 }
 
 describe('browser check site build', () => {
+  it('uses the supplied local stack for an external check', () => {
+    const url = 'http://127.0.0.1:5442/';
+    const { result, calls } = run(['next-arrange'], false, { PLAYABLE_URL: url });
+    expect(result.status, result.stderr + result.stdout).toBe(0);
+    expect(calls).toEqual([{ script: 'tools/verify-next-arrange.mjs', args: [], url }]);
+  });
+
   it('skips the site build and preview for checks that build their own artifact', () => {
     const { result, calls } = run(['plugin-ui', 'plugin-ui-http', 'plugin-oauth', 'web-game', 'recovery-consumers']);
     expect(result.status, result.stderr + result.stdout).toBe(0);

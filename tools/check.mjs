@@ -152,10 +152,10 @@ function firstFault(log, result) {
 const report = (ok, name, seconds, fault, log) =>
   say(`${ok ? 'ok  ' : 'FAIL'} ${name.padEnd(16)} ${seconds.toFixed(1).padStart(6)} s  ${fault ? `${fault}  ` : ''}${log}`);
 
-// 5. Plugin checks build and serve their own artifact. Other checks, and plugin checks marked site, need the site.
+// 5. External checks use the caller's local stack. Plugin checks build their own artifact; the rest need the site.
 let server;
 let url;
-if (selected.some(c => c.site || !['tools/plugin-browser-check.mjs', 'tools/web-game-check.mjs'].includes(c.script))) {
+if (selected.some(c => !c.external && (c.site || !['tools/plugin-browser-check.mjs', 'tools/web-game-check.mjs'].includes(c.script)))) {
   const buildLog = join(runDir, 'build.log');
   const build = await inSlot(false, () => run('npm', ['run', '--silent', 'build'], { log: buildLog, limit: 600, extraEnv: CHECK_SITE_ENV }));
   exitIfInterrupted();
