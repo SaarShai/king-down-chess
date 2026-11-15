@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { deletionMail, resendSender } from './mail';
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('deletion notice email', () => {
  it('says that the account is deleted, in short copy with no link to the deleted account', () => {
@@ -32,5 +32,20 @@ describe('deletion notice email', () => {
   await send(mail, stop.signal);
   expect(fetch.mock.calls[2][1].signal.aborted).toBe(true);
   expect(fetch.mock.calls[0][1].signal.aborted).toBe(false);
+ });
+
+ // From PR 363 review 3: the provider's 10 s timeout and the job's stop signal, in both orders and at the same time.
+ it.each([9999, 10_000, 10_001])('rejects once and leaves no timer when the job stops the send at %i ms', async jobMs => {
+  vi.useFakeTimers();
+  // The provider timer uses the test clock (the real AbortSignal.timeout uses real time).
+  vi.spyOn(AbortSignal, 'timeout').mockImplementation(ms => { const c = new AbortController(); setTimeout(() => c.abort(new DOMException('timeout', 'TimeoutError')), ms); return c.signal; });
+  vi.stubGlobal('fetch', vi.fn(async (_url: unknown, init: RequestInit) => new Promise<Response>((_, reject) => init.signal!.addEventListener('abort', () => reject(init.signal!.reason), { once: true }))));
+  const stop = new AbortController(), timer = setTimeout(() => stop.abort(), jobMs);
+  const send = resendSender({ RESEND_API_KEY: 're_test', KINGDOWN_MAIL_FROM: 'Test <test@example.com>' });
+  const failed = send(deletionMail('test@example.com'), stop.signal).then(() => false, () => true);
+  await vi.advanceTimersByTimeAsync(10_001);
+  expect(await failed).toBe(true);
+  clearTimeout(timer);
+  expect(vi.getTimerCount()).toBe(0);
  });
 });

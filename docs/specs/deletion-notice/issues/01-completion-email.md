@@ -29,9 +29,16 @@ signed-out device cannot ask for the state without a new public route).
   idempotency key `kingdown-deletion-<user id>`, one at a time (Resend limits the request rate).
 - One time budget for the daily request: 25 s from the request start (`DAILY_BUDGET_MS`; the function
   stops at 30 s). `tools/plugin-server.mjs` records the start before a cold start's setup and passes it
-  to `createInternalHandler`. The fault cleanup starts no batch with less than 15 s left; no deletion
-  starts with less than 10 s left (`NOTICE_RESERVE_MS`, the time for the emails); the accounts that a
-  run does not reach stay due for the next run, and the log counts them. No email starts after the
+  to `createInternalHandler`. One rule covers every step (`src/online/budget.ts`): a step starts only
+  when the time left covers its bound, and the bound holds. A database step (2 s; a fault-cleanup batch
+  0.5 s) is one connection and one transaction: SET LOCAL `statement_timeout` and `lock_timeout`, a
+  node-postgres `query_timeout` on each statement, and a timer on the connection wait, none longer than
+  the step. A step that times out rolls back (or drops its connection, and PostgreSQL rolls back), so the
+  account stays due. Game commands run on a copy of the game service whose store uses the same steps,
+  and each command starts only when a step fits. Cleanup steps keep 15 s for the deletions and emails;
+  deletion steps keep 10 s for the emails (`NOTICE_RESERVE_MS`). A step with no time stops its phase:
+  the rest stays due for the next run, and the log counts the accounts. A cold start that uses the
+  budget leaves no daily work. Other routes keep their own timeouts. No email starts after the
   deadline, and at the deadline the job stops the send in progress. A failed read or send logs the
   fault (no address) and never stops or undoes a deletion. With no sender, the job does not call the
   helper, so a deploy before 0026 keeps working.
@@ -49,8 +56,8 @@ server keeps no address after the deletion, so nothing can send it again. The lo
 with no address. "Not sent" in the log is not proof that no email arrived: the mail service can accept
 an email just before the job stops the request. A stored retry queue is rejected, because it keeps the
 address of a deleted account. The in-app receipt confirms the request in all cases.
-One database call that hangs can still pass the function's 30 s stop; the deletion record and the
-account removal are one transaction, so the next run continues.
+A database call cannot pass its step: the deletion record and the account removal are one
+transaction, so a step that times out leaves the account due, and the next run continues.
 
 ## Release order
 
@@ -68,8 +75,11 @@ say that the email goes, so steps 1 and 2 come before the deploy that publishes 
 
 ## Verification
 
-- `src/online/mail.test.ts`, `src/online/jobs.test.ts` (fake pool; 50 accounts with slow failed sends;
-  slow deletions with active games; a deadline that passes during a deletion),
-  `tools/plugin-server-daily.test.ts` (the budget counts a 6 s cold start), `src/online/jobs.db.test.ts`
-  (PostgreSQL: due, early, held, cancelled; browser roles; a failed send keeps the deletion; the
-  runtime role reads only a due address), `tools/deploy-plugin-env.test.ts`, `tools/deploy.test.ts`.
+- `src/online/mail.test.ts` (the provider timeout and the job's stop, in both orders),
+  `src/online/jobs.test.ts` (fake pool; 50 accounts with slow failed sends; slow deletions with active
+  games; one slow deletion call; one account with eight games; a slow cleanup statement and fault
+  batch; no work after the deadline; a clock that jumps past the deadline),
+  `tools/plugin-server-daily.test.ts` (the budget counts a 6 s cold start; a 26 s cold start does no
+  work), `src/online/jobs.db.test.ts` (PostgreSQL: due, early, held, cancelled; browser roles; a failed
+  send keeps the deletion; the runtime role reads only a due address; a slow step commits nothing and
+  leaves the pool's limits unchanged), `tools/deploy-plugin-env.test.ts`, `tools/deploy.test.ts`.

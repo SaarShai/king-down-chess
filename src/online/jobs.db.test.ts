@@ -13,6 +13,7 @@ import { DEFAULT_OPTIONS } from '../match/setup';
 import { MAX_REVISION } from '../match/protocol';
 import { GameService, TURN_DAYS } from '../match/service';
 import { PostgresMatchStore } from '../match/store';
+import { Budget, STEP_MS } from './budget';
 import { cleanup, runDeletions, sweepDeadlines } from './jobs';
 import { deletionMail, type Mail } from './mail';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
@@ -244,4 +245,28 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
    await withRoleLock(own.href, () => admin.query(`drop owned by ${role}; drop role ${role}`));
   }
  }, 60_000);
+
+ it("bounds a slow daily step, commits nothing of it, and leaves the shared pool's limits as they were", async () => {
+  await admin.query('create table public.daily_step_probe(n int)');
+  const pool = new pg.Pool({ connectionString: own.href, max: 1 }), budget = new Budget(Infinity);
+  try {
+   // A good step: its SET LOCAL limits end with its transaction, so the next user of the connection has the defaults.
+   expect((await budget.pool(pool).query("select current_setting('statement_timeout') as s, current_setting('lock_timeout') as l")).rows[0]).toEqual({ s: `${STEP_MS / 1000}s`, l: `${STEP_MS / 1000}s` });
+   const limits = "select current_setting('statement_timeout') as s, current_setting('lock_timeout') as l, now()=statement_timestamp() as fresh";
+   expect((await pool.query(limits)).rows[0]).toEqual({ s: '0', l: '0', fresh: true });
+   // A slow step: a write, then a statement slower than the step.
+   const started = performance.now();
+   await expect(budget.transaction(pool, async client => {
+    await client.query('insert into public.daily_step_probe values (1)');
+    await client.query('select pg_sleep(5)');
+   })).rejects.toBeTruthy();
+   expect(performance.now() - started).toBeLessThan(STEP_MS + 500);
+   await vi.waitFor(async () => expect((await admin.query("select count(*)::int as n from pg_stat_activity where query like 'select pg_sleep%'")).rows[0].n).toBe(0), { timeout: 5000 });
+   expect((await admin.query('select count(*)::int as n from public.daily_step_probe')).rows[0].n).toBe(0);
+   expect((await pool.query(limits)).rows[0]).toEqual({ s: '0', l: '0', fresh: true });
+  } finally {
+   await pool.end();
+   await admin.query('drop table public.daily_step_probe');
+  }
+ }, 20_000);
 });

@@ -6,6 +6,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import type { GameService } from '../match/service';
+import { Budget, OutOfTime, STEP_MS } from './budget';
 import { diagnostic } from '../plugin/diagnostics';
 import { deletionMail, type Mail, type Sender } from './mail';
 
@@ -25,39 +26,57 @@ export async function sweepDeadlines(games: GameService, now = new Date()): Prom
  * With `send`, each deleted account gets one email that confirms the deletion (Apple guideline 5.1.1(v)). The address
  * is read just before the account goes (migration 0026), and only for a due deletion. The emails go after the
  * deletions, so a slow mail service cannot hold back a deletion, and they stop at `deadline` (see sendNotices).
- * `deadline` is the end of the request's budget: no deletion starts with less than NOTICE_RESERVE_MS left (when there are
- * emails to send), and the accounts not reached stay due for the next run.
+ * `deadline` is the end of the request's budget. Each step (a database call or a game command) follows the rule in
+ * budget.ts and keeps NOTICE_RESERVE_MS for the emails (when there are emails to send). The account that a step finds
+ * no time for, and the accounts after it, stay due for the next run; so does an account whose step fails or times out.
  * The email is best effort (decision 106): one that fails or does not go in this run is lost, because the server keeps
  * no address after the deletion. The log counts it, with no address.
  */
 export async function runDeletions(games: GameService, send?: Sender, deadline = Date.now() + DAILY_BUDGET_MS): Promise<number> {
- const pool = games.store.pool;
- const due = await pool.query(`select d.user_id from public.account_deletions d where d.run_after<=now() and d.cancelled_at is null and d.done_at is null
-  and not exists(select from public.reports r where d.user_id in (r.reported_id,r.reporter_id) and r.hold_until>now()) order by d.run_after limit 50`);
- let deleted = 0, reached = 0;
- const notices: Mail[] = [], reserve = send ? NOTICE_RESERVE_MS : 0;
+ const budget = new Budget(deadline).keep(send ? NOTICE_RESERVE_MS : 0), pool = budget.pool(games.store.pool);
+ // The game commands use the same rule for each of their database calls.
+ const bounded = games.withStore(budget.store(games.store.pool));
+ let due;
+ try {
+  due = await pool.query(`select d.user_id from public.account_deletions d where d.run_after<=now() and d.cancelled_at is null and d.done_at is null
+   and not exists(select from public.reports r where d.user_id in (r.reported_id,r.reporter_id) and r.hold_until>now()) order by d.run_after limit 50`);
+ } catch (error) {
+  if (!(error instanceof OutOfTime)) throw error;
+  console.warn('King Down deletions left for the next run');
+  return 0;
+ }
+ let deleted = 0, finished = 0;
+ const notices: Mail[] = [];
  for (const { user_id } of due.rows) try {
-  if (deadline - Date.now() < reserve) break;
-  reached++;
   const to: string | null = send ? await pool.query('select kingdown_jobs.deletion_email($1) as address', [user_id])
-   .then(result => result.rows[0]?.address ?? null, error => { console.error('King Down deletion notice failed', diagnostic(error)); return null; }) : null;
+   .then(result => result.rows[0]?.address ?? null, error => {
+    if (error instanceof OutOfTime) throw error;
+    console.error('King Down deletion notice failed', diagnostic(error)); return null;
+   }) : null;
   const active = await pool.query('select g.id,g.status,g.revision from public.game_players p join public.games g on g.id=p.game_id where p.user_id=$1 and p.active', [user_id]);
-  // A new command ID each time: the player's own client could send a fixed one first, and the receipt would refuse the job (COMMAND_CONFLICT).
-  for (const g of active.rows) await games.command(user_id, g.id, { command_id: randomUUID(), expected_revision: g.revision, action: { type: g.status === 'waiting' || g.status === 'setup' ? 'abort' : 'resign' } })
-   // Ended on time meanwhile, or another run already deleted the account (no seat, no solo game): nothing to end.
-   // A move that came first (STALE_REVISION) keeps the game active, so delete_account refuses and the next run tries again.
-   .catch(error => { if (!['MATCH_TERMINAL', 'FORBIDDEN', 'NOT_FOUND', 'STALE_REVISION'].includes(error?.code)) throw error; });
-  if (!(await pool.query('select kingdown_jobs.delete_account($1) as done', [user_id])).rows[0].done) continue;
+  for (const g of active.rows) {
+   budget.step(STEP_MS);
+   // A new command ID each time: the player's own client could send a fixed one first, and the receipt would refuse the job (COMMAND_CONFLICT).
+   await bounded.command(user_id, g.id, { command_id: randomUUID(), expected_revision: g.revision, action: { type: g.status === 'waiting' || g.status === 'setup' ? 'abort' : 'resign' } })
+    // Ended on time meanwhile, or another run already deleted the account (no seat, no solo game): nothing to end.
+    // A move that came first (STALE_REVISION) keeps the game active, so delete_account refuses and the next run tries again.
+    .catch(error => { if (!['MATCH_TERMINAL', 'FORBIDDEN', 'NOT_FOUND', 'STALE_REVISION'].includes(error?.code)) throw error; });
+  }
+  const done = (await pool.query('select kingdown_jobs.delete_account($1) as done', [user_id])).rows[0].done;
+  finished++;
+  if (!done) continue;
   deleted++;
   // The key makes a repeated send in the same day one email.
   if (to) notices.push({ ...deletionMail(to), key: `kingdown-deletion-${user_id}` });
  } catch (error) {
+  if (error instanceof OutOfTime) break;
   // One player whose deletion fails must not stop the others. The row stays due, so each run tries it again.
   // ponytail: 50 such players, the oldest, would hold back the rest; the log shows each failure.
+  finished++;
   console.error('King Down deletion failed', diagnostic(error));
  }
- if (reached < due.rows.length) console.warn('King Down deletions left for the next run', { count: due.rows.length - reached });
- if (notices.length) await sendNotices(send!, notices, deadline);
+ if (finished < due.rows.length) console.warn('King Down deletions left for the next run', { count: due.rows.length - finished });
+ if (notices.length) await sendNotices(send!, notices, new Budget(deadline));
  return deleted;
 }
 
@@ -66,24 +85,26 @@ export async function runDeletions(games: GameService, send?: Sender, deadline =
  * function stops at 30 s (tools/plugin-server-build.mjs, maxDuration).
  */
 export const DAILY_BUDGET_MS = 25_000;
-/** No deletion starts with less time left than this: it is the time for the emails (and one slow deletion call). */
+/** No deletion step starts with less time left than this and its bound: it is the time for the emails. */
 export const NOTICE_RESERVE_MS = 10_000;
-/** No fault-cleanup batch starts with less time left than this: it is the time for the deletions and the emails. */
+/** No cleanup step starts with less time left than this and its bound: it is the time for the deletions and the emails. */
 const CLEANUP_RESERVE_MS = 15_000;
+/** The bound of one fault-cleanup batch (100 rows), its connection wait, statement and lock waits included. */
+const FAULT_STEP_MS = 500;
 
 /**
- * Sends the notices one at a time (Resend limits the request rate) until `deadline`. At the deadline the job stops
- * waiting: the signal aborts the send in progress, and the log counts the notices that did not go (no addresses).
+ * Sends the notices one at a time (Resend limits the request rate) until the budget's deadline. At the deadline the job
+ * stops waiting: the signal aborts the send in progress, and the log counts the notices that did not go (no addresses).
  */
-async function sendNotices(send: Sender, notices: Mail[], deadline: number): Promise<void> {
- const stop = new AbortController(), timer = setTimeout(() => stop.abort(), Math.max(0, deadline - Date.now()));
+async function sendNotices(send: Sender, notices: Mail[], budget: Budget): Promise<void> {
+ const stop = new AbortController(), timer = setTimeout(() => stop.abort(), Math.max(0, budget.deadline - Date.now()));
  const stopped = new Promise<void>(resolve => stop.signal.addEventListener('abort', () => resolve(), { once: true }));
  let done = 0;
  try {
   await Promise.race([stopped, (async () => {
    for (const mail of notices) {
-    // The timer can fire late, so the clock decides: no send starts after the deadline.
-    if (stop.signal.aborted || Date.now() >= deadline) return;
+    // The timer can fire late, so the clock decides: a send starts only before the deadline, and the abort bounds it.
+    if (stop.signal.aborted || !budget.fits(1)) return;
     await send(mail, stop.signal).catch(error => console.error('King Down deletion notice failed', diagnostic(error)));
     done++;
    }
@@ -94,35 +115,40 @@ async function sendNotices(send: Sender, notices: Mail[], deadline: number): Pro
 
 /**
  * The periods in public/privacy.html: deletes expired invitations after the sweep, boards older than 7 days, outbox rows
- * made or done more than 30 days ago (the MVP sends no email, so most rows are never done), and reports older than
- * 12 months that no hold covers. The report delete uses the database clock: runtime-role.sql (tenth block) lets this
- * role delete no newer or held report.
+ * made or done more than 30 days ago (the MVP sends no email, so most rows are never done), reports older than
+ * 12 months that no hold covers, and faults older than 30 days. The report delete uses the database clock:
+ * runtime-role.sql (tenth block) lets this role delete no newer or held report.
+ * Each statement is one step under the rule in budget.ts and keeps CLEANUP_RESERVE_MS for the deletions and the emails.
+ * A step that fails or times out is logged and the next one runs; at the first step with no time, cleanup stops, and
+ * the next daily run does the rest.
  */
 export async function cleanup(games: GameService, now = new Date(), deadline = Infinity): Promise<{ invites: number; outbox: number; boards: number; reports: number }> {
- const pool = games.store.pool;
- const invites = await pool.query(`delete from public.game_invites i where i.expires_at<=$1
-  and not exists(select from public.games g where g.id=i.game_id and g.status='waiting')`, [now]);
- const outbox = await pool.query(`delete from public.outbox where done_at<=$1::timestamptz-interval '30 days' or created_at<=$1::timestamptz-interval '30 days'`, [now]);
- const boards = await pool.query("delete from public.plugin_boards where created_at<$1::timestamptz-interval '7 days'", [now]);
- if (import.meta.env?.KINGDOWN_ERROR_RECORDER !== false) {
-  // Fault cleanup must not stop report cleanup or account deletion.
-  let client;
-  try {
-   client = await pool.connect();
-   // The next daily run continues a cleanup that the request budget stops.
-   while (deadline - Date.now() >= CLEANUP_RESERVE_MS) {
-    await client.query('begin');
-    await client.query("set local statement_timeout = '500ms'; set local lock_timeout = '500ms'; set local timezone = 'UTC'");
-    const batch = await client.query(`delete from public.client_errors where id in
+ const budget = new Budget(deadline).keep(CLEANUP_RESERVE_MS), pool = budget.pool(games.store.pool);
+ const counts = { invites: 0, outbox: 0, boards: 0, reports: 0 };
+ const steps: [keyof typeof counts, string, unknown[]][] = [
+  ['invites', `delete from public.game_invites i where i.expires_at<=$1
+   and not exists(select from public.games g where g.id=i.game_id and g.status='waiting')`, [now]],
+  ['outbox', `delete from public.outbox where done_at<=$1::timestamptz-interval '30 days' or created_at<=$1::timestamptz-interval '30 days'`, [now]],
+  ['boards', "delete from public.plugin_boards where created_at<$1::timestamptz-interval '7 days'", [now]],
+  ['reports', "delete from public.reports where created_at<now()-interval '12 months' and (hold_until is null or hold_until<=now())", []],
+ ];
+ try {
+  for (const [name, text, values] of steps) {
+   try { counts[name] = (await pool.query(text, values)).rowCount ?? 0; }
+   catch (error) { if (error instanceof OutOfTime) throw error; console.error('King Down cleanup failed', { step: name, ...diagnostic(error) }); }
+  }
+  // Fault cleanup that fails stops only itself (it logs nothing: the fault recorder may be the part that fails).
+  if (import.meta.env?.KINGDOWN_ERROR_RECORDER !== false) try {
+   for (let batch = 100; batch === 100;) batch = await budget.transaction(games.store.pool, async client => {
+    await client.query("set local timezone = 'UTC'");
+    return (await client.query(`delete from public.client_errors where id in
      (select id from public.client_errors where last_seen<now()-interval '30 days'
-      order by last_seen limit 100 for update skip locked)`);
-    await client.query('commit');
-    if ((batch.rowCount ?? 0) < 100) break;
-   }
-  } catch {
-   if (client) try { await client.query('rollback'); } catch { client.release(true); client = undefined; }
-  } finally { client?.release(); }
+      order by last_seen limit 100 for update skip locked)`)).rowCount ?? 0;
+   }, FAULT_STEP_MS);
+  } catch (error) { if (error instanceof OutOfTime) throw error; }
+ } catch (error) {
+  if (!(error instanceof OutOfTime)) throw error;
+  console.warn('King Down cleanup left for the next run');
  }
- const reports = await pool.query("delete from public.reports where created_at<now()-interval '12 months' and (hold_until is null or hold_until<=now())");
- return { invites: invites.rowCount ?? 0, outbox: outbox.rowCount ?? 0, boards: boards.rowCount ?? 0, reports: reports.rowCount ?? 0 };
+ return counts;
 }
