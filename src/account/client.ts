@@ -5,7 +5,7 @@
  */
 import { createClient, isAuthApiError, type Session } from '@supabase/supabase-js';
 import type { Remote, Row } from './sync';
-import type { AccountSession } from './session';
+import { sessionKey, type AccountSession } from './session';
 import { authStorage } from './auth-storage';
 import { publicAccountConfig, stagingPasswordSignInEnabled } from './public-config';
 import { availableProviders, type Provider } from './providers';
@@ -53,6 +53,12 @@ export function connect(storageKey: string, { manualCallback = false, apple = fa
     // Deletion can remove the user first. Match the library's already-gone statuses.
     if (error && !(isAuthApiError(error) && [401, 403, 404].includes(error.status))) throw error;
     return true;
+  };
+  // A request for the confirmed account: throws when another tab has changed the stored session.
+  const boundSession = async (expected?: AccountSession): Promise<AccountSession> => {
+    const current = accountSession((await sb.auth.getSession()).data.session);
+    if (!current || (expected && sessionKey(current) !== sessionKey(expected))) throw new Error('The account changed. Reload the page.');
+    return current;
   };
   const signOut = async (): Promise<void> => {
     const { data, error } = await sb.auth.getSession();
@@ -129,22 +135,26 @@ export function connect(storageKey: string, { manualCallback = false, apple = fa
     },
     signOut, signOutSession,
     /** public.delete_my_account() asks for the deletion (migration 0008): it runs after a 7-day grace, and a sign-in in the grace cancels it. */
-    async deleteAccount(): Promise<void> {
+    async deleteAccount(expected?: AccountSession): Promise<void> {
+      const target = await boundSession(expected);
       const { error } = await sb.rpc('delete_my_account');
       if (error) throw error;
-      await signOut();
+      await signOutSession(target);
     },
     /** Settings → Disconnect Muse (migration 0024): revokes each Muse grant at Supabase, which ends the Muse sessions, then
      *  public.delete_my_muse_games() deletes the games played through Muse. A grant that is gone already is no fault.
      *  Returns the number of games deleted, or null when a Muse session still exists or no Muse client is registered (the
      *  database then deletes nothing; the daily sweep deletes the games 30 days after the last use of the link). */
-    async disconnectMuse(): Promise<number | null> {
+    async disconnectMuse(expected?: AccountSession): Promise<number | null> {
+      const target = await boundSession(expected);
       const clients = await sb.rpc('muse_client_ids');
       if (clients.error) throw clients.error;
       for (const clientId of (clients.data ?? []) as string[]) {
+        await boundSession(target);
         const { error } = await sb.auth.oauth.revokeGrant({ clientId });
         if (error && error.status !== 404) throw error;
       }
+      await boundSession(target);
       const { data, error } = await sb.rpc('delete_my_muse_games');
       if (error) throw error;
       return data as number | null;

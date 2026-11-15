@@ -14,6 +14,8 @@ Each closed session has a 24-hour expiry. Each closure write removes expired ent
 
 The account screen binds sign-out to the session that it shows at the click, before the cloud-save wait. It removes only that session. After the reply, it clears the screen and stops the cloud save only if the screen still shows that session or no session. A sign-in from another tab during the waits keeps its credentials, its screen and its cloud save. A corrupt closed record is read as empty, so it cannot block a later sign-in.
 
+The first screen and its Sign out target come from the same stored record, so a click before the first auth event never picks a session that another tab stored later. The screen applies an auth event only when it names the session in storage at delivery; a late event for an older session (a queued sign-out message, a refused refresh) changes nothing, and the newer session's own event follows. After a sign-out or deletion reply, the screen clears its state only when neither the screen nor the storage holds another session. Account deletion and Disconnect Muse bind to the confirmed session: each request first checks that the stored session is still that one, deletion signs out only that session, and Disconnect Muse stops its remaining steps when the session changes.
+
 ## Review cases
 
 The source tests keep both full-store cases, the actual click-handler case for the same account and another account, and the two-client flow-index race. The flow case checks that both old callbacks fail. The live-session refresh control and normal draft-save controls add coverage. The two draft cases cover both old routes, ordered saves, a stable generation through refresh, and restore.

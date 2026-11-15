@@ -79,6 +79,16 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
   const facebook = params.get('facebook') === '1';
   let client: Promise<Client> | null = null, user: User | null = null, userId = '', lastPull = 0;
   let shown: AccountSession | null = null;
+  // The session in storage now. Auth events arrive late, so the screen checks each one against it.
+  const storedSession = (): AccountSession | null => {
+    try {
+      const s = JSON.parse(localStorage.getItem(AUTH_KEY) ?? 'null');
+      return typeof s?.user?.id === 'string' && typeof s.access_token === 'string' ? { userId: s.user.id, accessToken: s.access_token } : null;
+    } catch { return null; }
+  };
+  const same = (a: AccountSession | null, b: AccountSession | null): boolean => a && b ? sessionKey(a) === sessionKey(b) : a === b;
+  // After a reply: the screen or the storage already holds another session, whose own auth event sets up its screen and cloud save.
+  const later = (expected: AccountSession | null): boolean => [shown, storedSession()].some(s => s !== null && !same(s, expected));
   let providers: SignInOption[] = [], checkingProviders = false;
   let emailForm: HTMLFormElement | null = null;
   // A signed-out note (a refused sign-in, sign-out, deletion) that the next provider check shows again once.
@@ -98,8 +108,11 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
   const load = (): Promise<Client> => client ??= import('./client').then(m => {
     const c = m.connect(AUTH_KEY);
     c.onSession(s => {
+      const event = s ? { userId: s.user.id, accessToken: s.access_token } : null;
+      // A late event can name an older session (another tab signed in or out meanwhile). The newer session's own event follows.
+      if (!same(event, storedSession())) return;
       user = userOf(s?.user);
-      shown = s ? { userId: s.user.id, accessToken: s.access_token } : null;
+      shown = event;
       if (user) say('');
       render();
       if ((s?.user.id ?? '') === userId) return;
@@ -135,6 +148,7 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
   let stored: unknown = null;
   try { stored = JSON.parse(localStorage.getItem(AUTH_KEY) ?? 'null'); } catch { /* none */ }
   user = userOf((stored as { user?: AuthUser } | null)?.user);
+  shown = storedSession(); // The first screen and its Sign out target come from the same record.
   render();
   $('account').hidden = false;
   if (user || params.has('code')) void load().catch(() => {});
@@ -149,17 +163,12 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
       try { await (await load()).signIn(provider); } catch { say('Could not reach the sign-in service. Check your connection and try again.'); }
     } else if (b.dataset.act === 'sign-out') {
       // Bind sign-out to the session on screen now: another tab can sign in during the waits below.
-      let expected = shown;
-      if (!expected) try {
-        const saved = JSON.parse(localStorage.getItem(AUTH_KEY) ?? 'null');
-        if (typeof saved?.user?.id === 'string' && typeof saved.access_token === 'string') expected = { userId: saved.user.id, accessToken: saved.access_token };
-      } catch { /* none */ }
+      const expected = shown;
       // The last changes go up first (waiting 3 s at most), so the account's copy has them.
       await Promise.race([sync?.flush(), new Promise(r => setTimeout(r, 3000))]);
       try { if (expected) await (await load()).signOutSession(expected); }
       catch { keep('Could not finish sign-out. Check your connection and try again.'); return; }
-      // A later sign-in keeps its screen and cloud save: its own auth event set them up.
-      if (shown && expected && sessionKey(shown) !== sessionKey(expected)) return;
+      if (later(expected)) return;
       sync?.stop(); sync = null; userId = ''; user = null; shown = null;
       render();
       keep('Signed out. Your games stay on this device.');
@@ -169,7 +178,7 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
       if (!confirm('Disconnect Muse? Muse can no longer use your account, and we delete the games you started in Muse.')) return;
       say('Disconnecting Muse…');
       try {
-        const deleted = await (await load()).disconnectMuse();
+        const deleted = await (await load()).disconnectMuse(shown ?? undefined);
         say(deleted === null ? 'Could not disconnect Muse. Try again later.' : 'Muse is disconnected. We deleted the games you started in Muse.');
       } catch { say('Could not disconnect Muse. Check your connection and try again.'); }
     } else if (b.dataset.act === 'delete') {
@@ -181,10 +190,12 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
   });
   ask.addEventListener('close', async () => {
     if (ask.returnValue !== 'delete') return;
+    const expected = shown; // The confirmed account: another tab can sign in while the request waits.
     say('Deleting your account…');
     try {
-      await (await load()).deleteAccount();
-      sync?.stop(); sync = null; userId = ''; user = null;
+      await (await load()).deleteAccount(expected ?? undefined);
+      if (later(expected)) return;
+      sync?.stop(); sync = null; userId = ''; user = null; shown = null;
       render();
       keep('We delete your account in seven days. To keep it, sign in again before then. Your games stay on this device.');
     } catch { say('Could not delete your account. Check your connection and try again.'); }
