@@ -42,3 +42,10 @@ it('an old deletion cannot close a later generation even if the session ID retur
   expect(storage.getItem('draft')).toBe('new-private-turn');
   expect(JSON.parse(storage.getItem(deletedAccountKey('alice'))!).deleted).toBe(false);
 });
+
+it('requires the current JSON deletion mark format', async () => {
+  const storage = memoryStorage();
+  storage.setItem(deletedAccountKey('alice'), 'deleted');
+  await expect(accountData('alice', storage).write(() => storage.setItem('draft', 'late'))).rejects.toThrow(SyntaxError);
+  expect(storage.getItem('draft')).toBeNull();
+});

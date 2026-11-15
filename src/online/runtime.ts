@@ -121,7 +121,7 @@ function commandAction(name: string, args: Record<string, unknown>): Action | un
   }
 }
 
-export function createBrowserRuntime(api: OnlineClient, userId: string): AccountGameHost {
+export function createBrowserRuntime(api: OnlineClient, userId: string): AccountGameHost & { onSaveRefused?: () => void } {
   const gate = accountData(userId, window.localStorage), page = createWebPageHost(userId, gate), key = `kingdown.account-game.${userId}`;
   const transport = createWebTransport(api, userId, window.localStorage);
   let saved: Partial<PageState> | undefined;
@@ -150,7 +150,7 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
     accountId: userId, pendingScope: 'account', widgetState: { privateContent: saved },
     async savePage(state) {
       const value = JSON.stringify(state);
-      try { await gate.write(() => window.localStorage.setItem(key, value)); return true; } catch { return false; }
+      try { await gate.write(() => window.localStorage.setItem(key, value)); return true; } catch { host.onSaveRefused?.(); return false; }
     },
   };
   let stopped = false, started = false, routeGeneration = 0;
@@ -173,14 +173,14 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
     if (route) void publish(route, generation);
   };
   const close = () => { stopped = true; window.removeEventListener('popstate', fromLocation); host.onClose?.(); };
-  const host: AccountGameHost = {
+  const host: AccountGameHost & { onSaveRefused?: () => void } = {
     call: transport.call, stateHost, dispose: close,
     async connect() { window.addEventListener('popstate', fromLocation); window.addEventListener('pagehide', event => { if (!event.persisted) close(); }); queueMicrotask(() => { fromLocation(); started = true; }); },
     getHostContext: () => ({ displayMode: 'fullscreen', availableDisplayModes: ['fullscreen'], deviceCapabilities: { touch: page.viewport().touch }, safeAreaInsets: page.viewport().safe, theme: 'light' }),
     requestDisplayMode: async () => ({ mode: 'fullscreen' }),
     async openLink({ url }) { window.location.assign(url); return {}; },
     route(screen, gameId) {
-      if (!started) return;
+      if (!started || stopped) return;
       const gameScreen = GAME_SCREENS.includes(screen);
       // Fullscreen startup restores the screen before the first authoritative game view arrives.
       if (gameScreen && !gameId) return;
@@ -190,7 +190,7 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
       const route: AccountEntryRoute = gameScreen && gameId ? { screen: 'game', gameId } : screen === 'join' ? { screen: 'join', key: null } : { screen: screen === 'profile' || screen === 'settings' ? screen : 'play' };
       const path = accountPath(route);
       if (window.location.pathname + window.location.hash !== path) window.history.pushState(null, '', path);
-      if (route.screen !== 'join') void page.save(route);
+      if (route.screen !== 'join') void Promise.resolve(page.save(route)).then(saved => { if (!saved) host.onSaveRefused?.(); });
     },
   };
   return host;

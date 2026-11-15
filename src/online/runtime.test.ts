@@ -1,4 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
+import { accountData } from '../account/data';
 import { createBrowserRuntime, createWebTransport } from './runtime';
 import { onlineClient, OnlineError, type OnlineClient } from './client';
 import { createPageClient } from '../plugin/client';
@@ -610,4 +611,43 @@ it('the old route writer cannot restore its account route after cleanup', async 
   await receiptStore('alice', saved).clearAccount(() => clearDeletedAccount(saved, 'alice'));
   expect(await page.save({ screen: 'game', gameId: 'private-game' })).toBe(false);
   expect(tab.getItem('kingdown.account-page.alice')).toBeNull();
+});
+
+it.each(['/play/', '/g/game-a'])('review6: a same-account new sign-in refuses the old draft and reports the failure on %s', async path => {
+  const store = deletionStorage(); deletionGlobals(store);
+  vi.stubGlobal('window', { localStorage: store, sessionStorage: storage(), location: new URL('https://kingdown.test' + path) });
+  await accountData('alice', store).confirm(async () => ({ userId: 'alice', accessToken: 'first' }));
+  const runtime = createBrowserRuntime({} as OnlineClient, 'alice');
+  runtime.onSaveRefused = vi.fn();
+  const client = createPageClient(runtime.call, runtime.stateHost);
+  await client.save();
+  await accountData('alice', store).confirm(async () => ({ userId: 'alice', accessToken: 'later' }));
+  client.state.draft = { game_tag: 'game-a', fen: 'private', lans: ['e2-e4'], scope: { account: 'alice', game: 'game-a', revision: 1, rules: 'rules', engine: 'engine' } };
+  expect(await client.save()).toBe(false);
+  expect(JSON.parse(store.getItem('kingdown.account-game.alice')!).draft).toBeUndefined();
+  expect(runtime.onSaveRefused).toHaveBeenCalledOnce();
+});
+
+it('reports a storage-full refusal from the old board save', async () => {
+  const store = deletionStorage(); deletionGlobals(store);
+  vi.stubGlobal('window', { localStorage: store, location: new URL('https://kingdown.test/play/') });
+  const runtime = createBrowserRuntime({} as OnlineClient, 'alice');
+  runtime.onSaveRefused = vi.fn();
+  const client = createPageClient(runtime.call, runtime.stateHost);
+  store.setItem = () => { throw new Error('storage full'); };
+  expect(await client.save()).toBe(false);
+  expect(runtime.onSaveRefused).toHaveBeenCalledOnce();
+});
+
+it('reports a refused route save and stops route writes after disposal', async () => {
+  const store = deletionStorage(); deletionGlobals(store);
+  vi.stubGlobal('window', Object.assign(new EventTarget(), { localStorage: store, sessionStorage: storage(), location: new URL('https://kingdown.test/play/'), history: { pushState() {} } }));
+  const runtime = createBrowserRuntime({} as OnlineClient, 'alice');
+  runtime.onSaveRefused = vi.fn();
+  await runtime.connect(); await Promise.resolve();
+  await accountData('alice', store).close(() => {});
+  runtime.route!('board', args.game_id);
+  await vi.waitFor(() => expect(runtime.onSaveRefused).toHaveBeenCalledOnce());
+  runtime.dispose!(); runtime.route!('board', '22222222-2222-4222-8222-222222222222');
+  expect(runtime.onSaveRefused).toHaveBeenCalledOnce();
 });

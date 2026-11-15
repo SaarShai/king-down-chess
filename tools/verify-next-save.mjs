@@ -3,7 +3,7 @@
 // plays and writes as Club; the stored Motion speed, Coordinates and Sound stay; the kept line and copy of a save
 // that this page cannot open. Unit tests cannot reach main.ts.
 import assert from 'node:assert/strict';
-import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 const browser = await launch();
 const NEXT = new URL('next.html', env('PLAYABLE_URL')).href;
 const MAIN = '.play-home .kd-button[data-kind="main"]', CONTINUE = '.home-game-row[data-kind="computer"]', END = '.play-turn .kd-button[data-kind="main"]';
@@ -64,6 +64,14 @@ try {
     const { page, context } = await open({ back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'ai', coords: false, link: null, daily: null, resigned: null, skill: 'strong', sound: true, pace: 'fast' });
     assert.equal(await page.locator(CONTINUE).count(), 1, 'the saved game has one Continue row');
     assert.deepEqual(await page.locator(CONTINUE + ' .home-game-copy').evaluate(copy => [...copy.children].map(node => node.textContent)), ['Club computer', 'Computer to move']);
+    // The home page no longer has the old game-type and turn-number labels.
+    const mini = page.locator(CONTINUE + ' .mini-board');
+    assert.equal(await mini.locator('.mini-cell').count(), 64);
+    assert.equal(await mini.locator('[data-square="12"] img').count(), 0, 'e2 is empty on the home preview');
+    assert.equal(await mini.locator('[data-square="28"] img').count(), 1, 'e4 has a piece on the home preview');
+    assert.equal(await mini.locator('[data-square="28"] img').getAttribute('data-code'), '1', 'the Light pawn is on e4');
+    assert.deepEqual(await mini.locator('.mini-last').evaluateAll(cells => cells.map(cell => Number(cell.dataset.square)).sort((a, b) => a - b)), [12, 28], 'the home preview marks e2 and e4');
+    await shot(page, 'saved-home');
     await page.click(CONTINUE); await ready(page);
     assert.equal(await page.locator('.play-versus').count(), 0, 'Continue shows no Versus');
     assert.deepEqual((await writes(page)).at(-1), { moves: 2, staged: 0, skill: 'club', pace: 'fast', coords: false, sound: true }, 'the reply writes Club and the stored settings');

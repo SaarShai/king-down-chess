@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { readWebAccountAccess } from './account-access';
+import { onlineClient } from './client';
+import { createBrowserRuntime } from './runtime';
 import { connect } from '../account/client';
 import { memoryStorage } from '../interface/people/fake-server';
 import { applyLocks } from '../account-game/state';
@@ -265,3 +267,38 @@ it('keeps Log out available after an error and shows a plain retry message', asy
   expect(signOut).toHaveBeenCalledTimes(2);
   expect(replace).toHaveBeenCalledExactlyOnceWith('/play/');
 });
+
+for (const path of ['/play/', '/g/game-a']) {
+  it(`stops the old board and shows Reload after a same-account new session on ${path}`, async () => {
+    vi.mocked(readWebAccountAccess).mockResolvedValue({ enabled: true, expiresAt: 5000 });
+    const token = (id: string, iat = 1) => 'fixture.' + btoa(JSON.stringify({ session_id: id, iat })) + '.signature';
+    readSession.mockResolvedValue({ userId: 'alice', accessToken: token('first') });
+    vi.stubGlobal('location', { href: 'https://kingdown.test' + path, reload });
+    await import('./entry');
+    const changed = onSession.mock.calls[0][0], tokenForCall = vi.mocked(onlineClient).mock.calls[0][0].token;
+    readSession.mockResolvedValue({ userId: 'alice', accessToken: token('first', 2) });
+    expect(await tokenForCall()).toBe(token('first', 2));
+    changed({ user: { id: 'alice' }, access_token: token('first', 2) });
+    expect(dispose).not.toHaveBeenCalled();
+    readSession.mockResolvedValue({ userId: 'alice', accessToken: token('later') });
+    expect(await tokenForCall()).toBeNull();
+    changed({ user: { id: 'alice' }, access_token: token('later') });
+    expect(dispose).toHaveBeenCalledOnce();
+    expect(body.children).toHaveLength(1);
+    expect(body.querySelectorAll('p')[0].textContent).toBe('This page cannot save your moves. Reload the page to continue.');
+    body.querySelectorAll('button')[0].onclick!(); expect(reload).toHaveBeenCalledOnce();
+  });
+
+  it(`stops the old board and shows Reload after a refused save on ${path}`, async () => {
+    vi.mocked(readWebAccountAccess).mockResolvedValue({ enabled: true, expiresAt: 5000 });
+    readSession.mockResolvedValue({ userId: 'alice', accessToken: 'first' });
+    vi.stubGlobal('location', { href: 'https://kingdown.test' + path, reload });
+    await import('./entry');
+    const host = vi.mocked(createBrowserRuntime).mock.results[0].value;
+    host.onSaveRefused?.();
+    expect(dispose).toHaveBeenCalledOnce();
+    expect(body.children).toHaveLength(1);
+    expect(body.querySelectorAll('p')[0].textContent).toBe('This page cannot save your moves. Reload the page to continue.');
+    body.querySelectorAll('button')[0].onclick!(); expect(reload).toHaveBeenCalledOnce();
+  });
+}

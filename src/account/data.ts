@@ -24,9 +24,7 @@ export function accountData(userId: string, storage: AccountStore, locks = brows
   const locked = <T>(run: () => T | Promise<T>) => accountLock(name, locks, run);
   const read = (): State => {
     const raw = storage.getItem(key);
-    // An old deletion mark has no closed session. Keep it closed.
-    return raw === 'deleted' ? { generation: null, session: null, deleted: true }
-      : raw === null ? { generation: null, session: null, deleted: false } : JSON.parse(raw);
+    return raw === null ? { generation: null, session: null, deleted: false } : JSON.parse(raw);
   };
   const opening = locked(read);
   void opening.catch(() => {});

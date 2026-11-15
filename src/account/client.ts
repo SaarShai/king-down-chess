@@ -3,7 +3,7 @@
  * on demand, so the first paint never waits for it). The publishable key is meant for browsers;
  * Row Level Security in supabase/migrations/ is what protects each player's data.
  */
-import { createClient, type Session } from '@supabase/supabase-js';
+import { createClient, isAuthApiError, type Session } from '@supabase/supabase-js';
 import type { Remote, Row } from './sync';
 import type { AccountSession } from './session';
 import { authStorage } from './auth-storage';
@@ -46,7 +46,9 @@ export function connect(storageKey: string, { manualCallback = false, apple = fa
     });
     if (!removed) return false;
     // This request cannot read or remove the stored session, even on a late error.
-    await sb.auth.admin.signOut(expected.accessToken, 'local');
+    const { error } = await sb.auth.admin.signOut(removed, 'local');
+    // Deletion can remove the user first. Match the library's already-gone statuses.
+    if (error && !(isAuthApiError(error) && [401, 403, 404].includes(error.status))) throw error;
     return true;
   };
   const signOut = async (): Promise<void> => {

@@ -1,5 +1,5 @@
 import { accountData } from '../account/data';
-import { AUTH_KEY } from '../account/session';
+import { AUTH_KEY, sessionKey } from '../account/session';
 import { emailCodeForm } from '../account/email-code';
 import { stagingPasswordSignInEnabled } from '../account/public-config';
 import { configureRuntime } from '../account-game/host';
@@ -92,12 +92,17 @@ try {
       await accountData(session.userId, localStorage).confirm(() => auth.readSession());
       const parsed = new DOMParser().parseFromString(template, 'text/html'); parsed.querySelectorAll('script').forEach(script => script.remove());
       document.body.replaceChildren(...Array.from(parsed.body.childNodes));
-      const api = onlineClient({ origin: apiOrigin, token: async () => { const current = await auth.readSession(); return current?.userId === session.userId ? current.accessToken : null; } });
+      const api = onlineClient({ origin: apiOrigin, token: async () => { const current = await auth.readSession(); return current?.userId === session.userId && sessionKey(current) === sessionKey(session) ? current.accessToken : null; } });
       const host = createBrowserRuntime(api, session.userId);
       host.onAccessLost = () => {
         const main = message('This game is not available to this account. You can open your own games.');
         const games = document.createElement('a'); games.href = '/play/'; games.textContent = 'Open your games'; main.append(games);
       };
+      const reload = () => {
+        host.dispose?.();
+        message('This page cannot save your moves. Reload the page to continue.', [], true);
+      };
+      host.onSaveRefused = reload;
       configureRuntime(host);
       const logout = document.createElement('button'); logout.type = 'button'; logout.id = 'settings-logout'; logout.className = 'menu-row'; logout.textContent = 'Log out';
       const logoutError = document.createElement('p'); logoutError.setAttribute('role', 'alert'); logoutError.hidden = true; logoutError.textContent = 'Could not log out. Try again.';
@@ -115,7 +120,10 @@ try {
       document.querySelector('#settings-sheet .new-game-body')!.append(logoutError, logoutGroup);
       await import('../account-game/runtime');
       auth.onSession(current => {
-        if (current?.user.id === session.userId) return;
+        if (current?.user.id === session.userId) {
+          if (sessionKey({ userId: current.user.id, accessToken: current.access_token }) !== sessionKey(session)) reload();
+          return;
+        }
         host.dispose?.();
         void signInMessage('Sign in to play with your account.');
       });
