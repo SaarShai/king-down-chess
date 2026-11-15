@@ -24,11 +24,13 @@ signed-out device cannot ask for the state without a new public route).
   runtime role. Browser roles get nothing.
 - `src/online/mail.ts`: the Resend sender over fetch (the house sender of the removed alert emails)
   and the one message.
-- `src/online/jobs.ts`, `runDeletions(games, send?)`: with a sender, read the address before
-  `delete_account`, then send once after the deletion, with the idempotency key
-  `kingdown-deletion-<user id>`. A failed read or send logs the fault (no address) and never stops
-  or undoes a deletion. With no sender, the job does not call the helper, so a deploy before 0026
-  keeps working.
+- `src/online/jobs.ts`, `runDeletions(games, send?, deadline?)`: with a sender, read the address
+  before `delete_account`; after all the deletions, send one email for each deleted account, with the
+  idempotency key `kingdown-deletion-<user id>`, one at a time, until the deadline. The daily request
+  gives the job 25 s (`DAILY_BUDGET_MS`; the function stops at 30 s): a slow mail service cannot hold
+  back a deletion, and at the deadline the job stops the send in progress and logs how many emails did
+  not go. A failed read or send logs the fault (no address) and never stops or undoes a deletion.
+  With no sender, the job does not call the helper, so a deploy before 0026 keeps working.
 - `src/api/http.ts`, `tools/plugin-server.mjs`: the daily job gets the sender when
   `RESEND_API_KEY` and `KINGDOWN_MAIL_FROM` are both set.
 - `tools/deploy-plugin-env.mjs`: accept both mail settings or neither; the key starts `re_`; the
@@ -38,16 +40,20 @@ signed-out device cannot ask for the state without a new public route).
 
 ## Release order
 
-1. Apply 0026 on production.
-2. Deploy the server.
-3. Set the mail pair with `tools/deploy.sh --configure` (owner's word). The key is a Resend key
-   with sending access for `kingdown.dev` (the domain is verified for the sign-in codes).
+1. Apply 0026 on production before you set the mail settings.
+2. Set `RESEND_API_KEY` and `KINGDOWN_MAIL_FROM` in project `kingdown` (Production) before the deploy that carries this change. With the owner's word.
+   The key is a Resend key with sending access for `kingdown.dev` (the domain is verified for the
+   sign-in codes); the sender is `King Down <hello@kingdown.dev>`. Until this change is on main, the
+   deploy tool on main refuses these values: use the Vercel dashboard (Sensitive), or
+   `tools/deploy.sh --configure <private-env-file>` from this branch.
+3. Deploy after you set them: a deployment keeps the values that it was made with, so a value set later reaches only the next deployment. If the server is already deployed, deploy it again.
 4. Check with a disposable account: request deletion, let the grace pass, see the email.
 
-The pages say that the email goes. Set the mail pair in the same release as the page text.
+`tools/deploy.sh --configure` sets the values and deploys nothing. The pages and the in-app receipt
+say that the email goes, so steps 1 and 2 come before the deploy that publishes them.
 
 ## Verification
 
-- `src/online/mail.test.ts`, `src/online/jobs.test.ts` (fake pool), `src/online/jobs.db.test.ts`
+- `src/online/mail.test.ts`, `src/online/jobs.test.ts` (fake pool; 50 accounts with slow failed sends), `src/online/jobs.db.test.ts`
   (PostgreSQL: due, early, held, cancelled; browser roles; a failed send keeps the deletion; the
   runtime role reads only a due address), `tools/deploy-plugin-env.test.ts`, `tools/deploy.test.ts`.

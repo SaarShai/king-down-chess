@@ -255,6 +255,10 @@ The file checks for invalid indexes before it attaches constraints. Do not skip 
 ## Deletion notice: 0026
 
 - `0026_deletion_notice.sql`: adds `kingdown_jobs.deletion_email(uuid)`. It gives the account's email address only for a due deletion (grace over, not cancelled, not done, no report hold), on the database clock. The daily job reads it just before `kingdown_jobs.delete_account`, then sends one email through Resend after the deletion (Apple guideline 5.1.1(v)). Browser roles keep no access.
-  The server calls the helper only when `RESEND_API_KEY` and `KINGDOWN_MAIL_FROM` are set. Apply 0026 before you set them; a failed read or send never stops a deletion.
-  Apply 0026 on staging before a server deploy that sets the mail settings. Run block 15 of `plugin-deploy/runtime-role.sql` only when setting up a new runtime role.
-  Apply 0026 on production before the release that sets them.
+  The server calls the helper only when `RESEND_API_KEY` and `KINGDOWN_MAIL_FROM` are set; a failed read or send never stops a deletion.
+  Run block 15 of `plugin-deploy/runtime-role.sql` only when setting up a new runtime role (0026 grants the existing one).
+  Release order on production (do the same steps on staging first):
+  1. Apply 0026 on production before you set the mail settings.
+  2. Set `RESEND_API_KEY` and `KINGDOWN_MAIL_FROM` in project `kingdown` (Production) before the deploy that carries this change. Use `tools/deploy.sh --configure <private-env-file>` from a checkout with this change, or the Vercel dashboard (Sensitive).
+  3. Deploy after you set them: a deployment keeps the values that it was made with, so a value set later reaches only the next deployment. If the server is already deployed, deploy it again.
+  The privacy and delete-data pages say that one email confirms a deletion, so steps 1 and 2 come before the deploy that publishes them.

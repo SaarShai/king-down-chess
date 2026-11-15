@@ -26,5 +26,11 @@ describe('deletion notice email', () => {
   expect(JSON.parse(init.body)).toEqual({ from: 'King Down <hello@kingdown.dev>', to: ['p@example.com'], subject: mail.subject, text: mail.text });
   // The error names the status only, never the address that the body echoes.
   await expect(send(mail)).rejects.toThrow(/^Resend refused the email \(422\)$/);
+  // The job's stop signal reaches the request.
+  fetch.mockResolvedValueOnce(new Response('{"id":"y"}', { status: 200 }));
+  const stop = new AbortController(); stop.abort();
+  await send(mail, stop.signal);
+  expect(fetch.mock.calls[2][1].signal.aborted).toBe(true);
+  expect(fetch.mock.calls[0][1].signal.aborted).toBe(false);
  });
 });

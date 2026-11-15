@@ -7,7 +7,7 @@
 import { randomUUID } from 'node:crypto';
 import type { GameService } from '../match/service';
 import { diagnostic } from '../plugin/diagnostics';
-import { deletionMail, type Sender } from './mail';
+import { deletionMail, type Mail, type Sender } from './mail';
 
 /** Ends the Daily games past their deadline (loss on time, or the 3-day first-turn cancel) and the waiting games whose invitation ran out. */
 export async function sweepDeadlines(games: GameService, now = new Date()): Promise<number> {
@@ -23,14 +23,16 @@ export async function sweepDeadlines(games: GameService, now = new Date()): Prom
  * use the database clock: they are a trust boundary, so no caller's clock can shorten them. A sign-in that cancels
  * the deletion while this runs keeps the account, but the games it ended stay ended. Returns the number deleted.
  * With `send`, each deleted account gets one email that confirms the deletion (Apple guideline 5.1.1(v)). The address
- * is read just before the account goes (migration 0026), and only for a due deletion. A notice that fails never stops
- * or undoes a deletion: the log shows it, and there is no address left to try again.
+ * is read just before the account goes (migration 0026), and only for a due deletion. The emails go after all the
+ * deletions, so a slow mail service cannot hold back a deletion, and they stop at `deadline` (see sendNotices). A notice
+ * that fails never stops or undoes a deletion: the log shows it, and there is no address left to try again.
  */
-export async function runDeletions(games: GameService, send?: Sender): Promise<number> {
+export async function runDeletions(games: GameService, send?: Sender, deadline = Date.now() + DAILY_BUDGET_MS): Promise<number> {
  const pool = games.store.pool;
  const due = await pool.query(`select d.user_id from public.account_deletions d where d.run_after<=now() and d.cancelled_at is null and d.done_at is null
   and not exists(select from public.reports r where d.user_id in (r.reported_id,r.reporter_id) and r.hold_until>now()) order by d.run_after limit 50`);
  let deleted = 0;
+ const notices: Mail[] = [];
  for (const { user_id } of due.rows) try {
   const to: string | null = send ? await pool.query('select kingdown_jobs.deletion_email($1) as address', [user_id])
    .then(result => result.rows[0]?.address ?? null, error => { console.error('King Down deletion notice failed', diagnostic(error)); return null; }) : null;
@@ -43,13 +45,37 @@ export async function runDeletions(games: GameService, send?: Sender): Promise<n
   if (!(await pool.query('select kingdown_jobs.delete_account($1) as done', [user_id])).rows[0].done) continue;
   deleted++;
   // The key makes a repeated send in the same day one email.
-  if (to) await send!({ ...deletionMail(to), key: `kingdown-deletion-${user_id}` }).catch(error => console.error('King Down deletion notice failed', diagnostic(error)));
+  if (to) notices.push({ ...deletionMail(to), key: `kingdown-deletion-${user_id}` });
  } catch (error) {
   // One player whose deletion fails must not stop the others. The row stays due, so each run tries it again.
   // ponytail: 50 such players, the oldest, would hold back the rest; the log shows each failure.
   console.error('King Down deletion failed', diagnostic(error));
  }
+ if (notices.length) await sendNotices(send!, notices, deadline);
  return deleted;
+}
+
+/** The daily request answers within this time: the deployed function stops at 30 s (tools/plugin-server-build.mjs, maxDuration). */
+export const DAILY_BUDGET_MS = 25_000;
+
+/**
+ * Sends the notices one at a time (Resend limits the request rate) until `deadline`. At the deadline the job stops
+ * waiting: the signal aborts the send in progress, and the log counts the notices that did not go (no addresses).
+ */
+async function sendNotices(send: Sender, notices: Mail[], deadline: number): Promise<void> {
+ const stop = new AbortController(), timer = setTimeout(() => stop.abort(), Math.max(0, deadline - Date.now()));
+ const stopped = new Promise<void>(resolve => stop.signal.addEventListener('abort', () => resolve(), { once: true }));
+ let done = 0;
+ try {
+  await Promise.race([stopped, (async () => {
+   for (const mail of notices) {
+    if (stop.signal.aborted) return;
+    await send(mail, stop.signal).catch(error => console.error('King Down deletion notice failed', diagnostic(error)));
+    done++;
+   }
+  })()]);
+ } finally { clearTimeout(timer); }
+ if (done < notices.length) console.error('King Down deletion notices not sent', { count: notices.length - done });
 }
 
 /**

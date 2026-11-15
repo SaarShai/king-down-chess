@@ -31,6 +31,20 @@ it.each(['supabase/README.md', 'docs/specs/staging-first-game/issues/90-board-ex
   },
 );
 
+it.each(['supabase/README.md', 'docs/specs/deletion-notice/issues/01-completion-email.md'])(
+  'orders 0026, then the mail settings, then the deploy in %s', file => {
+    // A deployment keeps the environment values it was made with, and the pages promise the email.
+    const text = read(file);
+    const steps = [
+      'Apply 0026 on production before you set the mail settings.',
+      'Set `RESEND_API_KEY` and `KINGDOWN_MAIL_FROM` in project `kingdown` (Production) before the deploy that carries this change.',
+      'Deploy after you set them: a deployment keeps the values that it was made with, so a value set later reaches only the next deployment. If the server is already deployed, deploy it again.',
+    ].map(step => text.indexOf(step));
+    expect(steps.every(at => at >= 0)).toBe(true);
+    expect(steps).toEqual([...steps].sort((a, b) => a - b));
+  },
+);
+
 it('keeps the migration lists ordered with one number per migration', () => {
   const files = readdirSync('supabase/migrations').filter(name => /^\d{4}_.*\.sql$/.test(name)).sort();
   expect(new Set(files.map(name => name.slice(0, 4))).size).toBe(files.length);

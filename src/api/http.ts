@@ -15,7 +15,7 @@ import { commandLimit, handleSchema, type PluginService } from '../plugin/servic
 import { settingsSchema } from '../plugin/settings';
 import { noticesBeforeSchema, type AccountService } from '../online/accounts';
 import type { SafetyService } from '../online/safety';
-import { cleanup, runDeletions, sweepDeadlines } from '../online/jobs';
+import { cleanup, DAILY_BUDGET_MS, runDeletions, sweepDeadlines } from '../online/jobs';
 import type { Sender } from '../online/mail';
 import { ACTOR_UUID, AuthenticationError, AuthenticationUnavailable, isLoopback, pluginOrigin } from '../plugin/auth';
 import { diagnostic } from '../plugin/diagnostics';
@@ -287,8 +287,8 @@ export function createInternalHandler({ games, publicOrigin, secret, send }: Int
  const origin = pluginOrigin(publicOrigin), expected = secret && secret.length >= 32 ? sha256(secret) : undefined;
  const jobs: Record<string, () => Promise<object>> = {
   '/internal/tick': async () => ({ ended: await sweepDeadlines(games) }),
-  // The cleanup first, so a deletion that fails does not stop it.
-  '/internal/daily': async () => { const cleaned = await cleanup(games); return { deleted: await runDeletions(games, send), ...cleaned }; },
+  // The cleanup first, so a deletion that fails does not stop it. The deletion emails get what is left of the budget.
+  '/internal/daily': async () => { const deadline = Date.now() + DAILY_BUDGET_MS, cleaned = await cleanup(games); return { deleted: await runDeletions(games, send, deadline), ...cleaned }; },
  };
  return async (req, res) => {
   const path = guard(req, res, origin); if (path === undefined) return;
