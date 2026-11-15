@@ -121,12 +121,12 @@ function emailStep(sheet: PeopleSheet, host: SignInHost, purpose: Purpose, done:
   input.focus();
 }
 
-/** S2, step 2: the six digits. The phone can fill the field from the mail (`one-time-code`). */
+/** S2, step 2: the code. Supabase sets its length (6 to 10 digits, decision 109). The phone can fill the field from the mail (`one-time-code`). */
 function codeStep(sheet: PeopleSheet, host: SignInHost, purpose: Purpose, done: () => void, address: string) {
   const status = statusLine(), input = node('input');
   input.name = 'code'; input.inputMode = 'numeric'; input.autocomplete = 'one-time-code'; input.required = true;
-  input.pattern = '[0-9]{6}'; input.className = 'people-code'; input.setAttribute('aria-describedby', status.id);
-  input.addEventListener('input', () => { input.value = input.value.replace(/\D/g, '').slice(0, 6); });
+  input.pattern = '[0-9]{6,10}'; input.className = 'people-code'; input.setAttribute('aria-describedby', status.id);
+  input.addEventListener('input', () => { input.value = input.value.replace(/\D/g, '').slice(0, 10); });
   const go: HTMLButtonElement = button(signInText.continue, { kind: 'main', onPress: () => element.requestSubmit() });
   const again: HTMLButtonElement = plain(signInText.newCode, async () => {
     if (again.getAttribute('aria-busy') === 'true') return;
