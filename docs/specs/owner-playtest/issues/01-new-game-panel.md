@@ -2,7 +2,7 @@
 
 Status: resolved
 
-The owner authorizes lane S1 and decisions 88 to 93 in the build brief.
+The owner's playtest feedback (`runs/review/owner-web-playtest-handoff.md`, section 2) asks for this change. The lead's decisions 88 to 93 set the design.
 
 ## Result
 
@@ -28,7 +28,7 @@ The existing options key keeps the preferred king for the seat step.
 ## Handoff
 
 Lane S2 owns the in-game manual arrangement and online seat choices. No server change is needed for the fields in this lane.
-The level lab is outside this repository at labs/level-slider/index.html. The game uses A. The lead can show A, B and C to the owner.
+The level lab is outside this repository at labs/level-slider/index.html. The game uses A (decision 107).
 Account checks use stand-ins. No live account or live invitation is used.
 Browser scripts use port 5441 directly; the standard wrapper selects another port.
 The focus filter uses file patterns. The brief's `KINGDOWN_TEST_FILE=none` command selects no tests in this checkout.

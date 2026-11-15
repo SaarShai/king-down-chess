@@ -3,7 +3,7 @@
 Status: resolved
 Type: task
 
-The owner approves decisions 90 and 91 in the lane brief. Lane S2 adds the board step and the online seat choice. Lane S1 owns the New game controls and invite options.
+The owner's playtest feedback (section 2) asks for the Manual arrangement. The lead's decisions 90 and 91 set the design. Lane S2 adds the board step and the online seat choice. Lane S1 owns the New game controls and invite options.
 
 ## Result
 

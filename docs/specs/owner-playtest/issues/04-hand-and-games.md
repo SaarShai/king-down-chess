@@ -4,7 +4,7 @@ Status: resolved
 
 ## Scope
 
-Build decisions 94 and 98 from the owner playtest brief. Use the approved Hand sample and the existing emblems. Work on branch `owner-playtest-h` only.
+The owner's playtest feedback (sections 3 and 6) asks for these changes. The lead's decisions 94 and 98 set the design. Use the approved Hand sample and the existing emblems. Work on branch `owner-playtest-h` only.
 
 Keep the coin and hand in one row. Keep Menu at the edge of the opponent group. Keep both hands in a cards-only game. Give Your games three full rows and half of the fourth. Keep the open state outside the Play redraw.
 

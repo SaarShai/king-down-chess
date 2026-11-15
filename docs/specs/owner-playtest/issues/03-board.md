@@ -2,7 +2,7 @@
 
 Status: resolved
 
-The owner requests decisions 95, 96, 97 and 99. The lane brief is the approved build scope.
+The owner's playtest feedback (sections 4 and 5) asks for these changes. The lead's decisions 95, 96, 97 and 99 set the design.
 
 ## Answer
 
