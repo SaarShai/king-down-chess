@@ -8,6 +8,7 @@
 import { Sync, stamp, type SavedGameAccess, type Section } from './sync';
 import type { Client, Provider, SignInOption } from './client';
 import { emailCodeForm, forgetEmailCode } from './email-code';
+import { allowedAvatarUrl } from './public-config';
 import { AUTH_KEY } from './session';
 import { canWriteLocal } from './local';
 import { apiOrigin } from '../platform';
@@ -34,7 +35,7 @@ export function userOf(u: AuthUser | null | undefined): User | null {
   const m = u.app_metadata?.provider === 'email' ? {} : u.user_metadata ?? {}, avatar = text(m.avatar_url) ?? text(m.picture);
   return {
     name: text(m.full_name) ?? text(m.name) ?? text(m.user_name) ?? 'Player',
-    avatar: avatar && /^https:\/\//.test(avatar) ? avatar : null,
+    avatar: avatar && allowedAvatarUrl(avatar) ? avatar : null,
     provider: String(u.app_metadata?.provider ?? ''),
   };
 }

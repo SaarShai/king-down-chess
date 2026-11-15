@@ -69,6 +69,9 @@ const ttMove = new Int32Array(TT_SIZE);
 const ttMeta = new Int32Array(TT_SIZE);
 
 let nodes = 0, stop = false, hardDeadline = 0, rootDepth = 1;
+/** Option `workClock`: the moves that `genLegal` listed since the last clock read; over `WORK_READ`, the next node reads the clock. */
+let work = 0, workClock = false;
+const WORK_READ = 4096;
 let gameHistory = new Set<number>();
 
 // ---------------------------------------------------------------------------------------------
@@ -555,6 +558,7 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
   // Firewall, a Rescue and a Growth change no square. `setFastLegality(false)` turns this off for
   // the cross-check test. A design (`RULES.design`) is always tested: its Whens read the squares next to it, so any
   // arriving or leaving piece may wake a rule that attacks the king.
+  if (workClock) work += out.length;
   const noCheck = doubleFirstMove();
   const k = board.indexOf(piece(K, c));
   const inChk = k < 0 || (inCheckKnown ?? attacked(c));
@@ -670,6 +674,8 @@ function ttStore(key: number, idx: number, depth: number, s: number, bound: numb
 const timeUp = (): boolean => {
   // A node with king powers can cost 125 µs under load, so 1024 nodes overran the deadline by 130 ms; 128 nodes cost 16 ms.
   if ((++nodes & 127) === 0 && performance.now() > hardDeadline) stop = true;
+  // A beast's chains can list 54,590 moves in one node (50 ms), so 128 nodes overran an 800 ms budget by 0.8 s (decision 44).
+  if (work > WORK_READ) { work = 0; if (performance.now() > hardDeadline) stop = true; }
   return stop;
 };
 
@@ -825,6 +831,11 @@ export interface SearchOptions {
   powerPlies?: number;
   /** Search only these legal moves at the root (Hint: the moves the board takes now). Default: all. */
   rootMoves?: Move[];
+  /**
+   * Also read the clock after long move lists, not only each 128 nodes, so one costly node cannot
+   * hold the search far past `timeMs` (the new page, decision 44). Default: off.
+   */
+  workClock?: boolean;
 }
 export interface SearchResult {
   move: Move | null; score: number; depth: number; nodes: number;
@@ -969,6 +980,7 @@ export function search(pos: Position, opts: SearchOptions = {}): SearchResult {
   const start = performance.now();
   const maxDepth = Math.min(opts.maxDepth ?? MAX_PLY, MAX_PLY - QMAX);
   hardDeadline = start + timeMs;
+  workClock = !!opts.workClock; work = 0;
 
   initPosition(pos);
   powerPlyMax = opts.powerPlies ?? 2;

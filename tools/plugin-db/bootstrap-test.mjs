@@ -15,7 +15,7 @@ try {
     await pool.query(`create schema if not exists auth;
       create table if not exists auth.users(id uuid primary key);
       alter table auth.users add column if not exists email text, add column if not exists raw_user_meta_data jsonb,
-        add column if not exists banned_until timestamptz;
+        add column if not exists raw_app_meta_data jsonb, add column if not exists banned_until timestamptz;
       create table if not exists auth.sessions(id uuid primary key default gen_random_uuid(),
         user_id uuid not null references auth.users(id) on delete cascade, created_at timestamptz not null default now());
       alter table auth.sessions add column if not exists refreshed_at timestamp, add column if not exists oauth_client_id uuid;
@@ -27,10 +27,10 @@ try {
         if not exists(select from pg_roles where rolname='supabase_auth_admin') then create role supabase_auth_admin nologin; end if;
       end $$;`);
     // Each migration twice: every one must be repeatable.
-    for (const name of ['0001_accounts.sql', '0002_matches.sql', '0003_plugin_boards.sql', '0004_plugin_board_recovery.sql', '0005_accounts_v2.sql', '0006_games.sql', '0007_jobs.sql', '0008_accounts_safety.sql', '0009_invite_tries.sql', '0010_game_setup.sql', '0011_matchmaking.sql', '0012_results.sql', '0013_player_settings.sql', '0014_plugin_tool_tries.sql', '0015_remove_email.sql', '0016_web_account_access.sql', '0017_setup_admission.sql', '0018_rating_policy.sql', '0019_client_errors.sql', '0020_deletion_utc.sql', '0021_history_draw.sql', '0022_friend_invites.sql', '0023_muse_surface.sql', '0024_muse_disconnect.sql']) {
+    for (const name of ['0001_accounts.sql', '0002_matches.sql', '0003_plugin_boards.sql', '0004_plugin_board_recovery.sql', '0005_accounts_v2.sql', '0006_games.sql', '0007_jobs.sql', '0008_accounts_safety.sql', '0009_invite_tries.sql', '0010_game_setup.sql', '0011_matchmaking.sql', '0012_results.sql', '0013_player_settings.sql', '0014_plugin_tool_tries.sql', '0015_remove_email.sql', '0016_web_account_access.sql', '0017_setup_admission.sql', '0018_rating_policy.sql', '0019_client_errors.sql', '0020_deletion_utc.sql', '0021_history_draw.sql', '0022_friend_invites.sql', '0023_muse_surface.sql', '0024_muse_disconnect.sql', '0025_opponent_avatar.sql']) {
       await sql(`supabase/migrations/${name}`); await sql(`supabase/migrations/${name}`);
     }
     await sql('plugin-deploy/oauth-audience-hook.sql');
-    console.log('Disposable PostgreSQL schema ready (migrations 0001-0024); every migration is repeatable');
+    console.log('Disposable PostgreSQL schema ready (migrations 0001-0025); every migration is repeatable');
   });
 } finally { await pool.end(); }

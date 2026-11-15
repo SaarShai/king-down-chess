@@ -4,7 +4,7 @@
  * and no server code.
  */
 import type { AccountNotices, MyProfile, NotifyKind, ReportCategory, Settings } from '../account/profile';
-import type { Action, CreateOptions, DraftInput, DraftPreview, ErrorCode, InboxEntry, Lobby, Preset, RatingPolicy, Reply, View, JoinPreview, HistoryEntry, PlayerRecord } from '../match/protocol';
+import type { Action, CreateOptions, DraftInput, DraftPreview, ErrorCode, FriendsPage, InboxEntry, InvitationPage, InvitationRow, Lobby, Preset, RatingPolicy, Reply, View, JoinPreview, HistoryEntry, PlayerRecord } from '../match/protocol';
 import type { PlayerSettings } from '../plugin/settings';
 import type { Icon } from '../account/profile';
 import type { InviteLink } from '../api/http';
@@ -74,10 +74,29 @@ export function onlineClient({ token, origin = '', fetch: send = (input, init) =
       }
     },
     /** A new invitation; the old one ends. */
-    invite: (gameId: string, signal?: AbortSignal) => call<InviteLink>('POST', `/api/games/${encodeURIComponent(gameId)}/invite`, undefined, signal),
+    invite: (gameId: string, signalOrInput?: AbortSignal | { recipient_id?: string; recipient_handle?: string; open_link?: true; rotate?: boolean }, signal?: AbortSignal) => {
+      const isSignal = signalOrInput instanceof AbortSignal;
+      return call<InviteLink>('POST', `/api/games/${encodeURIComponent(gameId)}/invite`, isSignal ? undefined : signalOrInput, isSignal ? signalOrInput : signal);
+    },
     redeem: (key: { token: string } | { code: string } | { invite_id: string }, signal?: AbortSignal) => call<View>('POST', '/api/invites/redeem', key, signal),
+    declineInvite: (inviteId: string, signal?: AbortSignal) => call<InvitationRow>('POST', `/api/invites/${encodeURIComponent(inviteId)}/decline`, {}, signal),
+    friends: (input: { handle?: string; after?: string; limit?: number } = {}, signal?: AbortSignal) => {
+      const query = new URLSearchParams();
+      if (input.handle !== undefined) query.set('handle', input.handle);
+      if (input.after !== undefined) query.set('after', input.after);
+      if (input.limit !== undefined) query.set('limit', String(input.limit));
+      const suffix = query.toString();
+      return call<FriendsPage>('GET', `/api/friends${suffix ? `?${suffix}` : ''}`, undefined, signal);
+    },
     /** Your active games: your turn first, then the nearest deadline. */
     games: (signal?: AbortSignal) => call<InboxEntry[]>('GET', '/api/me/games', undefined, signal),
+    invitations: (cursor: { before?: string; limit?: number } = {}, signal?: AbortSignal) => {
+      const query = new URLSearchParams();
+      if (cursor.before) query.set('before', cursor.before);
+      if (cursor.limit !== undefined) query.set('limit', String(cursor.limit));
+      const suffix = query.toString();
+      return call<{ games: InboxEntry[] } & InvitationPage>('GET', `/api/me/games?invitations=1${suffix ? `&${suffix}` : ''}`, undefined, signal);
+    },
     profile: () => call<MyProfile>('GET', '/api/me/profile'),
     updateProfile: (changes: Partial<Settings>) => call<MyProfile>('PATCH', '/api/me/profile', changes),
     setHandle: async (handle: string) => (await call<{ me: Pick<MyProfile, 'handle' | 'icon'> }>('POST', '/api/me/handle', { handle })).me,

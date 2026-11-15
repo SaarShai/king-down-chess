@@ -113,18 +113,50 @@ export class Game {
   }
 }
 
+/** Options of the new page (decision 44). Each is off by default, so the old page keeps its engine. */
+export interface EngineOptions {
+  /**
+   * The fallback timer starts at the request and waits the move time plus 8,000 ms.
+   * A worker that sends no ready message has the same finite deadline. A worker that fails gives its search to
+   * the page thread at once. A worker that fails while the page unloads is not reported.
+   */
+  waitReady?: boolean;
+  /** Each search also reads the clock after long move lists (`SearchOptions.workClock`). */
+  workClock?: boolean;
+}
+
 export class Engine {
   private worker: Worker | null = null;
   private owner: object | null = null;
   private id = 0;
   private clean: (() => void) | undefined;
+  private readonly options: EngineOptions;
+  /** Option `waitReady`: the page unloads. WebKit fails a worker that still loads then; that is no fault to report. */
+  private leaving = false;
+
+  constructor(options: EngineOptions = {}) {
+    this.options = options;
+    if (options.waitReady) {
+      globalThis.addEventListener?.('beforeunload', () => { this.leaving = true; });
+      globalThis.addEventListener?.('pagehide', () => { this.leaving = true; });
+      globalThis.addEventListener?.('pageshow', () => { this.leaving = false; });
+    }
+  }
+
+  /** Start the worker of `game` now, so its code loads before the first search (decision 44: when the game opens). */
+  prepare(game: Game): void {
+    if (this.owner === game.identity) return;
+    this.cancel();
+    this.worker = this.spawn();
+    this.owner = game.identity;
+  }
 
   /** Returns null where workers cannot start (e.g. a sandbox); the search then runs on the main thread. */
   private spawn(): Worker | null {
     try {
       const w = new Worker(new URL('./ai/worker.ts', import.meta.url), { type: 'module' });
       w.onerror = event => {
-        try { window.dispatchEvent(new CustomEvent('kingdown-worker-error', { detail: event })); } catch { /* The worker cleanup must run. */ }
+        if (!this.leaving) try { window.dispatchEvent(new CustomEvent('kingdown-worker-error', { detail: event })); } catch { /* The worker cleanup must run. */ }
         if (this.worker === w) this.worker = null; w.terminate();
       };
       return w;
@@ -146,6 +178,7 @@ export class Engine {
       ...opts,
       ...(opts.history && { history: opts.history.slice() }),
       ...(opts.rootMoves && { rootMoves: structuredClone(opts.rootMoves) }),
+      ...(this.options.workClock && { workClock: true }),
     };
     const id = ++this.id;
     const worker = this.worker;
@@ -174,18 +207,29 @@ export class Engine {
       // No reply well past the time budget: assume the worker is dead and search inline from now on.
       // `live()` first: after a cancel() this timer belongs to a terminated worker, and nulling
       // `this.worker` would kill the replacement and push every later search onto the main thread.
-      const fallback = setTimeout(() => {
+      const giveUp = (): void => {
         worker.removeEventListener('message', onMessage);
         if (!live()) return;
         worker.terminate();
         this.worker = null;
         this.clean = undefined;
         inline(resolve, reject);
-      }, (options.timeMs ?? 1000) + 2500);
-      this.clean = () => { clearTimeout(fallback); worker.removeEventListener('message', onMessage); };
+      };
+      const fallback = this.options.waitReady ? undefined : setTimeout(giveUp, (options.timeMs ?? 1000) + 2500);
+      const stopTimer = this.options.waitReady ? this.requestDeadline(worker, giveUp, (options.timeMs ?? 1000) + 8000) : () => clearTimeout(fallback);
+      this.clean = () => { stopTimer(); worker.removeEventListener('message', onMessage); };
       worker.addEventListener('message', onMessage);
       worker.postMessage({ id, pos, opts: options, rules: context.rules });
     });
+  }
+
+  /** Option `waitReady`: bound the whole request, including code load; a worker error falls back at once. */
+  private requestDeadline(worker: Worker, giveUp: () => void, ms: number): () => void {
+    const onError = (): void => { stop(); giveUp(); };
+    const stop = (): void => { clearTimeout(timer); worker.removeEventListener('error', onError); };
+    const timer = setTimeout(() => { stop(); giveUp(); }, ms);
+    worker.addEventListener('error', onError);
+    return stop;
   }
 
   /** Abort a running search (its promise never resolves; the id bump is what silences it). */

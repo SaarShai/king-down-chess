@@ -24,6 +24,7 @@ export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNE
   if (muse) for (const path of [...MUSE_PATHS, ...chatgpt ? [] : ['/authorize', '/consent.mjs']]) routes.push({ src: `^${path.replace(/[.]/g, '\\.')}$`, dest: '/mcp' });
   if (site) {
     routes.push({ src: '^/character-runtime/assets/[a-f0-9]{64}\\.webp$', headers: { 'Cache-Control': 'public, max-age=31536000, immutable' }, continue: true });
+    routes.push({ src: '^/character-runtime/(?:index\\.json|parts/[^/]+\\.json)$', headers: { 'Cache-Control': 'no-cache' }, continue: true });
     const challenge = resolve(site, '.well-known/openai-apps-challenge');
     if (chatgpt && existsSync(challenge)) {
       const token = readFileSync(challenge, 'utf8');
@@ -33,6 +34,11 @@ export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNE
     routes.push({ src: '^/internal/.+$', dest: '/internal' });
     routes.push({ src: '^/api(?:/.*)?$', dest: '/mcp' });
     routes.push({ src: '^/(?:play(?:/.*)?|g/[^/]+/?|j/?)$', dest: '/index.html' });
+  }
+  if (site && existsSync(resolve(site, 'solo-launch.json'))) {
+    routes.push({ src: '^/$', dest: '/next.html' });
+    routes.push({ handle: 'filesystem' });
+    routes.push({ src: '^/.*$', dest: '/next.html', status: 404 });
   }
   return routes;
 }
@@ -85,7 +91,7 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
   await buildRuntime(resolve(functionDir, 'runtime'));
   await build({
     configFile: false, root, publicDir: false, logLevel: 'warn', ssr: { noExternal: true },
-    define: { 'import.meta.env.KINGDOWN_ERROR_RECORDER': JSON.stringify(Boolean(site)), 'import.meta.env.KINGDOWN_CHATGPT': JSON.stringify(chatgpt), 'import.meta.env.KINGDOWN_MUSE': JSON.stringify(muse), ...(site && { __KINGDOWN_ERROR_FORMS__: JSON.stringify(sourceErrorForms(resolve(root, 'src'))), __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()) }) },
+    define: { __KINGDOWN_SOLO_LAUNCH__: JSON.stringify(Boolean(site && existsSync(resolve(site, 'solo-launch.json')))), 'import.meta.env.KINGDOWN_ERROR_RECORDER': JSON.stringify(Boolean(site)), 'import.meta.env.KINGDOWN_CHATGPT': JSON.stringify(chatgpt), 'import.meta.env.KINGDOWN_MUSE': JSON.stringify(muse), __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()), ...(site && { __KINGDOWN_ERROR_FORMS__: JSON.stringify(sourceErrorForms(resolve(root, 'src'))), __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()) }) },
     plugins: [{ name: 'isolated-match-runtime', enforce: 'pre', resolveId(source, importer) {
       if (!importer || !source.startsWith('.')) return;
       const path = resolve(dirname(importer), source);

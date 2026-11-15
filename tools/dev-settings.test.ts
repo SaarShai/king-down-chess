@@ -5,7 +5,9 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import vite from '../vite.config';
+import viteConfig from '../vite.config';
+
+const vite = viteConfig({ command: 'serve', mode: 'development' });
 
 const root = join(import.meta.dirname, '..');
 const read = (path: string) => readFileSync(join(root, path), 'utf8');

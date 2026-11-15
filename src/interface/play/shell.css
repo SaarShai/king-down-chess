@@ -1,0 +1,47 @@
+/* The kit owns the materials. The shell only places them. */
+body:not([data-page='game']) #app { padding-bottom: calc(var(--bar-phone) + var(--safe-bottom)); perspective: 800px; }
+.shell-nav { position: fixed; inset: auto 0 0; z-index: 30; }
+.shell-nav[hidden] { display: none; }
+.shell-nav a { transform-style: preserve-3d; }
+.shell-page { max-width: 720px; margin: auto; padding: calc(24px + var(--safe-top)) calc(20px + var(--safe-right)) 36px calc(20px + var(--safe-left)); background: var(--surface-page); }
+.shell-page h1 { font-size: 1.75rem; margin-bottom: 24px; }
+.shell-page h1:focus { outline: none; }
+.shell-page h2 { margin: 28px 0 16px; font-size: 1.5rem; }
+.shell-page .kd-header { margin-bottom: 18px; }
+.shell-page .kd-header h2 { font-size: 1.125rem; margin: 0; }
+.shell-page p { max-width: 65ch; line-height: 1.6; }
+.device-note { padding: 18px; border: 1px solid var(--divider); border-radius: var(--radius-control); background: var(--surface-raised); }
+.shell-departing { position: fixed; top: 0; left: 0; right: 0; z-index: 0; max-height: 100dvh; overflow: hidden; background: var(--surface-page); pointer-events: none; }
+.shell-tab-marker, .shell-choice-marker { position: fixed; z-index: 35; pointer-events: none; transform-origin: top left; border-radius: 8px; }
+.shell-tab-marker { background: var(--brass); border-radius: 3px 3px 0 0; }
+.shell-choice-marker { box-shadow: inset 0 0 0 2px var(--info); background: var(--info-soft); opacity: .45; }
+.shell-dialog-ghost { display: block; position: fixed; margin: 0; z-index: 101; max-height: none; animation: none; pointer-events: none; }
+.shell-dialog-scrim { position: fixed; inset: 0; z-index: 100; pointer-events: none; background: var(--scrim); }
+/* The title and cause remain in one result card, with all three actions visible. */
+.play-game[data-reading='result'] .play-state-line { display: none; }
+.play-result { align-items: start; }
+.play-result-copy { gap: 6px; }
+.play-result-copy h3, .play-result-copy p { width: 100%; }
+.play-result-copy h3 { font-family: var(--font-title); font-size: 1.5rem; }
+.play-result-copy > .kd-button:last-child { flex-basis: 100%; background: transparent; border: 0; box-shadow: none; text-decoration: none; }
+.play-game[data-short='true'] .play-result { gap: 8px; }
+.play-game[data-short='true'] .play-result-copy h3 { font-size: 1.25rem; }
+.play-game[data-short='true'] .play-result-copy p { font-size: .875rem; line-height: 1.25; }
+.play-game[data-short='true'] .play-result-copy .kd-button { padding: 4px 8px; }
+@media (min-width: 900px) {
+  body:not([data-page='game']) #app { padding-top: calc(var(--bar-top) + var(--safe-top)); padding-bottom: 0; }
+  .shell-nav { inset: 0 0 auto; border-top: 0; border-bottom: 1px solid var(--divider); justify-content: center; padding-bottom: 8px; }
+  .shell-nav a { flex: 0 1 180px; flex-direction: row; min-height: 44px; }
+  .shell-departing { top: calc(var(--bar-top) + var(--safe-top)); }
+}
+@media (max-width: 899px) { .shell-nav a { flex: 1; flex-direction: column; } }
+:root[data-motion='fast'] .play-result { animation-duration: 220ms; }
+/* A short result uses the opponent strip so each action stays above the board. */
+.play-game[data-layout='portrait'][data-short='true'][data-reading='result'] .play-opp { display: none; }
+.play-game[data-layout='portrait'][data-short='true'][data-reading='result'] .play-reader { padding-top: 0; }
+
+#app > :is(.play-home, .shell-page):not(.shell-departing) { position: relative; z-index: 1; background: var(--surface-page); min-height: calc(100dvh - var(--bar-phone) - var(--safe-bottom)); }
+@media (min-width: 900px) { #app > :is(.play-home, .shell-page):not(.shell-departing) { min-height: calc(100dvh - var(--bar-top) - var(--safe-top)); } }
+:root[data-motion='reduce'] .kd-dialog { animation: kd-fade var(--dur-reduced-in) linear; }
+/* The game enters above the home page during its screen change. */
+.play-game { z-index: 2; }

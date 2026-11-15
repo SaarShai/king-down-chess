@@ -702,7 +702,7 @@ async function site(files: () => Record<string, string>, challengeReply: { statu
     if (challengeReply.drop && path === challengeReply.path) { challengeReply.drop--; req.socket.destroy(); return; }
     if (req.headers.cookie !== undefined) { res.writeHead(400).end('cookie sent'); return; }
     if (challengeReply.delayMs && (!challengeReply.path || path === challengeReply.path)) await new Promise(done => setTimeout(done, challengeReply.delayMs));
-    const body = files()[path === '/' ? 'index.html' : path.slice(1)];
+    const body = files()[path === '/' ? (files()['solo-launch.json'] ? 'next.html' : 'index.html') : path.slice(1)];
     if (path === (challengeReply.path ?? '/.well-known/openai-apps-challenge')) {
       const api = apiPaths.includes(path);
       const type = challengeReply.type === undefined ? (api ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8') : challengeReply.type;
@@ -1469,4 +1469,15 @@ describe('deploy.sh --publish', () => {
     expect(result.stdout).not.toContain('live-check');
     expectGone(repo, worktreeOf(result.stdout));
   });
+});
+
+
+it('checks the launch root against the new page and keeps the old online page byte check', async () => {
+  const files = { ...pages(), 'solo-launch.json': '{"soloLaunch":true}', 'next.html': pages()['index.html'] + '<p>New solo page</p>' };
+  const live = await site(() => files);
+  const result = await check(buildFolder(files), live.url);
+  expect(result.status, result.stderr).toBe(0);
+  const wrong = await site(() => files, { path: '/play', status: 200, type: 'text/html', body: files['next.html'] });
+  const refused = await check(buildFolder(files), wrong.url, 0);
+  expect(refused.status).toBe(1); expect(refused.stderr).toContain('play (app page)');
 });

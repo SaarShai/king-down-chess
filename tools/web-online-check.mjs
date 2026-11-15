@@ -26,25 +26,22 @@ export const WORKSHOP_SHELF = JSON.stringify({ v: 1, designs: [{
   squares: [{ x: 1, y: 2, mark: 'both' }], lines: [], rules: [], from: ['knight'], updated: 1,
 }] });
 
-/** Apply the site build routes, as vercel-check.mjs does. */
-export function siteRoute(config, path) {
-  const routes = config.routes.filter(route => new RegExp(route.src).test(path));
-  return {
-    dest: routes.find(route => route.dest)?.dest ?? path,
-    headers: Object.assign({}, ...routes.map(route => route.headers)),
-  };
-}
+import { siteRoute } from './lib/site-route.mjs';
+export { siteRoute };
 
 /** Serve the selected output's files and function with its own routes. */
 export async function serveSite({ root, config, handler }, req, res) {
   const path = new URL(req.url, 'http://fixture').pathname;
-  const { dest, headers } = siteRoute(config, path);
-  for (const [name, value] of Object.entries(headers)) res.setHeader(name, value);
   const exists = path => stat(path).catch(error => { if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') throw error; });
+  const original = join(root, 'static', path.endsWith('/') ? `${path}index.html` : path);
+  const present = (await exists(original))?.isFile() || !!await exists(join(root, 'functions', `${path}.func`));
+  const { dest, headers, status } = siteRoute(config, path, present);
+  for (const [name, value] of Object.entries(headers)) res.setHeader(name, value);
   const file = join(root, 'static', dest.endsWith('/') ? `${dest}index.html` : dest);
   if (['GET', 'HEAD'].includes(req.method) && (await exists(file))?.isFile()) {
     const types = { ...ART_TYPES, html: 'text/html', js: 'text/javascript', mjs: 'text/javascript', css: 'text/css', json: 'application/json', wasm: 'application/wasm' };
     if (!res.hasHeader('Content-Type')) res.setHeader('Content-Type', types[extname(file).slice(1)] ?? 'application/octet-stream');
+    if (status) res.statusCode = status;
     res.end(req.method === 'HEAD' ? undefined : await readFile(file));
   } else if (await exists(join(root, 'functions', `${dest}.func`))) {
     await handler(req, res);

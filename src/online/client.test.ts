@@ -120,3 +120,20 @@ it('sends a bounded draft read through the private no-store boundary with its ab
  expect(fetch).toHaveBeenCalledExactlyOnceWith(`/api/games/${gameId}/preview`,expect.objectContaining({method:'POST',cache:'no-store',signal:controller.signal,body:JSON.stringify(input)}));
  expect(new Headers(fetch.mock.calls[0][1]!.headers).get('Authorization')).toBe('Bearer jwt');
 });
+
+it('calls named invitation, friend lookup and invitation inbox endpoints on /api', async () => {
+ const fetch = vi.fn<typeof globalThis.fetch>(async () => json(200, { games: [], invitations: [], next_before: null }));
+ const api = onlineClient({ token: async () => 'jwt', fetch }), { signal } = new AbortController();
+ await api.invitations({ limit: 30, before: '2026-11-14T00:00:00Z|abc' }, signal);
+ await api.friends({ handle: 'dana', limit: 10 }, signal);
+ await api.declineInvite('f'.repeat(64), signal);
+ await api.invite(gameId, { recipient_handle: 'dana' }, signal);
+ await api.invite(gameId, signal);
+ expect(fetch.mock.calls.map(([path, init]) => [path, init!.method, init!.body ?? null])).toEqual([
+  ['/api/me/games?invitations=1&before=2026-11-14T00%3A00%3A00Z%7Cabc&limit=30', 'GET', null],
+  ['/api/friends?handle=dana&limit=10', 'GET', null],
+  [`/api/invites/${'f'.repeat(64)}/decline`, 'POST', '{}'],
+  [`/api/games/${gameId}/invite`, 'POST', JSON.stringify({ recipient_handle: 'dana' })],
+  [`/api/games/${gameId}/invite`, 'POST', null],
+ ]);
+});

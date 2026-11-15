@@ -37,5 +37,5 @@ it('keeps the migration lists ordered with one number per migration', () => {
   const listed = (file: string) => [...read(file).matchAll(/'(\d{4}_\w+\.sql)'/g)].map(match => match[1]);
   expect(listed('tools/plugin-db/bootstrap-test.mjs')).toEqual(files);
   expect(listed('tools/plugin-db/migrate.ts')).toEqual(files.slice(1));
-  expect(files.slice(-2)).toEqual(['0023_muse_surface.sql', '0024_muse_disconnect.sql']);
+  expect(files.slice(-2)).toEqual(['0024_muse_disconnect.sql', '0025_opponent_avatar.sql']);
 });

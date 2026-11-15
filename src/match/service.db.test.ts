@@ -538,6 +538,37 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   const readable = await rows("select column_name from information_schema.column_privileges where grantee='authenticated' and table_name='profiles' and privilege_type='SELECT' order by column_name");
   expect(readable.map(row => row.column_name)).toEqual(['handle','icon','id','rating']);
   expect((await rows("select relrowsecurity as rls from pg_class where oid='public.outbox'::regclass"))[0].rls).toBe(true);
+  for (const role of ['anon','authenticated'])
+   expect((await rows('select has_function_privilege($1,$2,$3) as allowed',[role,'kingdown_jobs.user_avatar(uuid, uuid)','EXECUTE']))[0].allowed,role).toBe(false);
+ });
+
+ it('exposes social opponent pictures only across shared games or invites and keeps email sign-in blank',async () => {
+  const oauth = await user('social'), emailUser = await user('mail'), stranger = await user('stranger'), blocked = await user('blocked');
+  const pic = 'https://lh3.googleusercontent.com/a/opponent-pic';
+  await admin.query("update auth.users set raw_user_meta_data=$2,raw_app_meta_data=$3 where id=$1", [oauth, JSON.stringify({ avatar_url: `  ${pic}  ` }), JSON.stringify({ provider: 'google' })]);
+  await admin.query("update auth.users set raw_user_meta_data=$2,raw_app_meta_data=$3 where id=$1", [emailUser, JSON.stringify({ avatar_url: pic }), JSON.stringify({ provider: 'email' })]);
+  await admin.query("update auth.users set raw_user_meta_data=$2,raw_app_meta_data=$3 where id=$1", [stranger, JSON.stringify({ picture: 'https://avatars.githubusercontent.com/u/77' }), JSON.stringify({ provider: 'github' })]);
+  // Strangers see nothing even before or after follow.
+  await admin.query("insert into public.relations(user_id,other_id,kind) values($1,$2,'follow')", [stranger, oauth]);
+  expect((await games[0].friends(stranger, { limit: 10 })).friends[0]).not.toHaveProperty('avatar');
+  expect((await rows('select kingdown_jobs.user_avatar($1,$2) as url',[stranger,oauth]))[0].url).toBeNull();
+  // Open link preview keeps creator picture hidden until the viewer joins or holds a named invite.
+  const openGame = await games[0].create(oauth, { kind: 'friend', options: CLASSIC_OPTIONS, open_link: true });
+  expect((await games[0].preview(stranger, openGame.invite!.token)).creator.avatar).toBeNull();
+  // Named invite shares the social picture both ways; email account returns null.
+  const namedGame = await games[0].create(oauth, { kind: 'friend', options: CLASSIC_OPTIONS, recipient_id: emailUser });
+  expect((await games[0].preview(emailUser, namedGame.invite!.token)).creator.avatar).toBe(pic);
+  expect((await games[0].invitations(emailUser)).invitations[0].player?.avatar).toBe(pic);
+  expect((await games[0].invitations(oauth)).invitations[0].player?.avatar).toBeNull();
+  await games[1].join(emailUser, { invite_id: namedGame.invite_id });
+  expect((await games[0].view(emailUser, namedGame.game_id)).opponent?.avatar).toBe(pic);
+  expect((await games[0].view(oauth, namedGame.game_id)).opponent?.avatar).toBeNull();
+  expect((await games[0].inbox(emailUser)).find(r => r.game_id === namedGame.game_id)?.opponent?.avatar).toBe(pic);
+  // A block hides the picture immediately.
+  await admin.query("insert into public.relations(user_id,other_id,kind) values($1,$2,'block')", [emailUser, oauth]);
+  expect((await games[0].view(emailUser, namedGame.game_id)).opponent?.avatar).toBeNull();
+  expect((await games[0].inbox(emailUser)).find(r => r.game_id === namedGame.game_id)?.opponent?.avatar).toBeNull();
+  expect((await rows('select kingdown_jobs.user_avatar($1,$2) as url',[blocked,oauth]))[0].url).toBeNull();
  });
 
  it('makes profiles with no real-name default and checks handles',async () => {

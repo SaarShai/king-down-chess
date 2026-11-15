@@ -32,7 +32,7 @@ After a tool change, run `npm run muse:docs`: it writes [specs/muse-connector/to
 
 One build can serve the ChatGPT plugin and the Muse connector at once. `CHATGPT_PLUGIN` (`tools/chatgpt-plugin.mjs`) does not follow this switch: it is on for production and off for staging. So the release that sets `MUSE_CONNECTOR` to true for production keeps the ChatGPT plugin on. In such a build:
 
-- `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` lists both client IDs. Each listed ID must have its row in `kingdown_oauth.client_resources` with the resource of a served connector (`/mcp` or `/muse/mcp`), else the server does not start and every path answers 503.
+- `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` lists both client IDs. Each listed ID must have its row in `kingdown_oauth.client_resources` with the resource of a served connector (`/mcp` or `/muse/mcp`), else the connector start fails. The website API and internal jobs stay available if their own checks pass.
 - `/mcp` accepts a token only when its `aud` is the `/mcp` resource and its client maps to `/mcp`; `/muse/mcp` does the same for its resource. A served connector without a listed client refuses every token; the server logs a warning and still starts.
 - The consent page has both texts. `src/plugin/consent.ts` shows the Muse text when the client of the authorization maps to `/muse/mcp`, else the ChatGPT text. The review password form stays.
 - Check the tree with `npm run check:vercel -- <tree> --chatgpt --muse` (build it with `node tools/plugin-server-build.mjs <tree> --site --chatgpt --muse`). `tools/deploy-plugin-live-check.mjs` checks the connectors that the tree has.
@@ -75,11 +75,11 @@ Owner steps, on staging first, then on production in the release that turns the 
 
 ## Deploy
 
-Staging: a staging deploy (`python3 tools/release/staging.py`) of a branch with this switch serves the connector at `https://kingdown-staging.vercel.app/muse/mcp`. Before the first such deploy, three steps are done by hand (2026-11-08, [ticket 11](specs/muse-connector/issues/11-staging-oauth.md)): migration 0023 in the staging SQL editor (and 0024 with the sweep, "Disconnect and deletion" above), the Muse row of the audience hook, and the staging Preview value `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` set to only the Muse client ID. `staging.py` does none of them. If one is wrong, the server stops at start and every staging path, `/api/*` too, answers 503; `staging.py` moves the alias before its `/api/status` check, so set the alias back to the previous deployment by hand. Live only after the Muse review passes and the owner says so.
+Staging: a staging deploy (`python3 tools/release/staging.py`) of a branch with this switch serves the connector at `https://kingdown-staging.vercel.app/muse/mcp`. Before the first such deploy, three steps are done by hand (2026-11-08, [ticket 11](specs/muse-connector/issues/11-staging-oauth.md)): migration 0023 in the staging SQL editor (and 0024 with the sweep, "Disconnect and deletion" above), the Muse row of the audience hook, and the staging Preview value `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` set to only the Muse client ID. `staging.py` does none of them. An OAuth fault disables the connectors and OAuth paths. A database or website setting fault can still stop the API; `staging.py` moves the alias before its `/api/status` check, so set the alias back to the previous deployment by hand. Live only after the Muse review passes and the owner says so.
 
 ## Production release
 
-The release that turns the connector on at `https://kingdown.dev/muse/mcp` follows [the production runbook](specs/muse-connector/production-runbook.md): the Supabase dashboard steps, the SQL, the server values, the code change, the deploy, the checks and the rollback. The ChatGPT plugin stays on: one build serves both connectors. Read its part 0 first. Its steps marked [503] can stop every server path; each has a check before the deploy.
+The release that turns the connector on at `https://kingdown.dev/muse/mcp` follows [the production runbook](specs/muse-connector/production-runbook.md): the Supabase dashboard steps, the SQL, the server values, the code change, the deploy, the checks and the rollback. The ChatGPT plugin stays on: one build serves both connectors. Read its part 0 first. A database or website setting fault can stop every server path. An OAuth fault disables the connectors and OAuth paths. Each setup step has a check before the deploy.
 
 ## Owner steps
 

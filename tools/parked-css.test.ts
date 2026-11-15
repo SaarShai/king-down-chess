@@ -11,7 +11,8 @@ const PARKED = ['#design', '#design-line', '#copy', '#army-note', '#other-armies
 
 it('the shipped stylesheets hold no rule for a parked element', () => {
   const found: Record<string, string[]> = {};
-  for (const file of ['src/style.css', 'src/ui/table.css', 'src/ceremony.css', 'src/plugin/screens/profile.css', 'src/plugin/screens/end.css']) {
+  for (const file of ['src/style.css', 'src/ui/table.css', 'src/ceremony.css', 'src/plugin/screens/profile.css', 'src/plugin/screens/end.css',
+    'src/interface/ui/tokens.css', 'src/interface/ui/components.css', 'src/interface/play/play.css']) {
     const css = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     const selectors = css.replace(/\{[^{}]*\}/g, '{}');
     const names = PARKED.filter(name => new RegExp(`${name.replace('.', '\\.')}(?![\\w-])`).test(selectors));

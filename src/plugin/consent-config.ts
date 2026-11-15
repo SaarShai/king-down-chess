@@ -1,12 +1,13 @@
 /** Only public Supabase configuration may cross into the authorization page. */
-import { ACTOR_UUID } from './auth';
+import { ACTOR_UUID, isLoopback } from './auth';
 export interface WebsiteConfig { supabaseUrl: string; publishableKey: string }
 /** `museClientIds`: the listed clients whose resource is /muse/mcp (tools/plugin-server.mjs); the page names Muse for them. */
 export interface ConsentConfig extends WebsiteConfig { clientIds: string[]; museClientIds?: string[] }
 /** The public Supabase settings that the website API needs; the parked ChatGPT plugin needs no OAuth client. */
-export function websiteConfig(env: Record<string, string | undefined>): WebsiteConfig {
+export function websiteConfig(env: Record<string, string | undefined>, { localLoopback = false } = {}): WebsiteConfig {
   const supabaseUrl = new URL(env.SUPABASE_URL ?? '');
-  if (supabaseUrl.protocol !== 'https:' || supabaseUrl.username || supabaseUrl.password || supabaseUrl.pathname !== '/' || supabaseUrl.search || supabaseUrl.hash) throw new Error('A fixed HTTPS Supabase origin is required');
+  const allowedLocal = localLoopback && supabaseUrl.protocol === 'http:' && isLoopback(supabaseUrl.hostname);
+  if ((!allowedLocal && supabaseUrl.protocol !== 'https:') || supabaseUrl.username || supabaseUrl.password || supabaseUrl.pathname !== '/' || supabaseUrl.search || supabaseUrl.hash) throw new Error('A fixed HTTPS Supabase origin is required');
   const publishableKey = env.SUPABASE_PUBLISHABLE_KEY ?? '';
   let publicKey = /^sb_publishable_[A-Za-z0-9_-]+$/.test(publishableKey);
   if (!publicKey && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(publishableKey)) {

@@ -8,6 +8,8 @@ const FLOW = /^[A-Za-z0-9_-]{8,64}$/;
 const CALLBACK_FIELDS = ['code', 'sb_flow_id', 'error', 'error_code', 'error_description', 'state', 'access_token', 'refresh_token', 'provider_token', 'provider_refresh_token', 'expires_in', 'expires_at', 'token_type', 'type'];
 
 export type SignInHost = {
+  /** The new interface opts in. The old account entry keeps its route and provider set. */
+  entryPath?: '/next.html';
   location: Pick<Location, 'href' | 'assign'>;
   history: Pick<History, 'state' | 'replaceState'>;
   storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -25,11 +27,17 @@ function targetRoute(target: unknown, origin: string): AccountEntryRoute | undef
   return parseAccountRoute(url);
 }
 
-export async function beginAccountSignIn(provider: 'google' | 'github', target: string, host: SignInHost): Promise<void> {
+export function signInPath(route: AccountEntryRoute, entryPath?: '/next.html'): string {
+  if (!entryPath) return accountPath(route);
+  if (route.screen === 'game') return `${entryPath}#online=${route.gameId}`;
+  if (route.screen === 'join') return `${entryPath}#join=${route.key ?? ''}`;
+  return entryPath + (route.screen === 'new-friend' ? '#person' : '#play');
+}
+export async function beginAccountSignIn(provider: 'google' | 'github' | 'facebook', target: string, host: SignInHost): Promise<void> {
   const route = targetRoute(target, new URL(host.location.href).origin);
-  if (!route || (provider !== 'google' && provider !== 'github')) throw new TypeError('Invalid sign-in target');
+  if (!route || (provider !== 'google' && provider !== 'github' && !(provider === 'facebook' && host.entryPath))) throw new TypeError('Invalid sign-in target');
   host.storage.removeItem(FLOW_KEY);
-  const { url, flowId } = await (await host.client()).startAccountSignIn(provider);
+  const { url, flowId } = await (await host.client()).startAccountSignIn(provider, ...(host.entryPath ? [{ entryPath: host.entryPath }] : []));
   const created = host.now();
   if (!FLOW.test(flowId) || !Number.isFinite(created)) throw new TypeError('Sign-in did not start');
   host.storage.setItem(FLOW_KEY, JSON.stringify({ flow: flowId, target: accountPath(route), created }));
@@ -47,11 +55,11 @@ export async function consumeSignInReturn(host: SignInHost): Promise<SignInRetur
   const retry = { status: 'retry' } as const;
   let stored: string | null = null, cleared = true;
   // Clear the address and consume the tab record before the SDK starts.
-  try { host.history.replaceState(host.history.state, '', '/play/'); }
+  try { host.history.replaceState(host.history.state, '', host.entryPath ?? '/play/'); }
   catch { cleared = false; }
   try { stored = host.storage.getItem(FLOW_KEY); } catch { cleared = false; }
   try { host.storage.removeItem(FLOW_KEY); } catch { cleared = false; }
-  if (!cleared || !stored || url.pathname !== '/play/' || url.username || url.password) return retry;
+  if (!cleared || !stored || url.pathname !== (host.entryPath ?? '/play/') || url.username || url.password) return retry;
   try {
     const record = JSON.parse(stored);
     if (!record || typeof record !== 'object' || Array.isArray(record) || Object.keys(record).length !== 3
@@ -63,7 +71,7 @@ export async function consumeSignInReturn(host: SignInHost): Promise<SignInRetur
       || CALLBACK_FIELDS.some(key => key !== 'code' && key !== 'sb_flow_id' && query.has(key))) return retry;
     if (age > MAX_AGE_MS) return { status: 'retry', reason: 'expired' };
     const session = await (await host.client()).finishAccountSignIn(query.get('code')!, record.flow);
-    host.history.replaceState(host.history.state, '', accountPath(route));
+    host.history.replaceState(host.history.state, '', signInPath(route, host.entryPath));
     return { status: 'signed-in', session, route };
   } catch { return retry; }
 }

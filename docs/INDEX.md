@@ -50,6 +50,7 @@ When you add, move or remove an entry at the top of `docs/`, change its line her
 - [match-foundation.md](match-foundation.md): How do I use the match module for validated moves, saves and replays?
 - [plugin-beta-support.md](plugin-beta-support.md): What must a private beta prove, and how do I support its players?
 - [staging-support-operator.md](staging-support-operator.md): How do I run the support commands against staging, and never against production?
+- [online-local.md](online-local.md): How do I start, sign in to and reset the local online test stack?
 - [submission/](submission/): What goes in the plugin review packet? Drafts; the owner submits. Start at [checklist.md](submission/checklist.md).
 - [safety/](safety/): Which terms, contact, safety and UK risk documents do we have? Drafts for the owner and a lawyer.
 - [qa/](qa/): How does a QA agent test the plugin and review its UX, and what did the rounds of 2026-10-15 find?

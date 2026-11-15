@@ -154,10 +154,10 @@ export const DOCUMENT_PINS: Readonly<Record<string, Readonly<Record<string, stri
   },
   "docs/RULES.md": {
     "# King Down Chess — current rules and dated decisions": "37e2c9e87e0353e65f7c5164c11455ad217029425b62a53d9a7253a13f4fb6bc",
-    "## 1. Base rules": "e5ec441e544e9912eacd2a9261ef44f1a2fb9eecb43ae19cf8a64976ee1c39b6",
+    "## 1. Base rules": "4839f7becadecb91ee7710313d0fd546d3379e6021dbf6914021ad8910413b02",
     "## 2. Setup (Chess960-style)": "30867c09e79cc4aee72964d8e1a3dd2e6063a63684ea9fa1e8e28c36e9ec5d07",
     "## 3. Pieces": "8bbfdf85044c43e9c2a6012506c950aee12dcabe02c1123ce0badf0ca15eebae",
-    "## 4. Kings' powers mode (all twelve built; the balanced readings are the official rules)": "4238b48e3fac81c69657997e8c980b7b647b481c3607f8ad177893ab9a10ae05",
+    "## 4. Kings' powers mode (all twelve built; the balanced readings are the official rules)": "fd9949e9257851dde7709c7f1577ad0db5dbcb2c938f3e3bd05fa30c1fdd7d2a",
     "## 5. Card / spell effects (documented, not yet enabled)": "de5b83ad092b776cd9f8ce92f6b2316ede57229bff0bef4c1821a630145abfbd",
     "## 6. Decisions (2026-09-13, chosen for balance and fun)": "fd67475729af37c7501d1a41c790ff86b20989e1da96ca4607b0d6d3f4a1190f",
     "### First measured evidence (2026-09-13, provisional) — superseded by §6.8": "17ec3107221657cc6acd94c806ecf0729f4131e48711471efaf6ac6ee7406524"

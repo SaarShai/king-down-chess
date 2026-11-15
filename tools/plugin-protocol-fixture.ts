@@ -2,8 +2,9 @@
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { createMatch, loadMatch, type LocalMatch, type MatchSetup } from '../src/match';
 import { MatchServiceError, type PostgresMatchStore } from '../src/match/store';
+import { INVITE_NOTICES } from '../src/match/invite-notices';
 import { FRIEND_CODE_DAYS, GameService, startKey, TURN_DAYS, UNFINISHED } from '../src/match/service';
-import { createSchema, commandSchema, type CreateOptions, type RatingPolicy, type InboxEntry, type View, type Seat, type LoggedCommand, type HistoryEntry, type PlayerRecord } from '../src/match/protocol';
+import { createSchema, commandSchema, inviteSchema, friendsSchema, invitationsSchema, type CreateOptions, type RatingPolicy, type InboxEntry, type View, type Seat, type LoggedCommand, type HistoryEntry, type PlayerRecord, type InvitationRow, type InvitationState, type Friend } from '../src/match/protocol';
 import { RANKED_OPTIONS, buildSetup, defaultChoice, draw, seatChoicesNeeded, switches, validateChoice, type Draw, type Choice } from '../src/match/setup';
 import { handleSchema, type PluginService } from '../src/plugin/service';
 import { settingsSchema, type PlayerSettings } from '../src/plugin/settings';
@@ -16,8 +17,10 @@ const inviteId = (token: string) => createHash('sha256').update(token).digest('h
 const fail = (code: MatchServiceError['code'], status: number, message: string): never => { throw new MatchServiceError(code, status, message); };
 const parse = <T>(schema: {safeParse(input:unknown):{success:boolean;data?:T}}, input:unknown):T => { const value = schema.safeParse(input); return value.success ? value.data! : fail('INVALID_INPUT',400,'Invalid input'); };
 const creation = (input:unknown):CreateOptions => { const parsed = parse<CreateOptions>(createSchema,input); return parsed.mode === 'ranked' ? { ...parsed, colour:'random', options:RANKED_OPTIONS } : parsed; };
-interface Game { rating_policy:RatingPolicy; id:string; creator:string; input:CreateOptions; match?:LocalMatch; engine?:string; players:(string|null)[]; choices:[Choice|null,Choice|null]; ready:[boolean,boolean]; drawn?:Draw; turns:[number,number]; revision:number; status:View['status']; result?:View['result']; commands:Map<string,string>; log:LoggedCommand[]; invite?:{token:string;code:string;expires_at:string;used_by?:string}; draw_offer:Seat|null; rematch_offer:Seat|null; rematch_game_id:string|null; created:number; updated:number; setup_deadline:string|null; deadline:string|null }
-export interface FixtureSeed { notices?: AccountNotice[]; history?:HistoryEntry[]; games?:InboxEntry[]; record?:PlayerRecord; views?:Record<string,Partial<View>> }
+interface FixtureInvite { invite_id:string; token:string; code:string; created_by:string; recipient_id:string|null; recipient_actor:string|null; state:InvitationState; expires_at:string; created_at:number; used_by?:string }
+interface Game { rating_policy:RatingPolicy; id:string; creator:string; input:CreateOptions; match?:LocalMatch; engine?:string; players:(string|null)[]; choices:[Choice|null,Choice|null]; ready:[boolean,boolean]; drawn?:Draw; turns:[number,number]; revision:number; status:View['status']; result?:View['result']; commands:Map<string,string>; log:LoggedCommand[]; invite?:FixtureInvite; draw_offer:Seat|null; rematch_offer:Seat|null; rematch_game_id:string|null; created:number; updated:number; setup_deadline:string|null; deadline:string|null }
+export interface FixtureMetadata { avatar_url?: unknown; picture?: unknown; provider?: string }
+export interface FixtureSeed { notices?: AccountNotice[]; history?:HistoryEntry[]; games?:InboxEntry[]; invitations?:InvitationRow[]; record?:PlayerRecord; views?:Record<string,Partial<View>>; metadata?:FixtureMetadata; accepting_games?: boolean; challenge_from?: 'nobody' | 'follows' | 'signed-in' | 'everyone' }
 /** A seed may leave out `rating_policy` on a history row, as an old row does; `seed` reads it as legacy. */
 export type FixtureSeedInput = Omit<FixtureSeed,'history'> & { history?: (Omit<HistoryEntry,'rating_policy'> & Partial<Pick<HistoryEntry,'rating_policy'>>)[] };
 /** The match engine of the fixture's games. A compiled page check passes its built runtime, so each game carries the
@@ -26,9 +29,48 @@ export type FixtureEngine = { createMatch: typeof createMatch; loadMatch: typeof
 // The default reads the module bindings at each call, so a test can spy on them.
 export function fixtureService(engine: FixtureEngine = { createMatch: (...args) => createMatch(...args), loadMatch: (...args) => loadMatch(...args) }): Pick<PluginService,keyof PluginService> & { seedPosition(setup:MatchSetup,black:boolean):Promise<string>; seed(actor:string,data:FixtureSeedInput):void; deleteMatch(id:string):Promise<void>; close():Promise<void> } {
  // A start command ID names the game it made, joined or reused, with its input, as the database's start receipt does.
- const games = new Map<string,Game>(), starts = new Map<string,{game:string;input:string}>(), boards = new Map<string,{actor:string;game:string|null;selected:boolean}>(), profiles = new Map<string,{user_id:string;handle:string|null;icon:Icon|null}>(), settings = new Map<string,PlayerSettings>(), seeds = new Map<string,FixtureSeed>();
+ const games = new Map<string,Game>(), starts = new Map<string,{game:string;input:string}>(), boards = new Map<string,{actor:string;game:string|null;selected:boolean}>(), profiles = new Map<string,{user_id:string;handle:string|null;icon:Icon|null}>(), settings = new Map<string,PlayerSettings>(), seeds = new Map<string,FixtureSeed>(), metadata = new Map<string,FixtureMetadata>();
  const blocks = new Set<string>();
  const unblocked = (a:string,b:string) => !blocks.has(`${a}:${b}`) && !blocks.has(`${b}:${a}`);
+ const text = (v: unknown): string | null => typeof v === 'string' && v.trim() ? v.trim() : null;
+ function userAvatar(viewer: string, subject: string | null): string | null {
+  if (!viewer || !subject || viewer === subject || !unblocked(viewer, subject)) return null;
+  const linked = [...games.values()].some(g => g.players.includes(viewer) && g.players.includes(subject)
+   || g.invite?.recipient_actor && (g.invite.created_by === viewer && g.invite.recipient_actor === subject || g.invite.created_by === subject && g.invite.recipient_actor === viewer));
+  if (!linked) return null;
+  const m = metadata.get(subject);
+  if (!m || m.provider === 'email') return null;
+  const url = text(m.avatar_url) ?? text(m.picture);
+  return url && /^https:\/\//.test(url) && url.length <= 2048 ? url : null;
+ }
+ function pairCount(a: string, b: string): number {
+  return [...games.values()].filter(g => g.input.kind !== 'solo' && (g.status === 'setup' || g.status === 'playing') && g.players.includes(a) && g.players.includes(b)).length;
+ }
+ function pendingCount(sender: string, recipient: string | null): number {
+  const now = new Date().toISOString();
+  return [...games.values()].filter(g => g.status === 'waiting' && g.invite?.created_by === sender && g.invite.state === 'open' && g.invite.expires_at > now && (recipient ? g.invite.recipient_actor === recipient : g.invite.recipient_actor === null)).length;
+ }
+ async function resolveRecipient(actor: string, input: { recipient_id?: string; recipient_handle?: string }): Promise<{ actor: string; user_id: string } | null> {
+  if (!input.recipient_id && !input.recipient_handle) return null;
+  const wanted = input.recipient_handle?.trim().toLowerCase();
+  for (const [candidate, p] of profiles.entries()) {
+   if (!p.handle || candidate === actor) continue;
+   if (input.recipient_id ? p.user_id === input.recipient_id : p.handle === wanted) return { actor: candidate, user_id: p.user_id };
+  }
+  return fail('NOT_FOUND', 404, INVITE_NOTICES.notFound);
+ }
+ async function issueInvite(game: Game, actor: string, recipient: { actor: string; user_id: string } | null, expires?: string): Promise<FixtureInvite> {
+  const token = randomBytes(32).toString('base64url'), code = Array.from({ length: 6 }, () => CODE[randomInt(CODE.length)]).join('');
+  game.invite = { invite_id: inviteId(token), token, code, created_by: actor, recipient_id: recipient?.user_id ?? null, recipient_actor: recipient?.actor ?? null, state: 'open', expires_at: expires ?? new Date(Date.now() + FRIEND_CODE_DAYS * DAY).toISOString(), created_at: Date.now() };
+  return game.invite;
+ }
+ async function invitationRowFor(actor: string, g: Game): Promise<InvitationRow | null> {
+  if (!g.invite) return null;
+  const peerActor = g.invite.created_by === actor ? g.invite.recipient_actor : g.invite.created_by;
+  const peer = peerActor ? await profile(peerActor) : null;
+  const expired = (g.invite.state === 'open' || g.invite.state === 'cancelled') && g.invite.expires_at <= new Date().toISOString();
+  return { revision: g.revision, invite_id: g.invite.invite_id, game_id: g.id, direction: g.invite.created_by === actor ? 'outgoing' : 'incoming', recipient_id: g.invite.recipient_id, player: peer && peerActor ? { user_id: peer.user_id, handle: peer.handle, icon: peer.icon, avatar: userAvatar(actor, peerActor) } : null, options: g.input.options ?? null, expires_at: g.invite.expires_at, state: expired ? 'expired' : g.invite.state };
+ }
  let reports = 0;
  // Actor names select fixture users; public account IDs have the database UUID format.
  const historySeeded = new Map<string,number>();
@@ -53,24 +95,38 @@ export function fixtureService(engine: FixtureEngine = { createMatch: (...args) 
  async function create(actor:string,input:unknown,commandId?:string):Promise<View> {
   const options = creation(input); if (options.kind !== 'solo') await requireHandle(actor);
   const done = resent(actor,commandId,startKey(options)); if (done) return done;
+  const send = options.kind === 'friend' && !!(options.recipient_id || options.recipient_handle);
+  const recipient = send ? await resolveRecipient(actor, options) : null;
+  if (send && recipient) {
+   if (!unblocked(actor, recipient.actor)) fail('FORBIDDEN', 403, INVITE_NOTICES.permission);
+   const recSeed = seeds.get(recipient.actor);
+   if (recSeed?.accepting_games === false || recSeed?.challenge_from === 'nobody') fail('FORBIDDEN', 403, INVITE_NOTICES.permission);
+   const pair = pairCount(actor, recipient.actor);
+   if (pair >= 5) throw new MatchServiceError('FRIEND_GAME_LIMIT', 409, INVITE_NOTICES.gameLimit(pair, (await profile(recipient.actor)).handle), { count: pair, handle: (await profile(recipient.actor)).handle });
+   const open = pendingCount(actor, recipient.actor);
+   if (open >= 2) throw new MatchServiceError('FRIEND_INVITE_LIMIT', 409, INVITE_NOTICES.namedLimit((await profile(recipient.actor)).handle, open), { count: open, handle: (await profile(recipient.actor)).handle });
+  }
   const seat:Seat = options.colour === 'black' ? 1 : options.colour === 'random' ? randomInt(2) as Seat : 0, solo = options.kind === 'solo', drawn = options.options ? draw(options.options,Math.random) : undefined;
   const needs = !!options.options && Object.values(seatChoicesNeeded(options.options)).some(Boolean);
   const game:Game = {rating_policy:options.mode === 'ranked' ? 'ranked-v1' : 'casual',id:randomUUID(),creator:actor,input:options,players:[null,null],choices:[null,null],ready:[!needs,!needs],drawn,turns:[0,0],revision:0,status:solo ? 'setup' : 'waiting',commands:new Map(),log:[],draw_offer:null,rematch_offer:null,rematch_game_id:null,created:Date.now(),updated:Date.now(),setup_deadline:null,deadline:null};
   game.players[seat] = actor;
   if (drawn) for (const s of [0,1] as const) { game.choices[s] = defaultChoice(options.options!,drawn,s,Math.random,solo && s !== seat); if (solo && s !== seat) game.ready[s] = true; }
   games.set(game.id,game); if (commandId !== undefined) starts.set(`${actor}:${commandId}`,{game:game.id,input:JSON.stringify(startKey(options))});
+  const issued = send ? await issueInvite(game, actor, recipient) : undefined;
   if (solo) await enter(game); else if (!options.options) { await start(game); game.status = 'waiting'; }
-  return view(actor,game.id);
+  const rendered = await view(actor,game.id);
+  return { ...rendered, ...(issued && { invite: { token: issued.token, code: issued.code, expires_at: issued.expires_at, invite_id: issued.invite_id, recipient_id: issued.recipient_id } }) };
  }
  async function view(actor:string,id:string,since?:number):Promise<View> {
   const game = load(id), seat = seatOf(game,actor), snapshot = await game.match?.snapshot(), playing = game.status === 'playing', other = (1-seat) as Seat, opponent = game.players[other], solo = game.input.kind === 'solo';
   const otherProfile = opponent ? await profile(opponent) : null, allReady = game.ready.every(Boolean), speed = solo ? 'live' : 'daily';
   const canSwitch = solo && [...games.values()].some(g=>g.input.kind === 'random' && g.creator === actor && g.created<=game.created && ['setup','playing'].includes(g.status) && g.log.some(c=>c.action.type === 'join' && Date.parse(c.at)>game.created));
+  const inviteMeta = game.input.kind === 'friend' ? await invitationRowFor(actor, game) : null;
   const { outcome, rules: seededRules, ...seeded } = seeds.get(actor)?.views?.[id] ?? {};
-  return {...seeded, ...(game.input.kind === 'friend' && game.status === 'waiting' && {invite_id:game.invite ? inviteId(game.invite.token) : null}), rating_policy:game.rating_policy,game_id:id,engine_fingerprint:game.engine ?? null,revision:game.revision,created_at:new Date(game.created).toISOString(),abort_open:game.status === 'waiting' || game.status === 'setup' || playing && (game.turns.some(n=>!n) || canSwitch),seat,kind:game.input.kind,speed,days_per_move:speed === 'daily' ? TURN_DAYS : null,status:game.status,turn:snapshot?.turn ?? 0,
+  return {...seeded, ...(game.input.kind === 'friend' && {invite_id:inviteMeta?.invite_id ?? null}), ...(inviteMeta && {invitation:inviteMeta}), rating_policy:game.rating_policy,game_id:id,engine_fingerprint:game.engine ?? null,revision:game.revision,created_at:new Date(game.created).toISOString(),abort_open:game.status === 'waiting' || game.status === 'setup' || playing && (game.turns.some(n=>!n) || canSwitch),seat,kind:game.input.kind,speed,days_per_move:speed === 'daily' ? TURN_DAYS : null,status:game.status,turn:snapshot?.turn ?? 0,
    action:playing ? snapshot!.turn === seat ? 'ready' : 'waiting' : game.status === 'setup' ? game.ready[seat] ? 'waiting' : 'ready' : game.status === 'waiting' ? 'waiting' : 'done',fen:snapshot?.fen ?? '',in_check:snapshot?.inCheck ?? false,legal:playing && snapshot!.turn === seat ? snapshot!.legal : [],
    last_commands:game.log.filter(c=>c.seq>(since ?? 0)).slice(since === undefined ? -10 : -50).map(c=>c.seat === other && (c.action.type === 'choose' && !allReady || c.action.type === 'say' && opponent && !unblocked(actor,opponent)) ? {...c,action:{type:'hidden'}} : c),
-   opponent:opponent || solo ? {handle:otherProfile?.handle ?? null,icon:otherProfile?.icon ?? null,computer:solo,deleted:false,last_seen_ms:null,...(since === undefined && opponent && {rating:{rating:1500,provisional:true}})} : null,
+   opponent:opponent || solo ? {handle:otherProfile?.handle ?? null,icon:otherProfile?.icon ?? null,avatar:opponent && !solo ? userAvatar(actor,opponent) : null,computer:solo,deleted:false,last_seen_ms:null,...(since === undefined && opponent && {rating:{rating:1500,provisional:true}})} : null,
    rematch_allowed:solo || !opponent || unblocked(actor,opponent),draw_offer:game.draw_offer,rematch_offer:game.rematch_offer,rematch_game_id:game.rematch_game_id,level:game.input.level ?? 'club',...(game.result && {result:game.result}),deadline_at:game.deadline,server_now:new Date().toISOString(),
    ...(game.drawn && {options:game.input.options,draw:game.drawn.army,deal:game.drawn.hand,choices:game.choices.map((c,s)=>s === seat || allReady ? c : null) as View['choices'],ready:[...game.ready] as [boolean,boolean],setup_deadline_at:game.setup_deadline}),
    ...(snapshot && {kings:snapshot.rules.kings,hands:snapshot.rules.hands,...(since === undefined && {rules:snapshot.rules,history:{initial_fen:JSON.parse(await game.match!.exportSave()).initialFen,actions:snapshot.history}})}),
@@ -78,12 +134,62 @@ export function fixtureService(engine: FixtureEngine = { createMatch: (...args) 
  }
  async function accept(actor:string,id:string,ratingPolicy?:RatingPolicy) { await requireHandle(actor); const game = load(id); if (ratingPolicy !== game.rating_policy && !(ratingPolicy === undefined && game.rating_policy === 'legacy')) fail('MATCH_INCOMPATIBLE',409,'Choose this game policy before you accept the seat'); if (game.players.includes(actor)) return view(actor,id); const seat = game.players.indexOf(null); if (!unblocked(actor,game.creator)) fail('FORBIDDEN',403,'This open game cannot be accepted'); if (game.status !== 'waiting' || seat < 0) fail('NOT_ALLOWED',409,'This open game is no longer available'); game.players[seat] = actor; game.revision++; game.updated = Date.now(); game.log.push({seq:game.revision,seat:seat as Seat,action:{type:'join'},at:new Date().toISOString()}); await enter(game); return view(actor,id); }
  async function lobby(actor:string) { return {games:await Promise.all([...games.values()].filter(g=>g.input.kind === 'random' && g.status === 'waiting' && !g.players.includes(actor) && unblocked(actor,g.creator)).map(async g=>({rating_policy:g.rating_policy,game_id:g.id,options:g.input.options ?? null,colour:g.players[0] === null ? 'white' as const : 'black' as const,creator:{handle:(await profile(g.players.find(Boolean)!)).handle!,icon:(await profile(g.players.find(Boolean)!)).icon},created_at:new Date(g.created).toISOString()})))}; }
- async function invitation(code:unknown,actor?:string) { const key = String(code).trim(), normalized = key.toUpperCase().replace(/[\s-]/g,''); if (!/^[A-Za-z0-9_-]{43}$/.test(key) && !/^[A-HJKMNP-Z2-9]{6}$/.test(normalized)) fail('INVALID_INPUT',400,'Invalid invitation'); const game = [...games.values()].find(g=>g.invite && (g.invite.token === key || g.invite.code === normalized)) ?? fail('INVITE_UNAVAILABLE',404,'Invitation unavailable'); if (actor && game.invite!.used_by === actor && game.players.includes(actor)) return game; if (game.status !== 'waiting' || game.invite!.expires_at <= new Date().toISOString()) fail('INVITE_UNAVAILABLE',409,'Invitation expired or used'); return game; }
+ async function invitation(code:unknown,actor?:string) {
+  let game: Game | undefined, byId = false;
+  if (typeof code === 'object' && code !== null && 'invite_id' in code && typeof code.invite_id === 'string') {
+   byId = true;
+   game = [...games.values()].find(g => g.invite?.invite_id === code.invite_id) ?? fail('INVITE_UNAVAILABLE',404,INVITE_NOTICES.unavailable);
+  } else {
+   const key = String(code).trim(), normalized = key.toUpperCase().replace(/[\s-]/g,'');
+   if (!/^[A-Za-z0-9_-]{43}$/.test(key) && !/^[A-HJKMNP-Z2-9]{6}$/.test(normalized)) fail('INVALID_INPUT',400,'Invalid invitation');
+   game = [...games.values()].find(g=>g.invite && (g.invite.token === key || g.invite.code === normalized)) ?? fail('INVITE_UNAVAILABLE',404,'Invitation unavailable');
+  }
+  const inv = game.invite!;
+  if (actor && (byId ? inv.recipient_actor !== actor : inv.recipient_actor && inv.recipient_actor !== actor && inv.created_by !== actor)) fail('INVITE_UNAVAILABLE',404,byId ? INVITE_NOTICES.unavailable : 'Invitation unavailable');
+  if (actor && inv.used_by === actor && game.players.includes(actor)) return game;
+  if (inv.expires_at <= new Date().toISOString()) fail('INVITE_UNAVAILABLE',409,byId ? INVITE_NOTICES.expired : 'Invitation expired or used');
+  if (inv.state !== 'open' || game.status !== 'waiting') fail('INVITE_UNAVAILABLE',409,byId ? INVITE_NOTICES.closed : 'Invitation expired or used');
+  return game;
+ }
  return {
   async toolTry() {},
-  async friends() { return { friends: [], next_after: null }; },
-  async invitations() { return { invitations: [], next_before: null }; },
-  async declineInvite() { return fail('INVITE_UNAVAILABLE', 404, 'This invitation is not available now. Return to Your games.'); },
+  async friends(actor, input = {}) {
+   const page = parse(friendsSchema, input), needle = page.handle?.trim().toLowerCase();
+   const candidates = new Map<string, { source: Friend['source']; recent: number }>();
+   for (const g of games.values()) {
+    if (!g.players.includes(actor) || g.input.kind === 'solo') continue;
+    const peer = g.players.find(p => p && p !== actor);
+    if (peer) candidates.set(peer, { source: 'recent', recent: Math.max(candidates.get(peer)?.recent ?? 0, g.updated) });
+   }
+   const list: (Friend & { recent: number })[] = [];
+   for (const [peer, p] of profiles.entries()) {
+    if (peer === actor || !p.handle || !unblocked(actor, peer)) continue;
+    const cand = candidates.get(peer);
+    if (needle ? p.handle !== needle : !cand) continue;
+    list.push({ user_id: p.user_id, handle: p.handle, icon: p.icon, source: cand ? 'recent' : 'lookup', recent: cand?.recent ?? 0 });
+   }
+   list.sort((a, b) => (a.source === 'recent' ? 0 : 1) - (b.source === 'recent' ? 0 : 1) || b.recent - a.recent || a.user_id.localeCompare(b.user_id));
+   if (needle && !list.length) fail('NOT_FOUND', 404, INVITE_NOTICES.notFound);
+   const startAt = page.after ? list.findIndex(f => f.user_id === page.after) + 1 : 0;
+   const slice = list.slice(startAt, startAt + page.limit).map(({ recent: _recent, ...f }) => f);
+   return { friends: slice, next_after: startAt + page.limit < list.length ? slice.at(-1)!.user_id : null };
+  },
+  async invitations(actor, input = {}) {
+   const page = parse(invitationsSchema, input);
+   const live = await Promise.all([...games.values()].filter(g => g.invite && (g.invite.created_by === actor || g.invite.recipient_actor === actor && unblocked(g.invite.created_by, actor))).map(async g => ({ at: g.invite!.created_at, row: (await invitationRowFor(actor, g))! })));
+   const seeded = (seeds.get(actor)?.invitations ?? []).map((row, idx) => ({ at: Date.parse(row.expires_at) - idx, row }));
+   const rows = [...live, ...seeded].sort((a, b) => b.at - a.at || b.row.invite_id.localeCompare(a.row.invite_id)).map(entry => entry.row).filter(r => !page.before || r.invite_id < page.before.split('|')[1]);
+   const slice = rows.slice(0, page.limit);
+   return { invitations: slice, next_before: rows.length > page.limit ? `${new Date().toISOString()}|${slice.at(-1)!.invite_id}` : null };
+  },
+  async declineInvite(actor, inviteId) {
+   const g = [...games.values()].find(game => game.invite?.invite_id === inviteId) ?? fail('INVITE_UNAVAILABLE', 404, 'This invitation is not available now. Return to Your games.');
+   if (g.invite!.recipient_actor !== actor) fail('INVITE_UNAVAILABLE', 404, INVITE_NOTICES.unavailable);
+   if (g.invite!.state === 'open' && g.invite!.expires_at > new Date().toISOString() && g.status === 'waiting') {
+    g.invite!.state = 'declined'; g.status = 'aborted'; g.setup_deadline = null; g.deadline = null; g.result = { winner: null, reason: 'abort' }; g.revision++; g.updated = Date.now();
+   }
+   return (await invitationRowFor(actor, g))!;
+  },
   async seedPosition(setup,black) {
    const created = await create('alice',{kind:'solo',colour:black?'black':'white',setup});
    if (black) { const game = load(created.game_id); game.input.kind = 'friend'; game.players[0] = 'bob'; }
@@ -142,7 +248,7 @@ export function fixtureService(engine: FixtureEngine = { createMatch: (...args) 
     }
     if ((await g.match!.snapshot()).turn !== turn) g.turns[turn]++; if (g.draw_offer !== turn) g.draw_offer = null; await end(g);
    } else if (action.type === 'resign') Object.assign(g,{status:'finished',result:{winner:1-seat,reason:'resignation'}});
-   else if (action.type === 'abort') { if (!(await view(actor,id)).abort_open) fail('NOT_ALLOWED',409,'Abort is closed'); Object.assign(g,{status:'aborted',setup_deadline:null,deadline:null,result:{winner:null,reason:'abort'}}); }
+   else if (action.type === 'abort') { if (!(await view(actor,id)).abort_open) fail('NOT_ALLOWED',409,'Abort is closed'); if (g.invite?.state === 'open') g.invite.state = 'cancelled'; Object.assign(g,{status:'aborted',setup_deadline:null,deadline:null,result:{winner:null,reason:'abort'}}); }
    else if (action.type === 'draw') { if (g.input.kind === 'solo' || (action.choice === 'offer' ? g.draw_offer !== null : g.draw_offer !== 1-seat)) fail('NOT_ALLOWED',409,'No draw offer is possible now'); if (action.choice === 'offer') g.draw_offer = seat; else {g.draw_offer = null; if (action.choice === 'accept') Object.assign(g,{status:'finished',result:{winner:null,reason:'agreement'}});} }
    else if (action.type === 'claim') { if (!g.deadline || g.deadline > new Date().toISOString() || (await g.match!.snapshot()).turn === seat) fail('NOT_ALLOWED',409,'There is no missed deadline to claim'); Object.assign(g,{status:g.turns.every(Boolean) ? 'finished' : 'aborted',result:{winner:g.turns.every(Boolean) ? seat : null,reason:g.turns.every(Boolean) ? 'timeout' : 'no_start'}}); }
    else if (action.type === 'rematch') {
@@ -153,9 +259,29 @@ export function fixtureService(engine: FixtureEngine = { createMatch: (...args) 
    }
    g.revision++; g.updated = Date.now(); g.commands.set(key,payload); g.log.push({seq:g.revision,seat,action,at:new Date(g.updated).toISOString()}); return view(actor,id,g.revision-1);
   },
-  async invite(actor,id) { const g = load(id); seatOf(g,actor); if (g.input.kind !== 'friend' || g.status !== 'waiting') fail('FORBIDDEN',403,'Only the waiting creator can invite'); g.invite = {token:randomBytes(32).toString('base64url'),code:Array.from({length:6},()=>CODE[randomInt(CODE.length)]).join(''),expires_at:new Date(Date.now()+FRIEND_CODE_DAYS*DAY).toISOString()}; return {...g.invite, invite_id:inviteId(g.invite.token)}; },
-  async preview(actor,code) { const g = await invitation(code), creator = await profile(g.players.find(Boolean)!); if (g.players.includes(actor)) fail('FORBIDDEN',403,'You already have a seat'); return {code:g.invite!.code,options:g.input.options ?? null,colour:g.players[0] === null ? 'white' : 'black',kind:g.input.kind,creator:{handle:creator.handle,icon:creator.icon},expires_at:g.invite!.expires_at}; },
-  async join(actor,code) { await requireHandle(actor); const g = await invitation(code,actor); if (g.players.includes(actor) && g.invite!.used_by !== actor) fail('FORBIDDEN',403,'You already have a seat'); const joined = await accept(actor,g.id,g.rating_policy); g.invite!.used_by = actor; return joined; },
+  async invite(actor,id,input={}) {
+   const g = load(id); seatOf(g,actor); const opts = parse(inviteSchema, input);
+   if (g.input.kind !== 'friend' || g.status !== 'waiting') fail('FORBIDDEN',403,'Only the waiting creator can invite');
+   if (g.invite && g.invite.state !== 'open') fail('INVITE_UNAVAILABLE',409,INVITE_NOTICES.closed);
+   const recipient = g.invite?.recipient_actor ? { actor: g.invite.recipient_actor, user_id: g.invite.recipient_id! } : await resolveRecipient(actor, opts);
+   const inv = await issueInvite(g, actor, recipient, g.invite?.expires_at);
+   return { token: inv.token, code: inv.code, expires_at: inv.expires_at, invite_id: inv.invite_id, recipient_id: inv.recipient_id };
+  },
+  async preview(actor,code) {
+   const g = await invitation(code, actor), hostActor = g.players.find(Boolean)!, creator = await profile(hostActor);
+   if (g.invite!.recipient_actor && g.invite!.recipient_actor !== actor && hostActor !== actor) fail('INVITE_UNAVAILABLE',404,INVITE_NOTICES.unavailable);
+   if (!unblocked(actor, hostActor)) fail('INVITE_UNAVAILABLE',404,INVITE_NOTICES.unavailable);
+   const rec = g.invite!.recipient_actor ? (await profile(g.invite!.recipient_actor)).handle : null;
+   return {code:g.invite!.code,options:g.input.options ?? null,colour:g.players[0] === null ? 'white' : 'black',kind:g.input.kind,creator:{handle:creator.handle,icon:creator.icon,avatar:userAvatar(actor,hostActor)},expires_at:g.invite!.expires_at,recipient_id:g.invite!.recipient_id,recipient_handle:rec,invite_id:g.invite!.invite_id};
+  },
+  async join(actor,code) {
+   await requireHandle(actor); const g = await invitation(code,actor);
+   if (g.players.includes(actor) && g.invite!.used_by !== actor) fail('FORBIDDEN',403,'You already have a seat');
+   if (g.invite!.used_by === actor) return view(actor, g.id);
+   const joined = await accept(actor,g.id,g.rating_policy);
+   g.invite!.used_by = actor; g.invite!.state = 'accepted';
+   return view(actor, joined.game_id);
+  },
   async blocks(actor,after) { const rows = await Promise.all([...blocks].filter(key=>key.startsWith(`${actor}:`)).map(async key=>{const user_id=key.slice(actor.length+1); const other=await profile(user_id); return {user_id:other.user_id,handle:other.handle};})); return rows.filter(row=>!after || row.user_id>after).sort((a,b)=>a.user_id.localeCompare(b.user_id)).slice(0,51); },
   async block(actor,target,blocked) { let other = target.user_id === undefined ? undefined : [...profiles].find(([,p])=>p.user_id === target.user_id)?.[0]; if (target.game_id) { const game = load(target.game_id), seat = seatOf(game,actor); other = game.players[1-seat] ?? undefined; } if (!other) fail('NOT_FOUND',404,'Player not found'); const key = `${actor}:${other}`; if (blocked === true) blocks.add(key); if (blocked === false) blocks.delete(key); return blocks.has(key); },
   async report() {return {id:++reports,created_at:new Date().toISOString()};},
@@ -170,7 +296,7 @@ export function fixtureService(engine: FixtureEngine = { createMatch: (...args) 
   async openBoard(actor,id) { if (id) seatOf(load(id),actor); const board = randomUUID(); boards.set(board,{actor,game:id ?? null,selected:!!id}); return board; },
   async board(actor,id) {const row = boards.get(id); if (!row || row.actor !== actor) return fail('FORBIDDEN',403,'Board unavailable for this account'); if (!row.game && row.selected) fail('MATCH_REMOVED',404,'This game was deleted. Start, resume or join another game.'); return row.game;},
   async selectBoard(actor,id,gameId) {seatOf(load(gameId),actor); const row = boards.get(id); if (!row || row.actor !== actor) return fail('FORBIDDEN',403,'Board unavailable for this account'); row.game = gameId; row.selected = true;},
-  seed(actor,data) {if (data.history) historySeeded.set(actor,Date.now()); seeds.set(actor,structuredClone({...data, ...(data.games && {games:data.games.map(row=>({...row,rating_policy:row.rating_policy ?? 'legacy'}))}), ...(data.history && {history:data.history.map(row=>({...row,rating_policy:row.rating_policy ?? 'legacy'}))})} as FixtureSeed)); for (const [id,fields] of Object.entries(data.views ?? {})) {const game = games.get(id); if (game && fields.rating_policy) game.rating_policy = fields.rating_policy; if (game && fields.deadline_at !== undefined) game.deadline = fields.deadline_at;}},
+  seed(actor,data) {if (data.metadata) metadata.set(actor, structuredClone(data.metadata)); if (data.history) historySeeded.set(actor,Date.now()); seeds.set(actor,structuredClone({...data, ...(data.games && {games:data.games.map(row=>({...row,rating_policy:row.rating_policy ?? 'legacy'}))}), ...(data.history && {history:data.history.map(row=>({...row,rating_policy:row.rating_policy ?? 'legacy'}))})} as FixtureSeed)); for (const [id,fields] of Object.entries(data.views ?? {})) {const game = games.get(id); if (game && fields.rating_policy) game.rating_policy = fields.rating_policy; if (game && fields.deadline_at !== undefined) game.deadline = fields.deadline_at;}},
   async deleteMatch(id) {await games.get(id)?.match?.close(); games.delete(id); for (const row of boards.values()) if (row.game === id) row.game = null;},
   async close() {await Promise.all([...games.values()].map(g=>g.match?.close()));},
  };

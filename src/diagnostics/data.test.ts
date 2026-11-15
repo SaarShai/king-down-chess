@@ -112,3 +112,8 @@ it('rejects variable text outside the bounded native forms', () => {
   "invalid assignment to const '12345'", 'JSON.parse: unexpected character at line 1 column 12345 of the JSON data',
  ]) expect(errorMessage(raw)).toBe('Unlisted message');
 });
+
+it('recognizes the new page without retaining its query or fragment', () => {
+ expect(errorRoute('/next.html?moves=private#guide')).toBe('/next.html');
+ expect(errorRoute('/unknown/private')).toBe('/other');
+});

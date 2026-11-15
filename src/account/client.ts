@@ -9,6 +9,8 @@ import type { AccountSession } from './session';
 import { publicAccountConfig, stagingPasswordSignInEnabled } from './public-config';
 import { availableProviders, type Provider } from './providers';
 import { inApp } from '../platform';
+declare const __KINGDOWN_LOCAL_ONLINE__: boolean;
+const LOCAL_ONLINE = typeof __KINGDOWN_LOCAL_ONLINE__ === 'boolean' && __KINGDOWN_LOCAL_ONLINE__;
 
 export type { Provider, SignInOption } from './providers';
 
@@ -46,9 +48,11 @@ export function connect(storageKey: string, { manualCallback = false }: { manual
       if (error) throw error;
       return accountSession(data.session);
     },
-    async startAccountSignIn(provider: 'google' | 'github'): Promise<{ url: string; flowId: string }> {
-      if (provider !== 'google' && provider !== 'github') throw new TypeError('Invalid sign-in provider');
-      const { data, error } = await sb.auth.signInWithOAuth({ provider, options: { redirectTo: location.origin + '/play/', skipBrowserRedirect: true } });
+    async startAccountSignIn(provider: 'google' | 'github' | 'facebook', options: { entryPath?: '/next.html' } = {}): Promise<{ url: string; flowId: string }> {
+      if (provider !== 'google' && provider !== 'github' && !(provider === 'facebook' && options.entryPath === '/next.html')) throw new TypeError('Invalid sign-in provider');
+      const as = LOCAL_ONLINE ? new URLSearchParams(location.search).get('as') ?? '' : '';
+      const queryParams = LOCAL_ONLINE && /^[a-z][a-z0-9_-]{1,18}[a-z0-9]$/.test(as) ? { as } : undefined;
+      const { data, error } = await sb.auth.signInWithOAuth({ provider, options: { redirectTo: location.origin + (options.entryPath ?? '/play/'), skipBrowserRedirect: true, ...(queryParams && { queryParams }) } });
       if (error) throw error;
       if (!data.url || !flowIdValid(data.flowId)) throw new TypeError('Sign-in did not start');
       return { url: data.url, flowId: data.flowId };

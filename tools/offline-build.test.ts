@@ -146,7 +146,8 @@ function site() {
 // and builds the engine worker, about 0.3 s that is the same for each fixture. Under CI load one such build passed the
 // 5 s test limit (run 42361145582). Load the config once, at import, so a build does only the fixture (about 40 ms).
 const userConfig = (await loadConfigFromFile({ command: 'build', mode: 'production' }, resolve('vite.config.ts')))!.config;
-const compile = (root: string) => build(mergeConfig(userConfig, {
+// The fixture names its own pages: the config's page inputs (index.html, next.html) point into the repository.
+const compile = (root: string) => build(mergeConfig({ ...userConfig, build: { ...userConfig.build, rollupOptions: {} } }, {
   configFile: false, root, envFile: false, logLevel: 'silent',
   build: { assetsInlineLimit: 0, rollupOptions: { input: { index: join(root, 'index.html'), play: join(root, 'play.html') } } },
 }));
@@ -502,4 +503,19 @@ it('vercel check scans runtime image bytes for metadata', () => {
   const result=spawnSync(process.execPath,[resolve('tools/vercel-check.mjs'),dir],{encoding:'utf8',env:{...process.env,PLUGIN_TEST_DATABASE_URL:'postgresql://127.0.0.1:55432/fixture_test'}});
   expect(result.status).toBe(1);expect(result.stderr).toContain('Invalid runtime PNG chunk');
  } finally {rmSync(dir,{recursive:true,force:true});}
+});
+
+it('adds both public pages and the interface graph only for the solo launch', () => {
+  const { bundle, files } = fixture();
+  const next = chunk('assets/next-page.js', join(root, 'src/interface/entry.ts'), [], ['assets/new-main.js']);
+  bundle[next.fileName] = next;
+  bundle['assets/new-main.js'] = chunk('assets/new-main.js', join(root, 'src/interface/play/main.ts'), [], [], ['assets/new-main.css']);
+  bundle['assets/new-main.css'] = asset('assets/new-main.css');
+  files.push('next.html', next.fileName, 'assets/new-main.js', 'assets/new-main.css', 'browser-support.js', 'interface/stone-refined-light.webp');
+  expect(offlineCacheFiles(bundle, root, files).allowlist).not.toContain('next.html');
+  const { allowlist, precache } = offlineCacheFiles(bundle, root, files, true);
+  for (const file of ['index.html', 'next.html', next.fileName, 'assets/new-main.js', 'assets/new-main.css', 'browser-support.js', 'interface/stone-refined-light.webp']) {
+    expect(allowlist, file).toContain(file); expect(precache, file).toContain(file);
+  }
+  for (const file of ['assets/account.js', 'assets/private-runtime.js', 'auth/callback.html']) expect(allowlist).not.toContain(file);
 });

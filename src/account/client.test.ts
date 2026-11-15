@@ -151,3 +151,8 @@ describe('account identity client', () => {
     expect(sdk.auth.getSession).not.toHaveBeenCalled();
   });
 });
+
+it.each(['google','github','facebook'] as const)('the new interface opts into its own %s callback; old defaults stay', async provider => {
+  await connect(AUTH_KEY, { manualCallback: true }).startAccountSignIn(provider, { entryPath: '/next.html' });
+  expect(sdk.auth.signInWithOAuth).toHaveBeenCalledExactlyOnceWith({ provider, options: { redirectTo: 'https://kingdown.test/next.html', skipBrowserRedirect: true } });
+});

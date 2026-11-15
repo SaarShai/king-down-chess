@@ -627,3 +627,50 @@ it('authenticates and bounds a private draft preview without a command or activi
  for (const extra of [{actor_id:alice},{actions:Array(5).fill('e2-e4')},{engine_fingerprint:'unknown'}]) expect((await call(`/api/games/${gameId}/preview`,{token,method:'POST',body:{...input,...extra}})).status).toBe(400);
  expect(games.previewDraft).toHaveBeenCalledOnce(); expect(games.command).not.toHaveBeenCalled(); expect(games.seen).not.toHaveBeenCalled();
 });
+
+
+it('refuses web solo and computer work before service calls when localSolo is on', async () => {
+ useApi({ localSolo: true });
+ const token = await sign();
+ for (const headers of [{}] as Record<string, string>[]) {
+  const created = await call('/api/games', { token, method: 'POST', headers, body: { kind: 'solo', command_id: commandId } });
+  expect(created.status).toBe(403); expect(await created.json()).toMatchObject({ code: 'NOT_ALLOWED' });
+  expect((await call(`/api/games/${gameId}/commands`, { token, method: 'POST', headers, body: { command_id: commandId, expected_revision: 1, action: { type: 'computer' } } })).status).toBe(403);
+ }
+ expect(games.create).not.toHaveBeenCalled(); expect(games.command).not.toHaveBeenCalled(); expect(players.toolTry).not.toHaveBeenCalled();
+ expect((await call('/api/games', { token, method: 'POST', body: { kind: 'friend', options: DEFAULT_OPTIONS, command_id: commandId } })).status).toBe(201);
+ expect(games.create).toHaveBeenCalledExactlyOnceWith(alice, { kind: 'friend', options: DEFAULT_OPTIONS, open_link: true }, commandId);
+ expect((await call(`/api/games/${gameId}/commands`, { token, method: 'POST', body: { command_id: commandId, expected_revision: 1, action: { type: 'resign' } } })).status).toBe(200);
+});
+it('counts draft preview CPU work and refuses it at the shared quota', async () => {
+ const token = await sign(), body = { expected_revision: 1, engine_fingerprint: 'sha256:' + 'a'.repeat(64), actions: ['e2-e4'] };
+ games.previewDraft = vi.fn(async () => ({ revision: 1 }));
+ expect((await call(`/api/games/${gameId}/preview`, { token, method: 'POST', body })).status).toBe(200);
+ expect(players.toolTry).toHaveBeenCalledExactlyOnceWith(alice, 'kingdown_computer');
+ expect(games.previewDraft).toHaveBeenCalledExactlyOnceWith(alice, gameId, body);
+ games.previewDraft.mockClear(); players.toolTry.mockRejectedValueOnce(new MatchServiceError('RATE_LIMITED', 429, 'Wait'));
+ expect((await call(`/api/games/${gameId}/preview`, { token, method: 'POST', body })).status).toBe(429);
+ expect(games.previewDraft).not.toHaveBeenCalled();
+ useApi({ players: undefined });
+ expect((await call(`/api/games/${gameId}/preview`, { token, method: 'POST', body })).status).toBe(503);
+ expect(games.previewDraft).not.toHaveBeenCalled();
+});
+
+it('keeps released app solo creation, computer turns and rematches with localSolo on', async () => {
+ useApi({ localSolo: true });
+ const token = await sign(), headers = { Origin: APP_ORIGIN, 'Sec-Fetch-Site': 'cross-site' };
+ expect((await call('/api/games', { token, headers, method: 'POST', body: { kind: 'solo', command_id: commandId } })).status).toBe(201);
+ for (const action of [{ type: 'computer' }, { type: 'rematch', choice: 'offer' }])
+  expect((await call(`/api/games/${gameId}/commands`, { token, headers, method: 'POST', body: { command_id: commandId, expected_revision: 1, action } })).status).toBe(200);
+ expect(games.create).toHaveBeenCalledOnce(); expect(games.command).toHaveBeenCalledTimes(2);
+});
+it('refuses a web solo rematch before creating a game but keeps friend rematches', async () => {
+ useApi({ localSolo: true });
+ games.view.mockResolvedValue({ ...view, status: 'finished' });
+ const token = await sign(), body = { command_id: commandId, expected_revision: 1, action: { type: 'rematch', choice: 'offer' } };
+ expect((await call(`/api/games/${gameId}/commands`, { token, method: 'POST', body })).status).toBe(403);
+ expect(games.command).not.toHaveBeenCalled(); expect(players.toolTry).not.toHaveBeenCalled();
+ games.view.mockResolvedValueOnce({ ...view, kind: 'friend' });
+ expect((await call(`/api/games/${gameId}/commands`, { token, method: 'POST', body })).status).toBe(200);
+ expect(games.command).toHaveBeenCalledOnce();
+});

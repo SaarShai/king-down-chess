@@ -1,9 +1,10 @@
-import { AuthenticationError, AuthenticationUnavailable } from '../plugin/auth';
+import { AuthenticationError, AuthenticationUnavailable, isLoopback } from '../plugin/auth';
 
-export function createCurrentUserCheck({ supabaseUrl, publishableKey }: { supabaseUrl: string; publishableKey: string }, request: typeof fetch = fetch): (token: string, actor: string) => Promise<void> {
+export function createCurrentUserCheck({ supabaseUrl, publishableKey }: { supabaseUrl: string; publishableKey: string }, request: typeof fetch = fetch, { localLoopback = false } = {}): (token: string, actor: string) => Promise<void> {
  if (!publishableKey) throw new Error('Supabase publishable key is required');
  const base = new URL(supabaseUrl);
- if (base.protocol !== 'https:' || base.username || base.password || base.search || base.hash || base.pathname !== '/') throw new Error('Expected a fixed HTTPS Supabase origin');
+ const allowedLocal = localLoopback && base.protocol === 'http:' && isLoopback(base.hostname);
+ if ((!allowedLocal && base.protocol !== 'https:') || base.username || base.password || base.search || base.hash || base.pathname !== '/') throw new Error('Expected a fixed HTTPS Supabase origin');
  const endpoint = `${base.origin}/auth/v1/user`;
  return async (token, actor) => {
   let response: Response;

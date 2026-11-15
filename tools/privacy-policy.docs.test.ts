@@ -1,10 +1,17 @@
 // The privacy policy must say what the code does (approval items D9 a, D12 a, D14 a): each cleanup period of the
 // daily job, the Settings control by its exact name, OpenAI as a recipient, each kind of stored alert, and what a
 // deletion keeps. A changed period, label or alert kind fails here.
+// Both pages are checked: the default build publishes public/privacy.html, the launch build (tools/solo-launch.mjs)
+// publishes its own copy. Each page keeps its own words where the two differ.
 import { readdirSync, readFileSync } from 'node:fs';
-import { expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 
-const policy = readFileSync('public/privacy.html', 'utf8'), text = policy.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ');
+const pages = [
+ { file: 'public/privacy.html', counters: 'how many new games, new boards, computer turns and reports you asked for on the website or in the ChatGPT app', deletion: 'badges, alerts and games against the computer' },
+ { file: 'tools/solo-launch/privacy.html', counters: 'how many new games, new boards, computer turns, draft previews and reports you asked for on the website or through a connector', deletion: 'old progress data, alerts and games against the computer' },
+];
+describe.each(pages)('$file', ({ file, counters, deletion }) => {
+const policy = readFileSync(file, 'utf8'), text = policy.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ');
 
 test('the policy gives each cleanup period of the daily job', () => {
  const job = readFileSync('src/online/jobs.ts', 'utf8').match(/export async function cleanup[\s\S]*?\n}/)![0];
@@ -29,11 +36,11 @@ test('the policy names the online control as Settings shows it, says the default
 
 test('the policy names each try counter that the server keeps for an account', () => {
  const migrations = readdirSync('supabase/migrations').map(file => readFileSync(`supabase/migrations/${file}`, 'utf8')).join('\n');
- // A new counter fails here: add it to the list in public/privacy.html, then here.
+ // A new counter fails here: add it to the list in both privacy pages, then here.
  expect([...migrations.matchAll(/create table if not exists public\.(\w+_tries)/g)].map(match => match[1]).sort()).toEqual(['invite_code_tries', 'plugin_tool_tries']);
  expect(text).toContain('how many invitation codes you tried in the last hour');
  // The website API uses the same counter (src/api/http.ts toolTry).
- expect(text).toContain('how many new games, new boards, computer turns and reports you asked for on the website or in the ChatGPT app');
+ expect(text).toContain(counters);
 });
 
 test('the policy has no placeholder left from the draft', () => {
@@ -45,13 +52,13 @@ test('the policy names the alerts and notices that the server stores for an acco
  const code = readdirSync('src', { recursive: true, encoding: 'utf8' }).filter(file => file.endsWith('.ts') && !file.endsWith('.test.ts'))
   .map(file => readFileSync(`src/${file}`, 'utf8')).join('\n');
  const kinds = [...code.matchAll(/insert into public\.notifications\(user_id,kind,payload\) values\(\$1,'(\w+)'|notify\.push\(\{ user_id: [^,]+, kind: '(\w+)'/g)].map(match => match[1] ?? match[2]);
- // A new kind fails here: add it to the list item in public/privacy.html, then here.
+ // A new kind fails here: add it to the list item in both privacy pages, then here.
  expect([...new Set(kinds)].sort()).toEqual(['appeal', 'moderation']);
  // The policy also covers turn alerts already stored before the writer was removed.
  expect(text).toContain('alerts about your games against other players (that it is your move), and notices about an action on a report or about an appeal');
  // A deletion deletes them with the account (on delete cascade).
  expect(readFileSync('supabase/migrations/0006_games.sql', 'utf8')).toMatch(/table if not exists public\.notifications \([^;]*user_id uuid not null references auth\.users \(id\) on delete cascade/);
- expect(text).toContain('badges, alerts and games against the computer');
+ expect(text).toContain(deletion);
 });
 
 test('the policy says that a deletion keeps the handle in stored games and in records of action', () => {
@@ -83,4 +90,5 @@ test('the policy keeps the first-party fault disclosure and its 30-day period', 
  expect(policy.indexOf('id="fault-reports"')).toBeGreaterThan(policy.indexOf('Vercel keeps them for 1 day'));
  expect(readFileSync('src/diagnostics/server.ts', 'utf8')).toContain("interval '30 days'");
  expect(readFileSync('src/online/jobs.ts', 'utf8')).toContain("client_errors where last_seen<now()-interval '30 days'");
+});
 });
