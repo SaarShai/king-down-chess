@@ -22,7 +22,9 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
   skip.addEventListener('click', event => { event.preventDefault(); const page = root.querySelector<HTMLElement>(':scope > :not(.shell-departing)'), target = page?.querySelector<HTMLElement>('h1') ?? page; if (target) { if (!target.matches('[tabindex]')) target.tabIndex = -1; target.focus(); } });
   nav.classList.add('shell-nav'); document.body.prepend(skip, nav);
   // A layer over the place (the New game panel) has its own history entry: Back closes it.
-  let layer: (() => void) | null = null, closing: (() => void) | null = null;
+  // While a layer Back is pending, route changes and new layers wait in `waiting`, in order, until that Back lands.
+  let layer: (() => void) | null = null, waiting: (() => void)[] | null = null;
+  const settled = (run: () => void) => { if (waiting) waiting.push(run); else run(); };
   let moving: ReturnType<typeof setTimeout> | undefined;
   const show = (next: Route, draw = true) => {
     const before = route; route = next;
@@ -44,14 +46,23 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
     if (oldTab && newTab && oldTab !== newTab) { travelMarker(oldTab, newTab, true); nav.dataset.moving = 'true'; clearTimeout(moving); moving = setTimeout(() => delete nav.dataset.moving, ms('--dur-tab-marker')); }
   };
   function go(next: Route, draw = true) {
+    // Close, then a late invite reply: the route changes after the pending Back lands.
+    if (waiting) { waiting.push(() => go(next, draw)); return; }
     if (JSON.stringify(next) === JSON.stringify(route)) return;
-    history.pushState({ shell: next }, '', routeHash(next)); show(next, draw);
+    // A route change (a late invite reply) closes an open layer; the new place takes the layer's history entry.
+    const open = layer; layer = null; open?.();
+    history[open ? 'replaceState' : 'pushState']({ shell: next }, '', routeHash(next)); show(next, draw);
   }
   window.addEventListener('popstate', event => {
-    if (closing) { const done = closing; closing = null; done(); return; }
+    if (waiting) {
+      const runs = waiting; waiting = null;
+      while (runs.length && !waiting) runs.shift()!();
+      if (runs.length) waiting!.push(...runs); // a run started another Back: the rest waits for it
+      return;
+    }
     if (layer) { const close = layer; layer = null; close(); if (JSON.stringify(event.state?.shell) === JSON.stringify(route)) return; }
     // Forward to the entry of a closed layer: the place stays; the next Back leaves it.
-    if (event.state?.layer && JSON.stringify(event.state.shell) === JSON.stringify(route)) { closing = () => {}; history.back(); return; }
+    if (event.state?.layer && JSON.stringify(event.state.shell) === JSON.stringify(route)) { waiting = []; history.back(); return; }
     show(event.state?.shell ?? fromAddress());
   });
   // An address edit fires popstate, then hashchange: the second shows nothing new.
@@ -63,12 +74,14 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
   history.replaceState({ shell: route }, '', location.pathname + location.search + (route.place === 'play' ? '' : routeHash(route)));
   return {
     go, start: () => show(route), get route() { return route; },
+    /** Runs `run` now, or after a pending layer Back, in order with route changes. Open a layer only in `run`. */
+    settled,
     /** Open a layer: one history entry. Browser Back calls `close`. */
     openLayer(close: () => void) { layer = close; history.pushState({ shell: route, layer: true }, '', location.href); },
     /** The layer closed itself: its history entry goes. Resolves when the entry is gone. */
     closeLayer(): Promise<void> {
       if (!layer) return Promise.resolve();
-      layer = null; return new Promise(done => { closing = done; history.back(); });
+      layer = null; return new Promise(done => { waiting = [done]; history.back(); });
     },
   };
 }
