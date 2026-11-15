@@ -35,12 +35,12 @@ describe('effect groups (decision 18)', () => {
     expect(group.details.map(detail => detail.line).join(' ')).not.toMatch(/d4|d5/);
   });
 
-  it('keep Guards in one group with each square line, and keep check out of the groups', () => {
+  it('keeps Guard rules and check out of the effects groups', () => {
     const game = new Game('RNBQKBNR', { kings: [null, null] });
     game.load(game.context.fromFen('6gk/7p/8/8/8/8/r7/KG6 w - - 0 1'));
     const groups = effectGroups(game.context, game.pos);
-    expect(groups.map(group => group.summary)).toEqual(['2 Guards: only a king can capture a Guard.']);
-    expect(groups[0].details.map(detail => detail.line)).toEqual(['Guard on b1: Step without capture; only a king can capture it.', 'Guard on g8: Step without capture; only a king can capture it.']);
+    expect(groups).toEqual([]);
+    expect(stateDescriptions(game.context, game.pos).some(state => state.line.startsWith('Guard on '))).toBe(false);
     expect(JSON.stringify(groups)).not.toContain('Check');
     expect(stateDescriptions(game.context, game.pos).some(state => state.line.startsWith('Check: '))).toBe(true);
   });

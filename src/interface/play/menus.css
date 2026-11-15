@@ -461,3 +461,19 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .home-count { position: absolute; top: 1px; left: calc(50% + 7px); }
 .play-home .home-hero > .kd-button { inline-size: min(280px, calc(100% - 40px)); }
 @media (min-width: 900px) { .home-count { position: static; } }
+
+/* The game Menu uses the shared paper panel and the plain corner X. */
+.game-menu .menu-head { display: flex; align-items: center; min-height: 44px; gap: 8px; }
+.game-menu .menu-head h3 { flex: 1; }
+.game-menu .menu-settings { display: flex; flex-direction: column; }
+.game-menu > .kd-button[data-kind='danger'] { margin-top: 20px; width: 100%; }
+.game-menu .menu-exit { display: flex; margin-block: 8px; }
+.game-menu .menu-note { margin-block: 8px; font-size: 14px; line-height: 20px; }
+/* A short rail fits the four switches without a cut row. */
+@media (max-height: 499px) {
+  .play-game[data-layout][data-reading='menu'] .play-reader[data-floating='true'] { padding: 8px; }
+  .game-menu .menu-note { display: none; }
+  .game-menu .menu-exit { margin: 0; }
+  .game-menu .menu-settings { flex: none; overflow: visible; margin-top: 0; }
+  .game-menu > .kd-button[data-kind='danger'] { margin-top: 0; }
+}

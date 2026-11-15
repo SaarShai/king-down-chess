@@ -11,12 +11,12 @@ vi.mock('./motion', () => ({ calm: () => true, ms: () => 0, token: () => '' }));
 vi.mock('../../platform', async importOriginal => ({ ...await importOriginal<typeof import('../../platform')>(), apiOrigin: 'https://kingdown.test' }));
 const source = (name: string) => readFileSync(`src/interface/${name}`, 'utf8');
 
-it('launch decision 24: one order of settings in You and in the Menu', () => {
+it('keeps settings order and omits Motion speed from the game Menu', () => {
   expect(SETTING_ORDER).toEqual(['pieces', 'hand', 'coords', 'sound', 'motion']);
   // Both places take their rows from the one control set; the Menu adds no row of its own.
   const menus = source('play/menus.ts');
   expect(menus.match(/controls\(s, /g)).toHaveLength(2);
-  expect(menus).toMatch(/SETTING_ORDER\.map\(name => c\[name\]\)/);
+  expect(menus).toMatch(/SETTING_ORDER\.filter\(name => name !== 'motion'\)\.map\(name => c\[name\]\)/);
 });
 it('iOS need P1: the About links use the public origin', () => {
   expect(aboutLinks()).toEqual([

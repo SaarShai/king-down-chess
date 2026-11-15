@@ -26,6 +26,7 @@ export function createCharacterRuntime(options?: { url?: string; wake?: () => vo
  reserveIdle(character: string, army: string): Promise<boolean>;
  releaseIdle(): void;
  idleExit(character: string, army: string, body: { bank: string; url: string }): ((fraction: number) => { url: string } | null) | null;
+ idleDuration(character: string, army: string): number;
  rest(character: string, army: string, time?: number, active?: boolean): unknown;
  prepare(character: string, army: string, direction: string, capture: boolean, oneSquare?: boolean, signal?: AbortSignal, bites?: string[] | null): Promise<unknown>;
  action(prepared: unknown, time: number, duration: number, contact: number, boundary?: 'start' | 'end' | 'turn-end'): unknown;

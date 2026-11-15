@@ -75,8 +75,14 @@ export function button(label, options = {}) {
 }
 /** The plain X of Close and Cancel at the corner of a surface (owner playtest section 4): no raised shape, a 44 px target, a specific name. @param {string} label @param {() => void} [onPress] */
 export function closeX(label, onPress) {
-  const node = button(label, { icon: 'close', iconOnly: true, onPress });
-  node.classList.add('kd-x');
+  return asCloseX(button(label, { onPress }), label);
+}
+/** Keep an existing close handler and give its control the kit's plain X. @param {HTMLButtonElement} node @param {string} label */
+export function asCloseX(node, label) {
+  node.classList.add('kd-x', 'kd-icon-button');
+  node.querySelector('[data-button-label]')?.classList.add('kd-sr');
+  node.setAttribute('aria-label', required(label, 'Close control'));
+  if (!node.querySelector('[data-icon="close"]')) node.prepend(icon('close'));
   return node;
 }
 /** @param {HTMLButtonElement} node @param {{reason?: string, busy?: boolean, label?: string}} state */
@@ -215,12 +221,13 @@ export function liveRegion() {
 export function toast(live, fallback) {
   const element = el('div', 'kd-toast'); element.hidden = true;
   const message = el('p');
-  const close = button('Close notice', { icon: 'close', iconOnly: true, onPress: () => {
-    element.hidden = true; live.clear(); focusEntry(fallback);
-  }});
+  const close = closeX('Close notice', () => {
+    element.hidden = true; live.clear(); document.removeEventListener('keydown', escape, true); focusEntry(fallback);
+  });
+  const escape = (/** @type {KeyboardEvent} */ event) => { if (event.key === 'Escape' && !element.hidden && !document.querySelector('dialog[open]')) { event.preventDefault(); event.stopImmediatePropagation(); close.click(); } };
   element.append(message, close);
-  return { element, show(/** @type {string} */ text) { message.textContent = required(text, 'Toast'); element.hidden = false; live.announce(text); }, clear() {
-    const focused = element.contains(document.activeElement); element.hidden = true; live.clear(); if (focused) focusEntry(fallback);
+  return { element, show(/** @type {string} */ text) { message.textContent = required(text, 'Toast'); element.hidden = false; live.announce(text); document.addEventListener('keydown', escape, true); }, clear() {
+    const focused = element.contains(document.activeElement); element.hidden = true; live.clear(); document.removeEventListener('keydown', escape, true); if (focused) focusEntry(fallback);
   } };
 }
 /** Non-modal sheet. Put it in .kd-game-dock, never in the board.
@@ -233,19 +240,19 @@ export function sheet(title, content, fallback) {
   const close = () => {
     if (element.hidden) return;
     element.hidden = true; opener?.setAttribute('aria-expanded', 'false');
-    document.removeEventListener('keydown', escape); restoreFocus(opener, fallback);
+    document.removeEventListener('keydown', escape, true); restoreFocus(opener, fallback);
     emit(element, 'kd-close', {});
   };
   const escape = (/** @type {KeyboardEvent} */ e) => {
-    if (e.key === 'Escape' && !document.querySelector('dialog[open]')) { e.preventDefault(); close(); }
+    if (e.key === 'Escape' && !document.querySelector('dialog[open]')) { e.preventDefault(); e.stopImmediatePropagation(); close(); }
   };
-  const header = el('div', 'kd-sheet-head'); header.append(heading, button('Close help', { icon: 'close', iconOnly: true, onPress: close }));
+  const header = el('div', 'kd-sheet-head'); header.append(heading, closeX(`Close ${title}`, close));
   element.append(header, content);
   return { element, close, open(/** @type {HTMLElement} */ source) {
     if (element.closest('.kd-game-board')) throw new Error('A sheet must use the reserved dock.');
     opener?.setAttribute('aria-expanded', 'false'); opener = source;
     source.setAttribute('aria-controls', element.id); source.setAttribute('aria-expanded', 'true');
-    element.hidden = false; document.addEventListener('keydown', escape); focusEntry(heading);
+    element.hidden = false; document.addEventListener('keydown', escape, true); focusEntry(heading);
   } };
 }
 /** The only modal in this kit. Cancel has initial focus.
@@ -257,9 +264,10 @@ export function confirmDialog(options) {
   const text = el('p', '', required(options.consequence, 'Consequence')); text.id = id('consequence');
   element.setAttribute('aria-labelledby', heading.id); element.setAttribute('aria-describedby', text.id);
   /** @type {HTMLElement|null} */ let opener = null;
-  const cancel = button(options.cancel || 'Keep playing', { onPress: () => close('cancel') });
+  const cancel = closeX(`Cancel ${options.title.replace(/\?$/, '').toLowerCase()}`, () => close('cancel'));
   const confirm = button(required(options.action, 'Final action'), { kind: 'danger', onPress: () => close('confirm') });
-  const actions = el('div', 'kd-row'); actions.append(cancel, confirm); form.append(heading, text, actions); element.append(form);
+  const header = el('div', 'kd-sheet-head'); header.append(heading, cancel);
+  const actions = el('div', 'kd-row'); actions.append(confirm); form.append(header, text, actions); element.append(form);
   const close = (/** @type {string} */ value) => { emit(element, 'kd-before-close', {}); element.close(value); };
   element.addEventListener('cancel', () => emit(element, 'kd-before-close', {}));
   element.addEventListener('keydown', e => {

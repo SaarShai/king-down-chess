@@ -82,7 +82,7 @@ it('player options replaces its sheet and returns focus to the original control'
     await page.evaluate(() => { const w = window as any; w.safety.playerOptions(w.api, { user_id: 'inviter' }, document.querySelector('#source'), () => {}); });
     await page.getByRole('button', { name: 'Report player', exact: true }).click();
     expect(await page.locator('dialog').count()).toBe(1);
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByRole('button', { name: 'Cancel report player', exact: true }).click();
     expect(await page.evaluate(() => document.activeElement?.id)).toBe('source');
     expect(await page.locator('dialog').count()).toBe(0);
   } finally { await page.close(); }
@@ -105,7 +105,7 @@ it('deletion needs confirm, keeps retry on failure and shows only the received d
   try {
     await page.evaluate(() => { const w = window as any; w.fail = true; w.safety.deleteAccount(document.querySelector('#source'), async () => { w.calls.push('delete'); if (w.fail) throw Error(); return { runAfter: '2026-12-01T12:00:00Z', localCleared: true }; }); });
     expect(await page.evaluate(() => (window as any).calls)).toEqual([]);
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click(); expect(await page.locator('dialog').count()).toBe(0);
+    await page.getByRole('button', { name: 'Cancel delete account', exact: true }).click(); expect(await page.locator('dialog').count()).toBe(0);
     await page.evaluate(() => { const w = window as any; w.safety.deleteAccount(document.querySelector('#source'), async () => { w.calls.push('delete'); if (w.fail) throw Error(); return { runAfter: '2026-12-01T12:00:00Z', localCleared: true }; }); });
     await page.getByRole('button', { name: 'Delete account', exact: true }).click();
     await expect.poll(() => page.getByRole('status').textContent()).toContain('same date');

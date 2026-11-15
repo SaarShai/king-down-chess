@@ -94,11 +94,9 @@
 .play-game[data-reading] .play-b[data-form='wide'] :is(.learn-owner, .play-mark-line, .play-effect-end) { font-size: 15px; line-height: 20px; }
 .play-game[data-reading] .play-b[data-form='compact'] :is(p, li) { font-size: 15px; line-height: 20px; }
 .play-game[data-reading] .play-b :is(.play-notice, .play-step, .play-free) { font-weight: 650; }
-.play-game[data-reading] .play-b .play-secondary .play-reply .play-last { font-size: 15px; line-height: 20px; }
 .play-b .play-mark-line:empty { display: none; }
 .play-b .play-summary { min-width: 0; display: flex; align-items: center; }
 .play-game .play-b .play-summary-toggle.kd-button { width: 100%; min-height: 44px; height: 44px; font-size: 15px; line-height: 18px; }
-.play-b .play-reply > .kd-button { min-width: 120px; }
 .play-b .kd-steps { padding: 0; border: 0; background: transparent; }
 /* Compact: one pinned 44 px header with the state and the name, then the body (design section 2, 360x640). */
 .play-b .play-bhead { display: flex; align-items: center; gap: 6px; min-width: 0; }
@@ -217,3 +215,46 @@
 .play-b .play-choice-summary .play-target { flex: 1; min-width: 0; }
 .play-game .play-b .play-choice-summary .play-summary-toggle { width: auto; flex: none; }
 .play-b .play-primary:has(.play-choice-summary) { gap: 0; }
+
+/* Owner playtest: history and Effects keep one full touch row outside the reader. */
+.play-history-strip { position: absolute; left: var(--col); right: var(--col); top: calc(var(--board-y) - var(--head) - 44px); height: 44px; display: flex; align-items: center; gap: 4px; z-index: 2; border-block: 1px solid var(--divider); }
+.play-history-strip .kd-button { min-height: 44px; height: 44px; padding: 0 8px; border: 0; background: transparent; box-shadow: none; font: 14px/18px var(--font-reading); }
+.play-history-toggle { flex: 1; min-width: 0; justify-content: space-between; }
+.play-history-toggle [data-button-label] { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: start; }
+.play-history-toggle svg { flex: none; width: 20px; }
+.play-effects-toggle { flex: none; color: var(--text-muted); }
+.play-game[data-layout='portrait'] .play-reader:not([data-floating='true']) { padding-bottom: 44px; }
+.play-game[data-layout='wide'] .play-history-strip { left: calc(var(--board-x) + var(--board) + var(--gap)); right: auto; width: var(--rail); top: calc(var(--rail-top) + var(--opp)); }
+.play-game[data-layout='wide'] .play-reader:not([data-floating='true']) { top: calc(var(--rail-top) + var(--opp) + 44px); height: calc(var(--reader) - 44px); }
+.play-game .play-b[data-form='tall'] { grid-template-rows: 24px 52px minmax(0, 1fr); }
+.play-game .play-b[data-form='wide'] { grid-template-rows: 28px 96px minmax(0, 1fr); }
+.play-game .play-b .play-summary { display: none; }
+.play-game .play-b .kd-x, .play-game .play-b .kd-x + .kd-button { min-width: 44px; padding: 0; }
+
+/* Panels take their control's anchor. Only modal dialogs use a scrim. */
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'], .play-scroll-panel { position: absolute; left: var(--panel-left); right: auto; top: var(--panel-top); width: var(--panel-width); height: auto; max-height: var(--panel-height); min-height: 0; padding: 12px; z-index: 8; overflow: hidden; pointer-events: auto; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] .play-state-line { display: none; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] .play-detail { overflow: auto; padding: 0; background: transparent; flex: 0 1 auto; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] .play-b { height: auto; display: flex; flex-direction: column; gap: 8px; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] :is(.play-primary, .play-secondary, .play-lines) { overflow: visible; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] .play-bhead { min-height: 44px; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] .play-turn-state { display: none; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] .play-sub { min-height: 60px; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] .learn-panel { height: auto; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] .learn-body { min-height: 0; overflow: visible; }
+.play-panel-head { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.play-panel-head h3 { flex: 1; font: 700 22px/26px var(--font-title); }
+.play-scroll-panel { display: flex; flex-direction: column; }
+.play-scroll-panel[hidden] { display: none; }
+.play-panel-body { overflow-y: auto; overscroll-behavior: contain; min-height: 0; padding: 8px 2px; scrollbar-width: thin; }
+.play-panel-body section + section { border-top: 1px solid var(--divider); margin-top: 12px; padding-top: 12px; }
+.play-panel-body h4 { margin: 0 0 8px; font: 650 14px/20px var(--font-reading); color: var(--text-muted); }
+.play-panel-body p { margin: 0 0 8px; font: 16px/22px var(--font-reading); }
+.play-scroll-panel[data-kind='history']::before, .play-scroll-panel[data-kind='history']::after { content: ''; display: block; height: 4px; flex: none; border-block: 1px solid var(--divider); border-radius: 50%; background: var(--surface-raised); }
+.play-ink-wipe { animation: play-ink-wipe 200ms linear both; }
+@keyframes play-ink-wipe { to { clip-path: inset(0 100% 0 0); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .play-ink-wipe { animation: none; } }
+:root[data-motion='off'] .play-ink-wipe { animation: none; }
+.play-portrait-idle { object-fit: contain; }
+
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] :is(.menu-head, .learn-top, .play-head, .play-bhead) { position: sticky; top: 0; z-index: 2; background: var(--surface-raised); }
