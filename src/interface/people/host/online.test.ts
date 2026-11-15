@@ -10,7 +10,7 @@ import { fixtureService } from '../../../../tools/plugin-protocol-fixture';
 import { peopleController } from '../controller';
 import { peopleServer } from '../server';
 import { onlineClient } from '../../../online/client';
-import { seatKing } from '../seat-king';
+import { seatKing, seatKingKey } from '../seat-king';
 import { DEFAULT_OPTIONS as PANEL_OPTIONS } from '../../play/new-game';
 import { fakeServer } from '../fake-server';
 
@@ -276,6 +276,7 @@ it('binds both invite paths and the joining seat before the next-game preference
     await bob.host.join({ token: new URL(link).hash.slice(6) });
     const joined = bob.views.find(v => v.game_id === first.game_id)!;
     bobStore.setItem('kingdown.game-options', JSON.stringify({ king: shadow }));
+    await bob.host.join({ token: new URL(link).hash.slice(6) });
     expect(seatKing(bobStore, 'bob', joined)).toEqual({ king: 'Mud', power: 'March' });
     const controller = (userId: string, storage: ReturnType<typeof memoryStorage>) => peopleController({ userId, storage, server: peopleServer(onlineClient({ token: async () => userId, fetch: server.fetch })) });
     const a = controller('alice', storage), b = controller('bob', bobStore); await a.open(first.game_id); await b.open(first.game_id);
@@ -283,5 +284,80 @@ it('binds both invite paths and the joining seat before the next-game preference
     await black.ready(); await white.refresh(); await white.ready(); await black.refresh();
     expect(a.state().game!.rules.kings).toEqual([{ king: 'Mud', power: 'March' }, { king: 'Mud', power: 'March' }]);
     expect(JSON.parse(storage.getItem('kingdown.game-options')!).king).toEqual({ king: 'Flame', power: 'Haste' });
+  } finally { await service.close(); }
+});
+
+
+const deferred = <T>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; };
+it.each(['invite', 'inviteBack', 'createLink', 'createLinkFallback', 'join', 'acceptInvite'] as const)('a delayed %s binds the requesting account and stops stale page updates', async action => {
+  vi.stubGlobal('location', new URL('https://kingdown.test/next.html')); vi.stubGlobal('history', { state: {}, replaceState: vi.fn() });
+  vi.stubGlobal('sessionStorage', memoryStorage()); vi.stubGlobal('navigator', {}); vi.stubGlobal('matchMedia', () => ({ matches: false }));
+  for (const replacement of [null, 'bob']) {
+    let actor: string | null = 'alice', onSession!: (value: any) => void;
+    const storage = memoryStorage(), started = deferred<void>(), reply = deferred<Response>(), opened = vi.fn(), changed = vi.fn();
+    storage.setItem('kingdown.game-options', JSON.stringify({ king: { king: 'Mud', power: 'Leap' } }));
+    const view = { game_id: 'delayed', status: 'setup', seat: 1, options: onlineOptions('both') } as never;
+    const send = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = new URL(String(input), 'https://kingdown.test').pathname;
+      if (path === '/api/games' && action === 'createLinkFallback') return Response.json({ view });
+      if (path === '/api/games' || path === '/api/invites/redeem' || path.endsWith('/invite')) { started.resolve(); return reply.promise; }
+      if (path === '/api/me/games') return Response.json({ games: [], invitations: [] });
+      if (path === '/api/me/record') return Response.json({ history: [] });
+      return Response.json({ me: { handle: actor, icon: null } });
+    });
+    const { onlineHost } = await import('./index');
+    const host = onlineHost({ auth: async () => ({ onSession: (fn: typeof onSession) => { onSession = fn; return () => {}; }, readSession: async () => actor && ({ userId: actor, accessToken: actor }) }) as never,
+      storage, fetch: send, rules: () => 'both', setRules() {}, changed, open: opened, home() {}, toast() {} });
+    await host.signIn();
+    const pending = action === 'invite' ? host.host.invite('carol', 'both') : action === 'inviteBack' ? host.host.inviteBack!('carol', null) : action === 'createLink' || action === 'createLinkFallback' ? host.host.createLink('both')
+      : action === 'join' ? host.host.join({ token: 'fixture' }) : host.acceptInvite({ invite_id: 'invite' } as never);
+    const outcome = pending.then(() => null, error => error);
+    await started.promise; actor = replacement; onSession(actor ? { user: { id: actor } } : null);
+    if (actor) await host.signIn();
+    changed.mockClear(); opened.mockClear();
+    storage.setItem('kingdown.game-options', JSON.stringify({ king: { king: 'Shadow', power: 'Darkness' } }));
+    reply.resolve(Response.json(action === 'createLinkFallback' ? { token: 'fixture' } : action === 'join' || action === 'acceptInvite' ? view : { view, invite: { token: 'fixture' } }));
+    expect(await outcome).toMatchObject({ code: 'UNAUTHENTICATED' });
+    expect(JSON.parse(storage.getItem(seatKingKey('alice', view))!)).toEqual({ king: 'Mud', power: 'March' });
+    expect(storage.getItem(seatKingKey('bob', view))).toBeNull();
+    expect(host.views).toEqual([]); expect(opened).not.toHaveBeenCalled(); expect(changed).not.toHaveBeenCalled();
+  }
+});
+it.each(['invite', 'inviteBack', 'createLink', 'join', 'acceptInvite'] as const)('a failed king write keeps a successful %s and confirms the same king', async action => {
+  vi.stubGlobal('location', new URL('https://kingdown.test/next.html')); vi.stubGlobal('history', { state: {}, replaceState: vi.fn() });
+  vi.stubGlobal('sessionStorage', memoryStorage()); vi.stubGlobal('navigator', {}); vi.stubGlobal('matchMedia', () => ({ matches: false }));
+  const service = fixtureService();
+  try {
+    await service.handle('alice', { handle: 'alice' }); await service.handle('bob', { handle: 'bob' });
+    const server = fakeServer(service), storage = memoryStorage(), opened = vi.fn(), toasts = vi.fn();
+    storage.setItem('kingdown.game-options', JSON.stringify({ king: { king: 'Mud', power: 'Leap' } }));
+    const write = storage.setItem; storage.setItem = (key, value) => { if (key.startsWith('kingdown.people-king.')) throw Error('full'); write(key, value); };
+    const { onlineHost } = await import('./index');
+    const host = onlineHost({ auth: async () => ({ onSession() {}, readSession: async () => ({ userId: 'alice', accessToken: 'alice' }) }) as never,
+      storage, fetch: server.fetch, rules: () => 'both', setRules() {}, changed() {}, open: opened, home() {}, toast: toasts });
+    await host.signIn();
+    const choices = { ...PANEL_OPTIONS, arrangement: 'manual' as const, king: { king: 'Mud', power: 'Leap' } as const };
+    let createdLink = '';
+    if (action === 'invite') await host.host.invite('bob', 'both', choices);
+    else if (action === 'inviteBack') await host.host.inviteBack!('bob', onlineOptions('both', choices));
+    else if (action === 'createLink') { createdLink = await host.host.createLink('both', choices); expect(createdLink).toContain('#join='); }
+    else {
+      const game = await service.create('bob', { kind: 'friend', ...(action === 'join' ? {} : { recipient_handle: 'alice' }), options: onlineOptions('both', choices) });
+      if (action === 'join') await host.host.join({ token: (await service.invite('bob', game.game_id)).token });
+      else { await host.refresh(); await host.acceptInvite(host.incomingInvites[0]); }
+      expect(opened).toHaveBeenCalledWith(game.game_id);
+    }
+    const view = host.views[0]; expect(view).toBeTruthy();
+    if (view.status === 'waiting') await service.join('bob', createdLink ? new URL(createdLink).hash.slice(6) : { invite_id: view.invitation!.invite_id });
+    expect(toasts).toHaveBeenCalledWith(expect.stringContaining('cannot save'));
+    storage.setItem('kingdown.game-options', JSON.stringify({ king: { king: 'Shadow', power: 'Darkness' } }));
+    expect(seatKing(storage, 'alice', view)).toEqual({ king: 'Mud', power: 'March' });
+    storage.setItem = write;
+    const controller = peopleController({ userId: 'alice', storage, server: peopleServer(onlineClient({ token: async () => 'alice', fetch: server.fetch })) });
+    await controller.open(view.game_id); await controller.ready();
+    const confirmed = await service.view('alice', view.game_id);
+    expect(confirmed.choices?.[view.seat]?.king).toEqual({ king: 'Mud', power: 'March' });
+    expect(JSON.parse(storage.getItem(seatKingKey('alice', view))!)).toEqual({ king: 'Mud', power: 'March' });
+    expect(server.calls.filter(call => call.method === 'POST' && call.path === '/api/games')).toHaveLength(action === 'join' || action === 'acceptInvite' ? 0 : 1);
   } finally { await service.close(); }
 });

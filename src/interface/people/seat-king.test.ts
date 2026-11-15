@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import type { View } from '../../match/protocol';
 import { memoryStorage } from './fake-server';
 import { bindSeatKing, seatKing } from './seat-king';
@@ -25,4 +25,30 @@ it('uses the panel default for a null preference and no king with powers off', (
   const storage = memoryStorage();
   expect(bindSeatKing(storage, 'alice', view(), null)).toEqual({ king: 'Spirit', power: 'Mercy' });
   expect(bindSeatKing(storage, 'alice', view('cards', 0, true, false), mud)).toBeNull();
+});
+
+it.each([0, 1])('a repeated acceptance keeps the first valid king for seat %s', seat => {
+  const storage = memoryStorage(), game = view('repeat', seat);
+  expect(bindSeatKing(storage, 'alice', game, mud)).toEqual({ king: 'Mud', power: 'March' });
+  const write = vi.spyOn(storage, 'setItem');
+  expect(bindSeatKing(storage, 'alice', game, { king: 'Shadow', power: 'Darkness' })).toEqual({ king: 'Mud', power: 'March' });
+  expect(write).not.toHaveBeenCalled();
+});
+it.each(['bad json', 'null', '{"king":"Mud","power":"Leap"}', '{"king":"Unknown","power":"March"}'])('replaces an invalid binding: %s', raw => {
+  const storage = memoryStorage(); storage.setItem('kingdown.people-king.alice.first.0', raw);
+  expect(bindSeatKing(storage, 'alice', view(), mud)).toEqual({ king: 'Mud', power: 'March' });
+});
+it('keeps a failed write in memory and retries the same binding when storage works', () => {
+  const storage = memoryStorage(), write = vi.spyOn(storage, 'setItem').mockImplementation(() => { throw Error('full'); });
+  expect(bindSeatKing(storage, 'alice', view(), mud)).toEqual({ king: 'Mud', power: 'March' });
+  expect(seatKing(storage, 'alice', view())).toEqual({ king: 'Mud', power: 'March' });
+  write.mockRestore();
+  expect(bindSeatKing(storage, 'alice', view(), { king: 'Shadow', power: 'Darkness' })).toEqual({ king: 'Mud', power: 'March' });
+  expect(JSON.parse(storage.getItem('kingdown.people-king.alice.first.0')!)).toEqual({ king: 'Mud', power: 'March' });
+});
+it('does not read or write a king record when powers are off', () => {
+  const storage = memoryStorage(), write = vi.spyOn(storage, 'setItem');
+  expect(bindSeatKing(storage, 'alice', view('cards', 0, true, false), mud)).toBeNull();
+  expect(seatKing(storage, 'alice', view('pieces', 0, false, false))).toBeNull();
+  expect(write).not.toHaveBeenCalled();
 });
