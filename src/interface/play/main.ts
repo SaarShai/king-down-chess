@@ -353,8 +353,14 @@ function openNewGame(source: HTMLElement) {
     },
     onClose: () => { void shell.closeLayer(); },
   }, art);
-  panel.element.addEventListener('close', () => panel.element.remove());
-  root.append(panel.element); panel.open(source); shell.openLayer(() => panel.close());
+  // The panel is outside #app: a background refresh of Play (home()) redraws #app and must not remove the open panel.
+  // A refresh can replace the opener: focus then returns to the same control on the new Play.
+  const opener = ['home-top-new', 'home-side-new', 'home-change'].find(name => source.classList.contains(name));
+  panel.element.addEventListener('close', () => {
+    panel.element.remove();
+    if (!source.isConnected && opener && document.body.dataset.page === 'home') root.querySelector<HTMLElement>(`.${opener}`)?.focus({ preventScroll: true });
+  });
+  document.body.append(panel.element); panel.open(source); shell.openLayer(() => panel.close());
 }
 /**
  * The offer of a kept Dark game (launch decision 10): Open makes it the saved game, after a confirmation when it ends
