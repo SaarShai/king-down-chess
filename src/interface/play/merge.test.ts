@@ -55,3 +55,14 @@ it('keeps the menus first-load recovery in the launch HTML and entry', () => {
   expect(entry).toContain('boot.kdBooted = true');
   expect(entry).toContain('catch { boot.kdBootFault?.(); }');
 });
+
+it('links the King Down crown icon in both new-page heads', () => {
+  const png = readFileSync('public/icons/crown-192.png');
+  expect(png.subarray(1, 4).toString()).toBe('PNG');
+  expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([192, 192]);
+  for (const path of ['next.html', 'tools/solo-launch/next.html']) {
+    const html = readFileSync(path, 'utf8');
+    expect(html).toContain('<link rel="icon" type="image/png" sizes="192x192" href="/icons/crown-192.png" />');
+    expect(html).toContain('<link rel="apple-touch-icon" href="/icons/crown-192.png" />');
+  }
+});

@@ -165,7 +165,7 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
     img.src = '/interface/home-hero-wide-640.webp'; img.srcset = [640, 960, 1280, 1672].map(w => `/interface/home-hero-wide-${w}.webp ${w}w`).join(', '); img.sizes = '(min-width: 1120px) 1056px, calc(100vw - 40px)';
     img.width = 1672; img.height = 941; img.alt = ''; img.loading = 'lazy'; img.decoding = 'async'; img.fetchPriority = 'low';
     picture.append(source, img); hero.append(picture, main); home.append(hero, el('p', 'home-intro', text.intro));
-    const summary = el('div', 'home-summary'), change = button(homeText.change, { onPress: () => d.onChange(change) }); change.classList.add('text-button');
+    const summary = el('div', 'home-summary'), change = button(homeText.change, { onPress: () => d.onChange(change) }); change.classList.add('text-button', 'home-change');
     summary.append(el('p', '', summaryLine(d.next)), change); start.append(summary);
     army = armyRow(d.next, art, d.onRule);
     const block = el('section', 'home-army-block'); block.append(el('h2', 'group-title', homeText.army), army.element, el('p', 'home-hint', homeText.tap)); more.append(block);
