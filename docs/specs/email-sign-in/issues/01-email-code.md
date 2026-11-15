@@ -2,7 +2,7 @@
 
 Status: done. Setup and tests passed on 7 November 2026 (see Results). Players see the form after the next deploy.
 
-The owner asks that players can sign up with their email. A player types an address and gets an eight-digit code (the Supabase setting; the field takes up to 10). A new address makes a new account. There is no password.
+The owner asks that players can sign up with their email. A player types an address and gets a six-digit code (Authentication → Sign In / Providers → Email → Email OTP length = 6 on both projects, decision 109; both code fields take 6 to 10 digits). A new address makes a new account. There is no password.
 
 ## Plan and acceptance
 
@@ -33,7 +33,7 @@ Do steps 1 and 2 once. Do steps 3 to 6 on production (`utqzovjmclfyojedmwok`) an
 ## Results (7 November 2026)
 
 - Resend shows `kingdown.dev` verified (Ireland). The key `kingdown-supabase` has sending access only. A copy is in the git-ignored `.secrets/resend.env` of the main checkout.
-- Both projects: custom SMTP on with the values in step 3, both templates set, email limit 30 an hour (already the value), public settings `mailer_autoconfirm: false`.
+- Both projects: custom SMTP on with the values in step 3, both templates set, email limit 30 an hour (already the value), Email OTP length 6 (set 2026-11-15; it was 8), public settings `mailer_autoconfirm: false`.
 - Both hooks are on both projects; the live function hashes match this branch. Direct hook calls on production: email sign-up passes, phone is refused, Google passes, an unlisted password session gets 403, an `otp` session passes.
 - Real mail, through the Auth API, to Resend's test inbox (`delivered+prod@resend.dev`, `delivered+staging@resend.dev`): on each project a new address (Confirm signup) and then the confirmed address (Magic Link) got the code from `signin@kingdown.dev`, and the code signed in: HTTP 200, provider `email`, `amr` `otp`. A used code got 403 `otp_expired`. Each session was signed out.
 - Not run: the form in a production build (the browser check covers the form on a fake auth server), and the password call in step 8, which needs a password on a production account. The direct hook call covers that refusal.

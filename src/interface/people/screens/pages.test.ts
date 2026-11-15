@@ -186,7 +186,7 @@ it('The email code: the code step stays after a reload, a wrong code has its lin
     await sheet(page).getByLabel('Email').fill('jo@example.com');
     await page.keyboard.press('Enter');
     await expect.poll(() => title(page).textContent()).toBe('Enter the code');
-    expect(await sheet(page).innerText()).toContain('We sent 6 digits to jo@example.com. The code works for 1 hour.');
+    expect(await sheet(page).innerText()).toContain('We sent a code to jo@example.com. The code works for 1 hour.');
     expect(await sheet(page).getByLabel('Code').getAttribute('autocomplete')).toBe('one-time-code');
     await page.reload();
     await expect.poll(() => title(page).textContent()).toBe('Enter the code');
@@ -368,6 +368,11 @@ it('email and code errors use product copy in a persistent status linked to the 
     expect(await code.getAttribute('aria-describedby')).toBe(await status.getAttribute('id'));
     await code.fill('12'); await press(page, 'Continue');
     await expect.poll(() => status.textContent()).toBe('That code is wrong or has expired. Try again, or ask for a new code.');
+    // Supabase can send 6 to 10 digits (decision 109): an 8-digit code stays whole and valid, more than 10 is cut.
+    await code.fill('1234 5678');
+    expect([await code.inputValue(), await code.evaluate((input: HTMLInputElement) => input.validity.valid)]).toEqual(['12345678', true]);
+    await code.fill('123456789012');
+    expect(await code.inputValue()).toBe('1234567890');
     await code.fill(' 123 456 ');
     expect(await code.inputValue()).toBe('123456');
     await press(page, 'Continue'); await expect.poll(() => toasts(page)).toEqual(['Signed in.']);
