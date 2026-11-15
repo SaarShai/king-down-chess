@@ -44,13 +44,19 @@ export class Arrangement {
 }
 
 /** An unfinished solo setup restarts from its saved deal. No illegal draft enters the shared game save. */
-export function pendingArrangement(storage: Pick<Storage, 'getItem'>, game: Game, side: Color): Arrangement | undefined {
+export function savedArrangement(storage: Pick<Storage, 'getItem'>, game: Game, side: Color): { draft: Arrangement; ready: boolean } | undefined {
   if (game.history.length) return;
   try {
     const saved = JSON.parse(storage.getItem(ARRANGE_KEY) ?? 'null');
     if (saved?.side === side && saved.fen === toFen(game.pos) && typeof saved.army === 'string' && saved.army.length === 8) {
       const draft = new Arrangement(saved.army, side);
-      if (draft.canReady && toFen(draft.position(game.pos)) === saved.fen) return draft;
+      if (draft.canReady && toFen(draft.position(game.pos)) === saved.fen) return { draft, ready: saved.ready === true };
     }
   } catch { /* private mode or an old marker */ }
+}
+
+/** A confirmed order resumes play; an unfinished order resumes the setup step. */
+export function pendingArrangement(storage: Pick<Storage, 'getItem'>, game: Game, side: Color): Arrangement | undefined {
+  const saved = savedArrangement(storage, game, side);
+  return saved?.ready ? undefined : saved?.draft;
 }

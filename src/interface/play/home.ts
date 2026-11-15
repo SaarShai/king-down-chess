@@ -82,7 +82,7 @@ function armyRow(draft: NewGameDraft, art: Art, onRule: (type: PieceType) => voi
     card = el('section', 'piece-card'); card.id = `piece-card-${type}`; card.setAttribute('role', 'dialog'); card.setAttribute('aria-label', pieces[type].name);
     const head = el('div', 'piece-card-head'), name = el('h3', '', pieces[type].name); name.tabIndex = -1;
     if (newPieces.has(type)) name.append(el('span', 'new-tag', 'New'));
-    head.append(art.figure(type, draft.player, draft.game.rules), name, button(text.close, { onPress: () => close() }));
+    head.append(art.figure(type, draft.player, draft.game.rules), name, closeX(`Close ${pieces[type].name}`, () => close()));
     const full = button(text.fullRule, { icon: 'next', onPress: () => { ruleFrom = type; onRule(type); } });
     card.append(head, el('p', '', pieces[type].short), full);
     card.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); } });

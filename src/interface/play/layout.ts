@@ -30,7 +30,7 @@ function fit(room: number, limit: number) {
   return Math.max(8, board);
 }
 /** Each form's row heights from the design: opponent strip, the reader's least height, one resource row, finish row. */
-const ROWS = { tall: { opp: 72, reader: 200, own: 112, fin: 60 }, compact: { opp: 64, reader: 56, own: 96, fin: 52 }, wide: { opp: 72, reader: 0, own: 144, fin: 64 } };
+const ROWS = { tall: { opp: 72, reader: 200, own: 112, fin: 60 }, compact: { opp: 64, reader: 64, own: 96, fin: 52 }, wide: { opp: 72, reader: 0, own: 144, fin: 64 } };
 /** The full phone column leaves space for the coin and four card names at 14 px. */
 export const ONE_ROW = 352;
 

@@ -59,7 +59,7 @@ describe('the classes at each size of the matrix (decision 34)', () => {
       expect(l.boardY + l.board, what).toBeLessThanOrEqual(H);
       if (l.kind === 'stack') {
         expect(l.opp + l.reader + l.head + l.board + l.own + l.fin, what).toBe(H);
-        expect(l.reader, what).toBeGreaterThanOrEqual(l.form === 'tall' ? 200 : 56);
+        expect(l.reader, what).toBeGreaterThanOrEqual(l.form === 'tall' ? 200 : 20 + 44);
         expect(l.col, what).toBeLessThanOrEqual(W);
       } else {
         expect(l.boardX + l.board + l.gap + l.col, what).toBeLessThanOrEqual(W);
@@ -70,17 +70,24 @@ describe('the classes at each size of the matrix (decision 34)', () => {
       }
     }
   });
+  it('budgets the short reader for status and history, or a 44 px action header and its instruction', () => {
+    for (const [w, h] of MATRIX.filter(([w, h]) => w < h * 1.2)) for (const setup of setups) {
+      const l = gameLayout(w, h, setup);
+      expect(l.reader, `${w}x${h} ${setup}: 20 px status and 44 px strip`).toBeGreaterThanOrEqual(20 + 44);
+      expect(l.reader + l.opp, `${w}x${h} ${setup}: header, two instruction lines and choices`).toBeGreaterThanOrEqual(44 + 40 + 44);
+    }
+  });
   it('a stack column has the width of the board and is centred: a tablet gets a large board, not a stretched phone', () => {
     const l = gameLayout(820, 1180, 'cards');
     expect(l.col).toBe(l.board);
     expect(l.board).toBeGreaterThan(640);
     expect(l.boardX).toBe((820 - l.board) / 2);
   });
-  it('the soft case 320x568: the board gives way, the strips keep 312 px and the reader keeps 56 px', () => {
+  it('the soft case 320x568: the board gives way, the strips keep 312 px and the reader keeps the status and history', () => {
     const l = gameLayout(320, 568, 'cards');
     expect(l).toMatchObject({ kind: 'stack', form: 'compact', col: 312, narrow: true, ownRows: 1, own: 96 });
     expect(l.board / 8).toBeLessThan(44);
-    expect(l.reader).toBeGreaterThanOrEqual(56);
+    expect(l.reader).toBeGreaterThanOrEqual(20 + 44);
     expect(l.opp + l.reader + l.head + l.board + l.own + l.fin).toBe(568);
   });
   it('a phone on the side keeps 44 px squares: the rail gives way to 280 px before the board', () => {

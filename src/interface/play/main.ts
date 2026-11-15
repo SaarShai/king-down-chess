@@ -18,7 +18,7 @@ import { learningEntry, firstMinute, stepLine, subjectKey, type LearnSubject } f
 import { learningPanel } from './learning-panel';
 import { markHintSeen, readHints, resetHints } from './hints';
 import { refusalForTap } from './refusals';
-import { lastReplySteps, replayController, type ReplayStep } from './replay';
+import { lastReplySteps, type ReplayStep } from './replay';
 import { S, L, K, A, G, M, O, PLAIN_KINGS, colorOf, findKing, sqName, typeOf, TAG_POWER, type Color, type PowerTag, type Rules, type Status } from '../../rules/engine';
 import { toFen } from '../../rules/setup';
 import { RELEASED_CARDS } from '../../content/cards';
@@ -105,7 +105,6 @@ let lastActions: MarkAction[] = [], playingAction: MarkAction | null = null, mar
 // The last input was a key: only keyboard focus on a square gives the candidate sentence (reading decision 22).
 let keyed = false;
 document.addEventListener('keydown', () => { keyed = true; }, true); document.addEventListener('pointerdown', () => { keyed = false; }, true);
-const replay = replayController();
 let replySteps: ReplayStep[] = [];
 let learning: { subject: LearnSubject; side: Color; cardIndex?: number } | null = null, panel: ReturnType<typeof learningPanel> | null = null;
 let panelReturn: HTMLElement | null = null, ruleAnchor: DOMRect | null = null, ruleReturnLabel = '';
@@ -311,7 +310,7 @@ function home(newArmy = false) {
     focused = active.dataset.game ? `[data-game="${active.dataset.game}"]` : active.dataset.kind === 'computer' ? '[data-kind="computer"]' : name ? `.${name}` : undefined;
   }
   onlineActive = false; onlineState = undefined; people?.stopGame();
-  cancelReplay(); closeLearning(false); closeGuidePanel();
+  closeLearning(false); closeGuidePanel();
   generation++; engine.cancel(); endOpening(); endEntry(); endCardFlight(); cancelCheckPulse(); endReply = null;
   // The game screen slides away over the home screen; its board goes when it has left.
   board?.skip();
@@ -460,7 +459,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     if (writer.blocked) { home(); return; }
   }
   const fromHome = document.body.dataset.page !== 'game', homeScreen = root.querySelector<HTMLElement>('.play-home');
-  cancelReplay(); closeLearning(false); closeGuidePanel();
+  closeLearning(false); closeGuidePanel();
   generation++; const own = generation; engine.cancel(); endOpening(); endEntry(); endCardFlight(); cancelCheckPulse(); endReply = null;
   // A rematch keeps the board and its loaded art: no new load, so no empty frame.
   const keep = fromHome ? undefined : board;
@@ -511,7 +510,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   opponentGroup.append(face, who); opponent.append(opponentGroup);
   addPower(cpu(), opponentGroup); rivalGroup = cards(cpu()) ? addRivalCards(opponentGroup) : null;
   menuButton = button(text.menu, { icon: 'more', iconOnly: true, onPress: () => {
-    cancelReplay(); closeLearning(false); reading = reading === 'menu' ? ended ? 'result' : 'normal' : 'menu'; update();
+    closeLearning(false); reading = reading === 'menu' ? ended ? 'result' : 'normal' : 'menu'; update();
     (reading === 'menu' ? detail.querySelector<HTMLButtonElement>('button') : menuButton)?.focus({ preventScroll: true });
   } });
   opponent.append(menuButton);
@@ -547,7 +546,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   reader.append(controls.line, detail);
   resignDialog = confirmDialog({ title: text.resignTitle, consequence: onlineActive ? 'Your opponent wins. Your unsent turn does not count.' : text.resignCause, action: text.resign, fallback: controls.finish, onConfirm: () => {
     if (onlineActive) { void people?.controller?.resign(); return; }
-    cancelReplay(); closeLearning(false); generation++; engine.cancel(); board?.skip(); thinking = false;
+    closeLearning(false); generation++; engine.cancel(); board?.skip(); thinking = false;
     while (draft.length) draft.undo(); draft.armed = null; shown = null; board?.setPosition(game.pos, game.context);
     arrangement = undefined; store(ARRANGE_KEY, 'null');
     ended = true; resigned = player; liveGame = false; save(true); resultCause = text.resigned; reading = 'result'; update(); focusResult(); announce(`${replyText()} ${resultCause}`);
@@ -683,12 +682,11 @@ document.addEventListener('keydown', event => {
   if (scrollOpen || reader?.dataset.floating === 'true') { event.preventDefault(); closeFloating(); return; }
   if (reading === 'rule') { event.preventDefault(); closeLearning(); return; }
   if (reading === 'menu') { event.preventDefault(); reading = ended ? 'result' : 'normal'; update(); menuButton.focus({ preventScroll: true }); return; }
-  cancelReplay();
   const target = (shown ?? armedResource())?.control ?? cells[cursor], cancelled = armedResource();
   if (arrangement) arrangement.selected = null;
-  event.preventDefault(); endOpening(); clearChoice(); draft.armed = null; shown = null; selected = inspected = null; notice = cancelled ? cancelLine(cancelled.subject.kind) : '';
+  event.preventDefault(); endOpening(); clearChoice(); draft.armed = null; shown = null; selected = inspected = null; notice = '';
   if (reading !== 'result') reading = ended ? 'result' : 'normal';
-  update(); target.focus({ preventScroll: true }); if (notice) announce(notice);
+  update(); target.focus({ preventScroll: true }); if (cancelled) announce(cancelLine(cancelled.subject.kind));
 });
 function key(event: KeyboardEvent) {
   endOpening();
@@ -702,7 +700,7 @@ function key(event: KeyboardEvent) {
 function clearChoice() { choice = []; choiceBox.replaceChildren(); }
 function tap(square: number) {
   if (fault === 'art' || !onlineActive && writer.blocked) return; // a fault waits for recovery
-  cancelReplay(); endOpening(); skipBoard(); lastActions = []; notice = '';
+  endOpening(); skipBoard(); lastActions = []; notice = '';
   cells.forEach(cell => cell.classList.remove('square-error')); // a new tap ends the red edge of an earlier refusal
   if (arrangement && !ended) {
     if (arrangementLocked()) return;
@@ -786,11 +784,10 @@ function animate(before: Position, move: Move, after: Position): Promise<unknown
   drawMarks(); return done;
 }
 function undo() {
-  cancelReplay();
   if (!draft.length || thinking || ended || !onlineActive && writer.blocked) return;
   const oldHistory = currentHistory();
   closeLearning(false);
-  skipBoard(); clearChoice(); draft.undo(); shown = null; resources.forEach(r => { r.hint = undefined; }); selected = draft.chain ? draft.previewMove!.from : null; inspected = null; notice = text.undone;
+  skipBoard(); clearChoice(); draft.undo(); shown = null; resources.forEach(r => { r.hint = undefined; }); selected = draft.chain ? draft.previewMove!.from : null; inspected = null; notice = '';
   lastActions = [...draft.steps, ...(draft.previewMove ? [{ before: draft.now, move: draft.previewMove }] : [])];
   erased = calm() || matchMedia('(prefers-reduced-motion: reduce)').matches ? undefined : removedHistoryLine(oldHistory, currentHistory());
   clearTimeout(eraseTimer); if (erased) eraseTimer = setTimeout(() => { erased = undefined; renderHistory(); }, 200);
@@ -817,12 +814,14 @@ function stepLines(): string[] {
 const turnText = (start: number, computer: boolean) => game.history.slice(start).filter(h => !h.move.pass).map(h => sentence(h.pos, h.move, computer, cards(computer ? cpu() : player))).join(' ');
 const turnActions = (start: number): MarkAction[] => game.history.slice(start).filter(h => !h.move.pass).map(h => ({ before: h.pos, move: h.move }));
 async function finish() {
-  cancelReplay(); closeLearning(false);
+  closeLearning(false);
   if (arrangement && !ended) {
     if (!arrangement.canReady || arrangementLocked() || fault || !onlineActive && writer.blocked) return;
     if (onlineActive) { await people?.controller?.ready(arrangement.order); return; }
     game.load(arrangement.position(game.pos)); arrangement = undefined;
-    draft = new DraftTurn(game); selected = inspected = null; save(true); store(ARRANGE_KEY, 'null');
+    draft = new DraftTurn(game); selected = inspected = null;
+    const army = toFen(game.pos).split(' ')[0].split('/')[player ? 0 : 7].toUpperCase();
+    store(ARRANGE_KEY, JSON.stringify({ army, side: player, fen: toFen(game.pos), ready: true })); save(true);
     board?.setPosition(game.pos, game.context); update();
     if (game.pos.turn === cpu()) void reply(); else announce(text.ready);
     return;
@@ -907,7 +906,7 @@ function updateArrangement() {
   controls.update({ state: wait ? arrangeText.wait : arrangeText.title, help: a.error ?? arrangeText.instruction,
     undoReason: text.noStep, finishReason: fault ? text.loadFailed : !onlineActive && writer.blocked ? writer.warning : locked ? wait ? arrangeText.wait : arrangeText.confirming : a.error ?? '' });
   screen.dataset.state = wait ? 'arrange-wait' : 'arrange'; screen.dataset.canFinish = String(a.canReady && !locked);
-  screen.dataset.reading = reading; screen.dataset.borrow = String(reading === 'menu');
+  screen.dataset.reading = reading; screen.dataset.borrow = 'false'; screen.dataset.readerActive = 'true';
   controls.element.inert = false;
   const grid = screen.querySelector<HTMLElement>('.play-grid')!;
   grid.inert = locked || !!fault || !onlineActive && writer.blocked;
@@ -920,7 +919,7 @@ function updateArrangement() {
     else cell.removeAttribute('aria-description');
   });
   screen.querySelectorAll<HTMLElement>('.play-own, .play-opp .play-power, .play-opp .play-rival-cards').forEach(part => part.inert = true);
-  board?.setPosition(pos, game.context); renderReader(); drawMarks();
+  board?.setPosition(pos, game.context); renderReader(); renderHistory(); placeFloating(); drawMarks();
 }
 function update() {
   if (!board || !controls) return;
@@ -993,7 +992,9 @@ function update() {
     rivalGroup.control.setAttribute('aria-label', `${text.cardsLeft(left)}. ${gameWords(rivalLine(used))}`); rivalGroup.control.setAttribute('aria-expanded', String(shown === rivalGroup));
   }
   // The reading area takes the opponent strip while a rule or the menu is open, on a short phone or when the rule does not fit. The board does not move.
-  screen.dataset.reading = reading; screen.dataset.borrow = 'false'; renderReader(); renderHistory(); placeFloating();
+  screen.dataset.reading = reading; screen.dataset.borrow = 'false';
+  screen.dataset.readerActive = String(!!(selected != null || !draft.length && inspected != null || draft.armed || choice.length || notice));
+  renderReader(); renderHistory(); placeFloating();
   drawMarks();
 }
 const armedResource = () => resources.find(r => r.side === player && draft.armed && r.key === draft.armed);
@@ -1079,13 +1080,6 @@ function playedCard(side: Color, move?: Move): string | undefined {
   const k = game.context.rules.hands[side].indexOf(TAG_POWER[move.power as PowerTag] as never);
   return k < 0 ? undefined : cardArt(side, k);
 }
-/** The last action keeps its own painting beside its sentence. */
-function actionArt(side: Color, action?: MarkAction): string | undefined {
-  if (!action) return undefined;
-  const card = playedCard(side, action.move); if (card) return card;
-  const code = action.before.board[action.move.from];
-  return code ? `/ui/pieces/${typeOf(code) === K ? kingFile(colorOf(code)) : `${nameOf(code).toLowerCase()}-${colorOf(code) ? 'b' : 'w'}`}.webp` : undefined;
-}
 /** The small turn state of the B reader (design section 4, column "Turn state"). */
 function turnState(mine: boolean, code: number): string {
   const state = onlineActive && (people?.controller?.state() ?? onlineState), onlineLine = state && personTurn(state);
@@ -1128,10 +1122,8 @@ function readerModel(): ReaderModel {
     m.primary = [...notices, ...(armed ? [line('play-step', armedStep(draft.armedMoves, draft.now, selected, player))] : []), ...(armed && res.hint ? [line('play-first-step', res.hint)] : []), ...checks];
     m.secondary = [...(parts.owner ? [parts.owner] : []), parts.short, line('play-mark-line', '')];
   } else if (draft.length) {
-    // The exact result of the last step: its first sentence is the headline; a long one leaves the headline for the actor's name.
-    const lines = stepLines(), [first = '', ...rest] = sentences(lines.at(-1) ?? ''), last = draft.steps.at(-1), free = freeText();
-    Object.assign(m, { title: first, short: last && !last.move.power ? nameOf(last.before.board[last.move.from]) : undefined, art: playedCard(player, last?.move) });
-    m.primary = [...rest.map(t => line('play-last', t)), ...(free ? [line('play-free', free)] : help ? [line('play-notice', help)] : []), ...checks];
+    m.state ||= text.ready;
+    Object.assign(m, { title: freeText() || help || text.endChain, primary: checks });
   } else if (code && !ended) {
     // The piece's own effect lines come before its general rule (reading decision 18).
     const parts = subjectModel(m, { kind: 'piece', type: typeOf(code) }, colorOf(code), cells[square!]);
@@ -1141,12 +1133,9 @@ function readerModel(): ReaderModel {
     // The computer chooses: the state alone. The computer acts: the sentence of the step that plays.
     const [first = '', ...rest] = sentences(acting); Object.assign(m, { title: first, secondary: rest.map(t => line('play-last', t)), art: playedCard(cpu(), playingAction?.move) });
   } else {
-    // At rest: a notice or the player's own check is the headline; the computer's reply, or the first-minute line, follows.
-    const ends = replySteps.flatMap(step => effectEndLines(game.context, step.before, step.move, step.after, player)).map(t => line('play-effect-end', t));
-    const said = replySteps.length ? sentences(replySteps.map(step => sentence(step.before, step.move, true, cards(cpu()))).filter(Boolean).join(' ')) : sentences(fresh() ? text.firstMinute : last);
-    const items = [...said.map(t => line('play-last', t)), ...ends], mine = check.mine ? check.lines[0] : '';
-    const title = notice || mine || items.shift()?.textContent || '';
-    Object.assign(m, { title, primary: checks.filter(c => c.textContent !== mine), secondary: items, art: actionArt(cpu(), replySteps.at(-1)) });
+    // History keeps the newest action; the reader gives only the current state and a short hint.
+    Object.assign(m, { title: notice || (check.mine ? check.lines[0] : ''),
+      primary: checks.slice(check.mine ? 1 : 0), secondary: [line('play-notice', text.choose)] });
   }
   if (symbolsHint && pieceView === 'figures' && !draft.length) m.primary.push(line('play-symbols-hint', text.symbolsHint));
   if (onlineActive) { m.title = gameWords(m.title); m.state = gameWords(m.state); for (const node of [...m.primary, ...m.secondary]) { const walk = document.createTreeWalker(node, NodeFilter.SHOW_TEXT); while (walk.nextNode()) walk.currentNode.textContent = gameWords(walk.currentNode.textContent ?? ''); } }
@@ -1159,13 +1148,10 @@ function readerModel(): ReaderModel {
 function closeFloating(focus = true) {
   const ruleLabel = reading === 'rule' ? ruleReturnLabel : '';
   const target = scrollOpen ? scrollOpen === 'history' ? historyButton : effectsButton : floatingSource;
-  const armed = reading === 'normal' && shown === armedResource() && !!draft.armed;
-  if (armed) { notice = cancelLine(shown!.subject.kind); draft.armed = null; }
   scrollOpen = null; closeLearning(false); shown = null;
   if (reading === 'menu') reading = ended ? 'result' : 'normal';
   update(); const returned = ruleLabel ? detail.querySelector<HTMLElement>(`[aria-label="${CSS.escape(ruleLabel)}"]`) ?? target : target;
   if (focus && returned?.isConnected) returned.focus({ preventScroll: true });
-  if (armed) announce(notice);
 }
 function toggleScroll(kind: 'history' | 'effects', source: HTMLElement) {
   const open = scrollOpen !== kind; closeFloating(false); scrollOpen = open ? kind : null;
@@ -1208,7 +1194,7 @@ function renderHistory() {
 }
 function placeFloating() {
   if (!reader || !screen) return;
-  const source = reading === 'menu' ? menuButton : reading === 'rule' ? panelReturn : shown?.control;
+  const source = reading === 'menu' ? menuButton : reading === 'rule' ? panelReturn : shown && shown !== armedResource() ? shown.control : undefined;
   const wasFloating = reader.dataset.floating === 'true';
   reader.dataset.floating = String(!!source);
   reader.classList.toggle('kd-paper', !!source);
@@ -1251,7 +1237,7 @@ function rivalCardsModel(m: ReaderModel, res: Resource) {
   const rows = game.context.rules.hands[cpu()].map((id, k) => {
     const row = button(cardName(id), { onPress: () => {
       ruleAnchor = row.getBoundingClientRect(); ruleReturnLabel = '';
-      cancelReplay(); learning = { subject: { kind: 'card', id }, side: cpu(), cardIndex: k }; panelReturn = res.control; reading = 'rule'; update(); detail.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+      learning = { subject: { kind: 'card', id }, side: cpu(), cardIndex: k }; panelReturn = res.control; reading = 'rule'; update(); detail.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
     } });
     row.classList.add('play-rival-row'); if (used >> k & 1) row.append(' ', el('small', '', readingBText.used)); return row;
   });
@@ -1264,7 +1250,7 @@ function subjectModel(m: ReaderModel, subject: LearnSubject, side: Color, source
   const entry = learningEntry(subject, game.context, draft.position, side, cardIndex);
   const question = button('?', { onPress: () => {
     ruleAnchor = question.getBoundingClientRect(); ruleReturnLabel = question.getAttribute('aria-label') ?? '';
-    cancelReplay(); learning = { subject, side, cardIndex }; panelReturn = source; reading = 'rule'; update(); detail.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+    learning = { subject, side, cardIndex }; panelReturn = source; reading = 'rule'; update(); detail.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
   } }); question.setAttribute('aria-label', `All about the ${entry.name}`);
   const art = subject.kind === 'piece' ? `/ui/pieces/${subject.type === K ? kingFile(side) : `${entry.name.toLowerCase()}-${side ? 'b' : 'w'}`}.webp` : subject.kind === 'power' ? `/ui/pieces/${kingFile(side)}.webp` : cardIndex != null ? cardArt(side, cardIndex) : entry.art;
   Object.assign(m, { title: entry.name, named: true, isNew: entry.isNew, art, headTools: [question, ...(action ? [action] : [])] });
@@ -1280,7 +1266,6 @@ function closeLearning(focus = true) {
   }
 }
 const replyText = () => [...replySteps.flatMap(step => effectEndLines(game.context, step.before, step.move, step.after, player)), ...replySteps.map(step => sentence(step.before, step.move, true, cards(cpu()))).filter(Boolean)].join(' ');
-function cancelReplay() { replay.cancel(); }
 const cardArt = (side: Color, k: number) => { const id = game.context.rules.hands[side][k], art = RELEASED_CARDS.find(c => c.id === id)?.art; return `/${art ?? 'ui/cards/back.webp'}`; };
 /** The power as an enamel object: its name and its uses left. The computer's power only reads. */
 function addPower(side: Color, parent: HTMLElement) {
@@ -1324,11 +1309,11 @@ function pressResource(res: Resource) {
   if (arrangement) return;
   if (!onlineActive && writer.blocked) return;
   if (ended) return; // after the end the result card keeps its place (reading decision 21)
-  cancelReplay(); closeLearning(false); skipBoard(); clearChoice(); selected = inspected = null; reading = 'normal'; shown = res;
+  closeLearning(false); skipBoard(); clearChoice(); selected = inspected = null; reading = 'normal'; shown = res;
   const spent = res.control.dataset.spent === 'true', short = res.side === cpu() && res.subject.kind === 'power' ? opponentLines[res.subject.id] ?? res.short : res.short;
   // The owner line of the reading area names who has a power; the cancel line names a card or a power (reading decisions 19 and 22).
   if (res.side === cpu() || !res.key) notice = '';
-  else if (draft.armed === res.key) { draft.arm(res.key); shown = null; res.hint = undefined; notice = cancelLine(res.subject.kind); update(); announce(notice); return; }
+  else if (draft.armed === res.key) { draft.arm(res.key); shown = null; res.hint = undefined; notice = ''; update(); announce(cancelLine(res.subject.kind)); return; }
   else if (spent) notice = text.spent;
   else if (thinking) notice = fault ? sideText.computerFailed : text.wait;
   else if (!draft.armable(res.key)) notice = draft.open ? text.noTarget : text.notYet;
@@ -1355,7 +1340,7 @@ function layout() {
   if (!boardBox?.isConnected) return;
   const l = gameLayout(screen.clientWidth, screen.clientHeight, gameType(game.context.rules)), changed = form !== l.form;
   form = l.form;
-  Object.assign(screen.dataset, { layout: l.kind === 'rail' ? 'wide' : 'portrait', form: l.form, narrow: String(l.narrow), ownRows: String(l.ownRows), roomy: String(l.kind === 'stack' && l.form === 'tall'), short: String(l.form === 'compact'), tight: String(l.kind === 'rail' && l.reader + l.opp < 200) });
+  Object.assign(screen.dataset, { layout: l.kind === 'rail' ? 'wide' : 'portrait', form: l.form, narrow: String(l.narrow), sharedReader: String(l.kind === 'stack' && l.reader < 144), ownRows: String(l.ownRows), roomy: String(l.kind === 'stack' && l.form === 'tall'), short: String(l.form === 'compact'), tight: String(l.kind === 'rail' && l.reader + l.opp < 200) });
   const values = { board: l.board, head: l.head, opp: l.opp, own: l.own, fin: l.fin, reader: l.reader, 'usable-height': l.H, rail: l.col, col: (l.W - l.col) / 2, gap: l.gap, 'rail-top': l.railTop, 'rail-h': l.railH, 'board-x': l.boardX, 'board-y': l.boardY };
   for (const [name, value] of Object.entries(values)) screen.style.setProperty(`--${name}`, `${value}px`);
   // A rotation or a resize keeps the draft, the selection and the save; only the places change.
@@ -1424,7 +1409,7 @@ function renderPlace(route: Route) {
   }
   if (route.place === 'person') { home(); void personFlow(); return; }
   if (onlineActive) { onlineActive = false; onlineState = undefined; people?.stopGame(); liveGame = false; }
-  cancelReplay(); closeLearning(false); closeGuidePanel();
+  closeLearning(false); closeGuidePanel();
   if (route.place === 'game') {
     if (liveGame && !ended) { void start({ game, draft, level: gameLevel, player }); return; }
     const now = readStored();

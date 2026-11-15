@@ -9,8 +9,8 @@ import { POWERS_BALANCED, RULES_2017 } from '../../rules/rules';
 import { toFen } from '../../rules/setup';
 import { DraftTurn } from './turn';
 import { DEAL_CARDS } from '../../match/setup';
-import { ARRANGE_KEY } from './arrange';
-import { answerOffer, beforeNewGame, continueLine, gameType, keepCopy, KEPT_KEY, keptOffer, levelOf, OFFERED_KEY, readStored, rulesOf, SaveWriter, SKILLS, snapshot, storedChoice, storedGameType, GAME_KEY, type Prefs } from './saved';
+import { ARRANGE_KEY, Arrangement, pendingArrangement } from './arrange';
+import { answerOffer, beforeNewGame, continueLine, gameKeyOf, gameType, keepCopy, KEPT_KEY, keptOffer, levelOf, OFFERED_KEY, readStored, rulesOf, SaveWriter, SKILLS, snapshot, storedChoice, storedGameType, GAME_KEY, type Prefs } from './saved';
 import { text } from './texts';
 
 const store = new Map<string, string>();
@@ -472,4 +472,21 @@ it.each([0, 1] as const)('resumes an unfinished arrangement for side %s from its
   const saved = readStored(); expect(saved.kind).toBe('resume');
   expect(saved.resume?.player).toBe(player); expect(saved.resume?.game.history).toHaveLength(0);
   expect(toFen(saved.resume!.game.pos)).toBe(toFen(draft.game.pos));
+});
+
+
+it.each(['pieces', 'powers', 'cards', 'both'] as const)('keeps a confirmed Manual %s game until the first move, with a new-game warning', setup => {
+  const rules = rulesOf(setup, [{ king: 'Mud', power: 'March' }, { king: 'Spirit', power: 'Mercy' }], [DEAL_CARDS.slice(0, 4), DEAL_CARDS.slice(0, 4)]);
+  const game = new Game('RNBQKBNR', rules), arrangement = new Arrangement(game.backRank, 0);
+  arrangement.pick(1); arrangement.pick(3); expect(arrangement.canReady).toBe(true);
+  game.load(arrangement.position(game.pos));
+  store.set(ARRANGE_KEY, JSON.stringify({ army: arrangement.order, side: 0, fen: toFen(game.pos), ready: true }));
+  started(new DraftTurn(game));
+  const saved = readStored(); expect(saved.kind).toBe('resume');
+  expect(toFen(saved.resume!.game.pos)).toBe(toFen(game.pos));
+  expect(pendingArrangement(localStorage, saved.resume!.game, 0)).toBeUndefined();
+  expect(gameKeyOf(saved)).not.toBe('');
+  const resumed = saved.resume!.draft; step(resumed, 'a2', 'a3');
+  const { w } = writer(); w.load(saved.save); expect(w.game(snapshot(resumed), prefs, true)).toBe(true);
+  expect(readStored().kind).toBe('resume');
 });
