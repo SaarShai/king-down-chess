@@ -60,7 +60,7 @@ Install the audience hook and runtime-role blocks 1–2 once, through the privat
 ## Online games: 0005 to 0014
 
 Apply only missing files in order, after 0001–0004, through the approved privileged SQL Editor path.
-`npm run plugin:db:migrate` applies 0002–0024. Use it only for a disposable test database. Do not run its
+`npm run plugin:db:migrate` applies 0002–0025. Use it only for a disposable test database. Do not run its
 `tsx` entry against a live database. For the 0014 MVP, apply the third to the eleventh blocks of
 `plugin-deploy/runtime-role.sql` to the existing runtime role. The web section below adds block 12.
 The migrations are safe to run again.
@@ -128,7 +128,7 @@ in one short window:
 
 - `0014_plugin_tool_tries.sql`: one counter for each user and tool. Role block 11 grants the server access. Browser roles have no access.
 
-`npm run plugin:db:init-test` applies 0001–0024 twice to a disposable loopback database, and
+`npm run plugin:db:init-test` applies 0001–0025 twice to a disposable loopback database, and
 `src/match/service.db.test.ts`, `src/match/setup.db.test.ts`, `src/match/matchmaking.db.test.ts`,
 `src/match/results.db.test.ts`, `src/online/jobs.db.test.ts`, `src/online/accounts.db.test.ts` and
 `src/api/http.db.test.ts` check them.
@@ -141,7 +141,7 @@ in one short window:
 
 ## Web account access: 0016
 
-For a new database after 0001–0004, apply 0005–0024, then blocks 3–13 of `plugin-deploy/runtime-role.sql`.
+For a new database after 0001–0004, apply 0005–0025, then blocks 3–14 of `plugin-deploy/runtime-role.sql`.
 An existing database needs only the missing files and blocks, under the authority below.
 
 Apply only missing migrations in order through `0016_web_account_access.sql`, then block 12 of
@@ -245,3 +245,9 @@ The file checks for invalid indexes before it attaches constraints. Do not skip 
   Run 0024 again after the first deploy whose server writes the surface: it marks the Muse starts of the older server.
   Apply 0024 on staging before a deploy that turns on the Muse connector.
   Apply 0024 on production before the release that turns it on.
+
+## Opponent picture: 0025
+
+- `0025_opponent_avatar.sql`: adds `kingdown_jobs.user_avatar(uuid, uuid)` to read an opponent's social sign-in picture only when a game or an invite links the two accounts with no block. Email sign-in keeps no picture. Browser roles keep no access.
+  Apply 0025 on staging before a server deploy that calls it. Run block 14 of `plugin-deploy/runtime-role.sql` only when setting up a new runtime role.
+  Apply 0025 on production before the release that calls it.

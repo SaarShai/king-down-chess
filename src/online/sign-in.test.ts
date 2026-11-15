@@ -203,3 +203,18 @@ describe('checked account sign-in return', () => {
     expect(t.host.location.href).toBe(origin + '/play/'); expect(t.host.client).not.toHaveBeenCalled();
   });
 });
+
+it('the new interface keeps the checked link target through its own callback', async () => {
+  const t = tab('/next.html'); t.host.entryPath = '/next.html';
+  const token = 'a'.repeat(43);
+  await beginAccountSignIn('facebook', '/j#' + token, t.host);
+  expect(t.client.startAccountSignIn).toHaveBeenCalledWith('facebook', { entryPath: '/next.html' });
+  t.host.location.href = origin + '/next.html?code=one-use-code&sb_flow_id=' + flow;
+  t.client.finishAccountSignIn.mockImplementationOnce(async () => session);
+  expect(await consumeSignInReturn(t.host)).toMatchObject({ status:'signed-in', route:{screen:'join',key:token} });
+  expect(t.host.location.href).toBe(origin + '/next.html#join=' + token);
+});
+it('an unchecked return is refused on the new interface too', async () => {
+  const t=tab('/next.html?code=one-use-code&sb_flow_id='+otherFlow); t.host.entryPath='/next.html'; t.put();
+  expect(await consumeSignInReturn(t.host)).toEqual({status:'retry'}); expect(t.client.finishAccountSignIn).not.toHaveBeenCalled();
+});

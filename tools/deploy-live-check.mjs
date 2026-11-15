@@ -58,7 +58,9 @@ function typesOf(path) {
 const [folder, ...extra] = process.argv.slice(2);
 if (!folder || extra.length) fault('usage: node tools/deploy-live-check.mjs <build folder>');
 for (const name of ['index.html', 'sw.js', ...legalPages]) if (!existsSync(join(folder, name))) fault(`the build has no ${name} in ${folder}`);
-const bundle = bundleOf(readFileSync(join(folder, 'index.html'), 'utf8'));
+const home = existsSync(join(folder, 'solo-launch.json')) ? 'next.html' : 'index.html';
+const legacy = { bytes: readFileSync(join(folder, 'index.html')), types: ['text/html'] };
+const bundle = bundleOf(readFileSync(join(folder, home), 'utf8'));
 if (!bundle) fault(`the build's index.html has no module script in ${folder}`);
 const worker = readFileSync(join(folder, 'sw.js'), 'utf8');
 const version = /\bconst VERSION = ['"]([^'"]+)['"];/.exec(worker)?.[1], policy = policyOf(worker);
@@ -73,7 +75,7 @@ if (runtimeManifest && !runtimeAsset) fault('the runtime has no hashed WebP');
 const runtimePaths = runtimeManifest ? [runtimeManifest, `/character-runtime/assets/${runtimeAsset}`] : [];
 const paths = [...new Set(['/', '/sw.js', publicPath(bundle), ...runtimePaths, ...checkedPages.map(name => `/${name}`), ...workerFiles(worker, 'ALLOWLIST'), ...workerFiles(worker, 'PRECACHE'), ...assetFiles])];
 const built = new Map(paths.map(path => {
-  const file = path === '/' ? 'index.html' : path.slice(1);
+  const file = path === '/' ? home : path.slice(1);
   if (!existsSync(join(folder, file))) fault(`the build has no ${file} in ${folder}`);
   const types = typesOf(path);
   if (!types) fault(`the build has no checked content type for ${file}`);
@@ -120,16 +122,16 @@ async function differences() {
     const { error, status, location, type, cache, bytes } = next();
     if (error) { found.push(error); return; }
     if (status !== 200 || location) { found.push(`${path}: HTTP ${status}${location ? ' with a redirect' : ''}`); return; }
-    if (path === '/') {
+    if (path === '/' && !appPages.includes(path)) {
       const live = bundleOf(bytes.toString('utf8'));
       if (live !== bundle) found.push(`bundle: the live site loads ${live ?? 'no module script'}, the build ${bundle}`);
     }
     if (runtimePaths.includes(path) && (path === runtimeManifest ? /\bimmutable\b/i.test(cache ?? '') : !/\bimmutable\b/i.test(cache ?? '') || !/(?:^|,)\s*max-age=31536000\s*(?:,|$)/i.test(cache ?? ''))) found.push(`${path}: wrong immutable cache policy`);
     if (!expected.types.includes(type)) found.push(`${path}: expected ${expected.types.join(' or ')}, got ${type || 'no content type'}`);
-    if (!bytes.equals(expected.bytes)) found.push(`${path === '/' ? 'index.html' : path.slice(1)}${appPages.includes(path) ? ' (app page)' : ''}: the live page differs from the build (live ${bytes.length} bytes, build ${expected.bytes.length} bytes)`);
+    if (!bytes.equals(expected.bytes)) found.push(`${path === '/' ? home : path.slice(1)}${appPages.includes(path) ? ' (app page)' : ''}: the live page differs from the build (live ${bytes.length} bytes, build ${expected.bytes.length} bytes)`);
   };
   for (const path of paths) expectBytes(path, built.get(path));
-  for (const path of appPages) expectBytes(path, built.get('/'));
+  for (const path of appPages) expectBytes(path, legacy);
   for (const path of closedPages) {
     const { error, status, location } = next();
     if (error) found.push(error);

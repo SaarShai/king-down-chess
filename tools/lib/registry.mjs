@@ -12,6 +12,7 @@
 // faults that prove the runner: selftest-dirty writes a scratch file into the checkout, selftest-fail
 // fails, selftest-hang never ends, selftest-hold sleeps 15 s so that two runs can be seen together.
 export const checks = [
+  { name: 'next-menus', script: 'tools/verify-next-menus.mjs', limit: 900, channel: 'chromium', byName: true },
   { name: 'painted-leaps', script: 'tools/verify-painted-leaps.mjs', limit: 120, channel: 'chromium', byName: true },
   { name: 'leap-start', script: 'tools/verify-painted-leaps.mjs', args: ['start'], limit: 240, channel: 'chromium', exclusive: true },
   { name: 'movement-runtime', script: 'tools/verify-movement-runtime.mjs', limit: 120, channel: 'chromium', byName: true, exclusive: true },
@@ -93,6 +94,8 @@ export const checks = [
   { name: 'recovery-consumers', script: 'tools/web-game-check.mjs', args: ['recovery'], limit: 480, channel: 'chromium', byName: true, exclusive: true },
   { name: 'cache-registration', script: 'tools/cache-registration-check.mjs', limit: 45, channel: 'chromium', byName: true, exclusive: true },
   { name: 'web-online', script: 'tools/web-online-check.mjs', limit: 480, byName: true, exclusive: true },
+  // The new page (next.html) by name only until the cutover: its save wiring (interface-playable issue 01).
+  { name: 'next-save', script: 'tools/verify-next-save.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'selftest-dirty', script: 'tools/check-selftest-dirty.mjs', limit: 30, byName: true },
   { name: 'selftest-fail', script: 'tools/check-selftest-dirty.mjs', args: ['fail'], limit: 30, byName: true },
   { name: 'selftest-hang', script: 'tools/check-selftest-dirty.mjs', args: ['hang'], limit: 5, byName: true },

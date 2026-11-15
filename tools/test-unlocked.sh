@@ -9,7 +9,7 @@ PATH="$root/node_modules/.bin:$PATH"
 # The package.json "typecheck" commands, one per line; tools/machine-lease.test.ts checks that they match.
 tsc --noEmit
 tsc --noEmit -p tsconfig.tools.json
-vitest run
+vitest run "$@"
 node_tests=()
 while IFS= read -r file; do
   node_tests+=("$file")

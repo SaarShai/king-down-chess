@@ -113,7 +113,8 @@ it('starts the parked production server without the ChatGPT OAuth setup', async 
   // The website API still needs its public Supabase settings.
   for (const name of ['SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY']) await expect(configurePlugin({ ...parked, [name]: undefined }, { chatgpt: false })).rejects.toThrow(/supabase/i);
   // The plugin path keeps its OAuth gate.
-  await expect(configurePlugin(parked, { chatgpt: true })).rejects.toThrow('Enable Supabase OAuth');
+  const degraded = await configurePlugin(parked, { chatgpt: true });
+  expect(degraded.chatgpt).toBe(false); expect(degraded.pool).toBe(pool);
 });
 it('serves the plugin metadata again with chatgpt: true', async () => {
   const { call, close } = await productionServer(true, true);
@@ -172,4 +173,75 @@ it('starts a one-connector build with a client of the other connector in the lis
   await configurePlugin(production, { serverless: true, chatgpt: false, muse: true });
   // Muse only: the check reads only the Muse resource, so a listed ChatGPT client fails the start (CONFIG_REQUIRED).
   expect(checkPluginDatabase).toHaveBeenCalledExactlyOnceWith(expect.anything(), expect.anything(), ['https://kingdown.dev/muse/mcp']);
+});
+
+
+it.each(['readiness', 'discovery', 'metadata', 'audience', 'verifier', 'assets', 'handler'])('keeps the API and internal jobs when connector %s fails, with a release log', async fault => {
+ const pool = { on: vi.fn(), end: vi.fn(), query: vi.fn(async () => ({ rows: [{ singleton: true, enabled: true }] })) };
+ vi.mocked(Pool).mockImplementation(function () { return pool as unknown as Pool; });
+ const log = vi.spyOn(console, 'info').mockImplementation(() => {}), error = vi.spyOn(console, 'error').mockImplementation(() => {});
+ const pair = await generateKeyPair('ES256'), actor = '00000000-0000-4000-8000-000000000004';
+ const jwks = { keys: [{ ...await exportJWK(pair.publicKey), kid: 'website', alg: 'ES256' }] };
+ vi.stubGlobal('fetch', vi.fn(async (url: string | URL) => new URL(url).pathname.endsWith('/jwks.json') ? Response.json(jwks) : new URL(url).pathname.endsWith('/user') ? Response.json({ id: actor }) : fault === 'discovery' ? new Response('', { status: 503 }) : Response.json({ issuer: fault === 'metadata' ? 'wrong' : `${production.SUPABASE_URL}/auth/v1`, scopes_supported: ['openid'] })));
+ const tokenAuth = await import('../src/plugin/auth');
+ const verifier = fault === 'verifier' ? vi.spyOn(tokenAuth, 'createTokenVerifier').mockImplementationOnce(() => { throw new Error('private verifier value'); }) : undefined;
+ if (fault === 'audience') vi.mocked(checkPluginDatabase).mockRejectedValueOnce(Object.assign(new Error('private value'), { code: 'CONFIG_REQUIRED' }));
+ const { readFile } = await import('node:fs/promises');
+ if (fault === 'assets') vi.mocked(readFile).mockRejectedValueOnce(new Error('private file path'));
+ const pluginHttp = await import('../src/plugin/http');
+ const construction = fault === 'handler' ? vi.spyOn(pluginHttp, 'createPluginHandler').mockImplementationOnce(() => { throw new Error('private handler value'); }) : undefined;
+ const { GameService } = await import('../src/match/service');
+ const inbox = vi.spyOn(GameService.prototype, 'inbox').mockResolvedValueOnce([]);
+ const command = vi.spyOn(GameService.prototype, 'command').mockResolvedValueOnce({ game_id: 'friend', revision: 2, kind: 'friend' } as never);
+ const app = await configurePlugin({ ...production, KINGDOWN_INTERNAL_SECRET: 'x'.repeat(40), KINGDOWN_PLUGIN_OAUTH_READY: fault === 'readiness' ? '0' : '1' }, { chatgpt: true, muse: false });
+ verifier?.mockRestore(); construction?.mockRestore();
+ const server = createServer(app.handler); await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
+ const token = await new SignJWT({ iss: `${production.SUPABASE_URL}/auth/v1`, aud: 'authenticated', sub: actor, role: 'authenticated', is_anonymous: false, session_id: 'test-session' }).setIssuedAt().setExpirationTime('5m').setProtectedHeader({ alg: 'ES256', kid: 'website' }).sign(pair.privateKey);
+ const call = (path: string, method = 'GET', body?: unknown) => new Promise<{ status: number; body: any }>((done, fail) => {
+  const req = request({ host: '127.0.0.1', port: (server.address() as AddressInfo).port, path, method, headers: { host: 'kingdown.dev', Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-kingdown-internal': 'x'.repeat(40) } }, res => { let text = ''; res.on('data', chunk => { text += chunk; }); res.on('end', () => done({ status: res.statusCode!, body: JSON.parse(text) })); }); req.on('error', fail); req.end(body === undefined ? undefined : JSON.stringify(body));
+ });
+ try {
+  expect(app.chatgpt).toBe(false);
+  expect(await call('/api/status')).toEqual({ status: 200, body: { account_access: 'open', valid_for_ms: expect.any(Number) } });
+  expect(await call('/api/me/games')).toEqual({ status: 200, body: [] });
+  expect(inbox).toHaveBeenCalledWith(actor);
+  expect((await call('/api/games/00000000-0000-4000-8000-000000000005/commands', 'POST', { command_id: 'friend-command', expected_revision: 1, action: { type: 'resign' } })).status).toBe(200);
+  expect(command).toHaveBeenCalledWith(actor, '00000000-0000-4000-8000-000000000005', expect.objectContaining({ action: { type: 'resign' } }), 'web');
+  // The internal handler answers its own method guard, not a connector failure.
+  expect((await call('/internal/daily')).status).toBe(405);
+  for (const path of ['/mcp', '/authorize', '/consent.mjs', '/.well-known/oauth-protected-resource/mcp']) expect((await call(path)).status).toBe(404);
+  expect(log).toHaveBeenCalledWith('King Down release', expect.objectContaining({ build: expect.stringMatching(/^(?:[a-f0-9]{40}|dev)$/), chatgpt: false }));
+  expect(JSON.stringify(error.mock.calls)).not.toMatch(/private value|private file path|private verifier value|private handler value/);
+  expect(pool.end).not.toHaveBeenCalled();
+ } finally { await new Promise(done => server.close(done)); log.mockRestore(); error.mockRestore(); inbox.mockRestore(); command.mockRestore(); }
+});
+it('keeps a database schema fault fatal, including the connector fallback', async () => {
+ const pool = { on: vi.fn(), end: vi.fn() };
+ vi.mocked(Pool).mockImplementation(function () { return pool as unknown as Pool; });
+ vi.stubGlobal('fetch', vi.fn(async () => Response.json({ issuer: `${production.SUPABASE_URL}/auth/v1`, scopes_supported: ['openid'] })));
+ vi.mocked(checkPluginDatabase).mockRejectedValueOnce(new Error('schema')).mockRejectedValueOnce(new Error('schema'));
+ await expect(configurePlugin(production, { chatgpt: true, muse: false })).rejects.toThrow('schema');
+ expect(pool.end).toHaveBeenCalledExactlyOnceWith();
+});
+it('serves the ChatGPT connector and its consent page in local mode with website settings, with no OAuth client check', async () => {
+ const pool = { on: vi.fn(), end: vi.fn(), query: vi.fn() };
+ vi.mocked(Pool).mockImplementation(function () { return pool as unknown as Pool; });
+ const provider = vi.fn(); vi.stubGlobal('fetch', provider);
+ const client = '11111111-1111-4111-8111-111111111111', origin = 'http://127.0.0.1:39999';
+ // The env of tools/vercel-check.mjs and tools/plugin-server-check.mjs: a test database has no row for this client.
+ vi.mocked(checkPluginDatabase).mockImplementation(async (_pool, config) => { if (config) throw Object.assign(new Error('no client row'), { code: 'CONFIG_REQUIRED' }); return []; });
+ const app = await configurePlugin({ NODE_ENV: 'test', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: 'postgresql://127.0.0.1:5/local_test', SUPABASE_URL: 'https://project.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_local', KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: client, KINGDOWN_INTERNAL_SECRET: 'x'.repeat(40) }, { localDev: true, chatgpt: true, muse: false });
+ expect(app.chatgpt).toBe(true);
+ expect(checkPluginDatabase).toHaveBeenCalledExactlyOnceWith(pool, undefined, [`${origin}/mcp`]);
+ expect(provider).not.toHaveBeenCalled();
+ const server = createServer(app.handler); await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
+ const call = (method: string, path: string, headers: Record<string, string> = {}, body?: string) => new Promise<{ status: number; text: string }>((done, fail) => {
+  const req = request({ host: '127.0.0.1', port: (server.address() as AddressInfo).port, method, path, headers: { host: '127.0.0.1:39999', ...headers } }, res => { let text = ''; res.on('data', chunk => { text += chunk; }); res.on('end', () => done({ status: res.statusCode!, text })); });
+  req.on('error', fail); req.end(body);
+ });
+ try {
+  expect(JSON.parse((await call('GET', '/authorize?authorization_id=x')).text)).toMatchObject({ clientIds: [client] });
+  const list = await call('POST', '/mcp', { 'X-Kingdown-Dev-Actor': '00000000-0000-4000-8000-000000000004', 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', 'MCP-Protocol-Version': '2025-11-25' }, JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }));
+  expect(list.status).toBe(200);
+ } finally { await new Promise(done => server.close(done)); vi.mocked(checkPluginDatabase).mockReset(); }
 });

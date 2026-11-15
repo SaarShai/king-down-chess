@@ -5,6 +5,11 @@ const noiseBuffers = new WeakMap<BaseAudioContext, AudioBuffer>();
 
 export function setSound(on: boolean): void { enabled = on; }
 
+/** Unlock audio in a page gesture. The old screens keep their sound path. */
+export function unlockSound(): void {
+  if (enabled) void (ctx ??= new AudioContext()).resume().catch(() => {});
+}
+
 /** One second of white noise per context, reused by every noisy sound. */
 function noiseBuffer(c: BaseAudioContext): AudioBuffer {
   let b = noiseBuffers.get(c);

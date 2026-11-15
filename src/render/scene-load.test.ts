@@ -9,10 +9,16 @@ let scene: PaintedScene;
 // The still pictures match the real package's rest frames, not the made-up banks of these tests: they fail to load,
 // so each test sees the runtime bodies alone. The still test turns them on.
 let stillsLoad = false;
+// The scene options of the new board (holdStills, lazySheets); the old screens pass none. sheetsPending holds the
+// legacy sheets (the painted figures and kings) until a test finishes them.
+let sceneOptions: { holdStills?: boolean; lazySheets?: boolean } = {};
+let sheetsPending = false;
+const isSheet = (src: string) => /\/2d-first-pieces\/(?:king-\w+\/king|[\w-]+\/(?:beast|queen|paladin|maester|pawn|archer|ogre|knight|bishop|rook|guard))\.webp$/.test(src);
 
 function board(motion: boolean, characterRuntime = false, largeRuntime = false, refreshMs = 16) {
   vi.useFakeTimers();
-  const images: Art[] = [], draws: string[] = [], drawArgs: {src:string; args:number[]}[] = [], clouds: number[] = [], rotations: number[] = [];
+  const images: Art[] = [], draws: string[] = [], drawArgs: {src:string; args:number[]; at:number[]; alpha:number}[] = [], clouds: number[] = [], rotations: number[] = [];
+  let at: number[] = [];
   let decodeBoard = () => {};
   const decoded = new Promise<void>(resolve => { decodeBoard = resolve; });
   class Art {
@@ -23,15 +29,17 @@ function board(motion: boolean, characterRuntime = false, largeRuntime = false, 
     set src(src: string) {
       this.url = src; images.push(this);
       if (src.includes('/ui/pieces/') && !stillsLoad) { void Promise.resolve().then(() => this.finish(true)); return; }
+      if (sheetsPending && isSheet(src)) return;
       if (!isClip(src) && !src.includes('runtime-deferred')) void Promise.resolve().then(() => this.finish());
     }
     get src() { return this.url; }
     finish(fail = false) { this.complete = true; this.naturalWidth = fail ? 0 : largeRuntime && this.src.includes('runtime-') ? 2048 : 1152; if(largeRuntime && this.src.includes('runtime-'))this.height=2048; (fail ? this.onerror : this.onload)?.(); }
-    decode() { return this.src.includes('stone-board') ? decoded : Promise.resolve(); }
+    decode() { return this.src.includes('stone-board') ? decoded : this.src.includes('decode-fails') ? Promise.reject(new Error('decode')) : Promise.resolve(); }
   }
   const context: object = new Proxy({}, { get: (target, key) => key === 'drawImage'
-    ? (image: Art, ...args: number[]) => { if (image.src) { draws.push(image.src); drawArgs.push({src:image.src,args}); } if (image.src?.includes('cloud-bank.webp') && args.length === 4) clouds.push(Reflect.get(target, 'globalAlpha')); }
+    ? (image: Art, ...args: number[]) => { if (image.src) { draws.push(image.src); drawArgs.push({src:image.src,args,at,alpha:Reflect.get(target,'globalAlpha')}); } if (image.src?.includes('cloud-bank.webp') && args.length === 4) clouds.push(Reflect.get(target, 'globalAlpha')); }
     : key === 'rotate' ? (angle: number) => { rotations.push(angle); }
+    : key === 'translate' ? (x: number, y: number) => { at = [x, y]; }
     : key === 'getImageData' || key === 'createImageData' ? () => ({ data: new Uint8ClampedArray(4) })
     : key in target ? Reflect.get(target, key) : () => context });
   const canvas = () => ({ width: 960, height: 1024, getContext: () => context });
@@ -42,14 +50,14 @@ function board(motion: boolean, characterRuntime = false, largeRuntime = false, 
   vi.stubGlobal('document', { createElement: canvas });
   vi.stubGlobal('requestAnimationFrame', (fn: FrameRequestCallback) => setTimeout(() => fn(performance.now()), refreshMs));
   vi.stubGlobal('cancelAnimationFrame', clearTimeout);
-  scene = createScene({ canvas: canvas() as unknown as HTMLCanvasElement, pieces, characterRuntime, kings: ['frost', 'flame'] });
+  scene = createScene({ canvas: canvas() as unknown as HTMLCanvasElement, pieces, characterRuntime, kings: ['frost', 'flame'], ...sceneOptions });
   scene.setPosition(fromFen('4k3/8/8/8/8/8/8/1N2K2R w - - 0 1'));
   scene.setLively({ idle: true, atmosphere: true });
   scene.setReducedMotion(!motion);
   return { images, draws, drawArgs, clouds, rotations, decodeBoard, clips: () => images.filter(image => isClip(image.src)) };
 }
 
-afterEach(() => { scene?.dispose(); vi.useRealTimers(); vi.unstubAllGlobals(); stillsLoad = false; });
+afterEach(() => { scene?.dispose(); vi.useRealTimers(); vi.unstubAllGlobals(); stillsLoad = false; sceneOptions = {}; sheetsPending = false; });
 
 // The footprint table follows the package index; the index is what starts the downloads.
 const manifestFetches=(fetcher:{mock:{calls:[string][]}})=>fetcher.mock.calls.filter(([url])=>String(url).endsWith('/index.json')).length;
@@ -64,6 +72,20 @@ it('draws a figure at rest from its still picture, at its rest frame\'s pivot an
  expect(drawn.at(-1)!.args).toEqual([-knight.pivot[0],-knight.pivot[1],knight.size[0],knight.size[1]]);
  expect(b.draws.some(src=>src.endsWith('/ui/pieces/king-frost-w.webp'))).toBe(true);
  expect(scene.characterFrames).toHaveLength(0);
+});
+
+it('reports a rest still that cannot load only to a named onArtError option', async () => {
+ vi.stubGlobal('fetch',vi.fn(()=>new Promise(()=>{})));
+ const onArtError=vi.fn();
+ sceneOptions={holdStills:true,lazySheets:true,onArtError} as typeof sceneOptions;
+ let b=board(true,true);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ const urls=onArtError.mock.calls.map(([url])=>String(url));
+ expect(urls.some(url=>url.endsWith('/ui/pieces/knight-w.webp'))).toBe(true);
+ expect(urls.every(url=>url.includes('/ui/pieces/'))).toBe(true);
+ // The default (the old screens): the same failed stills, no callback and the same ready path.
+ scene.dispose();vi.useRealTimers();sceneOptions={holdStills:true,lazySheets:true};onArtError.mockClear();
+ b=board(true,true);const ready=scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ await expect(ready).resolves.toBeUndefined();expect(onArtError).not.toHaveBeenCalled();
 });
 
 it('drops a still picture when the loaded package has no body for that figure', async () => {
@@ -817,4 +839,98 @@ it('a king falls for as long as his demise lasts, half as long at Fast, and at o
   expect(scene.falling).toBe(false);
   scene.setFallen(sq, false, -1.5);
   expect(scene.falling).toBe(false);
+});
+
+// The new board's scene options (holdStills, lazySheets) and methods (arrive, setBoardArt). The old screens pass no option.
+it.each([false, true])('holdStills %s: a figure keeps its still while its part is in transfer, and drops it when the part has no body', async hold => {
+ stillsLoad = true; sceneOptions = { holdStills: hold }; let send = () => {};
+ vi.stubGlobal('fetch', vi.fn((url: string) => String(url).endsWith('/index.json') ? Promise.resolve({ ok: true, json: async () => ({ schemaVersion: 2, effects: {}, parts: { 'knight:white': 'parts/knight.white.json' } }) })
+  : new Promise(resolve => { send = () => resolve({ ok: true, json: async () => ({ banks: [] }) }); })));
+ const b = board(true, true); void scene.load(); b.decodeBoard(); await vi.advanceTimersByTimeAsync(48);
+ const still = async () => { const from = b.draws.length; scene.redraw(); await vi.advanceTimersByTimeAsync(48); return b.draws.slice(from).some(src => src.endsWith('/ui/pieces/knight-w.webp')); };
+ expect(scene.characterMemory.manifestReady).toBe(true);
+ expect(await still()).toBe(hold);
+ send(); await vi.advanceTimersByTimeAsync(16);
+ expect(await still()).toBe(false);
+});
+
+it.each([false, true])('lazySheets %s: ready needs only the stone and the rest stills, and a sheet error does not reject it', async lazy => {
+ stillsLoad = true; sheetsPending = true; sceneOptions = { lazySheets: lazy };
+ vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
+ const b = board(true, true), ready = vi.fn(), failed = vi.fn(); void scene.load().then(ready, failed); b.decodeBoard(); await vi.advanceTimersByTimeAsync(48);
+ expect(ready).toHaveBeenCalledTimes(lazy ? 1 : 0);
+ expect(b.draws.some(src => src.endsWith('/ui/pieces/knight-w.webp'))).toBe(lazy);
+ const sheets = b.images.filter(image => isSheet(image.src)), knight = sheets.find(image => image.src.endsWith('/knight/knight.webp'))!;
+ knight.finish(true); for (const sheet of sheets) if (sheet !== knight) sheet.finish();
+ await vi.advanceTimersByTimeAsync(48);
+ expect(failed).toHaveBeenCalledTimes(lazy ? 0 : 1); expect(ready).toHaveBeenCalledTimes(lazy ? 1 : 0);
+});
+
+it('never caches a legacy sheet that has not loaded: the figure draws from its sheet once it loads', async () => {
+ sheetsPending = true; sceneOptions = { lazySheets: true };
+ vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
+ const b = board(true, true); void scene.load(); b.decodeBoard(); await vi.advanceTimersByTimeAsync(48);
+ expect(scene.frames).toBeGreaterThan(0);
+ const knight = b.images.find(image => image.src.endsWith('/knight/knight.webp'))!;
+ expect(b.draws).not.toContain(knight.src);
+ knight.finish(); await vi.advanceTimersByTimeAsync(48);
+ expect(b.draws).toContain(knight.src);
+});
+
+it('lazySheets: a moving figure whose sheet has not loaded slides its still along the move (M17)', async () => {
+ stillsLoad = true; sheetsPending = true; sceneOptions = { lazySheets: true };
+ vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ schemaVersion: 1, banks: [] }) })));
+ const b = board(true, true); void scene.load(); b.decodeBoard(); await vi.advanceTimersByTimeAsync(48);
+ // A figure at rest (the Knight on b1) also draws its still in a new frame after the package index loads, not a blank.
+ const rest = b.draws.length; scene.redraw(); await vi.advanceTimersByTimeAsync(48);
+ expect(b.draws.slice(rest).some(src => src.endsWith('/ui/pieces/knight-w.webp'))).toBe(true);
+ const from = b.drawArgs.length, playing = scene.play({ from: 7, to: 31, captures: [] });
+ await vi.advanceTimersByTimeAsync(3000); await expect(playing).resolves.toBe(true);
+ const feet = new Set(b.drawArgs.slice(from).filter(d => d.src.endsWith('/ui/pieces/rook-w.webp')).map(d => d.at[1]));
+ expect(feet.size).toBeGreaterThan(3);
+});
+
+it('arrive(): a listed figure fades in and rises into place after its delay; reduced motion ends it', async () => {
+ stillsLoad = true;
+ vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
+ const b = board(true, true); void scene.load(); b.decodeBoard(); await vi.advanceTimersByTimeAsync(48);
+ const knight = () => b.drawArgs.filter(d => d.src.endsWith('/ui/pieces/knight-w.webp')).at(-1)!, rest = knight().at[1];
+ scene.arrive(new Map([[1, 100]]), 200, 24); await vi.advanceTimersByTimeAsync(150);
+ expect(knight().alpha).toBeGreaterThan(0); expect(knight().alpha).toBeLessThan(1); expect(knight().at[1]).toBeGreaterThan(rest);
+ await vi.advanceTimersByTimeAsync(300);
+ expect(knight().alpha).toBe(1); expect(knight().at[1]).toBe(rest);
+ scene.setReducedMotion(true); scene.arrive(new Map([[1, 0]])); await vi.advanceTimersByTimeAsync(48);
+ expect(knight().alpha).toBe(1); expect(knight().at[1]).toBe(rest);
+});
+
+it('setBoardArt() draws the new board art; a decode failure keeps the old art and rejects', async () => {
+ const b = board(true); void scene.load(); b.decodeBoard(); await vi.advanceTimersByTimeAsync(32);
+ await scene.setBoardArt('/interface/stone-refined-light.webp');
+ let from = b.draws.length; await vi.advanceTimersByTimeAsync(32);
+ expect(b.draws.slice(from)).toContain('/interface/stone-refined-light.webp');
+ expect(b.draws.slice(from).some(src => src.includes('stone-board'))).toBe(false);
+ await expect(scene.setBoardArt('/interface/decode-fails.webp')).rejects.toThrow('decode');
+ from = b.draws.length; scene.redraw(); await vi.advanceTimersByTimeAsync(32);
+ expect(b.draws.slice(from)).toContain('/interface/stone-refined-light.webp');
+});
+
+it.each([1, .5])('opt-in action clock uses 900 ms times speed %s and keeps the default clock', async speed => {
+  const b=board(true); void scene.load(); b.decodeBoard(); await vi.advanceTimersByTimeAsync(48);
+  let done=false; const m={from:1,to:18,captures:[]};
+  const playing=scene.play(m,{speed,targetMs:900}).then(()=>{done=true;});
+  await vi.advanceTimersByTimeAsync(900*speed-20);expect(done).toBe(false);
+  await vi.advanceTimersByTimeAsync(40);await playing;expect(done).toBe(true);
+  done=false;const legacy=scene.play(m,{speed}).then(()=>{done=true;});
+  await vi.advanceTimersByTimeAsync(900*speed+20);expect(done).toBe(false);
+  await vi.advanceTimersByTimeAsync(5000);await legacy;
+});
+
+it.each([undefined, false, true])('ends a swap at arrival only with the named option: %s', async finishSwapOnArrival => {
+  const b = board(true); void scene.load(); b.decodeBoard(); await vi.advanceTimersByTimeAsync(48);
+  const done = vi.fn();
+  void scene.play({ from: 1, to: 7, captures: [], swap: true }, { targetMs: 900, finishSwapOnArrival }).then(done);
+  await vi.advanceTimersByTimeAsync(700);
+  expect(done).toHaveBeenCalledTimes(finishSwapOnArrival ? 1 : 0);
+  await vi.advanceTimersByTimeAsync(400);
+  expect(done).toHaveBeenCalledOnce();
 });

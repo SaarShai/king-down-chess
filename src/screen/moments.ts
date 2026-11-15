@@ -3,7 +3,7 @@ import type { SkillName } from '../ai/skill';
 import { type SearchResult } from '../ai/search';
 import type { Engine, Game, Side } from '../game';
 import { clickPath } from '../marks-model';
-import { keyMoments, momentText, type KeyMoment, type momentKind } from '../moment';
+import { keyMoments, momentText, type KeyMoment } from '../moment';
 import { findKing, type Color, type Move, type Position, type Status } from '../rules/engine';
 import { toLan } from '../rules/setup';
 import { kingArt } from '../ui/guide';
@@ -53,19 +53,8 @@ export function shareResultText(r: {
 export const previewText = (pos: Position, ready: readonly Move[], seen: Set<string>, said: string): string =>
   (ready.length === 1 ? momentText(pos, ready[0], seen, true) : null) ?? said;
 
-/**
- * A move's sounds. `now` plays as the move starts: a launch (shot, swap) or a quiet move. `hit` plays
- * when the board shows the contact: a shove, a chain or a capture.
- */
-export function soundsFor(kind: ReturnType<typeof momentKind>, m: Move): { now: 'shot' | 'swap' | 'move' | null; hit: 'shove' | 'chain' | 'capture' | null } {
-  const hit = kind === 'shove' || kind === 'shoveGuard' ? 'shove'
-    : kind === 'chain' || kind === 'reaver' ? 'chain'
-    : m.captures.length || m.selfRemove ? 'capture' : null;
-  const now = kind === 'shot' || kind === 'deathTouch' || kind === 'strikeCapture' || kind === 'lob' || kind === 'strike' ? 'shot'
-    : kind === 'swap' || kind === 'swapKing' ? 'swap'
-    : !hit ? 'move' : null;
-  return { now, hit };
-}
+/** The pure sound choice lives in render/sounds.ts, so the new interface can use it without this screen module. */
+export { soundsFor } from '../render/sounds';
 
 /**
  * The moments: the moment line (`#moment`) and its hover preview, the result and the result dialog, the

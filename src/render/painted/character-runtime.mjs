@@ -394,6 +394,8 @@ export function createCharacterRuntime({url=indexUrl(),wake=()=>{},fetcher=fetch
  return {
   ready:()=>bounded(loadManifest()).then(()=>{}),
   has:(character,army)=>{const bank=idle(character,army);if(!bank)void(manifestReady?loadPart(character,army):loadManifest());return !!bank;},
+  /** True when the loaded package has no body for this figure (not while its part is in transfer). */
+  lacks:(character,army)=>{const key=`${character}:${army}`;return manifestReady&&!idle(character,army)&&(!partPaths||!Object.hasOwn(partPaths,key)||!!parts.get(key)?.ready);},
   get stats(){return {bytes:bytes+effectBytes+smokeBytes,peakBytes,framesLoaded:images.size,active,queued:queue.length,manifestReady,manifestLoading:!!manifestLoading,manifestPending:!!manifestLoading&&!manifestRetryAt||[...parts.values()].some(part=>part.loading&&!part.retryAt)};},
   smoke(){return smokeClass&&smokeImage?new smokeClass(smokeImage):null;},
   warm,

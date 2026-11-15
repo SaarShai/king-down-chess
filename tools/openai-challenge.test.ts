@@ -16,7 +16,8 @@ it('the site build keeps the domain challenge dot folder and exact bytes', async
     writeFileSync(join(root, 'public', challenge), token);
     cpSync(resolve('public/sw.js'), join(root, 'public/sw.js'));
     writeFileSync(join(root, 'index.html'), '<!doctype html><title>Build check</title>');
-    await build({ configFile: resolve('vite.config.ts'), root, logLevel: 'silent', envFile: false });
+    // The fixture page replaces the config's page inputs, which point into the repository.
+    await build({ configFile: resolve('vite.config.ts'), root, logLevel: 'silent', envFile: false, build: { rollupOptions: { input: join(root, 'index.html') } } });
     expect(readFileSync(join(root, 'dist', challenge))).toEqual(token);
     const worker = readFileSync(join(root, 'dist/sw.js'), 'utf8');
     const precache = JSON.parse(/const PRECACHE = (\[.*\]);/.exec(worker)![1]);

@@ -161,6 +161,13 @@ export class CardPlayback implements SceneEffect {
     if (newMark && t >= .62 && t < 1) {
       this.shown.marks = this.before.turn === 0 ? [undefined, base.marks?.[1]] : [base.marks?.[0], undefined];
     }
+    // A mark of the other side that this move ends stays until the card ends. Before, it went at once here and the
+    // live board then showed it again to thaw it (frost showed, hid and showed again).
+    const other = this.before.turn ^ 1, ending = this.before.marks?.[other], now = this.shown.marks?.[other];
+    if (t >= .62 && ending && (ending.left ?? 1) > 0 && !(now && (now.left ?? 1) > 0)) {
+      const marks = [...(this.shown.marks ?? [undefined, undefined])] as [typeof ending | undefined, typeof ending | undefined];
+      marks[other] = ending; this.shown = { ...this.shown, marks };
+    }
     return this.shown;
   }
 

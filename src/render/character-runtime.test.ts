@@ -1189,3 +1189,20 @@ describe('ready character playback', () => {
   }finally{runtime.dispose();vi.unstubAllGlobals();}
  });
 });
+
+it('lacks() is false while a figure part is in transfer, and true only for a figure the package has no body for', async () => {
+ let release = () => {};
+ const part = new Promise<void>(resolve => { release = resolve; });
+ const fetcher = vi.fn(async (url: string) => {
+  if (url.endsWith('pawn.white.json')) await part;
+  return { ok: true, json: async () => url.endsWith('index.json') ? { schemaVersion: 2, parts: { 'pawn:white': 'parts/pawn.white.json' }, effects: {} } : { banks: [] } };
+ }) as unknown as typeof fetch;
+ const runtime = createCharacterRuntime({ url: 'https://example.invalid/character-runtime/index.json', fetcher, wake: () => {} });
+ expect(runtime.lacks('ogre', 'white')).toBe(false); // the index has not loaded yet
+ await runtime.ready();
+ expect(runtime.has('pawn', 'white')).toBe(false); // starts the part load
+ expect(runtime.lacks('pawn', 'white')).toBe(false); // its part loads: the still stays
+ expect(runtime.lacks('ogre', 'white')).toBe(true); // no part in the index
+ release(); await vi.waitFor(() => expect(runtime.lacks('pawn', 'white')).toBe(true)); // the part has no idle bank
+ runtime.dispose();
+});

@@ -214,8 +214,9 @@ function shadowArm(c,d,arm,up,grip,dy,t,i){
 // The rift: three painted openings with their cracks (shadow-rift.webp, prompt in shadow-rift-prompt.txt). The
 // opening takes LENS of a cell's width and height; its cracks run out from both ends.
 const RIFTS=[[2,5,556,102],[2,120,556,96],[2,229,556,101]],LENS={w:.64,h:.55};
-let riftSheet=null;
-if(typeof Image!=='undefined'){const image=new Image();image.crossOrigin='anonymous';image.onload=()=>{riftSheet=image;};image.src=new URL('./shadow-rift.webp',import.meta.url).href;}
+let riftSheet=null,riftAsked=false;
+/** Loads the rift sheet once: the scene asks for it when it is made, or after its first frame (scene.mjs, lazySheets). */
+export function loadRiftArt(){if(riftAsked||typeof Image==='undefined')return;riftAsked=true;const image=new Image();image.crossOrigin='anonymous';image.onload=()=>{riftSheet=image;};image.src=new URL('./shadow-rift.webp',import.meta.url).href;}
 // The opening is w across and h deep from its middle at full size, as the drawn crack was (the painted one is
 // flatter, so it keeps DEPTH of that depth). It tears out from the middle and deepens as it opens. Until the sheet
 // has loaded, the drawn crack stands in.

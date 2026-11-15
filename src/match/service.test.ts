@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_OPTIONS } from './setup';
 import { GameService, MatchServiceError, startKey, TURN_DAYS, UNFINISHED } from './service';
@@ -171,5 +172,54 @@ describe('game service failure boundaries', () => {
   apply.mockResolvedValueOnce({turn:1,status:'playing',history:[],rules:{kings:[null,null],hands:[[],[]]},revision:1000});
   await writer.command(actor,id,{command_id:'last',expected_revision:998,action:{type:'computer'}});
   expect(save.mock.calls[0][2]).toMatchObject({status:'finished',result:'draw',end_reason:'history'});
+ });
+ it('projects opponent and invitation avatars only from the privacy-checked helper', async () => {
+  const peer = '33333333-3333-4333-8333-333333333333', pic = 'https://avatars.githubusercontent.com/u/99';
+  const queries: { sql: string; params: unknown[] }[] = [];
+  const pool = { query: vi.fn(async (sql: string, params: unknown[]) => {
+   queries.push({ sql, params });
+   if (sql.includes('from public.game_players me')) return { rows: [{ game_id: id, rating_policy: 'casual', kind: 'friend', speed: 'daily', status: 'playing', seat: 0, action: 'ready', turn: 0, revision: 1, deadline_at: null, updated_at: new Date(0), options: DEFAULT_OPTIONS, level: 'club', created_at: new Date(0), move: 1, invite_id: null, open_until: null, op_user: peer, op_computer: false, op_seen: null, op_handle: 'dana', op_icon: 'frost', op_avatar: pic }] };
+   if (sql.includes('from public.game_invites i join public.games')) return { rows: [{ invite_id: 'a'.repeat(64), game_id: id, revision: 0, recipient_id: peer, direction: 'outgoing', state: 'open', expires_at: new Date(1000), options: DEFAULT_OPTIONS, user_id: peer, handle: 'dana', icon: 'frost', avatar: pic, cursor_at: '2026-11-14T00:00:00.000000Z' }] };
+   if (sql.includes('kingdown_jobs.user_avatar($1, $2) as avatar')) return { rows: [{ unblocked: true, presets: true, online: false, avatar: pic }] };
+   if (sql.includes('kingdown_jobs.user_avatar($1,$2) as url')) return { rows: [{ url: pic }] };
+   if (sql.includes('expires_at<=statement_timestamp() as expired')) return { rows: [{ expired: false }] };
+   if (sql.includes('from public.game_invites where token_hash=$1')) return { rows: [{ token_hash: 'b'.repeat(64), game_id: id, seat: 0, created_by: peer, recipient_id: actor, state: 'open', expires_at: new Date(Date.now() + 60_000) }] };
+   if (sql.includes('select exists(select from public.profiles')) return { rows: [{ allowed: true }] };
+   if (sql.includes('from public.game_invites i join public.games g on g.id=i.game_id')) return { rows: [] };
+   if (sql.includes('select handle from public.profiles')) return { rows: [{ handle: 'alex' }] };
+   if (sql.includes('from public.profiles p where')) return { rows: [{ user_id: peer, handle: 'dana', icon: 'frost', source: 'follow' }] };
+   if (sql.includes('from public.games g')) return { rows: [{ game_id: id, rating_policy: 'casual', options: DEFAULT_OPTIONS, seat: 0, handle: 'dana', icon: 'frost', created_at: new Date(0) }] };
+   return { rows: [{ n: 0, rating: 1500, provisional: true }] };
+  }) };
+  const store = new PostgresMatchStore(pool as never);
+  const friendGame = { id, rating_policy: 'casual', kind: 'friend', speed: 'daily', days_per_move: 3, category: '', readings: null, colour_rule: 'random', setup_admission: null, options: DEFAULT_OPTIONS, draw: null, deal: null, level: 'club', setup_deadline_at: null, rematch_offer: null, rematch_game_id: null, engine_fingerprint: 'engine-v1', setup: {}, rules: null, status: 'playing', result: null, end_reason: null, turn: 0, revision: 1, draw_offer: null, state: null, snapshot: { fen: 'fen', inCheck: false, legal: [], history: [], rules: { kings: [], hands: [] } }, deadline_at: null, deadline_kind: null, moves: null, created_by: actor, created_at: new Date(0), started_at: new Date(0), finished_at: null, updated_at: new Date(0), players: [{ ...seat(0, actor), handle: 'alex', handle_at_start: 'alex', last_seen_ms: 0 }, { ...seat(1, peer), handle: 'dana', icon: 'frost', handle_at_start: 'dana', last_seen_ms: null }] };
+  store.load = vi.fn().mockResolvedValue(friendGame) as never;
+  store.commands = vi.fn().mockResolvedValue([]) as never;
+  store.hasJoined = vi.fn().mockResolvedValue(true) as never;
+  const views = new GameService(store);
+  expect((await views.inbox(actor))[0].opponent?.avatar).toBe(pic);
+  expect((await views.invitations(actor)).invitations[0].player?.avatar).toBe(pic);
+  expect((await views.view(actor, id)).opponent?.avatar).toBe(pic);
+  store.load = vi.fn().mockResolvedValue({ ...friendGame, status: 'waiting' }) as never;
+  expect((await views.preview(actor, { invite_id: 'b'.repeat(64) })).creator.avatar).toBe(pic);
+  expect(queries.find(q => q.sql.includes('user_avatar($1,op.user_id)'))?.params).toEqual([actor]);
+  // Friends lookup and open lobby keep no picture query or avatar field.
+  const friends = await store.friends(actor), lobby = await store.lobby(actor);
+  expect(friends.friends[0]).not.toHaveProperty('avatar');
+  expect(lobby[0].creator).not.toHaveProperty('avatar');
+  expect(queries.filter(q => q.sql.includes('from public.profiles p where') || q.sql.includes('from public.games g')).every(q => !q.sql.includes('user_avatar'))).toBe(true);
+ });
+ it('enforces the SQL privacy, metadata and email sign-in rules in migration 0025', () => {
+  const sql = readFileSync('supabase/migrations/0025_opponent_avatar.sql', 'utf8');
+  expect(sql).toContain('kingdown_jobs.user_avatar(viewer uuid, subject uuid)');
+  expect(sql).toContain('security definer');
+  expect(sql).toContain('public.game_players');
+  expect(sql).toContain('public.game_invites');
+  expect(sql).toContain("r.kind = 'block'");
+  expect(sql).toContain("coalesce(app ->> 'provider', '') = 'email'");
+  expect(sql).toContain("'avatar_url'");
+  expect(sql).toContain("'picture'");
+  expect(sql).toContain("url ~ '^https://'");
+  expect(sql).toContain('revoke all on function kingdown_jobs.user_avatar(uuid, uuid) from public, anon, authenticated');
  });
 });

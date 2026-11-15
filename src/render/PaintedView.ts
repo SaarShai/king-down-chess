@@ -6,6 +6,7 @@ import { PromotionPlayback, loadAscension } from './effects/promotion';
 import { drawWithdrawal } from './effects/check';
 import { moveOverlay, type MoveOverlay } from './effects/move-overlay';
 import { loadDarkGate } from './effects/dark-gate';
+import { afterBoard } from './painted/after-board.mjs';
 import type { TailedOverlay } from './effects/power-overlays';
 import { createScene, type KingDesign, type PaintedScene } from './painted/scene.mjs';
 import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, S, T, colorOf, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
@@ -13,6 +14,7 @@ import { figureUrl, selectedFigure } from '../workshop/figures';
 import { drawMarks, type Highlights } from './marks';
 import { boardInk, coordInk } from './board-ink';
 import { pastTap } from './tap';
+import { drawPlainMarks, emptyMarks, type PlainMarks } from './plain-marks';
 
 declare const __KINGDOWN_CHARACTER_RUNTIME__: boolean;
 
@@ -62,7 +64,8 @@ export class PaintedView implements BoardView {
   context = new GameRules();
   setRules(context: GameRules): void {
     this.context = context;
-    if (context.rules.kings.some(king => king?.power === 'Darkness')) loadDarkGate();
+    // lazySheets: the Darkness art waits for the first frame, as the other effect art does (after-board.mjs).
+    if (context.rules.kings.some(king => king?.power === 'Darkness')) { if (this.options.lazySheets) afterBoard(loadDarkGate); else loadDarkGate(); }
   }
   onSquareClick: (sq: number, shift: boolean) => void = () => {};
   onDragSelect: (sq: number) => void = () => {};
@@ -92,6 +95,7 @@ export class PaintedView implements BoardView {
   private pos: Position | null = null;
   private symbols?: (piece: number) => HTMLImageElement;
   private marks: Highlights = {};
+  private plainMarks: PlainMarks = emptyMarks();
   private stateEffects = new StateEffects();
   private hovered: number | null = null;
   private tap: PointerEvent | null = null;
@@ -105,18 +109,24 @@ export class PaintedView implements BoardView {
   private width = 960;
   private fallen: { pos: Position; sq: number } | null = null;
   private motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
+  /** The host's motion setting; null follows the system setting. */
+  private reducedMotion: boolean | null = null;
   /** Keyboard cursor square, previewed like the hovered square. */
   private cursor: number | null = null;
 
   /**
    * options.floor: the colour round the board (default: the scene's own floor, as the plugin page draws it);
    * null leaves the canvas clear there, so the page's floor shows (the game).
+   * options.liveInput: a board tap during playback ends the move and acts at once; other controls keep their own press.
+   * options.quiet: no coordinates, no atmosphere frame, no passive king effects and no resting-pawn motion.
+   * options.holdStills, options.lazySheets, options.onArtError: the scene options of the same names (scene.d.mts); with lazySheets the Darkness art also waits for the first frame.
+   * All default to false; only the new interface turns them on.
    */
-  constructor(private container: HTMLElement, private options: { floor?: string | null; webInk?: boolean; allowModalAndNavigation?: boolean } = {}) {
+  constructor(private container: HTMLElement, private options: { floor?: string | null; webInk?: boolean; allowModalAndNavigation?: boolean; liveInput?: boolean; quiet?: boolean; holdStills?: boolean; lazySheets?: boolean; plainMarks?: boolean; onArtError?: (url: string) => void } = {}) {
     container.classList.add('painted');
     this.canvas.width = 960; this.canvas.height = 960 + HEADROOM; // resolution 1 until the first resize
     container.appendChild(this.canvas);
-    this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM, kings: [kingDesign(this.context, 0), kingDesign(this.context, 1)], floor: options.floor, characterRuntime: typeof __KINGDOWN_CHARACTER_RUNTIME__ !== 'undefined' && __KINGDOWN_CHARACTER_RUNTIME__ });
+    this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM, kings: [kingDesign(this.context, 0), kingDesign(this.context, 1)], floor: options.floor, characterRuntime: typeof __KINGDOWN_CHARACTER_RUNTIME__ !== 'undefined' && __KINGDOWN_CHARACTER_RUNTIME__, holdStills: options.holdStills, lazySheets: options.lazySheets, onArtError: options.onArtError });
     this.scene.setDecorate((ctx, scene, layer, row) => this.drawMarks(ctx, scene, layer, row));
     // The game opts in to quiet-move gaits, the selected figure's idle and the framed, warm board
     // (the trial and the trailer keep the plain scene).
@@ -125,6 +135,7 @@ export class PaintedView implements BoardView {
     // The kings' effects redraw the board about 30 times a second: not while the tab is hidden.
     document.addEventListener('visibilitychange', () => this.applyLively(), { signal });
     this.applyLively();
+    if (options.quiet) this.setCoords(false);
     // F13: no board before the stone art is decoded; the first frame shows stone and pieces together.
     // ready() waits for that frame, so a hidden tab or off-screen frame becomes ready when it shows.
     this.canvas.style.visibility = 'hidden';
@@ -148,25 +159,30 @@ export class PaintedView implements BoardView {
     this.resize.observe(container);
     let skippedPointer: number | null = null;
     const consume = (e: Event) => { e.preventDefault(); e.stopImmediatePropagation(); };
-    document.addEventListener('pointerdown', e => {
-      skippedPointer = null;
-      if (e.button !== 0 || !this.canvas.getClientRects().length || !(this.scene.animating || this.scene.falling)
-        || (e.target instanceof Element && e.target.closest('#undo'))) return;
-      if (this.options.allowModalAndNavigation) {
-        const target = e.target as Element;
-        const link = target.closest?.('a[href]') as HTMLAnchorElement | null;
-        if (target.closest?.('dialog:modal') || (link && ['http:', 'https:'].includes(link.protocol) && (link.origin !== location.origin || link.pathname !== location.pathname || link.search !== location.search))) return;
-      }
-      skippedPointer = e.pointerId;
-      this.clearPointer(); this.onSkipAnimation?.(); this.skip(); consume(e);
-    }, { capture: true, signal });
-    document.addEventListener('pointerup', e => { if (e.pointerId === skippedPointer) consume(e); }, { capture: true, signal });
-    document.addEventListener('click', e => {
-      if (skippedPointer == null || e.detail === 0) return;
-      skippedPointer = null; consume(e);
-    }, { capture: true, signal });
-    document.addEventListener('pointercancel', () => { skippedPointer = null; }, { capture: true, signal });
-    this.canvas.addEventListener('pointerdown', e => this.onDown(e), { signal });
+    if (!options.liveInput) {
+      document.addEventListener('pointerdown', e => {
+        skippedPointer = null;
+        if (e.button !== 0 || !this.canvas.getClientRects().length || !(this.scene.animating || this.scene.falling)
+          || (e.target instanceof Element && e.target.closest('#undo'))) return;
+        if (this.options.allowModalAndNavigation) {
+          const target = e.target as Element;
+          const link = target.closest?.('a[href]') as HTMLAnchorElement | null;
+          if (target.closest?.('dialog:modal') || (link && ['http:', 'https:'].includes(link.protocol) && (link.origin !== location.origin || link.pathname !== location.pathname || link.search !== location.search))) return;
+        }
+        skippedPointer = e.pointerId;
+        this.clearPointer(); this.onSkipAnimation?.(); this.skip(); consume(e);
+      }, { capture: true, signal });
+      document.addEventListener('pointerup', e => { if (e.pointerId === skippedPointer) consume(e); }, { capture: true, signal });
+      document.addEventListener('click', e => {
+        if (skippedPointer == null || e.detail === 0) return;
+        skippedPointer = null; consume(e);
+      }, { capture: true, signal });
+      document.addEventListener('pointercancel', () => { skippedPointer = null; }, { capture: true, signal });
+    }
+    this.canvas.addEventListener('pointerdown', e => {
+      if (options.liveInput && this.animating) { this.onSkipAnimation?.(); this.skip(); }
+      this.onDown(e);
+    }, { signal });
     // Keep piece drags; a touch that starts elsewhere can scroll the screen.
     this.canvas.addEventListener('touchstart', e => { if (this.dragFrom != null && this.canDrag()) e.preventDefault(); }, { passive: false, signal });
     this.canvas.addEventListener('pointermove', e => this.onMove(e), { signal });
@@ -239,7 +255,7 @@ export class PaintedView implements BoardView {
       const moving = keepsLiveStates(card.action.id) ? new Set([m.from, m.to]) : undefined;
       this.moveSquares = moving;
       try {
-        const completed = await this.scene.play(m, { effect: card, onContact, speed: speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed });
+        const completed = await this.scene.play(m, { effect: card, onContact, targetMs: this.options.plainMarks ? 900 : undefined, finishSwapOnArrival: this.options.plainMarks, speed: speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed });
         if (completed && this.card === card) {
           this.stateEffects.sync(this.context, card.after, performance.now(), this.motion() && !document.hidden);
           // The card already reveals its new material; its persistent hold must not start again.
@@ -264,7 +280,7 @@ export class PaintedView implements BoardView {
     this.overlay = overlay;
     this.overlayMs = -1;
     try {
-      const arrived = await this.scene.play(m, { onContact, speed: rate });
+      const arrived = await this.scene.play(m, { onContact, speed: rate, targetMs: this.options.plainMarks ? 900 : undefined, finishSwapOnArrival: this.options.plainMarks });
       if (arrived && overlay && this.overlay === overlay) this.startTail(overlay, rate);
       // A promotion reveals the chosen piece after the pawn arrives (ticket 86). Motion off shows it at once.
       if (arrived && m.promo && this.moveSquares === moving && this.motion() && !document.hidden && !this.symbols) {
@@ -303,7 +319,19 @@ export class PaintedView implements BoardView {
     if (this.pos === post) this.sync(pre);
   }
 
-  setLifted(sq: number | null): void { this.scene.setLifted(this.pace !== 'off' ? sq : null, !this.motionQuery.matches); }
+  setLifted(sq: number | null): void { this.scene.setLifted(this.pace !== 'off' ? sq : null, !(this.reducedMotion ?? this.motionQuery.matches)); }
+  /** Swap the board art; square geometry does not change. */
+  setSkin(url: string): Promise<void> { return this.scene.setBoardArt(url); }
+  /** The host can override the system motion setting. Null follows the system. */
+  setReducedMotion(on: boolean | null): void { this.reducedMotion = on; this.applyLively(); }
+  /** True while a move or a king fall still plays. */
+  get animating(): boolean { return this.scene.animating || this.scene.falling; }
+  /** The selected piece and its targets, with no mark: its idle plays and the frames of its moves load. */
+  setSelected(sq: number | null, moves: number[] = [], captures: number[] = []): void { this.scene.setSelected(sq, moves, captures); }
+  /** Opt-in marks on the scene's under-layer. The old page keeps its own marks. */
+  setPlainMarks(marks: PlainMarks): void { this.plainMarks = marks; this.scene.redraw(); }
+  /** The figures on `delays` (square: ms) rise into place; an empty map ends it. */
+  arrive(delays: Map<number, number>, ms?: number, rise?: number): void { this.scene.arrive(delays, ms, rise); }
 
   setPace(pace: Pace): void { this.pace = pace; this.stateEffects.rate = pace === 'fast' ? 2 : 1; if (pace === 'off') this.skip(); this.applyLively(); }
   prepareUndo(pre: Position, m: Move): void {
@@ -313,13 +341,13 @@ export class PaintedView implements BoardView {
   }
   /** After skipping playback, discard history before another game's first position. */
   resetEffects(): void { this.tail = null; this.stateEffects.dispose(); this.cardStates.dispose(); this.skippedMark = undefined; this.scene.resetKingEffects(); }
-  skip(): void {
+  skip(options: { keepStates?: boolean } = {}): void {
     if (this.card && ['freeze', 'ward', 'firewall'].includes(this.card.move.power ?? '')) this.skippedMark = { after: this.card.after, owner: this.card.before.turn };
     this.card = null;
     this.reveal = null;
     this.tail = null;
     this.moveSquares = undefined;
-    this.stopStateEffects();
+    if (!options.keepStates) this.stopStateEffects();
     if (this.scene.animating && !this.undoPending) this.scene.cancel();
     if (this.scene.falling) this.scene.setFallen(this.fallen?.sq ?? null, false, this.fallRotation(this.fallen?.sq ?? null));
   }
@@ -331,11 +359,11 @@ export class PaintedView implements BoardView {
   private applyLively(): void {
     // Reduced motion or a hidden page ends a card or a promotion reveal at once; the caller then shows the result.
     if ((this.card || this.reveal) && (!this.motion() || document.hidden)) this.skip();
-    const motion = this.pace !== 'off' && !this.motionQuery.matches, shown = motion && !document.hidden;
+    const motion = this.motion(), shown = motion && !document.hidden, quiet = !!this.options.quiet;
     if (this.pace === 'off') this.scene.setLifted(null);
     if (!shown) { this.stateEffects.settle(); this.overlay = null; this.tail = null; }
     this.scene.setReducedMotion(!shown);
-    this.scene.setLively({ moves: motion, atmosphere: true, captures: motion, idle: motion, kings: shown, pawns: shown });
+    this.scene.setLively({ moves: motion, atmosphere: !quiet, captures: motion, idle: motion, kings: shown && !quiet, pawns: shown && !quiet });
   }
 
   highlight(h: Highlights): void {
@@ -365,7 +393,7 @@ export class PaintedView implements BoardView {
   }
 
   /** Markers animate only while animations are on and the system allows motion. */
-  motion(): boolean { return this.pace !== 'off' && !this.motionQuery.matches; }
+  motion(): boolean { return this.pace !== 'off' && !(this.reducedMotion ?? this.motionQuery.matches); }
 
   flip(black: boolean): void { this.scene.setFlipped(black); }
   setLabels(on: boolean): void { this.scene.setLabels(on); }
@@ -406,7 +434,8 @@ export class PaintedView implements BoardView {
 
   private drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row?: number): void {
     const { PAD, TILE } = scene, m = this.marks;
-    if (layer === 'under') {
+    if (this.options.plainMarks && layer === 'under') drawPlainMarks(ctx, scene, this.plainMarks);
+    if (!this.options.plainMarks && layer === 'under') {
       const box = (sq: number) => { const c = scene.cell(sq); return { x: PAD + c.col * TILE, y: PAD + c.row * TILE }; };
       ctx.save();
       // The last move: a warm wash, strong enough for both stone colours (Hint keeps the outline).
@@ -414,7 +443,7 @@ export class PaintedView implements BoardView {
       ctx.restore();
     }
     const piece = m.selected != null ? this.pos?.board[m.selected] ?? 0 : 0;
-    if (!scene.animating) drawMarks(ctx, scene, layer, {
+    if (!this.options.plainMarks && !scene.animating) drawMarks(ctx, scene, layer, {
       marks: m, piece, preview: this.hovered ?? this.cursor, k: this.mark, px: 960 / Math.max(1, this.width), board: this.pos?.board,
       ghost: !this.symbols ? undefined : (ctx, piece, sq, opacity = 0.4) => {
         const cell = scene.cell(sq);
@@ -429,9 +458,9 @@ export class PaintedView implements BoardView {
     if (cardStates && layer === 'under') this.cardStates.sync(this.context, this.card!.shown, now, false);
     // A card that ends check: its withdrawal belongs to the live board's state, not to the card's shown frames.
     const cardWithdrawal = this.card && layer === 'under' ? this.stateEffects.withdrawal(now, this.motion() && !document.hidden) : undefined;
-    if (cardWithdrawal) drawWithdrawal(ctx, scene, cardWithdrawal.king, cardWithdrawal.progress);
+    if (cardWithdrawal && !this.options.plainMarks) drawWithdrawal(ctx, scene, cardWithdrawal.king, cardWithdrawal.progress);
     // Keep unaffected states visible during playback. The scene owns moving figures and their material.
-    drawBoardEffects(ctx, scene, layer, row, cardStates ? this.cardStates : this.stateEffects, scene.animating ? {} : m,
+    if (!this.options.plainMarks) drawBoardEffects(ctx, scene, layer, row, cardStates ? this.cardStates : this.stateEffects, scene.animating ? {} : m,
       this.width, now, this.motion() && !document.hidden, !!this.symbols, scene.animating ? null : this.hovered ?? this.cursor, piece,
       cardStates ? undefined : this.moveSquares, this.pos?.board);
     // The frame that ends the move has no action clock yet no tail either: it holds the last time, so the material never blinks.

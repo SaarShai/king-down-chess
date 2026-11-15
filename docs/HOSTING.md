@@ -53,8 +53,32 @@ The owner parked the ChatGPT plugin on 2026-10-28 and brought it back on 2026-11
 
 - One switch: `CHATGPT_PLUGIN` in `tools/chatgpt-plugin.mjs`. It is on for a production build and off for a staging build, which serves only the Muse connector. One build can also serve both connectors ([MUSE.md](MUSE.md#the-switch)). The server (`tools/plugin-server.mjs`) and the build (`tools/plugin-server-build.mjs`) read it.
 - With the switch on, the build serves `/mcp`, `/authorize`, `/consent.mjs`, `/plugin-art/*`, the two OAuth metadata paths under `/.well-known/` and the OpenAI domain challenge. With it off, each of these paths answers 404 (the list is `PARKED_PATHS`), except `/authorize` and `/consent.mjs` in a build that serves the Muse connector.
-- The server needs the full ChatGPT OAuth setup before it starts. Without it, the server does not start, so the website API (`/api/*`) and `/internal/*` stop too. It needs the two `KINGDOWN_PLUGIN_OAUTH_*` settings (the ready flag set to `1` and the approved Supabase OAuth client UUIDs), a working Supabase OAuth discovery, and a row in `kingdown_oauth.client_resources` for each client ID with the resource of a served connector (`/mcp`, or `/muse/mcp` when the build serves Muse too). `tools/deploy-plugin-env.mjs` lists all the settings.
+- The ChatGPT connector needs its OAuth setup before it starts. A connector start fault turns off the connector paths and OAuth. The website API (`/api/*`) and `/internal/*` stay available when their own settings and database checks pass. A shared OAuth fault turns off both connectors when both are served. It needs the two `KINGDOWN_PLUGIN_OAUTH_*` settings (the ready flag set to `1` and the approved Supabase OAuth client UUIDs), a working Supabase OAuth discovery, and a row in `kingdown_oauth.client_resources` for each client ID with the resource of a served connector (`/mcp`, or `/muse/mcp` when the build serves Muse too). `tools/deploy-plugin-env.mjs` lists all the settings.
 - CI checks the plugin: `plugin:build` and `plugin:server:check` run the MCP flows over compiled HTTP and real PostgreSQL, `plugin:check:protocol` runs the MCP server in memory, `browser-ui` runs `plugin-oauth`, `plugin-ui` and `plugin-ui-http` on Chromium, and `browser-webkit-ui` runs `plugin-ui` on WebKit. `npm run plugin:build:chatgpt` builds a `chatgpt: true` tree into `plugin-server-chatgpt/` from any shell, also a staging shell; never deploy that tree.
 - A recovery rehearsal (`plugin:server:check` with a second, recovery directory) runs over MCP, so it stops with an error on a build without the plugin. Build both trees with `chatgpt: true` to run it.
 - The consent page shows the review password form in each build that serves a connector (`REVIEW_PASSWORD_SIGNIN` in `src/plugin/consent.ts` follows `KINGDOWN_CHATGPT` and `KINGDOWN_MUSE`). The form is not the guard: each address in `kingdown_auth.password_accounts` can get a password session, through the form or through the Auth API.
 - Owner items outside the repository: the live Supabase before-user-created hook (`review-signup-hook.sql` in `plugin-deploy/`) and the table `password_accounts` in the schema `kingdown_auth`. Keep the hook on while Email is on (`supabase/README.md`). Change the table only by the owner's word.
+
+
+## Solo launch preparation
+
+The build option `KINGDOWN_SOLO_LAUNCH=1` selects the new page at `/`.
+It is off by default. The emitted `solo-launch.json` selects the combined host routes.
+`/play`, `/g/...` and `/j` keep the old page. Unknown paths return the new page with HTTP 404.
+The launch worker lists both public pages and their local graphs. Private online paths stay out of its cache.
+The runtime `index.json` and `parts/*.json` use `Cache-Control: no-cache`.
+Content-named WebP frames keep their immutable one-year cache.
+
+With the launch option on, web solo games run on the device. The old web Computer controls
+open a local game. An account solo game keeps its full move history in the handoff.
+The website API refuses solo creation, solo rematches and computer commands from the web.
+Released iOS apps keep these API operations. The off build keeps the old web flow.
+The API counts draft previews on the existing computer-work quota (120 per minute per account).
+The connector services keep their solo games. The API adapter's named `localSolo` option is off by
+itself; the combined host sets it from the site launch marker.
+
+Each configured host instance writes `King Down release` with the source commit and connector state.
+`npm run errors:daily` reads the existing fault report for one day. It sends no message.
+The owner must schedule the command, assign a reader and set up external checks of `/` and `/api/status`.
+The design project's `runs/launch/platform/cutover.md` gives the setup, cutover and rollback steps.
+No build switch authorizes a deploy.

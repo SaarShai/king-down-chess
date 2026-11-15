@@ -3,7 +3,7 @@ import type { View } from '../match/protocol';
  * The service caps this window at 50 commands; no client history grows between polls. */
 export function pollSince(view: View): number { return Math.max(0, (view.last_commands?.[0]?.seq ?? view.revision + 1) - 1); }
 export type PollView = View | 'waiting for a join' | undefined;
-export function pollDelay(view: PollView, waitingMs: number, hidden: boolean): number | undefined {
+export function pollDelay(view: PollView, waitingMs: number, hidden: boolean, { fastStart = false } = {}): number | undefined {
   if (hidden || !view) return;
   if (view === 'waiting for a join') return waitingMs < 120000 ? 5000 : 15000;
   if (view.status === 'finished' || view.status === 'aborted') return;
@@ -20,13 +20,15 @@ export function pollDelay(view: PollView, waitingMs: number, hidden: boolean): n
     .map(command => Date.parse(command.at)).filter(Number.isFinite));
   // For 2 minutes after your own move, draw or rematch command, the other side's answer shows within 3 seconds.
   if (age(true, ['turn', 'draw', 'rematch']) < 120000) return 3000;
+  // The new page also watches the first move after a join or setup, without using private presence.
+  if (fastStart && Math.min(age(true, ['join', 'ready']), age(false, ['join', 'ready'])) < 120000) return 3000;
   const seen = view.opponent?.last_seen_ms ?? Math.max(0, age(false));
   if (view.turn !== view.seat && seen < 120000) return 3000;
   return view.speed === 'daily' ? 30000 : 15000;
 }
 
 /** One poll target: the view that sets the delay, and the read that a tick runs (design §4). */
-export type PollTarget = { view: PollView; read: () => Promise<unknown> };
+export type PollTarget = { view: PollView; read: () => Promise<unknown>; fastStart?: boolean };
 /**
  * The page's one poll. A tick runs only while the page shows, a target exists and `gate()` is true; a closed gate skips
  * the tick and waits one more delay. `visibilitychange` and `pageshow` start one fresh read; missed ticks do not run.
@@ -38,7 +40,7 @@ export function runPoll(target: () => PollTarget | undefined, gate: () => boolea
   function update() {
     clearTimeout(timer);
     if (stopped || reading) return;
-    const view = target()?.view;
+    const next = target(), view = next?.view;
     const key = view === 'waiting for a join' ? view : view && (view.status === 'waiting' || view.status === 'setup') ? `${view.game_id}:${view.status}` : undefined;
     if (key !== undefined && !began.has(key)) {
       // A new human wait takes over the clock of its unnamed start and drops every older clock.
@@ -46,7 +48,7 @@ export function runPoll(target: () => PollTarget | undefined, gate: () => boolea
       if (named) began.clear();
       began.set(key, named && join !== undefined ? join : Date.now());
     }
-    const delay = pollDelay(view, key === undefined ? 0 : Date.now() - began.get(key)!, page.hidden);
+    const delay = pollDelay(view, key === undefined ? 0 : Date.now() - began.get(key)!, page.hidden, { fastStart: next?.fastStart });
     if (delay !== undefined) timer = setTimeout(tick, delay);
   }
   async function tick() {

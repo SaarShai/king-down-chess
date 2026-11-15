@@ -568,7 +568,8 @@ export class GameService {
   if (host.user_id !== actor && (!host.user_id || !await this.store.mayJoin(this.store.pool, invite.recipient_id ?? host.user_id, invite.recipient_id ? host.user_id : actor))) this.unavailable();
   if (invite.state !== 'open' || game.status !== 'waiting') fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.closed);
   const recipient = invite.recipient_id ? (await this.store.pool.query('select handle from public.profiles where id=$1', [invite.recipient_id])).rows[0]?.handle : null;
-  return { code, options: game.options, colour: colour(invite.seat), kind: game.kind, creator: { handle: host.handle, icon: host.icon ?? null }, expires_at: invite.expires_at.toISOString(), recipient_id: invite.recipient_id, recipient_handle: recipient, invite_id: invite.token_hash };
+  const avatar = host.user_id && host.user_id !== actor && typeof this.store.avatar === 'function' ? await this.store.avatar(this.store.pool, actor, host.user_id) : null;
+  return { code, options: game.options, colour: colour(invite.seat), kind: game.kind, creator: { handle: host.handle, icon: host.icon ?? null, avatar }, expires_at: invite.expires_at.toISOString(), recipient_id: invite.recipient_id, recipient_handle: recipient, invite_id: invite.token_hash };
  }
  /** Build a possible starting position before account or row locks. Recheck the revision on commit. */
  private async prepareEntry(game: Game): Promise<Game> {
@@ -643,10 +644,10 @@ export class GameService {
   });
  }
  private async invitationRow(client: Parameters<PostgresMatchStore['privacy']>[0], actor: string, inviteId: string, byGame = false): Promise<InvitationRow | null> {
-  const r = (await client.query(`select i.*,i.expires_at<=statement_timestamp() as expired,g.revision,g.options,g.end_reason,p.id as player_id,p.handle,p.icon from public.game_invites i join public.games g on g.id=i.game_id
+  const r = (await client.query(`select i.*,i.expires_at<=statement_timestamp() as expired,g.revision,g.options,g.end_reason,p.id as player_id,p.handle,p.icon,kingdown_jobs.user_avatar($2,p.id) as avatar from public.game_invites i join public.games g on g.id=i.game_id
    left join public.profiles p on p.id=case when i.created_by=$2 then i.recipient_id else i.created_by end where ${byGame ? 'i.game_id' : 'i.token_hash'}=$1`, [inviteId, actor])).rows[0];
   if (!r) return null;
-  return { revision: r.revision, invite_id: r.token_hash, game_id: r.game_id, recipient_id: r.recipient_id, direction: r.created_by === actor ? 'outgoing' : 'incoming', player: r.player_id ? { user_id: r.player_id, handle: r.handle, icon: r.icon } : null,
+  return { revision: r.revision, invite_id: r.token_hash, game_id: r.game_id, recipient_id: r.recipient_id, direction: r.created_by === actor ? 'outgoing' : 'incoming', player: r.player_id ? { user_id: r.player_id, handle: r.handle, icon: r.icon, avatar: r.avatar ?? null } : null,
    options: r.options, expires_at: r.expires_at.toISOString(), state: (r.state === 'open' || r.state === 'cancelled' && r.end_reason === 'no_start') && r.expired ? 'expired' : r.state };
  }
  /** Ends missed deadlines, expired invitations and 24-hour open games; safe to run twice at once. */
@@ -701,7 +702,7 @@ export class GameService {
    game_id: game.id, rating_policy: game.rating_policy, revision: game.revision, engine_fingerprint: game.engine_fingerprint, seat, kind: game.kind, speed: game.speed, days_per_move: game.days_per_move, status: game.status, turn: game.turn, action: actionOf(game, seat),
    fen: game.snapshot?.fen ?? '', in_check: game.snapshot?.inCheck ?? false, legal: playing && game.turn === seat ? game.snapshot!.legal : [],
    last_commands: commands.map(entry => entry.seat === opponent.seat && (entry.action.type === 'choose' && !game.players.every(p => p.ready) || entry.action.type === 'say' && !sees.presets) ? { ...entry, action: { type: 'hidden' as const } } : entry),
-   opponent: vacant ? null : { handle: opponent.handle, icon: opponent.icon ?? null, ...(rating && { rating }), computer: opponent.computer, deleted: !opponent.user_id && !opponent.computer, last_seen_ms: sees.online ? opponent.last_seen_ms : null },
+   opponent: vacant ? null : { handle: opponent.handle, icon: opponent.icon ?? null, avatar: sees.avatar ?? null, ...(rating && { rating }), computer: opponent.computer, deleted: !opponent.user_id && !opponent.computer, last_seen_ms: sees.online ? opponent.last_seen_ms : null },
    rematch_allowed: sees.unblocked, draw_offer: game.draw_offer, rematch_offer: game.rematch_offer, rematch_game_id: game.rematch_game_id,
    ...(game.options && { options: game.options, ...(game.setup_admission && { setup_admission: game.setup_admission }), draw: game.draw!, deal: game.deal!, level: game.level,
     choices: game.players.map(p => p.seat === seat || game.players.every(s => s.ready) ? p.choice : null) as View['choices'],

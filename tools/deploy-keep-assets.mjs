@@ -63,7 +63,8 @@ for (const [path, accepted] of [['/', ['text/html']], ['/sw.js', types.js]]) {
   roots[path] = bytes;
 }
 if (!queue.length) fault(1, `${base}/ and /sw.js name no file under /assets/`);
-const rerun = roots['/'].equals(readFileSync(join(folder, 'index.html')));
+const home = existsSync(join(folder, 'solo-launch.json')) ? 'next.html' : 'index.html';
+const rerun = roots['/'].equals(readFileSync(join(folder, home)));
 let listed = 'no live list';
 if (rerun) {
   const { status, type, bytes } = await get(`/assets/${list}`);
