@@ -44,10 +44,11 @@ it('binds deletion to the confirmed account, cleans only its drafts, then signs 
   expect(storage.getItem('kingdown.people-draft.alice.game')).toBeNull(); expect(storage.getItem('kingdown.people-draft.bob.game')).toBe('keep');
   expect(tab.getItem('kingdown.account-page.alice')).toBeNull(); expect(tab.getItem('kingdown.account-page.bob')).toBe('keep');
 });
-it('the three online choices use the existing options with no hidden army ordering', () => {
-  expect(['pieces', 'powers', 'cards'].map(value => onlineOptions(value as 'pieces'))).toMatchObject([
+it('the four online choices carry the panel options', () => {
+  expect(['pieces', 'powers', 'cards', 'both'].map(value => onlineOptions(value as 'pieces'))).toMatchObject([
     { fairy: true, arrangement: false, kingPowers: false, cards: false },
     { fairy: true, arrangement: false, kingPowers: true, cards: false },
+    { fairy: true, arrangement: false, kingPowers: false, cards: true },
     { fairy: true, arrangement: false, kingPowers: true, cards: true },
   ]);
 });
@@ -75,14 +76,14 @@ it('game order puts your move first, then deadlines, results and waiting links',
 it('each computer level has its approved portrait', () => {
   expect(['casual','clever','club'].map(level => computerPortrait(level as 'casual'))).toEqual([1,2,3].map(n => `/interface/computer-king-${n}-96.webp`));
 });
-it.each(['pieces','powers','cards'] as const)('both players ready and play the %s game through the existing service', async rules => {
+it.each(['pieces','powers','cards','both'] as const)('both players ready and play the %s game through the existing service', async rules => {
   const service = fixtureService();
   try {
     await service.handle('alice',{handle:'alice'}); await service.handle('bob',{handle:'bob'});
     const view = await service.create('alice',{kind:'friend',options:onlineOptions(rules)}), link = await service.invite('alice',view.game_id), server = fakeServer(service);
     const player = (name: string) => peopleController({ userId:name, storage:memoryStorage(), server:peopleServer(onlineClient({token:async()=>name,fetch:server.fetch,wait:async()=>{}})) });
     const alice = player('alice'), bob=player('bob'); await bob.join({token:link.token}); await alice.open(view.game_id);
-    if (rules !== 'pieces') { expect(alice.state().phase).toBe('setup'); expect(await bob.ready()).toBe(false); expect(await alice.ready()).toBe(true); await bob.refresh(); expect(await bob.ready()).toBe(true); await alice.refresh(); }
+    if (rules === 'powers' || rules === 'both') { expect(alice.state().phase).toBe('setup'); expect(await bob.ready()).toBe(false); expect(await alice.ready()).toBe(true); await bob.refresh(); expect(await bob.ready()).toBe(true); await alice.refresh(); }
     expect(alice.state().phase).toBe('your-move'); expect(bob.state().game).toBeTruthy();
     const draft=alice.state().draft!; alice.stage(draft.at(12,28)[0]); expect(await alice.send()).toBe(true); await bob.refresh();
     expect(bob.state().phase).toBe('your-move');
@@ -219,5 +220,27 @@ it('propagates social avatars to home rows while hiding email and deleted photos
     const carolView = bob.host.views.find(v => v.opponent?.handle === 'carol')!;
     expect(personGame(carolView)).toMatchObject({ name: 'carol', avatar: null });
     expect(personGame({ ...carolView, opponent: { ...carolView.opponent!, deleted: true } })).toMatchObject({ name: 'Deleted player', avatar: null });
+  } finally { await service.close(); }
+});
+it.each(['pieces', 'powers', 'cards', 'both'] as const)('both invite paths carry the selected options to the recipient: %s', async rules => {
+  vi.stubGlobal('location', new URL('https://kingdown.test/next.html')); vi.stubGlobal('history', { state: {}, replaceState: vi.fn() });
+  vi.stubGlobal('sessionStorage', memoryStorage()); vi.stubGlobal('navigator', {}); vi.stubGlobal('matchMedia', () => ({ matches: false }));
+  const service = fixtureService();
+  try {
+    await service.handle('alice', { handle: 'alice' }); await service.handle('bob', { handle: 'bob' });
+    const server = fakeServer(service), { onlineHost } = await import('./index');
+    const host = onlineHost({ auth: async () => ({ onSession() {}, readSession: async () => ({ userId: 'alice', accessToken: 'alice' }) }) as never,
+      storage: memoryStorage(), fetch: server.fetch, rules: () => rules, setRules() {}, changed() {}, open() {}, home() {}, toast() {} });
+    await host.signIn();
+    const choices = { pool: ['R', 'B', 'N', 'G'], arrangement: 'manual' as const, cardPool: ['Freeze', 'Haste', 'Flight', 'MirrorB'] as const, king: { king: 'Spirit', power: 'Mercy' } as const };
+    await host.host.invite('bob', rules, choices);
+    const named = host.views.at(-1)!;
+    const link = await host.host.createLink(rules, choices), token = new URL(link).hash.slice('#join='.length);
+    const preview = await service.preview('bob', { token });
+    const expected = onlineOptions(rules, choices);
+    expect(named.options).toEqual(expected); expect(preview.options).toEqual(expected);
+    const joined = await service.join('bob', { token }); expect(joined.options).toEqual(expected);
+    const creates = server.calls.filter(call => call.method === 'POST' && call.path === '/api/games');
+    expect(creates).toHaveLength(2); expect(creates.map(call => (call.body as { options: unknown }).options)).toEqual([expected, expected]);
   } finally { await service.close(); }
 });

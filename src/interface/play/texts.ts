@@ -245,3 +245,15 @@ export function choicePrompt(moves: readonly Move[]): string {
 
 // Stage "readingb": the new labels of the B reading area (runs/review/reading-lab/design.md, marked "new" there).
 export const readingBText = { rivalCards: 'Computer’s cards', used: 'Used', notNow: 'Not now', computerTurn: 'Computer’s turn' };
+
+/** The shared New game panel (owner playtest decisions 88 to 93). */
+export const panelText = {
+  opponent: 'Opponent', person: 'Person', options: 'Game options', pieces: 'Pieces', powers: 'With powers', cards: 'With cards',
+  allPieces: 'All pieces', pool: 'Piece pool', always: 'The king and eight pawns are always in.', poolLock: 'Keep at least 7 pieces in the pool. Add another kind to unlock a box.',
+  arrangement: 'Starting arrangement', random: 'Random', manual: 'Manual', manualLine: 'Arrange your pieces on the board before the first move.',
+  yourKing: 'Your king', power: 'King power', unavailable: 'Not available with cards.',
+  changedKing: (from: string, to: string) => `With cards, ${to} replaces ${from}. Turn cards off to restore it.`,
+  chooseCards: 'Choose cards', allCards: 'All cards', four: 'Pick four', shared: 'Both players get the same four cards.',
+  count: (n: number) => `${n} of 4`, needFour: 'Pick four cards to start.', use: (name: string) => `Use ${name}`,
+  send: 'Send link', byName: 'Invite by name', back: 'Back', closeRule: 'Back to cards', loading: 'Opening online play…', onlineFailed: 'Online play cannot load. Try again.',
+} as const;

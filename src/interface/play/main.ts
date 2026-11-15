@@ -31,7 +31,7 @@ import { gameLayout, type Form } from './layout';
 import { finishKind, fitReader, readerNodes, readerView, resetFit, sentences, summaryLabel, type ReaderModel } from './reader';
 import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, storeChoice as store, storedChoice as stored, storedGameType, type GameType as Setup, type KeptOffer, type Level } from './saved';
 import { arrowStep, cellOf, fileLabelRow, rankLabelColumn, sideText, SIDE_CHOICES, SIDE_KEY, squareAt, type SideChoice } from './sides';
-import { changeDraft, createDraft, OPTIONS_KEY, readOptions, rulesFor, startOf, type NewGameDraft } from './new-game';
+import { changeDraft, createDraft, OPTIONS_KEY, PANEL_KEY, readPanel, readOptions, rulesFor, startOf, type NewGameDraft } from './new-game';
 import { homeText, levelName as computerName, newGamePanel, playScreen, type Art } from './home';
 import { gameMenu, menuEnter, menuText, youPage, type Settings } from './menus';
 import { allowedAvatarUrl } from '../../account/public-config';
@@ -187,8 +187,8 @@ async function loadPeople() {
   }).catch(error => { peopleReady = undefined; onlineNote = 'Online play cannot load. Check your connection and try again.'; announce(onlineNote); throw error; });
 }
 async function personFlow(source: HTMLElement | null = null) {
-  try { const host = await loadPeople(); const { playPerson } = await import('../people/screens/person'); const sheet = playPerson(host.host, source); sheet.element.addEventListener('close', () => { if (shell.route.place === 'play') { home(); root.querySelector<HTMLElement>('.home-person')?.focus({ preventScroll: true }); } }, { once: true }); }
-  catch { if (shell.route.place !== 'play') shell.go({ place: 'play' }); }
+  if (shell.route.place !== 'play') shell.go({ place: 'play' });
+  openNewGame(source ?? root.querySelector<HTMLElement>('.home-top-new, .home-side-new, .home-hero-new') ?? root, true);
 }
 async function openOnline(id: string) {
   onlineActive = true; onlineState = undefined; shownRevision = -1;
@@ -311,7 +311,7 @@ function home(newArmy = false) {
     resume, next, status: [status, onlineNote].filter(Boolean).join(' '),
     people: people?.views.filter(view => view.status !== 'aborted' || !!view.history?.actions?.length).map(personGame) ?? [],
     invites: people ? [...people.incomingInvites, ...people.inviteUpdates].map(invite => homeInvite(invite)) : [],
-    onPerson: source => { void personFlow(source); }, onPersonGame: id => shell.go({ place: 'online', entry: id }),
+    onPersonGame: id => shell.go({ place: 'online', entry: id }),
     onAcceptInvite: id => { const invite = people?.incomingInvites.find(row => row.invite_id === id); if (invite) void people!.acceptInvite(invite).catch(() => { onlineNote = 'The invite cannot accept right now. Try again.'; announce(onlineNote); void people?.refresh(); home(); }); },
     onDeclineInvite: id => { const invite = people?.incomingInvites.find(row => row.invite_id === id); if (invite) void people!.declineInvite(invite).catch(() => { onlineNote = 'The invite cannot decline right now. Try again.'; announce(onlineNote); void people?.refresh(); home(); }); },
     onInvitePlayer: (id, source) => {
@@ -322,8 +322,6 @@ function home(newArmy = false) {
     },
     onDismissInvite: id => { const invite = people?.inviteUpdates.find(row => row.invite_id === id); if (invite) people!.dismissInvite(invite); },
     offer: fallback => { const offer = keptOffer(saved); return offer ? keptRow(offer, fallback) : null; },
-    // Play the computer reads the save again at the press: another tab can have saved a game since.
-    onPlay: source => { const now = readStored(); if (now.kind === 'resume' || inMemory()) home(); else beginNew(source); },
     onContinue: source => resumeGame(source, memory),
     onChange: source => openNewGame(source),
     onRule: type => shell.go({ place: 'guide', section: 'Pieces', entry: String(type) }),
@@ -340,9 +338,15 @@ function home(newArmy = false) {
   if (panelNext) { panelNext = false; openNewGame(play.element.querySelector<HTMLButtonElement>('.kd-button[data-kind="main"]') ?? play.element); }
 }
 /** The New game panel (launch decision 26). Its edits stay in the panel until Start game. */
-function openNewGame(source: HTMLElement) {
+function openNewGame(source: HTMLElement, person = false) {
+  if (document.querySelector('dialog.new-game-panel[open]')) return;
+  const memory = (() => { try { return readPanel(JSON.parse(sessionStorage.getItem(PANEL_KEY) ?? 'null')); } catch { return null; } })();
+  const candidate = changeDraft(next, accepted());
   const panel = newGamePanel({
-    next: changeDraft(next, accepted()),
+    next: candidate,
+    memory: memory ?? (person ? { ...accepted(), opponent: 'person', section: null, cardMode: options.cardPool.length === 4 ? 'four' : 'all', picked: options.cardPool.length === 4 ? [...options.cardPool] : [] } : null),
+    people: async () => (await loadPeople()).host,
+    remember: value => { try { if (value) sessionStorage.setItem(PANEL_KEY, JSON.stringify(value)); else sessionStorage.removeItem(PANEL_KEY); } catch { /* The current panel still keeps its draft. */ } },
     // The game that a start ends: the game in memory, or the stored game, read again at each press.
     current: () => {
       if (inMemory()) return { key: 'memory', line: homeText.ends(levelName(gameLevel)) };
@@ -353,14 +357,21 @@ function openNewGame(source: HTMLElement) {
       await shell.closeLayer();
       next = draft; beginNew(root.querySelector<HTMLButtonElement>('.play-home .kd-button[data-kind="main"]') ?? undefined);
     },
+    onInvite: draft => {
+      next = draft; ({ setup, level, sideChoice, options } = draft);
+      store(GAME_KEY, setup); store(OPTIONS_KEY, JSON.stringify(options)); home();
+    },
     onClose: () => { void shell.closeLayer(); },
   }, art);
   // The panel is outside #app: a background refresh of Play (home()) redraws #app and must not remove the open panel.
   // A refresh can replace the opener: focus then returns to the same control on the new Play.
-  const opener = ['home-top-new', 'home-side-new', 'home-change'].find(name => source.classList.contains(name));
+  const opener = ['home-top-new', 'home-side-new', 'home-hero-new'].find(name => source.classList.contains(name));
   panel.element.addEventListener('close', () => {
     panel.element.remove();
-    if (!source.isConnected && opener && document.body.dataset.page === 'home') root.querySelector<HTMLElement>(`.${opener}`)?.focus({ preventScroll: true });
+    if (!source.isConnected && opener && document.body.dataset.page === 'home') {
+      const target = root.querySelector<HTMLElement>(`.${opener}`) ?? [...root.querySelectorAll<HTMLElement>('.home-top-new, .home-side-new, .home-hero-new')].find(node => node.getClientRects().length);
+      target?.focus({ preventScroll: true });
+    }
   });
   document.body.append(panel.element); panel.open(source); shell.openLayer(() => panel.close());
 }

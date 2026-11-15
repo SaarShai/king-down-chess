@@ -26,7 +26,7 @@ it('iOS need P1: the About links use the public origin', () => {
   ]);
   expect(menuText.saved).toBe('Your game stays saved.');
 });
-it('launch decisions 46, 51 and 52: true level lines, the person row and "Your pieces"', () => {
+it('owner playtest: true level lines and "Your pieces"', () => {
   expect(homeText.levels).toEqual({
     casual: 'The easiest level. A good level for a first game.',
     clever: 'Much stronger than Friendly. It makes some mistakes.',
@@ -34,8 +34,7 @@ it('launch decisions 46, 51 and 52: true level lines, the person row and "Your p
   });
   expect(Object.values(homeText.levels).join(' ')).not.toMatch(/mistakes often/);
   expect(homeText.side).toBe('Your pieces');
-  expect([homeText.person, homeText.personLine]).toEqual(['Play a person', 'Opens the online game.']);
-  expect(homeText.play).toBe('Play the computer');
+  expect(source('play/home.ts')).not.toContain('home-person');
   expect(summaryLine({ level: 'clever', setup: 'both', sideChoice: 'random' })).toBe('Focused · With powers and cards · Random');
 });
 it('launch decision 29: the Guide lists come from the content', () => {
