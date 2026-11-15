@@ -410,11 +410,11 @@ describe('PaintedView options and methods for the new interface', () => {
     view.dispose();
   });
 
-  it('quiet: no coordinates, atmosphere frame, passive king effects or resting-pawn motion; the selected idle stays', async () => {
+  it('quiet: no coordinates or atmosphere effects; bounded figure idles stay', async () => {
     const container = stubDom(), { PaintedView } = await import('./PaintedView');
     const view = new PaintedView(container as unknown as HTMLElement, { quiet: true });
     expect(coords).toHaveBeenLastCalledWith(false, expect.anything(), expect.anything());
-    expect(lively).toHaveBeenLastCalledWith({ moves: true, atmosphere: false, captures: true, idle: true, kings: false, pawns: false });
+    expect(lively).toHaveBeenLastCalledWith({ ambient: true, moves: true, atmosphere: false, captures: true, idle: true, kings: false, pawns: false });
     view.dispose();
   });
 

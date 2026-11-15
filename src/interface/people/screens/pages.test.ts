@@ -183,16 +183,16 @@ it('The email code: the code step stays after a reload, a wrong code has its lin
   try {
     await press(page, 'Continue with email');
     await expect.poll(() => title(page).textContent()).toBe('Continue with email');
-    await sheet(page).getByLabel('Email').fill('jo@example.com');
+    await sheet(page).getByLabel('Email', { exact: true }).fill('jo@example.com');
     await page.keyboard.press('Enter');
     await expect.poll(() => title(page).textContent()).toBe('Enter the code');
     expect(await sheet(page).innerText()).toContain('We sent 6 digits to jo@example.com. The code works for 1 hour.');
-    expect(await sheet(page).getByLabel('Code').getAttribute('autocomplete')).toBe('one-time-code');
+    expect(await sheet(page).getByLabel('Code', { exact: true }).getAttribute('autocomplete')).toBe('one-time-code');
     await page.reload();
     await expect.poll(() => title(page).textContent()).toBe('Enter the code');
-    await sheet(page).getByLabel('Code').fill('000000'); await press(page, 'Continue');
+    await sheet(page).getByLabel('Code', { exact: true }).fill('000000'); await press(page, 'Continue');
     await expect.poll(() => sheet(page).getByRole('status').textContent()).toBe('That code is wrong or has expired. Try again, or ask for a new code.');
-    await sheet(page).getByLabel('Code').fill('123456'); await press(page, 'Continue');
+    await sheet(page).getByLabel('Code', { exact: true }).fill('123456'); await press(page, 'Continue');
     await expect.poll(() => toasts(page)).toEqual(['Signed in.']);
     expect(await page.evaluate(() => sessionStorage.getItem('kingdown.email-code'))).toBeNull();
   } finally { await page.close(); }
@@ -334,8 +334,8 @@ it('Close ends pending sign-in tasks, so they cannot reopen a sheet or join a ga
     try {
       if (state === 'landing-plain') { await page.getByRole('button', { name: 'Join the game' }).click(); await press(page, 'Continue with email'); }
       else if (state === 'sign-in') await press(page, 'Continue with email');
-      if (state === 'code') { await sheet(page).getByLabel('Code').fill('123456'); await press(page, 'Continue'); }
-      else { await sheet(page).getByLabel('Email').fill('jo@example.com'); await press(page, 'Send code'); }
+      if (state === 'code') { await sheet(page).getByLabel('Code', { exact: true }).fill('123456'); await press(page, 'Continue'); }
+      else { await sheet(page).getByLabel('Email', { exact: true }).fill('jo@example.com'); await press(page, 'Send code'); }
       await press(page, 'Close'); await page.waitForTimeout(1100);
       expect(await sheet(page).count(), state).toBe(0);
       expect(await toasts(page), state).toEqual([]);
@@ -358,14 +358,14 @@ it('email and code errors use product copy in a persistent status linked to the 
   const page = await open('sign-in');
   try {
     await press(page, 'Continue with email');
-    const email = sheet(page).getByLabel('Email'), status = sheet(page).getByRole('status');
+    const email = sheet(page).getByLabel('Email', { exact: true }), status = sheet(page).getByRole('status');
     expect(await status.evaluate(e => e.hasAttribute('hidden') || getComputedStyle(e).display === 'none')).toBe(false);
     expect(await email.getAttribute('aria-describedby')).toBe(await status.getAttribute('id'));
     await email.fill('broken'); await press(page, 'Send code');
     await expect.poll(() => status.textContent()).toBe('Could not send a code to that address. Check it and try again.');
     await email.fill('jo@example.com'); await press(page, 'Send code');
     await expect.poll(() => title(page).textContent()).toBe('Enter the code');
-    const code = sheet(page).getByLabel('Code');
+    const code = sheet(page).getByLabel('Code', { exact: true });
     expect(await code.getAttribute('aria-describedby')).toBe(await status.getAttribute('id'));
     await code.fill('12'); await press(page, 'Continue');
     await expect.poll(() => status.textContent()).toBe('That code is wrong or has expired. Try again, or ask for a new code.');
@@ -483,7 +483,7 @@ it('Recovery: another account asks one check before the sign-out; a gone game go
     await page.getByRole('button', { name: 'Switch account' }).click();
     const check = page.locator('dialog.kd-dialog[open]');
     expect(await check.innerText()).toContain('We sign out alex on this device. Then you sign in with the other account.');
-    await check.getByRole('button', { name: 'Switch account' }).click();
+    await check.getByRole('button', { name: 'Switch account', exact: true }).click();
     await expect.poll(() => toasts(page)).toEqual(['Signed out. The sign-in sheet opens here.']);
   } finally { await page.close(); }
   const gone = await open('gone');

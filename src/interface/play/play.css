@@ -87,7 +87,7 @@ img { display: block; }
 .play-grid { position: absolute; inset: 0; width: 100%; height: 100%; }
 .play-grid { display: grid; grid-template-columns: repeat(8,1fr); grid-template-rows: repeat(8,1fr); touch-action: none; }
 .play-square { position: relative; border: 0; padding: 0; border-radius: 0; background: transparent; touch-action: none; min-width: 44px; min-height: 44px; }
-[data-file]::after, [data-rank]::before { position: absolute; z-index: 1; font: 700 12px/1 var(--font-title); color: #4f4a3e; background: transparent; padding: 0; letter-spacing: .02em; pointer-events: none; }
+[data-file]::after, [data-rank]::before { position: absolute; z-index: 1; font: 700 12px/1 var(--font-title); color: var(--text); background: transparent; padding: 0; letter-spacing: .02em; pointer-events: none; }
 [data-file]::after { content: attr(data-file); right: 1px; bottom: 1px; }
 [data-rank]::before { content: attr(data-rank); left: 1px; top: 1px; }
 .play-game[data-coords='false'] [data-file]::after, .play-game[data-coords='false'] [data-rank]::before { display: none; }
@@ -240,7 +240,6 @@ img { display: block; }
 /* After the end the play controls are inert and quiet (decision 21). */
 .play-game[data-state='result'] :is(.play-own, .play-turn) { opacity: .4; }
 
-.play-square[data-dark='true']::before, .play-square[data-dark='true']::after { color: #fffaf0; }
 
 .learn-cell-dark .learn-coordinate { color: #fffaf0; }
 .play-opp strong { overflow-wrap: anywhere; }

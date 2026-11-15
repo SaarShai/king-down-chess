@@ -47,16 +47,23 @@ async function panel(page,size,source,selector,name,closeName){
  await source.tap();await page.getByRole('button',{name:closeName,exact:true}).tap();
  assert.equal(await source.evaluate(el=>el===document.activeElement),true,name+' touch close returns focus');
  await source.focus();await page.keyboard.press('Enter');await page.getByRole('button',{name:closeName,exact:true}).waitFor({state:'visible'});
- const saved=await page.evaluate(()=>localStorage.getItem('kingdown.save'));
- await page.locator('.play-square[data-square="0"]').tap();
+ const saved=await page.evaluate(()=>localStorage.getItem('kingdown.save')),selected=await page.locator('.play-square[aria-selected="true"]').count();
+ const outside=await page.locator('.play-square').evaluateAll((cells,selector)=>{
+  const box=document.querySelector(selector).getBoundingClientRect();
+  return cells.find(cell=>{const r=cell.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2;return !(x>=box.left&&x<=box.right&&y>=box.top&&y<=box.bottom);})?.dataset.square??null;
+ },selector);
+ if(outside===null) await page.getByRole('button',{name:'Menu',exact:true}).tap();
+ else await page.locator(`.play-square[data-square="${outside}"]`).tap();
+ assert.equal(await page.locator('.game-menu').count(),0,'outside input does not also open Menu');
  assert.equal(await page.evaluate(()=>localStorage.getItem('kingdown.save')),saved,name+' outside tap keeps game');
- assert.equal(await page.locator('.play-square[aria-selected="true"]').count(),0,name+' outside tap only closes');
+ assert.equal(await page.locator('.play-square[aria-selected="true"]').count(),selected,name+' outside tap only closes');
 }
 try{
  for(const size of [[390,844],[360,640],[844,390],[1440,900]]){
   const {page,context,errors}=await open(size);
   await shot(page,size,'cue');assert((await page.evaluate(()=>window.cueDraws))>=3,'move and card cue squares draw');
   assert.equal(await page.locator('[data-file]').first().evaluate(el=>getComputedStyle(el,'::after').fontSize),'12px');
+  for(const shade of ['true','false']) assert.equal(await page.locator(`.play-square[data-rank][data-dark="${shade}"]`).first().evaluate(el=>getComputedStyle(el,'::before').color),'rgb(38, 46, 44)','coordinates use clear ink on both square colours');
   assert.equal(await page.locator('.play-history-strip').evaluate(el=>el.getBoundingClientRect().height),44);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollHeight>innerHeight),false);
   await panel(page,size,page.getByRole('button',{name:'Menu',exact:true}),'.play-reader[data-floating="true"]','menu','Close menu');
@@ -68,9 +75,8 @@ try{
   await page.locator('.play-square[data-square="8"]').click();
   assert.equal(await page.locator('.play-square[data-square="8"]').getAttribute('aria-selected'),'true','first board input acts');
   await page.waitForTimeout(220);assert.equal(await page.evaluate(()=>window.lastCueAt<=window.boardInputAt),true,'piece input acts with no past cue');
-  const help=page.getByRole('button',{name:'All about the Pawn',exact:true});await help.click();
-  await geometry(page,'.play-reader[data-floating="true"]',size);await page.keyboard.press('Escape');
-  assert.equal(await help.evaluate(el=>el===document.activeElement),true,'rule returns focus to piece');
+  const help=page.getByRole('button',{name:'All about the Pawn',exact:true});
+  await panel(page,size,help,'.play-reader[data-floating="true"]','rule','Close Pawn rule');
   await page.locator('.play-square[data-square="16"]').click();
   assert.equal(await page.getByRole('button',{name:'Undo',exact:true}).getAttribute('aria-disabled'),'false');
   await page.locator('.play-history-toggle').click();
