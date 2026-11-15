@@ -22,7 +22,7 @@ export type LandingKind = 'valid' | 'plain' | 'own' | 'ended' | 'limit' | 'bad';
 export interface Landing { kind: LandingKind; inviter: string | null; icon: Icon | null; avatar?: string | null; facts: string[]; count?: number }
 
 /** The rule words of the game choice. */
-export const rulesWords = (options: Options | null) => !options?.kingPowers ? 'Pieces only' : options.cards ? 'With powers and cards' : 'With powers';
+export const rulesWords = (options: Options | null) => options?.kingPowers ? options.cards ? 'With powers and cards' : 'With powers' : options?.cards ? 'With cards' : 'Pieces';
 const factsOf = (preview: JoinPreview) => [rulesWords(preview.options), landingText.time, landingText.side(preview.colour === 'white')];
 
 /**

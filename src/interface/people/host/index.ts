@@ -25,7 +25,7 @@ export function inviteURL(token: string, origin = location.origin, app = inApp):
   return url.href;
 }
 
-export const onlineOptions = (rules: Rules) => ({ ...DEFAULT_OPTIONS, arrangement: false, kingPowers: rules !== 'pieces', cards: rules === 'cards' });
+export const onlineOptions = (rules: Rules) => ({ ...DEFAULT_OPTIONS, arrangement: false, kingPowers: rules === 'powers' || rules === 'both', cards: rules === 'cards' || rules === 'both' });
 export const draftKey = (user: string, game: string) => `kingdown.people-draft.${user}.${game}`;
 export function keepDraft(storage: Pick<Storage, 'setItem'>, user: string, state: PeopleState) {
   if (!state.view || !state.draft) return;

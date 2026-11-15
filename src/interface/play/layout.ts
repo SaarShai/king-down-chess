@@ -1,7 +1,7 @@
 // Stage "readingb" (launch decisions 33 and 34): the layout classes of the game screen.
 // Inputs: the viewport after the safe areas and the game type. The game state is not an input, so a select,
 // a staged step or a reply never moves the board. All values are CSS px.
-export type Setup = 'pieces' | 'powers' | 'cards';
+export type Setup = 'pieces' | 'powers' | 'cards' | 'both';
 export type Form = 'tall' | 'compact' | 'wide';
 export interface GameLayout {
   /** Stack: one column (opponent strip, reader, board, resources, finish row). Rail: the board at the left, the rest at the right. */

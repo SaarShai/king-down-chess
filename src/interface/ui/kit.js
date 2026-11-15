@@ -29,17 +29,19 @@ export function focusEntry(target) {
 export function restoreFocus(source, fallback) {
   focusEntry(source?.isConnected && !source.closest('[hidden], [inert]') ? source : fallback);
 }
-/** @param {'back'|'close'|'play'|'learn'|'you'|'check'|'next'} name */
+/** @param {'back'|'close'|'play'|'learn'|'you'|'check'|'next'|'more'|'undo'|'down'} name */
 export function icon(name) {
   const paths = {
     back: 'M15 5l-7 7 7 7M8 12h13', close: 'M6 6l12 12M18 6L6 18',
     play: 'M7 4l13 8-13 8z', learn: 'M3 4h7l2 2 2-2h7v15h-7l-2 2-2-2H3zM12 6v15',
     you: 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M4 21v-3a8 6 0 0 1 16 0v3',
-    check: 'M4 12l5 5L20 6', next: 'M9 5l7 7-7 7'
+    check: 'M4 12l5 5L20 6', next: 'M9 5l7 7-7 7',
+    more: 'M5 12h.01M12 12h.01M19 12h.01', undo: 'M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11', down: 'M5 9l7 7 7-7'
   };
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');
   svg.setAttribute('class', 'kd-icon');
+  svg.dataset.icon = name;
   svg.setAttribute('aria-hidden', 'true');
   const path = document.createElementNS(svg.namespaceURI, 'path');
   path.setAttribute('d', paths[name]);
@@ -69,6 +71,12 @@ export function button(label, options = {}) {
   }, true);
   if (options.onPress) node.addEventListener('click', options.onPress);
   setButtonState(node, { reason: options.disabledReason, busy: options.busy });
+  return node;
+}
+/** The plain X of Close and Cancel at the corner of a surface (owner playtest section 4): no raised shape, a 44 px target, a specific name. @param {string} label @param {() => void} [onPress] */
+export function closeX(label, onPress) {
+  const node = button(label, { icon: 'close', iconOnly: true, onPress });
+  node.classList.add('kd-x');
   return node;
 }
 /** @param {HTMLButtonElement} node @param {{reason?: string, busy?: boolean, label?: string}} state */

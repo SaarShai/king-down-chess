@@ -29,14 +29,14 @@ it('iOS need P1: the About links use the public origin', () => {
 it('launch decisions 46, 51 and 52: true level lines, the person row and "Your pieces"', () => {
   expect(homeText.levels).toEqual({
     casual: 'The easiest level. A good level for a first game.',
-    clever: 'Much stronger than Casual. It makes some mistakes.',
-    club: 'The strongest level. Much stronger than Clever.',
+    clever: 'Much stronger than Friendly. It makes some mistakes.',
+    club: 'The strongest level. Much stronger than Focused.',
   });
   expect(Object.values(homeText.levels).join(' ')).not.toMatch(/mistakes often/);
   expect(homeText.side).toBe('Your pieces');
   expect([homeText.person, homeText.personLine]).toEqual(['Play a person', 'Opens the online game.']);
   expect(homeText.play).toBe('Play the computer');
-  expect(summaryLine({ level: 'clever', setup: 'cards', sideChoice: 'random' })).toBe('Clever · With powers and cards · Random');
+  expect(summaryLine({ level: 'clever', setup: 'both', sideChoice: 'random' })).toBe('Focused · With powers and cards · Random');
 });
 it('launch decision 29: the Guide lists come from the content', () => {
   const groups = pieceGroups();

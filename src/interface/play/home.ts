@@ -12,7 +12,7 @@ import { sideText, type SideChoice } from './sides';
 import { listRow, pictureChoice, segmented } from './menus';
 import { miniBoard, savedPreview, stateText } from './mini-board';
 import { armyTypes, changeDraft, type NewGameDraft } from './new-game';
-import { type GameType, type Level } from './saved';
+import { typeName, type GameType, type Level } from './saved';
 import { calm, ms } from './motion';
 import { computerPortrait, profilePortrait } from '../people/host/portrait';
 import { deadlineLine, gameOrder, type HomeInvite, type PersonGame } from '../people/host/games';
@@ -26,9 +26,9 @@ export const homeText = {
   ends: (opponent: string) => `This ends your game against the ${opponent}.`,
   types: { pieces: 'New pieces. No powers or cards.', powers: 'Each king gets a random power.', cards: 'Each king gets an always-on power. Both players get the same four cards.' } as Record<GameType, string>,
   // Launch decision 46: the levels stay; each line is true (runs/launch/opponent/report.md).
-  levels: { casual: 'The easiest level. A good level for a first game.', clever: 'Much stronger than Casual. It makes some mistakes.', club: 'The strongest level. Much stronger than Clever.' } as Record<Level, string>,
+  levels: { casual: 'The easiest level. A good level for a first game.', clever: 'Much stronger than Friendly. It makes some mistakes.', club: 'The strongest level. Much stronger than Focused.' } as Record<Level, string>,
 } as const;
-export const typeName: Record<GameType, string> = { pieces: text.piecesOnly, powers: text.withPowers, cards: text.withCards };
+export { typeName };
 export const levelName = (level: Level) => `${text[level]} ${text.computer.toLowerCase()}`;
 /** The setup line on Play: level, game type and side choice. */
 export const summaryLine = (c: { level: Level; setup: GameType; sideChoice: SideChoice }) => `${text[c.level]} · ${typeName[c.setup]} · ${sideText[c.sideChoice]}`;

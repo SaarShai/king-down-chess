@@ -8,7 +8,7 @@ import { parseSq, type Rules } from '../../rules/engine';
 import { POWERS_BALANCED, RULES_2017 } from '../../rules/rules';
 import { toFen } from '../../rules/setup';
 import { DraftTurn } from './turn';
-import { answerOffer, beforeNewGame, continueLine, gameType, keepCopy, KEPT_KEY, keptOffer, levelOf, OFFERED_KEY, readStored, rulesOf, SaveWriter, SKILLS, snapshot, storedChoice, type Prefs } from './saved';
+import { answerOffer, beforeNewGame, continueLine, gameType, keepCopy, KEPT_KEY, keptOffer, levelOf, OFFERED_KEY, readStored, rulesOf, SaveWriter, SKILLS, snapshot, storedChoice, storedGameType, GAME_KEY, type Prefs } from './saved';
 import { text } from './texts';
 
 const store = new Map<string, string>();
@@ -25,7 +25,7 @@ afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 const prefs: Prefs = { skill: 'beginner', coords: true, sound: false, pace: 'normal' };
 const PIECES = rulesOf('pieces', [null, null], [[], []]);
-const powers = (kings: Rules['kings'], hands: Rules['hands'] = [[], []]) => rulesOf(hands.some(h => h.length) ? 'cards' : 'powers', kings, hands);
+const powers = (kings: Rules['kings'], hands: Rules['hands'] = [[], []]) => rulesOf(hands.some(h => h.length) ? 'both' : 'powers', kings, hands);
 const HASTE = powers([{ king: 'Flame', power: 'Haste' }, null]);
 function draftOf(fen: string | null, rules: Partial<Rules> = PIECES) {
   const game = new Game('RNBQKBNR', rules); if (fen) game.load(game.context.fromFen(fen)); return new DraftTurn(game);
@@ -124,7 +124,7 @@ describe('decisions 2 and 3: staged steps and resume', () => {
     store.set(SAVE_KEY, JSON.stringify(handedOver()));
     const { kind, resume } = readStored();
     expect(kind).toBe('resume'); expect(resume!.game.pos.turn).toBe(1); expect(resume!.draft.length).toBe(0);
-    expect(continueLine(resume!.draft, 'clever')).toBe('Clever computer · Pieces only · Computer is thinking…');
+    expect(continueLine(resume!.draft, 'clever')).toBe('Focused computer · Pieces · Computer is thinking…');
   });
   it('a save that ends on a handed-over Haste step resumes with the linked pass played', () => {
     const draft = draftOf('7k/7p/8/8/8/8/7P/KN6 w - - 0 1', HASTE); draft.arm('haste'); step(draft, 'b1', 'c3');
@@ -139,8 +139,8 @@ describe('decisions 2 and 3: staged steps and resume', () => {
   });
   it('Continue names the level, the game type and whose turn', () => {
     const draft = draftOf(null, powers([{ king: 'Frost', power: 'Freeze' }, null]));
-    expect(continueLine(draft, 'club')).toBe(`Club computer · ${text.withPowers} · ${text.ready}`);
-    step(draft, 'e2', 'e4'); expect(continueLine(draft, 'casual')).toBe(`Casual computer · ${text.withPowers} · ${text.draft}`);
+    expect(continueLine(draft, 'club')).toBe(`Fierce computer · ${text.withPowers} · ${text.ready}`);
+    step(draft, 'e2', 'e4'); expect(continueLine(draft, 'casual')).toBe(`Friendly computer · ${text.withPowers} · ${text.draft}`);
   });
   it('a FEN save resumes, and the rules this page builds read as the same rules after a merge', () => {
     const s = handedOver(powers([{ king: 'Frost', power: 'Freeze' }, null]));
@@ -298,12 +298,29 @@ describe('decision 8: unreadable data and no storage', () => {
   });
 });
 
+describe('owner playtest section 2: a cards game with no king powers', () => {
+  it('saves, resumes and names the game; the hand stays and no king has a power', () => {
+    const hand = ['Freeze', 'Haste', 'Flight', 'Mirror'] as Rules['hands'][number];
+    const rules = rulesOf('cards', [null, null], [hand, hand]);
+    expect(gameType(rules as Rules)).toBe('cards');
+    const draft = draftOf(null, rules); step(draft, 'e2', 'e4'); draft.commit();
+    started(draft);
+    const stored = readStored();
+    expect(stored.kind).toBe('resume');
+    expect(stored.resume!.game.rules.kings).toEqual([null, null]);
+    expect(stored.resume!.game.rules.hands[0]).toEqual(hand);
+    expect(gameType(stored.resume!.game.rules)).toBe('cards');
+    expect(continueLine(stored.resume!.draft, 'casual')).toContain(`· ${text.withCards} ·`);
+  });
+});
+
 describe('decisions 9 and 10: stored choices and levels', () => {
-  it('reads the last game type, and a bad value gives Pieces only', () => {
-    const types = ['pieces', 'powers', 'cards'];
-    expect(storedChoice('kingdown.setup', types)).toBe('pieces');
-    store.set('kingdown.setup', 'cards'); expect(storedChoice('kingdown.setup', types)).toBe('cards');
-    store.set('kingdown.setup', 'lab'); expect(storedChoice('kingdown.setup', types)).toBe('pieces');
+  it('reads the last game type of four; an earlier stored type maps, and none or a bad value gives Pieces', () => {
+    expect(storedGameType()).toBe('pieces');
+    store.set('kingdown.setup', 'cards'); expect(storedGameType()).toBe('both');
+    store.set('kingdown.setup', 'powers'); expect(storedGameType()).toBe('powers');
+    store.set(GAME_KEY, 'cards'); expect(storedGameType()).toBe('cards');
+    store.set(GAME_KEY, 'lab'); store.set('kingdown.setup', 'lab'); expect(storedGameType()).toBe('pieces');
   });
   it('maps each skill to a level, and Strong or none to Club; the next write has club', () => {
     expect(['beginner', 'casual', 'club', 'strong', undefined, 7].map(levelOf)).toEqual(['casual', 'clever', 'club', 'club', 'club', 'club']);
@@ -330,11 +347,11 @@ describe('launch decision 10: a Dark game resumes', () => {
   it('opens it now: the player is Dark, on the player turn and on the computer turn', () => {
     store.set(SAVE_KEY, JSON.stringify({ ...handedOver(), white: 'ai', black: 'human' }));
     const mine = readStored(); expect(mine.kind).toBe('resume'); expect(mine.resume!.player).toBe(1);
-    expect(mine.resume!.game.pos.turn).toBe(1); expect(continueLine(mine.resume!.draft, 'club', 1)).toBe(`Club computer · Pieces only · ${text.ready}`);
+    expect(mine.resume!.game.pos.turn).toBe(1); expect(continueLine(mine.resume!.draft, 'club', 1)).toBe(`Fierce computer · Pieces · ${text.ready}`);
     const draft = darkGame(); step(draft, 'e7', 'e5'); draft.commit();
     store.set(SAVE_KEY, JSON.stringify({ ...snapshot(new DraftTurn(draft.game), null, 1), ...prefs }));
     const theirs = readStored(); expect(theirs.kind).toBe('resume'); expect(theirs.resume!.game.pos.turn).toBe(0);
-    expect(continueLine(theirs.resume!.draft, 'club', 1)).toBe(`Club computer · Pieces only · ${text.thinking}`);
+    expect(continueLine(theirs.resume!.draft, 'club', 1)).toBe(`Fierce computer · Pieces · ${text.thinking}`);
     expect(keepCopy(JSON.stringify({ ...handedOver(), white: 'ai', black: 'human' }))).toBe('copied'); // the copy rule itself is unchanged
   });
   it('restores staged Dark steps: a move, a Haste turn and a card', () => {

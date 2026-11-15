@@ -13,7 +13,7 @@ import { node, peopleSheet, picture, say, statusLine, type PeopleSheet } from '.
 import { nameSheet, plain, signInSheet, type SignInHost } from './sign-in';
 
 /** The game choice of Play (`src/interface/play/main.ts`). */
-export type Rules = 'pieces' | 'powers' | 'cards';
+export type Rules = 'pieces' | 'powers' | 'cards' | 'both';
 export interface Player { handle: string; icon: Icon | null; avatar?: string | null }
 /** A past opponent. `result` and `at` (ISO time of the last game) are null when the server does not give them. */
 export interface Recent extends Player { result: 'won' | 'lost' | 'drawn' | null; at: string | null }
@@ -42,7 +42,7 @@ export interface PersonHost extends SignInHost {
   coarse?: boolean;
 }
 export const PLAY_AGAIN_ROWS = 3, SEARCH_LETTERS = 2, SEARCH_WAIT_MS = 250;
-const RULE_LABELS: Record<Rules, string> = { pieces: 'Pieces only', powers: 'With powers', cards: 'With powers and cards' };
+const RULE_LABELS: Record<Rules, string> = { pieces: 'Pieces', powers: 'With powers', cards: 'With cards', both: 'With powers and cards' };
 
 /** How "Send a link" gives the link: the share list on a touch device that has one, else a copy. */
 export function shareWay(host: Pick<PersonHost, 'share' | 'coarse'>): 'share' | 'copy' {

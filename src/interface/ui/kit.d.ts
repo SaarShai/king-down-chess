@@ -1,6 +1,7 @@
-export type IconName = 'back' | 'close' | 'play' | 'learn' | 'you' | 'check' | 'next';
+export type IconName = 'back' | 'close' | 'play' | 'learn' | 'you' | 'check' | 'next' | 'more' | 'undo' | 'down';
 export function icon(name: IconName): SVGSVGElement;
 export function button(label: string, options?: { kind?: string; icon?: IconName; onPress?: () => void; disabledReason?: string }): HTMLButtonElement;
+export function closeX(label: string, onPress?: () => void): HTMLButtonElement;
 export function setButtonState(button: HTMLButtonElement, state: { label?: string; reason?: string; busy?: boolean }): void;
 export function choiceGroup(label: string, choices: { value: string; label: string; description?: string }[], value: string, style?: 'segments' | 'cards'): HTMLElement;
 export function switchRow(label: string, description: string, checked: boolean): HTMLButtonElement;

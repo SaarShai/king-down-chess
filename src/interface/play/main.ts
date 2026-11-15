@@ -29,9 +29,9 @@ import { readingText, effectGroups, checkLines, selectionLines, armedStep, cance
 import { calm, cardFly, disarm, ms, screenChange, seal, shake, sheet, token, unseal, setInterfaceMotion, time } from './motion';
 import { gameLayout, type Form } from './layout';
 import { finishKind, fitReader, readerNodes, readerView, resetFit, sentences, summaryLabel, type ReaderModel } from './reader';
-import { answerOffer, beforeNewGame, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, storeChoice as store, storedChoice as stored, type GameType as Setup, type KeptOffer, type Level } from './saved';
+import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, storeChoice as store, storedChoice as stored, storedGameType, type GameType as Setup, type KeptOffer, type Level } from './saved';
 import { arrowStep, cellOf, fileLabelRow, rankLabelColumn, sideText, SIDE_CHOICES, SIDE_KEY, squareAt, type SideChoice } from './sides';
-import { changeDraft, createDraft, rulesFor, startOf, type NewGameDraft } from './new-game';
+import { changeDraft, createDraft, OPTIONS_KEY, readOptions, rulesFor, startOf, type NewGameDraft } from './new-game';
 import { homeText, levelName as computerName, newGamePanel, playScreen, type Art } from './home';
 import { gameMenu, menuEnter, menuText, youPage, type Settings } from './menus';
 import { allowedAvatarUrl } from '../../account/public-config';
@@ -50,7 +50,9 @@ const live = liveRegion(); document.body.append(live.element);
 let announcement = 0;
 const engine = new Engine({ waitReady: true, workClock: true });
 interface Resource { subject: LearnSubject; hint?: string; side: Color; key: string | null; name: string; short: string; card: number | null; control: HTMLButtonElement }
-let setup = stored('kingdown.setup', ['pieces', 'powers', 'cards']) as Setup, resources: Resource[] = [], shown: Resource | null = null;
+// The game type and options of the next game (owner playtest section 2). 'kingdown.setup' held 'cards' for powers and cards before the four types.
+let setup: Setup = storedGameType();
+let options = readOptions((() => { try { return JSON.parse(localStorage.getItem(OPTIONS_KEY) ?? 'null'); } catch { return null; } })()), resources: Resource[] = [], shown: Resource | null = null;
 let pieceView = stored('kingdown.piece-view', ['figures', 'symbols']), handView = stored('kingdown.hand', ['hand', 'ribbon']);
 // The next game's side choice, and the side of the live game (launch decision 10). The computer plays the other side.
 let sideChoice = stored(SIDE_KEY, SIDE_CHOICES) as SideChoice, player: Color = 0;
@@ -84,7 +86,7 @@ const unlock = () => { if (sound && sfx) { sfx.unlockSound(); document.removeEve
 document.addEventListener('pointerdown', unlock, true); document.addEventListener('keydown', unlock, true);
 // `next` is the next game (its army, kings, cards and side, launch decision 26); `game` stays the live game, so
 // Continue can open it when it could not save.
-let next: NewGameDraft = createDraft({ setup, level, sideChoice }), game = next.game, draft = new DraftTurn(game), board: Board | undefined;
+let next: NewGameDraft = createDraft({ setup, level, sideChoice, options }), game = next.game, draft = new DraftTurn(game), board: Board | undefined;
 let gameLevel: Level = level, resigned: Color | null = null, liveGame = false;
 const writer = new SaveWriter(line => { if (document.body.dataset.page === 'game') refuse(line); else announce(line); });
 const prefs = () => ({ skill: SKILLS[gameLevel], coords, sound, pace: motion });
@@ -156,7 +158,7 @@ function refuse(message: string, square?: number) {
   update(); if (controls) shake(detail.querySelector<HTMLElement>('.play-notice') ?? nodes.title.closest('h2') ?? controls.help); announce(message);
 }
 /** The choices that the person accepted: the stored setup and side choice, and the level of the saved game. */
-const accepted = () => ({ setup, level, sideChoice });
+const accepted = () => ({ setup, level, sideChoice, options });
 /** The result card's New game opens the New game panel on Play. */
 let panelNext = false;
 const art: Art = {
@@ -170,7 +172,7 @@ function gameWords(line: string) { return onlineActive ? personWords(line) : lin
 let mountingOnline = false, shownRevision = -1, onlineNote = '';
 async function loadPeople() {
   return peopleReady ??= import('../people/host/index').then(async ({ onlineHost }) => {
-    people = onlineHost({ rules: () => setup, setRules: value => { setup = value; next = changeDraft(next, { setup }); store('kingdown.setup', setup); },
+    people = onlineHost({ rules: () => setup, setRules: value => { setup = value; next = changeDraft(next, { setup }); store(GAME_KEY, setup); },
       changed: () => { if (document.body.dataset.page === 'home' && shell.route.place === 'play') home(); if (people) showAccount(people); },
       home: () => { onlineActive = false; shell.go({ place: 'play' }); if (document.body.dataset.page === 'game') home(); },
       open: id => shell.go({ place: 'online', entry: id }),
@@ -433,12 +435,12 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   if (resumed) { ({ game, draft } = resumed); level = gameLevel = resumed.level; setup = gameType(game.rules); player = resumed.player; }
   else {
     // A new game takes the shown candidate: its army, kings, cards and side (Random drew when it was made). Rematch swaps the sides.
-    if (fromHome) { ({ setup, level, sideChoice } = next); player = next.player; store(SIDE_KEY, sideChoice); } else player = cpu();
+    if (fromHome) { ({ setup, level, sideChoice, options } = next); player = next.player; store(SIDE_KEY, sideChoice); store(OPTIONS_KEY, JSON.stringify(options)); } else player = cpu();
     // A rematch plays the same army, or the same first position for a game from a position.
     const source = fromHome ? next.game : game;
-    game = fromHome ? startOf(next) : new Game(source.backRank || undefined, rulesFor(setup)); draft = new DraftTurn(game); gameLevel = level;
+    game = fromHome ? startOf(next) : new Game(source.backRank || undefined, rulesFor(setup, Math.random, options, player)); draft = new DraftTurn(game); gameLevel = level;
     if (!source.backRank) game.load(game.context.fromFen(toFen(source.history[0]?.pos ?? source.pos)));
-    store('kingdown.setup', setup);
+    store(GAME_KEY, setup);
     if (fromHome) next = createDraft(accepted());
   }
   resources = []; shown = null; replySteps = []; resigned = null; liveGame = true; selectTaps = 0; symbolsHint = false;
@@ -475,7 +477,8 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   const mine = el('div', 'play-own'); mine.setAttribute('role', 'group'); mine.setAttribute('aria-label', text.you);
   const king = game.context.rules.kings[player];
   // Pieces only has no resource row; With powers shows the power only (design section 2).
-  if (king) { addPower(player, mine); if (cards(player)) addCards(mine); }
+  if (king) addPower(player, mine);
+  if (cards(player)) addCards(mine);
   reader = el('section', 'play-reader'); reader.setAttribute('aria-label', text.last); nodes = readerNodes(); effectsFor = ''; acting = ''; resetFit();
   detail = el('div', 'play-detail');
   boardBox = el('div', 'play-board');
@@ -930,7 +933,7 @@ function renderReader() {
     const copy = el('div', 'play-result-copy'), body = el('div', 'play-result-body');
     const cause = lost && resigned == null ? replySteps.map(step => sentence(step.before, step.move, true, cards(cpu()))).filter(Boolean).join(' ') : '';
     body.append(el('h3', '', result.title), el('p', 'play-result-cause', [result.cause, cause].filter(Boolean).join(' ')));
-    const rematch = el('p', 'play-rematch-note', `Rematch: ${player ? 'Light' : 'Dark'} pieces. ${setup === 'cards' ? 'New powers and cards.' : setup === 'powers' ? 'New powers.' : 'Same army and level.'}`);
+    const rematch = el('p', 'play-rematch-note', `Rematch: ${player ? 'Light' : 'Dark'} pieces. ${({ both: 'New powers and cards.', cards: 'New cards.', powers: 'New powers.', pieces: 'Same army and level.' } as const)[setup]}`);
     if (replySteps.length) body.append(cause ? showAgainButton() : replyBlock());
     const actions = el('div', 'play-result-actions');
     actions.append(button(text.rematch, { kind: 'main', onPress: () => { void start(); } }), button(text.newGame, { onPress: () => { panelNext = true; home(true); } }), button(text.home, { onPress: () => home() }));

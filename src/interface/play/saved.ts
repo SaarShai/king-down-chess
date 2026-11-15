@@ -19,22 +19,33 @@ import { DraftTurn } from './turn';
 import { pieces, text } from './texts';
 
 export type Level = 'casual' | 'clever' | 'club';
-export type GameType = 'pieces' | 'powers' | 'cards';
+/** The four games: the base game (Pieces) with or without king powers and with or without cards (owner playtest 2026-11-15). */
+export type GameType = 'pieces' | 'powers' | 'cards' | 'both';
+export const hasPowers = (type: GameType) => type === 'powers' || type === 'both';
+export const hasCards = (type: GameType) => type === 'cards' || type === 'both';
+export const typeOfFlags = (powers: boolean, cards: boolean): GameType => powers ? cards ? 'both' : 'powers' : cards ? 'cards' : 'pieces';
 /** The page's levels and the engine's skills (docs/DECISIONS.md). */
 export const SKILLS: Record<Level, SkillName> = { casual: 'beginner', clever: 'casual', club: 'club' };
 /** Strong, no skill and any other value show and play as Club. */
 export const levelOf = (skill: unknown): Level => skill === 'beginner' ? 'casual' : skill === 'casual' ? 'clever' : 'club';
 export const gameType = (rules: Pick<Rules, 'kings' | 'hands'>): GameType =>
-  !rules.kings[0] && !rules.kings[1] ? 'pieces' : rules.hands.some(hand => hand.length) ? 'cards' : 'powers';
+  typeOfFlags(!!(rules.kings[0] || rules.kings[1]), rules.hands.some(hand => hand.length));
 /** The rules this page builds for a game type, its kings and its hands. */
 export const rulesOf = (type: GameType, kings: Rules['kings'], hands: Rules['hands']): Partial<Rules> =>
-  type === 'pieces' ? { kings: [null, null], hands: [[], []] } : { ...POWERS_BALANCED, kings, hands };
+  type === 'pieces' ? { kings: [null, null], hands: [[], []] } : { ...POWERS_BALANCED, kings: hasPowers(type) ? kings : [null, null], hands: hasCards(type) ? hands : [[], []] };
 
 /** A stored choice of this page: the first value is the default. Private mode keeps the choice for this page only. */
+/** The short name of each game, as Play and the game list show it. */
+export const typeName: Record<GameType, string> = { pieces: text.pieces, powers: text.withPowers, cards: text.withCards, both: text.withBoth };
+
 export const storedChoice = (key: string, values: readonly string[]): string => {
   try { const v = localStorage.getItem(key); return v && values.includes(v) ? v : values[0]; } catch { return values[0]; }
 };
 export const storeChoice = (key: string, value: string): void => { try { localStorage.setItem(key, value); } catch { /* private mode */ } };
+/** The stored game type of the next game (owner playtest section 2). A value of the earlier three types maps to the four: that "cards" had powers. */
+export const GAME_KEY = 'kingdown.game-type';
+export const storedGameType = (): GameType => (storedChoice(GAME_KEY, ['', 'pieces', 'powers', 'cards', 'both']) ||
+  ({ pieces: 'pieces', powers: 'powers', cards: 'both' } as const)[storedChoice('kingdown.setup', ['pieces', 'powers', 'cards']) as 'pieces' | 'powers' | 'cards']) as GameType;
 
 export { KEPT_KEY, OFFERED_KEY } from '../../account/local';
 /**
@@ -146,7 +157,7 @@ export function keepCopy(raw: string | undefined): 'copied' | 'already' | 'full'
 
 /** The home line of a game that can continue: level, game type, whose turn. */
 export function continueLine(draft: DraftTurn, level: Level, player: Color = 0): string {
-  const type = { pieces: text.piecesOnly, powers: text.withPowers, cards: text.withCards }[gameType(draft.game.rules)];
+  const type = typeName[gameType(draft.game.rules)];
   const turn = draft.game.pos.turn !== player ? text.thinking : draft.length ? text.draft : text.ready;
   return `${text[level]} ${text.computer.toLowerCase()} · ${type} · ${turn}`;
 }

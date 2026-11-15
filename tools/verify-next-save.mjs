@@ -63,7 +63,7 @@ try {
     const { page, context } = await open({ back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'ai', coords: false, link: null, daily: null, resigned: null, skill: 'strong', sound: true, pace: 'fast' });
     assert.equal(await page.locator(MAIN).innerText(), 'Continue');
     // The saved game card (launch decision 25): the level, the game type and the turn, and who is to move.
-    assert.deepEqual(await page.locator('.home-copy').first().evaluate(copy => [...copy.children].map(node => node.textContent)), ['Club computer', 'Pieces only · Turn 1', 'Computer to move']);
+    assert.deepEqual(await page.locator('.home-copy').first().evaluate(copy => [...copy.children].map(node => node.textContent)), ['Fierce computer', 'Pieces · Turn 1', 'Computer to move']);
     await page.click(MAIN); await ready(page);
     assert.equal(await page.locator('.play-versus').count(), 0, 'Continue shows no Versus');
     assert.deepEqual((await writes(page)).at(-1), { moves: 2, staged: 0, skill: 'club', pace: 'fast', coords: false, sound: true }, 'the reply writes Club and the stored settings');
