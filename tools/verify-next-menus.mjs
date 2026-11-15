@@ -64,6 +64,7 @@ async function panelRace(page, context, check, action, game, { preload = false, 
     await newGame().click(); await page.waitForSelector('dialog.new-game-panel[open]');
     await panel.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
     await page.goBack(); await page.waitForSelector('.home-invite-row');
+    await page.waitForTimeout(650); // Start blocks page clicks for --dur-sheet-in + 300 ms (begin() in home.ts)
   }
   let openPolls; polls.held = new Promise(done => { openPolls = done; });
   await page.evaluate(() => { const back = history.back.bind(history); window.kdBacks = []; history.back = () => { window.kdBacks.push(back); }; });
