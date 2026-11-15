@@ -11,7 +11,7 @@ Use the same board, reader, marks and finish row. Tap two back-rank pieces to sw
 
 The engine already accepts two different rows through FEN. The player changes only the own row. The computer row stays as dealt. An unfinished solo save starts the step again from its legal deal. A marker links the step to that saved position. The shared save fields stay the same, and no illegal draft enters them.
 
-Each online seat uses its own stored king when the setup admits it. Each seat confirms its own order. In Manual, either seat can confirm first. A stale confirmation retries once with the same choice. A confirmed seat keeps its server choice and waits. Random keeps its prior ready order.
+Each online seat uses the legal king bound to that game when the setup admits it. Each seat confirms its own order. In Manual, either seat can confirm first. A stale confirmation retries once with the same choice. A confirmed seat keeps its server choice and waits. Random keeps its prior ready order.
 
 ## Checks
 
@@ -27,3 +27,9 @@ Each online seat uses its own stored king when the setup admits it. Each seat co
 `saved.ts` must recognise an unfinished setup with no move, so Continue can open it. The check runner can use an existing local stack. The local stack accepts an assigned page port. These small helper changes keep this lane on port 5442. The New game panel, invite controls, layout and history stay with their lanes.
 
 The browser check creates the Manual invite through the local REST client. The S1 controls and invite wiring are not checked here. The browser proof uses Chromium; WebKit is not checked. The base cards-only save fault still prevents that saved-game case from passing.
+
+## Merged repair
+
+Ready keeps the arranged order and Continue before the first move. A new game gives the active-game warning. Menu and history use the common panel paths before Ready and in the online wait.
+
+[Ticket 05](05-merged-repair.md) records the shared state and layout repairs and their final checks. It supersedes the base-fault limits in this lane report.

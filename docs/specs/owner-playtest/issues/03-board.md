@@ -44,3 +44,9 @@ Evidence is in `/Users/za/Documents/king down (fresh)/runs/launch/owner-playtest
 The five required states have samples at 390x844, 360x640, 844x390 and 1440x900. Card, rule and portrait samples are also present. The contact sheets receive visual review.
 
 The browser check uses Chromium with mouse, touch and keyboard. It checks outside input, focus, Escape, Undo, the history, stored switches and reduced motion. No physical phone, other browser, live sign-in, full old-page browser regression or database suite is checked. No push, pull request or deploy runs.
+
+## Merged repair
+
+Armed targets act in the normal reader. The short reader shares space with history and returns it after Cancel or Undo. History shows the newest action once. The unused game-page replay controller is removed.
+
+[Ticket 05](05-merged-repair.md) records the shared state and layout repairs and their final checks. It supersedes the base-fault limits in this lane report.

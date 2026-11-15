@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { chromium } from '/Users/za/Documents/king down chess (new)/app/node_modules/playwright/index.mjs';
-const out = '/Users/za/Documents/king down (fresh)/runs/launch/owner-playtest/build/b-shots';
+const out = process.env.PLAYABLE_OUT ?? '/Users/za/Documents/king down (fresh)/runs/launch/owner-playtest/build/b-shots';
 mkdirSync(out,{recursive:true});
 const fixture=JSON.parse(readFileSync(new URL('../docs/specs/owner-playtest/board-fixture.json',import.meta.url)));
 const undoFixture=JSON.parse(readFileSync(new URL('../docs/specs/owner-playtest/undo-fixture.json',import.meta.url)));
@@ -58,8 +58,60 @@ async function panel(page,size,source,selector,name,closeName){
  assert.equal(await page.evaluate(()=>localStorage.getItem('kingdown.save')),saved,name+' outside tap keeps game');
  assert.equal(await page.locator('.play-square[aria-selected="true"]').count(),selected,name+' outside tap only closes');
 }
+async function readerFits(page, size, active = false) {
+ const data = await page.evaluate(() => {
+  const reader = document.querySelector('.play-reader'), detail = document.querySelector('.play-detail'), board = document.querySelector('.play-board');
+  const bounds = detail.getBoundingClientRect(), text = [];
+  for (const node of detail.querySelectorAll('.play-turn-state, .play-headline, .play-step, .play-arrange-rule, .play-target')) {
+   if (!node.getBoundingClientRect().height || getComputedStyle(node).display === 'none') continue;
+   const range = document.createRange(); range.selectNodeContents(node);
+   for (const r of range.getClientRects()) text.push({ top: r.top, bottom: r.bottom, left: r.left, right: r.right });
+  }
+  return { floating: reader.dataset.floating, bounds: bounds.toJSON(), board: board.getBoundingClientRect().toJSON(), text,
+   buttons: [...detail.querySelectorAll('button')].filter(b => b.getBoundingClientRect().width).map(b => b.getBoundingClientRect().toJSON()),
+   strip: !!document.querySelector('.play-history-strip').getBoundingClientRect().height };
+ });
+ assert.notEqual(data.floating, 'true', 'an armed action stays in the normal reader');
+ if (size[0] < size[1]) assert(data.bounds.bottom <= data.board.top, 'the instruction stays above the board');
+ assert(data.text.every(r => r.top >= data.bounds.top - 2 && r.bottom <= data.bounds.bottom + 2 && r.left >= data.bounds.left - 1 && r.right <= data.bounds.right + 1), 'reader text fits its space');
+ assert(data.buttons.every(r => r.width >= 44 && r.height >= 44), 'reader controls keep 44 px targets');
+ if (size[0] === 360) assert.equal(data.strip, !active, 'the short reader and history share the area');
+}
+async function choiceFits(size) {
+ const save = { ...fixture, back: '', fen: '7k/P7/8/8/8/8/8/7K w - - 0 1', moves: ['Kh1-g1', 'Kh8-g8'] };
+ const {page, context, errors} = await open(size, 'reduce', save);
+ await page.locator('.play-square[data-square="48"]').tap(); await page.locator('.play-square[data-square="56"]').tap();
+ await page.locator('.play-game[data-state="choice"]').waitFor(); await readerFits(page, size, true);
+ const count = await page.locator('.play-choices button').count(); assert(count >= 4, 'promotion offers the pieces');
+ await shot(page, size, 'choice');
+ await page.getByRole('button', {name: 'Cancel action choice', exact: true}).tap();
+ assert.equal(await page.locator('.play-choices button').count(), 0); assert.deepEqual(errors, []); await context.close();
+ results.push({size, choice: true, ok: true});
+}
+async function targetTurn(size, power = false) {
+ const save = power ? { ...fixture, rules: { ...fixture.rules, kings: [{ king: 'Frost', power: 'Freeze' }, { king: 'Frost', power: 'IceWall' }], hands: [[], []] } } : fixture;
+ const { page, context, errors } = await open(size, 'reduce', save);
+ await readerFits(page, size); await shot(page, size, power ? 'power-rest' : 'rest');
+ const latest = await page.locator('.play-history-toggle [data-button-label]').textContent();
+ assert(!(await page.locator('.play-detail').innerText()).includes(latest), 'only history shows the newest action');
+ await page.locator('.play-square[data-square="8"]').tap(); await readerFits(page, size, true); await shot(page, size, power ? 'power-piece' : 'piece-selected');
+ await page.keyboard.press('Escape');
+ const source = page.locator(power ? '.play-own .play-power' : '.play-own .play-card').filter({ hasText: 'Freeze' });
+ await source.tap(); await readerFits(page, size, true); await shot(page, size, power ? 'power-targets' : 'card-armed-targets');
+ await page.locator('.play-square[data-square="57"]').tap();
+ assert.equal(await page.locator('.play-game').getAttribute('data-armed'), '', 'target input plays the action');
+ assert.equal(await source.getAttribute('data-spent'), 'true', 'the card or power use is spent');
+ assert.match(await page.locator('.play-history-toggle').textContent(), /Freeze/);
+ await readerFits(page, size);
+ await page.locator('.play-square[data-square="8"]').tap(); await page.locator('.play-square[data-square="16"]').tap();
+ await page.getByRole('button', { name: 'End turn', exact: true }).tap();
+ await page.waitForFunction(() => document.querySelector('.play-game')?.dataset.state === 'ready', null, { timeout: 45000 });
+ assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).staged ?? 0), 0, 'End turn commits');
+ assert.deepEqual(errors, []); await context.close(); results.push({ size, target: power ? 'power' : 'card', ok: true });
+}
 try{
  for(const size of [[390,844],[360,640],[844,390],[1440,900]]){
+  await targetTurn(size); await targetTurn(size, true); await choiceFits(size);
   const {page,context,errors}=await open(size);
   await shot(page,size,'cue');assert((await page.evaluate(()=>window.cueDraws))>=3,'move and card cue squares draw');
   assert.equal(await page.locator('[data-file]').first().evaluate(el=>getComputedStyle(el,'::after').fontSize),'12px');
@@ -85,8 +137,11 @@ try{
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('kingdown.save')).staged??0),0,'Undo changes board at once');
   assert.equal(await page.locator('.play-ink-wipe').count(),0,'reduced Undo has no wipe');
   assert.equal(await page.getByRole('button',{name:'Show again',exact:true}).count(),0);
-  await panel(page,size,page.locator('.play-card').first(),'.play-reader[data-floating="true"]','card','Cancel Freeze');
+  await page.locator('.play-card').first().tap(); await readerFits(page,size,true);
+  await page.keyboard.press('Escape'); await page.locator('.play-card').first().tap();
+  await page.getByRole('button',{name:'Cancel Freeze',exact:true}).tap();
   assert.equal(await page.locator('.play-game').getAttribute('data-armed'),'','Escape and X cancel the card');
+  await readerFits(page,size);
   await page.getByRole('button',{name:'Menu',exact:true}).click();
   const symbols=page.getByRole('switch',{name:/Use symbols/}),ribbon=page.getByRole('switch',{name:/Use ribbon/});
   await symbols.click();assert.equal(await page.evaluate(()=>localStorage.getItem('kingdown.piece-view')),'symbols');await symbols.click();

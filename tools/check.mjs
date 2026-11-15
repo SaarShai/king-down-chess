@@ -164,7 +164,7 @@ if (selected.some(c => !c.external && (c.site || !['tools/plugin-browser-check.m
     process.exit(1);
   }
   const { preview } = await import('vite');
-  server = await preview({ root, logLevel: 'silent', preview: { host: '127.0.0.1', port: selected.find(check => check.previewPort)?.previewPort ?? 0, strictPort: true, open: false } });
+  server = await preview({ root, logLevel: 'silent', preview: { host: '127.0.0.1', port: Number(process.env.PLAYABLE_PORT ?? selected.find(check => check.previewPort)?.previewPort ?? 0), strictPort: true, open: false } });
   url = server.resolvedUrls.local[0];
   say(`check: serving the build at ${url}`);
 }

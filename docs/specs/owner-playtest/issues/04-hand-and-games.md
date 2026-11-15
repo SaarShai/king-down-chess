@@ -35,3 +35,9 @@ The opponent identity and resources stay together. Menu has its own space at the
 Evidence: `/Users/za/Documents/king down (fresh)/runs/launch/owner-playtest/build/h-shots/` (58 screenshots and `checks.json`). Logs are beside that folder. A first focused command uses the shared brief's `KINGDOWN_TEST_FILE=none` form; this checkout selects no test with that form. The brace selector above passes.
 
 No live account or physical phone check is made. No deploy or push is made. No file owned by another lane changes.
+
+## Merged repair
+
+The home piece panel uses the plain named X and keeps focus return. The hand check passes with the shared short reader, and the four-game check keeps all resource rows and Continue paths green.
+
+[Ticket 05](05-merged-repair.md) records the shared state and layout repairs and their final checks. It supersedes the base-fault limits in this lane report.

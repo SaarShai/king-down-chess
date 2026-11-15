@@ -3,7 +3,7 @@ import { chromium } from '/Users/za/Documents/king down chess (new)/app/node_mod
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-const origin = 'http://127.0.0.1:5444', out = process.env.PLAYABLE_OUT;
+const origin = (process.env.PLAYABLE_URL ?? 'http://127.0.0.1:5444').replace(/\/$/, ''), out = process.env.PLAYABLE_OUT;
 assert(out, 'Set PLAYABLE_OUT to the evidence folder.'); mkdirSync(out, { recursive: true });
 const browser = await chromium.launch(), results = [], sizes = [[360, 640], [390, 844], [844, 390], [1440, 900]];
 const check = (value, label) => { assert(value, label); results.push(label); };
@@ -77,11 +77,12 @@ try {
       await page.locator('.play-rival-cards').click();
       check(await page.locator('.play-rival-rows button').count() === 4, `${type}: the stack opens all opponent cards`);
       if (size[0] === 390 && type === 'both') {
+        await page.keyboard.press('Escape');
         await page.getByRole('button', { name: 'Menu', exact: true }).click();
-        await page.getByRole('radio', { name: 'Ribbon', exact: true }).click();
-        await page.getByRole('button', { name: 'Close', exact: true }).first().click();
+        await page.getByRole('switch', { name: /Use ribbon/ }).click();
+        await page.getByRole('button', { name: 'Close menu', exact: true }).first().click();
         await page.waitForSelector('.play-game[data-reading=normal]'); await page.waitForTimeout(300);
-        if (await page.locator('.play-rival-rows').count()) { await page.locator('.play-reader').getByRole('button', { name: 'Close', exact: true }).click(); await page.waitForTimeout(200); }
+        if (await page.locator('.play-rival-rows').count()) { await page.locator('.play-reader').getByRole('button', { name: 'Close menu', exact: true }).click(); await page.waitForTimeout(200); }
         check(await page.locator('.play-game').getAttribute('data-hand') === 'ribbon', 'Ribbon remains a working setting'); await shot(page, 'ribbon');
       }
     } finally { await context.close(); }

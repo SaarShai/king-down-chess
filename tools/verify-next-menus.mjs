@@ -222,7 +222,7 @@ const cases = {
   },
   async you(page, context, check) {
     await page.goto(`${NEXT}#you`); await page.waitForSelector('.you-page');
-    check((await order(page)).join(',') === 'pieces,hand,coords,sound,motion', 'settings keep one order');
+    check((await order(page)).join(',') === 'pieces,hand,coords,sound', 'settings keep one order');
     check(await unbroken(page, '[data-setting="motion"] [role="radio"]'), 'Motion speed keeps each word on one line');
     check(await page.locator('[role="switch"]').evaluateAll(nodes => nodes.every(n => !n.hasAttribute('aria-describedby') && n.querySelectorAll('.kd-switch-copy > span').length === 0)), 'an empty switch description creates no empty note');
     const sound = page.getByRole('switch', { name: 'Sound', exact: true }); await sound.click();
@@ -261,14 +261,23 @@ const cases = {
     check(measure <= 70, `entry text has at most 70 characters per line (${measure})`);
     await shot(page, 'guide-entry');
   },
+  async home_piece_close(page, context, check) {
+    await page.goto(NEXT); const source = page.locator('.home-army .army-figure').first(); await source.click();
+    const panel = page.locator('.piece-card'), name = await panel.getAttribute('aria-label');
+    const close = panel.getByRole('button', { name: `Close ${name}`, exact: true });
+    check(await close.evaluate(n => n.classList.contains('kd-x')), 'the home piece panel uses the plain X');
+    const box = await close.boundingBox(); check(box.width >= 44 && box.height >= 44, 'the home X is a 44 px target');
+    await close.click(); check(await source.evaluate(n => n === document.activeElement), 'the home X returns focus');
+    await source.click(); await page.keyboard.press('Escape'); check(await source.evaluate(n => n === document.activeElement), 'Escape returns focus from the home piece panel');
+  },
   async menu(page, context, check, size) {
     await page.goto(NEXT); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
     const before = await saved(page);
     await page.getByRole('button', { name: 'Menu', exact: true }).click();
-    check((await order(page)).join(',') === 'pieces,hand,coords,sound,motion', 'settings keep one order');
+    check((await order(page)).join(',') === 'pieces,hand,coords,sound', 'settings keep one order');
     check(await page.locator('.menu-note').evaluate(n => parseFloat(getComputedStyle(n).fontSize) >= 14), 'the save note is at least 14 px');
     check(await page.locator('.menu-settings').evaluate(n => n.clientHeight >= 44), 'at least one whole setting row fits');
-    check(await unbroken(page, '.menu-settings [role="radio"]'), 'Menu labels keep each word on one line');
+    check(await unbroken(page, '.menu-settings [role="switch"]'), 'Menu labels keep each word on one line');
     const [w, h] = size.split('x').map(Number), landscape = w > h;
     await page.evaluate(landscape => {
       for (const [edge, value] of Object.entries(landscape ? { top: 0, left: 59, right: 59, bottom: 21 } : { top: 59, right: 0, left: 0, bottom: 34 })) document.documentElement.style.setProperty(`--safe-${edge}`, `${value}px`);
