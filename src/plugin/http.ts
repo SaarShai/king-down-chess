@@ -131,7 +131,7 @@ export function createGate({ auth, localDev, metadataUrl }: { auth?: PluginAuth;
 export function createPluginHandler(options: PluginHttpOptions): Handler {
   const origin = pluginOrigin(options.publicOrigin);
   checkMode(origin, `${origin}/mcp`, options.auth, options.localDev);
-  const allowedOrigins = new Set([origin, 'https://chatgpt.com', 'https://chat.openai.com']);
+  const allowedOrigins = new Set([origin, 'https://chatgpt.com', 'https://chat.openai.com', 'https://platform.openai.com']);
   const gate = createGate({ auth: options.auth, localDev: options.localDev, metadataUrl: `${origin}/.well-known/oauth-protected-resource/mcp` }, async (req, res, actorId, body) => {
     // Keep the admission slot until service work settles, even after the client disconnects.
     const service = tracked(options.service);

@@ -140,7 +140,7 @@ describe('stateless authenticated MCP HTTP', () => {
     expect(service.view).not.toHaveBeenCalled();
   });
   it('permits only exact allowed browser origins and never sends credentialed wildcard CORS', async () => {
-    for (const origin of [address, 'https://chatgpt.com', 'https://chat.openai.com']) {
+    for (const origin of [address, 'https://chatgpt.com', 'https://chat.openai.com', 'https://platform.openai.com']) {
       const response = await fetch(`${address}/mcp`, { method: 'OPTIONS', headers: { Origin: origin } });
       expect(response.status).toBe(204); expect(response.headers.get('Access-Control-Allow-Origin')).toBe(origin);
       expect(response.headers.has('Access-Control-Allow-Credentials')).toBe(false);

@@ -181,7 +181,7 @@ Migrations run with `npm run plugin:db:migrate` (`tools/plugin-db/migrate.ts`) t
 - Registered ChatGPT OAuth client UUID: `a6478e14-9e9a-43a7-a4b7-b888aed30791` (`tools/deploy-plugin-env.mjs`). Dynamic registration is off.
 - Local dev: `--local-dev` with header `X-Kingdown-Dev-Actor: <uuid>`, loopback only, never in production (`http.ts:39-41, 79-82`).
 
-HTTP limits: body ≤ 128 KB, no JSON-RPC batches, ≤ 4 active MCP requests per instance (else 503 `Retry-After: 1`), allowed `Origin`: plugin origin, `https://chatgpt.com`, `https://chat.openai.com`. Stateless: one `McpServer` and transport per request, no session id.
+HTTP limits: body ≤ 128 KB, no JSON-RPC batches, ≤ 4 active MCP requests per instance (else 503 `Retry-After: 1`), allowed `Origin`: plugin origin, `https://chatgpt.com`, `https://chat.openai.com`, `https://platform.openai.com` (the review scan). Stateless: one `McpServer` and transport per request, no session id.
 
 ## 8. Build pipeline and resource URI
 
