@@ -46,7 +46,7 @@ it('Send a link: one game for a fast second tap, busy while it is made, a copy o
   try {
     await expect.poll(() => title(page).textContent()).toBe('Play a person');
     // Two taps in one task: the second comes before any answer.
-    await sheet(page).getByRole('button', { name: 'Send a link' }).evaluate((main: HTMLElement) => { main.click(); main.click(); });
+    await sheet(page).getByRole('button', { name: 'Send a link', exact: true }).evaluate((main: HTMLElement) => { main.click(); main.click(); });
     await expect.poll(() => sheet(page).locator('[aria-busy="true"]').textContent()).toContain('Making your game…');
     await expect.poll(() => toasts(page)).toEqual(['Link copied.']);
     expect((await calls(page)).filter(c => c.startsWith('createLink'))).toEqual(['createLink:pieces']);
@@ -62,7 +62,7 @@ it('Send a link on a touch device: the share list with the share text; a closed 
   try {
     await press(page, 'Send a link');
     await expect.poll(() => page.evaluate(() => (window as any).peopleDemo.shared.length)).toBe(1);
-    await expect.poll(() => sheet(page).getByRole('button', { name: 'Send a link' }).getAttribute('aria-busy')).toBe('false');
+    await expect.poll(() => sheet(page).getByRole('button', { name: 'Send a link', exact: true }).getAttribute('aria-busy')).toBe('false');
     await press(page, 'Send a link');
     await expect.poll(() => page.evaluate(() => (window as any).peopleDemo.shared.length)).toBe(2);
     expect((await calls(page)).filter(c => c.startsWith('createLink'))).toHaveLength(1);
