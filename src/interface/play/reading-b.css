@@ -240,6 +240,7 @@
 .play-game[data-layout][data-reading] .play-reader[data-floating='true'] .play-bhead { min-height: 44px; }
 .play-game[data-layout][data-reading] .play-reader[data-floating='true'] .play-turn-state { display: none; }
 .play-game[data-layout][data-reading] .play-reader[data-floating='true'] .play-sub { min-height: 60px; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] .play-secondary { flex: none; }
 .play-game[data-layout][data-reading] .play-reader[data-floating='true'] .learn-panel { height: auto; }
 .play-game[data-layout][data-reading] .play-reader[data-floating='true'] .learn-body { min-height: 0; overflow: visible; }
 .play-panel-head { display: flex; align-items: center; gap: 8px; min-height: 44px; }
@@ -260,13 +261,13 @@
 .play-game[data-layout][data-reading] .play-reader[data-floating='true'] :is(.menu-head, .learn-top, .play-head, .play-bhead) { position: sticky; top: 0; z-index: 2; background: var(--surface-raised); }
 
 /* A short phone shares the reader with history. An action uses the space above the board. */
-.play-game[data-shared-reader='true'][data-reader-active='false'] .play-b { grid-template-rows: 20px; }
-.play-game[data-shared-reader='true'][data-reader-active='false'] .play-b .play-sub { display: none; }
+.play-game[data-shared-reader='true'][data-reader-active='false'] .play-reader:not([data-floating='true']) .play-b { grid-template-rows: 20px; }
+.play-game[data-shared-reader='true'][data-reader-active='false'] .play-reader:not([data-floating='true']) .play-b .play-sub { display: none; }
 .play-game[data-shared-reader='true'][data-reader-active='true']:has(.play-reader[data-floating='false']) .play-opponent-group { visibility: hidden; }
 .play-game[data-shared-reader='true'] .play-opp > button { position: relative; z-index: 4; }
 .play-game[data-shared-reader='true'][data-reader-active='true'] .play-bhead { padding-inline-end: 52px; }
 .play-game[data-form='compact'] .play-b:has(.play-step) .play-secondary { display: none; }
 .play-game[data-shared-reader='true'][data-reader-active='true'] .play-reader:not([data-floating='true']) { padding-top: 0; padding-bottom: 0; }
-.play-game[data-shared-reader='true'][data-reader-active='true']:not([data-state^='arrange']) .play-history-strip { display: none; }
-.play-game[data-shared-reader='true'][data-state^='arrange'] .play-reader:not([data-floating='true']) { padding-bottom: 44px; }
+.play-game[data-shared-reader='true'][data-reader-active='true']:not([data-state='arrange-wait']) .play-history-strip { display: none; }
+.play-game[data-shared-reader='true'][data-state='arrange-wait'] .play-reader:not([data-floating='true']) { padding-bottom: 44px; }
 .play-game[data-shared-reader='true'][data-state='choice'] .play-choices { grid-template-columns: repeat(5, minmax(0, 1fr)); }

@@ -45,7 +45,7 @@ export class Arrangement {
 
 /** An unfinished solo setup restarts from its saved deal. No illegal draft enters the shared game save. */
 export function savedArrangement(storage: Pick<Storage, 'getItem'>, game: Game, side: Color): { draft: Arrangement; ready: boolean } | undefined {
-  if (game.history.length) return;
+  if (game.history.length || game.backRank === '') return;
   try {
     const saved = JSON.parse(storage.getItem(ARRANGE_KEY) ?? 'null');
     if (saved?.side === side && saved.fen === toFen(game.pos) && typeof saved.army === 'string' && saved.army.length === 8) {

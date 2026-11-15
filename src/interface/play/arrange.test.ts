@@ -61,3 +61,9 @@ it('names both broken rules when both sets of pieces have warning marks', () => 
   expect(b.error).toBe('Bishops must stand on opposite colours. The guard must stand next to the king.');
   expect(b.faults).toEqual([2, 6, 0, 4]);
 });
+
+it('a confirmed unchanged order ignores the unfinished marker', () => {
+  const game = new Game('RNBQKBNR'), marker = JSON.stringify({ army: game.backRank, side: 0, fen: toFen(game.pos) });
+  game.load(game.pos);
+  expect(pendingArrangement({ getItem: () => marker }, game, 0)).toBeUndefined();
+});

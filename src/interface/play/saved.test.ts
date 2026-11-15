@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearDeletedAccount, localAccess, selectLocal } from '../../account/local';
 import { Game } from '../../game';
 import { GameRules } from '../../game-rules';
-import { gameJSON, savedGame, SAVE_KEY, type Save } from '../../screen/save';
+import { gameJSON, savedGame, writeSave, SAVE_KEY, type Save } from '../../screen/save';
 import { stagedPlies } from '../../turn';
 import { parseSq, type Rules } from '../../rules/engine';
 import { POWERS_BALANCED, RULES_2017 } from '../../rules/rules';
@@ -489,4 +489,41 @@ it.each(['pieces', 'powers', 'cards', 'both'] as const)('keeps a confirmed Manua
   const resumed = saved.resume!.draft; step(resumed, 'a2', 'a3');
   const { w } = writer(); w.load(saved.save); expect(w.game(snapshot(resumed), prefs, true)).toBe(true);
   expect(readStored().kind).toBe('resume');
+});
+
+
+it.each(['pieces', 'powers', 'cards', 'both'] as const)('a stale Ready cannot remove the newer confirmed %s game', setup => {
+  const rules = rulesOf(setup, [{ king: 'Mud', power: 'March' }, { king: 'Spirit', power: 'Mercy' }], [DEAL_CARDS.slice(0, 4), DEAL_CARDS.slice(0, 4)]);
+  const { w: a } = started(new DraftTurn(new Game('RNBQKBNR', rules))), initial = saved(), { w: b } = writer(); b.load(initial);
+  const ready = (w: SaveWriter, swap: boolean) => {
+    const game = savedGame(initial), order = new Arrangement(game.backRank, 0);
+    if (swap) { order.pick(1); order.pick(3); }
+    expect(order.canReady).toBe(true); game.load(order.position(game.pos));
+    store.set(ARRANGE_KEY, JSON.stringify({ army: order.order, side: 0, fen: toFen(game.pos), ready: true }));
+    return w.game(snapshot(new DraftTurn(game)), prefs, true);
+  };
+  expect(ready(a, true)).toBe(true); const newer = store.get(SAVE_KEY);
+  expect(ready(b, false)).toBe(false); expect(b.blocked).toBe(true);
+  expect(store.get(SAVE_KEY)).toBe(newer); expect(readStored().kind).toBe('resume');
+  expect(gameKeyOf(readStored())).not.toBe('');
+  expect(pendingArrangement(localStorage, readStored().resume!.game, 0)).toBeUndefined();
+});
+it.each([SAVE_KEY, ARRANGE_KEY])('a failed %s write keeps a confirmed FEN save resumable without a marker', key => {
+  const { w } = started(), game = savedGame(saved()), order = new Arrangement(game.backRank, 0);
+  order.pick(1); order.pick(3); game.load(order.position(game.pos));
+  failWrite = key;
+  try { localStorage.setItem(ARRANGE_KEY, JSON.stringify({ army: order.order, side: 0, fen: toFen(game.pos), ready: true })); } catch { /* Ready still attempts the game save. */ }
+  const draft = new DraftTurn(game), written = w.game(snapshot(draft), prefs, true);
+  expect(written).toBe(key !== SAVE_KEY);
+  if (!written) { expect(w.lost).toBe(true); failWrite = null; expect(w.game(snapshot(draft), prefs, true)).toBe(true); }
+  store.delete(ARRANGE_KEY);
+  expect(readStored().kind).toBe('resume'); expect(toFen(readStored().resume!.game.pos)).toBe(toFen(game.pos));
+});
+it('the old page reads and rewrites the same zero-move confirmed FEN save', () => {
+  const game = new Game('RNBQKBNR', PIECES), order = new Arrangement(game.backRank, 0);
+  order.pick(1); order.pick(3); game.load(order.position(game.pos)); started(new DraftTurn(game));
+  expect(saved().back).toBe(''); expect(saved().moves).toEqual([]);
+  const old = savedGame(saved()); expect(toFen(old.pos)).toBe(toFen(game.pos));
+  expect(writeSave({ ...saved(), coords: false, back: old.backRank, fen: toFen(old.pos), moves: old.history.map(h => h.lan) })).toBe(true);
+  expect(readStored().kind).toBe('resume'); expect(toFen(readStored().resume!.game.pos)).toBe(toFen(game.pos));
 });

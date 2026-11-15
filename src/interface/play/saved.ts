@@ -116,7 +116,7 @@ function sortSave(save: Save, raw: string | undefined, partial: boolean): Stored
   if (partial) return kept;
   const player = playerOf(save), empty: Stored = { kind: 'empty', save, settings: save };
   const game = savedGame(save);
-  if (!save.moves.length && player !== 1 && (player === null || !savedArrangement(localStorage, game, player))) return empty;
+  if (!save.moves.length && save.back !== '' && player !== 1 && (player === null || !savedArrangement(localStorage, game, player))) return empty;
   const staged = stagedPlies(game, save.staged);
   if (turnEnded(game, game.history.length - staged, save.resigned ?? null)) return { kind: 'finished', save, settings: save };
   if (player === null || !opens(save, game)) return save.moves.length ? kept : empty;

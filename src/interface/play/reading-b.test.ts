@@ -89,3 +89,20 @@ describe('touch, pointer and safe areas (decision 35)', () => {
     expect(handler).toContain('cancelLine(cancelled.subject.kind)');
   });
 });
+
+
+it('online action content takes the shared area before it renders', () => {
+  const update = main.slice(main.indexOf('function update()'), main.indexOf('const armedResource'));
+  expect(update).toMatch(/const actions = net \? onlineActions\(net\) : undefined/);
+  expect(update).toMatch(/readerActive = String\([^;]*actions\?\.childElementCount/);
+  expect(update).toContain('renderReader(actions)');
+});
+it('resting-reader rules exclude floating panels', () => {
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(([, selector]) => selector.includes("[data-reader-active='false']"));
+  expect(rules.length).toBeGreaterThan(0);
+  for (const [, selector] of rules) expect(selector).toContain(".play-reader:not([data-floating='true'])");
+});
+it('Manual instructions have no history reserve in the shared area; the wait keeps it', () => {
+  expect(css).toMatch(/\[data-reader-active='true'\]:not\(\[data-state='arrange-wait'\]\) \.play-history-strip \{ display: none/);
+  expect(css).not.toContain("[data-state^='arrange'] .play-reader:not([data-floating='true']) { padding-bottom: 44px");
+});

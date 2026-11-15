@@ -425,7 +425,7 @@ function resumeGame(source: HTMLButtonElement, memory: boolean) {
   writer.load(now.save);
   void start({ ...now.resume, level: levelOf(now.save!.skill) }, source);
 }
-const inMemory = () => liveGame && writer.lost && (game.history.length > 0 || draft.length > 0 || !!arrangement);
+const inMemory = () => liveGame && writer.lost && (game.history.length > 0 || draft.length > 0 || !!arrangement || game.backRank === '');
 function endEntry() { starting = 0; endVersus?.(); endVersus = null; }
 /** A new game (Play, New game, Rematch), or a resumed game at rest: no Versus and no Roll call. `from`: the home button that started it. */
 async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; player: Color }, from?: HTMLButtonElement, retry = false) {
@@ -820,8 +820,7 @@ async function finish() {
     if (onlineActive) { await people?.controller?.ready(arrangement.order); return; }
     game.load(arrangement.position(game.pos)); arrangement = undefined;
     draft = new DraftTurn(game); selected = inspected = null;
-    const army = toFen(game.pos).split(' ')[0].split('/')[player ? 0 : 7].toUpperCase();
-    store(ARRANGE_KEY, JSON.stringify({ army, side: player, fen: toFen(game.pos), ready: true })); save(true);
+    save(true);
     board?.setPosition(game.pos, game.context); update();
     if (game.pos.turn === cpu()) void reply(); else announce(text.ready);
     return;
@@ -993,12 +992,13 @@ function update() {
   }
   // The reading area takes the opponent strip while a rule or the menu is open, on a short phone or when the rule does not fit. The board does not move.
   screen.dataset.reading = reading; screen.dataset.borrow = 'false';
-  screen.dataset.readerActive = String(!!(selected != null || !draft.length && inspected != null || draft.armed || choice.length || notice));
-  renderReader(); renderHistory(); placeFloating();
+  const actions = net ? onlineActions(net) : undefined;
+  screen.dataset.readerActive = String(!!(selected != null || !draft.length && inspected != null || draft.armed || choice.length || notice || actions?.childElementCount));
+  renderReader(actions); renderHistory(); placeFloating();
   drawMarks();
 }
 const armedResource = () => resources.find(r => r.side === player && draft.armed && r.key === draft.armed);
-function renderReader() {
+function renderReader(actions?: HTMLElement) {
   if (!detail) return;
   const ruleKey = learning ? `${subjectKey(learning.subject)}:${learning.side}:${JSON.stringify(draft.position.used)}` : '';
   if (detail.childElementCount && detail.dataset.mode === reading && (reading === 'menu' || reading === 'result' || (reading === 'rule' && detail.dataset.ruleKey === ruleKey))) return;
@@ -1060,7 +1060,8 @@ function renderReader() {
   // The B reading area (stage "readingb", design sections 2 and 4): turn state, headline, subject, effects summary.
   // The words and their order are A's (reading decisions 17 to 22): the current action first, the lasting effects last.
   if (onlineActive && onlineState) {
-    const state = people?.controller?.state() ?? onlineState, actions = onlineActions(state);
+    const state = people?.controller?.state() ?? onlineState;
+    actions ??= onlineActions(state);
     if (actions.childElementCount) {
       const status = el('section', 'online-status');
       status.append(el('p', 'play-turn-state', personTurn(state) ?? text.ready), actions); detail.append(status); return;
