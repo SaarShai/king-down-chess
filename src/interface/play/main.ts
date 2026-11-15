@@ -161,6 +161,7 @@ function refuse(message: string, square?: number) {
 const accepted = () => ({ setup, level, sideChoice, options });
 /** The result card's New game opens the New game panel on Play. */
 let panelNext = false;
+const gamesList = { expanded: false };
 const art: Art = {
   figure: (type, side, rules) => figure(type === K ? kingFile(side, rules) : `${pieces[type].name.toLowerCase()}-${side ? 'b' : 'w'}`),
   symbol,
@@ -290,7 +291,6 @@ function home(newArmy = false) {
     const name = ['home-person', 'home-top-new', 'home-side-new', 'all-games'].find(name => active.classList.contains(name));
     focused = active.dataset.game ? `[data-game="${active.dataset.game}"]` : active.dataset.kind === 'computer' ? '[data-kind="computer"]' : name ? `.${name}` : undefined;
   }
-  const allGames = !enteringHome && root.querySelectorAll('.home-game-list > li').length > 4;
   onlineActive = false; onlineState = undefined; people?.stopGame();
   cancelReplay(); closeLearning(false); closeGuidePanel();
   generation++; engine.cancel(); endOpening(); endEntry(); endCardFlight(); cancelCheckPulse(); endReply = null;
@@ -308,7 +308,7 @@ function home(newArmy = false) {
   const status = saved.kind === 'blocked' || copy === 'failed' ? text.cannotSave : copy === 'full' ? text.keptFull : copy === 'copied' || copy === 'already' ? text.kept : '';
   if (enteringHome) void people?.refresh();
   const play = playScreen({
-    resume, next, status: [status, onlineNote].filter(Boolean).join(' '),
+    resume, next, gamesList, status: [status, onlineNote].filter(Boolean).join(' '),
     people: people?.views.filter(view => view.status !== 'aborted' || !!view.history?.actions?.length).map(personGame) ?? [],
     invites: people ? [...people.incomingInvites, ...people.inviteUpdates].map(invite => homeInvite(invite)) : [],
     onPerson: source => { void personFlow(source); }, onPersonGame: id => shell.go({ place: 'online', entry: id }),
@@ -329,7 +329,6 @@ function home(newArmy = false) {
     onRule: type => shell.go({ place: 'guide', section: 'Pieces', entry: String(type) }),
   }, art);
   root.replaceChildren(play.element, ...(old ? [old] : []));
-  if (allGames) play.element.querySelector<HTMLButtonElement>('.all-games')?.click();
   if (enteringHome) play.focus(); else if (focused) play.element.querySelector<HTMLElement>(focused)?.focus({ preventScroll: true });
   homePoll?.update();
   const count = (resume && (resume.draft.length || resume.game.pos.turn === resume.player) ? 1 : 0) + (people?.views.filter(view => view.action === 'ready' && view.status === 'playing').length ?? 0) + (people?.incomingInvites.length ?? 0);
@@ -466,8 +465,9 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   who.append(el('small', 'opponent-clock', onlineActive ? '' : text[gameLevel]));
   const face = onlineActive ? profilePortrait(oppName, oppAvatar) : el('img', 'profile-portrait');
   if (!onlineActive && face instanceof HTMLImageElement) { face.src = computerPortrait(gameLevel); face.alt = ''; }
-  opponent.append(face, who);
-  addPower(cpu(), opponent); rivalGroup = cards(cpu()) ? addRivalCards(opponent) : null;
+  const opponentGroup = el('div', 'play-opponent-group');
+  opponentGroup.append(face, who); opponent.append(opponentGroup);
+  addPower(cpu(), opponentGroup); rivalGroup = cards(cpu()) ? addRivalCards(opponentGroup) : null;
   menuButton = button(text.menu, { onPress: () => {
     cancelReplay(); closeLearning(false); reading = reading === 'menu' ? ended ? 'result' : 'normal' : 'menu'; update();
     (reading === 'menu' ? detail.querySelector<HTMLButtonElement>('button') : menuButton)?.focus({ preventScroll: true });
@@ -829,7 +829,7 @@ function update() {
     thinking = !state.draft || state.phase === 'sending' || state.phase === 'checking'; ended = state.phase === 'over';
     const oppName = state.opponent?.deleted ? 'Deleted player' : state.opponent?.handle ?? 'A player';
     const oppAvatar = state.opponent && !state.opponent.computer && !state.opponent.deleted ? state.opponent.avatar ?? null : null;
-    const opp = screen.querySelector<HTMLElement>('.play-opp'), who = opp?.querySelector<HTMLElement>('strong'), clock = who?.querySelector<HTMLElement>('.opponent-clock');
+    const opp = screen.querySelector<HTMLElement>('.play-opp'), who = opp?.querySelector<HTMLElement>('.play-opponent-group > strong'), clock = who?.querySelector<HTMLElement>('.opponent-clock');
     const nameChanged = !!who && (who.firstChild?.textContent ?? '') !== oppName;
     if (who && clock && nameChanged) who.replaceChildren(oppName, clock);
     const face = opp?.querySelector<HTMLElement>('.profile-portrait');
@@ -863,10 +863,13 @@ function update() {
   // After the end the power and card row and the finish row are inert; the result card keeps its actions (reading decision 21).
   screen.querySelectorAll<HTMLElement>('.play-own, .play-turn, .play-opp .play-power, .play-opp .play-rival-cards').forEach(part => part.toggleAttribute('inert', ended || !onlineActive && writer.blocked));
   for (const res of resources) {
-    const left = res.card == null ? coinState(draft.position, res.side, game.context.rules, game.history, false)?.left ?? null : null;
+    const coin = res.card == null ? coinState(draft.position, res.side, game.context.rules, game.history, res.side === player && draft.armed === res.key) : null, left = coin?.left ?? null;
     const spent = res.card == null ? left === 0 : !!((draft.position.used?.[res.side] ?? 0) >> res.card & 1);
-    if (res.card == null) res.control.querySelector('small')!.textContent = res.key ? spent ? readingBText.used : `${left} ${text.left}` : text.alwaysOnShort;
-    else res.control.querySelector('.play-card-state')!.textContent = spent ? readingBText.used : '';
+    if (coin) {
+      res.control.dataset.coin = coin.state;
+      res.control.querySelector('small')!.textContent = coin.state === 'always' ? text.alwaysOnShort : spent ? readingBText.used : left == null ? text.unlimited : `${left} ${text.left}`;
+      res.control.querySelectorAll<HTMLElement>('.play-power-notch').forEach((notch, i) => { notch.dataset.used = String(i >= (left ?? 0)); });
+    } else res.control.querySelector('.play-card-state')!.textContent = spent ? readingBText.used : '';
     // A card or power that cannot act at this step shows "Not now" (design section 6); a tap still gives its reason.
     const notNow = res.side === player && !!res.key && !spent && !ended && !thinking && draft.armed !== res.key && !draft.armable(res.key);
     res.control.dataset.spent = String(spent); res.control.dataset.notNow = String(notNow); res.control.dataset.uses = String(!!res.key);
@@ -880,7 +883,9 @@ function update() {
   if (rivalGroup) {
     const used = (thinking ? game.pos : draft.position).used?.[cpu()] ?? 0;
     rivalGroup.control.querySelectorAll<HTMLElement>('.play-rival-mark').forEach((mark, k) => { mark.dataset.spent = String(!!(used >> k & 1)); });
-    rivalGroup.control.setAttribute('aria-label', rivalLine(used)); rivalGroup.control.setAttribute('aria-expanded', String(shown === rivalGroup));
+    const left = game.context.rules.hands[cpu()].filter((_, k) => !(used >> k & 1)).length;
+    rivalGroup.control.querySelector('.play-rival-count')!.textContent = String(left);
+    rivalGroup.control.setAttribute('aria-label', `${text.cardsLeft(left)}. ${gameWords(rivalLine(used))}`); rivalGroup.control.setAttribute('aria-expanded', String(shown === rivalGroup));
   }
   // The reading area takes the opponent strip while a rule or the menu is open, on a short phone or when the rule does not fit. The board does not move.
   screen.dataset.reading = reading; screen.dataset.borrow = String(reading === 'menu' || reading === 'rule'); renderReader();
@@ -1159,19 +1164,24 @@ function addPower(side: Color, parent: HTMLElement) {
   if (!king) return;
   const uses = usesAllowed(king.power, r);
   const res: Resource = { subject: { kind: 'power', id: king.power }, side, key: uses ? POWER_TAG[king.power] ?? null : null, name: POWER_NAME[king.power], short: powerLines[king.power] ?? '', card: null, control: button(POWER_NAME[king.power], { onPress: () => pressResource(res) }) };
-  res.control.classList.add('play-power'); res.control.append(el('small')); resources.push(res); parent.append(res.control);
+  const coin = el('span', 'play-power-coin'), emblem = el('img'); emblem.src = `/ui/emblems/${king.king.toLowerCase()}.webp`; emblem.alt = '';
+  const notches = el('span', 'play-power-notches'); notches.setAttribute('aria-hidden', 'true');
+  for (let i = 0; i < (uses ?? 0); i++) notches.append(el('i', 'play-power-notch'));
+  coin.append(emblem, notches);
+  res.control.classList.add('play-power'); res.control.prepend(coin); res.control.append(el('small')); resources.push(res); parent.append(res.control);
 }
 /** The four shared cards as painted cards. The Ribbon setting hides the paintings. */
 function addCards(parent: HTMLElement) {
-  const r = game.context.rules;
+  const r = game.context.rules, hand = el('div', 'play-hand'); hand.setAttribute('role', 'group'); hand.setAttribute('aria-label', text.yourCards); parent.append(hand);
   r.hands[player].forEach((card, k) => {
     const key = card === 'MirrorB' ? 'mirrorb' : (Object.keys(TAG_POWER) as PowerTag[]).find(tag => TAG_POWER[tag] === card) ?? null;
     const res: Resource = { subject: { kind: 'card', id: card }, side: player, key, name: cardName(card), short: powerLines[card] ?? '', card: k, control: button(cardName(card), { onPress: () => pressResource(res) }) };
     const art = el('img'); art.src = cardArt(player, k); art.alt = ''; res.control.prepend(art); res.control.append(el('small', 'play-card-state'));
-    // Explicit line breaks for the two-word names (design section 6); no hyphenation and no ellipsis.
+    // Keep words intact when a two-word card name wraps at the top edge.
     const words = res.name.split(' '), label = res.control.querySelector('[data-button-label]')!;
     label.replaceChildren(...words.flatMap((word, i) => [...(i ? [' '] : []), el('span', '', word)]));
-    res.control.classList.add('play-card'); resources.push(res); parent.append(res.control);
+    res.control.classList.add('play-card'); res.control.style.setProperty('--fan-angle', `${(k - (r.hands[player].length - 1) / 2) * 4}deg`);
+    res.control.style.setProperty('--fan-drop', `${Math.abs(k - (r.hands[player].length - 1) / 2) * 2}px`); resources.push(res); hand.append(res.control);
   });
 }
 /** The accessible name of the computer's card group: each name and its used state (design section 5, b1). */
@@ -1182,6 +1192,7 @@ function addRivalCards(parent: HTMLElement): Resource {
     res.short = rivalLine((thinking ? game.pos : draft.position).used?.[cpu()] ?? 0); pressResource(res);
   } }) };
   res.control.classList.add('play-rival-cards');
+  res.control.append(el('span', 'play-rival-count'));
   res.control.prepend(...game.context.rules.hands[cpu()].map((_, k) => { const mark = el('span', 'play-rival-mark'); mark.style.backgroundImage = `url('${cardArt(cpu(), k)}')`; return mark; }));
   parent.append(res.control); return res;
 }

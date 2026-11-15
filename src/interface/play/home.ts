@@ -41,6 +41,7 @@ export interface Art {
   card(k: number): HTMLImageElement;
 }
 export interface PlayData {
+  gamesList?: { expanded: boolean };
   resume: { draft: DraftTurn; level: Level; player: Color } | null;
   next: NewGameDraft;
   status: string;
@@ -114,6 +115,9 @@ function armyPictures(draft: NewGameDraft, art: Art): HTMLElement {
   return row;
 }
 
+/** The closed list shows three rows and a half-row cue. */
+export const gamesListView = (count: number, expanded: boolean) => ({ collapsed: count > 3 && !expanded, shown: count > 3 && !expanded ? 4 : count });
+
 /** The approved home: a hero with no game, else one list of games. */
 export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus(): void } {
   const home = el('section', 'play-home');
@@ -157,10 +161,20 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
   let army: ReturnType<typeof armyRow> | null = null, main: HTMLButtonElement;
   if (rows.length) {
     const top = button(text.newGame, { onPress: () => d.onChange(top) }); top.classList.add('home-top-new'); home.append(top);
-    start.append(el('h2', '', 'Your games'));
-    const list = el('ul', 'home-game-list');
-    const draw = (all: boolean) => list.replaceChildren(...(all ? rows : rows.slice(0, 4)).map(({ row }) => { const li = el('li'); li.append(row); return li; })); draw(false); start.append(list);
-    if (rows.length > 4) { const all = button(`All games · ${rows.length}`, { onPress: () => { draw(true); all.remove(); } }); all.classList.add('all-games'); start.append(all); }
+    start.append(el('h2', '', text.yourGames));
+    const state = d.gamesList ?? { expanded: false }, list = el('ul', 'home-game-list');
+    list.id = 'your-games';
+    const draw = () => {
+      const { collapsed, shown } = gamesListView(rows.length, state.expanded); list.dataset.collapsed = String(collapsed);
+      list.replaceChildren(...rows.map(({ row }, i) => { const li = el('li'); li.hidden = i >= shown; li.inert = collapsed && i >= 3; li.append(row); return li; }));
+    };
+    draw(); start.append(list);
+    if (rows.length > 3 && !state.expanded) {
+      const all = button(text.showAllGames, { icon: 'down', onPress: () => {
+        state.expanded = true; draw(); all.remove(); rows[3].row.focus({ preventScroll: true });
+      } });
+      all.classList.add('all-games'); all.setAttribute('aria-controls', list.id); all.setAttribute('aria-expanded', 'false'); start.append(all);
+    }
     main = button(text.newGame, { onPress: () => d.onChange(main) }); main.classList.add('home-side-new'); more.append(main);
   } else {
     main = button(text.play, { kind: 'main', onPress: () => d.onPlay(main) });
