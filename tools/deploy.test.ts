@@ -361,7 +361,7 @@ describe('deploy.sh', () => {
     expect(calls()).toHaveLength(before);
   });
 
-  it('configures the combined project through private stdin and refuses mail or invalid server keys', () => {
+  it('configures the combined project through private stdin and refuses one mail key alone or invalid server keys', () => {
     const { repo, deploy, calls } = setup();
     const values = {
       KINGDOWN_PLUGIN_ORIGIN: 'https://kingdown.dev', SUPABASE_URL: 'https://utqzovjmclfyojedmwok.supabase.co',
@@ -380,7 +380,7 @@ describe('deploy.sh', () => {
     expect(calls().some(line => line.startsWith('npm ') || line.includes(' deploy '))).toBe(false);
     expect(result.stdout + result.stderr + calls().join('\n')).not.toMatch(/fake-site-password|fake-internal-secret/);
     const before = calls().length;
-    for (const data of [valid + '\nRESEND_API_KEY=forbidden', valid + '\nKINGDOWN_MAIL_FROM=forbidden', valid + '\nKINGDOWN_ENGINES_DATABASE_URL=forbidden', valid + '\nPLUGIN_TEST_DATABASE_URL=forbidden', valid.replace('https://kingdown.dev', 'https://wrong.example'), valid.replace(values.KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS, 'a6478e14-9e9a-43a7-a4b7-b888aed30791'), valid.replace(values.KINGDOWN_INTERNAL_SECRET, 'short'), valid.replace('kingdown_plugin_runtime.', 'postgres.'), valid.replace('?sslmode=require', ''), valid.replace(values.KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS, 'invalid'), valid.replace('KINGDOWN_INTERNAL_SECRET=', 'UNEXPECTED=')]) {
+    for (const data of [valid + '\nRESEND_API_KEY=re_alone', valid + '\nKINGDOWN_MAIL_FROM=King Down <hello@kingdown.dev>', valid + '\nKINGDOWN_ENGINES_DATABASE_URL=forbidden', valid + '\nPLUGIN_TEST_DATABASE_URL=forbidden', valid.replace('https://kingdown.dev', 'https://wrong.example'), valid.replace(values.KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS, 'a6478e14-9e9a-43a7-a4b7-b888aed30791'), valid.replace(values.KINGDOWN_INTERNAL_SECRET, 'short'), valid.replace('kingdown_plugin_runtime.', 'postgres.'), valid.replace('?sslmode=require', ''), valid.replace(values.KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS, 'invalid'), valid.replace('KINGDOWN_INTERNAL_SECRET=', 'UNEXPECTED=')]) {
       writeFileSync(file, data);
       const invalid = deploy(['--configure', file], { STUB_ENV_DIR: inputDir });
       expect(invalid.status).not.toBe(0); expect(calls()).toHaveLength(before);

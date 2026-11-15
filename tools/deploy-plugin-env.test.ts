@@ -99,11 +99,16 @@ describe('deploy-plugin-env.mjs', () => {
     refused(lines(missing), [password]);
   });
 
-  it('refuses mail keys', () => {
-    for (const key of ['RESEND_API_KEY', 'KINGDOWN_MAIL_FROM']) {
-      const value = 'fake-mail-value-123';
-      refused(lines(production('plugin')) + `${key}=${value}\n`, [value, secret, password]);
-    }
+  it('accepts both mail settings of the deletion notice, and refuses one alone or a wrong value', () => {
+    const mail = { RESEND_API_KEY: 're_fake_mail_key_123', KINGDOWN_MAIL_FROM: 'King Down <hello@kingdown.dev>' };
+    const result = run(lines({ ...production('website'), ...mail }), { target: 'website' });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain('9 server environment values validated; values withheld');
+    expect(result.output).not.toContain(mail.RESEND_API_KEY);
+    for (const [key, value] of Object.entries(mail)) expect(readFileSync(join(result.out, key), 'utf8')).toBe(value);
+    for (const [key, value] of Object.entries(mail)) refused(lines(production('plugin')) + `${key}=${value}\n`, [mail.RESEND_API_KEY, secret, password]);
+    refused(lines({ ...production('plugin'), ...mail, RESEND_API_KEY: 'fake-mail-value-123' }), ['fake-mail-value-123', secret, password]);
+    refused(lines({ ...production('plugin'), ...mail, KINGDOWN_MAIL_FROM: 'King Down <hello@example.com>' }), [mail.RESEND_API_KEY, secret, password]);
   });
 
   it('refuses a short internal secret and a wrong client id', () => {

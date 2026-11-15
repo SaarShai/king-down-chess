@@ -15,6 +15,7 @@ import { GameService } from '../src/match/service.ts';
 import { PluginService } from '../src/plugin/service.ts';
 import { PostgresMatchStore } from '../src/match/store.ts';
 import { createApiHandler, createInternalHandler, sessionVerifier } from '../src/api/http.ts';
+import { resendSender } from '../src/online/mail.ts';
 import { createWebAccountAccess } from '../src/api/account-access.ts';
 import { AccountService } from '../src/online/accounts.ts';
 import { SafetyService } from '../src/online/safety.ts';
@@ -177,7 +178,8 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
       toolTry: (actor, tool) => service.toolTry(actor, tool),
     } });
   } catch (error) { serveMuse = false; console.error('King Down Muse startup failed', { build, ...diagnostic(error) }); }
-  const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET });
+  // The deletion notice needs both mail settings (tools/deploy-plugin-env.mjs sets both or neither).
+  const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET, send: env.RESEND_API_KEY && env.KINGDOWN_MAIL_FROM ? resendSender(env) : undefined });
   const localSolo = typeof __KINGDOWN_SOLO_LAUNCH__ === 'boolean' ? __KINGDOWN_SOLO_LAUNCH__ : soloLaunch(env.KINGDOWN_SOLO_LAUNCH);
   const api = createApiHandler({ games, accounts: new AccountService(store), safety: new SafetyService(store), players: service, publicOrigin,
     ...(import.meta.env?.KINGDOWN_ERROR_RECORDER !== false && { recordError: createErrorWriter(pool, typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : ''), build: typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : '' }),
@@ -185,9 +187,10 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
     currentUser: websiteCurrentUser ?? (page ? createCurrentUserCheck({ supabaseUrl: page.supabaseUrl, publishableKey: page.publishableKey }, fetch, { localLoopback: localOnline }) : undefined),
     webAccountAccess: createWebAccountAccess(pool),
     verify: env.SUPABASE_URL ? sessionVerifier(env.SUPABASE_URL, websiteKeys, { localLoopback: localOnline }) : undefined, operations: localDev && websiteKeys === undefined && !localOnline ? WEB_OPERATIONS : ENABLED_WEB_OPERATIONS });
-  const handler = async (req, res) => {
+  // `startedAt`: the request start, before startup work, for the daily job's time budget.
+  const handler = async (req, res, startedAt = Date.now()) => {
     const path = req.url?.startsWith('/') && URL.canParse(req.url, publicOrigin) ? new URL(req.url, publicOrigin).pathname : '';
-    if (/^\/internal(\/|$)/.test(path)) return internal(req, res);
+    if (/^\/internal(\/|$)/.test(path)) return internal(req, res, startedAt);
     if (/^\/api(?:\/|$)/.test(path)) return api(req, res);
     if (museHandler && (MUSE_PATHS.includes(path) || path === '/authorize' || path === '/consent.mjs')) return museHandler(req, res);
     // A connector that failed at startup is unavailable, not absent: the function adapter retries its setup.
@@ -212,12 +215,13 @@ async function art(name, res) {
 let configured;
 /** The function adapter never enables local personas. */
 export default async function handler(req, res) {
+  const startedAt = Date.now(); // before a cold start's setup, which counts against the function's time limit
   try { configured ??= configurePlugin(process.env, { serverless: true }).then(app => {
       // A provider fault at startup must not park the connector for the life of the process: set up again after 30 s.
       // shortcut: the earlier pool stays open for its requests in flight; close it if provider faults become frequent.
       if (app.connectorFailed) setTimeout(() => { configured = undefined; }, 30000).unref();
       return app;
-    }).catch(error => { configured = undefined; throw error; }); await (await configured).handler(req, res); }
+    }).catch(error => { configured = undefined; throw error; }); await (await configured).handler(req, res, startedAt); }
   catch (error) { console.error('King Down startup failed', { build: typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : 'dev', requestId: randomUUID(), ...diagnostic(error) }); if (!res.headersSent) { res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ error: 'King Down server is not configured' })); } else res.destroy(); }
 }
 export async function startPluginServer({ localDev = false } = {}) {
