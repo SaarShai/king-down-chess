@@ -345,7 +345,15 @@ export function onlineHost(options: HostOptions) {
         },
       };
     },
-    async signOut() { await (await auth()).signOut(); reset(); },
+    async signOut() {
+      const client = await auth(), expected = session;
+      if (!expected) { await client.signOut(); reset(); return; }
+      // Bind to the shown session: another tab, or this page, can sign in while the reply waits.
+      await client.signOutSession(expected);
+      const live = await client.readSession().catch(() => null);
+      if (session && sessionKey(session) !== sessionKey(expected) || live && sessionKey(live) !== sessionKey(expected)) return;
+      reset();
+    },
   };
   return resultHost;
 }

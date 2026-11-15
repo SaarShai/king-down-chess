@@ -79,7 +79,7 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
   const facebook = params.get('facebook') === '1';
   let client: Promise<Client> | null = null, user: User | null = null, userId = '', lastPull = 0;
   let shown: AccountSession | null = null;
-  // The session in storage now. Auth events arrive late, so the screen checks each one against it.
+  // The session in storage now (the client delivers only events that match it).
   const storedSession = (): AccountSession | null => {
     try {
       const s = JSON.parse(localStorage.getItem(AUTH_KEY) ?? 'null');
@@ -108,11 +108,8 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
   const load = (): Promise<Client> => client ??= import('./client').then(m => {
     const c = m.connect(AUTH_KEY);
     c.onSession(s => {
-      const event = s ? { userId: s.user.id, accessToken: s.access_token } : null;
-      // A late event can name an older session (another tab signed in or out meanwhile). The newer session's own event follows.
-      if (!same(event, storedSession())) return;
       user = userOf(s?.user);
-      shown = event;
+      shown = s ? { userId: s.user.id, accessToken: s.access_token } : null;
       if (user) say('');
       render();
       if ((s?.user.id ?? '') === userId) return;

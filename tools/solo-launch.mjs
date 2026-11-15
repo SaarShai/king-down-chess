@@ -18,6 +18,6 @@ export function launchSource(code, id, enabled) {
     const call = '      const host = createBrowserRuntime(api, session.userId);';
     const controls = "      document.querySelector('#settings-sheet .new-game-body')!.append(logoutError, logoutGroup);";
     if (!code.includes(call) || !code.includes(controls)) throw new Error('Launch account entry has changed');
-    return "import { installLocalSolo, installAccountControls } from './launch';\n" + code.replace(call, '      installLocalSolo(api, session.userId);\n' + call).replace(controls, controls + '\n      installAccountControls(auth);');
+    return "import { installLocalSolo, installAccountControls } from './launch';\n" + code.replace(call, '      installLocalSolo(api, session.userId);\n' + call).replace(controls, controls + '\n      installAccountControls(auth, session);');
   }
 }

@@ -62,7 +62,7 @@ it('connects the legal Account labels to their real handlers and keeps retry aft
   vi.stubGlobal('location', { replace });
   vi.stubGlobal('document', { createElement: () => new Element(), querySelector: () => target });
   try {
-    installAccountControls({ deleteAccount, disconnectMuse }, true);
+    installAccountControls({ deleteAccount, disconnectMuse }, undefined, true);
     const section = target.children[0], controls = section.querySelectorAll(), note = section.children.at(-1)!;
     expect(section.children[0].textContent).toBe('Account'); expect(controls.map(button => button.textContent)).toEqual(['Disconnect Muse', 'Delete my account']);
     await controls[0].onclick!(); expect(disconnectMuse).toHaveBeenCalledOnce(); expect(note.textContent).toContain('Muse is disconnected');

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { connect } from './client';
 import { AUTH_KEY } from './session';
+import { memoryStorage } from '../interface/people/fake-server';
 
 const sdk = vi.hoisted(() => ({ auth: {
   initialize: vi.fn(async () => {}), getSession: vi.fn(), onAuthStateChange: vi.fn(), signInWithOAuth: vi.fn(), signInWithPassword: vi.fn(), signInWithOtp: vi.fn(), verifyOtp: vi.fn(), exchangeCodeForSession: vi.fn(), signOut: vi.fn(),
@@ -125,12 +126,21 @@ describe('account identity client', () => {
   });
 
   it('A02 defers initial, refresh, switch and sign-out events, then stops queued and later delivery on cleanup', () => {
+    const store = memoryStorage(); vi.stubGlobal('localStorage', store);
     const receive = vi.fn(), cleanup = connect(AUTH_KEY).onSession(receive);
     const initial = session(), refreshed = session('user-a', 'refreshed'), switched = session('user-b', 'token-b');
-    for (const [event, value] of [['INITIAL_SESSION', initial], ['TOKEN_REFRESHED', refreshed], ['SIGNED_IN', switched], ['SIGNED_OUT', null]] as const) emit(event, value);
-    expect(receive).not.toHaveBeenCalled();
-    vi.runAllTimers();
+    // The library stores each session before its event.
+    for (const [event, value] of [['INITIAL_SESSION', initial], ['TOKEN_REFRESHED', refreshed], ['SIGNED_IN', switched], ['SIGNED_OUT', null]] as const) {
+      if (value) store.setItem(AUTH_KEY, JSON.stringify(value)); else store.removeItem(AUTH_KEY);
+      emit(event, value);
+      if (event === 'INITIAL_SESSION') expect(receive).not.toHaveBeenCalled();
+      vi.runAllTimers();
+    }
     expect(receive.mock.calls).toEqual([[initial], [refreshed], [switched], [null]]);
+    store.setItem(AUTH_KEY, JSON.stringify(switched));
+    emit('SIGNED_OUT', null); emit('TOKEN_REFRESHED', refreshed); vi.runAllTimers();
+    expect(receive).toHaveBeenCalledTimes(4); // A late event for another session is not delivered.
+    store.setItem(AUTH_KEY, JSON.stringify(initial));
     emit('SIGNED_IN', initial); cleanup(); cleanup(); emit('SIGNED_IN', switched); vi.runAllTimers();
     expect(receive).toHaveBeenCalledTimes(4);
     expect(unsubscribe).toHaveBeenCalledOnce();

@@ -9,6 +9,7 @@ import { buildSetup, defaultChoice, draw } from '../match/setup';
 import type { PlayerSettings } from '../plugin/settings';
 import type { CreateOptions, View } from '../match/protocol';
 import type { Client } from '../account/client';
+import type { AccountSession } from '../account/session';
 import { OnlineError, type OnlineClient } from './client';
 import './launch.css';
 
@@ -122,7 +123,8 @@ export function installLocalSolo(api: OnlineClient, userId: string, handoff = op
   };
 }
 
-export function installAccountControls(auth: Pick<Client, 'deleteAccount' | 'disconnectMuse'>, muse = typeof __KINGDOWN_MUSE__ === 'boolean' && __KINGDOWN_MUSE__): void {
+/** `expected` is the page's account (online entry): each action binds to it, so a sign-in from another tab is never changed. */
+export function installAccountControls(auth: Pick<Client, 'deleteAccount' | 'disconnectMuse'>, expected?: AccountSession, muse = typeof __KINGDOWN_MUSE__ === 'boolean' && __KINGDOWN_MUSE__): void {
   const section = document.createElement('section'); section.className = 'fields launch-account';
   const title = document.createElement('h3'); title.className = 'group-head'; title.textContent = 'Account';
   const note = document.createElement('p'); note.setAttribute('role', 'status');
@@ -141,11 +143,11 @@ export function installAccountControls(auth: Pick<Client, 'deleteAccount' | 'dis
     section.append(button);
   }
   if (muse) control('Disconnect Muse', 'Disconnect Muse? Muse can no longer use your account, and we delete the games you started in Muse.', async () => {
-    const deleted = await auth.disconnectMuse();
+    const deleted = await auth.disconnectMuse(expected);
     return deleted === null ? 'Could not disconnect Muse. Try again later.' : 'Muse is disconnected. We deleted the games you started in Muse.';
   });
   control('Delete my account', 'Delete your account in seven days? To keep it, sign in again before then.', async () => {
-    await auth.deleteAccount(); location.replace('/play/'); return 'We delete your account in seven days.';
+    await auth.deleteAccount(expected); location.replace('/play/'); return 'We delete your account in seven days.';
   });
   section.append(note); document.querySelector('#settings-sheet .new-game-body')!.append(section);
 }

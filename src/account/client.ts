@@ -54,6 +54,13 @@ export function connect(storageKey: string, { manualCallback = false, apple = fa
     if (error && !(isAuthApiError(error) && [401, 403, 404].includes(error.status))) throw error;
     return true;
   };
+  // True when `s` is the session in storage now (both null: signed out).
+  const stored = (s: Session | null): boolean => {
+    let saved: unknown = null;
+    try { saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null'); } catch { /* blocked or unreadable: no session */ }
+    const live = accountSession(saved as Session | null), event = accountSession(s);
+    return live && event ? sessionKey(live) === sessionKey(event) : live === event;
+  };
   // A request for the confirmed account: throws when another tab has changed the stored session.
   const boundSession = async (expected?: AccountSession): Promise<AccountSession> => {
     const current = accountSession((await sb.auth.getSession()).data.session);
@@ -74,7 +81,9 @@ export function connect(storageKey: string, { manualCallback = false, apple = fa
       const notify = (s: Session | null) => { if (active) cb(s); };
       listeners.add(notify);
       // Supabase asks that the callback not await its own calls: run ours after it returns.
-      const { data: { subscription } } = sb.auth.onAuthStateChange((_event, s) => { setTimeout(() => { if (active) cb(s); }); });
+      // A late event can name an older session (another tab signed in or out meanwhile): only the stored session counts.
+      // The newer session's own event follows.
+      const { data: { subscription } } = sb.auth.onAuthStateChange((_event, s) => { setTimeout(() => { if (active && stored(s)) cb(s); }); });
       return () => { if (active) { active = false; listeners.delete(notify); subscription.unsubscribe(); } };
     },
     async readSession(): Promise<AccountSession | null> {
@@ -137,7 +146,7 @@ export function connect(storageKey: string, { manualCallback = false, apple = fa
     /** public.delete_my_account() asks for the deletion (migration 0008): it runs after a 7-day grace, and a sign-in in the grace cancels it. */
     async deleteAccount(expected?: AccountSession): Promise<void> {
       const target = await boundSession(expected);
-      const { error } = await sb.rpc('delete_my_account');
+      const { error } = await sb.rpc('delete_my_account').setHeader('Authorization', `Bearer ${target.accessToken}`);
       if (error) throw error;
       await signOutSession(target);
     },
@@ -147,7 +156,7 @@ export function connect(storageKey: string, { manualCallback = false, apple = fa
      *  database then deletes nothing; the daily sweep deletes the games 30 days after the last use of the link). */
     async disconnectMuse(expected?: AccountSession): Promise<number | null> {
       const target = await boundSession(expected);
-      const clients = await sb.rpc('muse_client_ids');
+      const clients = await sb.rpc('muse_client_ids').setHeader('Authorization', `Bearer ${target.accessToken}`);
       if (clients.error) throw clients.error;
       for (const clientId of (clients.data ?? []) as string[]) {
         await boundSession(target);
@@ -155,7 +164,7 @@ export function connect(storageKey: string, { manualCallback = false, apple = fa
         if (error && error.status !== 404) throw error;
       }
       await boundSession(target);
-      const { data, error } = await sb.rpc('delete_my_muse_games');
+      const { data, error } = await sb.rpc('delete_my_muse_games').setHeader('Authorization', `Bearer ${target.accessToken}`);
       if (error) throw error;
       return data as number | null;
     },
