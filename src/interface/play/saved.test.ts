@@ -8,6 +8,7 @@ import { parseSq, type Rules } from '../../rules/engine';
 import { POWERS_BALANCED, RULES_2017 } from '../../rules/rules';
 import { toFen } from '../../rules/setup';
 import { DraftTurn } from './turn';
+import { ARRANGE_KEY } from './arrange';
 import { answerOffer, beforeNewGame, continueLine, gameType, keepCopy, KEPT_KEY, keptOffer, levelOf, OFFERED_KEY, readStored, rulesOf, SaveWriter, SKILLS, snapshot, storedChoice, storedGameType, GAME_KEY, type Prefs } from './saved';
 import { text } from './texts';
 
@@ -461,4 +462,13 @@ it('does not offer, answer or replace another account copy or write from a stale
   store.set('kingdown.sync-owner', JSON.stringify({ userId: 'alice' }));
   expect(stale.userId).toBe('bob'); expect(keepCopy(raw)).toBe('failed'); answerOffer(raw);
   expect(store.has(OFFERED_KEY)).toBe(false);
+});
+
+
+it.each([0, 1] as const)('resumes an unfinished arrangement for side %s from its saved legal deal', player => {
+  const { draft } = started(draftOf(null), prefs, player);
+  store.set(ARRANGE_KEY, JSON.stringify({ army: draft.game.backRank, side: player, fen: toFen(draft.game.pos) }));
+  const saved = readStored(); expect(saved.kind).toBe('resume');
+  expect(saved.resume?.player).toBe(player); expect(saved.resume?.game.history).toHaveLength(0);
+  expect(toFen(saved.resume!.game.pos)).toBe(toFen(draft.game.pos));
 });

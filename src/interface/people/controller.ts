@@ -4,14 +4,15 @@
  * on a `Game`); the server view stays the truth. Commands use the old page's durable receipt with the M12 fix, and
  * the engine identity (M3) decides whether the page engine may judge a turn alone.
  */
-import type { Game } from '../../game';
+import { Game } from '../../game';
 import { needsServerPreview, PAGE_ENGINE } from '../../account-game/engine-identity';
 import type { Action, ErrorCode, JoinPreview, Opponent, View } from '../../match/protocol';
 import { pollSince, runPoll, type PollView } from '../../plugin/poll';
 import { boardActions } from '../../plugin/screens/board-model';
 import type { Move, Position } from '../../rules/engine';
 import { DraftTurn } from '../play/turn';
-import { defaultChoice } from '../../match/setup';
+import { defaultChoice, validateChoice } from '../../match/setup';
+import { OPTIONS_KEY, readOptions } from '../play/new-game';
 import { faultOf, settled, type Fault, type InviteKey, type PeopleServer } from './server';
 import { actionOf, ReceiptBusy, receiptOf, receiptStore, type LockManager, type Receipt } from './receipt';
 import { lastTurnOf, playCommands, positionOf, replicaOf, restage, turnActions, type ReceivedTurn } from './replica';
@@ -165,10 +166,32 @@ export function peopleController(options: ControllerOptions) {
     emit();
   }
 
+  /** Each seat uses its own saved king when this game admits it. */
+  function setupChoice(order?: string) {
+    if (!view?.options || !view.draw) return;
+    const o = view.options, draw = { army: view.draw, hand: [...view.deal ?? []] };
+    const choice = { ...(view.choices?.[view.seat] ?? defaultChoice(o, draw, view.seat, Math.random, false, view.setup_admission)), ...(order !== undefined ? { order } : {}) };
+    try {
+      const king = readOptions(JSON.parse(options.storage.getItem(OPTIONS_KEY) ?? 'null')).king;
+      if (!view.ready?.[view.seat] && king && !validateChoice(o, draw, { ...choice, king }, view.setup_admission)) choice.king = king;
+    } catch { /* unreadable options keep the seat default */ }
+    return choice;
+  }
+  function setupGame(next: View): Game | undefined {
+    const choice = setupChoice();
+    if (next.status !== 'setup' || !choice || !next.draw) return;
+    const kings: Game['rules']['kings'] = [next.seat === 0 ? choice.king : null, next.seat === 1 ? choice.king : null];
+    const setup = new Game(next.draw, { kings });
+    // The other seat's chosen order stays private until both players confirm.
+    const pos = setup.pos, board = pos.board.slice();
+    for (let sq = 0; sq < 64; sq++) if (sq < 16 && next.seat === 1 || sq >= 48 && next.seat === 0) board[sq] = 0;
+    setup.load({ ...pos, board });
+    return setup;
+  }
   /** A full view: build the copy again. */
   function adopt(next: View, keep?: readonly string[]) {
     const copy = replicaOf(next);
-    view = next; game = copy ?? positionOf(next); fatal = undefined;
+    view = next; game = copy ?? positionOf(next) ?? setupGame(next); fatal = undefined;
     engine = copy && !needsServerPreview(next.engine_fingerprint, pageEngine) ? 'local' : 'server';
     if (!game && (next.status === 'playing' || next.status === 'finished')) fatal = 'failed';
     draft = freshDraft(keep);
@@ -183,6 +206,8 @@ export function peopleController(options: ControllerOptions) {
   /** A view after `view.revision` (a poll read or a command answer): play its moves on the copy. */
   function advance(next: View): boolean {
     if (!view || next.game_id !== view.game_id) return false;
+    if (view.status === 'setup' && next.status === 'playing') return false;
+    if (next.status === 'setup') { adopt(next); return true; }
     if (next.revision === view.revision) { view = { ...next, rules: next.rules ?? view.rules }; good(next); emit(); return true; }
     if (!game || !view.rules) return false;
     const before = game.history.length, offerOpen = view.draw_offer === view.seat;
@@ -390,10 +415,11 @@ export function peopleController(options: ControllerOptions) {
     },
     refresh,
 
-    /** The new page uses a drawn army and power, as its computer game does. */
-    ready() {
-      if (view?.status !== 'setup' || !view.options || !view.draw || view.ready?.[view.seat] || view.seat === 1 && view.ready?.[0] === false) return Promise.resolve(false);
-      const choice = view.choices?.[view.seat] ?? defaultChoice(view.options, { army: view.draw, hand: [...view.deal ?? []] }, view.seat, Math.random, false, view.setup_admission);
+    /** Confirm this seat's king and its own back-rank order. */
+    ready(order?: string) {
+      if (view?.status !== 'setup' || !view.options || !view.draw || view.ready?.[view.seat]) return Promise.resolve(false);
+      const choice = setupChoice(order)!;
+      if (validateChoice(view.options, { army: view.draw, hand: [...view.deal ?? []] }, choice, view.setup_admission)) return Promise.resolve(false);
       return command({ type: 'choose', choice, ready: true });
     },
 

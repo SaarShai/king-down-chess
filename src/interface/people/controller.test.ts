@@ -413,3 +413,43 @@ it.each(['join', 'ready'])('reads the first reply within three seconds after %s 
     await vi.advanceTimersByTimeAsync(3000); expect(game.mock.calls.length).toBe(first + 2);
   } finally { stop(); }
 });
+
+it.each([
+  [{ king: 'Mud', power: 'March' }, false, { king: 'Mud', power: 'March' }],
+  [{ king: 'Frost', power: 'Freeze' }, true, { king: 'Shadow', power: 'Darkness' }],
+  [null, false, { king: 'Shadow', power: 'Darkness' }],
+] as const)('confirms the stored king when admitted, else the seat default (%j, cards %s)', async (king, cards, expected) => {
+  const games = fixtureService(); services.push(games);
+  for (const name of ['alice', 'bob']) await games.handle(name, { handle: name });
+  const server = fakeServer(games), options = { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true, cards };
+  const made = await games.create('alice', { kind: 'friend', colour: 'white', options });
+  const invite = await games.invite('alice', made.game_id), storage = memoryStorage();
+  storage.setItem('kingdown.game-options', JSON.stringify({ king }));
+  const bob = player(server, 'bob', { storage }).controller;
+  await bob.join({ token: invite.token }); expect(bob.state().phase).toBe('setup');
+  expect(await bob.ready()).toBe(true);
+  const action = commands(server, 'bob').at(-1)?.body as { action: { choice: unknown } };
+  expect(action.action.choice).toMatchObject({ king: expected });
+  storage.setItem('kingdown.game-options', JSON.stringify({ king: { king: 'Spirit', power: 'Mercy' } }));
+  await bob.refresh();
+  expect(bob.state().game!.rules.kings[1]).toEqual(expected);
+});
+
+it('sends each own arrangement, allows Black to confirm first and rejects a fault', async () => {
+  const games = fixtureService(); services.push(games);
+  for (const name of ['alice', 'bob']) await games.handle(name, { handle: name });
+  const server = fakeServer(games), made = await games.create('alice', { kind: 'friend', colour: 'white', options: { ...DEFAULT_OPTIONS, kingPowers: true } });
+  const invite = await games.invite('alice', made.game_id), storage = memoryStorage();
+  storage.setItem('kingdown.game-options', JSON.stringify({ king: { king: 'Mud', power: 'March' } }));
+  const alice = player(server, 'alice', { storage }).controller, bob = player(server, 'bob').controller;
+  await bob.join({ token: invite.token }); await alice.open(made.game_id);
+  expect(alice.state().game).toBeTruthy(); expect(bob.state().game).toBeTruthy();
+  expect(await bob.ready('KKKKKKKK')).toBe(false);
+  const army = bob.state().view!.draw!, order = [...army].reverse().join('');
+  expect(await bob.ready(order)).toBe(true); expect(bob.state().view!.ready?.[1]).toBe(true);
+  await alice.refresh(); expect(await alice.ready(army)).toBe(true); await bob.refresh();
+  expect(alice.state().phase).toBe('your-move'); expect(bob.state().phase).toBe('their-move');
+  expect(alice.state().game!.rules.kings[0]).toEqual({ king: 'Mud', power: 'March' });
+  const fen = toFen(alice.state().game!.pos).split(' ')[0].split('/');
+  expect(fen[0]).toBe(order.toLowerCase()); expect(fen[7]).toBe(army);
+});
