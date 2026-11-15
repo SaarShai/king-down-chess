@@ -69,7 +69,11 @@ export function readerView(m: ReaderModel, form: Form, nodes: ReaderNodes): HTML
     box.append(div('play-bhead', text, div('play-bhead-tools', ...headTools, summaryInHead ? m.summary : null)));
     if (!m.named && m.title) { const line = headline(m, nodes); line.classList.add('play-headline-line'); primary.prepend(line); }
     if (bodyTools.length) primary.append(div('play-tools', ...bodyTools));
-    if (m.summary && !summaryInHead) secondary.append(m.summary);
+    if (m.summary && !summaryInHead) {
+      const target = primary.querySelector('.play-target');
+      if (target) primary.prepend(div('play-choice-summary', target, m.summary));
+      else secondary.append(m.summary);
+    }
     const lines = div('play-lines', primary, secondary), subject = div('play-sub', art, lines);
     if (art) subject.dataset.art = 'on';
     box.append(subject);

@@ -5,7 +5,10 @@ import { AUTH_KEY } from './session';
 
 const sdk = vi.hoisted(() => ({ auth: {
   getSession: vi.fn(), onAuthStateChange: vi.fn(), signInWithOAuth: vi.fn(), signInWithPassword: vi.fn(), signInWithOtp: vi.fn(), verifyOtp: vi.fn(), exchangeCodeForSession: vi.fn(), signOut: vi.fn(),
+  signInWithIdToken: vi.fn(),
 } }));
+const native = vi.hoisted(() => ({ authorize: vi.fn() }));
+vi.mock('@capacitor/core', () => ({ registerPlugin: () => native }));
 const createClient = vi.hoisted(() => vi.fn((_url: string, _key: string, _options: unknown) => sdk));
 vi.mock('@supabase/supabase-js', () => ({ createClient }));
 const session = (id: unknown = 'user-a', token: unknown = 'token-a') => ({ user: { id }, access_token: token } as Session);
@@ -27,6 +30,34 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe('account identity client', () => {
+  it('requires the release switch and the new-page option for web Apple sign-in', async () => {
+    const client = connect(AUTH_KEY, { apple: true });
+    await expect(client.startAccountSignIn('apple', { entryPath: '/next.html' })).rejects.toThrow('Invalid sign-in provider');
+    vi.stubEnv('VITE_KINGDOWN_APPLE_SIGN_IN', '1');
+    await expect(connect(AUTH_KEY).startAccountSignIn('apple', { entryPath: '/next.html' })).rejects.toThrow('Invalid sign-in provider');
+    expect(await client.startAccountSignIn('apple', { entryPath: '/next.html' })).toMatchObject({ flowId });
+    expect(sdk.auth.signInWithOAuth).toHaveBeenCalledExactlyOnceWith({ provider: 'apple', options: { redirectTo: 'https://kingdown.test/next.html', skipBrowserRedirect: true } });
+    await expect(client.startAccountSignIn('apple')).rejects.toThrow('Invalid sign-in provider');
+  });
+  it('uses the native Apple token with its original nonce and keeps other app providers hidden', async () => {
+    vi.stubGlobal('location', new URL('capacitor://localhost/next.html#join=fixture'));
+    vi.stubEnv('VITE_KINGDOWN_APPLE_SIGN_IN', '1'); vi.resetModules();
+    const { connect: appConnect } = await import('./client');
+    const client = appConnect(AUTH_KEY, { apple: true });
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ external: { apple: true, google: true, github: true, email: true } })));
+    expect(await client.providers()).toEqual(['apple', 'email']);
+    native.authorize.mockImplementation(async ({ state }) => ({ identityToken: 'native-fixture', state }));
+    sdk.auth.signInWithIdToken.mockResolvedValue({ data: { session: session() }, error: null });
+    expect(await client.signInWithApple()).toEqual({ userId: 'user-a', accessToken: 'token-a' });
+    expect(sdk.auth.signInWithIdToken).toHaveBeenCalledExactlyOnceWith({ provider: 'apple', token: 'native-fixture', nonce: expect.stringMatching(/^[a-f0-9]{64}$/) });
+    expect(sdk.auth.signInWithOAuth).not.toHaveBeenCalled();
+    expect(location.hash).toBe('#join=fixture');
+    sdk.auth.signInWithIdToken.mockResolvedValueOnce({ data: { session: null }, error: new Error('wrong audience') });
+    await expect(client.signInWithApple()).rejects.toThrow('wrong audience');
+    vi.stubEnv('VITE_KINGDOWN_APPLE_SIGN_IN', '0');
+    await expect(client.signInWithApple()).rejects.toThrow('Apple sign-in is off');
+    expect(await client.providers()).toEqual(['email']);
+  });
   it('offers only the email code in the iOS app', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ external: { google: true, github: true, email: true } }))));
     expect(await connect(AUTH_KEY).providers()).toEqual(['google', 'github', 'email']);

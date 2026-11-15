@@ -41,6 +41,8 @@ import type { PeopleState } from '../people/controller';
 import { homeInvite, personGame, personTurn, personWords } from '../people/host/games';
 import { timeWords } from '../people/words';
 import { runPoll } from '../../plugin/poll';
+import { blockedPlayers, deleteAccount, playerOptions, playerSafety } from '../people/screens/safety';
+import { humanOpponent } from '../../plugin/screens/board-model';
 
 
 const root = document.querySelector<HTMLElement>('#app')!;
@@ -67,12 +69,14 @@ let boardCode: typeof import('../board-api') | undefined, sfx: typeof import('..
 // The 56 kB stone board picture starts with the board code;
 // the board then takes the same request (the same image mode).
 const SKIN = '/interface/stone-refined-light.webp';
+let skinUrl = SKIN;
+const firstArt = new Set<string>();
 let skinLoad: HTMLImageElement | undefined;
 // After a failed load the next try fetches the module files again first: WebKit keeps a failed module in its memory
 // cache across a reload (the boot fault of next.html does the same).
 let codeFailed = false;
 const refetchCode = () => Promise.race([Promise.all([...document.querySelectorAll<HTMLLinkElement>('link[rel=modulepreload]')].map(link => fetch(link.href, { cache: 'reload' }).catch(() => {}))), new Promise(done => setTimeout(done, 4000))]);
-const loadBoardCode = () => { if (!skinLoad) { skinLoad = new Image(); skinLoad.src = SKIN; } return codeLoad ??= (codeFailed ? refetchCode() : Promise.resolve())
+const loadBoardCode = () => { if (!skinLoad) { skinLoad = new Image(); skinLoad.fetchPriority = 'high'; skinLoad.src = SKIN; } return codeLoad ??= (codeFailed ? refetchCode() : Promise.resolve())
   .then(() => Promise.all([import('../board-api'), import('../../render/sfx')]))
   .then(([b, s]) => { boardCode = b; sfx = s; s.setSound(sound); }, error => { codeLoad = undefined; codeFailed = true; throw error; }); };
 // Sound unlocks on the first press after the sound code is loaded.
@@ -198,12 +202,14 @@ function receiveOnline(state: PeopleState) {
     endOpening(); endEntry(); board?.dispose(); board = undefined; liveGame = false; ended = true; thinking = false;
     const page = el('section', 'people-landing'), title = el('h1', '', onlineResult(state)); title.tabIndex = -1;
     page.append(title, button(text.home, { kind: 'main', onPress: () => shell.go({ place: 'play' }) }));
+    if (people && humanOpponent(state.view)) page.append(...playerSafety(people.safety, { game_id: state.view.game_id }, () => { void people?.refresh(); }));
     root.replaceChildren(page); title.focus({ preventScroll: true }); return;
   }
   if (state.view && (state.phase === 'waiting' || state.phase === 'setup') && !board) {
     const invited = state.phase === 'waiting' && state.view.invitation?.direction === 'outgoing' ? state.view.invitation.player : null;
     const box = el('section', 'online-waiting');
     box.append(el('h1', '', state.phase === 'waiting' ? invited ? `Invite sent to ${invited.handle}` : 'Waiting for a player' : 'Getting the game ready'), onlineActions(state), button(text.home, { onPress: () => shell.go({ place: 'play' }) }));
+    if (people && humanOpponent(state.view)) box.append(...playerSafety(people.safety, { game_id: state.view.game_id }, () => { void people?.refresh(); }));
     root.replaceChildren(box);
     if (state.phase === 'setup' && !state.view.ready?.[state.view.seat]) void people?.controller?.ready();
     return;
@@ -306,6 +312,12 @@ function home(newArmy = false) {
     onPerson: source => { void personFlow(source); }, onPersonGame: id => shell.go({ place: 'online', entry: id }),
     onAcceptInvite: id => { const invite = people?.incomingInvites.find(row => row.invite_id === id); if (invite) void people!.acceptInvite(invite).catch(() => { onlineNote = 'The invite cannot accept right now. Try again.'; announce(onlineNote); void people?.refresh(); home(); }); },
     onDeclineInvite: id => { const invite = people?.incomingInvites.find(row => row.invite_id === id); if (invite) void people!.declineInvite(invite).catch(() => { onlineNote = 'The invite cannot decline right now. Try again.'; announce(onlineNote); void people?.refresh(); home(); }); },
+    onInvitePlayer: (id, source) => {
+      const invite = people?.incomingInvites.find(row => row.invite_id === id);
+      if (people && invite?.player) {
+        playerOptions(people.safety, { user_id: invite.player.user_id }, source, () => { void people?.refresh(); });
+      }
+    },
     onDismissInvite: id => { const invite = people?.inviteUpdates.find(row => row.invite_id === id); if (invite) people!.dismissInvite(invite); },
     offer: fallback => { const offer = keptOffer(saved); return offer ? keptRow(offer, fallback) : null; },
     // Play the computer reads the save again at the press: another tab can have saved a game since.
@@ -381,6 +393,13 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   // Keep the accepted game identity through the code load. Settings alone do not need a new choice.
   const acceptedSave = readSave(), identity = acceptedSave.unreadable ? acceptedSave.raw : gameJSON(acceptedSave.save);
   if (!boardCode) {
+    // Start the first frame's images beside the board code, in the scene's image modes.
+    const position = resumed?.draft.position ?? next.game.pos, rules = resumed?.game.context.rules ?? next.game.context.rules;
+    const files = [skinUrl, ...[...new Set(position.board)].filter(Boolean).map(code => `/ui/pieces/${typeOf(code) === K ? kingFile(colorOf(code), rules) : `${nameOf(code).toLowerCase()}-${colorOf(code) ? 'b' : 'w'}`}.webp`)];
+    for (const href of files) if (!firstArt.has(href)) {
+      const link = document.createElement('link'); link.rel = 'preload'; link.as = 'image'; link.href = href;
+      link.fetchPriority = 'high'; document.head.append(link); firstArt.add(href);
+    }
     // The press waits for the board code; a second press, or a move to another place, ends this start.
     const place = shell.route.place;
     root.querySelector('.home-load-fault')?.remove();
@@ -486,11 +505,10 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   if (fromHome) { root.querySelectorAll('.play-game').forEach(node => node.remove()); screen.style.visibility = 'hidden'; root.append(screen); }
   else root.replaceChildren(screen);
   const onArtError = () => { if (host === boardHost && document.body.dataset.page === 'game') artFailed(generation); };
-  board = keep ?? boardCode!.mountBoard(host, tap, { liveInput: true, quiet: true, plainMarks: true, onArtError }); board.flip(player === 1); board.setPosition(draft.position, game.context); applyPieceView(); layout(); update();
+  board = keep ?? boardCode!.mountBoard(host, tap, { liveInput: true, quiet: true, plainMarks: true, initialBoardArt: skinUrl, onArtError }); board.flip(player === 1); board.setPosition(draft.position, game.context); applyPieceView(); layout(); update();
   fit.disconnect(); fit.observe(screen);
   if (!resumed) save(true); // the new game replaces the save: a save with no move
-  // The first draw needs the stone and the rest stills only; the board surface loads beside them and replaces the stone when it is ready.
-  if (!keep) void applySkin().catch(onArtError);
+  // The first draw uses the prepared surface and stills, with no second stone image to wait for.
   const loaded = keep ? Promise.resolve() : board.ready().then(() => { if (own === generation) host.style.visibility = ''; });
   // The engine worker loads when the board can draw, so it does not hold the first frame (decision 44).
   void loaded.catch(() => {}).then(() => { if (own === generation && !onlineActive) engine.prepare(game); });
@@ -528,6 +546,7 @@ const focusFault = () => boardBox.querySelector<HTMLButtonElement>('.play-fault 
 /** Try again: a new search on the same turn, or a new board with the same game (no deal, no opening, no new save). */
 function retryFault() {
   if (fault === 'computer') { engine.cancel(); engine.prepare(game); fault = null; void reply(); return; }
+  skinUrl = `${SKIN}?retry=${generation}`; // WebKit keeps a failed image in its memory cache.
   fault = null; endEntry(); board?.dispose(); board = undefined; void start({ game, draft, level: gameLevel, player }, undefined, true);
 }
 /** Versus: the two kings face each other with their powers. It holds about 1.6 s and until the board can draw; a tap or a key ends the hold. Resolves when it starts to leave. */
@@ -881,6 +900,7 @@ function renderReader() {
       const actions = el('div', 'online-menu-actions');
       if (onlineState.canOfferDraw) actions.append(button('Offer draw', { onPress: () => { void people!.controller!.offerDraw(); } }));
       if (onlineState.abortOpen) actions.append(button('End with no result', { onPress: () => { void people!.controller!.abort(); } }));
+      if (onlineState.view && humanOpponent(onlineState.view)) actions.append(...playerSafety(people!.safety, { game_id: onlineState.view.game_id }, () => { void people?.controller?.refresh(); }));
       menu.querySelector('.menu-settings')?.prepend(actions);
     }
     detail.append(menu); if (was !== 'menu') menuEnter(menu); return;
@@ -892,6 +912,9 @@ function renderReader() {
     else if (state.rematch === 'accepted' && state.rematchGame) actions.append(button('Open rematch', { kind: 'main', onPress: () => shell.go({ place: 'online', entry: state.rematchGame! }) }));
     else if (state.rematch === 'mine') block.append(el('p', '', 'Waiting for a rematch answer.'));
     else if (state.rematch !== 'closed') actions.append(button('Rematch', { kind: 'main', onPress: () => { void people!.controller!.rematch('offer'); } }));
+    if (state.view && humanOpponent(state.view)) {
+      const options: HTMLButtonElement = button('Player options', { onPress: () => playerOptions(people!.safety, { game_id: state.view!.game_id }, options, () => { void people?.controller?.refresh(); }) }); actions.append(options);
+    }
     actions.append(button(text.home, { onPress: () => shell.go({ place: 'play' }) })); block.append(actions); detail.append(block); return;
   }
   if (reading === 'result') {
@@ -1182,7 +1205,6 @@ function setMotion() {
   board?.setMotion(reduce || pieceView === 'symbols' ? 'off' : motion);
 }
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', setMotion); setMotion();
-async function applySkin() { await board?.setSkin(SKIN); }
 /** The layout classes of decision 34 (layout.ts). The game box is the viewport after the safe areas, so its size is W and H. */
 function layout() {
   if (!boardBox?.isConnected) return;
@@ -1286,7 +1308,12 @@ function showAccount(host?: OnlineHost) {
   root.querySelector('.you-account')?.remove();
   const section = el('section', 'you-account'), me = host?.host.me();
   section.append(el('h2', '', 'Account'));
-  if (host && me) section.append(profilePortrait(me.handle ?? host.user?.name ?? 'Player', host.user?.avatar), el('p', '', me.handle ?? 'Player'), button('Sign out', { onPress: () => { void host.signOut().catch(() => announce('Sign-out cannot finish. Try again.')); } }));
+  if (host && me) {
+    const userId = host.userId!;
+    const blocked: HTMLButtonElement = button('Blocked players', { onPress: () => blockedPlayers(host.safety, blocked) });
+    const remove: HTMLButtonElement = button('Delete account', { kind: 'danger', onPress: () => deleteAccount(remove, () => host.deleteAccount(userId)) });
+    section.append(profilePortrait(me.handle ?? host.user?.name ?? 'Player', host.user?.avatar), el('p', '', me.handle ?? 'Player'), button('Sign out', { onPress: () => { void host.signOut().catch(() => announce('Sign-out cannot finish. Try again.')); } }), blocked, remove);
+  }
   else if (!host) section.append(el('p', '', 'Checking sign-in…'));
   else section.append(button('Sign in to play a person', { onPress: () => { void personFlow(); } }));
   root.querySelector('.you-page > h1')?.after(section);

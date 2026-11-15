@@ -13,18 +13,32 @@ const isStill = (src: string) => src.includes('/ui/pieces/');
 const isStone = (src: string) => src.includes('/board-art/stone-board.webp');
 const isLegacySheet = (src: string) => /\/2d-first-pieces\/(?:king-\w+\/king|[\w-]+\/(?:beast|queen|paladin|maester|pawn|archer|ogre|knight|bishop|rook|guard))\.webp$/.test(src);
 
-async function scene(options: { lazySheets?: boolean; kings?: [string, string] }) {
+it('the new page starts the required surface and piece images before it waits for board code', () => {
+  const main = readFileSync(new URL('../interface/play/main.ts', import.meta.url), 'utf8');
+  const start = main.slice(main.indexOf('async function start('), main.indexOf('try { await loadBoardCode(); }'));
+  expect(start).toContain('resumed?.draft.position ?? next.game.pos');
+  expect(start).toContain('resumed?.game.context.rules ?? next.game.context.rules');
+  expect(start).toContain('new Set(position.board)');
+  expect(start).toContain("link.rel = 'preload'; link.as = 'image'; link.href = href");
+  expect(start).toContain('const files = [skinUrl,');
+  expect(start).not.toContain('link.crossOrigin');
+  expect(start).toContain("link.fetchPriority = 'high'");
+  expect(start).toContain('!firstArt.has(href)');
+});
+
+async function scene(options: { lazySheets?: boolean; kings?: [string, string]; initialBoardArt?: string; failBoardArt?: boolean }) {
   vi.resetModules(); vi.useFakeTimers();
   const requested: Requested[] = [];
   let decodeStone = () => {};
-  const stone = new Promise<void>(resolve => { decodeStone = resolve; });
+  let rejectStone = (_error: Error) => {};
+  const stone = new Promise<void>((resolve, reject) => { decodeStone = resolve; rejectStone = reject; });
   class Art {
     naturalWidth = 0; width = 64; height = 64; complete = false; crossOrigin: string | null = null;
     onload?: () => void; onerror?: () => void;
     private url = '';
-    set src(src: string) { this.url = src; requested.push({ src, cors: this.crossOrigin }); void Promise.resolve().then(() => { this.complete = true; this.naturalWidth = 64; this.onload?.(); }); }
+    set src(src: string) { this.url = src; requested.push({ src, cors: this.crossOrigin }); void Promise.resolve().then(() => { if (options.failBoardArt && (isStone(src) || src === options.initialBoardArt)) { this.onerror?.(); return; } this.complete = true; this.naturalWidth = 64; this.onload?.(); }); }
     get src() { return this.url; }
-    decode() { return isStone(this.url) ? stone : Promise.resolve(); }
+    decode() { return (options.initialBoardArt ? this.url === options.initialBoardArt : isStone(this.url)) ? stone : Promise.resolve(); }
   }
   const context: object = new Proxy({}, { get: (_, key) => key === 'getImageData' || key === 'createImageData' ? () => ({ data: new Uint8ClampedArray(4) }) : () => context });
   const canvas = () => ({ width: 960, height: 1024, getContext: () => context });
@@ -38,12 +52,38 @@ async function scene(options: { lazySheets?: boolean; kings?: [string, string] }
     : new Promise(() => {}));
   vi.stubGlobal('fetch', fetcher);
   const { createScene } = await import('./painted/scene.mjs');
-  const made = createScene({ canvas: canvas() as unknown as HTMLCanvasElement, pieces, characterRuntime: true, kings: (options.kings ?? ['frost', 'frost']) as never, lazySheets: options.lazySheets });
+  const made = createScene({ canvas: canvas() as unknown as HTMLCanvasElement, pieces, characterRuntime: true, kings: (options.kings ?? ['frost', 'frost']) as never, lazySheets: options.lazySheets, initialBoardArt: options.initialBoardArt });
   made.setPosition(fromFen('4k3/8/8/8/8/8/8/1N2K3 w - - 0 1'));
   const fetched = () => fetcher.mock.calls.map(([url]) => String(url));
-  return { scene: made, requested, fetched, decodeStone };
+  return { scene: made, requested, fetched, decodeStone, rejectStone };
 }
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.doUnmock('./painted/scene.mjs'); vi.doUnmock('./effects/dark-gate'); });
+
+it('an initial surface replaces the stone request and the first frame waits for its decode', async () => {
+  const url = '/interface/stone-refined-light.webp', s = await scene({ lazySheets: true, initialBoardArt: url });
+  let loaded = false; void s.scene.load().then(() => { loaded = true; });
+  await vi.advanceTimersByTimeAsync(1);
+  expect(s.requested.filter(r => r.src === url)).toEqual([{ src: url, cors: null }]);
+  expect(s.requested.some(r => isStone(r.src))).toBe(false);
+  expect(loaded).toBe(false); expect(s.scene.frames).toBe(0);
+  s.decodeStone(); await vi.advanceTimersByTimeAsync(17);
+  expect(loaded).toBe(true); expect(s.scene.frames).toBe(1);
+  s.scene.dispose();
+});
+
+it.each(['/interface/stone-refined-light.webp', undefined])('a failed surface %s rejects only with the option; the old stone fallback stays', async initialBoardArt => {
+  const s = await scene({ lazySheets: true, initialBoardArt, failBoardArt: true });
+  if (initialBoardArt) await expect(s.scene.load()).rejects.toBeUndefined();
+  else await expect(s.scene.load()).resolves.toBeUndefined();
+  s.scene.dispose();
+});
+
+it.each(['/interface/stone-refined-light.webp', undefined])('a failed decode of %s rejects only with the option', async initialBoardArt => {
+  const s = await scene({ lazySheets: true, initialBoardArt }), loaded = s.scene.load();
+  const result = initialBoardArt ? expect(loaded).rejects.toThrow('decode failed') : expect(loaded).resolves.toBeUndefined();
+  await vi.advanceTimersByTimeAsync(1); s.rejectStone(new Error('decode failed')); await result;
+  s.scene.dispose();
+});
 
 it('lazySheets: before the first frame only the stone base and the rest stills load; the sheets, the effect art and the parts start after it', async () => {
   const s = await scene({ lazySheets: true });
@@ -132,10 +172,11 @@ it('the board picture is smaller than the stone base: on a shared link it arrive
   expect(picture).toBeLessThan(stone);
 });
 
-it('the new page shows its board when the stone base and the stills are ready; the board picture does not hold it', () => {
+it('the new page uses its prepared picture as the first surface and waits for the board frame', () => {
   const main = readFileSync(new URL('../interface/play/main.ts', import.meta.url), 'utf8');
   const loaded = /const loaded = .*/.exec(main)?.[0] ?? '';
   expect(loaded).toMatch(/board\.ready\(\)/);
-  expect(loaded).not.toMatch(/applySkin/);
-  expect(main).toMatch(/void applySkin\(\)/);
+  expect(main).toContain('initialBoardArt: skinUrl');
+  expect(main).toContain('skinUrl = `${SKIN}?retry=${generation}`');
+  expect(main).not.toContain('applySkin');
 });

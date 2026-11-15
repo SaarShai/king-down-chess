@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { clearDeletedAccount, localAccess, selectLocal } from '../../account/local';
 import { Game } from '../../game';
 import { GameRules } from '../../game-rules';
 import { gameJSON, savedGame, SAVE_KEY, type Save } from '../../screen/save';
@@ -405,4 +406,42 @@ describe('launch decision 10: a kept Dark game is offered once', () => {
   failWrite = ''; expect(w.game(value, prefs)).toBe(true); expect(w.warning).toBe('');
   w.block(text.otherTab); expect(w.warning).toBe(text.otherTab);
   w.load(saved()); expect(w.warning).toBe(''); expect(w.lost).toBe(false); expect(w.blocked).toBe(false);
+});
+
+
+it.each(['alice', 'bob', 'anonymous'])('deletion clears only alice kept bytes and offer bytes, with owner %s', owner => {
+  if (owner !== 'anonymous') selectLocal(localStorage, owner, () => {});
+  const raw = JSON.stringify({ ...handedOver(), white: 'ai', black: 'human' });
+  expect(keepCopy(raw)).toBe('copied');
+  answerOffer(raw);
+  for (const key of [KEPT_KEY, OFFERED_KEY]) expect(store.get(key + '.owner')).toBe(owner);
+  selectLocal(localStorage, 'bob', () => {});
+  clearDeletedAccount(localStorage, 'alice');
+  for (const key of [KEPT_KEY, OFFERED_KEY]) {
+    expect(store.get(key)).toBe(owner === 'alice' ? undefined : raw);
+    expect(store.get(key + '.owner')).toBe(owner === 'alice' ? undefined : owner);
+  }
+});
+it('keeps an offer from another owner when it clears the kept copy', () => {
+  selectLocal(localStorage, 'alice', () => {});
+  const raw = JSON.stringify({ ...handedOver(), white: 'ai', black: 'human' });
+  expect(keepCopy(raw)).toBe('copied');
+  store.set(OFFERED_KEY, 'bob game'); store.set(OFFERED_KEY + '.owner', 'bob');
+  answerOffer(raw);
+  clearDeletedAccount(localStorage, 'alice');
+  expect(store.has(KEPT_KEY)).toBe(false); expect(store.get(OFFERED_KEY)).toBe('bob game');
+  expect(store.get(OFFERED_KEY + '.owner')).toBe('bob');
+});
+it('does not offer, answer or replace another account copy or write from a stale tab', () => {
+  selectLocal(localStorage, 'alice', () => {});
+  const raw = JSON.stringify({ ...handedOver(), gameAt: 777, white: 'ai', black: 'human' });
+  expect(keepCopy(raw)).toBe('copied');
+  expect(keptOffer(readStored())?.raw).toBe(raw);
+  selectLocal(localStorage, 'bob', () => {});
+  expect(keptOffer(readStored())).toBeNull(); answerOffer(raw);
+  expect(store.has(OFFERED_KEY)).toBe(false); expect(keepCopy(raw)).toBe('full');
+  const stale = localAccess(localStorage);
+  store.set('kingdown.sync-owner', JSON.stringify({ userId: 'alice' }));
+  expect(stale.userId).toBe('bob'); expect(keepCopy(raw)).toBe('failed'); answerOffer(raw);
+  expect(store.has(OFFERED_KEY)).toBe(false);
 });

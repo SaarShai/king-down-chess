@@ -361,6 +361,9 @@ body > .kd-sr { inset: 0 auto auto 0; }
 @media (max-width: 899px) { .home-invite-actions { flex-basis: 100%; margin-inline-start: 0; padding-inline-start: 124px; } }
 @media (hover: hover) { button.home-game-row:hover { background: var(--surface-muted); } }
 @media (min-width: 600px) { .home-hero { aspect-ratio: 16 / 9; max-height: none; } }
+@media (max-height: 499px) {
+  .home-hero { max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - var(--bar-phone) - 80px); }
+}
 @media (min-width: 900px) {
   .home-top-new { display: none; }
   .home-side-new { display: flex; width: 100%; }

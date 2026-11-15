@@ -48,7 +48,7 @@ const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => res
 
 /** Mount one board. The callback receives a1=0 through h8=63. Input pauses during playback. */
 /** `onArtError`: a rest still of a figure cannot load (no default: the old fallback stays). */
-export function mountBoard(element: HTMLElement, onSquare: (square: number) => void = () => {}, options: { liveInput?: boolean; quiet?: boolean; plainMarks?: boolean; onArtError?: (url: string) => void } = {}): Board {
+export function mountBoard(element: HTMLElement, onSquare: (square: number) => void = () => {}, options: { liveInput?: boolean; quiet?: boolean; plainMarks?: boolean; initialBoardArt?: string; onArtError?: (url: string) => void } = {}): Board {
   const view = new PaintedView(element, { ...options, holdStills: true, lazySheets: true, floor: options.quiet ? null : undefined, webInk: options.quiet });
   let rules = new GameRules(), position: Position | null = null, busy = false, skipped = false, generation = 0;
   let loadError: unknown;

@@ -9,6 +9,7 @@ import type { AccountSession } from './session';
 import { publicAccountConfig, stagingPasswordSignInEnabled } from './public-config';
 import { availableProviders, type Provider } from './providers';
 import { inApp } from '../platform';
+import { appleSignInEnabled, nativeAppleToken, type AppleBridge } from './apple';
 declare const __KINGDOWN_LOCAL_ONLINE__: boolean;
 const LOCAL_ONLINE = typeof __KINGDOWN_LOCAL_ONLINE__ === 'boolean' && __KINGDOWN_LOCAL_ONLINE__;
 
@@ -20,7 +21,8 @@ function accountSession(session: Session | null): AccountSession | null {
   return typeof userId === 'string' && userId && typeof accessToken === 'string' && accessToken ? { userId, accessToken } : null;
 }
 
-export function connect(storageKey: string, { manualCallback = false }: { manualCallback?: boolean } = {}) {
+export function connect(storageKey: string, { manualCallback = false, apple = false }: { manualCallback?: boolean; apple?: boolean } = {}) {
+  const useApple = () => apple && appleSignInEnabled(import.meta.env);
   // PKCE: the sign-in page sends back a one-time code; this browser exchanges it with a verifier it kept.
   const { url, publishableKey } = publicAccountConfig(import.meta.env);
   const sb = createClient(url, publishableKey, { auth: {
@@ -34,8 +36,7 @@ export function connect(storageKey: string, { manualCallback = false }: { manual
     if (error) for (const k of [storageKey, `${storageKey}-code-verifier`]) localStorage.removeItem(k);
   };
   return {
-    // shortcut: the iOS app offers only the email code; Google or GitHub there needs ASWebAuthenticationSession and Sign in with Apple (App Review 4.8).
-    providers: async () => (await availableProviders(url, publishableKey)).filter(option => !inApp || option === 'email'),
+    providers: async () => (await availableProviders(url, publishableKey, { apple: useApple() })).filter(option => !inApp || option === 'email' || option === 'apple'),
     /** Called with the session now and on every change (null when signed out). */
     onSession(cb: (s: Session | null) => void): () => void {
       let active = true;
@@ -48,8 +49,8 @@ export function connect(storageKey: string, { manualCallback = false }: { manual
       if (error) throw error;
       return accountSession(data.session);
     },
-    async startAccountSignIn(provider: 'google' | 'github' | 'facebook', options: { entryPath?: '/next.html' } = {}): Promise<{ url: string; flowId: string }> {
-      if (provider !== 'google' && provider !== 'github' && !(provider === 'facebook' && options.entryPath === '/next.html')) throw new TypeError('Invalid sign-in provider');
+    async startAccountSignIn(provider: Provider, options: { entryPath?: '/next.html' } = {}): Promise<{ url: string; flowId: string }> {
+      if (inApp || provider !== 'google' && provider !== 'github' && !(provider === 'facebook' && options.entryPath === '/next.html') && !(provider === 'apple' && options.entryPath === '/next.html' && useApple())) throw new TypeError('Invalid sign-in provider');
       const as = LOCAL_ONLINE ? new URLSearchParams(location.search).get('as') ?? '' : '';
       const queryParams = LOCAL_ONLINE && /^[a-z][a-z0-9_-]{1,18}[a-z0-9]$/.test(as) ? { as } : undefined;
       const { data, error } = await sb.auth.signInWithOAuth({ provider, options: { redirectTo: location.origin + (options.entryPath ?? '/play/'), skipBrowserRedirect: true, ...(queryParams && { queryParams }) } });
@@ -64,6 +65,16 @@ export function connect(storageKey: string, { manualCallback = false }: { manual
       const session = accountSession(data.session);
       if (!session) throw new TypeError('Sign-in did not finish');
       return session;
+    },
+    async signInWithApple(): Promise<AccountSession> {
+      if (!inApp || !useApple()) throw new Error('Apple sign-in is off');
+      const { registerPlugin } = await import('@capacitor/core');
+      const result = await nativeAppleToken(registerPlugin<AppleBridge>('KingDownAppleSignIn'));
+      const { data, error } = await sb.auth.signInWithIdToken({ provider: 'apple', ...result });
+      if (error) throw error;
+      const current = accountSession(data.session);
+      if (!current) throw new Error('Sign-in did not finish');
+      return current;
     },
     async signInWithPassword(email: string, password: string): Promise<AccountSession> {
       if (!stagingPasswordSignInEnabled(import.meta.env)) throw new Error('Test sign-in is available only in staging');
@@ -85,6 +96,7 @@ export function connect(storageKey: string, { manualCallback = false }: { manual
       return session;
     },
     async signIn(provider: Provider): Promise<void> {
+      if (provider === 'apple') throw new Error('Use the new sign-in page');
       const { error } = await sb.auth.signInWithOAuth({ provider, options: { redirectTo: location.origin + location.pathname } });
       if (error) throw error;
     },

@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { Game } from '../../../game';
 import { DraftTurn } from '../../play/turn';
 import { memoryStorage } from '../fake-server';
-import { draftKey, keepDraft, onlineOptions, restoreDraft } from './index';
+import { draftKey, inviteURL, keepDraft, onlineOptions, restoreDraft } from './index';
 import { gameOrder, homeInvite, personGame, personTurn, personWords } from './games';
 import { computerPortrait } from './portrait';
 import type { PeopleState } from '../controller';
@@ -17,6 +17,33 @@ const state = (revision = 1) => {
   return { game, draft, view: { game_id: 'game-a', revision } } as PeopleState & { game: Game; draft: DraftTurn };
 };
 afterEach(() => vi.unstubAllGlobals());
+it('uses the public invite path in the app and keeps the website path', () => {
+  expect(inviteURL('fixture-token', 'capacitor://localhost', true)).toBe('https://kingdown.dev/j#fixture-token');
+  expect(inviteURL('fixture-token', 'https://site.test', false)).toBe('https://site.test/next.html#join=fixture-token');
+});
+it('binds deletion to the confirmed account, cleans only its drafts, then signs out after the server receipt', async () => {
+  vi.stubGlobal('location', new URL('https://kingdown.test/next.html')); vi.stubGlobal('history', { state: {}, replaceState: vi.fn() });
+  const tab = memoryStorage(); tab.setItem('kingdown.account-page.alice', 'private'); tab.setItem('kingdown.account-page.bob', 'keep');
+  vi.stubGlobal('sessionStorage', tab); vi.stubGlobal('navigator', {}); vi.stubGlobal('matchMedia', () => ({ matches: false }));
+  const memory = memoryStorage(), keys = () => [...memory.records.keys()];
+  const storage = { ...memory, key: (i: number) => keys()[i] ?? null, get length() { return keys().length; } };
+  storage.setItem('kingdown.people-draft.alice.game', 'private'); storage.setItem('kingdown.people-draft.bob.game', 'keep');
+  const order: string[] = []; let current = 'alice';
+  const auth = async () => ({ onSession: () => () => {}, readSession: async () => ({ userId: current, accessToken: 'fixture' }), signOut: async () => { order.push('signout'); } }) as never;
+  const send = vi.fn(async (input: RequestInfo | URL) => {
+    if (String(input).endsWith('/deletion')) { order.push('request'); return Response.json({ deletion: { run_after: '2026-12-01T00:00:00Z' } }); }
+    return Response.json({ me: { handle: 'alice', icon: null } });
+  });
+  const { onlineHost } = await import('./index');
+  const host = onlineHost({ auth, storage, fetch: send, rules: () => 'pieces', setRules() {}, changed() {}, open() {}, home() {}, toast() {} });
+  await host.signIn();
+  current = 'bob'; await expect(host.deleteAccount('alice')).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
+  expect(order).toEqual([]); expect(storage.getItem('kingdown.people-draft.alice.game')).toBe('private');
+  current = 'alice'; expect(await host.deleteAccount('alice')).toEqual({ runAfter: '2026-12-01T00:00:00Z', localCleared: true });
+  expect(order).toEqual(['request', 'signout']); expect(host.signedIn).toBe(false);
+  expect(storage.getItem('kingdown.people-draft.alice.game')).toBeNull(); expect(storage.getItem('kingdown.people-draft.bob.game')).toBe('keep');
+  expect(tab.getItem('kingdown.account-page.alice')).toBeNull(); expect(tab.getItem('kingdown.account-page.bob')).toBe('keep');
+});
 it('the three online choices use the existing options with no hidden army ordering', () => {
   expect(['pieces', 'powers', 'cards'].map(value => onlineOptions(value as 'pieces'))).toMatchObject([
     { fairy: true, arrangement: false, kingPowers: false, cards: false },

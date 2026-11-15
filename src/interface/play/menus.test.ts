@@ -64,6 +64,11 @@ it('launch decision 45: home does not wait for the board code or the symbol file
   expect(main).toMatch(/^shell\.start\(\);$/m);
   expect(main).not.toMatch(/symbolsReady\.then\(\(\) => shell\.start\(\)\)/);
 });
+it('keeps the hero action in the first view of a short screen after the wide hero rule', () => {
+  const menus = source('play/menus.css');
+  const shortHero = menus.slice(menus.indexOf('@media (min-width: 600px) { .home-hero'));
+  expect(shortHero).toMatch(/@media \(max-height: 499px\) \{\s*\.home-hero \{ max-height: calc\(100dvh - var\(--safe-top\) - var\(--safe-bottom\) - var\(--bar-phone\) - 80px\);/);
+});
 it('iOS needs P2, P4 and P5, and the 56 px phone bar of decision 30', () => {
   const components = source('ui/components.css'), menus = source('play/menus.css'), tokens = source('ui/tokens.css');
   expect(components).toMatch(/html\s*\{[^}]*-webkit-text-size-adjust:\s*100%/);

@@ -1,6 +1,8 @@
 import type { Client } from '../account/client';
 import type { AccountSession } from '../account/session';
 import { accountPath, parseAccountRoute, type AccountEntryRoute } from './routes';
+import type { Provider } from '../account/providers';
+import { appleSignInEnabled } from '../account/apple';
 
 const FLOW_KEY = 'kingdown.account-signin';
 const MAX_AGE_MS = 600_000;
@@ -33,9 +35,9 @@ export function signInPath(route: AccountEntryRoute, entryPath?: '/next.html'): 
   if (route.screen === 'join') return `${entryPath}#join=${route.key ?? ''}`;
   return entryPath + (route.screen === 'new-friend' ? '#person' : '#play');
 }
-export async function beginAccountSignIn(provider: 'google' | 'github' | 'facebook', target: string, host: SignInHost): Promise<void> {
+export async function beginAccountSignIn(provider: Provider, target: string, host: SignInHost): Promise<void> {
   const route = targetRoute(target, new URL(host.location.href).origin);
-  if (!route || (provider !== 'google' && provider !== 'github' && !(provider === 'facebook' && host.entryPath))) throw new TypeError('Invalid sign-in target');
+  if (!route || (provider !== 'google' && provider !== 'github' && !(provider === 'facebook' && host.entryPath) && !(provider === 'apple' && host.entryPath && appleSignInEnabled(import.meta.env)))) throw new TypeError('Invalid sign-in target');
   host.storage.removeItem(FLOW_KEY);
   const { url, flowId } = await (await host.client()).startAccountSignIn(provider, ...(host.entryPath ? [{ entryPath: host.entryPath }] : []));
   const created = host.now();

@@ -5,7 +5,7 @@ import { builtinModules } from 'node:module';
 import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { existsSync, readFileSync } from 'node:fs';
-import { cp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdir, rm, rmdir, symlink, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildRuntime } from './plugin-runtime-build.mjs';
@@ -23,6 +23,7 @@ export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNE
   const routes = chatgpt ? Object.entries(ART_TYPES).map(([type, contentType]) => ({ src: `^/plugin-art/[\\w-]+\\.${type}$`, headers: { ...ART_HEADERS, 'Content-Type': contentType }, continue: true })) : [];
   if (muse) for (const path of [...MUSE_PATHS, ...chatgpt ? [] : ['/authorize', '/consent.mjs']]) routes.push({ src: `^${path.replace(/[.]/g, '\\.')}$`, dest: '/mcp' });
   if (site) {
+    if (existsSync(resolve(site, '.well-known/apple-app-site-association'))) routes.push({ src: '^/\\.well-known/apple-app-site-association$', headers: { 'Content-Type': 'application/json' }, continue: true });
     routes.push({ src: '^/character-runtime/assets/[a-f0-9]{64}\\.webp$', headers: { 'Cache-Control': 'public, max-age=31536000, immutable' }, continue: true });
     routes.push({ src: '^/character-runtime/(?:index\\.json|parts/[^/]+\\.json)$', headers: { 'Cache-Control': 'no-cache' }, continue: true });
     const challenge = resolve(site, '.well-known/openai-apps-challenge');
@@ -33,6 +34,7 @@ export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNE
     }
     routes.push({ src: '^/internal/.+$', dest: '/internal' });
     routes.push({ src: '^/api(?:/.*)?$', dest: '/mcp' });
+    if (existsSync(resolve(site, 'solo-launch.json'))) routes.push({ src: '^/j/?$', dest: '/join.html' });
     routes.push({ src: '^/(?:play(?:/.*)?|g/[^/]+/?|j/?)$', dest: '/index.html' });
   }
   if (site && existsSync(resolve(site, 'solo-launch.json'))) {
@@ -118,9 +120,17 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
     if (site) {
       await cp(site, resolve(output, 'static'), { recursive: true });
       // A parked tree publishes no OpenAI domain challenge.
-      if (!chatgpt) await rm(resolve(output, 'static/.well-known'), { recursive: true, force: true });
+      if (!chatgpt) {
+        const known = resolve(output, 'static/.well-known');
+        await rm(resolve(known, 'openai-apps-challenge'), { force: true });
+        try { await rmdir(known); }
+        catch (error) { if (!['ENOENT', 'ENOTEMPTY'].includes(error.code)) throw error; }
+      }
       // The function entry (tools/plugin-server.mjs) dispatches these paths; Vercel keeps the request path.
       await symlink('mcp.func', resolve(output, 'functions/internal.func'));
+    }
+    if (site && existsSync(resolve(site, 'solo-launch.json'))) {
+      await writeFile(resolve(output, 'static/join.html'), '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Join King Down</title><script>location.replace("/next.html#join=" + location.hash.slice(1));</script></html>');
     }
     await writeFile(resolve(output, 'config.json'), JSON.stringify({ version: 3, routes }) + '\n');
     if (staging) {

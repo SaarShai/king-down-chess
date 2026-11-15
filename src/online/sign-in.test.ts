@@ -1,9 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { beginAccountSignIn, consumeSignInReturn, type SignInHost } from './sign-in';
 
 const origin = 'https://kingdown.test', key = 'kingdown.account-signin', flow = 'flow_12345678', otherFlow = 'flow_87654321';
 const target = '/g/abcdef12-3456-7890-abcd-1234567890ab';
 const session = { userId: 'user-a', accessToken: 'token-a' };
+afterEach(() => vi.unstubAllEnvs());
 const callback = (id = flow, code = 'one-use-code') => `/play/?code=${code}&sb_flow_id=${id}`;
 const record = (extra = {}) => ({ flow, target, created: 1_000_000, ...extra });
 
@@ -31,6 +32,15 @@ function tab(path = callback()) {
 }
 
 describe('checked account sign-in return', () => {
+  it('permits Apple only on the new page with the release switch and keeps the invite target', async () => {
+    const t = tab('/next.html#join=ABC234'); t.host.entryPath = '/next.html';
+    await expect(beginAccountSignIn('apple', '/j#ABC234', t.host)).rejects.toThrow('Invalid sign-in target');
+    vi.stubEnv('VITE_KINGDOWN_APPLE_SIGN_IN', '1');
+    await beginAccountSignIn('apple', '/j#ABC234', t.host);
+    expect(t.client.startAccountSignIn).toHaveBeenCalledExactlyOnceWith('apple', { entryPath: '/next.html' });
+    expect(JSON.parse(t.records.get(key)!)).toMatchObject({ target: '/j#ABC234' });
+    const old = tab('/play/'); await expect(beginAccountSignIn('apple', '/j#ABC234', old.host)).rejects.toThrow('Invalid sign-in target');
+  });
   it('A05 saves only a checked route, flow and date before it leaves for the provider', async () => {
     const t = tab('/j#ABC234');
     await beginAccountSignIn('github', '/j?next=unchecked#abc-234', t.host);

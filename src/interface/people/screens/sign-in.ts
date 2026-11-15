@@ -1,6 +1,6 @@
 /**
  * The sign-in sheet (account spec S1), the email code (S2), the name sheet (S3) and the sheet "Sign-in does not work
- * now" (S11), in the design project's `runs/account/account-spec.md`. No Apple. The host gives the sign-in service
+ * now" (S11), in the design project's `runs/account/account-spec.md`. The host gives the sign-in service
  * and the server; the sheet changes no data itself. After sign-in the task goes on by itself (`done`).
  */
 import { button, setButtonState } from '../../ui/kit.js';
@@ -83,9 +83,11 @@ export function signInSheet(sheet: PeopleSheet, host: SignInHost, purpose: Purpo
         host.start(way).then(() => { if (sheet.isOpen) done(); }, (error: unknown) => {
           if (!sheet.isOpen) return;
           setButtonState(control, { label: signInText.way(way) });
-          say(status, (error as { code?: unknown })?.code === 'user_banned' ? signInText.suspended : signInText.noReach);
+          const code = (error as { code?: unknown })?.code;
+          say(status, code === 'CANCELED' ? '' : code === 'user_banned' ? signInText.suspended : signInText.noReach);
         });
       } });
+      if (way === 'apple') control.classList.add('apple-sign-in');
       return control;
     }));
     sheet.show({ title: titleOf(purpose), body: [node('p', '', purpose.kind === 'again' ? signInText.againLine : signInText.line), status, list, plain(signInText.notNow, () => sheet.close()), small, legal] });

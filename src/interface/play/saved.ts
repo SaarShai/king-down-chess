@@ -6,7 +6,7 @@ import type { SkillName } from '../../ai/skill';
 import type { Game } from '../../game';
 import { GameRules } from '../../game-rules';
 import { stamp } from '../../account/sync';
-import { canon, canWriteLocal, gameTime } from '../../account/local';
+import { canon, canWriteLocal, gameTime, localAccess, KEPT_KEY, OFFERED_KEY } from '../../account/local';
 import { gameJSON, readSave, savedGame, storedSettings, writeSave, SAVE_KEY, type Save } from '../../screen/save';
 import { finishLinkedTurn, stagedPlies, turnEnded } from '../../turn';
 import { POWERS_BALANCED, type Rules } from '../../rules/rules';
@@ -36,7 +36,7 @@ export const storedChoice = (key: string, values: readonly string[]): string => 
 };
 export const storeChoice = (key: string, value: string): void => { try { localStorage.setItem(key, value); } catch { /* private mode */ } };
 
-export const KEPT_KEY = 'kingdown.save.kept';
+export { KEPT_KEY, OFFERED_KEY } from '../../account/local';
 /**
  * none: no data. empty: a save with no move. resume: Continue opens it. finished: a game over.
  * kept: the page cannot open it (decision 7, and unreadable bytes). blocked: storage refuses, or the data belongs to another account's tab.
@@ -133,9 +133,12 @@ function playedOn(was: string, raw: string): boolean {
 export function keepCopy(raw: string | undefined): 'copied' | 'already' | 'full' | 'failed' {
   try {
     if (raw === undefined || !canWriteLocal(localStorage)) return 'failed';
+    const owner = localAccess(localStorage).userId ?? 'anonymous';
     const was = localStorage.getItem(KEPT_KEY);
+    if (was !== null && (localStorage.getItem(KEPT_KEY + '.owner') ?? 'anonymous') !== owner) return 'full';
     if (was === raw) return 'already';
     if (was !== null && !playedOn(was, raw)) return 'full';
+    if (was === null) localStorage.setItem(KEPT_KEY + '.owner', owner);
     localStorage.setItem(KEPT_KEY, raw);
     return 'copied';
   } catch { return 'failed'; }
@@ -240,8 +243,7 @@ export function beforeNewGame(writer: SaveWriter): void {
 }
 
 /** The answer to the kept-game offer. It is kept for this page load when storage refuses it. */
-export const OFFERED_KEY = 'kingdown.save.kept-offered';
-let answeredHere: string | null = null;
+let answeredHere: { raw: string; owner: string } | null = null;
 export interface KeptOffer { raw: string; save: Save; resume: { game: Game; draft: DraftTurn; player: Color } }
 /**
  * A kept copy that this page can open now (a Dark game that an earlier version kept), offered once for each kept
@@ -250,9 +252,13 @@ export interface KeptOffer { raw: string; save: Save; resume: { game: Game; draf
  */
 export function keptOffer(current: Stored): KeptOffer | null {
   if (current.kind === 'kept' || current.kind === 'blocked') return null;
-  let raw: string | null, answered: string | null, now: string | null;
-  try { raw = localStorage.getItem(KEPT_KEY); answered = localStorage.getItem(OFFERED_KEY); now = localStorage.getItem(SAVE_KEY); } catch { return null; }
-  if (raw === null || raw === answered || raw === answeredHere || raw === now) return null;
+  let raw: string | null, answered: string | null, now: string | null, owner: string, answeredOwner: string;
+  try {
+    owner = localAccess(localStorage).userId ?? 'anonymous';
+    if (!canWriteLocal(localStorage) || (localStorage.getItem(KEPT_KEY + '.owner') ?? 'anonymous') !== owner) return null;
+  } catch { return null; }
+  try { raw = localStorage.getItem(KEPT_KEY); answered = localStorage.getItem(OFFERED_KEY); answeredOwner = localStorage.getItem(OFFERED_KEY + '.owner') ?? 'anonymous'; now = localStorage.getItem(SAVE_KEY); } catch { return null; }
+  if (raw === null || (raw === answered && owner === answeredOwner) || (raw === answeredHere?.raw && owner === answeredHere.owner) || raw === now) return null;
   if (now !== null && (playedOn(raw, now) || playedOn(now, raw))) return null;
   try {
     const save: Save = JSON.parse(raw), sorted = sortSave(save, raw, savedGame(save).history.length < save.moves.length);
@@ -261,5 +267,13 @@ export function keptOffer(current: Stored): KeptOffer | null {
 }
 /** Record the answer. The kept copy stays as it is. */
 export function answerOffer(raw: string): void {
-  try { localStorage.setItem(OFFERED_KEY, raw); } catch { answeredHere = raw; /* the answer lasts for this page load */ }
+  let owner = 'anonymous';
+  try {
+    if (!canWriteLocal(localStorage) || localStorage.getItem(KEPT_KEY) !== raw) return;
+    owner = localStorage.getItem(KEPT_KEY + '.owner') ?? 'anonymous';
+    if (owner !== (localAccess(localStorage).userId ?? 'anonymous')) return;
+    if (localStorage.getItem(OFFERED_KEY) !== null && (localStorage.getItem(OFFERED_KEY + '.owner') ?? 'anonymous') !== owner) { answeredHere = { raw, owner }; return; }
+    localStorage.setItem(OFFERED_KEY + '.owner', owner);
+    localStorage.setItem(OFFERED_KEY, raw);
+  } catch { answeredHere = { raw, owner }; /* the answer lasts for this page load */ }
 }
