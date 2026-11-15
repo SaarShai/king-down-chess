@@ -108,7 +108,7 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
   const key=`${character}:${army}`;let entry=stillArt[key];
   if(!entry){
    const image=pageImage();
-   entry=stillArt[key]={body:null,done:false,loaded:new Promise(resolve=>{image.onload=()=>{entry.done=true;entry.body={image,pivot:meta.pivot,size:meta.size,scale:bankScale({character,boardScale:meta.boardScale,registrationHeightPx:meta.registrationHeightPx}),unitHeight:meta.registrationHeightPx,footprint:meta.footprint};wake();resolve();};image.onerror=()=>{entry.done=true;onArtError?.(image.src);resolve();};})};
+   entry=stillArt[key]={body:null,done:false,loaded:new Promise(resolve=>{image.onload=()=>{entry.done=true;entry.body={image,pivot:meta.pivot,size:meta.size,scale:bankScale({character,boardScale:meta.boardScale,registrationHeightPx:meta.registrationHeightPx}),unitHeight:meta.registrationHeightPx,footprint:meta.footprint};wake();resolve();};image.onerror=()=>{entry.done=true;if(!disposed)onArtError?.(image.src);resolve();};})};
    image.src=publicUrl(`/ui/pieces/${character}-${army[0]}.webp`);
   }
   return entry;
@@ -1245,8 +1245,16 @@ function drawEncounter(a,t) {
   /** Board square under a point in canvas pixels, or null. */
   squareAt(x,y){y-=headroom;const col=Math.floor((x-PAD)/TILE),row=Math.floor((y-PAD)/TILE);if(col<0||col>7||row<0||row>7)return null;return flipped?row*8+(7-col):(7-row)*8+col;},
   // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
-  load(){afterBoard(()=>demise.prepare());const board=new Promise((resolve,reject)=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).then(resolve,initialBoardArt?reject:resolve);boardArt.onerror=initialBoardArt?reject:resolve;boardArt.src=initialBoardArt??BOARD_ART;}); /* decoded, so the first frame has the stone */
-   const sheets=()=>[...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))],start=()=>{ready=true;warmBodies();wake();};
+  load(){afterBoard(()=>demise.prepare());const board=new Promise((resolve,reject)=>{
+    // One cold-play budget covers both the response and decode; only the new surface opts in.
+    const timer=initialBoardArt?setTimeout(()=>finish(new Error('The board art takes too long.')),5000):null;
+    let settled=false;
+    const finish=error=>{if(settled)return;settled=true;clearTimeout(timer);boardArt.onload=boardArt.onerror=null;if(error&&initialBoardArt)reject(error);else resolve();};
+    boardArt.onload=()=>Promise.resolve().then(()=>boardArt.decode?.()).then(()=>finish(),finish);
+    boardArt.onerror=()=>finish(new Error('The board art cannot load.'));
+    boardArt.src=initialBoardArt??BOARD_ART;
+   }); /* decoded, so the first frame has the stone */
+   const sheets=()=>[...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))],start=()=>{if(disposed)return;ready=true;warmBodies();wake();};
    // lazySheets: the first frame needs only the stone and the rest stills; the legacy sheets (3 MB) load after that frame.
    if(late)return board.then(()=>warmStills()).then(start).finally(()=>{firstFrameLoads=()=>{boardReady();void Promise.all(sheets().map(sheet=>sheet.then(()=>wake()))).catch(()=>{});};});
    return Promise.all([board,...sheets()]).then(()=>{const stills=warmStills();return stills?stills.then(start):start();}).finally(boardReady);},

@@ -1309,9 +1309,8 @@ function showAccount(host?: OnlineHost) {
   const section = el('section', 'you-account'), me = host?.host.me();
   section.append(el('h2', '', 'Account'));
   if (host && me) {
-    const userId = host.userId!;
     const blocked: HTMLButtonElement = button('Blocked players', { onPress: () => blockedPlayers(host.safety, blocked) });
-    const remove: HTMLButtonElement = button('Delete account', { kind: 'danger', onPress: () => deleteAccount(remove, () => host.deleteAccount(userId)) });
+    const remove: HTMLButtonElement = button('Delete account', { kind: 'danger', onPress: () => deleteAccount(remove, host.deletion) });
     section.append(profilePortrait(me.handle ?? host.user?.name ?? 'Player', host.user?.avatar), el('p', '', me.handle ?? 'Player'), button('Sign out', { onPress: () => { void host.signOut().catch(() => announce('Sign-out cannot finish. Try again.')); } }), blocked, remove);
   }
   else if (!host) section.append(el('p', '', 'Checking sign-in…'));

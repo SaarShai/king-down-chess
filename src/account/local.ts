@@ -4,6 +4,7 @@ import type { Save } from '../screen/save';
 type LocalStore = Pick<Storage, 'getItem' | 'setItem' | 'removeItem' | 'length' | 'key'>;
 const LOCAL_KEYS = ['kingdown.save', 'kingdown.lessons', 'kingdown.sync'];
 export const KEPT_KEY = 'kingdown.save.kept', OFFERED_KEY = 'kingdown.save.kept-offered';
+export const deletedAccountKey = (userId: string) => `kingdown.deleted-account.${userId}`;
 const OWNER = 'kingdown.sync-owner', COPIES = 'kingdown.local.';
 type LocalCopy = (string | null)[];
 type Owner = { userId: string; restore?: LocalCopy; accounts?: string[] };

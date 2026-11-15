@@ -11,10 +11,11 @@ import { emailCodeForm, forgetEmailCode } from './email-code';
 import { allowedAvatarUrl } from './public-config';
 import { AUTH_KEY } from './session';
 import { canWriteLocal } from './local';
-import { apiOrigin } from '../platform';
+import { apiOrigin, inApp } from '../platform';
 export type User = { name: string; avatar: string | null; provider: string };
 type AuthUser = { user_metadata?: Record<string, unknown>; app_metadata?: Record<string, unknown> };
 declare const __KINGDOWN_MUSE__: boolean;
+declare const __KINGDOWN_SOLO_LAUNCH__: boolean;
 /** On only in a build that serves the Muse connector (tools/muse-connector.mjs, vite.config.ts). */
 const MUSE = typeof __KINGDOWN_MUSE__ === 'boolean' && __KINGDOWN_MUSE__;
 
@@ -41,7 +42,7 @@ export function userOf(u: AuthUser | null | undefined): User | null {
 }
 
 /** The Account section's content. The name and picture come from outside the game, so both are escaped. */
-export function accountHtml(user: User | null, facebook: boolean, available: readonly SignInOption[] = [], muse = MUSE): string {
+export function accountHtml(user: User | null, facebook: boolean, available: readonly SignInOption[] = [], muse = MUSE, newDeletion = false): string {
   // The app's own page path opens nothing there (capacitor://localhost); its stage's site opens in the system browser.
   const links = `<p class="account-links"><a href="${apiOrigin}/privacy.html" target="_blank" rel="noopener">Privacy</a>`
     + `<a href="${apiOrigin}/terms.html" target="_blank" rel="noopener">Terms</a></p>`;
@@ -59,7 +60,7 @@ export function accountHtml(user: User | null, facebook: boolean, available: rea
     + '<small>Your settings, lessons and saved game are kept with your account.</small>'
     + '<button type="button" data-act="sign-out">Sign out</button>'
     + (muse ? '<button type="button" class="quiet" data-act="disconnect-muse">Disconnect Muse</button>' : '')
-    + '<button type="button" class="quiet" data-act="delete">Delete my account</button>'
+    + (newDeletion ? '<a class="menu-row" href="/next.html#you">Delete my account</a>' : '<button type="button" class="quiet" data-act="delete">Delete my account</button>')
     + links;
 }
 
@@ -85,7 +86,7 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
   const keep = (t: string): void => { keptNote = t; say(t); };
   const render = (): void => {
     const hadFocus = body.contains(document.activeElement);
-    body.innerHTML = accountHtml(user, facebook, providers);
+    body.innerHTML = accountHtml(user, facebook, providers, MUSE, inApp && typeof __KINGDOWN_SOLO_LAUNCH__ === 'boolean' && __KINGDOWN_SOLO_LAUNCH__);
     // One form across redraws, so a code on its way keeps its step and typed address.
     if (user) { emailForm = null; forgetEmailCode(); }
     else if (providers.includes('email')) body.querySelector('small')!.before(emailForm ??= emailCodeForm(load, say));

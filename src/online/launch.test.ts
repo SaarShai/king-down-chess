@@ -8,9 +8,11 @@ import type { OnlineClient } from './client';
 import { installLocalSolo, soloSave } from './launch';
 import { createWebTransport } from './runtime';
 
+const platform = vi.hoisted(() => ({ inApp: false }));
+vi.mock('../platform', () => platform);
 const records = new Map<string, string>();
 beforeEach(() => vi.stubGlobal('localStorage', { getItem: (key: string) => records.get(key) ?? null, setItem: (key: string, value: string) => { records.set(key, value); }, removeItem: (key: string) => { records.delete(key); }, get length() { return records.size; }, key: (i: number) => [...records.keys()][i] ?? null }));
-afterEach(() => { records.clear(); vi.unstubAllGlobals(); });
+afterEach(() => { platform.inApp = false; records.clear(); vi.unstubAllGlobals(); });
 function view(seat: 0 | 1 = 0): View {
   const game = new Game('RNBQKBNR'), fen = toFen(game.pos);
   const move = game.legal.find(move => game.context.toLan(game.pos, move) === 'e2-e4')!; game.play(move);
@@ -66,6 +68,8 @@ it('connects the legal Account labels to their real handlers and keeps retry aft
     await controls[0].onclick!(); expect(disconnectMuse).toHaveBeenCalledOnce(); expect(note.textContent).toContain('Muse is disconnected');
     await controls[1].onclick!(); expect(note.textContent).toContain('Could not finish'); expect(controls.every(button => !button.disabled)).toBe(true); expect(replace).not.toHaveBeenCalled();
     await controls[1].onclick!(); expect(deleteAccount).toHaveBeenCalledTimes(2); expect(replace).toHaveBeenCalledWith('/play/');
+    platform.inApp = true; const assign = vi.fn(); vi.stubGlobal('location', { assign });
+    await controls[1].onclick!(); expect(assign).toHaveBeenCalledExactlyOnceWith('/next.html#you'); expect(deleteAccount).toHaveBeenCalledTimes(2);
   } finally { vi.unstubAllGlobals(); }
 });
 

@@ -9,8 +9,9 @@ import { DEFAULT_OPTIONS } from '../../../match/setup';
 import { onlineClient, OnlineError } from '../../../online/client';
 import { beginAccountSignIn, consumeSignInReturn, type SignInHost as ReturnHost } from '../../../online/sign-in';
 import { apiOrigin, inApp } from '../../../platform';
-import { clearDeletedAccount } from '../../../account/local';
+import { clearDeletedAccount, deletedAccountKey } from '../../../account/local';
 import { peopleController, type PeopleState } from '../controller';
+import { receiptStore } from '../receipt';
 import { peopleServer } from '../server';
 import { toFen } from '../../../rules/setup';
 import { DraftTurn } from '../../play/turn';
@@ -18,6 +19,15 @@ import { restage } from '../replica';
 import type { PersonHost, Player, Rules } from '../screens/person';
 import type { LandingHost } from '../screens/landing';
 import type { ReadyName } from '../screens/names';
+
+// A token refresh keeps the auth session. A new sign-in gets a different session_id.
+function sessionKey(value: AccountSession): string {
+  try {
+    const key = JSON.parse(atob(value.accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).session_id;
+    if (typeof key === 'string' && key) return key;
+  } catch { /* Opaque tokens compare by their exact bytes. */ }
+  return value.accessToken;
+}
 
 export function inviteURL(token: string, origin = location.origin, app = inApp): string {
   if (app) return 'https://kingdown.dev/j#' + token;
@@ -52,12 +62,12 @@ export interface HostOptions {
 }
 export function onlineHost(options: HostOptions) {
   const storage = options.storage ?? localStorage;
-  let authPromise: Promise<Client> | undefined, session: AccountSession | null = null, user: User | null = null;
+  let authPromise: Promise<Client> | undefined, session: AccountSession | null = null, user: User | null = null, writeState: string | null = null;
   let profile: { handle: string | null; icon: Icon | null } | null = null, views: View[] = [], loading: Promise<void> | undefined;
   let incomingInvites: InvitationRow[] = [], inviteUpdates: InvitationRow[] = [], cachedKnown: Player[] = [];
   let controller: ReturnType<typeof peopleController> | undefined, stop = () => {}, unsubscribe = () => {}, epoch = 0;
-  const safetyListeners = new Set<() => void>();
-  const closeSafety = () => { for (const close of [...safetyListeners]) close(); };
+  const safetyListeners = new Set<(nextUser?: string) => void>();
+  const closeSafety = (nextUser?: string) => { for (const close of [...safetyListeners]) close(nextUser); };
   const inviteSeenKey = (userId: string, inviteId: string) => `kingdown.invite-seen.${userId}.${inviteId}`;
   const knownAvatar = (handle: string): string | null => {
     for (const view of views) {
@@ -72,8 +82,8 @@ export function onlineHost(options: HostOptions) {
   const auth = () => authPromise ??= (options.auth ? options.auth() : import('../../../account/client').then(m => m.connect(AUTH_KEY, { manualCallback: true, apple: true }))).then(client => {
     client.onSession(current => {
       user = userOf(current?.user);
-      if (session && current?.user.id !== session.userId) {
-        epoch++; closeSafety(); stopGame(); session = null; profile = null; views = []; incomingInvites = []; inviteUpdates = []; cachedKnown = []; options.home(); options.changed();
+      if (current?.user.id !== session?.userId || session && current && typeof current.access_token === 'string' && sessionKey({ userId: current.user.id, accessToken: current.access_token }) !== sessionKey(session)) {
+        epoch++; closeSafety(current?.user.id); stopGame(); session = null; profile = null; views = []; incomingInvites = []; inviteUpdates = []; cachedKnown = []; options.home(); options.changed();
       }
       options.changed();
     });
@@ -108,12 +118,16 @@ export function onlineHost(options: HostOptions) {
     };
   }
   const returnHost: ReturnHost = { entryPath: '/next.html', location, history, storage: sessionStorage, now: Date.now, client: auth };
+  const canWriteAccount = () => session && writeState !== 'deleted' && storage.getItem(deletedAccountKey(session.userId)) === writeState;
   function stopGame() { stop(); unsubscribe(); stop = unsubscribe = () => {}; controller = undefined; }
   async function signIn() {
     const current = await (await auth()).readSession();
-    if (session?.userId !== current?.userId) { epoch++; closeSafety(); stopGame(); views = []; incomingInvites = []; inviteUpdates = []; cachedKnown = []; }
+    if (session?.userId !== current?.userId) { epoch++; closeSafety(current?.userId); stopGame(); views = []; incomingInvites = []; inviteUpdates = []; cachedKnown = []; }
     session = current;
     profile = current ? (await api.settings()).me : null;
+    // A new sign-in opens a new writer. Other tabs keep their old mark.
+    if (current && storage.getItem(deletedAccountKey(current.userId)) === 'deleted') storage.setItem(deletedAccountKey(current.userId), crypto.randomUUID());
+    writeState = current ? storage.getItem(deletedAccountKey(current.userId)) : null;
     options.changed();
     return current;
   }
@@ -222,7 +236,7 @@ export function onlineHost(options: HostOptions) {
     share: navigator.share ? data => navigator.share(data) : undefined,
     coarse: matchMedia('(pointer: coarse)').matches,
   };
-  return {
+  const resultHost = {
     async copyLink(id: string) {
       const link = await api.invite(id), { copyText } = await import('../../../clipboard');
       if (!await copyText(inviteURL(link.token))) throw new Error('The link cannot copy.');
@@ -243,7 +257,7 @@ export function onlineHost(options: HostOptions) {
       void refresh();
     },
     dismissInvite(invite: InvitationRow) {
-      if (session) try { storage.setItem(inviteSeenKey(session.userId, invite.invite_id), invite.state); } catch { /* This update can show again. */ }
+      if (session) try { if (canWriteAccount()) storage.setItem(inviteSeenKey(session.userId, invite.invite_id), invite.state); } catch { /* This update can show again. */ }
       inviteUpdates = inviteUpdates.filter(i => i.invite_id !== invite.invite_id);
       options.changed();
     },
@@ -269,7 +283,7 @@ export function onlineHost(options: HostOptions) {
           if (state.view.status === 'finished' && state.view.revision !== seen) { seen = state.view.revision; void api.record().then(record => {
             if (controller !== current) return;
             const row = record.history.find(row => row.game_id === id);
-            if (row) try { storage.setItem(`kingdown.people-seen.${session!.userId}.${id}`, row.finished_at); } catch { /* This result can show again. */ }
+            if (row) try { if (canWriteAccount()) storage.setItem(`kingdown.people-seen.${session!.userId}.${id}`, row.finished_at); } catch { /* This result can show again. */ }
           }).catch(() => {}); }
         }
         change(current.state());
@@ -278,30 +292,51 @@ export function onlineHost(options: HostOptions) {
     },
     saveDraft() {
       if (!session || !controller) return true;
-      try { keepDraft(storage, session.userId, controller.state()); return true; }
+      try { if (canWriteAccount()) keepDraft(storage, session.userId, controller.state()); return true; }
       catch { options.toast('This device cannot save your unsent turn. Send it before you close the page.'); return false; }
     },
-    async deleteAccount(expectedUser: string) {
-      // Bind the request to the account shown in the confirm sheet, including across an auth event.
-      const scoped = onlineClient({ origin: apiOrigin, fetch: options.fetch, token: async () => {
-        const current = await (await auth()).readSession();
-        return current?.userId === expectedUser && session?.userId === expectedUser ? current.accessToken : null;
-      } });
-      const result = await scoped.requestDeletion();
-      if (!result.deletion || !Number.isFinite(Date.parse(result.deletion.run_after))) throw new Error('No deletion receipt');
-      let localCleared = true;
-      try {
-        if (typeof storage.length !== 'number' || !storage.key) throw new Error('Storage cannot list keys');
-        clearDeletedAccount(storage as Storage, expectedUser);
-        sessionStorage.removeItem('kingdown.email-code');
-        sessionStorage.removeItem('kingdown.account-page.' + expectedUser);
-        sessionStorage.removeItem('kingdown.account-signin');
-      } catch { localCleared = false; }
-      if (session?.userId === expectedUser) await this.signOut();
-      options.toast('Deletion requested. Sign in before deletion to cancel.');
-      return { runAfter: result.deletion.run_after, localCleared };
+    get deletion() {
+      const opening = session, mark = epoch;
+      let expectedSignOut = false;
+      const listeners = new Set<() => void>();
+      const keys = ['kingdown.email-code', 'kingdown.account-page.' + opening?.userId, 'kingdown.account-signin'];
+      let records: (string | null)[] | undefined;
+      try { records = keys.map(key => sessionStorage.getItem(key)); } catch { /* Report incomplete cleanup with the receipt. */ }
+      const current = async () => {
+        const live = await (await auth()).readSession();
+        if (opening && live?.userId === opening.userId && sessionKey(live) === sessionKey(opening) && session === opening && mark === epoch) return live;
+        for (const close of listeners) close();
+        throw new OnlineError('UNAUTHENTICATED', 401, 'The account changes.');
+      };
+      return {
+        onAccountChange(close: () => void) {
+          const changed = (nextUser?: string) => { if (!expectedSignOut || nextUser) close(); };
+          listeners.add(close); safetyListeners.add(changed);
+          if (!opening || session !== opening || mark !== epoch) close();
+          return () => { listeners.delete(close); safetyListeners.delete(changed); };
+        },
+        async remove() {
+          const scoped = onlineClient({ origin: apiOrigin, fetch: options.fetch, token: async () => (await current()).accessToken });
+          const result = await scoped.requestDeletion();
+          if (!result.deletion || !Number.isFinite(Date.parse(result.deletion.run_after))) throw new Error('No deletion receipt');
+          let localCleared = true;
+          try {
+            if (typeof storage.length !== 'number' || !storage.key) throw new Error('Storage cannot list keys');
+            await receiptStore(opening!.userId, storage).clearAccount(() => clearDeletedAccount(storage as Storage, opening!.userId));
+            if (!records) throw new Error('Storage cannot read sign-in records');
+            keys.forEach((key, i) => { if (records[i] !== null && sessionStorage.getItem(key) === records[i]) sessionStorage.removeItem(key); });
+          } catch { localCleared = false; }
+          // Auth events can reach this tab after the full reply and local cleanup.
+          await current();
+          expectedSignOut = true;
+          await resultHost.signOut();
+          options.toast('Deletion requested. Sign in before deletion to cancel.');
+          return { runAfter: result.deletion.run_after, localCleared };
+        },
+      };
     },
     async signOut() { epoch++; closeSafety(); stopGame(); await (await auth()).signOut(); session = null; profile = null; user = null; views = []; incomingInvites = []; inviteUpdates = []; cachedKnown = []; options.home(); options.changed(); },
   };
+  return resultHost;
 }
 export type OnlineHost = ReturnType<typeof onlineHost>;

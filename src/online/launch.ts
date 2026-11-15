@@ -1,6 +1,7 @@
 /** The launch build alone adds local solo and account controls to the old web entry. */
 import { Game } from '../game';
 import { readSave, savedGame, writeSave, type Save } from '../screen/save';
+import { inApp } from '../platform';
 import { localAccess } from '../account/local';
 import { toFen } from '../rules/setup';
 import { DEFAULT_RULES, POWERS_BALANCED, RULES_2017, RULES_2021, parseKings, type KingChoice } from '../rules/rules';
@@ -129,7 +130,9 @@ export function installAccountControls(auth: Pick<Client, 'deleteAccount' | 'dis
   function control(label: string, question: string, action: () => Promise<string>) {
     const button = document.createElement('button'); button.className = 'menu-row'; button.type = 'button'; button.textContent = label;
     button.onclick = async () => {
-      if (window.top !== window.self || !confirm(question)) return;
+      if (window.top !== window.self) return;
+      if (inApp && label === 'Delete my account') { location.assign('/next.html#you'); return; }
+      if (!confirm(question)) return;
       section.querySelectorAll('button').forEach(button => { button.disabled = true; });
       try { note.textContent = await action(); }
       catch { note.textContent = 'Could not finish. Check your connection and try again.'; }

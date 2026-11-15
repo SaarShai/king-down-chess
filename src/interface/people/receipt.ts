@@ -5,6 +5,7 @@
  * one saved command for each account, written before the send. The fix is in the controller: a read with a higher
  * revision settles the receipt, and the player can discard it after two failed checks.
  */
+import { deletedAccountKey } from '../../account/local';
 import type { Action } from '../../match/protocol';
 
 export const receiptKey = (userId: string) => `kingdown.account-command.${userId}`;
@@ -52,7 +53,7 @@ type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 export class ReceiptBusy extends Error { constructor() { super('Retry the saved command before you start another command.'); this.name = 'ReceiptBusy'; } }
 
 export function receiptStore(userId: string, storage: Store, locks: LockManager | undefined = browserLocks()) {
-  const key = receiptKey(userId);
+  const key = receiptKey(userId), stateKey = deletedAccountKey(userId), openingState = storage.getItem(stateKey);
   let unreadable: string | null = null;
   const locked = <T>(run: () => T) => locks ? locks.request(key, async () => run()) : Promise.resolve().then(run);
   /** The saved receipt; 'unreadable' when the stored bytes are not a receipt. */
@@ -68,8 +69,14 @@ export function receiptStore(userId: string, storage: Store, locks: LockManager 
   }
   return {
     read,
+    /** Close queued writers before cleanup waits for the same account lock. */
+    clearAccount(remove: () => void) {
+      storage.setItem(stateKey, 'deleted');
+      return locked(remove);
+    },
     /** Write the receipt before the send. The same receipt again is a retry. */
     hold: (receipt: Receipt) => locked(() => {
+      if (storage.getItem(stateKey) === 'deleted' || storage.getItem(stateKey) !== openingState) throw new Error('The account data is deleted.');
       const text = JSON.stringify(receipt), raw = storage.getItem(key);
       if (raw && raw !== text) throw new ReceiptBusy();
       storage.setItem(key, text);

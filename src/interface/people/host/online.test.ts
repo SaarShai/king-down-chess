@@ -28,21 +28,27 @@ it('binds deletion to the confirmed account, cleans only its drafts, then signs 
   const memory = memoryStorage(), keys = () => [...memory.records.keys()];
   const storage = { ...memory, key: (i: number) => keys()[i] ?? null, get length() { return keys().length; } };
   storage.setItem('kingdown.people-draft.alice.game', 'private'); storage.setItem('kingdown.people-draft.bob.game', 'keep');
-  const order: string[] = []; let current = 'alice';
-  const auth = async () => ({ onSession: () => () => {}, readSession: async () => ({ userId: current, accessToken: 'fixture' }), signOut: async () => { order.push('signout'); } }) as never;
+  const token = (session: string, at: number) => 'fixture.' + btoa(JSON.stringify({ session_id: session, iat: at })) + '.signature';
+  const order: string[] = []; let current = 'alice', accessToken = token('opening-session', 1);
+  const auth = async () => ({ onSession: () => () => {}, readSession: async () => ({ userId: current, accessToken }), signOut: async () => { order.push('signout'); } }) as never;
   const send = vi.fn(async (input: RequestInfo | URL) => {
-    if (String(input).endsWith('/deletion')) { order.push('request'); return Response.json({ deletion: { run_after: '2026-12-01T00:00:00Z' } }); }
+    if (String(input).endsWith('/deletion')) { accessToken = token('opening-session', 2); order.push('request'); return Response.json({ deletion: { run_after: '2026-12-01T00:00:00Z' } }); }
     return Response.json({ me: { handle: 'alice', icon: null } });
   });
   const { onlineHost } = await import('./index');
   const host = onlineHost({ auth, storage, fetch: send, rules: () => 'pieces', setRules() {}, changed() {}, open() {}, home() {}, toast() {} });
   await host.signIn();
-  current = 'bob'; await expect(host.deleteAccount('alice')).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
+  const deletion = host.deletion;
+  current = 'bob'; await expect(deletion.remove()).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
   expect(order).toEqual([]); expect(storage.getItem('kingdown.people-draft.alice.game')).toBe('private');
-  current = 'alice'; expect(await host.deleteAccount('alice')).toEqual({ runAfter: '2026-12-01T00:00:00Z', localCleared: true });
+  current = 'alice'; expect(await host.deletion.remove()).toEqual({ runAfter: '2026-12-01T00:00:00Z', localCleared: true });
   expect(order).toEqual(['request', 'signout']); expect(host.signedIn).toBe(false);
   expect(storage.getItem('kingdown.people-draft.alice.game')).toBeNull(); expect(storage.getItem('kingdown.people-draft.bob.game')).toBe('keep');
   expect(tab.getItem('kingdown.account-page.alice')).toBeNull(); expect(tab.getItem('kingdown.account-page.bob')).toBe('keep');
+  await host.signIn();
+  const { receiptStore, receiptOf } = await import('../receipt');
+  await receiptStore('alice', storage).hold(receiptOf('new-game', 1, { type: 'resign' }, 'new-command'));
+  expect(storage.getItem('kingdown.account-command.alice')).toContain('new-command');
 });
 it('the three online choices use the existing options with no hidden army ordering', () => {
   expect(['pieces', 'powers', 'cards'].map(value => onlineOptions(value as 'pieces'))).toMatchObject([
@@ -220,4 +226,57 @@ it('propagates social avatars to home rows while hiding email and deleted photos
     expect(personGame(carolView)).toMatchObject({ name: 'carol', avatar: null });
     expect(personGame({ ...carolView, opponent: { ...carolView.opponent!, deleted: true } })).toMatchObject({ name: 'Deleted player', avatar: null });
   } finally { await service.close(); }
+});
+
+for (const eventFirst of [false, true]) it(`keeps another session and newer sign-in records when the deletion reply is late, event first: ${eventFirst}`, async () => {
+  vi.stubGlobal('location', new URL('https://kingdown.test/next.html')); vi.stubGlobal('history', { state: {}, replaceState() {} });
+  const tab = memoryStorage(); vi.stubGlobal('sessionStorage', tab); vi.stubGlobal('navigator', {}); vi.stubGlobal('matchMedia', () => ({ matches: false }));
+  for (const key of ['kingdown.email-code', 'kingdown.account-signin', 'kingdown.account-page.alice']) tab.setItem(key, 'opening-attempt');
+  const memory = memoryStorage(), storage = { ...memory, key: (i: number) => [...memory.records.keys()][i] ?? null, get length() { return memory.records.size; } };
+  storage.setItem('kingdown.people-draft.alice.game', 'private'); storage.setItem('kingdown.people-draft.bob.game', 'keep');
+  let current = 'alice', changed = (_value: any) => {}, reply = (_value: Response) => {};
+  let start = () => {}; const started = new Promise<void>(resolve => { start = resolve; });
+  const signOut = vi.fn(async () => {});
+  const auth = async () => ({ onSession: (callback: typeof changed) => { changed = callback; }, readSession: async () => ({ userId: current, accessToken: 'session-' + current }), signOut }) as never;
+  const host = (await import('./index')).onlineHost({ auth, storage, fetch: async input => String(input).endsWith('/deletion') ? new Promise<Response>(resolve => { reply = resolve; start(); }) : Response.json({ me: { handle: current, icon: null } }), rules: () => 'pieces', setRules() {}, changed() {}, open() {}, home() {}, toast() {} });
+  await host.signIn(); const deletion = host.deletion, close = vi.fn(); deletion.onAccountChange(close);
+  const pending = deletion.remove(); const rejected = expect(pending).rejects.toMatchObject({ code: 'UNAUTHENTICATED' }); await started;
+  current = 'bob';
+  for (const key of ['kingdown.email-code', 'kingdown.account-signin', 'kingdown.account-page.alice']) tab.setItem(key, 'new-attempt');
+  if (eventFirst) { changed({ user: { id: 'bob' } }); await host.signIn(); expect(close).toHaveBeenCalled(); }
+  reply(Response.json({ deletion: { run_after: '2026-12-01T00:00:00Z' } })); await rejected;
+  if (!eventFirst) { changed({ user: { id: 'bob' } }); await host.signIn(); }
+  expect(close).toHaveBeenCalled(); expect(signOut).not.toHaveBeenCalled(); expect(host.userId).toBe('bob');
+  expect(storage.getItem('kingdown.people-draft.alice.game')).toBeNull(); expect(storage.getItem('kingdown.people-draft.bob.game')).toBe('keep');
+  for (const key of ['kingdown.email-code', 'kingdown.account-signin', 'kingdown.account-page.alice']) expect(tab.getItem(key)).toBe('new-attempt');
+});
+
+it('rejects a deletion sheet from an earlier session of the same account', async () => {
+  vi.stubGlobal('location', new URL('https://kingdown.test/next.html')); vi.stubGlobal('history', { state: {}, replaceState() {} });
+  vi.stubGlobal('sessionStorage', memoryStorage()); vi.stubGlobal('navigator', {}); vi.stubGlobal('matchMedia', () => ({ matches: false }));
+  const jwt = (id: string) => 'fixture.' + btoa(JSON.stringify({ session_id: id })) + '.signature';
+  let token = jwt('first-session'); const send = vi.fn(async () => Response.json({ me: { handle: 'alice', icon: null } }));
+  const host = (await import('./index')).onlineHost({ auth: async () => ({ onSession() {}, readSession: async () => ({ userId: 'alice', accessToken: token }) }) as never, storage: memoryStorage(), fetch: send, rules: () => 'pieces', setRules() {}, changed() {}, open() {}, home() {}, toast() {} });
+  await host.signIn(); const deletion = host.deletion; token = jwt('new-session');
+  await expect(deletion.remove()).rejects.toMatchObject({ code: 'UNAUTHENTICATED' }); expect(send).toHaveBeenCalledTimes(1);
+});
+
+it('a tab with a late sign-out event cannot restore a deleted draft, even after another tab signs in again', async () => {
+  vi.stubGlobal('location', new URL('https://kingdown.test/next.html')); vi.stubGlobal('history', { state: {}, replaceState() {} });
+  vi.stubGlobal('sessionStorage', memoryStorage()); vi.stubGlobal('navigator', { onLine: true }); vi.stubGlobal('matchMedia', () => ({ matches: false }));
+  vi.stubGlobal('addEventListener', () => {}); vi.stubGlobal('removeEventListener', () => {});
+  const service = fixtureService(), memory = memoryStorage(), storage = { ...memory, key: (i: number) => [...memory.records.keys()][i] ?? null, get length() { return memory.records.size; } };
+  let host: ReturnType<typeof import('./index').onlineHost> | undefined;
+  try {
+    await service.handle('alice', { handle: 'alice' }); await service.handle('bob', { handle: 'bob' });
+    const view = await service.create('alice', { kind: 'friend', options: onlineOptions('pieces') }), link = await service.invite('alice', view.game_id); await service.join('bob', link.token);
+    host = (await import('./index')).onlineHost({ auth: async () => ({ onSession() {}, readSession: async () => ({ userId: 'alice', accessToken: 'alice' }) }) as never, storage, fetch: fakeServer(service).fetch, rules: () => 'pieces', setRules() {}, changed() {}, open() {}, home() {}, toast() {} });
+    await host.signIn(); await host.open(view.game_id, () => {});
+    host.controller!.stage(host.controller!.state().draft!.at(12, 28)[0]); host.saveDraft();
+    expect(storage.getItem(draftKey('alice', view.game_id))).toContain('e2-e4');
+    const { receiptStore } = await import('../receipt'), { clearDeletedAccount, deletedAccountKey } = await import('../../../account/local');
+    await receiptStore('alice', storage).clearAccount(() => clearDeletedAccount(storage, 'alice'));
+    host.saveDraft(); expect(storage.getItem(draftKey('alice', view.game_id))).toBeNull();
+    storage.setItem(deletedAccountKey('alice'), 'new-tab-session'); host.saveDraft(); expect(storage.getItem(draftKey('alice', view.game_id))).toBeNull();
+  } finally { host?.stopGame(); await service.close(); }
 });

@@ -26,17 +26,18 @@ it('the new page starts the required surface and piece images before it waits fo
   expect(start).toContain('!firstArt.has(href)');
 });
 
-async function scene(options: { lazySheets?: boolean; kings?: [string, string]; initialBoardArt?: string; failBoardArt?: boolean }) {
+async function scene(options: { lazySheets?: boolean; kings?: [string, string]; initialBoardArt?: string; failBoardArt?: boolean; holdBoardArt?: boolean; onArtError?: (url: string) => void }) {
   vi.resetModules(); vi.useFakeTimers();
   const requested: Requested[] = [];
   let decodeStone = () => {};
   let rejectStone = (_error: Error) => {};
   const stone = new Promise<void>((resolve, reject) => { decodeStone = resolve; rejectStone = reject; });
+  let releaseSurface = () => {}, oldStillError = () => {};
   class Art {
     naturalWidth = 0; width = 64; height = 64; complete = false; crossOrigin: string | null = null;
     onload?: () => void; onerror?: () => void;
     private url = '';
-    set src(src: string) { this.url = src; requested.push({ src, cors: this.crossOrigin }); void Promise.resolve().then(() => { if (options.failBoardArt && (isStone(src) || src === options.initialBoardArt)) { this.onerror?.(); return; } this.complete = true; this.naturalWidth = 64; this.onload?.(); }); }
+    set src(src: string) { this.url = src; if (isStill(src) && this.onerror) oldStillError = this.onerror; requested.push({ src, cors: this.crossOrigin }); const load = () => { if (options.failBoardArt && (isStone(src) || src === options.initialBoardArt)) { this.onerror?.(); return; } this.complete = true; this.naturalWidth = 64; this.onload?.(); }; if (options.holdBoardArt && src === options.initialBoardArt) releaseSurface = load; else void Promise.resolve().then(load); }
     get src() { return this.url; }
     decode() { return (options.initialBoardArt ? this.url === options.initialBoardArt : isStone(this.url)) ? stone : Promise.resolve(); }
   }
@@ -52,10 +53,10 @@ async function scene(options: { lazySheets?: boolean; kings?: [string, string]; 
     : new Promise(() => {}));
   vi.stubGlobal('fetch', fetcher);
   const { createScene } = await import('./painted/scene.mjs');
-  const made = createScene({ canvas: canvas() as unknown as HTMLCanvasElement, pieces, characterRuntime: true, kings: (options.kings ?? ['frost', 'frost']) as never, lazySheets: options.lazySheets, initialBoardArt: options.initialBoardArt });
+  const made = createScene({ canvas: canvas() as unknown as HTMLCanvasElement, pieces, characterRuntime: true, kings: (options.kings ?? ['frost', 'frost']) as never, lazySheets: options.lazySheets, initialBoardArt: options.initialBoardArt, onArtError: options.onArtError });
   made.setPosition(fromFen('4k3/8/8/8/8/8/8/1N2K3 w - - 0 1'));
   const fetched = () => fetcher.mock.calls.map(([url]) => String(url));
-  return { scene: made, requested, fetched, decodeStone, rejectStone };
+  return { scene: made, requested, fetched, decodeStone, rejectStone, releaseSurface: () => releaseSurface(), failOldStill: () => oldStillError() };
 }
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.doUnmock('./painted/scene.mjs'); vi.doUnmock('./effects/dark-gate'); });
 
@@ -73,7 +74,7 @@ it('an initial surface replaces the stone request and the first frame waits for 
 
 it.each(['/interface/stone-refined-light.webp', undefined])('a failed surface %s rejects only with the option; the old stone fallback stays', async initialBoardArt => {
   const s = await scene({ lazySheets: true, initialBoardArt, failBoardArt: true });
-  if (initialBoardArt) await expect(s.scene.load()).rejects.toBeUndefined();
+  if (initialBoardArt) await expect(s.scene.load()).rejects.toThrow('cannot load');
   else await expect(s.scene.load()).resolves.toBeUndefined();
   s.scene.dispose();
 });
@@ -179,4 +180,30 @@ it('the new page uses its prepared picture as the first surface and waits for th
   expect(main).toContain('initialBoardArt: skinUrl');
   expect(main).toContain('skinUrl = `${SKIN}?retry=${generation}`');
   expect(main).not.toContain('applySkin');
+});
+
+it.each(['response', 'decode'])('ends a held surface %s at one 5 s limit and ignores its late completion', async held => {
+  const s = await scene({ lazySheets: true, initialBoardArt: '/interface/stone-refined-light.webp', holdBoardArt: held === 'response' });
+  const failed = vi.fn(); const loaded = s.scene.load().catch(failed);
+  await vi.advanceTimersByTimeAsync(4999); expect(failed).not.toHaveBeenCalled(); expect(s.scene.frames).toBe(0);
+  await vi.advanceTimersByTimeAsync(1); await loaded; expect(failed).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ message: 'The board art takes too long.' }));
+  s.scene.dispose(); s.releaseSurface(); s.decodeStone(); await vi.advanceTimersByTimeAsync(100);
+  expect(s.scene.frames).toBe(0); expect(failed).toHaveBeenCalledTimes(1);
+});
+it('the old stone keeps its pending decode past the new surface limit', async () => {
+  const s = await scene({ lazySheets: true }); const done = vi.fn(), failed = vi.fn();
+  void s.scene.load().then(done, failed); await vi.advanceTimersByTimeAsync(6000); expect(done).not.toHaveBeenCalled(); expect(failed).not.toHaveBeenCalled();
+  s.decodeStone(); await vi.advanceTimersByTimeAsync(17); expect(done).toHaveBeenCalledOnce(); s.scene.dispose();
+});
+
+it('the response and decode share one 5 s limit', async () => {
+  const s = await scene({ lazySheets: true, initialBoardArt: '/interface/stone-refined-light.webp', holdBoardArt: true }), failed = vi.fn();
+  const loaded = s.scene.load().catch(failed); await vi.advanceTimersByTimeAsync(4000); s.releaseSurface();
+  await vi.advanceTimersByTimeAsync(999); expect(failed).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1); await loaded; expect(failed).toHaveBeenCalledOnce(); s.scene.dispose();
+});
+it('a disposed board ignores a late still error and never starts a late frame', async () => {
+  const onArtError = vi.fn(), s = await scene({ lazySheets: true, initialBoardArt: '/interface/stone-refined-light.webp', onArtError });
+  const loaded = s.scene.load(); s.scene.dispose(); s.failOldStill(); s.decodeStone(); await loaded; await vi.advanceTimersByTimeAsync(100);
+  expect(onArtError).not.toHaveBeenCalled(); expect(s.scene.frames).toBe(0);
 });
