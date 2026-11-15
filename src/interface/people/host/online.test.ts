@@ -10,6 +10,8 @@ import { fixtureService } from '../../../../tools/plugin-protocol-fixture';
 import { peopleController } from '../controller';
 import { peopleServer } from '../server';
 import { onlineClient } from '../../../online/client';
+import { seatKing } from '../seat-king';
+import { DEFAULT_OPTIONS as PANEL_OPTIONS } from '../../play/new-game';
 import { fakeServer } from '../fake-server';
 
 const state = (revision = 1) => {
@@ -28,6 +30,7 @@ it('binds deletion to the confirmed account, cleans only its drafts, then signs 
   const memory = memoryStorage(), keys = () => [...memory.records.keys()];
   const storage = { ...memory, key: (i: number) => keys()[i] ?? null, get length() { return keys().length; } };
   storage.setItem('kingdown.people-draft.alice.game', 'private'); storage.setItem('kingdown.people-draft.bob.game', 'keep');
+  storage.setItem('kingdown.people-king.alice.game.0', 'null'); storage.setItem('kingdown.people-king.bob.game.0', 'null');
   const order: string[] = []; let current = 'alice';
   const auth = async () => ({ onSession: () => () => {}, readSession: async () => ({ userId: current, accessToken: 'fixture' }), signOut: async () => { order.push('signout'); } }) as never;
   const send = vi.fn(async (input: RequestInfo | URL) => {
@@ -42,6 +45,7 @@ it('binds deletion to the confirmed account, cleans only its drafts, then signs 
   current = 'alice'; expect(await host.deleteAccount('alice')).toEqual({ runAfter: '2026-12-01T00:00:00Z', localCleared: true });
   expect(order).toEqual(['request', 'signout']); expect(host.signedIn).toBe(false);
   expect(storage.getItem('kingdown.people-draft.alice.game')).toBeNull(); expect(storage.getItem('kingdown.people-draft.bob.game')).toBe('keep');
+  expect(storage.getItem('kingdown.people-king.alice.game.0')).toBeNull(); expect(storage.getItem('kingdown.people-king.bob.game.0')).toBe('null');
   expect(tab.getItem('kingdown.account-page.alice')).toBeNull(); expect(tab.getItem('kingdown.account-page.bob')).toBe('keep');
 });
 it('the four online choices carry the panel options', () => {
@@ -243,5 +247,41 @@ it.each(['pieces', 'powers', 'cards', 'both'] as const)('both invite paths carry
     const joined = await service.join('bob', token); expect(joined.options).toEqual(expected);
     const creates = server.calls.filter(call => call.method === 'POST' && call.path === '/api/games');
     expect(creates).toHaveLength(2); expect(creates.map(call => (call.body as { options: unknown }).options)).toEqual([expected, expected]);
+  } finally { await service.close(); }
+});
+
+
+it('binds both invite paths and the joining seat before the next-game preference changes', async () => {
+  vi.stubGlobal('location', new URL('https://kingdown.test/next.html')); vi.stubGlobal('history', { state: {}, replaceState: vi.fn() });
+  vi.stubGlobal('sessionStorage', memoryStorage()); vi.stubGlobal('navigator', {}); vi.stubGlobal('matchMedia', () => ({ matches: false }));
+  const service = fixtureService();
+  try {
+    await service.handle('alice', { handle: 'alice' }); await service.handle('bob', { handle: 'bob' });
+    const server = fakeServer(service), storage = memoryStorage(), bobStore = memoryStorage();
+    const { onlineHost } = await import('./index');
+    const hostFor = (userId: string, storage: ReturnType<typeof memoryStorage>) => onlineHost({
+      auth: async () => ({ onSession: () => () => {}, readSession: async () => ({ userId, accessToken: userId }) }) as never,
+      storage, fetch: server.fetch, rules: () => 'both', setRules() {}, changed() {}, open() {}, home() {}, toast() {},
+    });
+    const alice = hostFor('alice', storage), bob = hostFor('bob', bobStore); await alice.signIn(); await bob.signIn();
+    const mud = { king: 'Mud', power: 'Leap' } as const, shadow = { king: 'Shadow', power: 'Darkness' } as const;
+    const link = await alice.host.createLink('both', { ...PANEL_OPTIONS, arrangement: 'manual', king: mud });
+    const first = alice.views[0];
+    await alice.host.invite('bob', 'both', { ...PANEL_OPTIONS, arrangement: 'manual', king: shadow });
+    const second = alice.views.find(v => v.game_id !== first.game_id)!;
+    storage.setItem('kingdown.game-options', JSON.stringify({ king: { king: 'Flame', power: 'Haste' } }));
+    expect(seatKing(storage, 'alice', first)).toEqual({ king: 'Mud', power: 'March' });
+    expect(seatKing(storage, 'alice', second)).toEqual(shadow);
+    bobStore.setItem('kingdown.game-options', JSON.stringify({ king: mud }));
+    await bob.host.join({ token: new URL(link).hash.slice(6) });
+    const joined = bob.views.find(v => v.game_id === first.game_id)!;
+    bobStore.setItem('kingdown.game-options', JSON.stringify({ king: shadow }));
+    expect(seatKing(bobStore, 'bob', joined)).toEqual({ king: 'Mud', power: 'March' });
+    const controller = (userId: string, storage: ReturnType<typeof memoryStorage>) => peopleController({ userId, storage, server: peopleServer(onlineClient({ token: async () => userId, fetch: server.fetch })) });
+    const a = controller('alice', storage), b = controller('bob', bobStore); await a.open(first.game_id); await b.open(first.game_id);
+    const black = first.seat === 1 ? a : b, white = first.seat === 0 ? a : b;
+    await black.ready(); await white.refresh(); await white.ready(); await black.refresh();
+    expect(a.state().game!.rules.kings).toEqual([{ king: 'Mud', power: 'March' }, { king: 'Mud', power: 'March' }]);
+    expect(JSON.parse(storage.getItem('kingdown.game-options')!).king).toEqual({ king: 'Flame', power: 'Haste' });
   } finally { await service.close(); }
 });

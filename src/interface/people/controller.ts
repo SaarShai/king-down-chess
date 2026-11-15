@@ -12,7 +12,7 @@ import { boardActions } from '../../plugin/screens/board-model';
 import type { Move, Position } from '../../rules/engine';
 import { DraftTurn } from '../play/turn';
 import { defaultChoice, validateChoice } from '../../match/setup';
-import { OPTIONS_KEY, readOptions } from '../play/new-game';
+import { bindSeatKing, seatKing } from './seat-king';
 import { faultOf, settled, type Fault, type InviteKey, type PeopleServer } from './server';
 import { actionOf, ReceiptBusy, receiptOf, receiptStore, type LockManager, type Receipt } from './receipt';
 import { lastTurnOf, playCommands, positionOf, replicaOf, restage, turnActions, type ReceivedTurn } from './replica';
@@ -172,7 +172,7 @@ export function peopleController(options: ControllerOptions) {
     const o = view.options, draw = { army: view.draw, hand: [...view.deal ?? []] };
     const choice = { ...(view.choices?.[view.seat] ?? defaultChoice(o, draw, view.seat, Math.random, false, view.setup_admission)), ...(order !== undefined ? { order } : {}) };
     try {
-      const king = readOptions(JSON.parse(options.storage.getItem(OPTIONS_KEY) ?? 'null')).king;
+      const king = seatKing(options.storage, options.userId, view);
       if (!view.ready?.[view.seat] && king && !validateChoice(o, draw, { ...choice, king }, view.setup_admission)) choice.king = king;
     } catch { /* unreadable options keep the seat default */ }
     return choice;
@@ -348,6 +348,7 @@ export function peopleController(options: ControllerOptions) {
     async join(key: InviteKey): Promise<Fault | undefined> {
       try {
         const joined = await server.join(key);
+        bindSeatKing(options.storage, options.userId, joined);
         epoch++; target = joined.game_id; view = undefined; notice = undefined; sent = declined = false; offers.clear(); readFails = 0;
         if (joined.rules && joined.history) adopt(joined); else await fullRead(joined.game_id);
         return;

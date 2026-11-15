@@ -59,7 +59,7 @@ export function clearDeletedAccount(store: LocalStore, userId: string): void {
   for (const prefix of ['kingdown.account-command.', 'kingdown.account-game.']) store.removeItem(prefix + userId);
   for (let i = store.length - 1; i >= 0; i--) {
     const key = store.key(i);
-    if (key && ['kingdown.people-draft.', 'kingdown.people-seen.', 'kingdown.invite-seen.'].some(prefix => key.startsWith(prefix + userId + '.'))) store.removeItem(key);
+    if (key && ['kingdown.people-draft.', 'kingdown.people-king.', 'kingdown.people-seen.', 'kingdown.invite-seen.'].some(prefix => key.startsWith(prefix + userId + '.'))) store.removeItem(key);
   }
 }
 

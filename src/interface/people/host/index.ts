@@ -13,6 +13,7 @@ import { apiOrigin, inApp } from '../../../platform';
 import { clearDeletedAccount } from '../../../account/local';
 import { peopleController, type PeopleState } from '../controller';
 import { peopleServer } from '../server';
+import { bindSeatKing, preferredKing } from '../seat-king';
 import { toFen } from '../../../rules/setup';
 import { DraftTurn } from '../../play/turn';
 import { restage } from '../replica';
@@ -203,22 +204,25 @@ export function onlineHost(options: HostOptions) {
       }
     },
     invite: async (handle, rules, choices) => {
+      const king = choices ? choices.king : preferredKing(storage);
       const created = await api.create({ kind: 'friend', recipient_handle: handle, colour: 'random', options: onlineOptions(rules, choices) });
-      remember(created.view);
+      bindSeatKing(storage, session!.userId, created.view, king); remember(created.view);
     },
     inviteBack: async (handle, rules) => {
+      const king = preferredKing(storage);
       const created = await api.create({ kind: 'friend', recipient_handle: handle, colour: 'random', options: rules ?? onlineOptions(options.rules()) });
-      remember(created.view);
+      bindSeatKing(storage, session!.userId, created.view, king); remember(created.view);
     },
     createLink: async (rules, choices) => {
+      const king = choices ? choices.king : preferredKing(storage);
       const created = await api.create({ kind: 'friend', open_link: true, colour: 'random', options: onlineOptions(rules, choices) });
-      remember(created.view);
+      bindSeatKing(storage, session!.userId, created.view, king); remember(created.view);
       const link = created.invite ?? await api.invite(created.view.game_id);
       return inviteURL(link.token);
     },
     preview: key => api.preview(key),
     get safety() { return { ...accountSafety(), changed: () => { void refresh(); } }; },
-    join: async key => { const view = await api.redeem(key); remember(view); options.open(view.game_id); },
+    join: async key => { const king = preferredKing(storage); const view = await api.redeem(key); bindSeatKing(storage, session!.userId, view, king); remember(view); options.open(view.game_id); },
     toPlay: options.home, toast: options.toast,
     share: navigator.share ? data => navigator.share(data) : undefined,
     coarse: matchMedia('(pointer: coarse)').matches,
@@ -230,7 +234,9 @@ export function onlineHost(options: HostOptions) {
     },
     api, host, get safety() { return accountSafety(); }, get user() { return user; }, get userId() { return session?.userId; }, get views() { return views; }, get incomingInvites() { return incomingInvites; }, get inviteUpdates() { return inviteUpdates; }, get controller() { return controller; }, get signedIn() { return !!session; },
     async acceptInvite(invite: InvitationRow) {
+      const king = preferredKing(storage);
       const view = await api.redeem({ invite_id: invite.invite_id });
+      bindSeatKing(storage, session!.userId, view, king);
       incomingInvites = incomingInvites.filter(i => i.invite_id !== invite.invite_id);
       remember(view);
       options.open(view.game_id);

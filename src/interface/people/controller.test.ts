@@ -325,7 +325,7 @@ it('the poll reads at the old cadence while the page shows, and not while it is 
 it('has no DOM: the people modules name no page part, and only start() reads the page and the window', async () => {
   const { readdirSync, readFileSync } = await import('node:fs');
   const files = readdirSync(import.meta.dirname).filter(name => name.endsWith('.ts') && !name.includes('.test.') && name !== 'fake-server.ts');
-  expect(files.sort()).toEqual(['controller.ts', 'receipt.ts', 'replica.ts', 'server.ts', 'words.ts']);
+  expect(files.sort()).toEqual(['controller.ts', 'receipt.ts', 'replica.ts', 'seat-king.ts', 'server.ts', 'words.ts']);
   for (const name of files) {
     const text = readFileSync(`${import.meta.dirname}/${name}`, 'utf8');
     expect(text, name).not.toMatch(/\bdocument\.|\bwindow\b|querySelector|HTMLElement|innerHTML|localStorage/);
@@ -415,9 +415,10 @@ it.each(['join', 'ready'])('reads the first reply within three seconds after %s 
 });
 
 it.each([
+  [{ king: 'Mud', power: 'Leap' }, true, { king: 'Mud', power: 'March' }],
   [{ king: 'Mud', power: 'March' }, false, { king: 'Mud', power: 'March' }],
-  [{ king: 'Frost', power: 'Freeze' }, true, { king: 'Shadow', power: 'Darkness' }],
-  [null, false, { king: 'Shadow', power: 'Darkness' }],
+  [{ king: 'Frost', power: 'Freeze' }, true, { king: 'Spirit', power: 'Mercy' }],
+  [null, false, { king: 'Spirit', power: 'Mercy' }],
 ] as const)('confirms the stored king when admitted, else the seat default (%j, cards %s)', async (king, cards, expected) => {
   const games = fixtureService(); services.push(games);
   for (const name of ['alice', 'bob']) await games.handle(name, { handle: name });
@@ -427,6 +428,7 @@ it.each([
   storage.setItem('kingdown.game-options', JSON.stringify({ king }));
   const bob = player(server, 'bob', { storage }).controller;
   await bob.join({ token: invite.token }); expect(bob.state().phase).toBe('setup');
+  storage.setItem('kingdown.game-options', JSON.stringify({ king: { king: 'Shadow', power: 'Darkness' } }));
   expect(await bob.ready()).toBe(true);
   const action = commands(server, 'bob').at(-1)?.body as { action: { choice: unknown } };
   expect(action.action.choice).toMatchObject({ king: expected });
