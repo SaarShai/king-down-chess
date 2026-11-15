@@ -44,6 +44,8 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
     if (oldTab && newTab && oldTab !== newTab) { travelMarker(oldTab, newTab, true); nav.dataset.moving = 'true'; clearTimeout(moving); moving = setTimeout(() => delete nav.dataset.moving, ms('--dur-tab-marker')); }
   };
   function go(next: Route, draw = true) {
+    // A layer Back is still pending (Close, then a late invite reply): the route changes after that Back lands.
+    if (closing) { const done = closing; closing = () => { done(); go(next, draw); }; return; }
     if (JSON.stringify(next) === JSON.stringify(route)) return;
     // A route change (a late invite reply) closes an open layer; the new place takes the layer's history entry.
     const open = layer; layer = null; open?.();

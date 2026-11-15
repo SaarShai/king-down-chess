@@ -137,15 +137,35 @@ const cases = {
     let release; const held = new Promise(done => { release = done; });
     await signedIn(context, invites, async json => { await held; invites.length = 0; return json({ game_id: game, revision: 1, status: 'setup', seat: 0, kind: 'person', action: 'wait', deadline_at: null }); });
     await page.goto(NEXT); await page.waitForSelector('.home-invite-row');
+    const start = await page.evaluate(() => history.length);
     await page.getByRole('button', { name: 'Accept', exact: true }).click();
     await page.locator('.home-top-new:visible, .home-side-new:visible').first().click(); await page.waitForSelector('dialog.new-game-panel[open]');
     release();
     check(await page.waitForFunction(id => location.hash === `#online=${id}`, game).then(() => true, () => false), 'the late reply opens the online game');
     check(await page.waitForFunction(() => !document.querySelector('dialog.new-game-panel')).then(() => true, () => false), 'the panel leaves with the route change');
-    check(await page.evaluate(() => !history.state?.layer), 'the game replaces the panel history entry');
+    check(await page.evaluate(n => !history.state?.layer && history.length === n + 1, start), 'the game replaces the panel history entry');
     await page.goBack();
     check(await page.waitForFunction(() => document.body.dataset.page === 'home' && !location.hash.startsWith('#online')).then(() => true, () => false), 'Back from the game returns to Play');
     check(await page.locator('dialog.new-game-panel').count() === 0, 'Back shows no panel');
+  },
+  async panel_close_race(page, context, check) {
+    // Accept, open New game, then Close: the late reply arrives while the Back of Close is still pending. The game
+    // opens after that Back and stays open. The page delays each Back by 1 s to hold this order.
+    const invites = [invite('i1', 'ada')], game = '00000000-0000-4000-8000-000000000002';
+    let release; const held = new Promise(done => { release = done; });
+    await signedIn(context, invites, async json => { await held; invites.length = 0; return json({ game_id: game, revision: 1, status: 'setup', seat: 0, kind: 'person', action: 'wait', deadline_at: null }); });
+    await context.addInitScript(() => { const back = history.back.bind(history); history.back = () => { window.kdBackPending = true; setTimeout(() => { window.kdBackPending = false; back(); }, 1000); }; });
+    await page.goto(NEXT); await page.waitForSelector('.home-invite-row');
+    const start = await page.evaluate(() => history.length);
+    await page.getByRole('button', { name: 'Accept', exact: true }).click();
+    await page.locator('.home-top-new:visible, .home-side-new:visible').first().click(); await page.waitForSelector('dialog.new-game-panel[open]');
+    await page.locator('dialog.new-game-panel').getByRole('button', { name: 'Close', exact: true }).click();
+    check(await page.evaluate(() => window.kdBackPending === true), 'the Back of Close is pending');
+    release();
+    check(await page.waitForFunction(id => location.hash === `#online=${id}`, game, { timeout: 5000 }).then(() => true, () => false), 'the late reply opens the online game after the Back');
+    await page.waitForTimeout(500); // a wrong order returns to Play here
+    check(await page.evaluate(id => location.hash === `#online=${id}` && document.body.dataset.page !== 'home', game), 'the online game stays open');
+    check(await page.evaluate(n => history.length === n + 1 && !document.querySelector('dialog.new-game-panel'), start), 'one history entry for the game and no panel');
   },
   async you(page, context, check) {
     await page.goto(`${NEXT}#you`); await page.waitForSelector('.you-page');
