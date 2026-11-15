@@ -339,7 +339,11 @@ function home(newArmy = false) {
 }
 /** The New game panel (launch decision 26). Its edits stay in the panel until Start game. */
 function openNewGame(source: HTMLElement, person = false) {
-  if (document.querySelector('dialog.new-game-panel[open]')) return;
+  // Close, then New game at once: the panel opens after the pending Back. A late invite reply can leave Play meanwhile.
+  shell.settled(() => { if (shell.route.place === 'play') newGameLayer(source, person); });
+}
+function newGameLayer(source: HTMLElement, person: boolean) {
+  if (document.querySelector('dialog.new-game-panel')) return; // one panel: a second queued open does nothing
   const memory = (() => { try { return readPanel(JSON.parse(sessionStorage.getItem(PANEL_KEY) ?? 'null')); } catch { return null; } })();
   const candidate = changeDraft(next, accepted());
   const panel = newGamePanel({
@@ -355,6 +359,8 @@ function openNewGame(source: HTMLElement, person = false) {
     },
     onStart: async draft => {
       await shell.closeLayer();
+      // A late invite reply can open the online game during that wait: the local start then stops.
+      if (shell.route.place !== 'play') return;
       next = draft; beginNew(root.querySelector<HTMLButtonElement>('.play-home .kd-button[data-kind="main"]') ?? undefined);
     },
     onInvite: draft => {
@@ -364,14 +370,12 @@ function openNewGame(source: HTMLElement, person = false) {
     onClose: () => { void shell.closeLayer(); },
   }, art);
   // The panel is outside #app: a background refresh of Play (home()) redraws #app and must not remove the open panel.
-  // A refresh can replace the opener: focus then returns to the same control on the new Play.
-  const opener = ['home-top-new', 'home-side-new', 'home-hero-new'].find(name => source.classList.contains(name));
+  // A refresh can replace the opener: focus then returns to the same control on the new Play, or to its visible
+  // New game control when the first game or invite replaces the large New game.
+  const controls = ['home-top-new', 'home-side-new', 'home-hero-new'], opener = controls.find(name => source.classList.contains(name));
   panel.element.addEventListener('close', () => {
     panel.element.remove();
-    if (!source.isConnected && opener && document.body.dataset.page === 'home') {
-      const target = root.querySelector<HTMLElement>(`.${opener}`) ?? [...root.querySelectorAll<HTMLElement>('.home-top-new, .home-side-new, .home-hero-new')].find(node => node.getClientRects().length);
-      target?.focus({ preventScroll: true });
-    }
+    if (!source.isConnected && opener && document.body.dataset.page === 'home') [opener, ...controls].map(name => root.querySelector<HTMLElement>(`.${name}`)).find(control => control?.getClientRects().length)?.focus({ preventScroll: true });
   });
   document.body.append(panel.element); panel.open(source); shell.openLayer(() => panel.close());
 }
