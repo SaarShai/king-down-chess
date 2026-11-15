@@ -57,7 +57,9 @@ with no address. "Not sent" in the log is not proof that no email arrived: the m
 an email just before the job stops the request. A stored retry queue is rejected, because it keeps the
 address of a deleted account. The in-app receipt confirms the request in all cases.
 A database call cannot pass its step: the deletion record and the account removal are one
-transaction, so a step that times out leaves the account due, and the next run continues.
+transaction, so a step that times out before COMMIT rolls back and leaves the account due, and the next run
+continues. A COMMIT whose reply is lost can still have removed the account and set `done_at`: the job does not
+know the result, so it sends no notice. This notice loss is part of the best-effort limit (decision 106).
 
 ## Release order
 

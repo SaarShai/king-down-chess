@@ -4,7 +4,9 @@
  * holds: a step that does not fit throws OutOfTime, and it and the later steps wait for the next run.
  * A database step is one connection and one transaction: the connection wait, begin, SET LOCAL statement_timeout and
  * lock_timeout, the statements (node-postgres query_timeout) and the commit all end by the step's end. A step that runs
- * out of time rolls back, so the row it was for stays due. Only the daily job uses this; other routes keep their timeouts.
+ * out of time before COMMIT rolls back, so the row it was for stays due. If the COMMIT reply is lost, the commit may have
+ * happened: the job cannot know, and it sends no notice for that row (decision 106). Only the daily job uses this; other
+ * routes keep their timeouts.
  */
 import type { Pool, PoolClient, QueryConfig } from 'pg';
 import { PostgresMatchStore } from '../match/store';
