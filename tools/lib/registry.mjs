@@ -2,6 +2,7 @@
 // Each entry: name (the short name on the command line), script (from the checkout root), limit (seconds
 // before the runner stops the check), and optional: channel (sets PLAYABLE_BROWSER unless the caller set it),
 // args (for the script), env (extra environment for the script, for example the staging build stage), byName (true: the entry runs only when you name it, never in a run of all),
+// external (true: the caller serves an existing local test stack at PLAYABLE_URL; no build or preview),
 // site (true: a plugin check that also opens the site at PLAYABLE_URL, so the runner builds and serves it),
 // exclusive (true: the check asserts time or shares the test database, so it runs with every machine slot
 // and no other check beside it; after-redesign/01),
@@ -12,6 +13,8 @@
 // faults that prove the runner: selftest-dirty writes a scratch file into the checkout, selftest-fail
 // fails, selftest-hang never ends, selftest-hold sleeps 15 s so that two runs can be seen together.
 export const checks = [
+  // Uses the local online stack at PLAYABLE_URL; it must keep the lane's assigned port.
+  { name: 'next-arrange', script: 'tools/verify-next-arrange.mjs', limit: 480, channel: 'chromium', byName: true, external: true },
   { name: 'next-menus', script: 'tools/verify-next-menus.mjs', limit: 900, channel: 'chromium', byName: true },
   { name: 'painted-leaps', script: 'tools/verify-painted-leaps.mjs', limit: 120, channel: 'chromium', byName: true },
   { name: 'leap-start', script: 'tools/verify-painted-leaps.mjs', args: ['start'], limit: 240, channel: 'chromium', exclusive: true },

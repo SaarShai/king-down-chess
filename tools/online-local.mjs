@@ -212,7 +212,8 @@ export async function startLocalStack() {
   mkdirSync(BASE_DIR, { recursive: true });
   mkdirSync(LOG_DIR, { recursive: true });
 
-  const [pgPort, authPort, apiPort, pagePort] = await reservePorts(4);
+  const [pgPort, authPort, apiPort, freePagePort] = await reservePorts(4);
+  const pagePort = Number(process.env.KINGDOWN_LOCAL_PAGE_PORT || freePagePort);
   const authUrl = `http://127.0.0.1:${authPort}`;
   const apiUrl = `http://127.0.0.1:${apiPort}`;
   const pageUrl = `http://127.0.0.1:${pagePort}`;

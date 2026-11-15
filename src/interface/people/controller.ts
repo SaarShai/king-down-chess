@@ -416,11 +416,15 @@ export function peopleController(options: ControllerOptions) {
     refresh,
 
     /** Confirm this seat's king and its own back-rank order. */
-    ready(order?: string) {
-      if (view?.status !== 'setup' || !view.options || !view.draw || view.ready?.[view.seat]) return Promise.resolve(false);
+    async ready(order?: string) {
+      if (view?.status !== 'setup' || !view.options || !view.draw || view.ready?.[view.seat] || !view.options.arrangement && view.seat === 1 && view.ready?.[0] === false) return Promise.resolve(false);
       const choice = setupChoice(order)!;
       if (validateChoice(view.options, { army: view.draw, hand: [...view.deal ?? []] }, choice, view.setup_admission)) return Promise.resolve(false);
-      return command({ type: 'choose', choice, ready: true });
+      const base = view, sent = await command({ type: 'choose', choice, ready: true });
+      // The other seat can confirm at the same time. Retry once against its new revision.
+      if (!sent && !busy && !pending && notice?.kind === 'stale' && view?.game_id === base.game_id && view.status === 'setup' && !view.ready?.[view.seat] && view.revision !== base.revision)
+        return command({ type: 'choose', choice, ready: true });
+      return sent;
     },
 
     offerDraw: () => state().canOfferDraw ? command({ type: 'draw', choice: 'offer' }) : Promise.resolve(false),

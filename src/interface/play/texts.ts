@@ -245,3 +245,11 @@ export function choicePrompt(moves: readonly Move[]): string {
 
 // Stage "readingb": the new labels of the B reading area (runs/review/reading-lab/design.md, marked "new" there).
 export const readingBText = { rivalCards: 'Computer’s cards', used: 'Used', notNow: 'Not now', computerTurn: 'Computer’s turn' };
+
+/** The same board step for a solo game and each online seat (owner playtest 90). */
+export const arrangeText = {
+  title: 'Arrange your back rank', instruction: 'Tap two pieces to swap.',
+  keys: 'Arrows move along your back rank. Enter or Space picks and swaps.',
+  ready: 'Ready', confirming: 'Confirming your choice…', legal: 'Select Ready to start.', wait: 'Ready. Wait for the other player.',
+  choose: 'Choose a piece on your back rank.', selected: 'Choose a second piece.',
+};
