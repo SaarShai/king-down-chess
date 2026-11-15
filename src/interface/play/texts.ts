@@ -50,6 +50,7 @@ export const powerLines: Partial<Record<CardName, string>> = {
   SkyLift: 'Swap two different own types; no pawn or king.',
 };
 export const text = {
+  yourCards: 'Your cards', cardsLeft: (n: number) => `${n} ${n === 1 ? 'card' : 'cards'} left`, unlimited: 'Unlimited', yourGames: 'Your games', showAllGames: 'Show all games',
   rematchHint: 'Select Rematch to play at the same level.', casual: 'Friendly', clever: 'Focused', club: 'Fierce', computerFailed: 'The computer cannot play. Open Menu, then Back to home.', title: 'King Down', intro: 'Chess with new pieces. Checkmate wins.', army: 'This game’s army', level: 'Computer level', play: 'Play', pieces: 'Pieces', computer: 'Computer', you: 'You', menu: 'Menu', rule: 'Rule', undo: 'Undo', finish: 'End turn', close: 'Close',
   setup: 'Game', withPowers: 'With powers', withCards: 'With cards', withBoth: 'With powers and cards',
   noPowers: 'No powers · No cards', powersNote: 'Each king gets a random power.', cardsNote: 'Each king gets an always-on power. Both players get the same four cards.',

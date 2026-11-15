@@ -333,10 +333,15 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .panel-head .kd-button, .home-summary .text-button { flex: none; white-space: nowrap; }
 
 /* The approved home: one list, each position from the player's side. */
-.home-game-list { list-style: none; margin: 8px 0 0; padding: 0; }
-.home-game-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 132px; padding: 10px 0; border: 0; border-bottom: 1px solid var(--divider); border-radius: 0; background: transparent; color: var(--text); text-align: start; font: inherit; cursor: pointer; }
-.home-game-row .mini-board { width: 112px; height: 112px; border: 0; box-shadow: none; }
-.home-game-row .mini-glyph { width: 14px; height: 14px; }
+.home-game-list { --game-row-height: 160px; display: grid; gap: 8px; list-style: none; margin: 8px 0 0; padding: 0; }
+.home-game-list[data-collapsed='true'] { position: relative; overflow: hidden; }
+.home-game-list[data-collapsed='true'] > li:nth-child(4) { height: calc(var(--game-row-height) / 2); overflow: hidden; }
+.home-game-list[data-collapsed='true']::after { content: ''; position: absolute; inset: auto 0 0; height: calc(var(--game-row-height) / 2); background: linear-gradient(transparent, var(--surface-page)); pointer-events: none; }
+.home-game-list > li { min-width: 0; }
+.home-game-list > li[hidden] { display: none; }
+.home-game-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: var(--game-row-height); padding: 10px; border: 0; border-radius: 14px; background: var(--surface-raised); box-shadow: var(--raise); color: var(--text); text-align: start; font: inherit; cursor: pointer; }
+.home-game-row .mini-board { width: 140px; height: 140px; border: 0; box-shadow: none; }
+.home-game-row .mini-glyph { width: 100%; height: 100%; }
 .home-game-copy { display: grid; gap: 4px; flex: 1; min-width: 0; }
 .home-game-copy strong { font-size: 1rem; overflow-wrap: anywhere; }
 .home-game-copy > span { font-size: .875rem; color: var(--text-muted); }
@@ -346,7 +351,8 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .play-opp > .profile-portrait { width: 40px; height: 40px; object-fit: cover; }
 .home-top-new { width: 100%; margin-bottom: 24px; }
 .home-side-new { display: none; }
-.all-games { width: 100%; margin-top: 12px; }
+.all-games { width: 100%; min-height: 44px; margin-top: 0; border: 0; background: transparent; box-shadow: none; }
+.all-games [data-button-label] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .home-count { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--text); color: var(--surface-page); font-size: 11px; }
 .home-hero { position: relative; overflow: hidden; aspect-ratio: 4 / 5; max-height: calc(100dvh - 210px); margin: 0 0 20px; border-radius: var(--radius-surface); background: #d9cfc0; }
 .home-hero picture, .home-hero img { display: block; width: 100%; height: 100%; }
@@ -358,7 +364,7 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .home-invite-row .home-game-copy { flex: 1 1 140px; }
 .home-invite-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-inline-start: auto; }
 .play-home .home-invite-actions .kd-button[data-kind="main"] { inline-size: auto; min-width: 0; min-height: 44px; font-size: inherit; }
-@media (max-width: 899px) { .home-invite-actions { flex-basis: 100%; margin-inline-start: 0; padding-inline-start: 124px; } }
+@media (max-width: 899px) { .home-invite-actions { flex-basis: 100%; margin-inline-start: 0; padding-inline-start: 152px; } }
 @media (hover: hover) { button.home-game-row:hover { background: var(--surface-muted); } }
 @media (min-width: 600px) { .home-hero { aspect-ratio: 16 / 9; max-height: none; } }
 @media (max-height: 499px) {
@@ -370,6 +376,7 @@ body > .kd-sr { inset: 0 auto auto 0; }
   .play-home[data-state='saved'] .home-columns { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 40px; }
   .home-game-row { gap: 16px; }
 }
+@media (max-width: 599px) { .home-game-row > .profile-portrait { display: none; } }
 @media (max-width: 389px) { .home-game-row { gap: 8px; } .home-game-row > .kd-icon { display: none; } }
 .online-recovery { position: fixed; z-index: 8; inset: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left); display: grid; align-content: center; justify-items: start; gap: 16px; padding: 24px; background: var(--surface-page); }
 .online-waiting { display: grid; justify-items: start; gap: 16px; padding: 24px; }
