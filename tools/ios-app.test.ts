@@ -26,6 +26,15 @@ it('routes the pages in the app as the host does, from the same build marker', (
   } finally { rmSync(site, { recursive: true, force: true }); }
 });
 
+it('builds the app with the new page whatever the website cutover is', () => {
+  const sync = read('tools/ios-sync.sh');
+  const build = sync.indexOf('\nnpm run build');
+  expect(build).toBeGreaterThan(0);
+  // Set after the stage settings and before the build, so no caller value of the website switch reaches the app.
+  expect(sync.slice(0, build).trimEnd().split('\n').at(-1)).toBe('export KINGDOWN_SOLO_LAUNCH=1');
+  expect(sync.slice(build)).not.toContain('KINGDOWN_SOLO_LAUNCH');
+});
+
 it('gives the app the browser Back as a swipe, and a start address only in a debug build', () => {
   expect(swift).toContain('webView?.allowsBackForwardNavigationGestures = true');
   expect(swift.slice(swift.indexOf('#if DEBUG'), swift.indexOf('#endif'))).toContain('"KingDownStart"');

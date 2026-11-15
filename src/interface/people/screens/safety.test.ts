@@ -115,6 +115,7 @@ it('deletion needs confirm, keeps retry on failure and shows only the received d
     await page.evaluate(() => { (window as any).fail = false; }); await page.getByRole('button', { name: 'Delete account', exact: true }).click();
     await expect.poll(() => page.locator('h2').textContent()).toBe('Deletion requested');
     expect(await page.locator('dialog').textContent()).toContain('Dec 1, 2026'); expect(await page.locator('dialog').textContent()).toContain('signed out');
+    expect(await page.locator('dialog').textContent()).toContain('we send one email to confirm it');
   } finally { await page.close(); }
 });
 
