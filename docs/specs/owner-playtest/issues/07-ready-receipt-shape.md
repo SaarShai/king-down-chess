@@ -15,10 +15,11 @@ The re-review of r11 names this item (`runs/launch/release/review367r2/checks.md
 ## Repair
 
 - In `receiptOf`, save a `choose` action as the old page does: `king`, `order` and `ready` at the top level.
-- Keep `actionOf` as it is, so receipts from the old page stay readable.
+- In `actionOf`, read `king` and `order` from the top level, or from `args.choice` when the top level has none. Receipts from the old page and receipts that the new page saved before the repair then both stay readable.
 
 ## Checks
 
 - First a failing test: a Ready whose send fails with no known answer, then Check again. The resent command has the same king, order, ready and command ID as the first send.
+- A Ready receipt in the old shape and one in the `choice` shape both decode to the same action.
 - A Ready receipt that the new page saves decodes the same in `actionOf` (`receipt.ts`) and in the old page's decoder (`runtime.ts:113`).
 - `npm test`, `npm run test:docs`, `npm run typecheck` and `npm run build` pass.
