@@ -4,6 +4,7 @@
  * on a `Game`); the server view stays the truth. Commands use the old page's durable receipt with the M12 fix, and
  * the engine identity (M3) decides whether the page engine may judge a turn alone.
  */
+import { AccountDataClosed } from '../../account/data';
 import { Game } from '../../game';
 import { needsServerPreview, PAGE_ENGINE } from '../../account-game/engine-identity';
 import type { Action, ErrorCode, JoinPreview, Opponent, View } from '../../match/protocol';
@@ -12,7 +13,7 @@ import { boardActions } from '../../plugin/screens/board-model';
 import type { Move, Position } from '../../rules/engine';
 import { DraftTurn } from '../play/turn';
 import { defaultChoice, validateChoice } from '../../match/setup';
-import { bindSeatKing, seatKing } from './seat-king';
+import { bindSeatKing, readSeatKing, seatKing } from './seat-king';
 import { faultOf, settled, type Fault, type InviteKey, type PeopleServer } from './server';
 import { actionOf, ReceiptBusy, receiptOf, receiptStore, type LockManager, type Receipt } from './receipt';
 import { lastTurnOf, playCommands, positionOf, replicaOf, restage, turnActions, type ReceivedTurn } from './replica';
@@ -82,6 +83,7 @@ export function peopleController(options: ControllerOptions) {
   const { server, now = Date.now, online = () => globalThis.navigator?.onLine !== false, uuid = () => crypto.randomUUID() } = options;
   const pageEngine = 'pageEngine' in options ? options.pageEngine : PAGE_ENGINE;
   const receipts = receiptStore(options.userId, options.storage, options.locks);
+  const writer = receipts.data;
   const listeners = new Set<(state: PeopleState) => void>();
   let view: View | undefined, game: Game | undefined, draft: DraftTurn | undefined, received: ReceivedTurn | undefined;
   let fatal: 'gone' | 'account' | 'failed' | undefined, engine: 'local' | 'server' = 'server', connection: Connection = 'online';
@@ -172,7 +174,7 @@ export function peopleController(options: ControllerOptions) {
     const o = view.options, draw = { army: view.draw, hand: [...view.deal ?? []] };
     const choice = { ...(view.choices?.[view.seat] ?? defaultChoice(o, draw, view.seat, Math.random, false, view.setup_admission)), ...(order !== undefined ? { order } : {}) };
     try {
-      const king = seatKing(options.storage, options.userId, view);
+      const king = readSeatKing(options.storage, options.userId, view);
       if (!view.ready?.[view.seat] && king && !validateChoice(o, draw, { ...choice, king }, view.setup_admission)) choice.king = king;
     } catch { /* unreadable options keep the seat default */ }
     return choice;
@@ -200,7 +202,12 @@ export function peopleController(options: ControllerOptions) {
   }
   async function fullRead(gameId: string, keep?: readonly string[]) {
     const mark = epoch;
-    try { const next = await server.game(gameId); if (mark === epoch) adopt(next, keep); }
+    try {
+      const next = await server.game(gameId);
+      if (mark !== epoch) return;
+      if (next.status === 'setup') await seatKing(options.storage, options.userId, next, writer);
+      if (mark === epoch) adopt(next, keep);
+    }
     catch (error) { if (mark === epoch) badRead(error, !view); }
   }
   /** A view after `view.revision` (a poll read or a command answer): play its moves on the copy. */
@@ -348,7 +355,7 @@ export function peopleController(options: ControllerOptions) {
     async join(key: InviteKey): Promise<Fault | undefined> {
       try {
         const joined = await server.join(key);
-        bindSeatKing(options.storage, options.userId, joined);
+        await bindSeatKing(options.storage, options.userId, joined, undefined, undefined, writer);
         epoch++; target = joined.game_id; view = undefined; notice = undefined; sent = declined = false; offers.clear(); readFails = 0;
         if (joined.rules && joined.history) adopt(joined); else await fullRead(joined.game_id);
         return;
@@ -419,6 +426,10 @@ export function peopleController(options: ControllerOptions) {
     /** Confirm this seat's king and its own back-rank order. */
     async ready(order?: string) {
       if (view?.status !== 'setup' || !view.options || !view.draw || view.ready?.[view.seat] || !view.options.arrangement && view.seat === 1 && view.ready?.[0] === false) return Promise.resolve(false);
+      const opening = view, mark = epoch;
+      try { await seatKing(options.storage, options.userId, opening, writer); }
+      catch (error) { if (error instanceof AccountDataClosed) return false; throw error; }
+      if (mark !== epoch || view !== opening) return false;
       const choice = setupChoice(order)!;
       if (validateChoice(view.options, { army: view.draw, hand: [...view.deal ?? []] }, choice, view.setup_admission)) return Promise.resolve(false);
       const base = view, sent = await command({ type: 'choose', choice, ready: true });

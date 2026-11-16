@@ -8,23 +8,26 @@ import { buildPluginServer, vercelRoutes } from '../tools/plugin-server-build.mj
 
 const read = (path: string) => readFileSync(path, 'utf8');
 const plist = (path: string) => JSON.parse(execFileSync('plutil', ['-convert', 'json', '-o', '-', path], { encoding: 'utf8' }));
-const run = resolve('../run/store-checks');
+const run = resolve(process.env.KINGDOWN_TEST_OUT ?? '../run/store-checks');
 
 it('accepts only game and invite links from the associated HTTPS host', () => {
   mkdirSync(run, { recursive: true });
-  execFileSync('xcrun', ['swiftc', '-module-cache-path', resolve(run, 'ModuleCache'), 'ios/App/App/UniversalLink.swift', 'ios/Tests/UniversalLinkChecks.swift', '-o', resolve(run, 'links')], { timeout: 90000 });
-  expect(execFileSync(resolve(run, 'links'), { encoding: 'utf8' })).toContain('30 passed');
+  writeFileSync(resolve(run, 'AppRouter.swift'), 'import Foundation\nprotocol Router {}\n' + read('ios/App/App/SceneDelegate.swift').slice(read('ios/App/App/SceneDelegate.swift').indexOf('struct AppRouter: Router')));
+  execFileSync('xcrun', ['swiftc', '-module-cache-path', resolve(run, 'ModuleCache'), 'ios/App/App/UniversalLink.swift', resolve(run, 'AppRouter.swift'), 'ios/Tests/UniversalLinkChecks.swift', '-o', resolve(run, 'links')], { timeout: 90000 });
+  const checks = execFileSync(resolve(run, 'links'), { encoding: 'utf8' });
+  expect(checks).toContain('30 passed'); expect(checks).toContain('Native invite route checks: 18 passed');
   const scene = read('ios/App/App/SceneDelegate.swift');
   expect(scene).toContain('for activity in connectionOptions.userActivities');
   expect(scene).toContain('openUniversalLink(userActivity)');
   expect(scene).toContain('activity.activityType == NSUserActivityTypeBrowsingWeb');
+  expect(scene).toContain('soloLaunch: FileManager.default.fileExists(atPath: config.appLocation.path + "/" + AppRouter.marker)');
 }, 120000);
 
 it('wires automatic signing and the association with the owner team', () => {
   const project = read('ios/App/App.xcodeproj/project.pbxproj');
   expect(project.match(/CODE_SIGN_ENTITLEMENTS = App\/App.entitlements;/g)).toHaveLength(2);
   expect(project.match(/DEVELOPMENT_TEAM = 6M9C2YSWT4;/g)).toHaveLength(2);
-  expect(project.match(/CURRENT_PROJECT_VERSION = 4;/g)).toHaveLength(2);
+  expect(project.match(/CURRENT_PROJECT_VERSION = 5;/g)).toHaveLength(2);
   expect(project.match(/PRODUCT_BUNDLE_IDENTIFIER = dev.kingdown.app;/g)).toHaveLength(2);
   expect(project.match(/CODE_SIGN_STYLE = Automatic;/g)).toHaveLength(2);
   expect(project).toContain('UniversalLink.swift in Sources');

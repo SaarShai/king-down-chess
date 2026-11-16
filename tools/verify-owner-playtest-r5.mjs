@@ -27,6 +27,8 @@ async function online(page, context, { setup = false, manual = false, seat = 0, 
   await context.route('**/src/account/client.ts*', route => route.fulfill({ contentType: 'text/javascript', body: 'export function connect() { return { onSession() {}, readSession: async () => ({ userId: "tester", accessToken: "fixture" }) }; }' }));
   await context.addInitScript(({ refuse, refuseAll, readyFault }) => {
     localStorage.setItem('kingdown.auth', 'fixture');
+    // Full storage starts with an existing signed-in generation, before Ready can write.
+    if (refuseAll) localStorage.setItem('kingdown.deleted-account.tester', JSON.stringify({ generation: 'ready-fixture', session: 'fixture', deleted: false }));
     window.r7ReadyFault = readyFault; window.r7RefuseKing = refuse; window.r6RefuseAll = refuseAll; window.r6ReceiptWrites = 0;
     window.r6WaitingLines = [];
     new MutationObserver(records => { for (const record of records) for (const node of record.addedNodes) if (node.nodeType === 1 && node.matches('.online-waiting')) window.r6WaitingLines.push(node.textContent); }).observe(document, { childList: true, subtree: true });

@@ -33,6 +33,25 @@ enum UniversalLinkChecks {
         for input in rejected {
             precondition(UniversalLink.localURL(URL(string: input)!, base: base) == nil, input)
         }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try! FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let router = AppRouter(basePath: root.path)
+        for launch in [false, true] {
+            let marker = root.appendingPathComponent(AppRouter.marker)
+            if launch { try! Data("{}".utf8).write(to: marker) }
+            for (input, oldURL) in accepted {
+                let url = UniversalLink.localURL(URL(string: input)!, base: base, soloLaunch: launch)!
+                let invite = URL(string: input)!.path.hasPrefix("/j")
+                let expected = launch && invite ? "capacitor://localhost/next.html#join=" + (URLComponents(string: oldURL)!.percentEncodedFragment ?? "") : oldURL
+                precondition(url.absoluteString == expected, input)
+                precondition(url.query == nil, input)
+                let destination = router.route(for: url.path)
+                precondition(destination == root.path + (launch && invite ? "/next.html" : "/index.html"), input)
+                if launch && invite { precondition(url.fragment?.hasPrefix("join=") == true, input) }
+            }
+        }
+        print("Native invite route checks: \(accepted.count * 2) passed")
         print("Universal link checks: \(accepted.count + rejected.count) passed")
     }
 }

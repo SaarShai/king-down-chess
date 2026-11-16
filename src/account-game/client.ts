@@ -20,7 +20,7 @@ export interface PageHost {
   // Change the host route, then emit it once. Send no game action.
   navigate(route: ReadRoute): void;
   // Save only this host's page route. False means storage fails.
-  save(route: ReadRoute): boolean;
+  save(route: ReadRoute): boolean | Promise<boolean>;
   viewport(): PageViewport;
 }
 

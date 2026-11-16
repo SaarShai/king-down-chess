@@ -20,6 +20,7 @@ export const checks = [
   { name: 'owner-playtest-b', script: 'tools/verify-owner-playtest-b.mjs', previewPort: 5443, limit: 300, channel: 'chromium', byName: true },
   // Uses the local online stack at PLAYABLE_URL; it must keep the lane's assigned port.
   { name: 'next-arrange', script: 'tools/verify-next-arrange.mjs', limit: 480, channel: 'chromium', byName: true, external: true },
+  { name: 'next-art-wait', script: 'tools/verify-next-art-wait.mjs', limit: 240, channel: 'chromium', byName: true },
   { name: 'next-menus', script: 'tools/verify-next-menus.mjs', limit: 900, channel: 'chromium', byName: true },
   { name: 'painted-leaps', script: 'tools/verify-painted-leaps.mjs', limit: 120, channel: 'chromium', byName: true },
   { name: 'leap-start', script: 'tools/verify-painted-leaps.mjs', args: ['start'], limit: 240, channel: 'chromium', exclusive: true },

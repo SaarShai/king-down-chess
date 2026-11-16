@@ -83,6 +83,6 @@ it('keeps the original entries off and attaches the launch controls to the actua
  const source = readFileSync('src/online/entry.ts', 'utf8');
  expect(launchSource(source, '/src/online/entry.ts', false)).toBeUndefined();
  const launch = launchSource(source, '/src/online/entry.ts', true)!;
- expect(launch).toContain('installLocalSolo(api, session.userId);'); expect(launch).toContain('installAccountControls(auth);');
+ expect(launch).toContain('installLocalSolo(api, session.userId);'); expect(launch).toContain('installAccountControls(auth, session);');
  expect(launch.indexOf('installLocalSolo(api, session.userId);')).toBeLessThan(launch.indexOf('const host = createBrowserRuntime'));
 });

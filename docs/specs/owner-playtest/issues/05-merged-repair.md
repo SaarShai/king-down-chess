@@ -313,3 +313,17 @@ The full `npm test` runs once after all browser checks. It passes 7,106 tests wi
 ### Seventh repair limits
 
 The checks use Chromium and local fixtures. No physical phone, WebKit, live-account or old-page browser check runs. The old page keeps its unit checks. Existing skips and the runtime art-index build warning remain. A device that keeps refusing the king write can lose the in-memory choice on reload.
+
+## Main merge (run 8)
+
+Merge `origin/main` at `b53b99760` into `owner-playtest-1` with two parents. This brings PR 361 (launch repairs), PR 365 (iOS release) and PR 366 (iOS build 5). Keep the lane merges, all four game types, seat kings, both sets of tests and all browser check entries.
+
+Seat-king writes use `accountData(...).write`. The controller shares the receipt's captured gate. A storage failure keeps the chosen king in memory and gives the decision-123 line. A closed deletion gate permits no write and gives no save line. Account cleanup removes this account's king records. The account epoch, obsolete-action, session and deletion guards remain together.
+
+The save check uses main's Continue row and board preview with the branch's names. The merged home shows “Fierce computer” and “New game”; it has no “Play” main button or old type-and-turn row. The art check enters the merged New game panel. The full-storage Ready fixture starts with an existing signed-in generation; every later write still refuses.
+
+Checks pass: 162 focused tests in eight files; 7,259 full-suite tests with 387 existing skips; all 114 renderer tests; r5 112 cases; r4 40 rows; r2 24 groups; board check 18 groups; save check; art-wait 18 cases; four-game check 144 assertions. The doc check passes 197 tests with one existing skip. Both type projects pass. The check build passes with 482 modules.
+
+The first full suite finds an extra gate opening in the receipt lock test. Sharing the receipt gate repairs it without a test change. The first board check times out on random idle motion. A diagnostic shows both armies with no errors; the unchanged full check then passes. No test is deleted, skipped or weakened. Changed save assertions have commit trailers.
+
+Evidence: `runs/launch/owner-playtest/build/r8-logs/` and `r8-shots/`, outside the repository. Captures cover 360x640, 390x844, 844x390 and 1440x900 and pass visual review. Checks use Chromium and local fixtures. No physical device, WebKit, live account, native build, push or deploy runs. A device that keeps refusing storage can still lose its in-memory king on reload.

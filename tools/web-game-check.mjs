@@ -724,22 +724,20 @@ try {
       const receiptKey = `kingdown.account-command.${actors[0]}`;
       const receipt = JSON.stringify({ name: 'kingdown_move', args: { game_id: combinedId, command_id: randomUUID(), expected_revision: finishedCombined.revision, actions: ['e2-e4'] } });
       await screen.evaluate(({ key, value }) => localStorage.setItem(key, value), { key: receiptKey, value: receipt });
+      const pendingButton = await logout.elementHandle();
       const sent = screen.waitForRequest(request => new URL(request.url()).pathname === '/auth/v1/logout' && request.method() === 'POST');
       if (touch) await logout.tap();
       else { await screen.keyboard.down('Enter'); await screen.keyboard.down('Enter'); await screen.keyboard.up('Enter'); }
       await sent;
-      await screen.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2);
-      await screen.locator('#settings-sheet [data-nav="handle"]').click();
-      await screen.locator('[data-screen="handle"]:not([hidden])').waitFor();
-      assert(await screen.locator('#settings-logout').isDisabled(), 'The name screen lock keeps pending logout disabled');
-      await screen.locator('#page-back').click();
-      await screen.locator('[data-screen="settings"]:not([hidden])').waitFor();
-      assert(await logout.evaluate(button => !button.disabled && button.matches(':disabled')), 'The fieldset keeps pending logout disabled after the real lock clears the button state');
-      await logout.evaluate(button => { button.disabled = false; button.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+      // Sign-out removes this device's credentials before the server reply, so the private screen goes at once.
+      await screen.getByText('Sign in to play with your account.', { exact: true }).waitFor();
+      assert.equal(await screen.locator('#app-root').count(), 0, 'Logout removes the private screen before the reply');
+      assert(await pendingButton.evaluate(button => button.matches(':disabled') && button.getAttribute('aria-busy') === 'true'), 'The held logout stays locked');
+      await pendingButton.evaluate(button => { button.disabled = false; button.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
       assert.equal(logouts, 1, 'Repeated activation sends one local logout across a page update');
       releaseLogout();
+      await screen.waitForURL(url => new URL(url).pathname === '/play/');
       await screen.getByText('Sign in to play with your account.', { exact: true }).waitFor();
-      assert.equal(new URL(screen.url()).pathname, '/play/');
       assert.equal(await screen.locator('#app-root').count(), 0, 'Logout removes the private screen');
       await screen.reload();
       await screen.getByRole('button', { name: 'Continue with Google', exact: true }).waitFor();
@@ -747,7 +745,7 @@ try {
       assert.equal(await screen.evaluate(key => localStorage.getItem(key), receiptKey), receipt, 'Logout keeps the pending game receipt');
       assert.equal(logouts, 1, 'One activation sends one local logout');
       assertNoErrors(logoutErrors);
-      logoutProof.push({ width, height, target: { width: box.width, height: box.height }, logouts, focus: true, pageUpdate: true, nativeFieldsetLock: true, signedOutReload: true });
+      logoutProof.push({ width, height, target: { width: box.width, height: box.height }, logouts, focus: true, pageUpdate: true, signedOutBeforeReply: true, signedOutReload: true });
     } finally { releaseLogout(); await ctx.close(); }
   }
   await checkLogout(1280, 800, false);

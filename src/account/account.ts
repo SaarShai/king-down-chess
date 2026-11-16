@@ -9,12 +9,13 @@ import { Sync, stamp, type SavedGameAccess, type Section } from './sync';
 import type { Client, Provider, SignInOption } from './client';
 import { emailCodeForm, forgetEmailCode } from './email-code';
 import { allowedAvatarUrl } from './public-config';
-import { AUTH_KEY } from './session';
+import { AUTH_KEY, sessionKey, type AccountSession } from './session';
 import { canWriteLocal } from './local';
-import { apiOrigin } from '../platform';
+import { apiOrigin, inApp } from '../platform';
 export type User = { name: string; avatar: string | null; provider: string };
 type AuthUser = { user_metadata?: Record<string, unknown>; app_metadata?: Record<string, unknown> };
 declare const __KINGDOWN_MUSE__: boolean;
+declare const __KINGDOWN_SOLO_LAUNCH__: boolean;
 /** On only in a build that serves the Muse connector (tools/muse-connector.mjs, vite.config.ts). */
 const MUSE = typeof __KINGDOWN_MUSE__ === 'boolean' && __KINGDOWN_MUSE__;
 
@@ -41,7 +42,7 @@ export function userOf(u: AuthUser | null | undefined): User | null {
 }
 
 /** The Account section's content. The name and picture come from outside the game, so both are escaped. */
-export function accountHtml(user: User | null, facebook: boolean, available: readonly SignInOption[] = [], muse = MUSE): string {
+export function accountHtml(user: User | null, facebook: boolean, available: readonly SignInOption[] = [], muse = MUSE, newDeletion = false): string {
   // The app's own page path opens nothing there (capacitor://localhost); its stage's site opens in the system browser.
   const links = `<p class="account-links"><a href="${apiOrigin}/privacy.html" target="_blank" rel="noopener">Privacy</a>`
     + `<a href="${apiOrigin}/terms.html" target="_blank" rel="noopener">Terms</a></p>`;
@@ -59,7 +60,7 @@ export function accountHtml(user: User | null, facebook: boolean, available: rea
     + '<small>Your settings, lessons and saved game are kept with your account.</small>'
     + '<button type="button" data-act="sign-out">Sign out</button>'
     + (muse ? '<button type="button" class="quiet" data-act="disconnect-muse">Disconnect Muse</button>' : '')
-    + '<button type="button" class="quiet" data-act="delete">Delete my account</button>'
+    + (newDeletion ? '<a class="menu-row" href="/next.html#you">Delete my account</a>' : '<button type="button" class="quiet" data-act="delete">Delete my account</button>')
     + links;
 }
 
@@ -77,6 +78,17 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
   const params = new URLSearchParams(location.search);
   const facebook = params.get('facebook') === '1';
   let client: Promise<Client> | null = null, user: User | null = null, userId = '', lastPull = 0;
+  let shown: AccountSession | null = null, deleting: AccountSession | null = null;
+  // The session in storage now (the client delivers only events that match it).
+  const storedSession = (): AccountSession | null => {
+    try {
+      const s = JSON.parse(localStorage.getItem(AUTH_KEY) ?? 'null');
+      return typeof s?.user?.id === 'string' && typeof s.access_token === 'string' ? { userId: s.user.id, accessToken: s.access_token } : null;
+    } catch { return null; }
+  };
+  const same = (a: AccountSession | null, b: AccountSession | null): boolean => a && b ? sessionKey(a) === sessionKey(b) : a === b;
+  // After a reply: the screen or the storage already holds another session, whose own auth event sets up its screen and cloud save.
+  const later = (expected: AccountSession | null): boolean => [shown, storedSession()].some(s => s !== null && !same(s, expected));
   let providers: SignInOption[] = [], checkingProviders = false;
   let emailForm: HTMLFormElement | null = null;
   // A signed-out note (a refused sign-in, sign-out, deletion) that the next provider check shows again once.
@@ -85,7 +97,7 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
   const keep = (t: string): void => { keptNote = t; say(t); };
   const render = (): void => {
     const hadFocus = body.contains(document.activeElement);
-    body.innerHTML = accountHtml(user, facebook, providers);
+    body.innerHTML = accountHtml(user, facebook, providers, MUSE, inApp && typeof __KINGDOWN_SOLO_LAUNCH__ === 'boolean' && __KINGDOWN_SOLO_LAUNCH__);
     // One form across redraws, so a code on its way keeps its step and typed address.
     if (user) { emailForm = null; forgetEmailCode(); }
     else if (providers.includes('email')) body.querySelector('small')!.before(emailForm ??= emailCodeForm(load, say));
@@ -97,6 +109,7 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
     const c = m.connect(AUTH_KEY);
     c.onSession(s => {
       user = userOf(s?.user);
+      shown = s ? { userId: s.user.id, accessToken: s.access_token } : null;
       if (user) say('');
       render();
       if ((s?.user.id ?? '') === userId) return;
@@ -132,6 +145,7 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
   let stored: unknown = null;
   try { stored = JSON.parse(localStorage.getItem(AUTH_KEY) ?? 'null'); } catch { /* none */ }
   user = userOf((stored as { user?: AuthUser } | null)?.user);
+  shown = storedSession(); // The first screen and its Sign out target come from the same record.
   render();
   $('account').hidden = false;
   if (user || params.has('code')) void load().catch(() => {});
@@ -145,10 +159,14 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
       say(`Opening ${PROVIDERS.find(([p]) => p === provider)?.[1]}…`);
       try { await (await load()).signIn(provider); } catch { say('Could not reach the sign-in service. Check your connection and try again.'); }
     } else if (b.dataset.act === 'sign-out') {
+      // Bind sign-out to the session on screen now: another tab can sign in during the waits below.
+      const expected = shown;
       // The last changes go up first (waiting 3 s at most), so the account's copy has them.
       await Promise.race([sync?.flush(), new Promise(r => setTimeout(r, 3000))]);
-      try { await (await load()).signOut(); } catch { try { localStorage.removeItem(AUTH_KEY); } catch { /* blocked */ } }
-      sync?.stop(); sync = null; userId = ''; user = null;
+      try { if (expected) await (await load()).signOutSession(expected); }
+      catch { keep('Could not finish sign-out. Check your connection and try again.'); return; }
+      if (later(expected)) return;
+      sync?.stop(); sync = null; userId = ''; user = null; shown = null;
       render();
       keep('Signed out. Your games stay on this device.');
       await refreshProviders();
@@ -157,22 +175,26 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
       if (!confirm('Disconnect Muse? Muse can no longer use your account, and we delete the games you started in Muse.')) return;
       say('Disconnecting Muse…');
       try {
-        const deleted = await (await load()).disconnectMuse();
+        const deleted = await (await load()).disconnectMuse(shown ?? undefined);
         say(deleted === null ? 'Could not disconnect Muse. Try again later.' : 'Muse is disconnected. We deleted the games you started in Muse.');
       } catch { say('Could not disconnect Muse. Check your connection and try again.'); }
     } else if (b.dataset.act === 'delete') {
       // Inside another site's frame, a click may not be the player's own (clickjacking).
       if (window.top !== window.self) return say('Open King Down in its own tab to delete your account.');
+      deleting = shown; // The account on screen when the dialog opens: another tab can sign in while it is open.
       ask.returnValue = '';
       ask.showModal();
     }
   });
   ask.addEventListener('close', async () => {
     if (ask.returnValue !== 'delete') return;
+    const expected = deleting; deleting = null;
+    if (!expected || !same(shown, expected)) return say('The account on this page changed. Open Delete my account again.');
     say('Deleting your account…');
     try {
-      await (await load()).deleteAccount();
-      sync?.stop(); sync = null; userId = ''; user = null;
+      await (await load()).deleteAccount(expected);
+      if (later(expected)) return;
+      sync?.stop(); sync = null; userId = ''; user = null; shown = null;
       render();
       keep('We delete your account in seven days. To keep it, sign in again before then. Your games stay on this device.');
     } catch { say('Could not delete your account. Check your connection and try again.'); }

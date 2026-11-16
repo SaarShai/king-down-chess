@@ -111,3 +111,13 @@ describe('no secrets in what the browser gets', () => {
     expect(hits).toEqual([]);
   });
 });
+
+it('the launch app local board links to the new deletion control; the default keeps its old control', () => {
+  const user = userOf({ app_metadata: { provider: 'email' }, user_metadata: {} });
+  const app = accountHtml(user, false, [], false, true), old = accountHtml(user, false);
+  expect(app).toContain('<a class="menu-row" href="/next.html#you">Delete my account</a>');
+  expect(app).not.toContain('data-act="delete"');
+  expect(old).toContain('data-act="delete"'); expect(old).not.toContain('/next.html#you');
+  const source = readFileSync(new URL('./account.ts', import.meta.url), 'utf8');
+  expect(source).toContain("inApp && typeof __KINGDOWN_SOLO_LAUNCH__ === 'boolean' && __KINGDOWN_SOLO_LAUNCH__");
+});

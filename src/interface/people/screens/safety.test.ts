@@ -6,6 +6,7 @@ import type { AddressInfo } from 'node:net';
 
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 let server: ViteDevServer, browser: Browser, origin: string;
+const browserErrors: string[] = [];
 beforeAll(async () => {
   server = await createServer({ configFile: false, root: fileURLToPath(new URL('../../../..', import.meta.url)), logLevel: 'error', server: { host: '127.0.0.1', port: 0, hmr: false, watch: null }, optimizeDeps: { noDiscovery: true, include: [] },
     plugins: [{ name: 'safety-fixture', configureServer(vite) { vite.middlewares.use('/safety-check', (_req, res) => { res.setHeader('Content-Type', 'text/html'); res.end(`<html><body><button id="source">Open</button><script type="module">
@@ -22,12 +23,14 @@ beforeAll(async () => {
       };
       window.current = 'alice';
       window.host = onlineHost({ rules: () => 'pieces', setRules() {}, changed() {}, open() {}, home() {}, toast() {},
-        storage: { getItem: () => null, setItem() {}, removeItem() {} },
+        storage: localStorage,
         auth: async () => ({ onSession: callback => { window.sessionChanged = callback; },
           readSession: async () => current ? { userId: current, accessToken: 'fixture-' + current } : null,
-          signOut: async () => { current = null; sessionChanged(null); } }),
+          signOut: async () => { current = null; sessionChanged(null); },
+          signOutSession: async expected => { if (expected.userId !== current || expected.accessToken !== 'fixture-' + current) return false; current = null; sessionChanged(null); return true; } }),
         fetch: async (input, init) => {
           const path = new URL(input, location.origin).pathname;
+          if (path.endsWith('/deletion')) { if (window.fail) throw Error(); if (window.holdDeletion) await new Promise(resolve => window.deletionReply = resolve); return Response.json({ deletion: { run_after: '2026-12-01T12:00:00Z' } }); }
           if (path.endsWith('/settings')) return Response.json({ me: { handle: current, icon: null } });
           window.bearer = init.headers.Authorization;
           if (path.endsWith('/record')) return Response.json(await api.record({}));
@@ -42,8 +45,8 @@ beforeAll(async () => {
   await server.listen(); origin = `http://127.0.0.1:${(server.httpServer!.address() as AddressInfo).port}`;
   browser = await chromium.launch({ headless: true });
 });
-afterAll(async () => { await browser?.close(); await server?.close(); });
-async function open() { const page = await browser.newPage({ viewport: { width: 360, height: 640 } }); await page.goto(origin + '/safety-check'); await page.waitForFunction(() => !!(window as any).changeAccount); return page; }
+afterAll(async () => { await browser?.close(); await server?.close(); expect(browserErrors).toEqual([]); });
+async function open(viewport = { width: 360, height: 640 }) { const page = await browser.newPage({ viewport }); page.on('pageerror', error => browserErrors.push(error.message)); page.on('console', message => { if (message.type() === 'error') browserErrors.push(message.text()); }); await page.goto(origin + '/safety-check'); await page.waitForFunction(() => !!(window as any).changeAccount); return page; }
 
 it('a failed report keeps its draft; success shows the reference and the support path', async () => {
   const page = await open();
@@ -103,15 +106,16 @@ it('loads all block pages and keeps a failed unblock row', async () => {
 it('deletion needs confirm, keeps retry on failure and shows only the received date', async () => {
   const page = await open();
   try {
-    await page.evaluate(() => { const w = window as any; w.fail = true; w.safety.deleteAccount(document.querySelector('#source'), async () => { w.calls.push('delete'); if (w.fail) throw Error(); return { runAfter: '2026-12-01T12:00:00Z', localCleared: true }; }); });
+    await page.evaluate(() => { const w = window as any; w.fail = true; w.deletion = w.host.deletion; w.safety.deleteAccount(document.querySelector('#source'), { ...w.deletion, remove: async () => { w.calls.push('delete'); return w.deletion.remove(); } }); });
     expect(await page.evaluate(() => (window as any).calls)).toEqual([]);
     await page.getByRole('button', { name: 'Cancel delete account', exact: true }).click(); expect(await page.locator('dialog').count()).toBe(0);
-    await page.evaluate(() => { const w = window as any; w.safety.deleteAccount(document.querySelector('#source'), async () => { w.calls.push('delete'); if (w.fail) throw Error(); return { runAfter: '2026-12-01T12:00:00Z', localCleared: true }; }); });
+    await page.evaluate(() => { const w = window as any; w.deletion = w.host.deletion; w.safety.deleteAccount(document.querySelector('#source'), { ...w.deletion, remove: async () => { w.calls.push('delete'); return w.deletion.remove(); } }); });
     await page.getByRole('button', { name: 'Delete account', exact: true }).click();
     await expect.poll(() => page.getByRole('status').textContent()).toContain('same date');
     await page.evaluate(() => { (window as any).fail = false; }); await page.getByRole('button', { name: 'Delete account', exact: true }).click();
     await expect.poll(() => page.locator('h2').textContent()).toBe('Deletion requested');
     expect(await page.locator('dialog').textContent()).toContain('Dec 1, 2026'); expect(await page.locator('dialog').textContent()).toContain('signed out');
+    expect(await page.locator('dialog').textContent()).toContain('we try to send one email to confirm it');
   } finally { await page.close(); }
 });
 
@@ -184,3 +188,28 @@ it('checks the account after a delayed response body arrives', async () => {
     })).toBe('UNAUTHENTICATED');
   } finally { await page.close(); }
 });
+
+for (const viewport of [{ width: 360, height: 640 }, { width: 390, height: 844 }, { width: 1440, height: 900 }]) {
+for (const eventFirst of [false, true]) it(`closes deletion on an unrelated account change, event first: ${eventFirst}, width: ${viewport.width}`, async () => {
+  const page = await open(viewport);
+  try {
+    await page.evaluate(() => { const w = window as any; w.holdDeletion = true; w.safety.deleteAccount(document.querySelector('#source'), w.host.deletion); });
+    await page.getByRole('button', { name: 'Delete account', exact: true }).click(); await page.waitForFunction(() => !!(window as any).deletionReply);
+    await page.evaluate(first => { const w = window as any; w.current = 'bob'; if (first) w.changeAccount('bob'); w.deletionReply(); }, eventFirst);
+    await expect.poll(() => page.locator('dialog').count()).toBe(0);
+    if (!eventFirst) await page.evaluate(() => (window as any).changeAccount('bob'));
+    expect(await page.evaluate(() => (window as any).current)).toBe('bob'); expect(await page.locator('body').textContent()).not.toContain('signed out');
+  } finally { await page.close(); }
+});
+it(`keeps the deletion receipt on its expected sign-out, then closes it for a new account, width: ${viewport.width}`, async () => {
+  const page = await open(viewport);
+  try {
+    await page.evaluate(() => { const w = window as any; w.safety.deleteAccount(document.querySelector('#source'), w.host.deletion); });
+    await page.getByRole('button', { name: 'Delete account', exact: true }).click();
+    await expect.poll(() => page.locator('h2').textContent()).toBe('Deletion requested');
+    expect(await page.evaluate(() => (window as any).current)).toBeNull();
+    await page.evaluate(() => (window as any).changeAccount('bob'));
+    expect(await page.locator('dialog').count()).toBe(0);
+  } finally { await page.close(); }
+});
+}

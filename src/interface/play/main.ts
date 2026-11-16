@@ -96,7 +96,7 @@ let gameLevel: Level = level, resigned: Color | null = null, liveGame = false;
 const writer = new SaveWriter(line => { if (document.body.dataset.page === 'game') refuse(line); else announce(line); });
 const prefs = () => ({ skill: SKILLS[gameLevel], coords, sound, pace: motion });
 /** Write the live game: its handed-over plies and its whole staged steps (decision 2). */
-const save = (step: boolean) => onlineActive ? people?.saveDraft() ?? true : writer.game(snapshot(draft, resigned, player), prefs(), step);
+const save = (step: boolean) => onlineActive ? void people?.saveDraft() : writer.game(snapshot(draft, resigned, player), prefs(), step);
 let selected: number | null = null, inspected: number | null = null, cursor = 12;
 let thinking = false, ended = false, generation = 0, reading: 'normal' | 'rule' | 'menu' | 'result' = 'normal';
 // The opening (Roll call) while it runs; the end of a computer reply while its playback runs; a start in progress.
@@ -1464,9 +1464,8 @@ function showAccount(host?: OnlineHost) {
   const section = el('section', 'you-account'), me = host?.host.me();
   section.append(el('h2', '', 'Account'));
   if (host && me) {
-    const userId = host.userId!;
     const blocked: HTMLButtonElement = button('Blocked players', { onPress: () => blockedPlayers(host.safety, blocked) });
-    const remove: HTMLButtonElement = button('Delete account', { kind: 'danger', onPress: () => deleteAccount(remove, () => host.deleteAccount(userId)) });
+    const remove: HTMLButtonElement = button('Delete account', { kind: 'danger', onPress: () => deleteAccount(remove, host.deletion) });
     section.append(profilePortrait(me.handle ?? host.user?.name ?? 'Player', host.user?.avatar), el('p', '', me.handle ?? 'Player'), button('Sign out', { onPress: () => { void host.signOut().catch(() => announce('Sign-out cannot finish. Try again.')); } }), blocked, remove);
   }
   else if (!host) section.append(el('p', '', 'Checking sign-in…'));

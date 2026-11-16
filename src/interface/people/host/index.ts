@@ -2,7 +2,7 @@
 import { profilePortrait } from './portrait';
 import type { Client } from '../../../account/client';
 import { userOf, type User } from '../../../account/account';
-import { AUTH_KEY, type AccountSession } from '../../../account/session';
+import { AUTH_KEY, sessionKey, type AccountSession } from '../../../account/session';
 import { handleProblem, type Icon } from '../../../account/profile';
 import type { InvitationRow, View } from '../../../match/protocol';
 import { DEFAULT_OPTIONS } from '../../../match/setup';
@@ -14,6 +14,7 @@ import { clearDeletedAccount } from '../../../account/local';
 import { peopleController, type PeopleState } from '../controller';
 import { ObsoleteAction, peopleServer } from '../server';
 import { bindSeatKing, preferredKing } from '../seat-king';
+import { accountData, AccountDataClosed, type AccountData } from '../../../account/data';
 import { toFen } from '../../../rules/setup';
 import { DraftTurn } from '../../play/turn';
 import { restage } from '../replica';
@@ -29,9 +30,10 @@ export function inviteURL(token: string, origin = location.origin, app = inApp):
 
 export const onlineOptions = (rules: Rules, options: GameOptions = PANEL_OPTIONS) => ({ ...DEFAULT_OPTIONS, pool: [...options.pool], cardPool: [...options.cardPool], arrangement: options.arrangement === 'manual', kingPowers: rules === 'powers' || rules === 'both', cards: rules === 'cards' || rules === 'both' });
 export const draftKey = (user: string, game: string) => `kingdown.people-draft.${user}.${game}`;
-export function keepDraft(storage: Pick<Storage, 'setItem'>, user: string, state: PeopleState) {
-  if (!state.view || !state.draft) return;
-  storage.setItem(draftKey(user, state.view.game_id), JSON.stringify({ revision: state.view.revision, actions: state.draft.steps.map(step => state.game!.context.toLan(step.before, step.move)) }));
+export function keepDraft(storage: Pick<Storage, 'setItem'>, user: string, state: PeopleState, gate: AccountData) {
+  const key = state.view && draftKey(user, state.view.game_id);
+  const value = state.view && state.draft && JSON.stringify({ revision: state.view.revision, actions: state.draft.steps.map(step => state.game!.context.toLan(step.before, step.move)) });
+  return gate.write(() => { if (key && value) storage.setItem(key, value); });
 }
 export function restoreDraft(storage: Pick<Storage, 'getItem'>, user: string, state: PeopleState) {
   if (!state.draft || !state.view) return;
@@ -54,12 +56,12 @@ export interface HostOptions {
 }
 export function onlineHost(options: HostOptions) {
   const storage = options.storage ?? localStorage;
-  let authPromise: Promise<Client> | undefined, session: AccountSession | null = null, user: User | null = null;
+  let authPromise: Promise<Client> | undefined, session: AccountSession | null = null, user: User | null = null, writer: AccountData | undefined;
   let profile: { handle: string | null; icon: Icon | null } | null = null, views: View[] = [], loading: Promise<void> | undefined;
   let incomingInvites: InvitationRow[] = [], inviteUpdates: InvitationRow[] = [], cachedKnown: Player[] = [];
   let controller: ReturnType<typeof peopleController> | undefined, stop = () => {}, unsubscribe = () => {}, epoch = 0;
-  const safetyListeners = new Set<() => void>();
-  const closeSafety = () => { for (const close of [...safetyListeners]) close(); };
+  const safetyListeners = new Set<(nextUser?: string) => void>();
+  const closeSafety = (nextUser?: string) => { for (const close of [...safetyListeners]) close(nextUser); };
   const inviteSeenKey = (userId: string, inviteId: string) => `kingdown.invite-seen.${userId}.${inviteId}`;
   const knownAvatar = (handle: string): string | null => {
     for (const view of views) {
@@ -74,8 +76,8 @@ export function onlineHost(options: HostOptions) {
   const auth = () => authPromise ??= (options.auth ? options.auth() : import('../../../account/client').then(m => m.connect(AUTH_KEY, { manualCallback: true, apple: true }))).then(client => {
     client.onSession(current => {
       user = userOf(current?.user);
-      if (session && current?.user.id !== session.userId) {
-        epoch++; closeSafety(); stopGame(); session = null; profile = null; views = []; incomingInvites = []; inviteUpdates = []; cachedKnown = []; options.home(); options.changed();
+      if (current?.user.id !== session?.userId || session && current && typeof current.access_token === 'string' && sessionKey({ userId: current.user.id, accessToken: current.access_token }) !== sessionKey(session)) {
+        epoch++; closeSafety(current?.user.id); stopGame(); session = null; profile = null; views = []; incomingInvites = []; inviteUpdates = []; cachedKnown = []; options.home(); options.changed();
       }
       options.changed();
     });
@@ -113,9 +115,25 @@ export function onlineHost(options: HostOptions) {
   function stopGame() { stop(); unsubscribe(); stop = unsubscribe = () => {}; controller = undefined; }
   async function signIn() {
     const current = await (await auth()).readSession();
-    if (session?.userId !== current?.userId) { epoch++; closeSafety(); stopGame(); views = []; incomingInvites = []; inviteUpdates = []; cachedKnown = []; }
-    session = current;
-    profile = current ? (await api.settings()).me : null;
+    if (session?.userId !== current?.userId || session && current && sessionKey(session) !== sessionKey(current)) { epoch++; closeSafety(current?.userId); stopGame(); views = []; incomingInvites = []; inviteUpdates = []; cachedKnown = []; }
+    const mark = epoch;
+    session = current; writer = undefined;
+    if (current) {
+      const gate = accountData(current.userId, storage);
+      try {
+        await gate.confirm(async () => {
+          const live = await (await auth()).readSession();
+          return live && live.userId === current.userId && sessionKey(live) === sessionKey(current) && mark === epoch ? live : null;
+        });
+        const ready = accountData(current.userId, storage);
+        const settings = await api.settings();
+        await ready.write(async () => {
+          const live = await (await auth()).readSession();
+          if (!live || live.userId !== current.userId || sessionKey(live) !== sessionKey(current) || mark !== epoch) throw new AccountDataClosed();
+          profile = settings.me; writer = ready;
+        });
+      } catch (error) { if (!(error instanceof AccountDataClosed)) throw error; }
+    } else profile = null;
     options.changed();
     return current;
   }
@@ -126,12 +144,14 @@ export function onlineHost(options: HostOptions) {
     options.changed();
   }
   function seatReply(opening = false) {
-    const account = session, mark = epoch;
+    const account = session, mark = epoch, gate = writer;
     if (!account) throw new OnlineError('UNAUTHENTICATED', 401, 'Sign in to play.');
     const current = () => { if (mark !== epoch || session?.userId !== account.userId) throw new ObsoleteAction(); };
-    const accept = (view: View, king: ReturnType<typeof preferredKing>) => {
+    const accept = async (view: View, king: ReturnType<typeof preferredKing>) => {
       let failed = false;
-      bindSeatKing(storage, account.userId, view, king, () => { failed = true; });
+      if (!gate) throw new ObsoleteAction();
+      try { await bindSeatKing(storage, account.userId, view, king, () => { failed = true; }, gate); }
+      catch (error) { if (error instanceof AccountDataClosed) throw new ObsoleteAction(); throw error; }
       current();
       const notice = failed ? 'Your king stays for this visit. It cannot save on this device.' : undefined;
       if (notice && !opening) options.toast(notice);
@@ -139,7 +159,13 @@ export function onlineHost(options: HostOptions) {
       return notice;
     };
     const failed = (error: unknown): never => { current(); throw error; };
-    return Object.assign(accept, { current, failed });
+    const live = async () => {
+      current();
+      if (!gate) throw new ObsoleteAction();
+      try { await gate.write(() => {}); } catch (error) { if (error instanceof AccountDataClosed) throw new ObsoleteAction(); throw error; }
+      current();
+    };
+    return Object.assign(accept, { current: live, failed });
   }
   async function refresh() {
     if (!session) return;
@@ -222,29 +248,30 @@ export function onlineHost(options: HostOptions) {
     invite: async (handle, rules, choices) => {
       const accept = seatReply(), king = choices ? choices.king : preferredKing(storage);
       const created = await api.create({ kind: 'friend', recipient_handle: handle, colour: 'random', options: onlineOptions(rules, choices) }).catch(accept.failed);
-      accept(created.view, king);
+      await accept(created.view, king);
     },
     inviteBack: async (handle, rules) => {
       const accept = seatReply(), king = preferredKing(storage);
       const created = await api.create({ kind: 'friend', recipient_handle: handle, colour: 'random', options: rules ?? onlineOptions(options.rules()) }).catch(accept.failed);
-      accept(created.view, king);
+      await accept(created.view, king);
     },
     createLink: async (rules, choices) => {
       const accept = seatReply(), king = choices ? choices.king : preferredKing(storage);
       const created = await api.create({ kind: 'friend', open_link: true, colour: 'random', options: onlineOptions(rules, choices) }).catch(accept.failed);
-      accept(created.view, king);
+      await accept(created.view, king);
       const link = created.invite ?? await api.invite(created.view.game_id).catch(accept.failed);
-      accept.current();
+      await accept.current();
       return inviteURL(link.token);
     },
     preview: key => api.preview(key),
     get safety() { return { ...accountSafety(), changed: () => { void refresh(); } }; },
-    join: async key => { const accept = seatReply(true), king = preferredKing(storage); const view = await api.redeem(key).catch(accept.failed); const notice = accept(view, king); options.open(view.game_id, notice); },
+    join: async key => { const accept = seatReply(true), king = preferredKing(storage); const view = await api.redeem(key).catch(accept.failed); const notice = await accept(view, king); options.open(view.game_id, notice); },
     toPlay: options.home, toast: options.toast,
     share: navigator.share ? data => navigator.share(data) : undefined,
     coarse: matchMedia('(pointer: coarse)').matches,
   };
-  return {
+  function reset() { epoch++; closeSafety(); stopGame(); session = null; writer = undefined; profile = null; user = null; views = []; incomingInvites = []; inviteUpdates = []; cachedKnown = []; options.home(); options.changed(); }
+  const resultHost = {
     async copyLink(id: string) {
       const link = await api.invite(id), { copyText } = await import('../../../clipboard');
       if (!await copyText(inviteURL(link.token))) throw new Error('The link cannot copy.');
@@ -253,7 +280,7 @@ export function onlineHost(options: HostOptions) {
     async acceptInvite(invite: InvitationRow) {
       const accept = seatReply(true), king = preferredKing(storage);
       const view = await api.redeem({ invite_id: invite.invite_id }).catch(accept.failed);
-      const notice = accept(view, king);
+      const notice = await accept(view, king);
       incomingInvites = incomingInvites.filter(i => i.invite_id !== invite.invite_id);
       options.open(view.game_id, notice);
       void refresh();
@@ -265,8 +292,8 @@ export function onlineHost(options: HostOptions) {
       options.changed();
       void refresh();
     },
-    dismissInvite(invite: InvitationRow) {
-      if (session) try { storage.setItem(inviteSeenKey(session.userId, invite.invite_id), invite.state); } catch { /* This update can show again. */ }
+    async dismissInvite(invite: InvitationRow) {
+      if (session && writer) try { const key = inviteSeenKey(session.userId, invite.invite_id); await writer.write(() => storage.setItem(key, invite.state)); } catch { /* This update can show again. */ }
       inviteUpdates = inviteUpdates.filter(i => i.invite_id !== invite.invite_id);
       options.changed();
     },
@@ -283,6 +310,7 @@ export function onlineHost(options: HostOptions) {
       stopGame();
       if (!session) { change({ phase: 'loading', connection: 'auth' } as PeopleState); return; }
       const current = peopleController({ server: peopleServer(api), storage, userId: session.userId, locks: navigator.locks }); controller = current;
+      const account = session.userId, gate = writer;
       let restored = false, seen = -1;
       unsubscribe = current.subscribe(state => {
         if (controller !== current) return;
@@ -292,39 +320,72 @@ export function onlineHost(options: HostOptions) {
           if (state.view.status === 'finished' && state.view.revision !== seen) { seen = state.view.revision; void api.record().then(record => {
             if (controller !== current) return;
             const row = record.history.find(row => row.game_id === id);
-            if (row) try { storage.setItem(`kingdown.people-seen.${session!.userId}.${id}`, row.finished_at); } catch { /* This result can show again. */ }
+            if (row && gate) void gate.write(() => storage.setItem(`kingdown.people-seen.${account}.${id}`, row.finished_at)).catch(() => {});
           }).catch(() => {}); }
         }
         change(current.state());
       });
       stop = current.start(); await current.open(id);
     },
-    saveDraft() {
+    async saveDraft() {
       if (!session || !controller) return true;
-      try { keepDraft(storage, session.userId, controller.state()); return true; }
+      try { if (!writer) throw new AccountDataClosed(); await keepDraft(storage, session.userId, controller.state(), writer); return true; }
       catch { options.toast('This device cannot save your unsent turn. Send it before you close the page.'); return false; }
     },
-    async deleteAccount(expectedUser: string) {
-      // Bind the request to the account shown in the confirm sheet, including across an auth event.
-      const scoped = onlineClient({ origin: apiOrigin, fetch: options.fetch, token: async () => {
-        const current = await (await auth()).readSession();
-        return current?.userId === expectedUser && session?.userId === expectedUser ? current.accessToken : null;
-      } });
-      const result = await scoped.requestDeletion();
-      if (!result.deletion || !Number.isFinite(Date.parse(result.deletion.run_after))) throw new Error('No deletion receipt');
-      let localCleared = true;
-      try {
-        if (typeof storage.length !== 'number' || !storage.key) throw new Error('Storage cannot list keys');
-        clearDeletedAccount(storage as Storage, expectedUser);
-        sessionStorage.removeItem('kingdown.email-code');
-        sessionStorage.removeItem('kingdown.account-page.' + expectedUser);
-        sessionStorage.removeItem('kingdown.account-signin');
-      } catch { localCleared = false; }
-      if (session?.userId === expectedUser) await this.signOut();
-      options.toast('Deletion requested. Sign in before deletion to cancel.');
-      return { runAfter: result.deletion.run_after, localCleared };
+    get deletion() {
+      const opening = session, mark = epoch, gate = writer;
+      let expectedSignOut = false;
+      const listeners = new Set<() => void>();
+      const keys = ['kingdown.email-code', 'kingdown.account-page.' + opening?.userId, 'kingdown.account-signin'];
+      let records: (string | null)[] | undefined;
+      try { records = keys.map(key => sessionStorage.getItem(key)); } catch { /* Report incomplete cleanup with the receipt. */ }
+      const current = async () => {
+        const live = await (await auth()).readSession();
+        if (opening && live?.userId === opening.userId && sessionKey(live) === sessionKey(opening) && session === opening && mark === epoch) return live;
+        for (const close of listeners) close();
+        throw new OnlineError('UNAUTHENTICATED', 401, 'The account changes.');
+      };
+      return {
+        onAccountChange(close: () => void) {
+          const changed = (nextUser?: string) => { if (!expectedSignOut || nextUser) close(); };
+          listeners.add(close); safetyListeners.add(changed);
+          if (!opening || session !== opening || mark !== epoch) close();
+          return () => { listeners.delete(close); safetyListeners.delete(changed); };
+        },
+        async remove() {
+          const scoped = onlineClient({ origin: apiOrigin, fetch: options.fetch, token: async () => (await current()).accessToken });
+          const result = await scoped.requestDeletion();
+          if (!result.deletion || !Number.isFinite(Date.parse(result.deletion.run_after))) throw new Error('No deletion receipt');
+          let localCleared = true;
+          try {
+            if (!gate) throw new AccountDataClosed();
+            await gate.close(() => {
+              if (typeof storage.length !== 'number' || !storage.key) throw new Error('Storage cannot list keys');
+              clearDeletedAccount(storage as Storage, opening!.userId);
+            }, current);
+            if (!records) throw new Error('Storage cannot read sign-in records');
+            keys.forEach((key, i) => { if (records[i] !== null && sessionStorage.getItem(key) === records[i]) sessionStorage.removeItem(key); });
+          } catch (error) { if (error instanceof OnlineError) throw error; if (error instanceof AccountDataClosed) throw new OnlineError('UNAUTHENTICATED', 401, 'The account changes.'); localCleared = false; }
+          // Auth events can reach this tab after the full reply and local cleanup.
+          await current();
+          expectedSignOut = true;
+          if (!await (await auth()).signOutSession(opening!)) throw new OnlineError('UNAUTHENTICATED', 401, 'The account changes.');
+          if (session === opening && mark === epoch) reset();
+          options.toast('Deletion requested. Sign in before deletion to cancel.');
+          return { runAfter: result.deletion.run_after, localCleared };
+        },
+      };
     },
-    async signOut() { epoch++; closeSafety(); stopGame(); await (await auth()).signOut(); session = null; profile = null; user = null; views = []; incomingInvites = []; inviteUpdates = []; cachedKnown = []; options.home(); options.changed(); },
+    async signOut() {
+      const client = await auth(), expected = session;
+      if (!expected) { await client.signOut(); reset(); return; }
+      // Bind to the shown session: another tab, or this page, can sign in while the reply waits.
+      await client.signOutSession(expected);
+      const live = await client.readSession().catch(() => null);
+      if (session && sessionKey(session) !== sessionKey(expected) || live && sessionKey(live) !== sessionKey(expected)) return;
+      reset();
+    },
   };
+  return resultHost;
 }
 export type OnlineHost = ReturnType<typeof onlineHost>;

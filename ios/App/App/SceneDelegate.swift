@@ -38,8 +38,8 @@ class AppViewController: CAPBridgeViewController {
 
     func openUniversalLink(_ activity: NSUserActivity) {
         guard activity.activityType == NSUserActivityTypeBrowsingWeb,
-              let url = activity.webpageURL, let base = bridge?.config.serverURL,
-              let local = UniversalLink.localURL(url, base: base) else { return }
+              let url = activity.webpageURL, let config = bridge?.config,
+              let local = UniversalLink.localURL(url, base: config.serverURL, soloLaunch: FileManager.default.fileExists(atPath: config.appLocation.path + "/" + AppRouter.marker)) else { return }
         webView?.load(URLRequest(url: local))
     }
 

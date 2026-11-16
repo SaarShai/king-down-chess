@@ -3,9 +3,10 @@
  * on demand, so the first paint never waits for it). The publishable key is meant for browsers;
  * Row Level Security in supabase/migrations/ is what protects each player's data.
  */
-import { createClient, type Session } from '@supabase/supabase-js';
+import { createClient, isAuthApiError, type Session } from '@supabase/supabase-js';
 import type { Remote, Row } from './sync';
-import type { AccountSession } from './session';
+import { sessionKey, type AccountSession } from './session';
+import { authStorage } from './auth-storage';
 import { publicAccountConfig, stagingPasswordSignInEnabled } from './public-config';
 import { availableProviders, type Provider } from './providers';
 import { inApp } from '../platform';
@@ -25,24 +26,65 @@ export function connect(storageKey: string, { manualCallback = false, apple = fa
   const useApple = () => apple && appleSignInEnabled(import.meta.env);
   // PKCE: the sign-in page sends back a one-time code; this browser exchanges it with a verifier it kept.
   const { url, publishableKey } = publicAccountConfig(import.meta.env);
+  const credentials = authStorage(storageKey, {
+    getItem: key => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value), removeItem: key => localStorage.removeItem(key),
+    get length() { return localStorage.length; }, key: i => localStorage.key(i),
+  });
+  const listeners = new Set<(s: Session | null) => void>();
   const sb = createClient(url, publishableKey, { auth: {
-    flowType: 'pkce', persistSession: true, storageKey,
+    flowType: 'pkce', persistSession: true, storageKey, storage: credentials.storage,
     ...(manualCallback ? { detectSessionInUrl: false, experimental: { appendPkceFlowIdToRedirects: true } } : {}),
   } });
+  const signOutSession = async (expected: AccountSession): Promise<boolean> => {
+    await sb.auth.initialize();
+    const removed = await credentials.remove(expected, () => {
+      // Match the auth client's cross-tab event. Send it before a later auth write can take the lock.
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          const channel = new BroadcastChannel(storageKey);
+          channel.postMessage({ event: 'SIGNED_OUT', session: null }); channel.close();
+        } catch { /* The shared storage still closes writers in other tabs. */ }
+      }
+      for (const cb of listeners) setTimeout(() => { void sb.auth.getSession().then(({ data }) => cb(data.session)).catch(() => {}); });
+    });
+    if (!removed) return false;
+    // This request cannot read or remove the stored session, even on a late error.
+    const { error } = await sb.auth.admin.signOut(removed, 'local');
+    // Deletion can remove the user first. Match the library's already-gone statuses.
+    if (error && !(isAuthApiError(error) && [401, 403, 404].includes(error.status))) throw error;
+    return true;
+  };
+  // True when `s` is the session in storage now (both null: signed out).
+  const stored = (s: Session | null): boolean => {
+    let saved: unknown = null;
+    try { saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null'); } catch { /* blocked or unreadable: no session */ }
+    const live = accountSession(saved as Session | null), event = accountSession(s);
+    return live && event ? sessionKey(live) === sessionKey(event) : live === event;
+  };
+  // A request for the confirmed account: throws when another tab has changed the stored session.
+  const boundSession = async (expected?: AccountSession): Promise<AccountSession> => {
+    const current = accountSession((await sb.auth.getSession()).data.session);
+    if (!current || (expected && sessionKey(current) !== sessionKey(expected))) throw new Error('The account changed. Reload the page.');
+    return current;
+  };
   const signOut = async (): Promise<void> => {
-    const { error } = await sb.auth.signOut({ scope: 'local' });
-    // Offline with an expired session, the library keeps the session (it could not refresh it to sign
-    // out with): forget it here anyway, or the next visit would be signed in again.
-    if (error) for (const k of [storageKey, `${storageKey}-code-verifier`]) localStorage.removeItem(k);
+    const { data, error } = await sb.auth.getSession();
+    // An expired offline session can fail refresh. Still remove only its stored identity.
+    const expected = accountSession(error ? JSON.parse(await credentials.storage.getItem(storageKey) ?? 'null') : data.session);
+    if (expected) await signOutSession(expected);
   };
   return {
     providers: async () => (await availableProviders(url, publishableKey, { apple: useApple() })).filter(option => !inApp || option === 'email' || option === 'apple'),
     /** Called with the session now and on every change (null when signed out). */
     onSession(cb: (s: Session | null) => void): () => void {
       let active = true;
+      const notify = (s: Session | null) => { if (active && stored(s)) cb(s); };
+      listeners.add(notify);
       // Supabase asks that the callback not await its own calls: run ours after it returns.
-      const { data: { subscription } } = sb.auth.onAuthStateChange((_event, s) => { setTimeout(() => { if (active) cb(s); }); });
-      return () => { if (active) { active = false; subscription.unsubscribe(); } };
+      // A late event can name an older session (another tab signed in or out meanwhile): only the stored session counts.
+      // The newer session's own event follows.
+      const { data: { subscription } } = sb.auth.onAuthStateChange((_event, s) => { setTimeout(() => { if (active && stored(s)) cb(s); }); });
+      return () => { if (active) { active = false; listeners.delete(notify); subscription.unsubscribe(); } };
     },
     async readSession(): Promise<AccountSession | null> {
       const { data, error } = await sb.auth.getSession();
@@ -100,25 +142,29 @@ export function connect(storageKey: string, { manualCallback = false, apple = fa
       const { error } = await sb.auth.signInWithOAuth({ provider, options: { redirectTo: location.origin + location.pathname } });
       if (error) throw error;
     },
-    signOut,
+    signOut, signOutSession,
     /** public.delete_my_account() asks for the deletion (migration 0008): it runs after a 7-day grace, and a sign-in in the grace cancels it. */
-    async deleteAccount(): Promise<void> {
-      const { error } = await sb.rpc('delete_my_account');
+    async deleteAccount(expected?: AccountSession): Promise<void> {
+      const target = await boundSession(expected);
+      const { error } = await sb.rpc('delete_my_account').setHeader('Authorization', `Bearer ${target.accessToken}`);
       if (error) throw error;
-      await signOut();
+      await signOutSession(target);
     },
     /** Settings → Disconnect Muse (migration 0024): revokes each Muse grant at Supabase, which ends the Muse sessions, then
      *  public.delete_my_muse_games() deletes the games played through Muse. A grant that is gone already is no fault.
      *  Returns the number of games deleted, or null when a Muse session still exists or no Muse client is registered (the
      *  database then deletes nothing; the daily sweep deletes the games 30 days after the last use of the link). */
-    async disconnectMuse(): Promise<number | null> {
-      const clients = await sb.rpc('muse_client_ids');
+    async disconnectMuse(expected?: AccountSession): Promise<number | null> {
+      const target = await boundSession(expected);
+      const clients = await sb.rpc('muse_client_ids').setHeader('Authorization', `Bearer ${target.accessToken}`);
       if (clients.error) throw clients.error;
       for (const clientId of (clients.data ?? []) as string[]) {
+        await boundSession(target);
         const { error } = await sb.auth.oauth.revokeGrant({ clientId });
         if (error && error.status !== 404) throw error;
       }
-      const { data, error } = await sb.rpc('delete_my_muse_games');
+      await boundSession(target);
+      const { data, error } = await sb.rpc('delete_my_muse_games').setHeader('Authorization', `Bearer ${target.accessToken}`);
       if (error) throw error;
       return data as number | null;
     },

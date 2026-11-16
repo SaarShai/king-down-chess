@@ -4,7 +4,7 @@ The iOS app is a Capacitor shell around the same web build as kingdown.dev. Deci
 
 ## Build and run
 
-1. `npm run ios:sync` builds the web game with the staging account settings and copies it into `ios/App/App/public` (ignored by Git). `npm run ios:sync production` uses the production settings and kingdown.dev. With `KINGDOWN_SOLO_LAUNCH=1` in front (the launch switch of [the launch platform](specs/interface-platform/spec.md)), the app opens the new page; without it, the old page.
+1. `npm run ios:sync` builds the web game with the staging account settings and copies it into `ios/App/App/public` (ignored by Git). `npm run ios:sync production` uses the production settings and kingdown.dev. The script always sets `KINGDOWN_SOLO_LAUNCH=1` (the launch switch of [the launch platform](specs/interface-platform/spec.md)), so the app opens the new page whatever the website's cutover state is.
 2. Run it in the simulator: `npx cap run ios --target <simulator id>` (list ids with `xcrun simctl list devices available`), or open Xcode with `npx cap open ios`.
 3. Inspect the page: debug builds are inspectable in Safari > Develop > Simulator. The native log with the page's console: `xcrun simctl launch --console-pty booted dev.kingdown.app`.
 
@@ -31,6 +31,7 @@ xcodebuild -exportArchive -archivePath "$TMPDIR/App.xcarchive" -exportOptionsPli
 ## Rules the code depends on
 
 - The app routes a page path as the site does (`AppRouter` in `ios/App/App/SceneDelegate.swift`): with the launch marker `solo-launch.json` in the bundle, `/` and an unknown path load `next.html`, and `/play`, `/g/<id>` and `/j` load `index.html`; without it, every page path loads `index.html` (the Capacitor template). A change to the host routes in `tools/plugin-server-build.mjs` changes the router too; `tools/ios-app.test.ts` compares them. The start address `capacitor://localhost` has an empty path, so page code reads `''` as `/`.
+- With the launch marker, a native invite opens `/next.html#join=<token>` before the web view loads it. The token stays in the fragment. Without the marker, it opens `/j#<token>`. Both old app deletion controls open You on the new page; the web control stays the same.
 - The web view has the swipe from the edge as the browser Back, as Safari has: the new page and the old online pages use history for Back.
 - The page origin is `capacitor://localhost`, and it never changes: a new scheme or host gives the app a new web storage area, so the local saves and the session are lost. Do not set `server.hostname`, `iosScheme` or a committed `server.url` in `capacitor.config.json`.
 - `src/platform.ts` is the one seam between the website and the app: `inApp` for app-only behavior, `apiOrigin` for `/api` calls. A new `/api` call uses `apiOrigin`.
