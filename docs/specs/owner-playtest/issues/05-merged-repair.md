@@ -186,3 +186,41 @@ The code commit is `573b15ac`. The final doc check also runs on this ticket text
 ### Fourth repair limits
 
 The checks use Chromium with pointer, touch, keyboard and reduced motion. No physical phone, WebKit, live account or old-page browser check runs. The old page keeps its save-controller unit checks. The existing database-gated skips remain. The build keeps the runtime art-manifest warning. If storage keeps refusing the king write, a reload can lose the in-memory choice. No push, pull request or deploy runs.
+
+## Fifth repair run
+
+The owner reports two faults after the fourth repair:
+
+1. Send keeps the selected piece after a Haste move or another turn that can stop. A failed send at the same revision hides Check again, Discard send and the reader's Sign in again.
+2. A refused king write gives a notice that setup consumes before the player can read it. Automatic Ready replaces the waiting box. Manual setup takes the line but does not show it.
+
+The new browser check reproduces both faults before repair. The Haste network and sign-in cases fail because the reader actions are absent. Automatic and Manual setup each lose the save line before the play frame. The first Haste fixture attempts lack the development server's engine identity; the corrected fixture reaches the saved send and reproduces the fault.
+
+Send now clears selection and inspection before the online request. Thinking input cannot set a selection: a board inspection clears it, and Undo is blocked. No extra reader rule is needed.
+
+The local king-save line stays pending through setup. The first play frame shows it and takes it once. A stable player-waiting page can still show it once, as the earlier check requires. A server notice wins and keeps the local line for a later visible frame.
+
+### Fifth repair checks
+
+Each fault has a failing browser check before repair and a passing check after it. No test is deleted, skipped or weakened. The new check waits for all four transport attempts in each failed Check. It allows only the network and 401 console errors that the named cases cause. Its text bounds check uses the notice text in every layout.
+
+| Check | Result |
+| --- | --- |
+| `owner-playtest-r5` | All 40 cases pass at 360x640, 390x844, 844x390 and 1440x900. Haste keeps its selection before Send. The failed send exposes Check again, then Discard after two failed checks. Discard keeps the draft and restores the normal reader. The 401 reader shows Sign in again before Escape. |
+| King-save cases in that check | Join and Accept pass for both seats, with automatic or Manual setup. The second seat waits through a setup poll. The first play frame keeps the line until the next state. Two later reads do not show it again. |
+| `owner-playtest-r4` and `owner-playtest-r2` | All cases pass at their selected sizes. Server notices and check lines remain. The stable waiting notice still shows once. |
+| `owner-playtest-b` | All 18 groups pass. |
+| Four-game check | 144 pass, 0 fail across 16 game and size pairs against the check build. |
+| Full `npm test`, run once after browser checks | 7,105 pass and 387 existing skips in 375 files; all 114 renderer tests pass. |
+| `npm run test:docs` | 197 pass and 1 existing skip in 19 files. |
+| `npm run typecheck` | Both projects pass. |
+| `npm run build` | Pass with the local check configuration. |
+| UI scan and whitespace check | No findings or faults. |
+
+Evidence is outside the repository in `runs/launch/owner-playtest/build/r5-shots/` and `r5-logs/`. The 40 new captures include the failed Haste send at 360x640 and 844x390, and the save line after each setup path. The text and 44 px controls fit their boxes and clipping ancestors. The reader stays clear of the board. The required captures also pass a visual check.
+
+The first four-game attempt starts before the preview responds and records eight connection refusals. A confirmed HTTP 200 precedes the full rerun, which passes all 144 assertions. Both logs remain. The first new-check attempts expose fixture identity, invitation initialization, transport timing and layout-selector faults; the corrected checks pass without a further product change.
+
+### Fifth repair limits
+
+The checks use Chromium and local server fixtures. No physical phone, WebKit, live account or old-page browser check runs. The old page retains its unit checks. The existing skips and runtime art-index build warning remain. A device that keeps refusing storage can lose its in-memory king choice on reload. The preview stops after the checks. No push, pull request or deploy runs.

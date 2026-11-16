@@ -13,6 +13,7 @@
 // faults that prove the runner: selftest-dirty writes a scratch file into the checkout, selftest-fail
 // fails, selftest-hang never ends, selftest-hold sleeps 15 s so that two runs can be seen together.
 export const checks = [
+  { name: 'owner-playtest-r5', script: 'tools/verify-owner-playtest-r5.mjs', limit: 300, channel: 'chromium', byName: true, external: true },
   { name: 'owner-playtest-r4', script: 'tools/verify-owner-playtest-r4.mjs', limit: 240, channel: 'chromium', byName: true, external: true },
   { name: 'owner-playtest-r2', script: 'tools/verify-owner-playtest-r2.mjs', limit: 480, channel: 'chromium', byName: true, external: true },
   { name: 'owner-playtest-b', script: 'tools/verify-owner-playtest-b.mjs', previewPort: 5443, limit: 300, channel: 'chromium', byName: true },

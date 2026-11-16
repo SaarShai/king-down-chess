@@ -263,10 +263,12 @@ function receiveOnline(state: PeopleState) {
   void onlineRecovery(state);
   if (state.phase === 'setup' && !arrangement && !state.view.ready?.[state.view.seat]) void people?.controller?.ready();
 }
-/** The local save line shows in the first waiting or board frame; a server notice takes priority. */
+/** Keep the local save line through setup; a server notice takes priority. */
 function takeOnlineNotice(state: PeopleState): string {
+  const server = state.notice?.message ?? (state.notice?.kind === 'stale' ? 'The game changes. Check your turn, then send it.' : state.notice?.kind === 'illegal' ? 'This turn cannot play. Undo it, then choose again.' : state.notice?.kind === 'draw-declined' ? 'Your opponent keeps playing.' : state.notice?.kind === 'offline' ? 'You are offline. Your unsent turn stays.' : '');
+  if (server || state.view?.status === 'setup') return server;
   const saved = onlineGameNotice?.line; onlineGameNotice = undefined;
-  return state.notice?.message ?? (state.notice?.kind === 'stale' ? 'The game changes. Check your turn, then send it.' : state.notice?.kind === 'illegal' ? 'This turn cannot play. Undo it, then choose again.' : state.notice?.kind === 'draw-declined' ? 'Your opponent keeps playing.' : state.notice?.kind === 'offline' ? 'You are offline. Your unsent turn stays.' : saved ?? '');
+  return saved ?? '';
 }
 const onlineResult = (state: PeopleState) => state.view?.status === 'aborted' ? 'The game ends with no result.' : state.view?.result?.winner == null ? 'Draw.' : state.view.result.winner === state.view.seat ? 'You win.' : `${state.opponent?.handle ?? 'The opponent'} wins.`;
 async function onlineRecovery(state: PeopleState) {
@@ -836,7 +838,7 @@ async function finish() {
     if (game.pos.turn === cpu()) void reply(); else announce(text.ready);
     return;
   }
-  if (onlineActive) { if (draft.canFinish && !choice.length && !thinking && !ended) { await people?.controller?.send(); } return; }
+  if (onlineActive) { if (draft.canFinish && !choice.length && !thinking && !ended) { selected = inspected = null; await people?.controller?.send(); } return; }
   if (!draft.canFinish || choice.length || thinking || ended || !onlineActive && writer.blocked) return;
   skipBoard(); const mine = game.history.length; if (draft.commit().at(-1)!.pass) board?.setPosition(game.pos, game.context); last = turnText(mine, false); lastActions = turnActions(mine); selected = inspected = null; notice = ''; shown = null;
   clearChoice(); save(true);
