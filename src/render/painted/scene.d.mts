@@ -122,6 +122,8 @@ export function createScene(options: {
   holdStills?: boolean;
   /** With the runtime: ready needs only the stone and the rest stills; the legacy sheets, the wind, rift and king sheets load after the first frame, and a figure draws its still until its sheet loads. The stills and `setBoardArt` load without CORS, so their art must come from the page's origin. Default false. */
   lazySheets?: boolean;
+  /** The first board surface. Default: the original stone image. With lazySheets, use the page's origin. */
+  initialBoardArt?: string;
   /** Called with the URL of a rest still that cannot load. Default none: the figure then waits for its sheet, as before. */
   onArtError?: (url: string) => void;
 }): PaintedScene;

@@ -16,6 +16,7 @@ import { faultOf, inviteKey, type Fault, type InviteKey } from '../server';
 import { node, peopleSheet, picture, say, statusLine } from './sheet';
 import { shareWay } from './person';
 import { nameSheet, plain, signInSheet, type SignInHost } from './sign-in';
+import { playerSafety, type SafetyClient } from './safety';
 
 export type LandingKind = 'valid' | 'plain' | 'own' | 'ended' | 'limit' | 'bad';
 export interface Landing { kind: LandingKind; inviter: string | null; icon: Icon | null; avatar?: string | null; facts: string[]; count?: number }
@@ -48,6 +49,7 @@ export function landingState(key: InviteKey | undefined, me: string | null, answ
 }
 
 export interface LandingHost extends SignInHost {
+  safety?: Pick<SafetyClient, 'report' | 'block' | 'relate' | 'onAccountChange'> & { changed(): void };
   named?: boolean;
   photo?: boolean;
   /** The signed-in player, or null when signed out. */
@@ -139,6 +141,7 @@ export function landingPage(host: LandingHost, fragment: string) {
       case 'bad': actions.push(computer()); break;
     }
     const lineText = lineOf(state);
+    if (host.safety && host.me() && state.inviter && state.kind !== 'own' && state.kind !== 'bad') actions.push(...playerSafety(host.safety, { handle: state.inviter }, host.safety.changed));
     element.replaceChildren(node('h1', 'people-brand', landingText.brand), (host.photo ?? host.named === false) ? profilePortrait(state.inviter ?? 'A player', state.avatar ?? null) : picture(state.icon, 'large'), title,
       ...(lineText ? [node('p', '', lineText)] : []), ...(state.facts.length ? [facts] : []), status, ...actions);
     element.dataset.state = state.kind;

@@ -1,4 +1,5 @@
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
+import { accountData } from '../account/data';
 import { createBrowserRuntime, createWebTransport } from './runtime';
 import { onlineClient, OnlineError, type OnlineClient } from './client';
 import { createPageClient } from '../plugin/client';
@@ -527,4 +528,152 @@ it('opens the friend setup from its URL without sending a game command', async (
     await host.connect(); await Promise.resolve();
     expect(receive).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ structuredContent: { screen: 'play', new_friend: true } }));
   } finally { host.dispose?.(); vi.unstubAllGlobals(); }
+});
+
+// Account deletion cases from the two repair reviews.
+import { receiptStore, receiptOf, receiptKey } from '../interface/people/receipt';
+import { clearDeletedAccount } from '../account/local';
+function deletionStorage() {
+  const memory = storage();
+  return { ...memory, key: (i: number) => [...memory.records.keys()][i] ?? null, get length() { return memory.records.size; } };
+}
+function deletionGlobals(saved: ReturnType<typeof deletionStorage>) {
+  vi.stubGlobal('location', new URL('https://kingdown.test/next.html'));
+  vi.stubGlobal('history', { state: {}, replaceState() {} });
+  vi.stubGlobal('sessionStorage', storage());
+  vi.stubGlobal('navigator', { onLine: true });
+  vi.stubGlobal('localStorage', saved);
+  vi.stubGlobal('matchMedia', () => ({ matches: false }));
+  vi.stubGlobal('addEventListener', () => {}); vi.stubGlobal('removeEventListener', () => {});
+}
+afterEach(() => vi.unstubAllGlobals());
+
+it('the old page cannot restore a command after deletion', async () => {
+  const saved = deletionStorage(); deletionGlobals(saved);
+  const locks = { request: async (_name: string, options: any, run?: () => Promise<unknown>) => (run ?? options)() };
+  vi.stubGlobal('navigator', { locks });
+  const command = vi.fn(async () => { throw new TypeError('offline'); });
+  const old = createWebTransport({ command } as unknown as OnlineClient, 'alice', saved);
+  await receiptStore('alice', saved).clearAccount(() => clearDeletedAccount(saved, 'alice'));
+  await old.call('kingdown_move', { game_id: 'private-game', command_id: 'old-send', expected_revision: 1, actions: ['e2-e4'] }, {}).catch(() => {});
+  expect(saved.getItem(receiptKey('alice'))).toBeNull();
+  expect(command).not.toHaveBeenCalled();
+});
+
+
+it('the old page cannot restore its page after deletion', async () => {
+  const saved = deletionStorage(); deletionGlobals(saved);
+  vi.stubGlobal('window', Object.assign(new EventTarget(), { location: new URL('https://kingdown.test/play/'), localStorage: saved, sessionStorage: storage(), history: { replaceState() {}, pushState() {} } }));
+  const old = createBrowserRuntime({} as OnlineClient, 'alice');
+  await receiptStore('alice', saved).clearAccount(() => clearDeletedAccount(saved, 'alice'));
+  await old.stateHost!.savePage!({ screen: 'board', board_id: 'private-game' });
+  expect(saved.getItem('kingdown.account-game.alice')).toBeNull();
+});
+
+
+it('blocks an old online command writer that resumes after the new cleanup', async () => {
+  const store = deletionStorage(); deletionGlobals(store);
+  const queued: (() => Promise<unknown>)[] = [];
+  const locks = { request: <T>(_name: string, ...args: any[]) => new Promise<T>((resolve, reject) => queued.push(() => Promise.resolve(args.at(-1)()).then(resolve, reject))) };
+  vi.stubGlobal('navigator', { locks });
+  const command = vi.fn(async () => { throw new Error('Network request failed'); });
+  const transport = createWebTransport({ command } as unknown as OnlineClient, 'alice', store);
+  await queued.shift()!();
+  const deleting = receiptStore('alice', store, locks); await queued.shift()!();
+  const cleanup = deleting.clearAccount(() => clearDeletedAccount(store, 'alice'));
+  await vi.waitFor(() => expect(queued).toHaveLength(1));
+  const receipt = receiptOf('game-a', 1, { type: 'turn', actions: ['e2-e4'] }, 'saved-command');
+  const send = transport.call(receipt.name, receipt.args, {}).catch(() => {});
+  await vi.waitFor(() => expect(queued).toHaveLength(2));
+  await queued.shift()!(); await cleanup;
+  await queued.shift()!(); await send;
+  expect(store.getItem(receiptKey('alice'))).toBeNull();
+});
+
+
+it('blocks an old online page save after the new cleanup', async () => {
+  const store = deletionStorage(); deletionGlobals(store);
+  vi.stubGlobal('window', { localStorage: store, location: new URL('https://kingdown.test/g/game-a') });
+  const runtime = createBrowserRuntime({} as OnlineClient, 'alice');
+  await receiptStore('alice', store).clearAccount(() => clearDeletedAccount(store, 'alice'));
+  await runtime.stateHost!.savePage!({ screen: 'board', board_id: 'game-a', draft: { game_tag: 'game-a', fen: 'private-position', lans: ['e2-e4'], scope: { account: 'alice', game: 'game-a', revision: 1, rules: 'rules', engine: 'engine' } } });
+  expect(store.getItem('kingdown.account-game.alice')).toBeNull();
+});
+
+
+it('the old route writer cannot restore its account route after cleanup', async () => {
+  const saved = deletionStorage(); deletionGlobals(saved);
+  const tab = storage();
+  vi.stubGlobal('window', { localStorage: saved, sessionStorage: tab });
+  const { accountData } = await import('../account/data');
+  const { createWebPageHost } = await import('./page-host');
+  const page = createWebPageHost('alice', accountData('alice', saved));
+  await receiptStore('alice', saved).clearAccount(() => clearDeletedAccount(saved, 'alice'));
+  expect(await page.save({ screen: 'game', gameId: 'private-game' })).toBe(false);
+  expect(tab.getItem('kingdown.account-page.alice')).toBeNull();
+});
+
+it.each(['/play/', '/g/game-a'])('review6: a same-account new sign-in refuses the old draft and reports the failure on %s', async path => {
+  const store = deletionStorage(); deletionGlobals(store);
+  vi.stubGlobal('window', { localStorage: store, sessionStorage: storage(), location: new URL('https://kingdown.test' + path) });
+  await accountData('alice', store).confirm(async () => ({ userId: 'alice', accessToken: 'first' }));
+  const runtime = createBrowserRuntime({} as OnlineClient, 'alice');
+  runtime.onSaveRefused = vi.fn();
+  const client = createPageClient(runtime.call, runtime.stateHost);
+  await client.save();
+  await accountData('alice', store).confirm(async () => ({ userId: 'alice', accessToken: 'later' }));
+  client.state.draft = { game_tag: 'game-a', fen: 'private', lans: ['e2-e4'], scope: { account: 'alice', game: 'game-a', revision: 1, rules: 'rules', engine: 'engine' } };
+  expect(await client.save()).toBe(false);
+  expect(JSON.parse(store.getItem('kingdown.account-game.alice')!).draft).toBeUndefined();
+  expect(runtime.onSaveRefused).toHaveBeenCalledOnce();
+});
+
+it('reports a storage-full refusal from the old board save', async () => {
+  const store = deletionStorage(); deletionGlobals(store);
+  vi.stubGlobal('window', { localStorage: store, location: new URL('https://kingdown.test/play/') });
+  const runtime = createBrowserRuntime({} as OnlineClient, 'alice');
+  runtime.onSaveRefused = vi.fn();
+  const client = createPageClient(runtime.call, runtime.stateHost);
+  store.setItem = () => { throw new Error('storage full'); };
+  expect(await client.save()).toBe(false);
+  expect(runtime.onSaveRefused).toHaveBeenCalledOnce();
+});
+
+it('reports a refused route save and stops route writes after disposal', async () => {
+  const store = deletionStorage(); deletionGlobals(store);
+  vi.stubGlobal('window', Object.assign(new EventTarget(), { localStorage: store, sessionStorage: storage(), location: new URL('https://kingdown.test/play/'), history: { pushState() {} } }));
+  const runtime = createBrowserRuntime({} as OnlineClient, 'alice');
+  runtime.onSaveRefused = vi.fn();
+  await runtime.connect(); await Promise.resolve();
+  await accountData('alice', store).close(() => {});
+  runtime.route!('board', args.game_id);
+  await vi.waitFor(() => expect(runtime.onSaveRefused).toHaveBeenCalledOnce());
+  runtime.dispose!(); runtime.route!('board', '22222222-2222-4222-8222-222222222222');
+  expect(runtime.onSaveRefused).toHaveBeenCalledOnce();
+});
+
+const jwt = (id: string, iat = 1) => 'fixture.' + btoa(JSON.stringify({ session_id: id, iat })) + '.signature';
+for (const path of ['/play/', '/g/game-a']) it(`review7: normal draft saves survive a same-session refresh on ${path}`, async () => {
+  const store = deletionStorage();
+  vi.stubGlobal('navigator', { onLine: true });
+  vi.stubGlobal('window', Object.assign(new EventTarget(), { localStorage: store, sessionStorage: storage(), location: new URL('https://kingdown.test' + path), history: { replaceState() {}, pushState() {} } }));
+  await accountData('alice', store).confirm(async () => ({ userId: 'alice', accessToken: jwt('live') }));
+  const runtime = createBrowserRuntime({} as OnlineClient, 'alice');
+  const refused = vi.fn(); runtime.onSaveRefused = refused;
+  const client = createPageClient(runtime.call, runtime.stateHost);
+  client.state.board_id = 'game-a'; client.state.screen = 'board';
+  client.state.draft = { game_tag: 'game-a', fen: 'private', lans: ['e2-e4'], scope: { account: 'alice', game: 'game-a', revision: 1, rules: 'rules', engine: 'engine' } };
+  const first = client.save();
+  client.state.draft.lans.push('d2-d4');
+  const second = client.save();
+  expect(await first).toBe(true); expect(await second).toBe(true);
+  const mark = store.getItem('kingdown.deleted-account.alice');
+  await accountData('alice', store).confirm(async () => ({ userId: 'alice', accessToken: jwt('live', 2) }));
+  expect(store.getItem('kingdown.deleted-account.alice')).toBe(mark);
+  client.state.draft.lans.push('g1-f3');
+  expect(await client.save()).toBe(true);
+  const restored = createBrowserRuntime({} as OnlineClient, 'alice');
+  const next = createPageClient(restored.call, restored.stateHost);
+  expect(next.state.draft).toEqual(client.state.draft);
+  expect(refused).not.toHaveBeenCalled();
 });

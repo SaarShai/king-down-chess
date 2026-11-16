@@ -3,6 +3,8 @@ import type { Save } from '../screen/save';
 /** The local keys move together. Each tab keeps the owner of the data that it loads. */
 type LocalStore = Pick<Storage, 'getItem' | 'setItem' | 'removeItem' | 'length' | 'key'>;
 const LOCAL_KEYS = ['kingdown.save', 'kingdown.lessons', 'kingdown.sync'];
+export const KEPT_KEY = 'kingdown.save.kept', OFFERED_KEY = 'kingdown.save.kept-offered';
+export const deletedAccountKey = (userId: string) => `kingdown.deleted-account.${userId}`;
 const OWNER = 'kingdown.sync-owner', COPIES = 'kingdown.local.';
 type LocalCopy = (string | null)[];
 type Owner = { userId: string; restore?: LocalCopy; accounts?: string[] };
@@ -36,6 +38,31 @@ function upgradeGameTime(store: LocalStore): void {
 }
 const tabs = new WeakMap<LocalStore, Access>();
 const ownerOf = (store: LocalStore): Owner | null => JSON.parse(store.getItem(OWNER) ?? 'null');
+
+/** Remove only the deleted account's local copy. Anonymous play and other accounts stay. */
+export function clearDeletedAccount(store: LocalStore, userId: string): void {
+  const owner = ownerOf(store);
+  if (owner?.userId === userId) {
+    for (const key of LOCAL_KEYS) store.removeItem(key);
+    // Keep the account-switch path, without the deleted identity or its pending restore.
+    store.setItem(OWNER, JSON.stringify({ userId: 'anonymous', accounts: owner.accounts?.filter(id => id !== userId) }));
+    tabs.delete(store);
+  } else if (owner?.accounts?.includes(userId)) {
+    store.setItem(OWNER, JSON.stringify({ ...owner, accounts: owner.accounts.filter(id => id !== userId) }));
+  }
+  // Copies without an owner predate account tracking and stay anonymous.
+  for (const key of [KEPT_KEY, OFFERED_KEY]) {
+    if (store.getItem(key + '.owner') === userId) {
+      store.removeItem(key); store.removeItem(key + '.owner');
+    }
+  }
+  store.removeItem(COPIES + userId);
+  for (const prefix of ['kingdown.account-command.', 'kingdown.account-game.']) store.removeItem(prefix + userId);
+  for (let i = store.length - 1; i >= 0; i--) {
+    const key = store.key(i);
+    if (key && ['kingdown.people-draft.', 'kingdown.people-seen.', 'kingdown.invite-seen.'].some(prefix => key.startsWith(prefix + userId + '.'))) store.removeItem(key);
+  }
+}
 
 /** Only a cloud receipt for these exact bytes makes a copy safe to remove. */
 function confirmed(raw: string): boolean {

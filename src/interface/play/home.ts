@@ -50,6 +50,7 @@ export interface PlayData {
   onPersonGame(id: string): void;
   onAcceptInvite?(id: string): void;
   onDeclineInvite?(id: string): void;
+  onInvitePlayer?(id: string, source: HTMLElement): void;
   onDismissInvite?(id: string): void;
   offer(fallback: HTMLButtonElement): HTMLElement | null;
   onPlay(source: HTMLButtonElement): void;
@@ -146,6 +147,9 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
       button('Decline', { onPress: () => d.onDeclineInvite?.(invite.id) }),
     );
     else actions.append(button('Dismiss', { onPress: () => d.onDismissInvite?.(invite.id) }));
+    if (invite.kind === 'incoming' && d.onInvitePlayer) {
+      const player: HTMLButtonElement = button('Player options', { onPress: () => d.onInvitePlayer!(invite.id, player) }); actions.append(player);
+    }
     row.append(board, profilePortrait(invite.name, invite.avatar), copy, actions);
     rows.push({ mine: invite.kind === 'incoming', deadline: null, state: invite.kind === 'incoming' ? 'setup' : 'finished', row });
   }

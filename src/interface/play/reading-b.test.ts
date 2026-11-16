@@ -19,6 +19,11 @@ const outside = (text: string, condition: string) => {
 };
 
 describe('the B reading area (decision 33)', () => {
+  it('keeps a compact choice summary with its square, outside the shrinking secondary text', () => {
+    expect(reader).toContain("primary.prepend(div('play-choice-summary', target, m.summary))");
+    expect(css).toMatch(/\.play-b \.play-choice-summary \{[^}]*min-height: 44px/);
+    expect(css).toMatch(/\.play-b \.play-primary:has\(\.play-choice-summary\) \{ gap: 0; \}/);
+  });
   it('splits a text into the sentences of the copy table', () => {
     expect(sentences('Your Pawn on b2 cannot move on your next turn; it still attacks. The opponent\'s Pawn moves from h7 to h6.'))
       .toEqual(['Your Pawn on b2 cannot move on your next turn; it still attacks.', 'The opponent\'s Pawn moves from h7 to h6.']);

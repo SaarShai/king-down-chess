@@ -10,6 +10,12 @@ The iOS app is a Capacitor shell around the same web build as kingdown.dev. Deci
 
 A check build with no signing: `xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`. A debug build opens one start address from a launch argument: `xcrun simctl launch booted dev.kingdown.app -KingDownStart /support.html`.
 
+The new page has one Apple sign-in switch: `VITE_KINGDOWN_APPLE_SIGN_IN=1`. It is off by default.
+The local `AppleSignInPlugin` uses AuthenticationServices and the installed Capacitor bridge. It adds no package.
+The app uses the native sheet; the website uses the existing PKCE flow. Other social providers stay hidden in the app.
+Keep this switch off until the owner sets up Apple and Supabase, adds the Sign in with Apple capability, and verifies server token revocation on account deletion.
+The current deletion job has no Apple token exchange or revocation record. The guarded sign-in path does not close that release gate.
+
 ## TestFlight upload
 
 The owner's Xcode account signs (team `6M9C2YSWT4`, automatic signing). An upload to the internal group "Owner" is an agent step of [ticket 08](specs/ios-app/issues/08-testflight.md), which the owner started; external testing and App Review submission need the owner's word (AGENTS.md). Each upload needs a build number higher than the last one in App Store Connect: raise `CURRENT_PROJECT_VERSION` in `ios/App/App.xcodeproj/project.pbxproj` (both configurations) in the change that ships. Build 1.0 (1) is the first.
@@ -25,6 +31,7 @@ xcodebuild -exportArchive -archivePath "$TMPDIR/App.xcarchive" -exportOptionsPli
 ## Rules the code depends on
 
 - The app routes a page path as the site does (`AppRouter` in `ios/App/App/SceneDelegate.swift`): with the launch marker `solo-launch.json` in the bundle, `/` and an unknown path load `next.html`, and `/play`, `/g/<id>` and `/j` load `index.html`; without it, every page path loads `index.html` (the Capacitor template). A change to the host routes in `tools/plugin-server-build.mjs` changes the router too; `tools/ios-app.test.ts` compares them. The start address `capacitor://localhost` has an empty path, so page code reads `''` as `/`.
+- With the launch marker, a native invite opens `/next.html#join=<token>` before the web view loads it. The token stays in the fragment. Without the marker, it opens `/j#<token>`. Both old app deletion controls open You on the new page; the web control stays the same.
 - The web view has the swipe from the edge as the browser Back, as Safari has: the new page and the old online pages use history for Back.
 - The page origin is `capacitor://localhost`, and it never changes: a new scheme or host gives the app a new web storage area, so the local saves and the session are lost. Do not set `server.hostname`, `iosScheme` or a committed `server.url` in `capacitor.config.json`.
 - `src/platform.ts` is the one seam between the website and the app: `inApp` for app-only behavior, `apiOrigin` for `/api` calls. A new `/api` call uses `apiOrigin`.

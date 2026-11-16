@@ -5,10 +5,10 @@
  */
 import { agoWords } from '../words';
 
-export type Way = 'google' | 'facebook' | 'github' | 'email';
+export type Way = 'apple' | 'google' | 'facebook' | 'github' | 'email';
 /** The fixed order of the sign-in ways (account spec S1). */
-export const WAYS: readonly Way[] = ['google', 'facebook', 'github', 'email'];
-const WAY_NAMES: Record<Way, string> = { google: 'Google', facebook: 'Facebook', github: 'GitHub', email: 'email' };
+export const WAYS: readonly Way[] = ['apple', 'google', 'facebook', 'github', 'email'];
+const WAY_NAMES: Record<Way, string> = { apple: 'Apple', google: 'Google', facebook: 'Facebook', github: 'GitHub', email: 'email' };
 
 export const signInText = {
   person: 'Sign in to play a person',
@@ -16,7 +16,7 @@ export const signInText = {
   again: 'Sign in again',
   line: 'Your game stays with your account. Other players see only your game name.',
   againLine: 'Your sign-in has ended. Your turn stays on this device. Sign in to send it.',
-  way: (way: Way) => `Continue with ${WAY_NAMES[way]}`,
+  way: (way: Way) => way === 'apple' ? 'Sign in with Apple' : `Continue with ${WAY_NAMES[way]}`,
   opening: (way: Way) => `Opening ${WAY_NAMES[way]}…`,
   loading: 'Checking sign-in ways…',
   notNow: 'Not now',

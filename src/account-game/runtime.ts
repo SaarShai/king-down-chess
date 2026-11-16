@@ -77,7 +77,7 @@ let enterRead: ((route: ReadRoute) => void) | undefined;
 const pageHost: PageHost = {
   start(enter) { enterRead = enter; return () => { enterRead = undefined; }; },
   navigate(route) { if (route.screen === 'game') enterRead?.(route); else navigate(route.screen); },
-  save() { client.save(); return true; },
+  save() { return client.save() ?? true; },
   viewport() {
     const context = app.getHostContext();
     return { touch: context?.deviceCapabilities?.touch ?? false, safe: {

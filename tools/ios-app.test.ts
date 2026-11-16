@@ -19,6 +19,8 @@ it('routes the pages in the app as the host does, from the same build marker', (
     writeFileSync(join(site, 'solo-launch.json'), '{"soloLaunch":true}');
     const config = { routes: vercelRoutes(site) };
     for (const path of ['/', '/play', '/play/', '/play/settings', '/playground', '/g/game', '/g/game/', '/g/a/b', '/j', '/j/', '/missing']) {
+      // The website translates invite fragments; native universal links use UniversalLink.localURL.
+      if (path === '/j' || path === '/j/') { expect(siteRoute(config, path).dest).toBe('/join.html'); continue; }
       expect(online.test(path) ? '/index.html' : '/next.html', path).toBe(siteRoute(config, path).dest);
     }
   } finally { rmSync(site, { recursive: true, force: true }); }

@@ -222,3 +222,8 @@
 .play-game .play-choices { max-height: 100%; overflow-y: auto; overscroll-behavior: contain; }
 .play-game[data-state='choice'] .play-b .play-primary { flex: 0 0 auto; }
 .play-game .play-choice-cancel { flex: none; }
+/* A compact choice shares one fixed row for the square and effects, then one for the choices. */
+.play-b .play-choice-summary { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.play-b .play-choice-summary .play-target { flex: 1; min-width: 0; }
+.play-game .play-b .play-choice-summary .play-summary-toggle { width: auto; flex: none; }
+.play-b .play-primary:has(.play-choice-summary) { gap: 0; }

@@ -5,6 +5,9 @@
  * one saved command for each account, written before the send. The fix is in the controller: a read with a higher
  * revision settles the receipt, and the player can discard it after two failed checks.
  */
+import { accountData } from '../../account/data';
+import { browserLocks, type LockManager } from '../../account/data';
+export { browserLocks, type LockManager } from '../../account/data';
 import type { Action } from '../../match/protocol';
 
 export const receiptKey = (userId: string) => `kingdown.account-command.${userId}`;
@@ -40,21 +43,14 @@ export function actionOf(receipt: Receipt): Action | undefined {
   }
 }
 
-export type LockManager = { request<T>(name: string, run: () => Promise<T>): Promise<T> };
-/** The account lock across tabs (Web Locks); with no lock manager, this tab only. */
-export const browserLocks = (): LockManager | undefined => {
-  const locks = (globalThis.navigator as Navigator | undefined)?.locks;
-  return locks && { request: (name, run) => locks.request(name, run) };
-};
 type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 /** Another saved command waits. It must settle before a new command starts. */
 export class ReceiptBusy extends Error { constructor() { super('Retry the saved command before you start another command.'); this.name = 'ReceiptBusy'; } }
 
 export function receiptStore(userId: string, storage: Store, locks: LockManager | undefined = browserLocks()) {
-  const key = receiptKey(userId);
+  const key = receiptKey(userId), gate = accountData(userId, storage, locks);
   let unreadable: string | null = null;
-  const locked = <T>(run: () => T) => locks ? locks.request(key, async () => run()) : Promise.resolve().then(run);
   /** The saved receipt; 'unreadable' when the stored bytes are not a receipt. */
   function read(): Receipt | 'unreadable' | undefined {
     const raw = storage.getItem(key);
@@ -68,14 +64,15 @@ export function receiptStore(userId: string, storage: Store, locks: LockManager 
   }
   return {
     read,
+    clearAccount: gate.close,
     /** Write the receipt before the send. The same receipt again is a retry. */
-    hold: (receipt: Receipt) => locked(() => {
+    hold: (receipt: Receipt) => gate.write(() => {
       const text = JSON.stringify(receipt), raw = storage.getItem(key);
       if (raw && raw !== text) throw new ReceiptBusy();
       storage.setItem(key, text);
     }),
     /** Remove only this receipt, or the unreadable bytes that read() found. */
-    drop: (receipt?: Receipt) => locked(() => {
+    drop: (receipt?: Receipt) => gate.write(() => {
       if (storage.getItem(key) === (receipt ? JSON.stringify(receipt) : unreadable)) storage.removeItem(key);
     }),
   };

@@ -275,6 +275,7 @@ it('a slow optional list times out without a late layout change; slow sign-in wa
         location.hash = state;
       }, [state, method]);
       await expect.poll(() => title(page).textContent(), { timeout: 4000 }).toBe(state === 'person' ? 'Play a person' : 'Sign-in does not work now');
+      await sheet(page).evaluate(element => Promise.all(element.getAnimations().map(animation => animation.finished)));
       const before = await sheet(page).boundingBox();
       await page.evaluate(() => (window as any).releasePeople()); await page.waitForTimeout(350);
       expect(await sheet(page).boundingBox()).toEqual(before);

@@ -12,6 +12,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window?.makeKeyAndVisible()
 
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
+        for activity in connectionOptions.userActivities {
+            (window?.rootViewController as? AppViewController)?.openUniversalLink(activity)
+        }
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
@@ -20,6 +23,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
         SceneDelegateProxy.shared.scene(scene, continue: userActivity)
+        (window?.rootViewController as? AppViewController)?.openUniversalLink(userActivity)
     }
 }
 
@@ -29,6 +33,14 @@ class AppViewController: CAPBridgeViewController {
 
     override func capacitorDidLoad() {
         webView?.allowsBackForwardNavigationGestures = true
+        bridge?.registerPluginInstance(AppleSignInPlugin())
+    }
+
+    func openUniversalLink(_ activity: NSUserActivity) {
+        guard activity.activityType == NSUserActivityTypeBrowsingWeb,
+              let url = activity.webpageURL, let config = bridge?.config,
+              let local = UniversalLink.localURL(url, base: config.serverURL, soloLaunch: FileManager.default.fileExists(atPath: config.appLocation.path + "/" + AppRouter.marker)) else { return }
+        webView?.load(URLRequest(url: local))
     }
 
     #if DEBUG

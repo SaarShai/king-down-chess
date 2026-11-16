@@ -8,9 +8,11 @@ import type { OnlineClient } from './client';
 import { installLocalSolo, soloSave } from './launch';
 import { createWebTransport } from './runtime';
 
+const platform = vi.hoisted(() => ({ inApp: false }));
+vi.mock('../platform', () => platform);
 const records = new Map<string, string>();
 beforeEach(() => vi.stubGlobal('localStorage', { getItem: (key: string) => records.get(key) ?? null, setItem: (key: string, value: string) => { records.set(key, value); }, removeItem: (key: string) => { records.delete(key); }, get length() { return records.size; }, key: (i: number) => [...records.keys()][i] ?? null }));
-afterEach(() => { records.clear(); vi.unstubAllGlobals(); });
+afterEach(() => { platform.inApp = false; records.clear(); vi.unstubAllGlobals(); });
 function view(seat: 0 | 1 = 0): View {
   const game = new Game('RNBQKBNR'), fen = toFen(game.pos);
   const move = game.legal.find(move => game.context.toLan(game.pos, move) === 'e2-e4')!; game.play(move);
@@ -60,12 +62,14 @@ it('connects the legal Account labels to their real handlers and keeps retry aft
   vi.stubGlobal('location', { replace });
   vi.stubGlobal('document', { createElement: () => new Element(), querySelector: () => target });
   try {
-    installAccountControls({ deleteAccount, disconnectMuse }, true);
+    installAccountControls({ deleteAccount, disconnectMuse }, undefined, true);
     const section = target.children[0], controls = section.querySelectorAll(), note = section.children.at(-1)!;
     expect(section.children[0].textContent).toBe('Account'); expect(controls.map(button => button.textContent)).toEqual(['Disconnect Muse', 'Delete my account']);
     await controls[0].onclick!(); expect(disconnectMuse).toHaveBeenCalledOnce(); expect(note.textContent).toContain('Muse is disconnected');
     await controls[1].onclick!(); expect(note.textContent).toContain('Could not finish'); expect(controls.every(button => !button.disabled)).toBe(true); expect(replace).not.toHaveBeenCalled();
     await controls[1].onclick!(); expect(deleteAccount).toHaveBeenCalledTimes(2); expect(replace).toHaveBeenCalledWith('/play/');
+    platform.inApp = true; const assign = vi.fn(); vi.stubGlobal('location', { assign });
+    await controls[1].onclick!(); expect(assign).toHaveBeenCalledExactlyOnceWith('/next.html#you'); expect(deleteAccount).toHaveBeenCalledTimes(2);
   } finally { vi.unstubAllGlobals(); }
 });
 
@@ -107,7 +111,7 @@ function page() {
   const dialog = () => body.children.find(node => node.tag === 'dialog' && node.className.includes('launch-handoff'));
   vi.stubGlobal('document', { body, createElement: (tag: string) => new Node(tag), querySelector: (selector: string) => selector === 'dialog.launch-handoff' ? dialog() ?? null : null });
   vi.stubGlobal('location', { assign }); vi.stubGlobal('sessionStorage', { setItem: (key: string, value: string) => session.set(key, value) });
-  vi.stubGlobal('navigator', { locks: { request: async (_key: string, _options: unknown, run: () => Promise<void>) => run() } });
+  vi.stubGlobal('navigator', { locks: { request: async (_key: string, options: unknown, run?: () => Promise<unknown>) => (run ?? options as () => Promise<unknown>)() } });
   const press = (label: string) => dialog()!.children.find(node => node.tag === 'button' && node.textContent === label)!.onclick!();
   const words = () => dialog()!.children.filter(node => node.tag === 'p' && node.textContent).map(node => node.textContent).join(' ');
   const labels = () => dialog()!.children.filter(node => node.tag === 'button').map(node => node.textContent);

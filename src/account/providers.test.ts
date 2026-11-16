@@ -4,6 +4,14 @@ import { availableProviders } from './providers';
 const url = 'https://project.supabase.co', key = 'sb_publishable_test';
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
+it('keeps Apple out of old callers and requires the service to enable it', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ external: { apple: true, email: true } })));
+  expect(await availableProviders(url, key)).toEqual(['email']);
+  expect(await availableProviders(url, key, { apple: true })).toEqual(['apple', 'email']);
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ external: { apple: false, email: true } })));
+  expect(await availableProviders(url, key, { apple: true })).toEqual(['email']);
+});
+
 it('reads current public settings without a player token, cookies or cached values', async () => {
   const fetcher = vi.fn().mockResolvedValueOnce(Response.json({ external: { google: false, github: true, facebook: false } }))
     .mockResolvedValueOnce(Response.json({ external: { google: true, github: false, facebook: true, unknown: true } }));

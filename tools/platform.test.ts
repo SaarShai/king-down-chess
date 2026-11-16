@@ -15,9 +15,10 @@ it('requires an explicit launch flag and leaves the default root route unchanged
     writeFileSync(join(site, 'solo-launch.json'), '{"soloLaunch":true}');
     const routes = vercelRoutes(site);
     expect(routes).toContainEqual({ src: '^/$', dest: '/next.html' });
-    for (const path of ['/play', '/play/', '/play/settings', '/g/game', '/j', '/j/']) {
+    for (const path of ['/play', '/play/', '/play/settings', '/g/game']) {
       expect(routes.find(route => route.src && new RegExp(route.src).test(path) && route.dest)?.dest, path).toBe('/index.html');
     }
+    for (const path of ['/j', '/j/']) expect(routes.find(route => route.src && new RegExp(route.src).test(path) && route.dest)?.dest, path).toBe('/join.html');
     expect(routes.slice(-2)).toEqual([{ handle: 'filesystem' }, { src: '^/.*$', dest: '/next.html', status: 404 }]);
   } finally { rmSync(site, { recursive: true, force: true }); }
 });
@@ -82,6 +83,6 @@ it('keeps the original entries off and attaches the launch controls to the actua
  const source = readFileSync('src/online/entry.ts', 'utf8');
  expect(launchSource(source, '/src/online/entry.ts', false)).toBeUndefined();
  const launch = launchSource(source, '/src/online/entry.ts', true)!;
- expect(launch).toContain('installLocalSolo(api, session.userId);'); expect(launch).toContain('installAccountControls(auth);');
+ expect(launch).toContain('installLocalSolo(api, session.userId);'); expect(launch).toContain('installAccountControls(auth, session);');
  expect(launch.indexOf('installLocalSolo(api, session.userId);')).toBeLessThan(launch.indexOf('const host = createBrowserRuntime'));
 });
