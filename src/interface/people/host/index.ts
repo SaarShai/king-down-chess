@@ -114,7 +114,7 @@ export function onlineHost(options: HostOptions) {
     };
   }
   const returnHost: ReturnHost = { entryPath: '/next.html', location, history, storage: sessionStorage, now: Date.now, client: auth };
-  function stopGame() { stop(); unsubscribe(); stop = unsubscribe = () => {}; controller = undefined; }
+  function stopGame() { controller?.stop(); stop(); unsubscribe(); stop = unsubscribe = () => {}; controller = undefined; }
   async function signIn() {
     const current = await (await auth()).readSession();
     if (session?.userId !== current?.userId || session && current && sessionKey(session) !== sessionKey(current)) { epoch++; closeSafety(current?.userId); stopGame(); views = []; incomingInvites = []; inviteUpdates = []; cachedKnown = []; }
@@ -313,8 +313,10 @@ export function onlineHost(options: HostOptions) {
       if (!session) { change({ phase: 'loading', connection: 'auth' } as PeopleState); return; }
       const opening = session, mark = epoch, account = opening.userId, gate = writer;
       const live = async () => {
+        current.signal.throwIfAborted();
         const value = await (await auth()).readSession();
-        if (!value || value.userId !== account || sessionKey(value) !== sessionKey(opening) || !session || session.userId !== account || sessionKey(session) !== sessionKey(opening) || mark !== epoch) throw new ObsoleteAction();
+        current.signal.throwIfAborted();
+        if (!value || value.userId !== account || sessionKey(value) !== sessionKey(opening) || !session || session.userId !== account || sessionKey(session) !== sessionKey(opening) || mark !== epoch) { current.stop(); throw new ObsoleteAction(); }
         return value;
       };
       const scoped = onlineClient({ origin: apiOrigin, fetch: options.fetch, token: async () => (await live()).accessToken });
@@ -325,7 +327,7 @@ export function onlineHost(options: HostOptions) {
         if (state.view) {
           if (!restored && state.game) { restored = true; restoreDraft(storage, session!.userId, state); }
           remember(state.game ? { ...state.view, rules: state.game.rules, history: { initial_fen: toFen(state.game.history[0]?.pos ?? state.game.pos), actions: state.game.history.map(entry => state.game!.context.toLan(entry.pos, entry.move)) } } : state.view);
-          if (state.view.status === 'finished' && state.view.revision !== seen) { seen = state.view.revision; void api.record().then(record => {
+          if (state.view.status === 'finished' && state.view.revision !== seen) { seen = state.view.revision; void scoped.record({}, current.signal).then(record => {
             if (controller !== current) return;
             const row = record.history.find(row => row.game_id === id);
             if (row && gate) void gate.write(() => storage.setItem(`kingdown.people-seen.${account}.${id}`, row.finished_at)).catch(() => {});
@@ -385,6 +387,7 @@ export function onlineHost(options: HostOptions) {
       };
     },
     async signOut() {
+      stopGame();
       const client = await auth(), expected = session;
       if (!expected) { await client.signOut(); reset(); return; }
       // Bind to the shown session: another tab, or this page, can sign in while the reply waits.

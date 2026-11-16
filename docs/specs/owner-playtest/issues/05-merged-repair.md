@@ -434,3 +434,168 @@ Evidence stays outside the repository in `runs/launch/owner-playtest/build/r10-l
 ### Tenth repair limits
 
 Checks use Chromium and local fixtures. No live account, physical device, WebKit, native build or separate old-page browser check runs. The existing skips and runtime art-index warning remain. No taste or rule choice changes. No push, pull request or deploy runs. The disk gate above prevents an all-green full-suite result.
+
+
+## Eleventh repair run
+
+The review holds cache safety after Alice's token read. Sign-out, Bob or Stop does not stop the old Ready request. The server changes Ready to `[true, false]`. This run adds one cancel signal for each controller and tests every wait before a request. The prior guards stay. The 60 new wait and review tests pass. All required browser checks pass. The full gate has the unchanged disk-space failure only.
+
+The second review also holds the token read or the 500 ms network retry after Stop. Its two fault cases and both controls now run as normal tests in `host/session-boundary.test.ts`. The first review's five cases run in `host/boundary.test.ts`. Before the repair, its three cancel cases fail and both controls pass. After the repair, all nine review cases pass. No assertion is removed or weakened.
+
+### Wait inventory and checks
+
+Line numbers refer to the repair source. Each row below records an await, a returned promise, a lock queue, or a callback that can lead to a private request. Multiple awaits on one line are separate waits in the stated order. Synchronous storage writes have no wait inside them. The controller signal is checked after the last awaited owner check and immediately before each king or receipt write.
+
+The controller owns one AbortController. Stop aborts it with ObsoleteAction. Sign-out stops the game before it waits for the auth library. Account events stop it on sign-out, a different account or a new session. A same-session token refresh keeps it. A live session read that detects a missed event also stops it. Every server method carries this same signal. The client checks it after the token read, inside the final cache callback before fetch, after the reply and body, at the retry loop head, and before the retry delay. Fetch receives the signal. A cancelled caller stays quiet. A receipt saved before cancellation stays for later settlement; cancellation creates no receipt and sends no retry.
+
+No guard is replaced: ObsoleteAction, controller and host epochs, the r10 session key, the shared account-data gate and decision 123 remain. The finished-game profile read now uses the controller client and signal too.
+
+| Wait group | Cancellation test |
+| --- | --- |
+| Opening account-data promise; browser lock; fallback promise queue; king write and owner read | cancellation.test.ts: opening account-data case and king-current case; host/online.test.ts: nine king/receipt lock cases. |
+| Command owner read before hold, under the receipt lock and after save | cancellation.test.ts: command-current, receipt-current and saved-current. |
+| Busy receipt settlement and second hold | cancellation.test.ts: second receipt hold case. |
+| Auth readiness and token read | host/boundary.test.ts: four held-token account/Stop cases; host/session-boundary.test.ts: token case; cancellation.test.ts: token. |
+| Cache lookup, register, both cleanup lookups, activation, active registration, normal/active/install proof, both cache lists and cache delete | cancellation.test.ts: all cache-* cases; host/boundary.test.ts: original three account/Stop cases and Ready control. |
+| Fetch and response body; read and draft fetch/body before a follow-up command | cancellation.test.ts: fetch, body, read-fetch, read-body, draft-fetch and draft-body. |
+| Transport retries: attempts 2, 3 and 4, with 500/1000/2000 ms backoffs; repeated token and cache work | cancellation.test.ts: backoff-1, backoff-2, backoff-3, retry-token and retry-cache; host/session-boundary.test.ts: retry case. |
+| Receipt removal before a follow-up read or retry | cancellation.test.ts: receipt-drop. |
+| Open, join, invite preview, poll refresh, seen, move preview, local move, Check read/resend and ordinary commands | cancellation.test.ts: cache-safety cases for each entry. Draw, resign and abort also run. The same command function covers draw answers, claims and rematches. |
+| Poll timer, page/network wake and their promise continuations | controller.test.ts: poll/online-event cases; cancellation.test.ts: refresh/check cache cases. Stop closes the poll, suppresses emit and aborts all queued reads. |
+
+Each cancellation case asserts no server request after release, no server change, and no late notice where applicable. At a pre-fetch boundary there are zero server requests. At a read/body/retry boundary, earlier calls can exist; no additional call starts. Fetch cannot undo a command that the server already accepts. Its durable receipt must stay if the answer is not known. Cache worker update is a non-blocking public update: it does not itself send an account request. Its callbacks and deadlines can only reach the same signal-checked fetch boundary.
+
+| File and line | Wait or callback |
+| --- | --- |
+| `src/account/data.ts:8` | `return locks && { request: (name, run) => locks.request(name, run) };` |
+| `src/account/data.ts:13` | `if (locks) return locks.request(name, async () => run());` |
+| `src/account/data.ts:14` | `const result = (pending.get(name) ?? Promise.resolve()).catch(() => {}).then(run);` |
+| `src/account/data.ts:29` | `const opening = locked(read);` |
+| `src/account/data.ts:32` | `const captured = await opening;` |
+| `src/interface/people/controller.ts:98` | `try { await options.current?.(); }` |
+| `src/interface/people/controller.ts:218` | `const next = await server.game(gameId, undefined, signal);` |
+| `src/interface/people/controller.ts:220` | `if (next.status === 'setup') await seatKing(options.storage, options.userId, next, writer, currentAction(mark), signal);` |
+| `src/interface/people/controller.ts:251` | `const next = await server.game(base.game_id, pollSince(base), signal);` |
+| `src/interface/people/controller.ts:253` | `if (!advance(next)) await fullRead(base.game_id, draftLans());` |
+| `src/interface/people/controller.ts:259` | `if (fault.kind === 'stale') { notice = { kind: 'stale' }; if (view) await fullRead(view.game_id, keep); return; }` |
+| `src/interface/people/controller.ts:260` | `if (fault.kind === 'ended') { if (view) await fullRead(view.game_id); return; }` |
+| `src/interface/people/controller.ts:268` | `if (!advance(next) && view) await fullRead(view.game_id);` |
+| `src/interface/people/controller.ts:289` | `const nextView = await server.game(gameId, expected, signal);` |
+| `src/interface/people/controller.ts:290` | `await current();` |
+| `src/interface/people/controller.ts:292` | `await receipts.drop(saved); await current(); pending = undefined; busy = false;` |
+| `src/interface/people/controller.ts:294` | `if (view?.game_id === gameId && !advance(nextView)) await fullRead(gameId);` |
+| `src/interface/people/controller.ts:299` | `const next = await server.command(gameId, expected, action, saved.args.command_id, signal);` |
+| `src/interface/people/controller.ts:300` | `await current();` |
+| `src/interface/people/controller.ts:301` | `await receipts.drop(saved); await current(); pending = undefined; busy = false;` |
+| `src/interface/people/controller.ts:303` | `if (view?.game_id === gameId) await landed(next, action); else emit();` |
+| `src/interface/people/controller.ts:310` | `await receipts.drop(saved);` |
+| `src/interface/people/controller.ts:313` | `if (view?.game_id === gameId) await refused(fault); else emit();` |
+| `src/interface/people/controller.ts:329` | `try { await current(); await receipts.hold(receipt, current, signal); await current(); }` |
+| `src/interface/people/controller.ts:333` | `if (!await settle() &#124;&#124; view !== base) return false;` |
+| `src/interface/people/controller.ts:334` | `try { await receipts.hold(receipt, current, signal); await current(); }` |
+| `src/interface/people/controller.ts:339` | `const next = await server.command(base.game_id, base.revision, action, receipt.args.command_id, signal);` |
+| `src/interface/people/controller.ts:340` | `await current();` |
+| `src/interface/people/controller.ts:341` | `await receipts.drop(receipt); await current(); busy = sending = false;` |
+| `src/interface/people/controller.ts:342` | `await landed(next, action);` |
+| `src/interface/people/controller.ts:354` | `await receipts.drop(receipt);` |
+| `src/interface/people/controller.ts:356` | `await refused(fault, keep);` |
+| `src/interface/people/controller.ts:376` | `await settle();` |
+| `src/interface/people/controller.ts:377` | `if (mark === epoch) await fullRead(gameId);` |
+| `src/interface/people/controller.ts:383` | `const joined = await server.join(key, signal);` |
+| `src/interface/people/controller.ts:384` | `await bindSeatKing(options.storage, options.userId, joined, undefined, undefined, writer, current, signal);` |
+| `src/interface/people/controller.ts:385` | `await current();` |
+| `src/interface/people/controller.ts:387` | `if (joined.rules && joined.history) adopt(joined); else await fullRead(joined.game_id);` |
+| `src/interface/people/controller.ts:398` | `try { return await server.preview(key, signal); } catch (error) { if (obsolete(error)) throw new ObsoleteAction(); return faultOf(error, online()); }` |
+| `src/interface/people/controller.ts:418` | `await server.draft(base.game_id, { expected_revision: base.revision, engine_fingerprint: base.engine_fingerprint, actions }, signal);` |
+| `src/interface/people/controller.ts:419` | `await current();` |
+| `src/interface/people/controller.ts:424` | `if (settled(fault)) await refused(fault, draftLans());` |
+| `src/interface/people/controller.ts:436` | `return command({ type: 'turn', actions });` |
+| `src/interface/people/controller.ts:439` | `async check() { const free = await settle(); if (free) await refresh(); return free; },` |
+| `src/interface/people/controller.ts:445` | `await receipts.drop(pending?.receipt);` |
+| `src/interface/people/controller.ts:455` | `const free = await settle();` |
+| `src/interface/people/controller.ts:458` | `if (view) await refresh(); else if (target) await fullRead(target); emit();` |
+| `src/interface/people/controller.ts:467` | `try { await seatKing(options.storage, options.userId, opening, writer, currentAction(mark), signal); }` |
+| `src/interface/people/controller.ts:472` | `const base = view, sent = await command({ type: 'choose', choice, ready: true });` |
+| `src/interface/people/controller.ts:475` | `return command({ type: 'choose', choice, ready: true });` |
+| `src/interface/people/controller.ts:479` | `offerDraw: () => state().canOfferDraw ? command({ type: 'draw', choice: 'offer' }) : Promise.resolve(false),` |
+| `src/interface/people/controller.ts:480` | `answerDraw: (accept: boolean) => state().draw === 'theirs' && view?.status === 'playing' ? command({ type: 'draw', choice: accept ? 'accept' : 'decline' }) : Promise.resolve(false),` |
+| `src/interface/people/controller.ts:482` | `resign: () => view?.status === 'playing' ? command({ type: 'resign' }, []) : Promise.resolve(false),` |
+| `src/interface/people/controller.ts:483` | `abort: () => state().abortOpen ? command({ type: 'abort' }, []) : Promise.resolve(false),` |
+| `src/interface/people/controller.ts:484` | `claim: () => state().claim ? command({ type: 'claim', reason: 'timeout' }, []) : Promise.resolve(false),` |
+| `src/interface/people/controller.ts:485` | `rematch: (choice: 'offer' &#124; 'accept' &#124; 'decline') => view?.status === 'finished' ? command({ type: 'rematch', choice }, []) : Promise.resolve(false),` |
+| `src/interface/people/controller.ts:496` | `const wentOnline = () => { if (connection === 'offline') connection = 'online'; emit(); void (pending?.receipt ? settle() : Promise.resolve(true)).then(() => refresh()); };` |
+| `src/interface/people/controller.ts:498` | `net.addEventListener('online', wentOnline); net.addEventListener('offline', wentOffline);` |
+| `src/interface/people/host/index.ts:76` | `const auth = () => authPromise ??= (options.auth ? options.auth() : import('../../../account/client').then(m => m.connect(AUTH_KEY, { manualCallback: true, apple: true }))).then(client => {` |
+| `src/interface/people/host/index.ts:317` | `const value = await (await auth()).readSession();` |
+| `src/interface/people/host/index.ts:322` | `const scoped = onlineClient({ origin: apiOrigin, fetch: options.fetch, token: async () => (await live()).accessToken });` |
+| `src/interface/people/host/index.ts:330` | `if (state.view.status === 'finished' && state.view.revision !== seen) { seen = state.view.revision; void scoped.record({}, current.signal).then(record => {` |
+| `src/interface/people/host/index.ts:338` | `stop = current.start(); await current.open(id);` |
+| `src/interface/people/host/index.ts:342` | `try { if (!writer) throw new AccountDataClosed(); await keepDraft(storage, session.userId, controller.state(), writer); return true; }` |
+| `src/interface/people/host/index.ts:392` | `if (!expected) { await client.signOut(); reset(); return; }` |
+| `src/interface/people/receipt.ts:69` | `hold: (receipt: Receipt, current?: () => Promise<void>, signal?: AbortSignal) => gate.write(async () => {` |
+| `src/interface/people/receipt.ts:70` | `await current?.();` |
+| `src/interface/people/receipt.ts:77` | `drop: (receipt?: Receipt) => gate.write(() => {` |
+| `src/interface/people/seat-king.ts:31` | `if (!view.options?.kingPowers) { await gate.write(async () => { await current?.(); signal?.throwIfAborted(); }); return null; }` |
+| `src/interface/people/seat-king.ts:35` | `await gate.write(async () => {` |
+| `src/interface/people/seat-king.ts:36` | `await current?.();` |
+| `src/interface/people/server.ts:30` | `game: (gameId, since, signal) => api.game(gameId, since, signal),` |
+| `src/interface/people/server.ts:31` | `command: async (gameId, expected, action, commandId, signal) => (await api.command(gameId, expected, action, commandId, signal)).view,` |
+| `src/interface/people/server.ts:32` | `draft: (gameId, input, signal) => api.previewDraft(gameId, input, signal),` |
+| `src/interface/people/server.ts:33` | `preview: (key, signal) => api.preview(key, signal),` |
+| `src/interface/people/server.ts:34` | `join: (key, signal) => api.redeem(key, signal),` |
+| `src/interface/people/server.ts:35` | `seen: (gameId, signal) => api.seen(gameId, signal),` |
+| `src/online/cache-policy.ts:23` | `if (typeof window === 'undefined') return Promise.resolve().then(send);` |
+| `src/online/cache-policy.ts:46` | `let timer = setTimeout(fail, DEADLINE_MS);` |
+| `src/online/cache-policy.ts:57` | `const proof = (controller: ServiceWorker, installing = false) => new Promise<string &#124; false>((done, bad) => {` |
+| `src/online/cache-policy.ts:64` | `workers.addEventListener('controllerchange', changed);` |
+| `src/online/cache-policy.ts:65` | `for (const worker of observed) worker.addEventListener('statechange', changed);` |
+| `src/online/cache-policy.ts:66` | `registration?.addEventListener('updatefound', changed);` |
+| `src/online/cache-policy.ts:67` | `channel.port1.onmessage = ({ data }) => {` |
+| `src/online/cache-policy.ts:81` | `try { existing = await workers.getRegistration('/'); lookedUp = true; } catch { /* Native registration can repair a failed lookup. */ }` |
+| `src/online/cache-policy.ts:88` | `? existing : await workers.register('/sw.js', { scope: '/', updateViaCache: 'none' });` |
+| `src/online/cache-policy.ts:90` | `if (registration) void registration.update().catch(() => { updateFailed = true; });` |
+| `src/online/cache-policy.ts:103` | `clearTimeout(timer); timer = setTimeout(fail, installRemaining); afterInstall = true;` |
+| `src/online/cache-policy.ts:109` | `const version = await proof(worker, true);` |
+| `src/online/cache-policy.ts:117` | `const names = await caches.keys();` |
+| `src/online/cache-policy.ts:122` | `await caches.delete(key);` |
+| `src/online/cache-policy.ts:126` | `const remaining = await caches.keys();` |
+| `src/online/cache-policy.ts:133` | `if (afterInstall && observedInstall?.state === 'activated') { clearTimeout(timer); timer = setTimeout(fail, DEADLINE_MS); afterInstall = false; }` |
+| `src/online/cache-policy.ts:139` | `await new Promise<void>(done => {` |
+| `src/online/cache-policy.ts:143` | `controller.addEventListener('statechange', changed); workers.addEventListener('controllerchange', changed);` |
+| `src/online/cache-policy.ts:144` | `registration?.addEventListener('updatefound', changed);` |
+| `src/online/cache-policy.ts:149` | `if (await proof(controller) && start(controller)) return;` |
+| `src/online/cache-policy.ts:153` | `if (await proof(active) && registered.active === active && active.state === 'activated' && start(null)) return;` |
+| `src/online/cache-policy.ts:157` | `await new Promise<void>(done => {` |
+| `src/online/cache-policy.ts:161` | `workers.addEventListener('controllerchange', changed);` |
+| `src/online/cache-policy.ts:162` | `active?.addEventListener('statechange', changed);` |
+| `src/online/cache-policy.ts:163` | `registered.addEventListener('updatefound', changed);` |
+| `src/online/cache-policy.ts:168` | `for (const key of await caches.keys()) if (key.startsWith('kingdown-')) {` |
+| `src/online/cache-policy.ts:171` | `try { registration = await workers.getRegistration('/'); } catch { /* The controller and final checks still apply. */ }` |
+| `src/online/cache-policy.ts:175` | `await caches.delete(key);` |
+| `src/online/cache-policy.ts:179` | `if ((await caches.keys()).some(key => key.startsWith('kingdown-'))) { rejection = 'cache-remains'; throw new CachePolicyUnavailable(); }` |
+| `src/online/cache-policy.ts:182` | `try { registration = await workers.getRegistration('/'); } catch { /* The controller check still applies. */ }` |
+| `src/online/client.ts:33` | `export function onlineClient({ token, origin = '', fetch: send = (input, init) => fetch(input, init), tries = 4, wait = ms => new Promise(done => setTimeout(done, ms)) }: ClientOptions) {` |
+| `src/online/client.ts:36` | `const bearer = await token();` |
+| `src/online/client.ts:39` | `const response = await withPrivateCachePolicy(() => {` |
+| `src/online/client.ts:49` | `const value = await response.json().catch(() => null);` |
+| `src/online/client.ts:75` | `try { return await call('POST', `/api/games/${encodeURIComponent(gameId)}/commands`, { command_id, expected_revision, action }, signal); }` |
+| `src/online/client.ts:76` | `catch (error) { signal?.throwIfAborted(); if (attempt >= tries &#124;&#124; !retryable(error)) throw error; await wait(250 * 2 ** attempt); }` |
+| `src/plugin/poll.ts:52` | `if (delay !== undefined) timer = setTimeout(tick, delay);` |
+| `src/plugin/poll.ts:60` | `try { await next.read(); } catch {} finally { reading = false; update(); }` |
+| `src/plugin/poll.ts:64` | `page.addEventListener('visibilitychange', wake); page.addEventListener('pageshow', wake);` |
+
+### Eleventh repair checks
+
+The focused selector `src/{account/{data,apple,account-delete-dialog,account-sign-out-session,account-host-sessions},online/{client,cache-policy},interface/{play/{saved,arrange,new-game,reading-b,layout},people/{seat-king,controller,cancellation,receipt,host/{online,boundary,session-boundary},screens/safety}}}.test.ts` passes all 460 tests in 20 files.
+
+Browser checks pass in sequence: r5 (156 cases), r4 (40 rows), r2 (24 groups), the New game panel (11 cases), all four games (144 assertions), local-stack next-arrange, board (18 groups), save (10 scenarios) and art-wait (18 cases). The local stack and previews stop. The four Manual refusal captures pass visual review at 360x640, 390x844, 844x390 and 1440x900. Evidence is in `runs/launch/owner-playtest/build/r11-logs/` and `r11-shots/`, outside the repository.
+
+The full `npm test` runs once. It passes 7,328 tests with 387 existing skips in 393 files. One unchanged disk-space case fails in `tools/anim/promote-painted-moves.test.ts`. Its helper requires 31 GiB free. The disk has 29.196 GiB before the run and 21.868 GiB after it. The helper and test stay unchanged. No space is freed outside this run's temporary folder. The failed full run stops before the renderer stage, so a focused `npm test` runs it: all 114 renderer tests pass. The doc check passes 197 tests with one existing skip in 19 files. Both type projects pass. The check build passes with 482 modules. The whitespace check passes.
+
+The final output contains 423 captures. All checks run in sequence. The full suite runs once. The renderer selector is `{docs/2d-first-pieces,src/render/painted}/**/*.test.mjs`.
+
+The first new focused run has 167 passes and 15 fixture failures because the game input lacks its required options. Correct inputs give 182 passes. The broader run gives 363 passes. One expanded cache fixture repeats its activation event and exhausts the worker heap; its event now fires once. No assertion changes. The corrected wait run passes all 56 cases. The final 460-test selection also includes both reviews and the cache-policy tests. All attempt logs stay in the output folder.
+
+### Eleventh repair limits
+
+Checks use Chromium and local fixtures. No live account, physical device, WebKit, native build or separate old-page browser check runs. No taste or game rule changes. Existing skips and the runtime art-index warning remain. The disk gate prevents a fully green full-suite result. No push, pull request or deploy runs.
