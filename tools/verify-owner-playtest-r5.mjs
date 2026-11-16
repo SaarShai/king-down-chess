@@ -11,27 +11,30 @@ const sizes = (process.env.R5_SIZES || '360x640,390x844,844x390,1440x900').split
 const saveLine = 'Your king stays for this visit. It cannot save on this device.', results = [], failures = [];
 const cell = (page, n) => page.locator(`.play-square[data-square="${n}"]`);
 const ready = page => page.waitForFunction(() => document.querySelectorAll('.play-square').length === 64 && document.querySelector('.play-board-host')?.style.visibility !== 'hidden' && !document.querySelector('.shell-departing'));
+const playing = async page => { await page.waitForFunction(() => window.r6Controller?.state().view?.status === 'playing', null, { timeout: 10000 }); await ready(page); };
 const shot = (page, size, name) => page.screenshot({ path: join(out, `${size.join('x')}-${name}.png`), animations: 'disabled' });
 
-async function online(page, context, { setup = false, manual = false, seat = 0, accept = false, refuseAll = false, setupNotice = false } = {}) {
+async function online(page, context, { setup = false, manual = false, seat = 0, accept = false, refuseAll = false, setupNotice = false, power = false, withCards = false, fen, readyFault, waiting = false } = {}) {
   let view, redeemed = false, commands = 0, fail = 'network', chooseFault = setupNotice;
   if (setup) await context.route('**/src/interface/people/controller.ts*', async route => {
     const response = await route.fetch(), body = await response.text(), marker = 'async ready(order) {';
     assert(body.includes(marker), 'the fixture counts the real Ready calls');
     // Bound the old emit loop so its failing check can finish. Every attempted storage write still refuses.
-    await route.fulfill({ response, body: body.replace(marker, `${marker} globalThis.r6Controller = this; globalThis.r6ReadyCalls = (globalThis.r6ReadyCalls || 0) + 1; if (globalThis.r6ReadyCalls > 12) return false;`) });
+    await route.fulfill({ response, body: body.replace(marker, `${marker} globalThis.r6Controller = this; globalThis.r6ReadyCalls = (globalThis.r6ReadyCalls || 0) + 1; if (globalThis.r6ReadyCalls > 12) return false;
+      if (globalThis.r6ReadyCalls === 1 && globalThis.r7ReadyFault === 'busy') localStorage.setItem('kingdown.account-command.tester', JSON.stringify({ name: 'kingdown_find', args: { game_id: 'another', command_id: 'busy' } }));
+      if (globalThis.r7ReadyFault === 'offline') Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });`) });
   });
   await context.route('**/src/account/client.ts*', route => route.fulfill({ contentType: 'text/javascript', body: 'export function connect() { return { onSession() {}, readSession: async () => ({ userId: "tester", accessToken: "fixture" }) }; }' }));
-  await context.addInitScript(({ refuse, refuseAll }) => {
+  await context.addInitScript(({ refuse, refuseAll, readyFault }) => {
     localStorage.setItem('kingdown.auth', 'fixture');
-    window.r6RefuseAll = refuseAll; window.r6ReceiptWrites = 0;
+    window.r7ReadyFault = readyFault; window.r7RefuseKing = refuse; window.r6RefuseAll = refuseAll; window.r6ReceiptWrites = 0;
     window.r6WaitingLines = [];
     new MutationObserver(records => { for (const record of records) for (const node of record.addedNodes) if (node.nodeType === 1 && node.matches('.online-waiting')) window.r6WaitingLines.push(node.textContent); }).observe(document, { childList: true, subtree: true });
     if (refuse) { const write = Storage.prototype.setItem; Storage.prototype.setItem = function(key, value) {
       if (window.r6RefuseAll && key.startsWith('kingdown.account-command.')) window.r6ReceiptWrites++;
-      if (window.r6RefuseAll || !refuseAll && key.startsWith('kingdown.people-king.')) throw new DOMException('full', 'QuotaExceededError'); return write.call(this, key, value);
+      if (window.r6RefuseAll || window.r7RefuseKing && key.startsWith('kingdown.people-king.')) throw new DOMException('full', 'QuotaExceededError'); return write.call(this, key, value);
     }; }
-  }, { refuse: setup, refuseAll });
+  }, { refuse: setup, refuseAll, readyFault });
   await context.route('**/api/**', async route => {
     const req = route.request(), path = new URL(req.url()).pathname;
     const json = value => route.fulfill({ contentType: 'application/json', body: JSON.stringify(value) });
@@ -43,6 +46,7 @@ async function online(page, context, { setup = false, manual = false, seat = 0, 
     if (path.endsWith('/commands')) {
       commands++;
       const body = req.postDataJSON();
+      if (body.action.type === 'abort' && waiting) { view = { ...view, status: 'setup', abort_open: false }; return route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ code: 'NOT_ALLOWED', message: 'The opponent joins.' }) }); }
       if (chooseFault || fail === 'refused') return route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ code: 'RATE_LIMITED', message: 'Please try again later.' }) });
       if (body.action.type === 'choose') {
         view = { ...view, status: 'playing', revision: view.revision + 1, ready: [true, true] };
@@ -54,14 +58,15 @@ async function online(page, context, { setup = false, manual = false, seat = 0, 
     return json(view);
   });
   await page.goto(new URL('next.html', origin).href); await page.locator('.play-home').waitFor();
-  const template = await page.evaluate(async setup => {
+  const template = await page.evaluate(async ({ setup, power, withCards, fen }) => {
     const { Game } = await import('/src/game.ts'), { toFen } = await import('/src/rules/setup.ts'), { rulesOf } = await import('/src/interface/play/saved.ts'), { DEFAULT_OPTIONS } = await import('/src/match/setup.ts'), { PAGE_ENGINE } = await import('/src/account-game/engine-identity.ts');
     const hand = ['Freeze', 'IceWall', 'Haste', 'Flight'];
-    const game = new Game('RNBQKBNR', rulesOf(setup ? 'powers' : 'cards', [{ king: 'Spirit', power: 'Mercy' }, { king: 'Shadow', power: 'Darkness' }], [hand, hand]));
-    return { engine_fingerprint: PAGE_ENGINE ?? 'r5-fixture', fen: toFen(game.pos), rules: game.rules, history: { initial_fen: toFen(game.pos), actions: [] }, legal: game.legal.map(m => game.context.toLan(game.pos, m)), options: { ...DEFAULT_OPTIONS, kingPowers: setup, cards: !setup, arrangement: false } };
-  }, setup);
-  view = { ...template, options: { ...template.options, arrangement: manual }, game_id: 'r5-online', revision: 1, server_now: new Date().toISOString(), status: setup ? 'setup' : 'playing', seat, turn: seat, action: 'ready', kind: 'friend', speed: 'daily', days_per_move: 3, deadline_at: new Date(Date.now() + 864e5).toISOString(), abort_open: false, last_commands: [], opponent: { handle: 'opponent', user_id: 'other', computer: false, deleted: false, icon: null }, draw_offer: null,
-    ...(setup ? { draw: 'RNBQKBNR', deal: [], ready: seat ? [manual || refuseAll, false] : [false, true] } : {}) };
+    const game = new Game('RNBQKBNR', rulesOf(setup ? withCards ? 'both' : 'powers' : power ? 'powers' : 'cards', [{ king: power ? 'Frost' : 'Spirit', power: power ? 'Freeze' : 'Mercy' }, { king: 'Shadow', power: 'Darkness' }], [hand, hand]));
+    if (fen) game.load(game.context.fromFen(fen));
+    return { engine_fingerprint: PAGE_ENGINE ?? 'r5-fixture', fen: toFen(game.pos), rules: game.rules, history: { initial_fen: toFen(game.pos), actions: [] }, legal: game.legal.map(m => game.context.toLan(game.pos, m)), options: { ...DEFAULT_OPTIONS, kingPowers: setup || power, cards: withCards || !setup && !power, arrangement: false } };
+  }, { setup, power, withCards, fen });
+  view = { ...template, options: { ...template.options, arrangement: manual }, game_id: 'r5-online', revision: 1, server_now: new Date().toISOString(), status: waiting ? 'waiting' : setup ? 'setup' : 'playing', seat, turn: seat, action: 'ready', kind: 'friend', speed: 'daily', days_per_move: 3, deadline_at: new Date(Date.now() + 864e5).toISOString(), abort_open: waiting, last_commands: [], opponent: { handle: 'opponent', user_id: 'other', computer: false, deleted: false, icon: null }, draw_offer: null,
+    ...(setup ? { draw: 'RNBQKBNR', deal: withCards ? ['Freeze', 'IceWall', 'Haste', 'Flight'] : [], ready: seat ? [manual || refuseAll, false] : [false, true] } : {}) };
   await page.goto(new URL(`next.html${setup && !accept ? '#join=' + 'a'.repeat(43) : ''}`, origin).href);
   if (setup) await page.getByRole('button', { name: accept ? 'Accept' : 'Join the game', exact: true }).click();
   else await page.locator('.home-game-row[data-game]').first().click();
@@ -187,10 +192,14 @@ async function refusedReady(page, context, size, seat, accept) {
   assert.equal(await page.evaluate(() => document.documentElement.scrollHeight > innerHeight), false, 'waiting has no page scroll');
   await shot(page, size, `refused-storage-${seat}-${accept ? 'accept' : 'join'}`);
   await waiting.getByRole('button', { name: 'Back to home', exact: true }).tap(); await page.locator('.play-home').waitFor();
-  // Restore storage, then reopen by reload. The page remains usable after the refusal.
-  await context.addInitScript(() => { window.r6RefuseAll = false; });
-  await page.reload(); await page.locator('.home-game-row[data-game]').first().click(); await ready(page);
-  assert.equal(server.commands(), 1, 'automatic setup starts after storage works and the page reloads');
+  // Home remains usable. Reopen without reload, then let the next scheduled poll retry.
+  await page.locator('.home-game-row[data-game]').first().click(); await waiting.waitFor();
+  await page.evaluate(() => { window.r6RefuseAll = false; window.r7RefuseKing = false; });
+  await playing(page);
+  assert.equal(server.commands(), 1, 'the next poll starts setup after storage works, without a reload');
+  assert.equal(await page.evaluate(() => window.r6ReadyCalls), 2, 'one later Ready follows the refusal');
+  await shot(page, size, `storage-works-after-poll-${seat}-${accept ? 'accept' : 'join'}`);
+
 }
 async function noticePriority(page, context, size) {
   const server = await online(page, context, { setup: true, setupNotice: true });
@@ -213,7 +222,96 @@ async function noticePriority(page, context, size) {
   await page.evaluate(id => { location.hash = '#online=' + id; }, another); await opening; await ready(page);
   assert.equal(await page.locator('.play-detail').getByText(saveLine, { exact: true }).count(), 0, 'another game drops the local line');
 }
-const cases = { hasteSend: send, hasteAuth: (page, context, size) => send(page, context, size, true), noticePriority };
+async function readyRetry(page, context, size, fault) {
+  const server = await online(page, context, { setup: true, refuseAll: fault === 'storage', setupNotice: fault === 'rate', readyFault: fault });
+  const waiting = page.locator('.online-waiting, .play-detail'); await waiting.waitFor();
+  if (fault === 'storage' || fault === 'rate') {
+    await waiting.getByText(fault === 'storage' ? 'This device cannot save the send. Free some space, then try again.' : 'Please try again later.', { exact: true }).waitFor();
+  } else await page.waitForFunction(() => window.r6ReadyCalls > 0);
+  await page.waitForTimeout(750);
+  assert.equal(await page.evaluate(() => window.r6ReadyCalls), 1, `${fault}: no repeated or recursive automatic Ready inside the interval`);
+  await server.refresh();
+  assert.equal(await page.evaluate(() => window.r6ReadyCalls), 1, `${fault}: an early poll does not repeat Ready`);
+  if (fault === 'storage' || fault === 'rate') {
+    await shot(page, size, `retry-${fault}-before-poll`);
+    await page.evaluate(() => { window.r6RefuseAll = false; window.r7RefuseKing = false; }); server.chooseFault(false);
+    // No wake event or reload: the controller's scheduled setup poll must do the work.
+    await playing(page);
+    assert.equal(server.commands(), fault === 'storage' ? 1 : 2, 'one working choose ends setup at the next scheduled poll');
+    await shot(page, size, `retry-${fault}-after-poll`);
+  } else {
+    assert.equal(server.commands(), 0, 'blocked Ready sends no choose');
+    const home = page.getByRole('button', { name: 'Back to home', exact: true }); await home.tap(); await page.locator('.play-home').waitFor();
+  }
+}
+async function cancelReady(page, context) {
+  const server = await online(page, context, { setup: true, waiting: true });
+  const refusal = page.waitForResponse(r => r.url().endsWith('/commands') && r.status() === 403);
+  await page.getByRole('button', { name: 'Cancel game', exact: true }).tap(); await refusal;
+  await playing(page);
+  assert.equal(server.commands(), 2, 'a refused Cancel does not block the first Ready');
+}
+async function noticeAction(page, context, size) {
+  const server = await online(page, context, { setup: true, withCards: true }); await ready(page);
+  const line = page.locator('.play-detail').getByText(saveLine, { exact: true }); await line.waitFor();
+  await cell(page, 1).tap(); await server.refresh();
+  assert.equal(await line.count(), 0, 'a board tap drops the king-save line through a same-revision poll');
+  await page.locator('.play-own .play-card').filter({ hasText: 'Haste' }).tap();
+  await cell(page, 1).tap(); await cell(page, 18).tap();
+  for (let i = 0; i < 2; i++) {
+    await server.refresh();
+    assert.equal(await line.count(), 0, 'a staged move keeps the local save line cleared');
+    assert.match(await page.locator('.play-detail .play-headline').innerText(), /Move it again, or select Send\./, 'the staged Haste hint stays after an unchanged poll');
+  }
+  await shot(page, size, 'staged-haste-hint-after-polls');
+}
+async function noticeSaved(page, context) {
+  const server = await online(page, context, { setup: true, seat: 1 });
+  await page.locator('.online-waiting').waitFor();
+  assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.people-king.tester.r5-online.1')), null, 'the first king write refuses');
+  await page.evaluate(() => { window.r7RefuseKing = false; });
+  server.set({ ready: [true, false] }); await server.refresh(); await ready(page);
+  assert.notEqual(await page.evaluate(() => localStorage.getItem('kingdown.people-king.tester.r5-online.1')), null, 'Ready saves the king');
+  for (let i = 0; i < 2; i++) {
+    await server.refresh();
+    assert.equal(await page.locator('.play-detail').getByText(saveLine, { exact: true }).count(), 0, 'a later successful king write ends the save line');
+  }
+}
+async function menuArmed(page, context, size, kind) {
+  const server = await online(page, context, { power: kind === 'power', fen: kind === 'choice' ? '7k/8/8/2r5/2O5/8/8/K7 w - - 0 1' : undefined }); await ready(page);
+  if (kind === 'choice') { await cell(page, 26).tap(); await cell(page, 34).tap(); }
+  else await page.locator(kind === 'power' ? '.play-own .play-power' : '.play-own .play-card').filter({ hasText: 'Freeze' }).tap();
+  const cancel = kind === 'choice' ? 'Cancel action choice' : 'Cancel Freeze';
+  await page.getByRole('button', { name: cancel, exact: true }).waitFor();
+  const before = await page.locator('.play-detail .play-headline').innerText();
+  await page.getByRole('button', { name: 'Menu', exact: true }).tap();
+  await page.locator('.game-menu').getByRole('button', { name: 'Offer draw', exact: true }).tap();
+  await page.getByRole('button', { name: 'Close menu', exact: true }).tap();
+  const check = page.getByRole('button', { name: 'Check again', exact: true }); await check.waitFor();
+  for (let i = 0; i < 2; i++) {
+    const expected = server.commands() + 4;
+    const failed = page.waitForEvent('requestfailed', request => request.url().endsWith('/commands') && server.commands() === expected);
+    await check.tap(); await failed; await page.evaluate(() => new Promise(requestAnimationFrame));
+  }
+  await page.getByRole('button', { name: 'Discard send', exact: true }).waitFor();
+  await bounds(page); await shot(page, size, `menu-${kind}-recovery`);
+  if (kind !== 'choice') {
+    // A subject the player opens still takes the reader during recovery.
+    await page.locator(kind === 'power' ? '.play-opp .play-power' : '.play-rival-cards').tap();
+    await page.locator(kind === 'power' ? '.play-reader .learn-short' : '.play-rival-rows').waitFor();
+    assert.equal(await page.locator('.online-actions').count(), 0, 'the open subject panel keeps its content');
+    await page.keyboard.press('Escape'); await check.waitFor();
+  }
+  await page.getByRole('button', { name: 'Discard send', exact: true }).tap();
+  await page.getByRole('button', { name: cancel, exact: true }).waitFor();
+  assert.equal(await page.locator('.play-detail .play-headline').innerText(), before, 'Discard restores the armed step or choice');
+  await visibleBounds(page, '.play-detail button', true);
+  if (kind === 'choice') assert.equal(await page.locator('.play-choices button').count(), 2, 'Capture and Push both return');
+  await shot(page, size, `menu-${kind}-restored`);
+}
+const cases = { noticeAction, noticeSaved, cancelReady, hasteSend: send, hasteAuth: (page, context, size) => send(page, context, size, true), noticePriority };
+for (const fault of ['storage', 'rate', 'busy', 'offline']) cases[`retry-${fault}`] = (page, context, size) => readyRetry(page, context, size, fault);
+for (const kind of ['power', 'card', 'choice']) cases[`armed-${kind}`] = (page, context, size) => menuArmed(page, context, size, kind);
 for (const action of ['Offer draw', 'Resign', 'End with no result']) cases[`menu-${action}`] = (page, context, size) => menuSend(page, context, size, action);
 for (const seat of [0, 1]) for (const accept of [false, true]) cases[`refused-${seat}-${accept ? 'accept' : 'join'}`] = (page, context, size) => refusedReady(page, context, size, seat, accept);
 for (const manual of [false, true]) for (const seat of [0, 1]) for (const accept of [false, true]) cases[`notice-${manual ? 'manual' : 'automatic'}-${seat}-${accept ? 'accept' : 'join'}`] = (page, context, size) => notice(page, context, size, manual, seat, accept);
@@ -222,7 +320,7 @@ try {
     if (process.env.R5_CASES && !process.env.R5_CASES.split(',').includes(name)) continue;
     const context = await browser.newContext({ viewport: { width: size[0], height: size[1] }, hasTouch: true, serviceWorkers: 'block', reducedMotion: 'reduce' });
     const page = await context.newPage(); page.setDefaultTimeout(5000);
-    const errors = trapErrors(page, name === 'hasteAuth' ? [{ pattern: /Failed to load resource: the server responded with a status of 401/, reason: 'This case refuses the send with a 401 to test sign-in recovery.' }] : name === 'hasteSend' || name.startsWith('menu-') ? [{ pattern: /Failed to load resource: net::ERR_FAILED/, reason: 'This case drops the send and both checks to test unknown-answer recovery.' }] : name === 'noticePriority' ? [{ pattern: /Failed to load resource: the server responded with a status of 429/, reason: 'This case gives a server notice during setup and play.' }] : []);
+    const errors = trapErrors(page, name === 'hasteAuth' ? [{ pattern: /Failed to load resource: the server responded with a status of 401/, reason: 'This case refuses the send with a 401 to test sign-in recovery.' }] : name === 'hasteSend' || name.startsWith('menu-') || name.startsWith('armed-') ? [{ pattern: /Failed to load resource: net::ERR_FAILED/, reason: 'This case drops the send and both checks to test unknown-answer recovery.' }] : name === 'cancelReady' ? [{ pattern: /Failed to load resource: the server responded with a status of 403/, reason: 'Cancel races the other player joining.' }] : name === 'noticePriority' || name === 'retry-rate' ? [{ pattern: /Failed to load resource: the server responded with a status of 429/, reason: 'This case gives a server notice during setup and play.' }] : []);
     try { await run(page, context, size); assertNoErrors(errors); results.push({ name, size, ok: true }); console.log('ok', name, size.join('x')); }
     catch (error) { await shot(page, size, `failure-${name}`); failures.push(`${name} ${size.join('x')}: ${error.message}`); console.error(failures.at(-1)); }
     finally { await context.close(); }

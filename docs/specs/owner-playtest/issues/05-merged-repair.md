@@ -264,3 +264,52 @@ Evidence is outside the repository in `runs/launch/owner-playtest/build/r6-shots
 ### Sixth repair limits
 
 The checks use Chromium and local server fixtures. No physical phone, WebKit, live-account or old-page browser check runs. The old page keeps its unit checks. Existing skips and the runtime art-index build warning remain. If storage keeps refusing the king write, a reload can lose the choice held for this visit. The preview stops after the browser checks. No push, pull request or deploy runs.
+
+## Seventh repair run
+
+The owner reports three faults after the sixth repair. Decision 123 now ends the local king-save line on board input or a later successful save too.
+
+1. Both automatic Ready paths use one guard for each game. It records the attempt before Ready starts. No emitted state or early poll can start another attempt for four seconds. The next scheduled setup poll can retry. The guard does not read the notice. The refused notice stays visible.
+2. A board tap drops the local king-save line. A same-revision poll cannot restore it over a staged turn hint. The line also ends when the accepted king saves. The seat-king module exposes its existing unsaved state; it clears this state on a saved binding too. The revision, server-notice and other-game rules remain.
+3. While sending or checking, the online action group can take the reader over a selected piece, an armed card or power, or an open choice. A subject panel still shows its own content. Discard restores the armed step or choice with Cancel.
+
+### Seventh repair evidence
+
+The new browser checks fail on the prior product code. Storage and RATE_LIMITED refuse Ready and setup stalls. A refused Cancel blocks the first Ready. A receipt for another game that cannot settle and the offline path each reach the fixture's 13-call safety stop inside 750 ms. A board tap and a later king save each leave a false save line after a poll. Armed power, card and choice each hide Check again after a failed Menu command.
+
+The expanded r5 check passes all 112 cases across four sizes, in two sequential batches of 56. This includes all sixth-repair cases. The storage and rate cases recover at the next scheduled poll on the same page, with no reload or manual Ready call. Both seats pass Join and Accept with refused storage; Home still works. The staged Haste hint stays through two unchanged polls. Recovery and restored choices pass bounds checks at 360x640 and 844x390. The required captures also pass a visual check.
+
+The first fixture attempts use a waiting-box selector after sending mounts a setup board, and treat the board as proof that play starts. The corrected checks read both setup surfaces and wait for the controller's playing state. A subject-opening check clears a choice by design; the final choice check proves Discard recovery before that input. A choice-button selector also needs correction. These fixture faults require no further product change. The logs retain each attempt.
+
+No test is deleted, skipped or weakened. The registered Ready check now proves recovery without a reload. Its early-poll assertion remains. A Removed-check trailer records the stronger replacement. The expanded default r5 check needs 660 seconds because the two real-poll batches take about 570 seconds in total.
+
+Evidence is outside the repository in `runs/launch/owner-playtest/build/r7-shots/` and `r7-logs/`. Final checks follow below.
+
+### Seventh repair browser results
+
+| Check | Result |
+| --- | --- |
+| `owner-playtest-r5` | 112 pass, 0 fail across 360x640, 390x844, 844x390 and 1440x900. Two sequential batches pass 56 each. |
+| `owner-playtest-r4` | 40 rows pass at their selected sizes. |
+| `owner-playtest-r2` | 24 groups pass, including all six account paths. |
+| `owner-playtest-b` | All 18 groups pass against the check build. |
+| Lead's four-game check | 144 pass, 0 fail across 16 game and size pairs. |
+
+There are 164 repair captures and 32 four-game captures. All preview processes stop after the browser checks. No push, pull request or deploy runs.
+
+### Seventh repair final checks
+
+The focused selector `src/interface/{people/{seat-king,controller,receipt},people/host/online,play/reading-b}.test.ts` passes 111 tests in five files. The seat-king checks also cover the saved binding after a prior failure and separate the account and game keys.
+
+The full `npm test` runs once after all browser checks. It passes 7,106 tests with 387 existing skips in 375 files. All 114 renderer tests pass. The final checks pass:
+
+| Check | Result |
+| --- | --- |
+| `npm run test:docs` | 197 pass and 1 existing skip in 19 files. |
+| `npm run typecheck` | Both projects pass. |
+| `npm run build` | Pass with the local check configuration; 480 modules transform. |
+| Whitespace check | Pass. |
+
+### Seventh repair limits
+
+The checks use Chromium and local fixtures. No physical phone, WebKit, live-account or old-page browser check runs. The old page keeps its unit checks. Existing skips and the runtime art-index build warning remain. A device that keeps refusing the king write can lose the in-memory choice on reload.

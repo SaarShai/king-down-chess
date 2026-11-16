@@ -11,13 +11,16 @@ export function preferredKing(storage: Pick<Storage, 'getItem'>): KingChoice | n
 }
 // A refused write keeps the accepted choice for this storage session and retries on the next read.
 const unsaved = new WeakMap<Store, Map<string, KingChoice>>();
+export function seatKingUnsaved(storage: Store, user: string, view: Pick<View, 'game_id' | 'seat'>): boolean {
+  return unsaved.get(storage)?.has(seatKingKey(user, view)) ?? false;
+}
 export function bindSeatKing(storage: Store, user: string, view: View, preferred = preferredKing(storage), onFailure?: () => void): KingChoice | null {
   if (!view.options?.kingPowers) return null;
   const key = seatKingKey(user, view), type = view.options.cards ? 'both' : 'powers';
   try {
     const saved = JSON.parse(storage.getItem(key) ?? 'null');
     const king = kingChoices(type).find(k => k.king === saved?.king && k.power === saved?.power);
-    if (king) return king;
+    if (king) { unsaved.get(storage)?.delete(key); return king; }
   } catch { /* A refused read or invalid record uses this session's accepted choice. */ }
   const king = unsaved.get(storage)?.get(key) ?? shownKing(type, preferred);
   try { storage.setItem(key, JSON.stringify(king)); unsaved.get(storage)?.delete(key); }

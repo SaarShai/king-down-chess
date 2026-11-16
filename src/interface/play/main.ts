@@ -41,6 +41,7 @@ import { computerPortrait, profilePortrait } from '../people/host/portrait';
 import type { OnlineHost } from '../people/host/index';
 import { ObsoleteAction } from '../people/server';
 import type { PeopleState } from '../people/controller';
+import { seatKingUnsaved } from '../people/seat-king';
 import { homeInvite, personGame, personTurn, personWords } from '../people/host/games';
 import { timeWords } from '../people/words';
 import { runPoll } from '../../plugin/poll';
@@ -180,6 +181,16 @@ let homePoll: ReturnType<typeof runPoll> | undefined;
 function gameWords(line: string) { return onlineActive ? personWords(line) : line; }
 let mountingOnline = false, shownRevision = -1, onlineNote = '';
 let onlineGameNotice: { id: string; line: string; revision?: number } | undefined;
+const automaticReadyAt = new Map<string, number>();
+function automaticReady(state: PeopleState) {
+  const view = state.view;
+  if (state.phase !== 'setup' || arrangement || !view || view.ready?.[view.seat] || view.seat === 1 && view.ready?.[0] === false) return;
+  const now = performance.now();
+  if (now - (automaticReadyAt.get(view.game_id) ?? -Infinity) < 4000) return;
+  // Record before Ready: even an offline refusal can emit in this stack.
+  automaticReadyAt.set(view.game_id, now);
+  void people?.controller?.ready();
+}
 async function loadPeople() {
   return peopleReady ??= import('../people/host/index').then(async ({ onlineHost }) => {
     people = onlineHost({ rules: () => setup, setRules: value => { setup = value; next = changeDraft(next, { setup }); store(GAME_KEY, setup); },
@@ -235,7 +246,7 @@ function receiveOnline(state: PeopleState) {
     box.append(el('h1', '', state.phase === 'waiting' ? invited ? `Invite sent to ${invited.handle}` : 'Waiting for a player' : 'Getting the game ready'), onlineActions(state), button(text.home, { onPress: () => shell.go({ place: 'play' }) }));
     if (people && humanOpponent(state.view)) box.append(...playerSafety(people.safety, { game_id: state.view.game_id }, () => { void people?.refresh(); }));
     root.replaceChildren(box);
-    if (state.phase === 'setup' && !arrangement && !state.view.ready?.[state.view.seat] && state.notice?.kind !== 'refused') void people?.controller?.ready();
+    automaticReady(state);
     return;
   }
   if (!state.game || !state.view || state.phase === 'gone' || state.phase === 'account' || state.phase === 'failed') { void onlineRecovery(state); return; }
@@ -261,10 +272,11 @@ function receiveOnline(state: PeopleState) {
   update();
   if (changed && previousRevision >= 0) announce(arrangementWaiting() ? arrangeText.wait : ended ? resultCause : state.draft ? `${replyText()} Your turn.` : state.sent ? 'Turn sent. Your opponent now plays.' : 'The game changes.');
   void onlineRecovery(state);
-  if (state.phase === 'setup' && !arrangement && !state.view.ready?.[state.view.seat] && state.notice?.kind !== 'refused') void people?.controller?.ready();
+  automaticReady(state);
 }
-/** Keep the local save line through setup and its first play revision; a server notice takes priority. */
+/** Keep the local save line until board input, a saved king or a new play revision; a server notice takes priority. */
 function takeOnlineNotice(state: PeopleState): string {
+  if (onlineGameNotice && state.view && people?.userId && !seatKingUnsaved(localStorage, people.userId, state.view)) onlineGameNotice = undefined;
   if (onlineGameNotice?.revision != null && onlineGameNotice.revision !== state.view?.revision) onlineGameNotice = undefined;
   if (onlineGameNotice && state.view?.status === 'playing') onlineGameNotice.revision ??= state.view.revision;
   const server = state.notice?.message ?? (state.notice?.kind === 'stale' ? 'The game changes. Check your turn, then send it.' : state.notice?.kind === 'illegal' ? 'This turn cannot play. Undo it, then choose again.' : state.notice?.kind === 'draw-declined' ? 'Your opponent keeps playing.' : state.notice?.kind === 'offline' ? 'You are offline. Your unsent turn stays.' : '');
@@ -716,7 +728,7 @@ function key(event: KeyboardEvent) {
 function clearChoice() { choice = []; choiceBox.replaceChildren(); }
 function tap(square: number) {
   if (fault === 'art' || !onlineActive && writer.blocked) return; // a fault waits for recovery
-  endOpening(); skipBoard(); lastActions = []; notice = '';
+  endOpening(); skipBoard(); lastActions = []; notice = ''; onlineGameNotice = undefined;
   cells.forEach(cell => cell.classList.remove('square-error')); // a new tap ends the red edge of an earlier refusal
   if (arrangement && !ended) {
     if (arrangementLocked()) return;
@@ -1075,7 +1087,7 @@ function renderReader(actions?: HTMLElement) {
   }
   // The B reading area (stage "readingb", design sections 2 and 4): turn state, headline, subject, effects summary.
   // The words and their order are A's (reading decisions 17 to 22): the current action first, the lasting effects last.
-  if (onlineActive && onlineState && !choice.length && !draft.armed && (selected == null || thinking) && !(shown && shown !== armedResource())) {
+  if (onlineActive && onlineState && (thinking || !choice.length && !draft.armed && selected == null) && !(shown && shown !== armedResource())) {
     const state = people?.controller?.state() ?? onlineState;
     actions ??= onlineActions(state);
     if (actions.childElementCount) {
