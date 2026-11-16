@@ -7,6 +7,8 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 - **iOS app** · `needs-info` · Live in release 17 (2026-11-08). Owner steps: tickets 07, 08 and 11. · [map](docs/specs/ios-app/map.md)
 - **ChatGPT app and submission** · `needs-info` · The combined site and app ship at `3d4c97ae` (2026-10-19). The phone tests and portal steps remain open. · [release proof](docs/specs/web-adaptation/issues/08-release-evidence.md), [submission steps](docs/submission/checklist.md)
 - **Web build** · `ready-for-agent` · Next: ticket 02 on `codex/web-02`. · [index](docs/specs/web-build/README.md)
+- **Host invite signal** · `ready-for-agent` · Medium: a late invite or join can use another account's token. · [ticket 06](docs/specs/owner-playtest/issues/06-host-invite-signal.md)
+- **Ready receipt shape** · `ready-for-agent` · Low: Check again resends Ready with no king. · [ticket 07](docs/specs/owner-playtest/issues/07-ready-receipt-shape.md)
 - **Accounts and multiplayer** · `needs-info` · Pushed; the ChatGPT MVP builds on it. The 8 [report](docs/research/multiplayer-2026-10-10/README.md) decisions.
 - **Card deal** · `needs-info` · The owner chose MirrorB and dropped Mirror and Rescue (2026-10-07); Hand size: **4 cards** (owner 2026-10-09: "yes. 4 cards."; draws 12.6% at depth 4, against 11.0% with 6). Keep March (below the floor in `cards-d1`)? Which cards make the deal, and do the four new cards join it? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Balance framework** · `needs-info` · Merged (PR #30, 2026-10-10); `npm run balance:check` guards the rule documents. The three proposed runs and the open choices in `docs/balance/FRAMEWORK.md` wait for the owner. · [spec](docs/specs/balance-framework/spec.md)
