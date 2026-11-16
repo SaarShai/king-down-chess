@@ -1,6 +1,6 @@
 # Repair the merged playtest paths
 
-Status: claimed
+Status: resolved
 Type: task
 
 The owner asks for the eight findings from the independent review and decisions 120 and 121. Work stays on `owner-playtest-1`. The approved design stays in use.
@@ -112,4 +112,28 @@ The four-size reader and save check passes. It includes all four Manual rematche
 
 All 48 Manual boundary cases pass: powers, cards and both, on both sides, at 360x720, 360x727, 360x728, 390x745, 390x751, 390x752, 390x753 and 393x759. History fits at the 152 px boundary. The New game panel passes 11 cases. Hand passes 225 assertions. The local-stack arrangement check passes both seats and four sizes, including the initial online card badge. The local stack stops after the check.
 
-The final broad checks remain open. Evidence is outside the repository in `runs/launch/owner-playtest/build/r3-shots/` and `r3-logs/`.
+The board check passes all 18 groups. The selected menu cases pass all 16 cases at four sizes. The lead's four-game check passes all 144 assertions across 16 game and size pairs. The one full `npm test` run passes 7,099 tests with 387 existing skips in 375 files; all 114 renderer cases pass. The focused run passes 142 tests in four files. The old page's save-controller cases remain green.
+
+The final checks pass:
+
+| Check | Third repair result |
+| --- | --- |
+| Focused `npm test` | 142 pass in four files: arrange, saved, layout and host/online. |
+| `owner-playtest-r2` | All four sizes pass. The separate boundary run passes all 48 Manual cases. The final account run checks both real callers and both game notices. |
+| `owner-playtest-b` | All 18 groups pass. |
+| New game panel | All 11 cases pass. |
+| Hand | All 225 assertions pass. |
+| Selected `next-menus` | All 16 cases pass: panel, refresh, home piece close and Menu at four sizes. |
+| `next-arrange` | Pass with the local online stack, both seats and four sizes. |
+| Lead's four-game check | 144 pass, 0 fail. |
+| Full `npm test`, run once at the end | 7,099 pass, 387 existing skips; all 114 renderer cases pass. |
+| `npm run test:docs` | 197 pass, 1 existing skip in 19 files. |
+| `npm run typecheck` | Both projects pass. |
+| `npm run build` | Pass with the local check configuration. |
+| UI scan; `git diff --check` | No findings or whitespace faults. |
+
+The code commit is `726e122d5`. Evidence is outside the repository in `runs/launch/owner-playtest/build/r3-shots/` and `r3-logs/`. The required draw-plus-claim, failed draw reply, open card panel, Manual warnings and initial card badge captures are present. The preview and local online stack stop after the checks.
+
+### Third repair limits
+
+Chromium checks use pointer, touch and keyboard. No physical phone, WebKit or live-account check runs. The old page has its save-controller unit checks, but no browser check. The existing database-gated skips remain. The build keeps the runtime art-manifest warning. A persistent storage refusal can lose the king choice after a reload; the game notice states this limit. No push, pull request or deploy runs.
