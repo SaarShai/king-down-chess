@@ -231,7 +231,7 @@ function receiveOnline(state: PeopleState) {
   if (state.view && (state.phase === 'waiting' || state.phase === 'setup' && !arrangement) && !board) {
     const invited = state.phase === 'waiting' && state.view.invitation?.direction === 'outgoing' ? state.view.invitation.player : null;
     const box = el('section', 'online-waiting');
-    if (onlineGameNotice) box.append(el('p', 'play-notice', onlineGameNotice.line));
+    const line = takeOnlineNotice(state); if (line) box.append(el('p', 'play-notice', line));
     box.append(el('h1', '', state.phase === 'waiting' ? invited ? `Invite sent to ${invited.handle}` : 'Waiting for a player' : 'Getting the game ready'), onlineActions(state), button(text.home, { onPress: () => shell.go({ place: 'play' }) }));
     if (people && humanOpponent(state.view)) box.append(...playerSafety(people.safety, { game_id: state.view.game_id }, () => { void people?.refresh(); }));
     root.replaceChildren(box);
@@ -246,7 +246,7 @@ function receiveOnline(state: PeopleState) {
   }
   if (!board || mountingOnline) return;
   const previousRevision = shownRevision, changed = shownRevision !== state.view.revision;
-  notice = onlineGameNotice?.line || (state.notice?.message ?? (state.notice?.kind === 'stale' ? 'The game changes. Check your turn, then send it.' : state.notice?.kind === 'illegal' ? 'This turn cannot play. Undo it, then choose again.' : state.notice?.kind === 'draw-declined' ? 'Your opponent keeps playing.' : state.notice?.kind === 'offline' ? 'You are offline. Your unsent turn stays.' : ''));
+  notice = takeOnlineNotice(state);
   game = state.game; draft = state.draft ?? new DraftTurn(game); player = state.view.seat;
   thinking = !state.draft || state.phase === 'sending' || state.phase === 'checking';
   const wasEnded = ended; ended = state.phase === 'over'; liveGame = false;
@@ -262,6 +262,11 @@ function receiveOnline(state: PeopleState) {
   if (changed && previousRevision >= 0) announce(arrangementWaiting() ? arrangeText.wait : ended ? resultCause : state.draft ? `${replyText()} Your turn.` : state.sent ? 'Turn sent. Your opponent now plays.' : 'The game changes.');
   void onlineRecovery(state);
   if (state.phase === 'setup' && !arrangement && !state.view.ready?.[state.view.seat]) void people?.controller?.ready();
+}
+/** The local save line shows in the first waiting or board frame; a server notice takes priority. */
+function takeOnlineNotice(state: PeopleState): string {
+  const saved = onlineGameNotice?.line; onlineGameNotice = undefined;
+  return state.notice?.message ?? (state.notice?.kind === 'stale' ? 'The game changes. Check your turn, then send it.' : state.notice?.kind === 'illegal' ? 'This turn cannot play. Undo it, then choose again.' : state.notice?.kind === 'draw-declined' ? 'Your opponent keeps playing.' : state.notice?.kind === 'offline' ? 'You are offline. Your unsent turn stays.' : saved ?? '');
 }
 const onlineResult = (state: PeopleState) => state.view?.status === 'aborted' ? 'The game ends with no result.' : state.view?.result?.winner == null ? 'Draw.' : state.view.result.winner === state.view.seat ? 'You win.' : `${state.opponent?.handle ?? 'The opponent'} wins.`;
 async function onlineRecovery(state: PeopleState) {
@@ -410,7 +415,7 @@ function keptRow(offer: KeptOffer, fallback: HTMLButtonElement): HTMLElement {
     const now = keptOffer(readStored()); if (!now || now.raw !== offer.raw) { home(); return; }
     writer.replace(); gameLevel = levelOf(now.save.skill); player = now.resume.player; ({ game, draft } = now.resume);
     if (writer.game(snapshot(draft, null, player), prefs(), true)) answerOffer(now.raw);
-    void start({ ...now.resume, level: gameLevel }, source);
+    liveGame = false; void start({ ...now.resume, level: gameLevel }, source);
   };
   const open: HTMLButtonElement = button(sideText.open, { onPress: () => {
     const now = readStored(), again = keptOffer(now);
@@ -554,8 +559,8 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     if (onlineActive) { void people?.controller?.resign(); return; }
     closeLearning(false); generation++; engine.cancel(); board?.skip(); thinking = false;
     while (draft.length) draft.undo(); draft.armed = null; shown = null; board?.setPosition(game.pos, game.context);
-    arrangement = undefined; store(ARRANGE_KEY, 'null');
-    ended = true; resigned = player; liveGame = false; save(true); resultCause = text.resigned; reading = 'result'; update(); focusResult(); announce(`${replyText()} ${resultCause}`);
+    arrangement = undefined;
+    ended = true; resigned = player; liveGame = false; if (save(true)) store(ARRANGE_KEY, 'null'); resultCause = text.resigned; reading = 'result'; update(); focusResult(); announce(`${replyText()} ${resultCause}`);
   } });
   historyStrip = el('div', 'play-history-strip');
   historyButton = button(text.history, { onPress: () => toggleScroll('history', historyButton) });
@@ -809,7 +814,7 @@ function showChoice(square: number, options: Move[]) {
     for (const m of options) group.append(button(choiceLabel(draft.now, m, cards(player)), { onPress: () => { clearChoice(); stage(m); cells[square].focus(); } }));
     choiceBox.append(group);
   }
-  const cancel = closeX('Cancel action choice', () => { clearChoice(); update(); cells[square].focus(); });
+  const cancel = closeX('Cancel action choice', () => { clearChoice(); selected = inspected = null; update(); cells[square].focus(); });
   cancel.classList.add('play-choice-cancel'); choiceCancel = cancel;
   update(); choiceBox.querySelector<HTMLButtonElement>('button')?.focus(); announce(`${choicePrompt(options)} ${sqName(square)}.`);
 }
@@ -827,7 +832,7 @@ async function finish() {
     game.load(arrangement.position(game.pos)); arrangement = undefined;
     draft = new DraftTurn(game); selected = inspected = null;
     if (save(true)) store(ARRANGE_KEY, 'null');
-    board?.setPosition(game.pos, game.context); update();
+    board?.setPosition(game.pos, game.context); layout(); update();
     if (game.pos.turn === cpu()) void reply(); else announce(text.ready);
     return;
   }
@@ -1065,7 +1070,7 @@ function renderReader(actions?: HTMLElement) {
   }
   // The B reading area (stage "readingb", design sections 2 and 4): turn state, headline, subject, effects summary.
   // The words and their order are A's (reading decisions 17 to 22): the current action first, the lasting effects last.
-  if (onlineActive && onlineState && !(shown && shown !== armedResource())) {
+  if (onlineActive && onlineState && !choice.length && !draft.armed && selected == null && !(shown && shown !== armedResource())) {
     const state = people?.controller?.state() ?? onlineState;
     actions ??= onlineActions(state);
     if (actions.childElementCount) {
@@ -1138,11 +1143,11 @@ function readerModel(): ReaderModel {
     m.secondary = [...selectionLines(game.context, draft.position, square!, draft.base.turn, player).map(t => line('play-select-effect', t)), parts.short, line('play-mark-line', '')];
   } else if (thinking) {
     // The computer chooses: the state alone. The computer acts: the sentence of the step that plays.
-    const [first = '', ...rest] = sentences(acting); Object.assign(m, { title: notice || first, secondary: rest.map(t => line('play-last', t)), art: playedCard(cpu(), playingAction?.move) });
+    const [first = '', ...rest] = sentences(acting); Object.assign(m, { title: notice || first, secondary: (notice && first ? [first, ...rest] : rest).map(t => line('play-last', t)), art: playedCard(cpu(), playingAction?.move) });
   } else {
     // History keeps the newest action; the reader gives only the current state and a short hint.
     Object.assign(m, { title: notice || (check.mine ? check.lines[0] : ''),
-      primary: checks.slice(check.mine ? 1 : 0), secondary: [line('play-notice', text.choose)] });
+      primary: checks.slice(check.mine && !notice ? 1 : 0), secondary: [line('play-notice', text.choose)] });
   }
   if (symbolsHint && pieceView === 'figures' && !draft.length) m.primary.push(line('play-symbols-hint', text.symbolsHint));
   if (onlineActive) { m.title = gameWords(m.title); m.state = gameWords(m.state); for (const node of [...m.primary, ...m.secondary]) { const walk = document.createTreeWalker(node, NodeFilter.SHOW_TEXT); while (walk.nextNode()) walk.currentNode.textContent = gameWords(walk.currentNode.textContent ?? ''); } }
@@ -1348,7 +1353,7 @@ function layout() {
   if (!boardBox?.isConnected) return;
   const l = gameLayout(screen.clientWidth, screen.clientHeight, gameType(game.context.rules)), changed = form !== l.form;
   form = l.form;
-  Object.assign(screen.dataset, { layout: l.kind === 'rail' ? 'wide' : 'portrait', form: l.form, narrow: String(l.narrow), sharedReader: String(l.kind === 'stack' && l.reader < 152), ownRows: String(l.ownRows), roomy: String(l.kind === 'stack' && l.form === 'tall'), short: String(l.form === 'compact'), tight: String(l.kind === 'rail' && l.reader + l.opp < 200) });
+  Object.assign(screen.dataset, { layout: l.kind === 'rail' ? 'wide' : 'portrait', form: l.form, narrow: String(l.narrow), sharedReader: String(l.kind === 'stack' && l.reader < (arrangement ? 152 : 144)), ownRows: String(l.ownRows), roomy: String(l.kind === 'stack' && l.form === 'tall'), short: String(l.form === 'compact'), tight: String(l.kind === 'rail' && l.reader + l.opp < 200) });
   const values = { board: l.board, head: l.head, opp: l.opp, own: l.own, fin: l.fin, reader: l.reader, 'usable-height': l.H, rail: l.col, col: (l.W - l.col) / 2, gap: l.gap, 'rail-top': l.railTop, 'rail-h': l.railH, 'board-x': l.boardX, 'board-y': l.boardY };
   for (const [name, value] of Object.entries(values)) screen.style.setProperty(`--${name}`, `${value}px`);
   // A rotation or a resize keeps the draft, the selection and the save; only the places change.

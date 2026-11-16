@@ -1,6 +1,6 @@
 # Repair the merged playtest paths
 
-Status: resolved
+Status: claimed
 Type: task
 
 The owner asks for the eight findings from the independent review and decisions 120 and 121. Work stays on `owner-playtest-1`. The approved design stays in use.
@@ -137,3 +137,28 @@ The code commit is `726e122d5`. Evidence is outside the repository in `runs/laun
 ### Third repair limits
 
 Chromium checks use pointer, touch and keyboard. No physical phone, WebKit or live-account check runs. The old page has its save-controller unit checks, but no browser check. The existing database-gated skips remain. The build keeps the runtime art-manifest warning. A persistent storage refusal can lose the king choice after a reload; the game notice states this limit. No push, pull request or deploy runs.
+
+## Fourth repair run
+
+The owner asks for six faults after the third repair. The checks must fail before each change and pass after it. Work stays on this branch. Use port 5445 and one test or browser command at a time.
+
+### Changes
+
+1. A selected piece, open choice or armed action takes the reader before the online group. A subject panel keeps its own content. Cancel clears the choice and selection. The draw buttons return after completion or Cancel.
+2. The king-save line shows in the first waiting or board frame only. A server notice takes priority. A notice keeps the first check line and the opponent action sentence.
+3. Open clears the prior live-game state before it starts a kept game. A Manual draft cannot carry over to that game. The kept position and moves remain.
+4. Resign clears the Manual marker only when the guarded game save succeeds. A stale tab changes neither the newer save nor its setup marker.
+5. The 152 px limit applies to Manual only. Normal play keeps 144 px. Ready refreshes the layout when setup ends. At 390x751 the newer-tab warning and its button fit, and Manual still fits.
+6. All five invite actions check the account on rejection too. The link fallback has the same check. An obsolete failure reaches the existing ignore path. A current account still receives a real network, server or sign-in error.
+
+### Checks in progress
+
+All six faults have failing checks on the prior code and passing checks after repair. Each Low fault is reproduced before the code changes. The final browser cases run against the prior main file once more and fail for the named faults. The logs keep both results. No test is deleted, skipped or weakened.
+
+The focused test selector is `src/interface/{play/{saved,arrange,layout,reading-b},people/host/online}.test.ts`: 163 pass in five files. Six new account cases cover 72 held failures: network, 503 and 401; sign-out, another account, a new sign-in to the same account, and an unchanged account. The home Accept and landing Join callers keep the next account's game and layers after a rejected request.
+
+The new `owner-playtest-r4` browser check passes at 360x640, 390x844, 844x390 and 1440x900. It covers selection, promotion, capture or push, an armed card and power, Cancel and completion, one save notice, server notice with check, a kept game, stale Resign and the 390x751 warning. The Ready boundary has a failing check before its layout refresh.
+
+Earlier checks pass: `owner-playtest-r2` with the third repair cases and both rejected callers; all 48 Manual boundary cases; 18 `owner-playtest-b` groups; 11 New game panel cases; 225 hand assertions; 16 selected `next-menus` cases; and `next-arrange` with the fresh local online stack. The four-game check passes 144 assertions across 16 game and size pairs against the check build. The stack and preview stop after use.
+
+Evidence is in `runs/launch/owner-playtest/build/r4-shots/` and `r4-logs/`, outside the repository. The required draw-choice, armed-card and newer-tab captures are present. Full tests, final doc checks, type checks and the build remain to run.

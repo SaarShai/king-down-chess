@@ -138,7 +138,8 @@ export function onlineHost(options: HostOptions) {
       remember(view);
       return notice;
     };
-    return Object.assign(accept, { current });
+    const failed = (error: unknown): never => { current(); throw error; };
+    return Object.assign(accept, { current, failed });
   }
   async function refresh() {
     if (!session) return;
@@ -220,25 +221,25 @@ export function onlineHost(options: HostOptions) {
     },
     invite: async (handle, rules, choices) => {
       const accept = seatReply(), king = choices ? choices.king : preferredKing(storage);
-      const created = await api.create({ kind: 'friend', recipient_handle: handle, colour: 'random', options: onlineOptions(rules, choices) });
+      const created = await api.create({ kind: 'friend', recipient_handle: handle, colour: 'random', options: onlineOptions(rules, choices) }).catch(accept.failed);
       accept(created.view, king);
     },
     inviteBack: async (handle, rules) => {
       const accept = seatReply(), king = preferredKing(storage);
-      const created = await api.create({ kind: 'friend', recipient_handle: handle, colour: 'random', options: rules ?? onlineOptions(options.rules()) });
+      const created = await api.create({ kind: 'friend', recipient_handle: handle, colour: 'random', options: rules ?? onlineOptions(options.rules()) }).catch(accept.failed);
       accept(created.view, king);
     },
     createLink: async (rules, choices) => {
       const accept = seatReply(), king = choices ? choices.king : preferredKing(storage);
-      const created = await api.create({ kind: 'friend', open_link: true, colour: 'random', options: onlineOptions(rules, choices) });
+      const created = await api.create({ kind: 'friend', open_link: true, colour: 'random', options: onlineOptions(rules, choices) }).catch(accept.failed);
       accept(created.view, king);
-      const link = created.invite ?? await api.invite(created.view.game_id);
+      const link = created.invite ?? await api.invite(created.view.game_id).catch(accept.failed);
       accept.current();
       return inviteURL(link.token);
     },
     preview: key => api.preview(key),
     get safety() { return { ...accountSafety(), changed: () => { void refresh(); } }; },
-    join: async key => { const accept = seatReply(true), king = preferredKing(storage); const view = await api.redeem(key); const notice = accept(view, king); options.open(view.game_id, notice); },
+    join: async key => { const accept = seatReply(true), king = preferredKing(storage); const view = await api.redeem(key).catch(accept.failed); const notice = accept(view, king); options.open(view.game_id, notice); },
     toPlay: options.home, toast: options.toast,
     share: navigator.share ? data => navigator.share(data) : undefined,
     coarse: matchMedia('(pointer: coarse)').matches,
@@ -251,7 +252,7 @@ export function onlineHost(options: HostOptions) {
     api, host, get safety() { return accountSafety(); }, get user() { return user; }, get userId() { return session?.userId; }, get views() { return views; }, get incomingInvites() { return incomingInvites; }, get inviteUpdates() { return inviteUpdates; }, get controller() { return controller; }, get signedIn() { return !!session; },
     async acceptInvite(invite: InvitationRow) {
       const accept = seatReply(true), king = preferredKing(storage);
-      const view = await api.redeem({ invite_id: invite.invite_id });
+      const view = await api.redeem({ invite_id: invite.invite_id }).catch(accept.failed);
       const notice = accept(view, king);
       incomingInvites = incomingInvites.filter(i => i.invite_id !== invite.invite_id);
       options.open(view.game_id, notice);

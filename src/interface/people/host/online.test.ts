@@ -8,7 +8,7 @@ import { computerPortrait } from './portrait';
 import type { PeopleState } from '../controller';
 import { fixtureService } from '../../../../tools/plugin-protocol-fixture';
 import { peopleController } from '../controller';
-import { peopleServer } from '../server';
+import { ObsoleteAction, peopleServer } from '../server';
 import { OnlineError, onlineClient } from '../../../online/client';
 import { seatKing, seatKingKey } from '../seat-king';
 import { DEFAULT_OPTIONS as PANEL_OPTIONS } from '../../play/new-game';
@@ -288,7 +288,7 @@ it('binds both invite paths and the joining seat before the next-game preference
 });
 
 
-const deferred = <T>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; };
+const deferred = <T>() => { let resolve!: (value: T) => void, reject!: (error: Error) => void; const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; }); return { promise, resolve, reject }; };
 it.each(['invite', 'inviteBack', 'createLink', 'createLinkFallback', 'join', 'acceptInvite'] as const)('a delayed %s binds the requesting account and stops stale page updates', async action => {
   vi.stubGlobal('location', new URL('https://kingdown.test/next.html')); vi.stubGlobal('history', { state: {}, replaceState: vi.fn() });
   vi.stubGlobal('sessionStorage', memoryStorage()); vi.stubGlobal('navigator', {}); vi.stubGlobal('matchMedia', () => ({ matches: false }));
@@ -383,4 +383,46 @@ it('a failed link fallback keeps the created game and chosen king', async () => 
   await expect(host.host.createLink('powers', { ...PANEL_OPTIONS, king })).rejects.toBeInstanceOf(OnlineError);
   expect(host.views).toEqual([view]);
   expect(JSON.parse(storage.getItem(seatKingKey('alice', view))!)).toEqual(king);
+});
+
+it.each(['invite', 'inviteBack', 'createLink', 'createLinkFallback', 'join', 'acceptInvite'] as const)('a rejected %s checks the account before it reaches the caller', async action => {
+  vi.stubGlobal('location', new URL('https://kingdown.test/next.html')); vi.stubGlobal('history', { state: {}, replaceState: vi.fn() });
+  vi.stubGlobal('sessionStorage', memoryStorage()); vi.stubGlobal('navigator', {}); vi.stubGlobal('matchMedia', () => ({ matches: false }));
+  for (const failure of ['network', 503, 401] as const) for (const replacement of ['bob', 'alice', null, 'unchanged']) {
+    let actor: string | null = 'alice', onSession!: (value: any) => void;
+    const started = deferred<void>(), reply = deferred<Response>(), opened = vi.fn(), changed = vi.fn(), toast = vi.fn();
+    const view = { game_id: 'rejected', status: 'waiting', seat: 0, options: onlineOptions('both') } as never;
+    const send = vi.fn(async (input: RequestInfo | URL) => {
+      const path = new URL(String(input), 'https://kingdown.test').pathname;
+      if (path === '/api/games' && action === 'createLinkFallback') return Response.json({ view });
+      if (path === '/api/games' || path === '/api/invites/redeem' || path.endsWith('/invite')) { started.resolve(); return reply.promise; }
+      if (path === '/api/me/games') return Response.json({ games: [], invitations: [] });
+      if (path === '/api/me/record') return Response.json({ history: [] });
+      return Response.json({ me: { handle: actor, icon: null } });
+    });
+    const { onlineHost } = await import('./index');
+    const host = onlineHost({ auth: async () => ({ onSession: (fn: typeof onSession) => { onSession = fn; return () => {}; }, readSession: async () => actor && ({ userId: actor, accessToken: actor }) }) as never,
+      storage: memoryStorage(), fetch: send, rules: () => 'both', setRules() {}, changed, open: opened, home() {}, toast });
+    await host.signIn();
+    const pending = action === 'invite' ? host.host.invite('carol', 'both') : action === 'inviteBack' ? host.host.inviteBack!('carol', null) : action === 'createLink' || action === 'createLinkFallback' ? host.host.createLink('both')
+      : action === 'join' ? host.host.join({ token: 'fixture' }) : host.acceptInvite({ invite_id: 'invite' } as never);
+    const outcome = pending.catch(error => error);
+    await started.promise;
+    if (replacement !== 'unchanged') {
+      actor = null; onSession(null); actor = replacement;
+      if (actor) { onSession({ user: { id: actor } }); await host.signIn(); }
+    }
+    changed.mockClear(); opened.mockClear(); toast.mockClear();
+    if (failure === 'network') reply.reject(new TypeError('Network failed'));
+    else reply.resolve(Response.json({ code: failure === 401 ? 'UNAUTHENTICATED' : 'UNAVAILABLE', message: 'Old request fails.' }, { status: failure }));
+    const error = await outcome;
+    if (replacement === 'unchanged') {
+      expect(error).not.toBeInstanceOf(ObsoleteAction);
+      expect(error).toBeInstanceOf(failure === 'network' ? TypeError : OnlineError);
+      continue;
+    }
+    expect(error).toBeInstanceOf(ObsoleteAction);
+    expect(error).not.toBeInstanceOf(OnlineError);
+    expect(host.views).toEqual([]); expect(opened).not.toHaveBeenCalled(); expect(changed).not.toHaveBeenCalled(); expect(toast).not.toHaveBeenCalled();
+  }
 });

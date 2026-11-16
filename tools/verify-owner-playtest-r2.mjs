@@ -166,11 +166,12 @@ const cases = {
       if (path === '/api/invites/preview') return json({ code: 'OK', creator: { handle: 'opponent', icon: null }, colour: 'white', options: { kingPowers: true, cards: false } });
       if (path === '/api/invites/redeem') {
         if (held && !bob) { await new Promise(done => { release = done; }); }
+        if (mode.startsWith('reject') && !bob) return route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ code: 'UNAUTHENTICATED', message: 'Old account request.' }) });
         redeemed = true; return json(makeView(bob ? bobId : gameId));
       }
       return json(makeView(path.includes(bobId) ? bobId : gameId));
     });
-    for (const path of ['accept', 'join', 'notice-accept', 'notice-join']) {
+    for (const path of ['accept', 'join', 'reject-accept', 'reject-join', 'notice-accept', 'notice-join']) {
       if (process.env.R2_ACCOUNT_MODE && !path.startsWith(process.env.R2_ACCOUNT_MODE)) continue;
       console.log('account path', path);
       mode = path; redeemed = false; held = !path.startsWith('notice'); release = undefined;
@@ -318,7 +319,7 @@ try {
   for (const size of sizes) for (const [name, run] of Object.entries(cases)) {
     if (process.env.R2_CASES && !process.env.R2_CASES.split(',').includes(name)) continue;
     const context = await browser.newContext({ viewport: { width: size[0], height: size[1] }, hasTouch: true, serviceWorkers: 'block', reducedMotion: 'reduce' });
-    const page = await context.newPage(); page.setDefaultTimeout(10000); const errors = trapErrors(page, name === 'online' ? [{ pattern: /Failed to load resource: (?:the server responded with a status of 401|net::ERR_FAILED)/, reason: 'The fixture refuses the draw reply and ends the session.' }] : []);
+    const page = await context.newPage(); page.setDefaultTimeout(10000); const errors = trapErrors(page, name === 'accounts' ? [{ pattern: /Failed to load resource: the server responded with a status of 401/, reason: 'The old account request is refused after sign-in as B.' }] : name === 'online' ? [{ pattern: /Failed to load resource: (?:the server responded with a status of 401|net::ERR_FAILED)/, reason: 'The fixture refuses the draw reply and ends the session.' }] : []);
     try { await run(page, context, size); assertNoErrors(errors); results.push({ name, size, ok: true }); console.log('ok', name, size.join('x')); }
     catch (error) { await shot(page, size, `failure-${name}`); failures.push(`${name} ${size.join('x')}: ${error.message}`); console.error(failures.at(-1)); }
     finally { await context.close(); }
