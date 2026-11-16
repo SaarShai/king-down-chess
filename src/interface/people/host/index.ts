@@ -77,7 +77,9 @@ export function onlineHost(options: HostOptions) {
     client.onSession(current => {
       user = userOf(current?.user);
       if (current?.user.id !== session?.userId || session && current && typeof current.access_token === 'string' && sessionKey({ userId: current.user.id, accessToken: current.access_token }) !== sessionKey(session)) {
-        epoch++; closeSafety(current?.user.id); stopGame(); session = null; profile = null; views = []; incomingInvites = []; inviteUpdates = []; cachedKnown = []; options.home(); options.changed();
+        const changing = !!session;
+        epoch++; closeSafety(current?.user.id); stopGame(); session = null; profile = null; views = []; incomingInvites = []; inviteUpdates = []; cachedKnown = [];
+        if (changing) options.home(); options.changed();
       }
       options.changed();
     });
@@ -309,8 +311,14 @@ export function onlineHost(options: HostOptions) {
     async open(id: string, change: (state: PeopleState) => void) {
       stopGame();
       if (!session) { change({ phase: 'loading', connection: 'auth' } as PeopleState); return; }
-      const current = peopleController({ server: peopleServer(api), storage, userId: session.userId, locks: navigator.locks }); controller = current;
-      const account = session.userId, gate = writer;
+      const opening = session, mark = epoch, account = opening.userId, gate = writer;
+      const live = async () => {
+        const value = await (await auth()).readSession();
+        if (!value || value.userId !== account || sessionKey(value) !== sessionKey(opening) || !session || session.userId !== account || sessionKey(session) !== sessionKey(opening) || mark !== epoch) throw new ObsoleteAction();
+        return value;
+      };
+      const scoped = onlineClient({ origin: apiOrigin, fetch: options.fetch, token: async () => (await live()).accessToken });
+      const current = peopleController({ server: peopleServer(scoped), storage, userId: account, locks: navigator.locks, current: live }); controller = current;
       let restored = false, seen = -1;
       unsubscribe = current.subscribe(state => {
         if (controller !== current) return;

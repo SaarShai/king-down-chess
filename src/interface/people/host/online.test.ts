@@ -681,3 +681,67 @@ it.each(['invite', 'inviteBack', 'createLink', 'createLinkFallback', 'join', 'ac
   expect(write).not.toHaveBeenCalled(); expect(saved.getItem(seatKingKey('alice', view))).toBeNull();
   expect(toast).not.toHaveBeenCalled(); expect(open).not.toHaveBeenCalled();
 });
+
+it.each([
+  [null, 'king'], ['bob', 'king'], ['alice-new-session', 'king'], ['stop', 'king'], ['bob-no-event', 'king'],
+  [null, 'receipt'], ['bob', 'receipt'], ['stop', 'receipt'], ['bob-no-event', 'receipt'],
+] as const)('stops a queued Ready after the account becomes %s during the %s lock wait', async (replacement, stage) => {
+  const saved = memoryStorage(), requests: (() => Promise<unknown>)[] = [];
+  let pause = false, actor: string | null = 'alice', token = 'alice', changed = (_s: any) => {};
+  const locks = { request: <T>(name: string, run: () => Promise<T>) => pause && name.endsWith('.alice')
+    ? new Promise<T>((resolve, reject) => requests.push(() => run().then(resolve, reject))) : run() };
+  vi.stubGlobal('location', new URL('https://kingdown.test/next.html'));
+  vi.stubGlobal('history', { state: {}, replaceState() {} });
+  vi.stubGlobal('sessionStorage', memoryStorage()); vi.stubGlobal('navigator', { locks, onLine: true });
+  vi.stubGlobal('matchMedia', () => ({ matches: false }));
+  vi.stubGlobal('addEventListener', () => {}); vi.stubGlobal('removeEventListener', () => {});
+  const service = fixtureService(); let host: ReturnType<typeof onlineHost> | undefined;
+  try {
+    await service.handle('alice', { handle: 'alice' }); await service.handle('bob', { handle: 'bob' });
+    const first = await service.create('alice', { kind: 'friend', options: onlineOptions('both', { ...PANEL_OPTIONS, arrangement: 'manual' }) });
+    const link = await service.invite('alice', first.game_id); await service.join('bob', link.token);
+    const server = fakeServer(service);
+    host = onlineHost({ storage: saved, fetch: server.fetch,
+      auth: async () => ({ onSession(callback: typeof changed) { changed = callback; }, readSession: async () => actor && ({ userId: actor, accessToken: token }) }) as never,
+      rules: () => 'both', setRules() {}, changed() {}, open() {}, home() {}, toast() {} });
+    await host.signIn(); await host.open(first.game_id, () => {});
+    const old = host.controller!, view = old.state().view!;
+    saved.removeItem(seatKingKey('alice', view));
+    const writes = vi.spyOn(saved, 'setItem');
+    pause = true; const pending = old.ready().catch(error => error);
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    if (stage !== 'king') {
+      await requests.shift()!();
+      await vi.waitFor(() => expect(requests).toHaveLength(1));
+    }
+    if (replacement === 'stop') host.stopGame();
+    else {
+      actor = replacement === 'alice-new-session' ? 'alice' : replacement === 'bob-no-event' ? 'bob' : replacement; token = replacement!;
+      if (replacement !== 'bob-no-event') changed(actor ? { user: { id: actor }, access_token: token } : null);
+      if (replacement === 'bob') await host.signIn();
+    }
+    writes.mockClear(); server.calls.length = 0;
+    pause = false; await requests.shift()!(); const result = await pending;
+    const commands = server.calls.filter(c => c.path.endsWith('/commands'));
+    const kingWrites = writes.mock.calls.filter(([key]) => key.startsWith('kingdown.people-king.'));
+    const after = await service.view('bob', first.game_id);
+    expect({ kingWrites, commands }).toEqual({ kingWrites: [], commands: [] });
+    expect(saved.getItem('kingdown.account-command.alice')).toBeNull();
+    expect(result).toBe(false);
+    expect(after.ready).toEqual([false, false]);
+  } finally { pause = false; for (const run of requests) await run(); host?.stopGame(); await service.close(); }
+});
+
+it('keeps the online route when the initial session arrives before the host loads', async () => {
+  vi.stubGlobal('location', new URL('https://kingdown.test/next.html#online=manual-game'));
+  vi.stubGlobal('history', { state: {}, replaceState() {} }); vi.stubGlobal('sessionStorage', memoryStorage());
+  vi.stubGlobal('navigator', {}); vi.stubGlobal('matchMedia', () => ({ matches: false }));
+  const home = vi.fn();
+  const host = onlineHost({ ...options, storage: memoryStorage(), home,
+    auth: async () => ({ onSession(callback: (value: any) => void) { callback({ user: { id: 'alice' }, access_token: 'alice' }); },
+      readSession: async () => ({ userId: 'alice', accessToken: 'alice' }) }) as never,
+    fetch: async () => Response.json({ me: { handle: 'alice', icon: null } }),
+  });
+  await host.signIn();
+  expect(host.signedIn).toBe(true); expect(home).not.toHaveBeenCalled();
+});

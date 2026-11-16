@@ -1,6 +1,6 @@
 # Repair the merged playtest paths
 
-Status: needs-info
+Status: resolved
 Type: task
 
 The owner asks for the eight findings from the independent review and decisions 120 and 121. Work stays on `owner-playtest-1`. The approved design stays in use.
@@ -383,3 +383,54 @@ Evidence stays outside the repository in `runs/launch/owner-playtest/build/r9-lo
 ### Ninth repair limits
 
 The checks use Chromium and local fixtures. No physical phone, WebKit, live account, native build or separate old-page browser check runs. The old page keeps its unit checks. The local-stack reload fault prevents a full green browser gate. No push, pull request or deploy runs.
+
+
+## Tenth repair run
+
+The two requested faults are repaired. The full test gate remains red for the unchanged disk-space check only.
+
+### Ready and the account session
+
+The merge review holds Alice's account lock during Ready, then signs her out or signs Bob in. The old controller writes Alice's king after the change. With Bob active, it sends Alice's choice with Bob's token and marks Bob ready.
+
+Each controller now captures the opening account, session key and host epoch. Its client checks those values before it gets a token. A refreshed token can keep the same session key. A replacement session cannot supply the token. Each controller king write checks this session under the shared account lock. An obsolete write raises `ObsoleteAction`; Ready ignores it without a save notice or command. The receipt lock checks the action too, so an obsolete Ready leaves no send to retry. Stop advances the controller epoch. Pending reads, joins, draft checks and sends check that epoch before they continue.
+
+The normal host tests now include both review cases. Nine lock-wait cases cover sign-out, Bob, a new Alice session, Stop, and an account change with no event. They hold the king lock or the receipt lock. After the change, Alice has no king write or command, no new receipt waits, and both seats stay unready. The initial-session case checks the route separately. These ten tests use the local service fixture.
+
+The two review cases, Stop and the initial-session case fail before the repair. The first new-Alice probe has a fixture deadlock: it tries to sign in under the held Alice lock. The corrected fixture changes the session without that extra sign-in. An added retry probe cannot reach a second hold because settlement changes the view first; the final case checks a missing account event at the receipt lock. All final cases pass. No existing test or assertion is removed, skipped or weakened.
+
+### Manual setup after reload
+
+Step 0 uses a detached worktree at `d9e184537`, before any product change. `next-arrange` passes all its local-stack cases there. The stack stops and the throwaway worktree is removed. A check at `2d1970f7f` is not needed because the pre-merge commit is green.
+
+The merge adds the fault. The account's first session event calls Home while the host session is still empty. The host now calls Home only if it replaces an existing host session. It still closes account safety panels and clears old state on an account change. The deletion-receipt checks protect that path. The joining player now reloads into the online Manual game. The focused initial-session test and unchanged `next-arrange` pass. No follow-up ticket is needed.
+
+### Tenth repair checks
+
+| Check | Result |
+| --- | --- |
+| Focused `npm test` | 305 pass in 15 files. |
+| `owner-playtest-r5` | All 156 cases pass at four sizes. |
+| `owner-playtest-r4` | All 40 rows pass. |
+| `owner-playtest-r2` | All 24 groups pass, including six account paths. |
+| New game panel | All 11 cases pass. |
+| `next-arrange` | Pass before the merge and after the repair. |
+| `owner-playtest-b` | All 18 groups pass. |
+| `next-save` | All 10 scenarios pass. |
+| `next-art-wait` | All 18 cases pass. |
+| Lead's four-game check | 144 pass, 0 fail; 32 captures. |
+| Full `npm test`, once | 7,268 pass, 1 fail and 387 existing skips in 390 files. |
+| Focused renderer `npm test` | All 114 pass. The full run stops before this stage. |
+| `npm run test:docs` | 197 pass and 1 existing skip in 19 files. |
+| `npm run typecheck` | Both projects pass. |
+| `npm run build` | Pass; 482 modules transform. |
+
+The focused selector is `src/{account/{data,apple,account-delete-dialog,account-sign-out-session,account-host-sessions},interface/{play/{saved,arrange,new-game,reading-b,layout},people/{seat-king,controller,receipt,host/online,screens/safety}}}.test.ts`.
+
+The full-suite failure is the rebuild-cleanup case in `tools/anim/promote-painted-moves.test.ts`. Its helper requires 31 GiB free. The disk has 30.996 GiB free before the full run and about 30.697 GiB after the checks. The test and helper stay unchanged. The full suite runs once. No space is freed outside this run's temporary folder.
+
+Evidence stays outside the repository in `runs/launch/owner-playtest/build/r10-logs/` and `r10-shots/`. The 445 captures include all four required sizes. The four online wait captures and the narrow-phone Manual refusal pass visual review. All checks run in sequence with `/private/tmp/kd-r10` and preview port 5445. The local stack and preview stop. The throwaway worktree is removed.
+
+### Tenth repair limits
+
+Checks use Chromium and local fixtures. No live account, physical device, WebKit, native build or separate old-page browser check runs. The existing skips and runtime art-index warning remain. No taste or rule choice changes. No push, pull request or deploy runs. The disk gate above prevents an all-green full-suite result.

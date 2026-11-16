@@ -14,7 +14,7 @@ import type { Move, Position } from '../../rules/engine';
 import { DraftTurn } from '../play/turn';
 import { defaultChoice, validateChoice } from '../../match/setup';
 import { bindSeatKing, readSeatKing, seatKing } from './seat-king';
-import { faultOf, settled, type Fault, type InviteKey, type PeopleServer } from './server';
+import { ObsoleteAction, faultOf, settled, type Fault, type InviteKey, type PeopleServer } from './server';
 import { actionOf, ReceiptBusy, receiptOf, receiptStore, type LockManager, type Receipt } from './receipt';
 import { lastTurnOf, playCommands, positionOf, replicaOf, restage, turnActions, type ReceivedTurn } from './replica';
 
@@ -71,6 +71,8 @@ export interface ControllerOptions {
   userId: string;
   storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
   locks?: LockManager;
+  /** The host session that opens this controller must still own the action. */
+  current?: () => Promise<unknown>;
   /** The page engine (`__KINGDOWN_PAGE_ENGINE__`); tests set it. */
   pageEngine?: string;
   now?: () => number;
@@ -89,6 +91,10 @@ export function peopleController(options: ControllerOptions) {
   let fatal: 'gone' | 'account' | 'failed' | undefined, engine: 'local' | 'server' = 'server', connection: Connection = 'online';
   let notice: Notice | undefined, pending: Pending | undefined, sending = false, busy = false, sent = false, declined = false;
   let readAt = 0, skew = 0, readFails = 0, seenAt = -Infinity, target: string | undefined, epoch = 0;
+  const currentAction = (mark = epoch) => async () => {
+    await options.current?.();
+    if (mark !== epoch) throw new ObsoleteAction();
+  };
   const offers = new Set<number>();
   let poll: ReturnType<typeof runPoll> | undefined;
 
@@ -205,10 +211,10 @@ export function peopleController(options: ControllerOptions) {
     try {
       const next = await server.game(gameId);
       if (mark !== epoch) return;
-      if (next.status === 'setup') await seatKing(options.storage, options.userId, next, writer);
+      if (next.status === 'setup') await seatKing(options.storage, options.userId, next, writer, currentAction(mark));
       if (mark === epoch) adopt(next, keep);
     }
-    catch (error) { if (mark === epoch) badRead(error, !view); }
+    catch (error) { if (!(error instanceof ObsoleteAction) && mark === epoch) badRead(error, !view); }
   }
   /** A view after `view.revision` (a poll read or a command answer): play its moves on the copy. */
   function advance(next: View): boolean {
@@ -262,6 +268,7 @@ export function peopleController(options: ControllerOptions) {
    * once). After two failed checks the player can discard it. True when no saved command waits.
    */
   async function settle(): Promise<boolean> {
+    const current = currentAction();
     const saved = receipts.read();
     if (!saved) { pending = undefined; return true; }
     if (saved === 'unreadable') { pending = { receipt: undefined, tries: CHECKS_BEFORE_DISCARD }; emit(); return false; }
@@ -272,22 +279,25 @@ export function peopleController(options: ControllerOptions) {
     pending = { receipt: saved, tries }; busy = true; emit();
     let read = true;
     try {
-      const current = await server.game(gameId, expected);
-      if (current.revision > expected) {
+      const nextView = await server.game(gameId, expected);
+      await current();
+      if (nextView.revision > expected) {
         await receipts.drop(saved); pending = undefined; busy = false;
-        if (wentIn(saved, current)) sent = true;
-        if (view?.game_id === gameId && !advance(current)) await fullRead(gameId);
+        if (wentIn(saved, nextView)) sent = true;
+        if (view?.game_id === gameId && !advance(nextView)) await fullRead(gameId);
         else emit();
         return true;
       }
       read = false;
       const next = await server.command(gameId, expected, action, saved.args.command_id);
+      await current();
       await receipts.drop(saved); pending = undefined; busy = false;
       if (connection === 'auth') connection = 'online';
       if (view?.game_id === gameId) await landed(next, action); else emit();
       return true;
     } catch (error) {
       busy = false;
+      if (error instanceof ObsoleteAction) return false;
       const fault = faultOf(error, online(), read);
       if (settled(fault)) {
         await receipts.drop(saved); pending = undefined;
@@ -305,21 +315,25 @@ export function peopleController(options: ControllerOptions) {
     if (!view || busy || fatal || phase() === 'checking') return false;
     notice = undefined;
     if (!online()) { notice = { kind: 'offline' }; emit(); return false; }
+    const current = currentAction();
     const base = view, receipt = receiptOf(base.game_id, base.revision, action, uuid());
-    try { await receipts.hold(receipt); }
+    try { await current(); await receipts.hold(receipt, current); await current(); }
     catch (error) {
+      if (error instanceof ObsoleteAction) return false;
       if (!(error instanceof ReceiptBusy)) { notice = { kind: 'refused', message: 'This device cannot save the send. Free some space, then try again.' }; emit(); return false; }
       if (!await settle() || view !== base) return false;
-      await receipts.hold(receipt);
+      await receipts.hold(receipt, current); await current();
     }
     busy = sending = true; emit();
     try {
       const next = await server.command(base.game_id, base.revision, action, receipt.args.command_id);
+      await current();
       await receipts.drop(receipt); busy = sending = false;
       await landed(next, action);
       return true;
     } catch (error) {
       busy = sending = false;
+      if (error instanceof ObsoleteAction) return false;
       const fault = faultOf(error, online());
       if (!settled(fault)) {
         // The answer is not known: the receipt stays, and Check again sends it with the same ID.
@@ -353,9 +367,11 @@ export function peopleController(options: ControllerOptions) {
     },
     /** Join by an invite link. Returns the fault when the server refuses or does not answer. */
     async join(key: InviteKey): Promise<Fault | undefined> {
+      const current = currentAction();
       try {
         const joined = await server.join(key);
-        await bindSeatKing(options.storage, options.userId, joined, undefined, undefined, writer);
+        await bindSeatKing(options.storage, options.userId, joined, undefined, undefined, writer, current);
+        await current();
         epoch++; target = joined.game_id; view = undefined; notice = undefined; sent = declined = false; offers.clear(); readFails = 0;
         if (joined.rules && joined.history) adopt(joined); else await fullRead(joined.game_id);
         return;
@@ -378,6 +394,7 @@ export function peopleController(options: ControllerOptions) {
     /** Send the whole turn. With a second engine (M3) the server checks the turn first. */
     async send(): Promise<boolean> {
       if (!state().canSend || !draft || !view || busy) return false;
+      const current = currentAction();
       const actions = turnActions(draft);
       if (!actions) return false;
       if (engine === 'server') {
@@ -387,8 +404,10 @@ export function peopleController(options: ControllerOptions) {
         try {
           if (!base.engine_fingerprint) throw new Error('The game has no engine identity.');
           await server.draft(base.game_id, { expected_revision: base.revision, engine_fingerprint: base.engine_fingerprint, actions });
+          await current();
         } catch (error) {
           busy = sending = false;
+          if (error instanceof ObsoleteAction) return false;
           const fault = faultOf(error, online());
           if (settled(fault)) await refused(fault, draftLans());
           else {
@@ -427,8 +446,8 @@ export function peopleController(options: ControllerOptions) {
     async ready(order?: string) {
       if (view?.status !== 'setup' || !view.options || !view.draw || view.ready?.[view.seat] || !view.options.arrangement && view.seat === 1 && view.ready?.[0] === false) return Promise.resolve(false);
       const opening = view, mark = epoch;
-      try { await seatKing(options.storage, options.userId, opening, writer); }
-      catch (error) { if (error instanceof AccountDataClosed) return false; throw error; }
+      try { await seatKing(options.storage, options.userId, opening, writer, currentAction(mark)); }
+      catch (error) { if (error instanceof AccountDataClosed || error instanceof ObsoleteAction) return false; throw error; }
       if (mark !== epoch || view !== opening) return false;
       const choice = setupChoice(order)!;
       if (validateChoice(view.options, { army: view.draw, hand: [...view.deal ?? []] }, choice, view.setup_admission)) return Promise.resolve(false);
@@ -460,7 +479,7 @@ export function peopleController(options: ControllerOptions) {
       const wentOffline = () => { if (connection !== 'auth') connection = 'offline'; emit(); };
       net.addEventListener('online', wentOnline); net.addEventListener('offline', wentOffline);
       poll = page ? runPoll(() => view && !fatal ? { view: pollView(), read: refresh, fastStart: true } : undefined, () => !busy && connection !== 'auth', page) : undefined;
-      return () => { poll?.stop(); poll = undefined; net.removeEventListener('online', wentOnline); net.removeEventListener('offline', wentOffline); };
+      return () => { epoch++; poll?.stop(); poll = undefined; net.removeEventListener('online', wentOnline); net.removeEventListener('offline', wentOffline); };
     },
     /** The game this controller shows (also while it loads). */
     get gameId() { return target; },
