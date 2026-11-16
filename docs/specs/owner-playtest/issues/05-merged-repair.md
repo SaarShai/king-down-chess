@@ -1,6 +1,6 @@
 # Repair the merged playtest paths
 
-Status: claimed
+Status: resolved
 Type: task
 
 The owner asks for the eight findings from the independent review and decisions 120 and 121. Work stays on `owner-playtest-1`. The approved design stays in use.
@@ -151,7 +151,7 @@ The owner asks for six faults after the third repair. The checks must fail befor
 5. The 152 px limit applies to Manual only. Normal play keeps 144 px. Ready refreshes the layout when setup ends. At 390x751 the newer-tab warning and its button fit, and Manual still fits.
 6. All five invite actions check the account on rejection too. The link fallback has the same check. An obsolete failure reaches the existing ignore path. A current account still receives a real network, server or sign-in error.
 
-### Checks in progress
+### Fourth repair checks
 
 All six faults have failing checks on the prior code and passing checks after repair. Each Low fault is reproduced before the code changes. The final browser cases run against the prior main file once more and fail for the named faults. The logs keep both results. No test is deleted, skipped or weakened.
 
@@ -161,4 +161,28 @@ The new `owner-playtest-r4` browser check passes at 360x640, 390x844, 844x390 an
 
 Earlier checks pass: `owner-playtest-r2` with the third repair cases and both rejected callers; all 48 Manual boundary cases; 18 `owner-playtest-b` groups; 11 New game panel cases; 225 hand assertions; 16 selected `next-menus` cases; and `next-arrange` with the fresh local online stack. The four-game check passes 144 assertions across 16 game and size pairs against the check build. The stack and preview stop after use.
 
-Evidence is in `runs/launch/owner-playtest/build/r4-shots/` and `r4-logs/`, outside the repository. The required draw-choice, armed-card and newer-tab captures are present. Full tests, final doc checks, type checks and the build remain to run.
+Evidence is in `runs/launch/owner-playtest/build/r4-shots/` and `r4-logs/`, outside the repository. The required draw-choice, armed-card and newer-tab captures are present. The full test run passes once after the browser checks. Final checks pass:
+
+| Check | Result |
+| --- | --- |
+| Focused `npm test` | 163 pass in five files. |
+| `owner-playtest-r4` | Own actions pass at four sizes. Notice and save cases pass at their selected sizes; includes the 390x751 warning and Ready limit. |
+| `owner-playtest-r2` | All prior cases pass, including the third repair cases and both rejected callers. |
+| Manual boundary check | All 48 cases pass at eight sizes, with powers, cards or both, for both sides. |
+| `owner-playtest-b` | All 18 groups pass. |
+| New game panel | All 11 cases pass. |
+| Hand | All 225 assertions pass. |
+| Selected `next-menus` | All 16 cases pass at four sizes. |
+| `next-arrange` | Pass with a fresh local online stack, both seats and four sizes. |
+| Four-game check | 144 pass, 0 fail across 16 game and size pairs. |
+| Full `npm test` | 7,105 pass and 387 existing skips in 375 files; then all 114 renderer cases pass. |
+| `npm run test:docs` | 197 pass and 1 existing skip in 19 files. |
+| `npm run typecheck` | Both projects pass. |
+| `npm run build` | Pass with the local check configuration. |
+| Commit hooks and whitespace | Pass. |
+
+The code commit is `573b15ac`. The final doc check also runs on this ticket text. The first browser attempts expose fixture navigation and selector faults; the corrected cases reproduce each product fault on the prior code and pass after repair. The before and after logs remain.
+
+### Fourth repair limits
+
+The checks use Chromium with pointer, touch, keyboard and reduced motion. No physical phone, WebKit, live account or old-page browser check runs. The old page keeps its save-controller unit checks. The existing database-gated skips remain. The build keeps the runtime art-manifest warning. If storage keeps refusing the king write, a reload can lose the in-memory choice. No push, pull request or deploy runs.
