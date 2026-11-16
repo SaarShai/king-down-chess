@@ -17,6 +17,7 @@ import { cardText, powerText, ruleLine, POWER_NAME } from '../../powers-ui';
 import { nameSearch, sendPersonLink, type PersonHost } from '../people/screens/person';
 import { nameSheet, signInSheet } from '../people/screens/sign-in';
 import type { PeopleSheet } from '../people/screens/sheet';
+import { ObsoleteAction } from '../people/server';
 import { calm, ms } from './motion';
 import { computerPortrait, profilePortrait } from '../people/host/portrait';
 import { deadlineLine, gameOrder, type HomeInvite, type PersonGame } from '../people/host/games';
@@ -213,7 +214,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   const saved = d.memory;
   let draft = saved ? restorePanel(saved) : d.next, opponent = saved?.opponent ?? 'computer', section = saved?.section ?? null;
   let cardMode = saved?.cardMode ?? (draft.options.cardPool.length === 4 ? 'four' : 'all'), picked = saved?.picked ?? (cardMode === 'four' ? [...draft.options.cardPool] : []);
-  let opener: HTMLElement | null = null, starting = false, shownKey = '', busy = false;
+  let opener: HTMLElement | null = null, starting = false, shownKey = '', busy = false, actionId = 0;
   const head = el('div', 'panel-head'), body = el('div', 'panel-body'), foot = el('div', 'panel-foot');
   const back = button(panelText.back, { icon: 'back' }); back.hidden = true;
   head.append(back, heading, closeX(text.close, () => close()));
@@ -292,6 +293,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     return box;
   }
   function draw() {
+    actionId++;
     const active = document.activeElement as HTMLElement | null, focus = active?.dataset.focus, radio = active?.getAttribute('role') === 'radio' ? active.textContent : null, scroll = body.scrollTop;
     heading.textContent = text.newGame; back.hidden = true; back.onclick = null; foot.hidden = false; body.classList.remove('panel-rule');
     busy = false;
@@ -335,21 +337,28 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   };
   async function person(action: 'name' | 'link') {
     if (busy || hasCards(draft.setup) && cardMode === 'four' && picked.length !== 4) return;
+    const submitted = draft, own = ++actionId, current = () => dialog.open && own === actionId;
+    const redraw = () => { if (current()) draw(); };
+    const activeSheet: PeopleSheet = { element: dialog, get isOpen() { return current(); },
+      show: view => { if (current()) sheet.show(view); }, close: () => { if (current()) close(); } };
     busy = true; status.textContent = panelText.loading;
     try {
-      const host = await d.people(); if (!dialog.open) return;
+      const host = await d.people(); if (!current()) return;
       d.remember(memory());
-      const named = () => { if (!host.me()?.handle) nameSheet(sheet, host, () => draw()); else draw(); };
-      if (!host.me()) { signInSheet(sheet, host, { kind: 'person' }, named); return; }
-      if (!host.me()!.handle) { nameSheet(sheet, host, () => draw()); return; }
-      const scoped = { ...host, createLink: async (rules: GameType) => { const link = await host.createLink(rules, draft.options); d.onInvite(draft); return link; }, invite: async (handle: string, rules: GameType) => { await host.invite(handle, rules, draft.options); d.onInvite(draft); } };
-      if (action === 'name') nameSearch(sheet, scoped, draft.setup, () => draw());
-      else await sendPersonLink(sheet, scoped, draft.setup, () => draw());
-    } catch { status.textContent = panelText.onlineFailed; }
-    finally { busy = false; }
+      const named = () => { if (!current()) return; if (!host.me()?.handle) nameSheet(activeSheet, host, redraw); else draw(); };
+      if (!host.me()) { signInSheet(activeSheet, host, { kind: 'person' }, named); return; }
+      if (!host.me()!.handle) { nameSheet(activeSheet, host, redraw); return; }
+      const invited = () => { if (!current()) throw new ObsoleteAction(); d.onInvite(submitted); };
+      const scoped = { ...host, toast: (message: string) => { if (current()) host.toast(message); },
+        createLink: async (rules: GameType) => { const link = await host.createLink(rules, submitted.options); invited(); return link; },
+        invite: async (handle: string, rules: GameType) => { await host.invite(handle, rules, submitted.options); invited(); } };
+      if (action === 'name') nameSearch(activeSheet, scoped, submitted.setup, redraw);
+      else await sendPersonLink(activeSheet, scoped, submitted.setup, redraw);
+    } catch { if (current()) status.textContent = panelText.onlineFailed; }
+    finally { if (current()) busy = false; }
   }
   dialog.append(head, body, foot);
-  const shut = () => { if (!dialog.open) return; d.remember(null); dialog.dispatchEvent(new CustomEvent('kd-before-close', { bubbles: true })); dialog.close(); if (opener?.isConnected) opener.focus(); };
+  const shut = () => { if (!dialog.open) return; actionId++; d.remember(null); dialog.dispatchEvent(new CustomEvent('kd-before-close', { bubbles: true })); dialog.close(); if (opener?.isConnected) opener.focus(); };
   const close = (history = true) => { if (!dialog.open || starting) return; shut(); if (history) d.onClose(); };
   dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
   dialog.addEventListener('click', event => { if (event.target === dialog) close(); });

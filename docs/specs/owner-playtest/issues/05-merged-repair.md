@@ -1,6 +1,6 @@
 # Repair the merged playtest paths
 
-Status: resolved
+Status: needs-info
 Type: task
 
 The owner asks for the eight findings from the independent review and decisions 120 and 121. Work stays on `owner-playtest-1`. The approved design stays in use.
@@ -327,3 +327,59 @@ Checks pass: 162 focused tests in eight files; 7,259 full-suite tests with 387 e
 The first full suite finds an extra gate opening in the receipt lock test. Sharing the receipt gate repairs it without a test change. The first board check times out on random idle motion. A diagnostic shows both armies with no errors; the unchanged full check then passes. No test is deleted, skipped or weakened. Changed save assertions have commit trailers.
 
 Evidence: `runs/launch/owner-playtest/build/r8-logs/` and `r8-shots/`, outside the repository. Captures cover 360x640, 390x844, 844x390 and 1440x900 and pass visual review. Checks use Chromium and local fixtures. No physical device, WebKit, live account, native build, push or deploy runs. A device that keeps refusing storage can still lose its in-memory king on reload.
+
+
+## Ninth repair run
+
+Repair the two Medium faults that both PR 367 reviews confirm. Keep the approved design and the run-8 merge. Work stays on `owner-playtest-1`; do not push.
+
+1. A Person action captures its draft and panel action number before the request. Close and Back end its ownership. A late reply still adds the created game to Your games through the host. It cannot apply old options, change the route, close a newer panel view or stop the open game. An action that still owns the panel applies its submitted options and returns home.
+2. The Manual reader shows the current controller notice before its setup instructions. Refused storage, offline Ready and a server refusal each leave the order editable and Ready available. An unchanged poll keeps the notice. Storage recovery and Ready end setup. The king-save line stays hidden during setup, as decision 123 requires.
+
+The added r5 checks fail before the product repairs. Held link and name replies replace the newer game route with `#play`, change the stored game type and stop its controller. All three Manual refusals leave no visible cause. One early invite probe has a request-timing fault; the corrected probe reproduces both late-reply paths. The first after run finds a clipped Manual instruction at 360x640 and two fixture assumptions. The final text fits; the fixture checks controller revisions and permits a home list refresh when no game is open.
+
+The new cases cover link and name invites after Close with a computer game and an online game, Back with new panel edits, and the normal open-panel path. They check route and stored options, keep the same game and online controller, play a computer reply, receive an online revision, and find the created game in Your games. Manual cases cover storage, offline and RATE_LIMITED, an unchanged poll, row edits and a successful Ready retry.
+
+### Ninth repair checks
+
+The two requested repairs pass their checks. The required local-stack `next-arrange` check fails after the joining player reloads: that page returns to Home instead of its Manual board. Two fresh-stack runs fail at the same assertion, line 210. A third run uses the unchanged run-8 `home.ts` and `main.ts` and fails at the same point. Both repair files are then restored byte for byte. The initial account-session callback can call Home before the host has its session. This separate base fault remains outside the owner's two-fault scope. The check and its assertions stay unchanged. The local stack stops after the checks.
+
+No test is deleted, skipped or weakened. No existing registered assertion changes.
+
+| Browser check | Result |
+| --- | --- |
+| `owner-playtest-r5` | 156 cases pass at four sizes, in two sequential batches of 78. |
+| `owner-playtest-r4` | All 40 rows pass. |
+| `owner-playtest-r2` | All 24 groups pass, including all six account paths. |
+| New game panel | All 11 cases pass. |
+| `owner-playtest-b` | All 18 groups pass against the check build. |
+| `next-save` | All 10 save scenarios pass. |
+| `next-art-wait` | All 18 cases pass. |
+| `next-arrange` | Fails on the repair and on unchanged run-8 code at the joining-player reload. |
+| Lead's four-game check | 144 assertions pass, 0 fail; 32 captures. |
+| UI scan | No findings. |
+
+The focused selector `src/{account/{data,apple,account-delete-dialog},interface/{play/{saved,arrange,new-game,reading-b},people/{seat-king,controller,receipt,host/online,screens/safety}}}.test.ts` passes 274 tests in 12 files. This includes the run-8 focused files.
+
+The 33 new focused browser cases pass at 360x640, 844x390 and 1440x900 before the full r5 batches. The first after probe passes 13 cases and fails nine: one clipped instruction and eight fixture assumptions. All attempt logs remain.
+
+### Ninth repair final results
+
+| Command | Result |
+| --- | --- |
+| Full `npm test`, once after the browser checks | 7,258 pass, 1 fail and 387 existing skips in 390 files. |
+| Focused renderer `npm test` | All 114 pass. The failed full run stops before this stage. |
+| `npm run test:docs` | 197 pass and 1 existing skip in 19 files. |
+| `npm run typecheck` | Both projects pass. |
+| `npm run build` | Pass with the local check configuration; 482 modules transform. |
+
+The full-suite failure is `tools/anim/promote-painted-moves.test.ts`, the rebuild-cleanup case. Its production helper checks for 31 GiB free before it checks the test's missing sibling folder. This disk has about 18 GiB free. The test therefore stops before its intended assertion. This run's temporary files and captures total less than 0.5 GiB, so removing them cannot restore the required margin. The test and helper stay unchanged. The full suite runs once, as the owner requires. The renderer selector is `{docs/2d-first-pieces,src/render/painted}/**/*.test.mjs`.
+
+The required refusal captures at 360x640 and 1440x900 and the open game after a late link reply are present. Captures also cover 390x844 and 844x390. All four Manual refusal sizes and the late-link phone capture pass a visual check. Preview and local online processes stop. Port 5445 has no listener.
+
+Evidence stays outside the repository in `runs/launch/owner-playtest/build/r9-logs/` and `r9-shots/`.
+
+
+### Ninth repair limits
+
+The checks use Chromium and local fixtures. No physical phone, WebKit, live account, native build or separate old-page browser check runs. The old page keeps its unit checks. The local-stack reload fault prevents a full green browser gate. No push, pull request or deploy runs.

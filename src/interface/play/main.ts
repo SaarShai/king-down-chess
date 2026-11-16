@@ -930,7 +930,7 @@ function updateArrangement() {
   const a = arrangement!, wait = arrangementWaiting(), locked = arrangementLocked();
   thinking = false;
   controls.finish.querySelector('[data-button-label]')!.textContent = arrangeText.ready;
-  controls.update({ state: wait ? arrangeText.wait : arrangeText.title, help: a.error ?? arrangeText.instruction,
+  controls.update({ state: wait ? arrangeText.wait : arrangeText.title, help: notice || a.error || arrangeText.instruction,
     undoReason: text.noStep, finishReason: fault ? text.loadFailed : !onlineActive && writer.blocked ? writer.warning : locked ? wait ? arrangeText.wait : arrangeText.confirming : a.error ?? '' });
   screen.dataset.state = wait ? 'arrange-wait' : 'arrange'; screen.dataset.canFinish = String(a.canReady && !locked);
   screen.dataset.reading = reading; screen.dataset.borrow = 'false'; screen.dataset.readerActive = 'true';
@@ -1121,8 +1121,8 @@ function turnState(mine: boolean, code: number): string {
 /** The words of the reading area in each state, from the A functions of texts.ts, placed in the B slots. */
 function readerModel(): ReaderModel {
   if (arrangement && !ended) return { state: arrangementWaiting() ? arrangeText.wait : arrangeText.title,
-    title: arrangementWaiting() ? '' : arrangeText.instruction, named: false, headTools: [],
-    primary: arrangementWaiting() ? [] : [line('play-arrange-rule', arrangement.error ?? arrangeText.legal)],
+    title: notice || arrangementWaiting() ? '' : arrangeText.instruction, named: false, headTools: [],
+    primary: [...(notice ? [line('play-notice', notice)] : []), ...(arrangementWaiting() ? [] : [line('play-arrange-rule', `${notice ? arrangeText.instruction + ' ' : ''}${arrangement.error ?? arrangeText.legal}`)])],
     secondary: [], tools: [], summary: null };
 
   const res = shown ?? armedResource(), square = inspected ?? selected, code = draft.position.board[square ?? -1];
