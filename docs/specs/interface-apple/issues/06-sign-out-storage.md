@@ -18,6 +18,8 @@ The first screen and its Sign out target come from the same stored record, so a 
 
 The client delivers an auth event to every caller (the old account screen, the new account host and the old online page) only when the event names the session in storage at delivery. Deletion and the Muse database requests carry the confirmed session's token, so the request cannot pick a session that another tab stored after the check. The old online page passes its entry session to its Delete and Disconnect Muse controls before the browser confirmation. The new page's Sign out removes only the session it shows, and after the reply it resets only when neither the host nor storage holds another session. The Muse grant removal is ticket 07.
 
+The old account screen's Delete dialog keeps the account that was on screen when it opened. If the screen shows another session at confirmation, it refuses and asks the player to open Delete my account again. The client's own sign-out notice uses the same stored-session check as the auth events.
+
 ## Review cases
 
 The source tests keep both full-store cases, the actual click-handler case for the same account and another account, and the two-client flow-index race. The flow case checks that both old callbacks fail. The live-session refresh control and normal draft-save controls add coverage. The two draft cases cover both old routes, ordered saves, a stable generation through refresh, and restore.

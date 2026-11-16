@@ -55,7 +55,12 @@ function screen() {
   vi.stubGlobal('addEventListener', () => {});
   return { elements, click: () => handlers.get('account-body:click')!({ target: { closest: () => ({ dataset: { act: 'sign-out' } }) } }),
     act: (act: string) => handlers.get('account-body:click')!({ target: { closest: () => ({ dataset: { act } }) } }),
-    closeDelete: () => { element('delete-account').returnValue = 'delete'; return handlers.get('delete-account:close')!({}); } };
+    closeDelete: async () => {
+      // A player opens the dialog with Delete my account first; the dialog keeps that account.
+      if (typeof window === 'undefined') { const w: any = {}; w.top = w.self = w; vi.stubGlobal('window', w); }
+      await handlers.get('account-body:click')!({ target: { closest: () => ({ dataset: { act: 'delete' } }) } });
+      element('delete-account').returnValue = 'delete'; return handlers.get('delete-account:close')!({});
+    } };
 }
 
 const settle = () => new Promise(r => setTimeout(r, 60));

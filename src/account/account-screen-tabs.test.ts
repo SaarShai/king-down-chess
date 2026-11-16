@@ -140,6 +140,8 @@ it.each(['delete reply', 'revoke reply'])('account deletion keeps a later sessio
   });
   const { startAccount, changed } = await import('./account'); startAccount(() => {}, access);
   await vi.waitFor(() => expect(harness.syncs).toHaveLength(1));
+  if (typeof window === 'undefined') { const w: any = {}; w.top = w.self = w; vi.stubGlobal('window', w); }
+  await ui.handlers.get('account-body:click')!({ target: { closest: () => ({ dataset: { act: 'delete' } }) } }); // The player opens the dialog first.
   ui.elements.get('delete-account').returnValue = 'delete'; const pending = ui.handlers.get('delete-account:close')!(); await sent.promise;
   await harness.auth.verifyOtp({ email: 'bob@example.test', token: '123456', type: 'email' }); await settle();
   const bob = harness.syncs.find(s => s.user === 'bob')!; expect(bob.stopped).toBe(false);

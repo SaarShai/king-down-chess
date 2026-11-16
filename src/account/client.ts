@@ -78,7 +78,7 @@ export function connect(storageKey: string, { manualCallback = false, apple = fa
     /** Called with the session now and on every change (null when signed out). */
     onSession(cb: (s: Session | null) => void): () => void {
       let active = true;
-      const notify = (s: Session | null) => { if (active) cb(s); };
+      const notify = (s: Session | null) => { if (active && stored(s)) cb(s); };
       listeners.add(notify);
       // Supabase asks that the callback not await its own calls: run ours after it returns.
       // A late event can name an older session (another tab signed in or out meanwhile): only the stored session counts.

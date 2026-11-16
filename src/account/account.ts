@@ -78,7 +78,7 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
   const params = new URLSearchParams(location.search);
   const facebook = params.get('facebook') === '1';
   let client: Promise<Client> | null = null, user: User | null = null, userId = '', lastPull = 0;
-  let shown: AccountSession | null = null;
+  let shown: AccountSession | null = null, deleting: AccountSession | null = null;
   // The session in storage now (the client delivers only events that match it).
   const storedSession = (): AccountSession | null => {
     try {
@@ -181,16 +181,18 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
     } else if (b.dataset.act === 'delete') {
       // Inside another site's frame, a click may not be the player's own (clickjacking).
       if (window.top !== window.self) return say('Open King Down in its own tab to delete your account.');
+      deleting = shown; // The account on screen when the dialog opens: another tab can sign in while it is open.
       ask.returnValue = '';
       ask.showModal();
     }
   });
   ask.addEventListener('close', async () => {
     if (ask.returnValue !== 'delete') return;
-    const expected = shown; // The confirmed account: another tab can sign in while the request waits.
+    const expected = deleting; deleting = null;
+    if (!expected || !same(shown, expected)) return say('The account on this page changed. Open Delete my account again.');
     say('Deleting your account…');
     try {
-      await (await load()).deleteAccount(expected ?? undefined);
+      await (await load()).deleteAccount(expected);
       if (later(expected)) return;
       sync?.stop(); sync = null; userId = ''; user = null; shown = null;
       render();
