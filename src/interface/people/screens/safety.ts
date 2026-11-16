@@ -106,7 +106,7 @@ export function deleteAccount(source: HTMLElement, api: Pick<SafetyClient, 'onAc
       const receipt = await api.remove();
       if (!sheet.isOpen) return;
       sheet.show({ title: 'Deletion requested', body: [node('p', '', `Your account is due for deletion after ${new Date(receipt.runAfter).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}. You are signed out.`),
-        node('p', '', 'Sign in before deletion to cancel. A legal hold can delay deletion.'),
+        node('p', '', 'Sign in before deletion to cancel. A legal hold can delay deletion. When the deletion is done, we try to send one email to confirm it.'),
         ...(!receipt.localCleared ? [node('p', '', 'This device cannot clear all local account data. Clear site data on this device.')] : []),
         button('Done', { kind: 'main', onPress: sheet.close })] });
     } catch { if (sheet.isOpen) { setButtonState(confirm, {}); say(status, 'The request has no reply. Try again. A second request keeps the same date.'); } }

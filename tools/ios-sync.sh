@@ -11,6 +11,9 @@ case "$stage" in
   *) echo 'usage: npm run ios:sync [staging|production]' >&2; exit 2 ;;
 esac
 VITE_SUPABASE_PUBLISHABLE_KEY=$(node tools/release/publishable-key.mjs "$site"); export VITE_SUPABASE_PUBLISHABLE_KEY
+# The app always opens the new page, whatever the website's cutover switch is (decision 83): the build writes the
+# launch marker solo-launch.json, and AppRouter sends / to next.html.
+export KINGDOWN_SOLO_LAUNCH=1
 npm run build
 # The app carries all of dist/ (about 257 MB, mostly character frames): docs/specs/ios-app/issues/09-frames.md.
 npx cap sync ios
