@@ -89,4 +89,3 @@ it('an open old-account deletion dialog cannot delete a later account', async ()
     expect(sent.filter(s => s.path.includes('/rpc/delete_my_account')).map(s => s.token)).not.toContain('Bearer ' + jwt('later'));
   } finally { await firstAuth.dispose(); await otherAuth.dispose(); }
 });
-

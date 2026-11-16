@@ -20,6 +20,8 @@ The client delivers an auth event to every caller (the old account screen, the n
 
 The old account screen's Delete dialog keeps the account that was on screen when it opened. If the screen shows another session at confirmation, it refuses and asks the player to open Delete my account again. The client's own sign-out notice uses the same stored-session check as the auth events.
 
+Log out on `/play/` shows the sign-in screen as soon as this device's credentials go, before the server reply, and opens a fresh `/play/` page after the reply. The website check (`tools/web-game-check.mjs`) proves one logout request across repeated input, no private screen before the reply, a signed-out reload, and unchanged saved games and pending receipt.
+
 ## Review cases
 
 The source tests keep both full-store cases, the actual click-handler case for the same account and another account, and the two-client flow-index race. The flow case checks that both old callbacks fail. The live-session refresh control and normal draft-save controls add coverage. The two draft cases cover both old routes, ordered saves, a stable generation through refresh, and restore.
