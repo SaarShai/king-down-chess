@@ -103,3 +103,13 @@ describe('the classes at each size of the matrix (decision 34)', () => {
     for (const [W, H] of MATRIX) expect(new Set(setups.map(setup => gameLayout(W, H, setup).board)).size, `${W}x${H}`).toBe(1);
   });
 });
+
+it('the Manual reader needs 152 px before it can keep history', () => {
+  const needed = 44 + 24 + 40 + 44; // Header, instruction, two warning lines, history.
+  expect(needed).toBe(152);
+  for (const [w, h] of [[360, 720], [360, 727], [390, 751], [393, 759]]) for (const type of ['powers', 'cards', 'both'] as const) {
+    expect(gameLayout(w, h, type).reader).toBeLessThan(needed);
+  }
+  expect(gameLayout(360, 728, 'both').reader).toBe(needed);
+  expect(gameLayout(390, 753, 'both').reader).toBe(needed);
+});

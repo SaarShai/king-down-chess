@@ -9,6 +9,7 @@ import type { Icon } from '../../../account/profile';
 import { copyText } from '../../../clipboard';
 import { button, setButtonState } from '../../ui/kit.js';
 import { againLine, personText } from './copy';
+import { ObsoleteAction } from '../server';
 import { inviteProblem } from './problems';
 import { node, peopleSheet, picture, say, statusLine, type PeopleSheet } from './sheet';
 import { nameSheet, plain, signInSheet, type SignInHost } from './sign-in';
@@ -74,7 +75,7 @@ function inviter(sheet: PeopleSheet, host: PersonHost, status: HTMLElement, rule
     if (busy) return;
     busy = true; setButtonState(control, { busy: true }); say(status);
     try { await host.invite(handle, rules()); host.toast(host.named === false ? personText.linkCopied : personText.inviteSent(handle)); sheet.close(); }
-    catch (error) { say(status, inviteProblem(error, handle, host.online?.() ?? navigator.onLine)); }
+    catch (error) { if (error instanceof ObsoleteAction) return; say(status, inviteProblem(error, handle, host.online?.() ?? navigator.onLine)); }
     finally { busy = false; setButtonState(control, {}); }
   };
 }
@@ -131,7 +132,7 @@ export async function sendPersonLink(sheet: PeopleSheet, host: PersonHost, rules
       }
       if (await (host.copy ?? copyText)(link)) { host.toast(personText.linkCopied); sheet.close(); return; }
       linkInput.value = link; linkField.hidden = false; say(status, personText.copyLink); linkInput.focus(); linkInput.select(); linkInput.scrollIntoView({ block: 'center' });
-    } catch (error) { if (sheet.isOpen) say(status, inviteProblem(error, null, host.online?.() ?? navigator.onLine)); }
+    } catch (error) { if (error instanceof ObsoleteAction) return; if (sheet.isOpen) say(status, inviteProblem(error, null, host.online?.() ?? navigator.onLine)); }
     finally { busy = false; setButtonState(main, { label: personText.link }); }
   }
   await send();

@@ -1,6 +1,6 @@
 # Repair the merged playtest paths
 
-Status: resolved
+Status: claimed
 Type: task
 
 The owner asks for the eight findings from the independent review and decisions 120 and 121. Work stays on `owner-playtest-1`. The approved design stays in use.
@@ -88,3 +88,28 @@ The code commits are `2d51a5adf` and `978c6cf66`. The merged deletion email and 
 The checks use Chromium with touch, pointer and keyboard. No physical phone, WebKit or live account check runs. The old page has a real save-controller unit check, but no browser check. The existing database-gated skips remain. The build keeps the runtime art-manifest warning.
 
 A refused local write keeps the accepted king for this visit only until storage works. A reload can lose that choice. The page states this limit. All preview and local online processes stop after the checks. No push, pull request or deploy runs.
+
+## Third repair run
+
+Repair the eight confirmed faults from the owner brief. Decision 122 gives one online action group at a time. Keep each earlier check and add a failing check before each repair. Use port 5445 and one test or browser command at a time.
+
+### Third repair changes
+
+1. Keep an unfinished FEN rematch in Manual setup. Clear its marker only after the guarded Ready save succeeds. Resume an in-memory game with its own setup state. A stale tab reads the newer save on Continue. Keep the empty-back-rank rule for the Continue row.
+2. Decision 122 gives send recovery or Sign in again first, a claim next, then the draw reply. Each group returns when the earlier one ends. History returns after the actions end.
+3. An open subject panel takes the reader before online status. Keep the opponent's card stack and power coin in reach in the shared header. All four card rows open their rules.
+4. Use a distinct obsolete-action error for an old account reply. Every caller of the guarded invite actions ignores it. The next account keeps its page and layers.
+5. Join and Accept pass a failed king-write notice to the game page. It shows once there, clears for another game and does not leave a home notice. The online wait can show it too.
+6. Manual needs 152 px to keep history: 44 for the header, 24 for the instruction, 40 for two warning lines and 44 for history. Use the shared reader below that limit. The board does not move.
+7. Create the opponent's card badge with the hand size and its accessible name. Ready keeps four; a card use reduces it to three.
+8. Bind and remember the created game before the optional link fallback. Keep the account guard after the fallback too. A failed fallback keeps the game and chosen king.
+
+### Third repair evidence so far
+
+Each fault has a check that fails on the prior code. The unit logs cover FEN setup, obsolete account replies, the game notice on Join and Accept, and the failed link fallback. Browser logs show clipped online groups, the wrong subject panel, the Manual warning, the empty badge and a late Accept that leaves the next account's game.
+
+The four-size reader and save check passes. It includes all four Manual rematches on both sides, an invalid draft, both live tabs' orders, a refused save and the old recovery cases. Draw-plus-claim and a failed draw reply keep their draw offer during the check. Card and power panels open over draw, check and sign-in states. Text and 44 px controls fit their visible boxes and clipping ancestors.
+
+All 48 Manual boundary cases pass: powers, cards and both, on both sides, at 360x720, 360x727, 360x728, 390x745, 390x751, 390x752, 390x753 and 393x759. History fits at the 152 px boundary. The New game panel passes 11 cases. Hand passes 225 assertions. The local-stack arrangement check passes both seats and four sizes, including the initial online card badge. The local stack stops after the check.
+
+The final broad checks remain open. Evidence is outside the repository in `runs/launch/owner-playtest/build/r3-shots/` and `r3-logs/`.

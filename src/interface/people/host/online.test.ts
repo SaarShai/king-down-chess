@@ -9,7 +9,7 @@ import type { PeopleState } from '../controller';
 import { fixtureService } from '../../../../tools/plugin-protocol-fixture';
 import { peopleController } from '../controller';
 import { peopleServer } from '../server';
-import { onlineClient } from '../../../online/client';
+import { OnlineError, onlineClient } from '../../../online/client';
 import { seatKing, seatKingKey } from '../seat-king';
 import { DEFAULT_OPTIONS as PANEL_OPTIONS } from '../../play/new-game';
 import { fakeServer } from '../fake-server';
@@ -317,7 +317,9 @@ it.each(['invite', 'inviteBack', 'createLink', 'createLinkFallback', 'join', 'ac
     changed.mockClear(); opened.mockClear();
     storage.setItem('kingdown.game-options', JSON.stringify({ king: { king: 'Shadow', power: 'Darkness' } }));
     reply.resolve(Response.json(action === 'createLinkFallback' ? { token: 'fixture' } : action === 'join' || action === 'acceptInvite' ? view : { view, invite: { token: 'fixture' } }));
-    expect(await outcome).toMatchObject({ code: 'UNAUTHENTICATED' });
+    const error = await outcome;
+    expect(error).toBeInstanceOf(Error); expect(error).not.toBeInstanceOf(OnlineError);
+    expect(error.message).toBe('The account changes.');
     expect(JSON.parse(storage.getItem(seatKingKey('alice', view))!)).toEqual({ king: 'Mud', power: 'March' });
     expect(storage.getItem(seatKingKey('bob', view))).toBeNull();
     expect(host.views).toEqual([]); expect(opened).not.toHaveBeenCalled(); expect(changed).not.toHaveBeenCalled();
@@ -345,11 +347,12 @@ it.each(['invite', 'inviteBack', 'createLink', 'join', 'acceptInvite'] as const)
       const game = await service.create('bob', { kind: 'friend', ...(action === 'join' ? {} : { recipient_handle: 'alice' }), options: onlineOptions('both', choices) });
       if (action === 'join') await host.host.join({ token: (await service.invite('bob', game.game_id)).token });
       else { await host.refresh(); await host.acceptInvite(host.incomingInvites[0]); }
-      expect(opened).toHaveBeenCalledWith(game.game_id);
+      expect(opened).toHaveBeenCalledWith(game.game_id, expect.stringContaining('cannot save'));
     }
     const view = host.views[0]; expect(view).toBeTruthy();
     if (view.status === 'waiting') await service.join('bob', createdLink ? new URL(createdLink).hash.slice(6) : { invite_id: view.invitation!.invite_id });
-    expect(toasts).toHaveBeenCalledWith(expect.stringContaining('cannot save'));
+    if (action === 'join' || action === 'acceptInvite') expect(toasts).not.toHaveBeenCalled();
+    else expect(toasts).toHaveBeenCalledWith(expect.stringContaining('cannot save'));
     storage.setItem('kingdown.game-options', JSON.stringify({ king: { king: 'Shadow', power: 'Darkness' } }));
     expect(seatKing(storage, 'alice', view)).toEqual({ king: 'Mud', power: 'March' });
     storage.setItem = write;
@@ -360,4 +363,24 @@ it.each(['invite', 'inviteBack', 'createLink', 'join', 'acceptInvite'] as const)
     expect(JSON.parse(storage.getItem(seatKingKey('alice', view))!)).toEqual({ king: 'Mud', power: 'March' });
     expect(server.calls.filter(call => call.method === 'POST' && call.path === '/api/games')).toHaveLength(action === 'join' || action === 'acceptInvite' ? 0 : 1);
   } finally { await service.close(); }
+});
+
+it('a failed link fallback keeps the created game and chosen king', async () => {
+  vi.stubGlobal('location', new URL('https://kingdown.test/next.html')); vi.stubGlobal('history', { state: {}, replaceState: vi.fn() });
+  vi.stubGlobal('sessionStorage', memoryStorage()); vi.stubGlobal('navigator', {}); vi.stubGlobal('matchMedia', () => ({ matches: false }));
+  const storage = memoryStorage(), view = { game_id: 'created', status: 'waiting', seat: 0, options: onlineOptions('powers') } as never;
+  const send = vi.fn(async (input: RequestInfo | URL) => {
+    const path = new URL(String(input), 'https://kingdown.test').pathname;
+    if (path === '/api/games') return Response.json({ view });
+    if (path.endsWith('/invite')) return Response.json({ code: 'UNAVAILABLE', message: 'No link.' }, { status: 503 });
+    return Response.json({ me: { handle: 'alice', icon: null } });
+  });
+  const { onlineHost } = await import('./index');
+  const host = onlineHost({ auth: async () => ({ onSession() {}, readSession: async () => ({ userId: 'alice', accessToken: 'alice' }) }) as never,
+    storage, fetch: send, rules: () => 'powers', setRules() {}, changed() {}, open() {}, home() {}, toast() {} });
+  await host.signIn();
+  const king = { king: 'Mud', power: 'Leap' } as const;
+  await expect(host.host.createLink('powers', { ...PANEL_OPTIONS, king })).rejects.toBeInstanceOf(OnlineError);
+  expect(host.views).toEqual([view]);
+  expect(JSON.parse(storage.getItem(seatKingKey('alice', view))!)).toEqual(king);
 });

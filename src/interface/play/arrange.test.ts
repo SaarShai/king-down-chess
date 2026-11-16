@@ -62,8 +62,16 @@ it('names both broken rules when both sets of pieces have warning marks', () => 
   expect(b.faults).toEqual([2, 6, 0, 4]);
 });
 
-it('a confirmed unchanged order ignores the unfinished marker', () => {
-  const game = new Game('RNBQKBNR'), marker = JSON.stringify({ army: game.backRank, side: 0, fen: toFen(game.pos) });
+it('a confirmed unchanged order resumes without the setup step', () => {
+  const game = new Game('RNBQKBNR'), marker = JSON.stringify({ army: game.backRank, side: 0, fen: toFen(game.pos), ready: true });
   game.load(game.pos);
   expect(pendingArrangement({ getItem: () => marker }, game, 0)).toBeUndefined();
+  expect(pendingArrangement({ getItem: () => null }, game, 0)).toBeUndefined();
+});
+
+it.each([0, 1] as const)('an unfinished FEN rematch keeps Ready for side %s', side => {
+  const game = new Game('RNBQKBNR'); game.load(game.pos);
+  const marker = JSON.stringify({ army: 'RNBQKBNR', side, fen: toFen(game.pos) });
+  expect(game.backRank).toBe('');
+  expect(pendingArrangement({ getItem: () => marker }, game, side)?.order).toBe('RNBQKBNR');
 });

@@ -98,6 +98,10 @@ async function attachApi(page) {
 }
 async function setupPanels(page, width, height, wait = false) {
   const before = await row(page, wait ? 1 : 0);
+  if (await page.locator('.play-rival-count').count()) {
+    assert.equal(await page.locator('.play-rival-count').textContent(), '4', 'the Manual online hand starts at four');
+    assert.match(await page.locator('.play-rival-cards').getAttribute('aria-label'), /4 cards left/);
+  }
   await page.getByRole('button', { name: 'Menu', exact: true }).click();
   const panel = page.locator('.play-reader[data-floating="true"]'); await panel.waitFor();
   assert.equal(await panel.evaluate(n => getComputedStyle(n).borderRadius), '14px');

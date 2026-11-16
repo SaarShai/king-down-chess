@@ -6,6 +6,9 @@
 import { OnlineError, type OnlineClient } from '../../online/client';
 import type { Action, DraftInput, DraftPreview, ErrorCode, JoinPreview, View } from '../../match/protocol';
 
+/** A reply from an account action that no longer owns the page. */
+export class ObsoleteAction extends Error { constructor() { super('The account changes.'); } }
+
 /** An invite link key (`/j#<token>`). Game codes are parked (docs/PARKED.md), so a short code is not a key. */
 export type InviteKey = { token: string };
 /** The server calls of the controller. */

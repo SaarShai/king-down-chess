@@ -12,7 +12,7 @@ import { beginAccountSignIn, consumeSignInReturn, type SignInHost as ReturnHost 
 import { apiOrigin, inApp } from '../../../platform';
 import { clearDeletedAccount } from '../../../account/local';
 import { peopleController, type PeopleState } from '../controller';
-import { peopleServer } from '../server';
+import { ObsoleteAction, peopleServer } from '../server';
 import { bindSeatKing, preferredKing } from '../seat-king';
 import { toFen } from '../../../rules/setup';
 import { DraftTurn } from '../../play/turn';
@@ -44,7 +44,7 @@ export interface HostOptions {
   rules(): Rules;
   setRules(rules: Rules): void;
   changed(): void;
-  open(id: string): void;
+  open(id: string, notice?: string): void;
   home(): void;
   toast(line: string): void;
   /** Tests use the existing account interface and the local protocol server. */
@@ -125,16 +125,20 @@ export function onlineHost(options: HostOptions) {
     if (i < 0) views.push(view); else views[i] = { ...views[i], ...view, rules: view.rules ?? views[i].rules, history: view.history ?? views[i].history };
     options.changed();
   }
-  function seatReply() {
+  function seatReply(opening = false) {
     const account = session, mark = epoch;
     if (!account) throw new OnlineError('UNAUTHENTICATED', 401, 'Sign in to play.');
-    return (view: View, king: ReturnType<typeof preferredKing>) => {
+    const current = () => { if (mark !== epoch || session?.userId !== account.userId) throw new ObsoleteAction(); };
+    const accept = (view: View, king: ReturnType<typeof preferredKing>) => {
       let failed = false;
       bindSeatKing(storage, account.userId, view, king, () => { failed = true; });
-      if (mark !== epoch || session?.userId !== account.userId) throw new OnlineError('UNAUTHENTICATED', 401, 'The account changes.');
-      if (failed) options.toast('Your king stays for this visit. It cannot save on this device.');
+      current();
+      const notice = failed ? 'Your king stays for this visit. It cannot save on this device.' : undefined;
+      if (notice && !opening) options.toast(notice);
       remember(view);
+      return notice;
     };
+    return Object.assign(accept, { current });
   }
   async function refresh() {
     if (!session) return;
@@ -227,13 +231,14 @@ export function onlineHost(options: HostOptions) {
     createLink: async (rules, choices) => {
       const accept = seatReply(), king = choices ? choices.king : preferredKing(storage);
       const created = await api.create({ kind: 'friend', open_link: true, colour: 'random', options: onlineOptions(rules, choices) });
-      const link = created.invite ?? await api.invite(created.view.game_id);
       accept(created.view, king);
+      const link = created.invite ?? await api.invite(created.view.game_id);
+      accept.current();
       return inviteURL(link.token);
     },
     preview: key => api.preview(key),
     get safety() { return { ...accountSafety(), changed: () => { void refresh(); } }; },
-    join: async key => { const accept = seatReply(), king = preferredKing(storage); const view = await api.redeem(key); accept(view, king); options.open(view.game_id); },
+    join: async key => { const accept = seatReply(true), king = preferredKing(storage); const view = await api.redeem(key); const notice = accept(view, king); options.open(view.game_id, notice); },
     toPlay: options.home, toast: options.toast,
     share: navigator.share ? data => navigator.share(data) : undefined,
     coarse: matchMedia('(pointer: coarse)').matches,
@@ -245,11 +250,11 @@ export function onlineHost(options: HostOptions) {
     },
     api, host, get safety() { return accountSafety(); }, get user() { return user; }, get userId() { return session?.userId; }, get views() { return views; }, get incomingInvites() { return incomingInvites; }, get inviteUpdates() { return inviteUpdates; }, get controller() { return controller; }, get signedIn() { return !!session; },
     async acceptInvite(invite: InvitationRow) {
-      const accept = seatReply(), king = preferredKing(storage);
+      const accept = seatReply(true), king = preferredKing(storage);
       const view = await api.redeem({ invite_id: invite.invite_id });
-      accept(view, king);
+      const notice = accept(view, king);
       incomingInvites = incomingInvites.filter(i => i.invite_id !== invite.invite_id);
-      options.open(view.game_id);
+      options.open(view.game_id, notice);
       void refresh();
     },
     async declineInvite(invite: InvitationRow) {
