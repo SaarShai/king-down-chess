@@ -2,7 +2,7 @@
 
 Status: ready-for-agent
 Type: task
-Severity: Low
+Severity: Medium
 
 ## Problem
 
@@ -16,14 +16,16 @@ Repair r11 gives each game controller one cancel signal. Stop, sign-out and a se
 
 The `api` token callback compares the token's user with the current `session` only. It does not compare the session that started the call. Two waits come before each fetch: the token read and the cache-safety check (`withPrivateCachePolicy` in `src/online/client.ts`).
 
-- A switch to Bob during Alice's token read gives Bob's token. Alice's invite or join can then go to the server as Bob. (This comes from code reading. No test reproduces it yet. If a test confirms it, the severity can be higher than Low.)
+- A switch to Bob during Alice's token read gives Bob's token. Alice's invite or join can then go to the server as Bob. (This comes from code reading. No test reproduces it yet.)
 - A sign-out or a switch during the cache-safety check does not stop the request. It goes with Alice's token.
 
 The `seatReply` checks after the reply stop a wrong page change and a wrong king write, but they cannot stop the request. `declineInvite` and `copyLink` have no check after the reply, so a late reply still gives the toast or the clipboard write. The server can then hold a game or an invite that the page does not show.
 
 The same `api` client also makes the account calls: `settings` (line 131), `record` (178, 218), `game` (188), `handle` (213, 214), `friends` (228 to 242) and `preview` (268).
 
-Main (`b53b99760`) has the same request paths, so PR 367 does not add this fault. Both re-reviews of r11 name it as a Low item that does not block (`runs/launch/release/review367r2/checks.md`, `runs/launch/release/review367s2/review367s2.md`).
+Main (`b53b99760`) has the same request paths, so PR 367 does not add this fault. Both re-reviews of r11 name it as an item that does not block (`runs/launch/release/review367r2/checks.md`, `runs/launch/release/review367s2/review367s2.md`).
+
+The lead sets the severity to Medium: "An invite or join sent with the wrong account's token is a cross-account action. It does not block PR 367 or build 6, because main has the same path."
 
 ## Repair
 
@@ -35,6 +37,7 @@ Main (`b53b99760`) has the same request paths, so PR 367 does not add this fault
 ## Checks
 
 - List every `api.` call in `host/index.ts`. Each one has the signal, or the ticket gives a reason why it does not need one.
+- First a failing test for the switch during the token read: Alice's invite or join must not go to the server with Bob's token.
 - For each call in the list: a sign-out, or a switch to Bob, during the token read and during the cache-safety check gives zero requests to the server.
 - The normal paths still pass: send a link, invite by name, invite back, join by link, copy a link, accept and decline an invite.
 - `npm test`, `npm run test:docs`, `npm run typecheck` and `npm run build` pass.
