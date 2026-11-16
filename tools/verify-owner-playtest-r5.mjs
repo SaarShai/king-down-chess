@@ -1,4 +1,4 @@
-/** Send recovery after Haste and a king-save line that survives setup. */
+/** Send recovery, refused automatic Ready, and a king-save line that survives unchanged polls. */
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -13,13 +13,25 @@ const cell = (page, n) => page.locator(`.play-square[data-square="${n}"]`);
 const ready = page => page.waitForFunction(() => document.querySelectorAll('.play-square').length === 64 && document.querySelector('.play-board-host')?.style.visibility !== 'hidden' && !document.querySelector('.shell-departing'));
 const shot = (page, size, name) => page.screenshot({ path: join(out, `${size.join('x')}-${name}.png`), animations: 'disabled' });
 
-async function online(page, context, { setup = false, manual = false, seat = 0, accept = false } = {}) {
-  let view, redeemed = false, commands = 0, fail = 'network';
+async function online(page, context, { setup = false, manual = false, seat = 0, accept = false, refuseAll = false, setupNotice = false } = {}) {
+  let view, redeemed = false, commands = 0, fail = 'network', chooseFault = setupNotice;
+  if (setup) await context.route('**/src/interface/people/controller.ts*', async route => {
+    const response = await route.fetch(), body = await response.text(), marker = 'async ready(order) {';
+    assert(body.includes(marker), 'the fixture counts the real Ready calls');
+    // Bound the old emit loop so its failing check can finish. Every attempted storage write still refuses.
+    await route.fulfill({ response, body: body.replace(marker, `${marker} globalThis.r6Controller = this; globalThis.r6ReadyCalls = (globalThis.r6ReadyCalls || 0) + 1; if (globalThis.r6ReadyCalls > 12) return false;`) });
+  });
   await context.route('**/src/account/client.ts*', route => route.fulfill({ contentType: 'text/javascript', body: 'export function connect() { return { onSession() {}, readSession: async () => ({ userId: "tester", accessToken: "fixture" }) }; }' }));
-  await context.addInitScript(refuse => {
+  await context.addInitScript(({ refuse, refuseAll }) => {
     localStorage.setItem('kingdown.auth', 'fixture');
-    if (refuse) { const write = Storage.prototype.setItem; Storage.prototype.setItem = function(key, value) { if (key.startsWith('kingdown.people-king.')) throw new DOMException('full', 'QuotaExceededError'); return write.call(this, key, value); }; }
-  }, setup);
+    window.r6RefuseAll = refuseAll; window.r6ReceiptWrites = 0;
+    window.r6WaitingLines = [];
+    new MutationObserver(records => { for (const record of records) for (const node of record.addedNodes) if (node.nodeType === 1 && node.matches('.online-waiting')) window.r6WaitingLines.push(node.textContent); }).observe(document, { childList: true, subtree: true });
+    if (refuse) { const write = Storage.prototype.setItem; Storage.prototype.setItem = function(key, value) {
+      if (window.r6RefuseAll && key.startsWith('kingdown.account-command.')) window.r6ReceiptWrites++;
+      if (window.r6RefuseAll || !refuseAll && key.startsWith('kingdown.people-king.')) throw new DOMException('full', 'QuotaExceededError'); return write.call(this, key, value);
+    }; }
+  }, { refuse: setup, refuseAll });
   await context.route('**/api/**', async route => {
     const req = route.request(), path = new URL(req.url()).pathname;
     const json = value => route.fulfill({ contentType: 'application/json', body: JSON.stringify(value) });
@@ -31,6 +43,7 @@ async function online(page, context, { setup = false, manual = false, seat = 0, 
     if (path.endsWith('/commands')) {
       commands++;
       const body = req.postDataJSON();
+      if (chooseFault || fail === 'refused') return route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ code: 'RATE_LIMITED', message: 'Please try again later.' }) });
       if (body.action.type === 'choose') {
         view = { ...view, status: 'playing', revision: view.revision + 1, ready: [true, true] };
         return json({ type: 'ack', command_id: body.command_id, revision: view.revision, view });
@@ -48,15 +61,27 @@ async function online(page, context, { setup = false, manual = false, seat = 0, 
     return { engine_fingerprint: PAGE_ENGINE ?? 'r5-fixture', fen: toFen(game.pos), rules: game.rules, history: { initial_fen: toFen(game.pos), actions: [] }, legal: game.legal.map(m => game.context.toLan(game.pos, m)), options: { ...DEFAULT_OPTIONS, kingPowers: setup, cards: !setup, arrangement: false } };
   }, setup);
   view = { ...template, options: { ...template.options, arrangement: manual }, game_id: 'r5-online', revision: 1, server_now: new Date().toISOString(), status: setup ? 'setup' : 'playing', seat, turn: seat, action: 'ready', kind: 'friend', speed: 'daily', days_per_move: 3, deadline_at: new Date(Date.now() + 864e5).toISOString(), abort_open: false, last_commands: [], opponent: { handle: 'opponent', user_id: 'other', computer: false, deleted: false, icon: null }, draw_offer: null,
-    ...(setup ? { draw: 'RNBQKBNR', deal: [], ready: seat ? [manual, false] : [false, true] } : {}) };
+    ...(setup ? { draw: 'RNBQKBNR', deal: [], ready: seat ? [manual || refuseAll, false] : [false, true] } : {}) };
   await page.goto(new URL(`next.html${setup && !accept ? '#join=' + 'a'.repeat(43) : ''}`, origin).href);
   if (setup) await page.getByRole('button', { name: accept ? 'Accept' : 'Join the game', exact: true }).click();
   else await page.locator('.home-game-row[data-game]').first().click();
-  return { commands: () => commands, fail: value => { fail = value; }, set: value => { view = { ...view, ...value }; }, refresh: async () => {
+  return { commands: () => commands, chooseFault: value => { chooseFault = value; }, fail: value => { fail = value; }, set: value => { view = { ...view, ...value }; }, move: async () => {
+    const next = await page.evaluate(async view => {
+      const { Game } = await import('/src/game.ts'), { toFen } = await import('/src/rules/setup.ts');
+      const game = new Game(undefined, view.rules); game.load(game.context.fromFen(view.fen));
+      const move = game.legal.find(m => !m.power), lan = game.context.toLan(game.pos, move), seat = game.pos.turn; game.play(move);
+      return { fen: toFen(game.pos), turn: game.pos.turn, history: { ...view.history, actions: [...view.history.actions, lan] }, last_commands: [{ seq: view.revision + 1, seat, at: new Date().toISOString(), action: { type: 'turn', actions: [lan] } }] };
+    }, view);
+    view = { ...view, ...next, revision: view.revision + 1 };
+  }, refresh: async () => {
     const response = page.waitForResponse(r => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/games/r5-online');
     await page.evaluate(() => window.dispatchEvent(new Event('online'))); await response;
     await page.evaluate(() => new Promise(requestAnimationFrame));
   } };
+}
+async function normalReader(page) {
+  assert.equal(await page.locator('.play-detail .play-b').isVisible(), true, 'the normal reader returns inside the reader');
+  assert.match(await page.locator('.play-detail .play-b .play-turn-state').innerText(), /Your turn\./, 'the reader restores the turn state');
 }
 async function bounds(page) {
   await visibleBounds(page, '.online-status p'); await visibleBounds(page, '.online-actions button', true);
@@ -95,35 +120,109 @@ async function send(page, context, size, auth = false) {
   await page.getByRole('button', { name: 'Discard send', exact: true }).tap();
   await page.waitForFunction(() => !document.querySelector('.online-actions'));
   assert.equal(await send.getAttribute('aria-disabled'), 'false', 'discard restores Send for the draft');
-  assert.equal(await page.locator('.play-history-strip').isVisible(), true, 'the normal reader returns');
+  await normalReader(page);
   assert.equal(server.commands(), 12, 'Send and two failed checks each make four transport attempts');
 }
 async function notice(page, context, size, manual, seat, accept) {
   const server = await online(page, context, { setup: true, manual, seat, accept });
   if (!manual && seat) {
-    await page.locator('.online-waiting').waitFor(); await server.refresh();
+    await page.locator('.online-waiting').waitFor();
+    assert.equal((await page.locator('.online-waiting').innerText()).includes(saveLine), false, 'setup waiting does not take the save line');
+    await server.refresh();
+    assert.equal((await page.locator('.online-waiting').innerText()).includes(saveLine), false, 'a setup poll keeps the line pending');
     assert.equal(server.commands(), 0, 'the second seat waits through a setup poll');
     server.set({ ready: [true, false] }); await server.refresh();
   }
   if (manual) {
     await ready(page); await page.locator('.play-game[data-state="arrange"]').waitFor();
-    await server.refresh(); await page.getByRole('button', { name: 'Ready', exact: true }).tap();
+    assert.equal((await page.locator('.play-detail').innerText()).includes(saveLine), false, 'the arrangement reader does not take the save line');
+    await server.refresh();
+    assert.equal((await page.locator('.play-detail').innerText()).includes(saveLine), false, 'an arrangement poll keeps the line pending');
+    await page.getByRole('button', { name: 'Ready', exact: true }).tap();
   }
   await ready(page); await page.locator('.play-game[data-state="arrange"]').waitFor({ state: 'detached' });
+  assert.equal(await page.evaluate(line => window.r6WaitingLines.some(text => text.includes(line)), saveLine), false, 'no setup waiting frame shows the save line');
   const line = page.locator('.play-detail').getByText(saveLine, { exact: true }); await line.waitFor();
   await page.waitForTimeout(350); assert.equal(await line.isVisible(), true, 'the save line stays after setup ends');
   await visibleBounds(page, `.play-detail :text-is("${saveLine}")`); await shot(page, size, `king-save-${manual ? 'manual' : 'automatic'}-${seat}-${accept ? 'accept' : 'join'}`);
-  await server.refresh(); await line.waitFor({ state: 'detached' });
-  await server.refresh(); assert.equal(await line.count(), 0, 'the play frame takes the line once');
+  for (let i = 0; i < 2; i++) { await server.refresh(); assert.equal(await line.isVisible(), true, 'the same revision keeps the save line'); }
+  await shot(page, size, `king-save-same-revision-${manual ? 'manual' : 'automatic'}-${seat}-${accept ? 'accept' : 'join'}`);
+  await server.move(); await server.refresh();
+  assert.equal(await line.count(), 0, 'a move at a new revision ends the save line');
+  await server.refresh(); assert.equal(await line.count(), 0, 'the line does not return after the revision changes');
 }
-const cases = { hasteSend: send, hasteAuth: (page, context, size) => send(page, context, size, true) };
+async function menuSend(page, context, size, action) {
+  const server = await online(page, context); await ready(page);
+  server.set({ abort_open: true }); await server.refresh();
+  await cell(page, 1).tap(); assert.equal(await cell(page, 1).getAttribute('aria-selected'), 'true');
+  await page.getByRole('button', { name: 'Menu', exact: true }).tap();
+  await page.locator('.game-menu').getByRole('button', { name: action, exact: true }).tap();
+  if (action === 'Resign') await page.locator('dialog[open]').getByRole('button', { name: 'Resign', exact: true }).tap();
+  await page.getByRole('button', { name: 'Close menu', exact: true }).tap();
+  const check = page.getByRole('button', { name: 'Check again', exact: true }); await check.waitFor();
+  for (let i = 0; i < 2; i++) {
+    const expected = server.commands() + 4;
+    const failed = page.waitForEvent('requestfailed', request => request.url().endsWith('/commands') && server.commands() === expected);
+    await check.tap(); await failed; await page.evaluate(() => new Promise(requestAnimationFrame));
+  }
+  await page.getByRole('button', { name: 'Discard send', exact: true }).waitFor();
+  await bounds(page); await shot(page, size, `menu-${action.toLowerCase().replaceAll(' ', '-')}-recovery`);
+  await page.getByRole('button', { name: 'Discard send', exact: true }).tap();
+  await page.waitForFunction(() => !document.querySelector('.online-actions'));
+  await normalReader(page);
+  assert.match(await page.locator('.play-detail .play-headline').innerText(), /Knight/, 'the selected piece returns after recovery');
+  assert.equal(server.commands(), 12, 'the Menu command and two checks each make four attempts');
+}
+async function refusedReady(page, context, size, seat, accept) {
+  const server = await online(page, context, { setup: true, refuseAll: true, seat, accept });
+  const waiting = page.locator('.online-waiting'); await waiting.waitFor();
+  const refused = waiting.getByText('This device cannot save the send. Free some space, then try again.', { exact: true }); await refused.waitFor();
+  await page.waitForTimeout(750);
+  assert.equal(await page.evaluate(() => window.r6ReceiptWrites), 1, 'a refused receipt does not repeat automatic Ready');
+  assert.equal(await page.evaluate(() => window.r6ReadyCalls), 1, 'automatic Ready runs once during the fixed interval');
+  await server.refresh(); assert.equal(await page.evaluate(() => window.r6ReceiptWrites), 1, 'a later poll does not repeat a refused automatic send');
+  assert.equal(server.commands(), 0, 'no choose reaches the server without its receipt');
+  assert.equal((await waiting.innerText()).includes(saveLine), false, 'the setup box keeps the king-save line pending');
+  await visibleBounds(page, '.online-waiting .play-notice'); await visibleBounds(page, '.online-waiting button', true);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollHeight > innerHeight), false, 'waiting has no page scroll');
+  await shot(page, size, `refused-storage-${seat}-${accept ? 'accept' : 'join'}`);
+  await waiting.getByRole('button', { name: 'Back to home', exact: true }).tap(); await page.locator('.play-home').waitFor();
+  // Restore storage, then reopen by reload. The page remains usable after the refusal.
+  await context.addInitScript(() => { window.r6RefuseAll = false; });
+  await page.reload(); await page.locator('.home-game-row[data-game]').first().click(); await ready(page);
+  assert.equal(server.commands(), 1, 'automatic setup starts after storage works and the page reloads');
+}
+async function noticePriority(page, context, size) {
+  const server = await online(page, context, { setup: true, setupNotice: true });
+  const setup = page.locator('.online-waiting, .play-detail'); await setup.getByText('Please try again later.', { exact: true }).waitFor();
+  assert.equal((await setup.innerText()).includes(saveLine), false, 'a setup server notice leaves the save line pending');
+  await server.refresh(); assert.equal((await setup.innerText()).includes(saveLine), false);
+  server.chooseFault(false); await page.evaluate(() => window.r6Controller.ready()); await ready(page);
+  const line = page.locator('.play-detail').getByText(saveLine, { exact: true }); await line.waitFor();
+  server.fail('refused');
+  await page.getByRole('button', { name: 'Menu', exact: true }).tap(); await page.getByRole('button', { name: 'Offer draw', exact: true }).tap();
+  await page.getByRole('button', { name: 'Close menu', exact: true }).tap();
+  await page.locator('.play-detail').getByText('Please try again later.', { exact: true }).waitFor();
+  assert.equal(await line.count(), 0, 'a same-revision server notice wins in play');
+  await server.refresh(); assert.equal(await line.count(), 0, 'the server notice keeps priority on a poll');
+  await page.evaluate(() => { const c = window.r6Controller; c.stage(c.state().draft.legal.find(m => !m.power)); c.undo(); });
+  await line.waitFor(); await server.refresh(); assert.equal(await line.isVisible(), true, 'the line returns after the server notice at the same revision');
+  await shot(page, size, 'king-save-after-server-notice');
+  const another = '66666666-6666-4666-8666-666666666666'; server.set({ game_id: another });
+  const opening = page.waitForResponse(r => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/games/' + another);
+  await page.evaluate(id => { location.hash = '#online=' + id; }, another); await opening; await ready(page);
+  assert.equal(await page.locator('.play-detail').getByText(saveLine, { exact: true }).count(), 0, 'another game drops the local line');
+}
+const cases = { hasteSend: send, hasteAuth: (page, context, size) => send(page, context, size, true), noticePriority };
+for (const action of ['Offer draw', 'Resign', 'End with no result']) cases[`menu-${action}`] = (page, context, size) => menuSend(page, context, size, action);
+for (const seat of [0, 1]) for (const accept of [false, true]) cases[`refused-${seat}-${accept ? 'accept' : 'join'}`] = (page, context, size) => refusedReady(page, context, size, seat, accept);
 for (const manual of [false, true]) for (const seat of [0, 1]) for (const accept of [false, true]) cases[`notice-${manual ? 'manual' : 'automatic'}-${seat}-${accept ? 'accept' : 'join'}`] = (page, context, size) => notice(page, context, size, manual, seat, accept);
 try {
   for (const size of sizes) for (const [name, run] of Object.entries(cases)) {
     if (process.env.R5_CASES && !process.env.R5_CASES.split(',').includes(name)) continue;
     const context = await browser.newContext({ viewport: { width: size[0], height: size[1] }, hasTouch: true, serviceWorkers: 'block', reducedMotion: 'reduce' });
     const page = await context.newPage(); page.setDefaultTimeout(5000);
-    const errors = trapErrors(page, name === 'hasteAuth' ? [{ pattern: /Failed to load resource: the server responded with a status of 401/, reason: 'This case refuses the send with a 401 to test sign-in recovery.' }] : name === 'hasteSend' ? [{ pattern: /Failed to load resource: net::ERR_FAILED/, reason: 'This case drops the send and both checks to test unknown-answer recovery.' }] : []);
+    const errors = trapErrors(page, name === 'hasteAuth' ? [{ pattern: /Failed to load resource: the server responded with a status of 401/, reason: 'This case refuses the send with a 401 to test sign-in recovery.' }] : name === 'hasteSend' || name.startsWith('menu-') ? [{ pattern: /Failed to load resource: net::ERR_FAILED/, reason: 'This case drops the send and both checks to test unknown-answer recovery.' }] : name === 'noticePriority' ? [{ pattern: /Failed to load resource: the server responded with a status of 429/, reason: 'This case gives a server notice during setup and play.' }] : []);
     try { await run(page, context, size); assertNoErrors(errors); results.push({ name, size, ok: true }); console.log('ok', name, size.join('x')); }
     catch (error) { await shot(page, size, `failure-${name}`); failures.push(`${name} ${size.join('x')}: ${error.message}`); console.error(failures.at(-1)); }
     finally { await context.close(); }

@@ -179,7 +179,7 @@ let people: OnlineHost | undefined, peopleReady: Promise<OnlineHost> | undefined
 let homePoll: ReturnType<typeof runPoll> | undefined;
 function gameWords(line: string) { return onlineActive ? personWords(line) : line; }
 let mountingOnline = false, shownRevision = -1, onlineNote = '';
-let onlineGameNotice: { id: string; line: string } | undefined;
+let onlineGameNotice: { id: string; line: string; revision?: number } | undefined;
 async function loadPeople() {
   return peopleReady ??= import('../people/host/index').then(async ({ onlineHost }) => {
     people = onlineHost({ rules: () => setup, setRules: value => { setup = value; next = changeDraft(next, { setup }); store(GAME_KEY, setup); },
@@ -235,7 +235,7 @@ function receiveOnline(state: PeopleState) {
     box.append(el('h1', '', state.phase === 'waiting' ? invited ? `Invite sent to ${invited.handle}` : 'Waiting for a player' : 'Getting the game ready'), onlineActions(state), button(text.home, { onPress: () => shell.go({ place: 'play' }) }));
     if (people && humanOpponent(state.view)) box.append(...playerSafety(people.safety, { game_id: state.view.game_id }, () => { void people?.refresh(); }));
     root.replaceChildren(box);
-    if (state.phase === 'setup' && !arrangement && !state.view.ready?.[state.view.seat]) void people?.controller?.ready();
+    if (state.phase === 'setup' && !arrangement && !state.view.ready?.[state.view.seat] && state.notice?.kind !== 'refused') void people?.controller?.ready();
     return;
   }
   if (!state.game || !state.view || state.phase === 'gone' || state.phase === 'account' || state.phase === 'failed') { void onlineRecovery(state); return; }
@@ -261,13 +261,16 @@ function receiveOnline(state: PeopleState) {
   update();
   if (changed && previousRevision >= 0) announce(arrangementWaiting() ? arrangeText.wait : ended ? resultCause : state.draft ? `${replyText()} Your turn.` : state.sent ? 'Turn sent. Your opponent now plays.' : 'The game changes.');
   void onlineRecovery(state);
-  if (state.phase === 'setup' && !arrangement && !state.view.ready?.[state.view.seat]) void people?.controller?.ready();
+  if (state.phase === 'setup' && !arrangement && !state.view.ready?.[state.view.seat] && state.notice?.kind !== 'refused') void people?.controller?.ready();
 }
-/** Keep the local save line through setup; a server notice takes priority. */
+/** Keep the local save line through setup and its first play revision; a server notice takes priority. */
 function takeOnlineNotice(state: PeopleState): string {
+  if (onlineGameNotice?.revision != null && onlineGameNotice.revision !== state.view?.revision) onlineGameNotice = undefined;
+  if (onlineGameNotice && state.view?.status === 'playing') onlineGameNotice.revision ??= state.view.revision;
   const server = state.notice?.message ?? (state.notice?.kind === 'stale' ? 'The game changes. Check your turn, then send it.' : state.notice?.kind === 'illegal' ? 'This turn cannot play. Undo it, then choose again.' : state.notice?.kind === 'draw-declined' ? 'Your opponent keeps playing.' : state.notice?.kind === 'offline' ? 'You are offline. Your unsent turn stays.' : '');
   if (server || state.view?.status === 'setup') return server;
-  const saved = onlineGameNotice?.line; onlineGameNotice = undefined;
+  const saved = onlineGameNotice?.line;
+  if (state.view?.status !== 'playing') onlineGameNotice = undefined;
   return saved ?? '';
 }
 const onlineResult = (state: PeopleState) => state.view?.status === 'aborted' ? 'The game ends with no result.' : state.view?.result?.winner == null ? 'Draw.' : state.view.result.winner === state.view.seat ? 'You win.' : `${state.opponent?.handle ?? 'The opponent'} wins.`;
@@ -1072,7 +1075,7 @@ function renderReader(actions?: HTMLElement) {
   }
   // The B reading area (stage "readingb", design sections 2 and 4): turn state, headline, subject, effects summary.
   // The words and their order are A's (reading decisions 17 to 22): the current action first, the lasting effects last.
-  if (onlineActive && onlineState && !choice.length && !draft.armed && selected == null && !(shown && shown !== armedResource())) {
+  if (onlineActive && onlineState && !choice.length && !draft.armed && (selected == null || thinking) && !(shown && shown !== armedResource())) {
     const state = people?.controller?.state() ?? onlineState;
     actions ??= onlineActions(state);
     if (actions.childElementCount) {

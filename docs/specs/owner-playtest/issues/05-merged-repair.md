@@ -224,3 +224,43 @@ The first four-game attempt starts before the preview responds and records eight
 ### Fifth repair limits
 
 The checks use Chromium and local server fixtures. No physical phone, WebKit, live account or old-page browser check runs. The old page retains its unit checks. The existing skips and runtime art-index build warning remain. A device that keeps refusing storage can lose its in-memory king choice on reload. The preview stops after the checks. No push, pull request or deploy runs.
+
+## Sixth repair run
+
+The owner asks for three faults and three gaps in the fifth repair checks. Decision 123 gives the king-save line its new life: from the first play frame until the revision changes.
+
+1. Both automatic Ready paths stop when the state has a refused notice. A receipt write that fails cannot start another Ready from its own update. The waiting box keeps the refusal and Home works. With storage restored, a reload starts the game.
+2. While the game sends or checks a command, online recovery can take the reader with a piece still selected. Offer draw, Resign and End with no result each show Check again and Discard send after a failed request. Discard restores the selected piece and the normal reader.
+3. The king-save line records its first play revision. Two polls at that revision keep it. A server notice takes priority; the local line returns when that notice clears at the same revision. A move at a new revision ends it. Another game drops it. Setup still keeps it pending.
+4. The Discard check now reads `.play-detail .play-b` and its turn state. It no longer treats the history strip beside the reader as proof of reader content.
+5. The setup checks read the waiting box and arrangement reader before and after a poll. A frame observer also checks each waiting box, including short frames. The save line appears in none of them.
+6. A real refused server command tests notice priority while the local line waits in setup and while it shows in play. The line returns after the notice and stays through an unchanged poll.
+
+### Sixth repair evidence
+
+The new checks fail on the prior product code: a refused receipt makes 12 attempts before the fixture safety limit, Menu hides Check again, and an unchanged poll removes the save line. With the Ready guard alone, the old notice code also fails to show the pending line after a setup server notice. The fixture limit lets each old loop finish; the passing check requires exactly one Ready and one receipt write in 750 ms, and no new attempt after a poll.
+
+Deliberate faults prove the stronger checks. An empty reader after Discard fails the reader assertion at 390x844. A line in the setup waiting box fails its assertion. A line in the arrangement reader fails its assertion too. Each deliberate fault is removed. No test is deleted, skipped or weakened. The changed registered assertions have commit trailers: the reader-content replacement and the new lifetime from decision 123.
+
+The expanded `owner-playtest-r5` check passes all 72 cases at 360x640, 390x844, 844x390 and 1440x900. The final fixture checks pass 20 more cases: all writes recover, a refused send stays stopped after a poll, and the next-game assertion waits for that game's response. The unchanged r4 check passes 40 rows at its selected sizes; r2 passes 24 groups and all six account paths.
+
+Evidence is outside the repository in `runs/launch/owner-playtest/build/r6-shots/` and `r6-logs/`. The captures include refused-storage waiting boxes and Menu recovery at both required sizes, plus the save line after two unchanged polls. The text and 44 px controls pass bounds checks. The required phone and landscape captures pass a visual check.
+
+### Sixth repair final checks
+
+| Check | Result |
+| --- | --- |
+| `owner-playtest-r5` | 72 pass, 0 fail; the 20 final fixture cases also pass at all four sizes. |
+| `owner-playtest-r4` | 40 rows pass at their selected sizes. |
+| `owner-playtest-r2` | 24 groups pass, including the six account paths. |
+| `owner-playtest-b` | All 18 groups pass against the check build. |
+| Lead's four-game check | 144 pass, 0 fail across 16 game and size pairs. |
+| Full `npm test`, run once after browser checks | 7,105 pass and 387 existing skips in 375 files; all 114 renderer cases pass. |
+| `npm run test:docs` | 197 pass and 1 existing skip in 19 files. |
+| `npm run typecheck` | Both projects pass. |
+| `npm run build` | Pass with the local check configuration; 480 modules transform. |
+| Whitespace check | Pass. |
+
+### Sixth repair limits
+
+The checks use Chromium and local server fixtures. No physical phone, WebKit, live-account or old-page browser check runs. The old page keeps its unit checks. Existing skips and the runtime art-index build warning remain. If storage keeps refusing the king write, a reload can lose the choice held for this visit. The preview stops after the browser checks. No push, pull request or deploy runs.
