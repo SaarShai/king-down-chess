@@ -27,7 +27,7 @@ it('wires automatic signing and the association with the owner team', () => {
   const project = read('ios/App/App.xcodeproj/project.pbxproj');
   expect(project.match(/CODE_SIGN_ENTITLEMENTS = App\/App.entitlements;/g)).toHaveLength(2);
   expect(project.match(/DEVELOPMENT_TEAM = 6M9C2YSWT4;/g)).toHaveLength(2);
-  expect(project.match(/CURRENT_PROJECT_VERSION = 4;/g)).toHaveLength(2);
+  expect(project.match(/CURRENT_PROJECT_VERSION = 5;/g)).toHaveLength(2);
   expect(project.match(/PRODUCT_BUNDLE_IDENTIFIER = dev.kingdown.app;/g)).toHaveLength(2);
   expect(project.match(/CODE_SIGN_STYLE = Automatic;/g)).toHaveLength(2);
   expect(project).toContain('UniversalLink.swift in Sources');
