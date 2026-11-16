@@ -57,26 +57,18 @@ export function actorMarks(pos: Position, moves: readonly Move[], focus?: number
   return out;
 }
 
-/** Results keep the whole route, including a multi-step turn and empty shot squares. */
-export function resultMarks(pos: Position, actions: readonly MarkAction[]): PlainMarks {
-  const out = emptyMarks();
+/** Past actions leave only soft squares below the figures. The final target is strongest. */
+export function resultMarks(_pos: Position, actions: readonly MarkAction[]): PlainMarks {
+  const out = emptyMarks(), squares = new Map<number, number>();
+  let final: number[] = [];
   for (const { before, move: m } of actions) {
-    // Current state owns lasting Ice rings; a past action cannot restore one.
-    if (m.pass || m.power === 'freeze' || m.power === 'ward' || m.power === 'firewall') continue;
-    const t = targetOf(m), direct = m.from === m.to && !m.captures.length;
-    if (m.swap) { ring(out, pos, m.from, C.friend, 'target'); ring(out, pos, m.to, C.friend, 'target'); path(out, [m.from, m.to], C.last); }
-    else if (m.shove) { ring(out, pos, m.shove.to, C.enemy, 'landing'); ring(out, pos, m.to, C.last, 'target'); ring(out, pos, m.from, C.last, 'trail', .9, [4, 5]); path(out, [m.from, m.to], C.last); }
-    else if (direct) { ring(out, pos, t, m.drop === G ? C.holy : C.last, 'target', 1.25); }
-    else if (m.from === m.to) {
-      m.captures.forEach(sq => ring(out, pos, sq, m.power === 'burn' ? C.ember : C.last, 'target', .9, [3, 4]));
-    } else {
-      const route = [m.from, ...(typeOf(before.board[m.from]) === S ? m.captures : [m.to])];
-      path(out, route, C.last);
-      route.slice(0, -1).forEach(sq => ring(out, pos, sq, C.last, 'trail', .9, [4, 5]));
-      // A later step can leave this landing; that step supplies its dashed trail.
-      if (pos.board[m.to] || m.selfRemove || m.power === 'burn') ring(out, pos, m.to, m.power === 'burn' ? C.ember : C.last, 'target', .9, m.selfRemove || m.power === 'burn' ? [3, 4] : undefined);
-    }
+    if (m.pass) continue;
+    const changed = [m.from, m.to, ...m.captures, ...(m.shove ? [m.shove.from, m.shove.to] : []), ...(m.castle ? [m.castle.from, m.castle.to] : []), ...(m.pushes ?? []).flatMap(p => [p.from, p.to])];
+    if (m.power === 'firewall') before.board.forEach((code, sq) => { if (code && colorOf(code) === before.turn) changed.push(sq); });
+    for (const square of changed) squares.set(square, .12);
+    final = m.power === 'firewall' ? changed : m.pushes?.length ? m.pushes.map(p => p.to) : [m.shove?.to ?? targetOf(m)];
   }
+  if (squares.size) out.shadows = [...squares].map(([square, opacity]) => ({ square, opacity: final.includes(square) ? .28 : opacity }));
   return out;
 }
 
@@ -85,11 +77,10 @@ export function stateMarks(rules: GameRules, pos: Position): PlainMarks {
   const out = emptyMarks();
   for (const ch of rules.inCheck(pos) ? checkersOf(rules, pos) : []) { ring(out, pos, ch.king, C.enemy, 'state', 1.25); path(out, [ch.sq, ch.king], C.enemy); }
   for (const state of boardStates(rules, pos)) ring(out, pos, state.sq, state.kind === 'holy-light' || state.kind === 'mercy' ? C.holy : C.ice, 'state', state.kind === 'holy-light' ? 1.1 : 1.25);
-  pos.board.forEach((code, sq) => { if (typeOf(code) === G) ring(out, pos, sq, C.holy, 'state', 1.25); });
   return out;
 }
 export function mergeMarks(...marks: PlainMarks[]): PlainMarks {
   const rings = marks.flatMap(m => m.rings);
   // The chosen piece stays white, including inside a lasting protection ring.
-  return { rings: [...rings.filter(r => r.role !== 'actor'), ...rings.filter(r => r.role === 'actor')], paths: marks.flatMap(m => m.paths), steps: marks.flatMap(m => m.steps) };
+  return { rings: [...rings.filter(r => r.role !== 'actor'), ...rings.filter(r => r.role === 'actor')], paths: marks.flatMap(m => m.paths), steps: marks.flatMap(m => m.steps), ...(marks.some(m => m.shadows?.length) ? { shadows: marks.flatMap(m => m.shadows ?? []) } : {}) };
 }

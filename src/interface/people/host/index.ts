@@ -6,13 +6,15 @@ import { AUTH_KEY, sessionKey, type AccountSession } from '../../../account/sess
 import { handleProblem, type Icon } from '../../../account/profile';
 import type { InvitationRow, View } from '../../../match/protocol';
 import { DEFAULT_OPTIONS } from '../../../match/setup';
+import { DEFAULT_OPTIONS as PANEL_OPTIONS, type GameOptions } from '../../play/new-game';
 import { onlineClient, OnlineError } from '../../../online/client';
 import { beginAccountSignIn, consumeSignInReturn, type SignInHost as ReturnHost } from '../../../online/sign-in';
 import { apiOrigin, inApp } from '../../../platform';
 import { clearDeletedAccount } from '../../../account/local';
 import { peopleController, type PeopleState } from '../controller';
+import { ObsoleteAction, peopleServer } from '../server';
+import { bindSeatKing, preferredKing } from '../seat-king';
 import { accountData, AccountDataClosed, type AccountData } from '../../../account/data';
-import { peopleServer } from '../server';
 import { toFen } from '../../../rules/setup';
 import { DraftTurn } from '../../play/turn';
 import { restage } from '../replica';
@@ -26,7 +28,7 @@ export function inviteURL(token: string, origin = location.origin, app = inApp):
   return url.href;
 }
 
-export const onlineOptions = (rules: Rules) => ({ ...DEFAULT_OPTIONS, arrangement: false, kingPowers: rules !== 'pieces', cards: rules === 'cards' });
+export const onlineOptions = (rules: Rules, options: GameOptions = PANEL_OPTIONS) => ({ ...DEFAULT_OPTIONS, pool: [...options.pool], cardPool: [...options.cardPool], arrangement: options.arrangement === 'manual', kingPowers: rules === 'powers' || rules === 'both', cards: rules === 'cards' || rules === 'both' });
 export const draftKey = (user: string, game: string) => `kingdown.people-draft.${user}.${game}`;
 export function keepDraft(storage: Pick<Storage, 'setItem'>, user: string, state: PeopleState, gate: AccountData) {
   const key = state.view && draftKey(user, state.view.game_id);
@@ -44,7 +46,7 @@ export interface HostOptions {
   rules(): Rules;
   setRules(rules: Rules): void;
   changed(): void;
-  open(id: string): void;
+  open(id: string, notice?: string): void;
   home(): void;
   toast(line: string): void;
   /** Tests use the existing account interface and the local protocol server. */
@@ -75,7 +77,9 @@ export function onlineHost(options: HostOptions) {
     client.onSession(current => {
       user = userOf(current?.user);
       if (current?.user.id !== session?.userId || session && current && typeof current.access_token === 'string' && sessionKey({ userId: current.user.id, accessToken: current.access_token }) !== sessionKey(session)) {
-        epoch++; closeSafety(current?.user.id); stopGame(); session = null; profile = null; views = []; incomingInvites = []; inviteUpdates = []; cachedKnown = []; options.home(); options.changed();
+        const changing = !!session;
+        epoch++; closeSafety(current?.user.id); stopGame(); session = null; profile = null; views = []; incomingInvites = []; inviteUpdates = []; cachedKnown = [];
+        if (changing) options.home(); options.changed();
       }
       options.changed();
     });
@@ -110,7 +114,7 @@ export function onlineHost(options: HostOptions) {
     };
   }
   const returnHost: ReturnHost = { entryPath: '/next.html', location, history, storage: sessionStorage, now: Date.now, client: auth };
-  function stopGame() { stop(); unsubscribe(); stop = unsubscribe = () => {}; controller = undefined; }
+  function stopGame() { controller?.stop(); stop(); unsubscribe(); stop = unsubscribe = () => {}; controller = undefined; }
   async function signIn() {
     const current = await (await auth()).readSession();
     if (session?.userId !== current?.userId || session && current && sessionKey(session) !== sessionKey(current)) { epoch++; closeSafety(current?.userId); stopGame(); views = []; incomingInvites = []; inviteUpdates = []; cachedKnown = []; }
@@ -140,6 +144,30 @@ export function onlineHost(options: HostOptions) {
     const i = views.findIndex(v => v.game_id === view.game_id);
     if (i < 0) views.push(view); else views[i] = { ...views[i], ...view, rules: view.rules ?? views[i].rules, history: view.history ?? views[i].history };
     options.changed();
+  }
+  function seatReply(opening = false) {
+    const account = session, mark = epoch, gate = writer;
+    if (!account) throw new OnlineError('UNAUTHENTICATED', 401, 'Sign in to play.');
+    const current = () => { if (mark !== epoch || session?.userId !== account.userId) throw new ObsoleteAction(); };
+    const accept = async (view: View, king: ReturnType<typeof preferredKing>) => {
+      let failed = false;
+      if (!gate) throw new ObsoleteAction();
+      try { await bindSeatKing(storage, account.userId, view, king, () => { failed = true; }, gate); }
+      catch (error) { if (error instanceof AccountDataClosed) throw new ObsoleteAction(); throw error; }
+      current();
+      const notice = failed ? 'Your king stays for this visit. It cannot save on this device.' : undefined;
+      if (notice && !opening) options.toast(notice);
+      remember(view);
+      return notice;
+    };
+    const failed = (error: unknown): never => { current(); throw error; };
+    const live = async () => {
+      current();
+      if (!gate) throw new ObsoleteAction();
+      try { await gate.write(() => {}); } catch (error) { if (error instanceof AccountDataClosed) throw new ObsoleteAction(); throw error; }
+      current();
+    };
+    return Object.assign(accept, { current: live, failed });
   }
   async function refresh() {
     if (!session) return;
@@ -219,23 +247,27 @@ export function onlineHost(options: HostOptions) {
         throw error;
       }
     },
-    invite: async (handle, rules) => {
-      const created = await api.create({ kind: 'friend', recipient_handle: handle, colour: 'random', options: onlineOptions(rules) });
-      remember(created.view);
+    invite: async (handle, rules, choices) => {
+      const accept = seatReply(), king = choices ? choices.king : preferredKing(storage);
+      const created = await api.create({ kind: 'friend', recipient_handle: handle, colour: 'random', options: onlineOptions(rules, choices) }).catch(accept.failed);
+      await accept(created.view, king);
     },
     inviteBack: async (handle, rules) => {
-      const created = await api.create({ kind: 'friend', recipient_handle: handle, colour: 'random', options: rules ?? onlineOptions(options.rules()) });
-      remember(created.view);
+      const accept = seatReply(), king = preferredKing(storage);
+      const created = await api.create({ kind: 'friend', recipient_handle: handle, colour: 'random', options: rules ?? onlineOptions(options.rules()) }).catch(accept.failed);
+      await accept(created.view, king);
     },
-    createLink: async rules => {
-      const created = await api.create({ kind: 'friend', open_link: true, colour: 'random', options: onlineOptions(rules) });
-      remember(created.view);
-      const link = created.invite ?? await api.invite(created.view.game_id);
+    createLink: async (rules, choices) => {
+      const accept = seatReply(), king = choices ? choices.king : preferredKing(storage);
+      const created = await api.create({ kind: 'friend', open_link: true, colour: 'random', options: onlineOptions(rules, choices) }).catch(accept.failed);
+      await accept(created.view, king);
+      const link = created.invite ?? await api.invite(created.view.game_id).catch(accept.failed);
+      await accept.current();
       return inviteURL(link.token);
     },
     preview: key => api.preview(key),
     get safety() { return { ...accountSafety(), changed: () => { void refresh(); } }; },
-    join: async key => { const view = await api.redeem(key); remember(view); options.open(view.game_id); },
+    join: async key => { const accept = seatReply(true), king = preferredKing(storage); const view = await api.redeem(key).catch(accept.failed); const notice = await accept(view, king); options.open(view.game_id, notice); },
     toPlay: options.home, toast: options.toast,
     share: navigator.share ? data => navigator.share(data) : undefined,
     coarse: matchMedia('(pointer: coarse)').matches,
@@ -248,10 +280,11 @@ export function onlineHost(options: HostOptions) {
     },
     api, host, get safety() { return accountSafety(); }, get user() { return user; }, get userId() { return session?.userId; }, get views() { return views; }, get incomingInvites() { return incomingInvites; }, get inviteUpdates() { return inviteUpdates; }, get controller() { return controller; }, get signedIn() { return !!session; },
     async acceptInvite(invite: InvitationRow) {
-      const view = await api.redeem({ invite_id: invite.invite_id });
+      const accept = seatReply(true), king = preferredKing(storage);
+      const view = await api.redeem({ invite_id: invite.invite_id }).catch(accept.failed);
+      const notice = await accept(view, king);
       incomingInvites = incomingInvites.filter(i => i.invite_id !== invite.invite_id);
-      remember(view);
-      options.open(view.game_id);
+      options.open(view.game_id, notice);
       void refresh();
     },
     async declineInvite(invite: InvitationRow) {
@@ -278,15 +311,23 @@ export function onlineHost(options: HostOptions) {
     async open(id: string, change: (state: PeopleState) => void) {
       stopGame();
       if (!session) { change({ phase: 'loading', connection: 'auth' } as PeopleState); return; }
-      const current = peopleController({ server: peopleServer(api), storage, userId: session.userId, locks: navigator.locks }); controller = current;
-      const account = session.userId, gate = writer;
+      const opening = session, mark = epoch, account = opening.userId, gate = writer;
+      const live = async () => {
+        current.signal.throwIfAborted();
+        const value = await (await auth()).readSession();
+        current.signal.throwIfAborted();
+        if (!value || value.userId !== account || sessionKey(value) !== sessionKey(opening) || !session || session.userId !== account || sessionKey(session) !== sessionKey(opening) || mark !== epoch) { current.stop(); throw new ObsoleteAction(); }
+        return value;
+      };
+      const scoped = onlineClient({ origin: apiOrigin, fetch: options.fetch, token: async () => (await live()).accessToken });
+      const current = peopleController({ server: peopleServer(scoped), storage, userId: account, locks: navigator.locks, current: live }); controller = current;
       let restored = false, seen = -1;
       unsubscribe = current.subscribe(state => {
         if (controller !== current) return;
         if (state.view) {
           if (!restored && state.game) { restored = true; restoreDraft(storage, session!.userId, state); }
           remember(state.game ? { ...state.view, rules: state.game.rules, history: { initial_fen: toFen(state.game.history[0]?.pos ?? state.game.pos), actions: state.game.history.map(entry => state.game!.context.toLan(entry.pos, entry.move)) } } : state.view);
-          if (state.view.status === 'finished' && state.view.revision !== seen) { seen = state.view.revision; void api.record().then(record => {
+          if (state.view.status === 'finished' && state.view.revision !== seen) { seen = state.view.revision; void scoped.record({}, current.signal).then(record => {
             if (controller !== current) return;
             const row = record.history.find(row => row.game_id === id);
             if (row && gate) void gate.write(() => storage.setItem(`kingdown.people-seen.${account}.${id}`, row.finished_at)).catch(() => {});
@@ -346,6 +387,7 @@ export function onlineHost(options: HostOptions) {
       };
     },
     async signOut() {
+      stopGame();
       const client = await auth(), expected = session;
       if (!expected) { await client.signOut(); reset(); return; }
       // Bind to the shown session: another tab, or this page, can sign in while the reply waits.

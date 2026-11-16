@@ -20,28 +20,28 @@ it('Move: every legal square has a ring; focus has the path and wider ring', () 
   expect(p.rings).toEqual(expect.arrayContaining([expect.objectContaining({ square: sq('e2'), role: 'actor', color: C.actor, width: 1.1, size: 1.12 }), expect.objectContaining({ square: sq('e4'), role: 'focus', width: 1.25, size: .78 }), expect.objectContaining({ square: sq('e3'), width: .9 })]));
   expect(p.paths).toEqual([{ squares: [sq('e2'), sq('e4')], color: C.move }]);
 });
-it('Capture: the target uses Enemy; the result keeps a trail and a foot ring', () => {
+it('Capture: targeting uses Enemy; the result uses soft source and landing squares', () => {
   const f = fixture('7k/7p/8/8/8/3p4/4P3/K7 w - - 0 1'), m = f.move('e2','d3');
   expect(previewMarks(f.rules,f.pos,[m]).rings[0]).toMatchObject({ color:C.enemy, size:1.12 });
   const p = resultMarks(f.rules.makeMove(f.pos,m),[{before:f.pos,move:m}]);
-  expect(p.rings).toEqual(expect.arrayContaining([expect.objectContaining({square:sq('e2'),role:'trail',dash:[4,5]}),expect.objectContaining({square:sq('d3'),color:C.last})]));
+  expect(p.shadows).toEqual([{square:sq('e2'),opacity:.12},{square:sq('d3'),opacity:.28}]); expect(p.rings).toEqual([]); expect(p.paths).toEqual([]);
 });
 it('Archer: the shot arcs to the enemy, then marks the empty square while the actor stays', () => {
   const f=fixture('7k/7p/8/8/3p4/3P4/3A4/K7 w - - 0 1'),m=f.move('d2','d4',m=>m.from===m.to);
   expect(previewMarks(f.rules,f.pos,[m]).paths).toEqual([{squares:[sq('d2'),sq('d4')],color:C.enemy,arc:true,dash:[2,7]}]);
   const after=f.rules.makeMove(f.pos,m); expect(after.board[sq('d2')]).toBeTruthy();
-  expect(resultMarks(after,[{before:f.pos,move:m}]).rings[0]).toMatchObject({square:sq('d4'),color:C.last,dash:[3,4],size:.78});
+  expect(resultMarks(after,[{before:f.pos,move:m}]).shadows).toContainEqual({square:sq('d4'),opacity:.28});
 });
 it('Ogre: the push starts at the victim and ends at the dashed landing', () => {
   const f=fixture('7k/7p/8/4p3/3O4/8/8/K7 w - - 0 1'),m=f.move('d4','e5',m=>!!m.shove),p=previewMarks(f.rules,f.pos,[m]);
   expect(p.paths).toEqual([{squares:[sq('e5'),sq('f6')],color:C.enemy}]);
   expect(p.rings).toContainEqual(expect.objectContaining({square:sq('f6'),role:'landing',dash:[5,5]}));
-  expect(resultMarks(f.rules.makeMove(f.pos,m),[{before:f.pos,move:m}]).rings).toContainEqual(expect.objectContaining({square:sq('f6'),color:C.enemy}));
+  expect(resultMarks(f.rules.makeMove(f.pos,m),[{before:f.pos,move:m}]).shadows).toContainEqual({square:sq('f6'),opacity:.28});
 });
 it('Maester: the swap has two Friend heads and two Friend result rings', () => {
   const f=fixture('7k/7p/8/8/3MP3/8/8/K7 w - - 0 1'),m=f.move('d4','e4',m=>!!m.swap);
   expect(previewMarks(f.rules,f.pos,[m]).paths).toEqual([{squares:[sq('d4'),sq('e4')],color:C.friend},{squares:[sq('e4'),sq('d4')],color:C.friend}]);
-  expect(resultMarks(f.rules.makeMove(f.pos,m),[{before:f.pos,move:m}]).rings.map(r=>r.color)).toEqual([C.friend,C.friend]);
+  expect(resultMarks(f.rules.makeMove(f.pos,m),[{before:f.pos,move:m}]).shadows).toEqual([{square:sq('d4'),opacity:.12},{square:sq('e4'),opacity:.28}]);
 });
 it.each([['Freeze','freeze','a6'],['IceWall','ward','a2']] as const)('%s: targets and lasting state use Ice; expired state has no ring', (power,tag,target) => {
   const f=fixture('7k/7p/n7/8/8/8/P7/K7 w - - 0 1',{kings:[{king:'Frost',power},null]}),m=f.rules.legalMoves(f.pos).find(m=>m.power===tag&&m.from===sq(target))!;
@@ -56,7 +56,7 @@ it('Haste: one route has two steps; after the first step only number 2 remains',
   expect(previewMarks(f.rules,after,next).steps.map(s=>s.number)).toEqual([2]);
   const second=next.find(m=>m.from===sq('c3')&&m.to===sq('d5'))!;
   const result=resultMarks(f.rules.makeMove(after,second),[{before:f.pos,move:m},{before:after,move:second}]);
-  expect(result.rings.filter(r=>r.square===sq('c3')).map(r=>r.dash)).toEqual([[4,5]]);
+  expect(result.shadows).toEqual([{square:sq('b1'),opacity:.12},{square:sq('c3'),opacity:.12},{square:sq('d5'),opacity:.28}]);
 });
 it('Check: the attacker path and king ring remain until the king is safe', () => {
   const f=fixture('7k/7p/8/8/8/8/r7/K7 w - - 0 1'),p=stateMarks(f.rules,f.pos);
@@ -65,14 +65,14 @@ it('Check: the attacker path and king ring remain until the king is safe', () =>
 });
 it('Last move: the route and result remain independent of a new selection', () => {
   const f=fixture('7k/7p/8/8/8/8/P7/K7 w - - 0 1'),m=f.move('a2','a3'),after=f.rules.makeMove(f.pos,m),actions=[{before:f.pos,move:m}];
-  const p=resultMarks(after,actions);previewMarks(f.rules,after,[]);expect(resultMarks(after,actions)).toEqual(p);expect(p.paths[0].squares).toEqual([sq('a2'),sq('a3')]);
+  const p=resultMarks(after,actions);previewMarks(f.rules,after,[]);expect(resultMarks(after,actions)).toEqual(p);expect(p.shadows).toEqual([{square:sq('a2'),opacity:.12},{square:sq('a3'),opacity:.28}]);expect(p.paths).toEqual([]);
 });
 it('Beast: the route uses all captures, then only the remaining targets', () => {
   const f=fixture('7k/7p/5p2/4p3/3S4/8/8/K7 w - - 0 1'),m=f.rules.legalMoves(f.pos).find(m=>m.captures.length===2)!;
   expect(m).toBeTruthy();const p=previewMarks(f.rules,f.pos,[m]);expect(p.paths[0]).toEqual({squares:[sq('d4'),sq('e5'),sq('f6')],color:C.enemy});
   expect(p.rings).toContainEqual(expect.objectContaining({square:sq('f6'),dash:[5,5]}));
   expect(previewMarks(f.rules,f.pos,[m],sq('f6'),[sq('e5')]).paths[0].squares).toEqual([sq('e5'),sq('f6')]);
-  expect(resultMarks(f.rules.makeMove(f.pos,m),[{before:f.pos,move:m}]).rings.filter(r=>r.role==='trail').map(r=>r.square)).toEqual([sq('d4'),sq('e5')]);
+  expect(resultMarks(f.rules.makeMove(f.pos,m),[{before:f.pos,move:m}]).shadows).toEqual([{square:sq('d4'),opacity:.12},{square:sq('f6'),opacity:.28},{square:sq('e5'),opacity:.12}]);
 });
 it('Paladin: the route uses a dashed arc', () => {
   const f=fixture('7k/7p/8/8/8/8/3P4/K2L4 w - - 0 1'),m=f.move('d1','d3');
@@ -81,7 +81,7 @@ it('Paladin: the route uses a dashed arc', () => {
 it('Guard: the drop has no actor ring and uses Holy before and after', () => {
   const f=fixture('7k/7p/8/8/8/8/P7/K7 w - - 0 1 g1.0',{guardReserve:'any'}),m=f.rules.legalMoves(f.pos).find(m=>m.drop===G)!;
   expect(m).toBeTruthy();const p=previewMarks(f.rules,f.pos,[m]);expect(p.rings).toHaveLength(1);expect(p.rings[0]).toMatchObject({color:C.holy});
-  expect(stateMarks(f.rules,f.rules.makeMove(f.pos,m)).rings).toContainEqual(expect.objectContaining({square:m.to,color:C.holy,width:1.25}));
+  expect(stateMarks(f.rules,f.rules.makeMove(f.pos,m)).rings).toEqual([]); expect(resultMarks(f.rules.makeMove(f.pos,m),[{before:f.pos,move:m}]).shadows).toContainEqual({square:m.to,opacity:.28});
 });
 it('Flight: every legal empty destination gets a Move ring', () => {
   const f=fixture('7k/7p/8/8/8/8/P7/K7 w - - 0 1',{kings:[{king:'Stratus',power:'Flight'},null]}),moves=f.rules.legalMoves(f.pos).filter(m=>m.power==='flight'&&m.from===sq('a2'));
@@ -90,7 +90,7 @@ it('Flight: every legal empty destination gets a Move ring', () => {
 it('Death Touch: the king stays, the Shadow path ends at the enemy, then a dashed ring stays', () => {
   const f=fixture('7k/7p/8/8/8/8/1n6/K7 w - - 0 1',{kings:[{king:'Shadow',power:'DeathTouch'},null]}),m=f.move('a1','b2',m=>m.from===m.to);
   expect(previewMarks(f.rules,f.pos,[m]).paths[0]).toEqual({squares:[sq('a1'),sq('b2')],color:C.shadow});
-  expect(resultMarks(f.rules.makeMove(f.pos,m),[{before:f.pos,move:m}]).rings[0]).toMatchObject({square:sq('b2'),dash:[3,4]});
+  expect(resultMarks(f.rules.makeMove(f.pos,m),[{before:f.pos,move:m}]).shadows).toContainEqual({square:sq('b2'),opacity:.28});
 });
 it('Darkness: diagonal steps use Move and a straight capture uses Shadow', () => {
   const f=fixture('7k/7p/8/8/8/4n3/4P3/K7 w - - 0 1',{kings:[{king:'Shadow',power:'Darkness'},null]}),moves=f.rules.legalMoves(f.pos).filter(m=>m.from===sq('e2')),p=previewMarks(f.rules,f.pos,moves,sq('e3'));
@@ -102,13 +102,13 @@ it('Holy Light: the four own neighbours use Holy with no diagonal or wrapped fil
 });
 it('Burn: the card target is Ember; the result has a dashed Ember ring', () => {
   const f=fixture('7k/7p/8/8/3p4/8/3N4/K7 w - - 0 1',{hands:[['Burn'],[]]}),m=f.move('d2','d4',m=>m.power==='burn');
-  expect(previewMarks(f.rules,f.pos,[m]).rings[0]).toMatchObject({color:C.ember});expect(resultMarks(f.rules.makeMove(f.pos,m),[{before:f.pos,move:m}]).rings).toContainEqual(expect.objectContaining({square:sq('d4'),color:C.ember,dash:[3,4]}));
+  expect(previewMarks(f.rules,f.pos,[m]).rings[0]).toMatchObject({color:C.ember});expect(resultMarks(f.rules.makeMove(f.pos,m),[{before:f.pos,move:m}]).shadows).toContainEqual({square:sq('d4'),opacity:.28});
 });
 it('does not put undefined squares in a finished chain or draw a pass result', () => {
   const f=fixture('7k/7p/8/8/8/8/P7/K7 w - - 0 1');expect(previewMarks(f.rules,f.pos,[]).rings).toEqual([]);expect(resultMarks(f.pos,[{before:f.pos,move:{from:8,to:8,captures:[],pass:true}}])).toEqual({rings:[],paths:[],steps:[]});
 });
 
-it('Guard: the standing Guard keeps a large Holy ring', () => { const f=fixture('7k/7p/8/8/3G4/8/8/K7 w - - 0 1'); expect(stateMarks(f.rules,f.pos).rings).toContainEqual(expect.objectContaining({square:sq('d4'),color:C.holy,width:1.25,role:'state'})); });
+it('Guard: the capture rule has no state ring, but a real effect still has one', () => { const f=fixture('7k/7p/8/8/3G4/8/8/K7 w - - 0 1',{hands:[['IceWall'],[]]}); expect(stateMarks(f.rules,f.pos).rings).toEqual([]); const ward=f.rules.legalMoves(f.pos).find(m=>m.power==='ward'&&m.from===sq('d4'))!;expect(ward).toBeTruthy();expect(stateMarks(f.rules,f.rules.makeMove(f.pos,ward)).rings).toContainEqual(expect.objectContaining({square:sq('d4'),color:C.ice})); });
 it('an armed move marks only pieces that can act until the player chooses one', () => {
   const f=fixture('7k/7p/8/8/8/8/P7/K7 w - - 0 1',{kings:[{king:'Stratus',power:'Flight'},null]});
   const moves=f.rules.legalMoves(f.pos).filter(m=>m.power==='flight'),p=actorMarks(f.pos,moves,sq('a2'));
@@ -138,5 +138,12 @@ it.each([
   const after = f.rules.makeMove(marked, second);
   const combined = mergeMarks(resultMarks(after, [{ before: f.pos, move: first }, { before: marked, move: second }]), stateMarks(f.rules, after));
   expect(combined.rings.filter(r => r.color === C.ice).map(r => r.square)).toEqual(expected.map(sq));
-  expect(combined.rings).toContainEqual(expect.objectContaining({ square: sq(from), color: C.last, role: 'trail' }));
+  expect(combined.shadows).toContainEqual({square:sq(from),opacity:.12});
+});
+
+it.each([false,true])('a target power or card leaves its affected square only (card: %s)', card => {
+  const f=fixture('7k/7p/n7/8/8/8/P7/K7 w - - 0 1',card?{hands:[['Freeze'],[]]}:{kings:[{king:'Frost',power:'Freeze'},null]});
+  const move=f.rules.legalMoves(f.pos).find(m=>m.power==='freeze'&&m.from===sq('a6'))!;
+  expect(move).toBeTruthy();const marks=resultMarks(f.rules.makeMove(f.pos,move),[{before:f.pos,move}]);
+  expect(marks).toEqual({rings:[],paths:[],steps:[],shadows:[{square:sq('a6'),opacity:.28}]});
 });

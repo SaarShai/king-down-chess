@@ -2,13 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearDeletedAccount, localAccess, selectLocal } from '../../account/local';
 import { Game } from '../../game';
 import { GameRules } from '../../game-rules';
-import { gameJSON, savedGame, SAVE_KEY, type Save } from '../../screen/save';
+import { gameJSON, savedGame, writeSave, SAVE_KEY, type Save } from '../../screen/save';
 import { stagedPlies } from '../../turn';
 import { parseSq, type Rules } from '../../rules/engine';
 import { POWERS_BALANCED, RULES_2017 } from '../../rules/rules';
 import { toFen } from '../../rules/setup';
 import { DraftTurn } from './turn';
-import { answerOffer, beforeNewGame, continueLine, gameType, keepCopy, KEPT_KEY, keptOffer, levelOf, OFFERED_KEY, readStored, rulesOf, SaveWriter, SKILLS, snapshot, storedChoice, type Prefs } from './saved';
+import { DEAL_CARDS } from '../../match/setup';
+import { ARRANGE_KEY, Arrangement, pendingArrangement } from './arrange';
+import { answerOffer, beforeNewGame, continueLine, gameKeyOf, gameType, keepCopy, KEPT_KEY, keptOffer, levelOf, OFFERED_KEY, readStored, rulesOf, SaveWriter, SKILLS, snapshot, storedChoice, storedGameType, GAME_KEY, type Prefs } from './saved';
 import { text } from './texts';
 
 const store = new Map<string, string>();
@@ -25,7 +27,7 @@ afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 const prefs: Prefs = { skill: 'beginner', coords: true, sound: false, pace: 'normal' };
 const PIECES = rulesOf('pieces', [null, null], [[], []]);
-const powers = (kings: Rules['kings'], hands: Rules['hands'] = [[], []]) => rulesOf(hands.some(h => h.length) ? 'cards' : 'powers', kings, hands);
+const powers = (kings: Rules['kings'], hands: Rules['hands'] = [[], []]) => rulesOf(hands.some(h => h.length) ? 'both' : 'powers', kings, hands);
 const HASTE = powers([{ king: 'Flame', power: 'Haste' }, null]);
 function draftOf(fen: string | null, rules: Partial<Rules> = PIECES) {
   const game = new Game('RNBQKBNR', rules); if (fen) game.load(game.context.fromFen(fen)); return new DraftTurn(game);
@@ -118,13 +120,13 @@ describe('decisions 2 and 3: staged steps and resume', () => {
     cards.arm('curse'); cards.stage(cards.options(parseSq('d5'))[0]); started(cards);
     const two = readStored(); expect(two.kind).toBe('resume');
     expect(two.resume!.draft.steps[0].move.power).toBe('curse'); expect(two.resume!.draft.position.used?.[0]).toBe(1);
-    expect(gameType(two.resume!.game.rules)).toBe('cards');
+    expect(gameType(two.resume!.game.rules)).toBe('both');
   });
   it('a reload while the computer thinks resumes with the computer to move', () => {
     store.set(SAVE_KEY, JSON.stringify(handedOver()));
     const { kind, resume } = readStored();
     expect(kind).toBe('resume'); expect(resume!.game.pos.turn).toBe(1); expect(resume!.draft.length).toBe(0);
-    expect(continueLine(resume!.draft, 'clever')).toBe('Clever computer · Pieces only · Computer is thinking…');
+    expect(continueLine(resume!.draft, 'clever')).toBe('Focused computer · Pieces · Computer is thinking…');
   });
   it('a save that ends on a handed-over Haste step resumes with the linked pass played', () => {
     const draft = draftOf('7k/7p/8/8/8/8/7P/KN6 w - - 0 1', HASTE); draft.arm('haste'); step(draft, 'b1', 'c3');
@@ -139,8 +141,8 @@ describe('decisions 2 and 3: staged steps and resume', () => {
   });
   it('Continue names the level, the game type and whose turn', () => {
     const draft = draftOf(null, powers([{ king: 'Frost', power: 'Freeze' }, null]));
-    expect(continueLine(draft, 'club')).toBe(`Club computer · ${text.withPowers} · ${text.ready}`);
-    step(draft, 'e2', 'e4'); expect(continueLine(draft, 'casual')).toBe(`Casual computer · ${text.withPowers} · ${text.draft}`);
+    expect(continueLine(draft, 'club')).toBe(`Fierce computer · ${text.withPowers} · ${text.ready}`);
+    step(draft, 'e2', 'e4'); expect(continueLine(draft, 'casual')).toBe(`Friendly computer · ${text.withPowers} · ${text.draft}`);
   });
   it('a FEN save resumes, and the rules this page builds read as the same rules after a merge', () => {
     const s = handedOver(powers([{ king: 'Frost', power: 'Freeze' }, null]));
@@ -298,12 +300,29 @@ describe('decision 8: unreadable data and no storage', () => {
   });
 });
 
+describe('owner playtest section 2: a cards game with no king powers', () => {
+  it('saves, resumes and names the game; the hand stays and no king has a power', () => {
+    const hand = DEAL_CARDS.slice(0, 4);
+    const rules = rulesOf('cards', [null, null], [hand, hand]);
+    expect(gameType(rules as Rules)).toBe('cards');
+    const draft = draftOf(null, rules); step(draft, 'e2', 'e4'); draft.commit();
+    started(draft);
+    const stored = readStored();
+    expect(stored.kind).toBe('resume');
+    expect(stored.resume!.game.rules.kings).toEqual([null, null]);
+    expect(stored.resume!.game.rules.hands[0]).toEqual(hand);
+    expect(gameType(stored.resume!.game.rules)).toBe('cards');
+    expect(continueLine(stored.resume!.draft, 'casual')).toContain(`· ${text.withCards} ·`);
+  });
+});
+
 describe('decisions 9 and 10: stored choices and levels', () => {
-  it('reads the last game type, and a bad value gives Pieces only', () => {
-    const types = ['pieces', 'powers', 'cards'];
-    expect(storedChoice('kingdown.setup', types)).toBe('pieces');
-    store.set('kingdown.setup', 'cards'); expect(storedChoice('kingdown.setup', types)).toBe('cards');
-    store.set('kingdown.setup', 'lab'); expect(storedChoice('kingdown.setup', types)).toBe('pieces');
+  it('reads the last game type of four; an earlier stored type maps, and none or a bad value gives Pieces', () => {
+    expect(storedGameType()).toBe('pieces');
+    store.set('kingdown.setup', 'cards'); expect(storedGameType()).toBe('both');
+    store.set('kingdown.setup', 'powers'); expect(storedGameType()).toBe('powers');
+    store.set(GAME_KEY, 'cards'); expect(storedGameType()).toBe('cards');
+    store.set(GAME_KEY, 'lab'); store.set('kingdown.setup', 'lab'); expect(storedGameType()).toBe('pieces');
   });
   it('maps each skill to a level, and Strong or none to Club; the next write has club', () => {
     expect(['beginner', 'casual', 'club', 'strong', undefined, 7].map(levelOf)).toEqual(['casual', 'clever', 'club', 'club', 'club', 'club']);
@@ -330,11 +349,11 @@ describe('launch decision 10: a Dark game resumes', () => {
   it('opens it now: the player is Dark, on the player turn and on the computer turn', () => {
     store.set(SAVE_KEY, JSON.stringify({ ...handedOver(), white: 'ai', black: 'human' }));
     const mine = readStored(); expect(mine.kind).toBe('resume'); expect(mine.resume!.player).toBe(1);
-    expect(mine.resume!.game.pos.turn).toBe(1); expect(continueLine(mine.resume!.draft, 'club', 1)).toBe(`Club computer · Pieces only · ${text.ready}`);
+    expect(mine.resume!.game.pos.turn).toBe(1); expect(continueLine(mine.resume!.draft, 'club', 1)).toBe(`Fierce computer · Pieces · ${text.ready}`);
     const draft = darkGame(); step(draft, 'e7', 'e5'); draft.commit();
     store.set(SAVE_KEY, JSON.stringify({ ...snapshot(new DraftTurn(draft.game), null, 1), ...prefs }));
     const theirs = readStored(); expect(theirs.kind).toBe('resume'); expect(theirs.resume!.game.pos.turn).toBe(0);
-    expect(continueLine(theirs.resume!.draft, 'club', 1)).toBe(`Club computer · Pieces only · ${text.thinking}`);
+    expect(continueLine(theirs.resume!.draft, 'club', 1)).toBe(`Fierce computer · Pieces · ${text.thinking}`);
     expect(keepCopy(JSON.stringify({ ...handedOver(), white: 'ai', black: 'human' }))).toBe('copied'); // the copy rule itself is unchanged
   });
   it('restores staged Dark steps: a move, a Haste turn and a card', () => {
@@ -444,4 +463,67 @@ it('does not offer, answer or replace another account copy or write from a stale
   store.set('kingdown.sync-owner', JSON.stringify({ userId: 'alice' }));
   expect(stale.userId).toBe('bob'); expect(keepCopy(raw)).toBe('failed'); answerOffer(raw);
   expect(store.has(OFFERED_KEY)).toBe(false);
+});
+
+
+it.each([0, 1] as const)('resumes an unfinished arrangement for side %s from its saved legal deal', player => {
+  const { draft } = started(draftOf(null), prefs, player);
+  store.set(ARRANGE_KEY, JSON.stringify({ army: draft.game.backRank, side: player, fen: toFen(draft.game.pos) }));
+  const saved = readStored(); expect(saved.kind).toBe('resume');
+  expect(saved.resume?.player).toBe(player); expect(saved.resume?.game.history).toHaveLength(0);
+  expect(toFen(saved.resume!.game.pos)).toBe(toFen(draft.game.pos));
+});
+
+
+it.each(['pieces', 'powers', 'cards', 'both'] as const)('keeps a confirmed Manual %s game until the first move, with a new-game warning', setup => {
+  const rules = rulesOf(setup, [{ king: 'Mud', power: 'March' }, { king: 'Spirit', power: 'Mercy' }], [DEAL_CARDS.slice(0, 4), DEAL_CARDS.slice(0, 4)]);
+  const game = new Game('RNBQKBNR', rules), arrangement = new Arrangement(game.backRank, 0);
+  arrangement.pick(1); arrangement.pick(3); expect(arrangement.canReady).toBe(true);
+  game.load(arrangement.position(game.pos));
+  store.set(ARRANGE_KEY, JSON.stringify({ army: arrangement.order, side: 0, fen: toFen(game.pos), ready: true }));
+  started(new DraftTurn(game));
+  const saved = readStored(); expect(saved.kind).toBe('resume');
+  expect(toFen(saved.resume!.game.pos)).toBe(toFen(game.pos));
+  expect(pendingArrangement(localStorage, saved.resume!.game, 0)).toBeUndefined();
+  expect(gameKeyOf(saved)).not.toBe('');
+  const resumed = saved.resume!.draft; step(resumed, 'a2', 'a3');
+  const { w } = writer(); w.load(saved.save); expect(w.game(snapshot(resumed), prefs, true)).toBe(true);
+  expect(readStored().kind).toBe('resume');
+});
+
+
+it.each(['pieces', 'powers', 'cards', 'both'] as const)('a stale Ready cannot remove the newer confirmed %s game', setup => {
+  const rules = rulesOf(setup, [{ king: 'Mud', power: 'March' }, { king: 'Spirit', power: 'Mercy' }], [DEAL_CARDS.slice(0, 4), DEAL_CARDS.slice(0, 4)]);
+  const { w: a } = started(new DraftTurn(new Game('RNBQKBNR', rules))), initial = saved(), { w: b } = writer(); b.load(initial);
+  const ready = (w: SaveWriter, swap: boolean) => {
+    const game = savedGame(initial), order = new Arrangement(game.backRank, 0);
+    if (swap) { order.pick(1); order.pick(3); }
+    expect(order.canReady).toBe(true); game.load(order.position(game.pos));
+    store.set(ARRANGE_KEY, JSON.stringify({ army: order.order, side: 0, fen: toFen(game.pos), ready: true }));
+    return w.game(snapshot(new DraftTurn(game)), prefs, true);
+  };
+  expect(ready(a, true)).toBe(true); const newer = store.get(SAVE_KEY);
+  expect(ready(b, false)).toBe(false); expect(b.blocked).toBe(true);
+  expect(store.get(SAVE_KEY)).toBe(newer); expect(readStored().kind).toBe('resume');
+  expect(gameKeyOf(readStored())).not.toBe('');
+  expect(pendingArrangement(localStorage, readStored().resume!.game, 0)).toBeUndefined();
+});
+it.each([SAVE_KEY, ARRANGE_KEY])('a failed %s write keeps a confirmed FEN save resumable without a marker', key => {
+  const { w } = started(), game = savedGame(saved()), order = new Arrangement(game.backRank, 0);
+  order.pick(1); order.pick(3); game.load(order.position(game.pos));
+  failWrite = key;
+  try { localStorage.setItem(ARRANGE_KEY, JSON.stringify({ army: order.order, side: 0, fen: toFen(game.pos), ready: true })); } catch { /* Ready still attempts the game save. */ }
+  const draft = new DraftTurn(game), written = w.game(snapshot(draft), prefs, true);
+  expect(written).toBe(key !== SAVE_KEY);
+  if (!written) { expect(w.lost).toBe(true); failWrite = null; expect(w.game(snapshot(draft), prefs, true)).toBe(true); }
+  store.delete(ARRANGE_KEY);
+  expect(readStored().kind).toBe('resume'); expect(toFen(readStored().resume!.game.pos)).toBe(toFen(game.pos));
+});
+it('the old page reads and rewrites the same zero-move confirmed FEN save', () => {
+  const game = new Game('RNBQKBNR', PIECES), order = new Arrangement(game.backRank, 0);
+  order.pick(1); order.pick(3); game.load(order.position(game.pos)); started(new DraftTurn(game));
+  expect(saved().back).toBe(''); expect(saved().moves).toEqual([]);
+  const old = savedGame(saved()); expect(toFen(old.pos)).toBe(toFen(game.pos));
+  expect(writeSave({ ...saved(), coords: false, back: old.backRank, fen: toFen(old.pos), moves: old.history.map(h => h.lan) })).toBe(true);
+  expect(readStored().kind).toBe('resume'); expect(toFen(readStored().resume!.game.pos)).toBe(toFen(game.pos));
 });

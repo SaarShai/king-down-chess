@@ -30,14 +30,23 @@ const toasts = (page: Page) => page.evaluate(() => (window as any).peopleDemo.to
 const fail = (page: Page, name: string, fault: unknown) => page.evaluate(([name, fault]) => (window as any).peopleDemo.fail(name, fault), [name, fault] as const);
 const sheet = (page: Page) => page.locator('dialog.people-sheet');
 const title = (page: Page) => sheet(page).locator('h2');
-const press = (page: Page, name: string | RegExp) => sheet(page).getByRole('button', { name, exact: typeof name === 'string' }).click();
+const press = (page: Page, name: string | RegExp) => (name === 'Close' ? sheet(page).locator('.people-sheet-close') : sheet(page).getByRole('button', { name, exact: typeof name === 'string' })).click();
+/** The shared New game panel owns the game choice; this fixture opens the invite view with that choice. */
+async function gameChoice(page: Page, rules: string) {
+  expect(await sheet(page).getByRole('radio').count()).toBe(0);
+  await press(page, 'Close');
+  await page.evaluate(value => (window as any).peopleDemo.host.setRules(value), rules);
+  await page.getByRole('button', { name: 'Play a person', exact: true }).click();
+  await expect.poll(() => title(page).textContent()).toBe('Play a person');
+}
+
 
 it('Send a link: one game for a fast second tap, busy while it is made, a copy on a computer, the toast, and the focus back on the row', async () => {
   const page = await open('person', '?make=800');
   try {
     await expect.poll(() => title(page).textContent()).toBe('Play a person');
     // Two taps in one task: the second comes before any answer.
-    await sheet(page).getByRole('button', { name: 'Send a link' }).evaluate((main: HTMLElement) => { main.click(); main.click(); });
+    await sheet(page).getByRole('button', { name: 'Send a link', exact: true }).evaluate((main: HTMLElement) => { main.click(); main.click(); });
     await expect.poll(() => sheet(page).locator('[aria-busy="true"]').textContent()).toContain('Making your game…');
     await expect.poll(() => toasts(page)).toEqual(['Link copied.']);
     expect((await calls(page)).filter(c => c.startsWith('createLink'))).toEqual(['createLink:pieces']);
@@ -53,7 +62,7 @@ it('Send a link on a touch device: the share list with the share text; a closed 
   try {
     await press(page, 'Send a link');
     await expect.poll(() => page.evaluate(() => (window as any).peopleDemo.shared.length)).toBe(1);
-    await expect.poll(() => sheet(page).getByRole('button', { name: 'Send a link' }).getAttribute('aria-busy')).toBe('false');
+    await expect.poll(() => sheet(page).getByRole('button', { name: 'Send a link', exact: true }).getAttribute('aria-busy')).toBe('false');
     await press(page, 'Send a link');
     await expect.poll(() => page.evaluate(() => (window as any).peopleDemo.shared.length)).toBe(2);
     expect((await calls(page)).filter(c => c.startsWith('createLink'))).toHaveLength(1);
@@ -72,7 +81,7 @@ it('Play again: 3 rows at most, Invite with the chosen game, and the quiet name 
   try {
     await expect.poll(() => sheet(page).locator('.people-again .people-row').count()).toBe(3);
     expect(await sheet(page).locator('.people-again').innerText()).toContain('You win, 2 days ago');
-    await sheet(page).getByRole('radio', { name: 'With powers', exact: true }).click();
+    await gameChoice(page, 'powers');
     await press(page, 'Invite dana-r');
     await expect.poll(() => toasts(page)).toEqual(['Invite sent to dana-r. dana-r sees it in Play.']);
     expect(await calls(page)).toContain('rules:powers');
@@ -183,16 +192,16 @@ it('The email code: the code step stays after a reload, a wrong code has its lin
   try {
     await press(page, 'Continue with email');
     await expect.poll(() => title(page).textContent()).toBe('Continue with email');
-    await sheet(page).getByLabel('Email').fill('jo@example.com');
+    await sheet(page).getByLabel('Email', { exact: true }).fill('jo@example.com');
     await page.keyboard.press('Enter');
     await expect.poll(() => title(page).textContent()).toBe('Enter the code');
     expect(await sheet(page).innerText()).toContain('We sent a code to jo@example.com. The code works for 1 hour.');
-    expect(await sheet(page).getByLabel('Code').getAttribute('autocomplete')).toBe('one-time-code');
+    expect(await sheet(page).getByLabel('Code', { exact: true }).getAttribute('autocomplete')).toBe('one-time-code');
     await page.reload();
     await expect.poll(() => title(page).textContent()).toBe('Enter the code');
-    await sheet(page).getByLabel('Code').fill('000000'); await press(page, 'Continue');
+    await sheet(page).getByLabel('Code', { exact: true }).fill('000000'); await press(page, 'Continue');
     await expect.poll(() => sheet(page).getByRole('status').textContent()).toBe('That code is wrong or has expired. Try again, or ask for a new code.');
-    await sheet(page).getByLabel('Code').fill('123456'); await press(page, 'Continue');
+    await sheet(page).getByLabel('Code', { exact: true }).fill('123456'); await press(page, 'Continue');
     await expect.poll(() => toasts(page)).toEqual(['Signed in.']);
     expect(await page.evaluate(() => sessionStorage.getItem('kingdown.email-code'))).toBeNull();
   } finally { await page.close(); }
@@ -205,7 +214,7 @@ it('Sign-in does not work now: the computer, another try and Cancel; a suspended
     await fail(page, 'ways', 'network'); await press(page, 'Not now');
     await page.getByRole('button', { name: 'Play a person' }).click();
     await expect.poll(() => title(page).textContent()).toBe('Sign-in does not work now');
-    expect(await sheet(page).getByRole('button').allTextContents()).toEqual(['Close', 'Play the computer', 'Try again', 'Cancel']);
+    expect(await sheet(page).getByRole('button').allTextContents()).toEqual(['Close panel', 'Play the computer', 'Try again', 'Cancel']);
     await press(page, 'Try again');
     await expect.poll(() => title(page).textContent()).toBe('Sign in to play a person');
     await fail(page, 'start:google', 'banned');
@@ -230,7 +239,7 @@ it('The link landing: signed out, Join signs in, takes the name and joins; an en
   const ended = await open('landing-ended-known');
   try {
     await expect.poll(() => ended.locator('.people-landing h2').textContent()).toBe('jo-m invites you to a game');
-    expect(await ended.locator('.people-fact').allTextContents()).toEqual(['Pieces only', '3 days for each move', 'You play Black']);
+    expect(await ended.locator('.people-fact').allTextContents()).toEqual(['Pieces', '3 days for each move', 'You play Black']);
     await ended.getByRole('button', { name: 'Join the game' }).click();
     await expect.poll(() => ended.locator('.people-landing h2').textContent()).toBe('This invite has ended');
     expect(await ended.locator('.people-landing h2').evaluate(e => e === document.activeElement)).toBe(true);
@@ -334,8 +343,8 @@ it('Close ends pending sign-in tasks, so they cannot reopen a sheet or join a ga
     try {
       if (state === 'landing-plain') { await page.getByRole('button', { name: 'Join the game' }).click(); await press(page, 'Continue with email'); }
       else if (state === 'sign-in') await press(page, 'Continue with email');
-      if (state === 'code') { await sheet(page).getByLabel('Code').fill('123456'); await press(page, 'Continue'); }
-      else { await sheet(page).getByLabel('Email').fill('jo@example.com'); await press(page, 'Send code'); }
+      if (state === 'code') { await sheet(page).getByLabel('Code', { exact: true }).fill('123456'); await press(page, 'Continue'); }
+      else { await sheet(page).getByLabel('Email', { exact: true }).fill('jo@example.com'); await press(page, 'Send code'); }
       await press(page, 'Close'); await page.waitForTimeout(1100);
       expect(await sheet(page).count(), state).toBe(0);
       expect(await toasts(page), state).toEqual([]);
@@ -358,14 +367,14 @@ it('email and code errors use product copy in a persistent status linked to the 
   const page = await open('sign-in');
   try {
     await press(page, 'Continue with email');
-    const email = sheet(page).getByLabel('Email'), status = sheet(page).getByRole('status');
+    const email = sheet(page).getByLabel('Email', { exact: true }), status = sheet(page).getByRole('status');
     expect(await status.evaluate(e => e.hasAttribute('hidden') || getComputedStyle(e).display === 'none')).toBe(false);
     expect(await email.getAttribute('aria-describedby')).toBe(await status.getAttribute('id'));
     await email.fill('broken'); await press(page, 'Send code');
     await expect.poll(() => status.textContent()).toBe('Could not send a code to that address. Check it and try again.');
     await email.fill('jo@example.com'); await press(page, 'Send code');
     await expect.poll(() => title(page).textContent()).toBe('Enter the code');
-    const code = sheet(page).getByLabel('Code');
+    const code = sheet(page).getByLabel('Code', { exact: true });
     expect(await code.getAttribute('aria-describedby')).toBe(await status.getAttribute('id'));
     await code.fill('12'); await press(page, 'Continue');
     await expect.poll(() => status.textContent()).toBe('That code is wrong or has expired. Try again, or ask for a new code.');
@@ -390,7 +399,7 @@ it('a failed copy focuses the visible link and a new rule choice makes a new lin
       const facts = await link.evaluate(e => { const r = e.getBoundingClientRect(); return { focused: e === document.activeElement, visible: r.top >= 0 && r.bottom <= innerHeight }; });
       expect(facts).toEqual({ focused: true, visible: true });
       expect(await sheet(page).getByRole('status').textContent()).toBe('Copy this link and send it to your friend.');
-      await sheet(page).getByRole('radio', { name: 'With powers', exact: true }).click();
+      await gameChoice(page, 'powers');
       expect(await link.isVisible()).toBe(false);
       await press(page, 'Send a link');
       await expect.poll(() => calls(page)).toContain('createLink:powers');
@@ -488,7 +497,7 @@ it('Recovery: another account asks one check before the sign-out; a gone game go
     await page.getByRole('button', { name: 'Switch account' }).click();
     const check = page.locator('dialog.kd-dialog[open]');
     expect(await check.innerText()).toContain('We sign out alex on this device. Then you sign in with the other account.');
-    await check.getByRole('button', { name: 'Switch account' }).click();
+    await check.getByRole('button', { name: 'Switch account', exact: true }).click();
     await expect.poll(() => toasts(page)).toEqual(['Signed out. The sign-in sheet opens here.']);
   } finally { await page.close(); }
   const gone = await open('gone');

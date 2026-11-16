@@ -63,10 +63,12 @@ export function receiptStore(userId: string, storage: Store, locks: LockManager 
     return 'unreadable';
   }
   return {
-    read,
+    read, data: gate,
     clearAccount: gate.close,
     /** Write the receipt before the send. The same receipt again is a retry. */
-    hold: (receipt: Receipt) => gate.write(() => {
+    hold: (receipt: Receipt, current?: () => Promise<void>, signal?: AbortSignal) => gate.write(async () => {
+      await current?.();
+      signal?.throwIfAborted();
       const text = JSON.stringify(receipt), raw = storage.getItem(key);
       if (raw && raw !== text) throw new ReceiptBusy();
       storage.setItem(key, text);

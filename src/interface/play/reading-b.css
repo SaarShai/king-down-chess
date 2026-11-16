@@ -22,26 +22,23 @@
 .play-game[data-layout] .play-reader { padding-inline: 5px; }
 .play-game[data-own-rows='0'] .play-own { display: none; }
 
-/* Opponent strip (design section 2): figure, Computer and the level, power, the card group, Menu. */
-.play-game .play-opp { gap: 4px; padding: 0; }
-.play-game .play-opp > img { width: 32px; height: calc(var(--opp) - 8px); }
-.play-game[data-form='compact'] .play-opp > img { width: 24px; }
-.play-game .play-opp > strong { display: flex; flex-direction: column; flex: 1 1 0; font: 650 15px/18px var(--font-reading); overflow-wrap: normal; }
-.play-game .play-opp > strong small { font-size: 14px; line-height: 18px; font-weight: 400; }
-.play-game .play-opp .play-power { flex: 0 0 116px; height: 44px; padding: 0 8px; white-space: normal; text-align: center; font: 650 14px/16px var(--font-reading); }
-.play-game[data-form='compact'] .play-opp .play-power { flex-basis: 112px; }
-.play-game[data-narrow='true'] .play-opp .play-power { flex-basis: 96px; padding-inline: 4px; }
-.play-game .play-opp .play-power small { font-size: 14px; line-height: 16px; font-weight: 400; }
-.play-game .play-opp > .kd-button:last-child { flex: 0 0 52px; padding: 0; min-width: 44px; }
-.play-game[data-narrow='true'] .play-opp .play-power { flex-basis: 88px; }
-/* The computer's cards: four small marks, one target (option b1). A used mark keeps its slot with a slash. */
-.play-game .play-rival-cards.kd-button { flex: 0 0 56px; min-width: 44px; min-height: 44px; height: 44px; padding: 0; gap: 2px; border: 0; background: transparent; box-shadow: none; }
-.play-game[data-form='compact'] .play-rival-cards.kd-button { flex-basis: 52px; }
-.play-game[data-narrow='true'] .play-rival-cards.kd-button { flex-basis: 44px; }
+/* The identity and resources form one group. Menu keeps its own place at the edge. */
+.play-game .play-opp { gap: 8px; padding: 0; }
+.play-opponent-group { display: flex; align-items: center; gap: 6px; flex: 0 1 auto; min-width: 0; max-width: calc(100% - 52px); }
+.play-opponent-group > .profile-portrait { width: 32px; height: 40px; }
+.play-opponent-group > strong { display: flex; flex-direction: column; flex: 0 1 auto; min-width: 0; font: 650 14px/17px var(--font-reading); overflow-wrap: anywhere; }
+.play-opponent-group > strong small { font-size: 12px; line-height: 15px; font-weight: 400; }
+.play-game .play-opp .play-power { flex: 0 0 88px; height: 60px; min-width: 0; padding: 0; }
+.play-game .play-opp > .kd-button:last-child { flex: 0 0 44px; padding: 0; min-width: 44px; margin-inline-start: auto; font-size: 14px; white-space: nowrap; }
+/* One 44 px target: a card stack and a readable count of the cards left. */
+.play-game .play-rival-cards.kd-button { position: relative; flex: 0 0 44px; min-width: 44px; min-height: 44px; height: 48px; padding: 0; gap: 0; border: 0; background: transparent; box-shadow: none; }
 .play-rival-cards [data-button-label] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.play-rival-mark { position: relative; display: block; width: 11px; height: 16px; border-radius: 2px; background: #31494d center / cover no-repeat; box-shadow: 0 0 0 1px #806b45; }
-.play-rival-mark[data-spent='true'] { background-image: none !important; background-color: transparent; box-shadow: 0 0 0 1px var(--text-muted); }
-.play-rival-mark[data-spent='true']::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top right, transparent calc(50% - 1px), var(--text-muted) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)); }
+.play-rival-mark { position: absolute; top: 6px; left: 4px; width: 23px; height: 31px; border: 1px solid #806b45; border-radius: 3px; background: #31494d center / cover no-repeat; transform: rotate(-8deg); }
+.play-rival-mark:nth-child(2) { left: 8px; transform: rotate(-2deg); }
+.play-rival-mark:nth-child(3) { left: 12px; transform: rotate(4deg); }
+.play-rival-mark:nth-child(4) { left: 16px; transform: rotate(10deg); }
+.play-rival-mark[data-spent='true'] { filter: grayscale(1); opacity: .45; }
+.play-rival-count { position: absolute; right: 0; bottom: 0; display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 11px; background: var(--text); color: var(--surface-raised); font: 650 14px/1 var(--font-reading); }
 .play-rival-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
 /* The compact body has 86 px: the four rows go in one line of 44 px, and a long name takes two lines. */
 .play-b[data-form='compact'] .play-rival-rows { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -97,11 +94,9 @@
 .play-game[data-reading] .play-b[data-form='wide'] :is(.learn-owner, .play-mark-line, .play-effect-end) { font-size: 15px; line-height: 20px; }
 .play-game[data-reading] .play-b[data-form='compact'] :is(p, li) { font-size: 15px; line-height: 20px; }
 .play-game[data-reading] .play-b :is(.play-notice, .play-step, .play-free) { font-weight: 650; }
-.play-game[data-reading] .play-b .play-secondary .play-reply .play-last { font-size: 15px; line-height: 20px; }
 .play-b .play-mark-line:empty { display: none; }
 .play-b .play-summary { min-width: 0; display: flex; align-items: center; }
 .play-game .play-b .play-summary-toggle.kd-button { width: 100%; min-height: 44px; height: 44px; font-size: 15px; line-height: 18px; }
-.play-b .play-reply > .kd-button { min-width: 120px; }
 .play-b .kd-steps { padding: 0; border: 0; background: transparent; }
 /* Compact: one pinned 44 px header with the state and the name, then the body (design section 2, 360x640). */
 .play-b .play-bhead { display: flex; align-items: center; gap: 6px; min-width: 0; }
@@ -119,52 +114,45 @@
 .play-b .play-choices { justify-content: flex-end; }
 .play-b[data-form='compact'] .play-choices { justify-content: flex-start; }
 
-/* Your resources (design section 6): the power beside the four cards on a phone (c2), the power above them where the rail is wide (c1). */
-.play-game .play-own { gap: 4px; padding: 1px 0; }
-.play-game .play-own :is(.play-power, .play-card) { height: calc(var(--own) - 2px); }
-.play-game .play-own .play-power { flex: 0 0 88px; padding: 2px 4px; white-space: normal; text-align: center; font: 650 14px/16px var(--font-reading); overflow-wrap: normal; }
-.play-game[data-form='compact'] .play-own .play-power { flex-basis: 80px; line-height: 14px; }
-.play-game .play-own .play-power small { font-size: 14px; line-height: inherit; }
-/* Always on and used: flat enamel. A power with uses: raised enamel. */
-.play-game .play-power:is([data-uses='false'], [data-spent='true']) { box-shadow: inset 0 1px #efffef; }
-.play-game .play-opp .play-power:is([data-uses='false'], [data-spent='true']) { box-shadow: inset 0 1px #fff3ea; }
-.play-game .play-power[data-spent='true'] { filter: saturate(.25); color: var(--text-muted); }
-.play-game .play-own .play-card { --art: 16px; display: grid; grid-template-rows: calc(var(--art) + 2px) minmax(0, 1fr); padding: 0; gap: 0; align-items: stretch; justify-items: stretch; color: var(--text); background: var(--surface-raised); box-shadow: inset 0 0 0 1px #c1aa78; border-radius: 7px; font: 650 14px/17px var(--font-reading); letter-spacing: 0; hyphens: none; overflow-wrap: normal; text-align: center; }
-.play-game[data-form='compact'] .play-own .play-card { --art: 6px; }
-.play-game .play-own .play-card img { position: static; grid-row: 1; grid-column: 1; width: 100%; height: 100%; object-fit: cover; object-position: center 30%; z-index: auto; border-bottom: 2px solid #806b45; }
+/* One resource row. Its top inset keeps even a lifted card below the home rank. */
+.play-game .play-own { gap: 8px; padding: 12px 6px 8px; align-items: center; }
+.play-game[data-layout='wide'] .play-own { padding-block: 12px 8px; }
+.play-game .play-power { position: relative; display: flex; flex-direction: column; gap: 0; justify-content: center; align-items: center; background: transparent; box-shadow: none; border: 0; border-radius: 12px; color: var(--text); white-space: normal; text-align: center; font: 650 14px/16px var(--font-reading); }
+.play-game .play-own .play-power { flex: 0 0 72px; height: 100%; min-height: 44px; padding: 0; }
+.play-game .play-power [data-button-label] { max-width: 100%; }
+.play-game .play-power small { font: 400 12px/14px var(--font-reading); white-space: nowrap; }
+.play-power-coin { position: relative; display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 50%; background: var(--power-fill); box-shadow: var(--power-depth); }
+.play-opp .play-power-coin { width: 28px; height: 28px; background: var(--rival-fill); box-shadow: var(--rival-depth); }
+.play-power-coin img { width: 85%; height: 85%; object-fit: contain; }
+.play-power-notches { position: absolute; display: flex; gap: 3px; bottom: 2px; }
+.play-power-notch { width: 4px; height: 5px; border-radius: 1px; background: var(--power-ink); }
+.play-power-notch[data-used='true'] { opacity: .2; }
+.play-game .play-power[data-coin='always'] .play-power-coin { box-shadow: inset 0 0 0 1px #a87935; }
+.play-game .play-power[data-spent='true'] .play-power-coin { box-shadow: inset 0 1px #efffef; filter: grayscale(1); opacity: .55; }
+.play-game .play-power[data-spent='true'] { color: var(--text-muted); }
+.play-game .play-power[aria-pressed='true'] { animation: none; outline: none; filter: none; background: transparent; box-shadow: none; color: var(--text); }
+.play-game .play-power[aria-pressed='true'] .play-power-coin { outline: 3px solid var(--info); outline-offset: 1px; }
+.play-hand { display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0; height: 100%; padding-inline: 4px; }
+.play-game[data-hand='hand'] .play-own .play-card { transform: translateY(var(--fan-drop)) rotate(var(--fan-angle)); }
+.play-game .play-own .play-card { position: relative; display: grid; grid-template-rows: 34px minmax(0, 1fr); flex: 1 1 0; min-width: 44px; max-width: 98px; height: 100%; min-height: 44px; padding: 0; margin-inline: -2px; gap: 0; align-items: stretch; justify-items: stretch; color: var(--text); background: var(--surface-raised); box-shadow: var(--card-edge); border: 0; border-radius: 7px; font: 650 14px/16px var(--font-reading); letter-spacing: 0; hyphens: none; overflow-wrap: normal; text-align: center; transform: translateY(var(--fan-drop)) rotate(var(--fan-angle)); transform-origin: 50% 100%; }
+.play-game .play-own .play-card img { position: static; grid-row: 2; grid-column: 1; width: 100%; height: 100%; object-fit: cover; object-position: center 35%; z-index: auto; }
 .play-game .play-own .play-card::after { display: none; }
-.play-game .play-own .play-card [data-button-label] { grid-row: 2; grid-column: 1; align-self: center; text-shadow: none; color: var(--text); padding: 0 2px; }
-.play-game .play-own .play-card [data-button-label] > span { display: block; }
-.play-game .play-own .play-card .play-card-state { grid-row: 1; grid-column: 1; align-self: center; font: 650 14px/14px var(--font-reading); color: var(--text); }
+.play-game .play-own .play-card [data-button-label] { grid-row: 1; grid-column: 1; align-self: center; text-shadow: none; color: var(--text); padding: 0 2px; }
+.play-game .play-own .play-card [data-button-label] > span { display: inline; }
+.play-game .play-own .play-card .play-card-state { grid-row: 2; grid-column: 1; align-self: end; z-index: 1; font: 650 12px/18px var(--font-reading); color: var(--text); background: var(--surface-raised); }
 .play-game .play-own .play-card .play-card-state:empty { display: none; }
-/* Used: the art dims, the name stays, "Used" takes the art strip. At the compact size it takes the upper 14 px. */
-.play-game .play-own .play-card[data-spent='true'] img { opacity: .25; filter: grayscale(1); }
-.play-game[data-form='compact'] .play-own .play-card[data-spent='true'] { grid-template-rows: 14px minmax(0, 1fr); }
-.play-game[data-form='compact'] .play-own .play-card[data-spent='true'] [data-button-label] { line-height: 15px; }
+.play-game[data-hand='hand'] .play-own .play-card[data-spent='true'] { transform: none; box-shadow: inset 0 0 0 1px var(--divider); }
+.play-game .play-own .play-card[data-spent='true'] img { opacity: .3; filter: grayscale(1); }
 .play-game .play-own .play-card[data-spent='true'] [data-button-label] { color: var(--text-muted); }
-/* Not now: the art at 45 percent, a muted surface, the name intact, a small pause sign. */
-.play-game .play-own .play-card[data-not-now='true'] { background: var(--surface-muted); }
-.play-game .play-own .play-card[data-not-now='true'] img { opacity: .45; }
-.play-game .play-own :is(.play-card, .play-power)[data-not-now='true']::before { content: ''; position: absolute; top: 3px; right: 3px; width: 6px; height: 8px; border: solid var(--text); border-width: 0 2px; z-index: 1; }
-/* Armed: a 3 px blue outline (outside on a phone, so it covers no name) and a small solid corner. */
-.play-game .play-own .kd-button[aria-pressed='true'] { outline: 3px solid var(--info); outline-offset: 1px; }
-.play-game .play-own .play-card[aria-pressed='true'] { background: var(--surface-raised); color: var(--text); box-shadow: inset 0 0 0 1px #c1aa78; outline-offset: 1px; }
-.play-game .play-own .play-card[aria-pressed='true']::before { content: ''; position: absolute; top: 0; left: 0; border: 7px solid transparent; border-top-color: var(--info); border-left-color: var(--info); border-top-left-radius: 7px; z-index: 1; }
-/* Two rows: the power row above the four cards (c1 on a wide rail; a rail under 352 px also needs it for 14 px names). */
-.play-game[data-own-rows='2'] .play-own { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 4px; }
-.play-game[data-own-rows='2'] .play-own .play-power { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; gap: 8px; padding-inline: 12px; }
-.play-game[data-own-rows='2'] .play-own :is(.play-power, .play-card) { height: auto; min-height: 44px; }
-.play-game[data-form='wide'][data-own-rows='2'] .play-own { grid-template-rows: 48px 136px; gap: 8px; padding-block: 8px; }
-.play-game[data-form='wide'] .play-own .play-card { --art: 90px; font-size: 16px; line-height: 20px; }
-.play-game[data-form='wide'] .play-own .play-power { font-size: 16px; line-height: 20px; }
-.play-game[data-form='wide'] .play-own .play-power small { font-size: 15px; }
-.play-game[data-form='wide'] .play-own .play-card .play-card-state { font-size: 15px; }
-.play-game[data-form='wide'] .play-own .kd-button[aria-pressed='true'] { outline-offset: -3px; }
-.play-game[data-layout='wide'] .play-own { --card-lift: -4px; --card-scale: 1.02; }
-.play-game[data-form='compact'][data-layout='wide'] .play-own, .play-game[data-own-rows='1'][data-layout='wide'] .play-own { --card-lift: -1px; --card-scale: 1; }
-/* Ribbon: paper, the same size, no art; the same state words. */
-.play-game[data-hand='ribbon'] .play-own .play-card { background: var(--surface-raised); }
-.play-game[data-hand='ribbon'] .play-own .play-card img { display: block; visibility: hidden; }
+.play-game .play-own .play-card[data-not-now='true'] img { opacity: .6; }
+.play-game[data-hand='hand'] .play-own .play-card[aria-pressed='true'] { transform: translateY(-5px); }
+.play-game .play-own .play-card[aria-pressed='true'] { z-index: 3; transform: translateY(-5px); outline: 3px solid var(--info); outline-offset: 1px; background: var(--surface-raised); color: var(--text); box-shadow: var(--card-edge); }
+/* Ribbon keeps the same row and states, with flat paper controls and no art. */
+.play-game[data-hand='ribbon'] .play-own .play-card { transform: none; margin-inline: 2px; grid-template-rows: 1fr 18px; background: var(--surface-raised); box-shadow: var(--raise); border: 1px solid var(--divider); }
+.play-game[data-hand='ribbon'] .play-own .play-card img { display: none; }
+.play-game[data-hand='ribbon'] .play-own .play-power { border: 0; background: transparent; box-shadow: none; }
+@media (prefers-reduced-motion: reduce) { .play-game .play-own .play-card { transition: none; } }
+:root[data-motion='reduce'] .play-game[data-hand='hand'] .play-own .play-card[aria-pressed='true'] { transform: translateY(-5px); }
 
 /* Finish row (design section 2): Undo and End turn. End turn is brass after a move, quiet after a free action (d2). */
 .play-game .play-turn { padding: 4px 0; }
@@ -227,3 +215,66 @@
 .play-b .play-choice-summary .play-target { flex: 1; min-width: 0; }
 .play-game .play-b .play-choice-summary .play-summary-toggle { width: auto; flex: none; }
 .play-b .play-primary:has(.play-choice-summary) { gap: 0; }
+
+/* Owner playtest: history and Effects keep one full touch row outside the reader. */
+.play-history-strip { position: absolute; left: var(--col); right: var(--col); top: calc(var(--board-y) - var(--head) - 44px); height: 44px; display: flex; align-items: center; gap: 4px; z-index: 2; border-block: 1px solid var(--divider); }
+.play-history-strip .kd-button { min-height: 44px; height: 44px; padding: 0 8px; border: 0; background: transparent; box-shadow: none; font: 14px/18px var(--font-reading); }
+.play-history-toggle { flex: 1; min-width: 0; justify-content: space-between; }
+.play-history-toggle [data-button-label] { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: start; }
+.play-history-toggle svg { flex: none; width: 20px; }
+.play-effects-toggle { flex: none; color: var(--text-muted); }
+.play-game[data-layout='portrait'] .play-reader:not([data-floating='true']) { padding-bottom: 44px; }
+.play-game[data-layout='wide'] .play-history-strip { left: calc(var(--board-x) + var(--board) + var(--gap)); right: auto; width: var(--rail); top: calc(var(--rail-top) + var(--opp)); }
+.play-game[data-layout='wide'] .play-reader:not([data-floating='true']) { top: calc(var(--rail-top) + var(--opp) + 44px); height: calc(var(--reader) - 44px); }
+.play-game .play-b[data-form='tall'] { grid-template-rows: 24px 52px minmax(0, 1fr); }
+.play-game .play-b[data-form='wide'] { grid-template-rows: 28px 96px minmax(0, 1fr); }
+.play-game .play-b .play-summary { display: none; }
+.play-game .play-b .kd-x, .play-game .play-b .kd-x + .kd-button { min-width: 44px; padding: 0; }
+
+/* Panels take their control's anchor. Only modal dialogs use a scrim. */
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'], .play-scroll-panel { position: absolute; left: var(--panel-left); right: auto; top: var(--panel-top); width: var(--panel-width); height: auto; max-height: var(--panel-height); min-height: 0; padding: 12px; z-index: 8; overflow: hidden; pointer-events: auto; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] .play-state-line { display: none; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] .play-detail { overflow: auto; padding: 0; background: transparent; flex: 0 1 auto; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] .play-b { height: auto; display: flex; flex-direction: column; gap: 8px; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] :is(.play-primary, .play-secondary, .play-lines) { overflow: visible; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] .play-bhead { min-height: 44px; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] .play-turn-state { display: none; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] .play-sub { min-height: 60px; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] .play-secondary { flex: none; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] .learn-panel { height: auto; }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] .learn-body { min-height: 0; overflow: visible; }
+.play-panel-head { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.play-panel-head h3 { flex: 1; font: 700 22px/26px var(--font-title); }
+.play-scroll-panel { display: flex; flex-direction: column; }
+.play-scroll-panel[hidden] { display: none; }
+.play-panel-body { overflow-y: auto; overscroll-behavior: contain; min-height: 0; padding: 8px 2px; scrollbar-width: thin; }
+.play-panel-body section + section { border-top: 1px solid var(--divider); margin-top: 12px; padding-top: 12px; }
+.play-panel-body h4 { margin: 0 0 8px; font: 650 14px/20px var(--font-reading); color: var(--text-muted); }
+.play-panel-body p { margin: 0 0 8px; font: 16px/22px var(--font-reading); }
+.play-scroll-panel[data-kind='history']::before, .play-scroll-panel[data-kind='history']::after { content: ''; display: block; height: 4px; flex: none; border-block: 1px solid var(--divider); border-radius: 50%; background: var(--surface-raised); }
+.play-ink-wipe { animation: play-ink-wipe 200ms linear both; }
+@keyframes play-ink-wipe { to { clip-path: inset(0 100% 0 0); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .play-ink-wipe { animation: none; } }
+:root[data-motion='off'] .play-ink-wipe { animation: none; }
+.play-portrait-idle { object-fit: contain; }
+
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] :is(.menu-head, .learn-top, .play-head, .play-bhead) { position: sticky; top: 0; z-index: 2; background: var(--surface-raised); }
+
+/* A short phone shares the reader with history. An action uses the space above the board. */
+.play-game[data-shared-reader='true'][data-reader-active='false'] .play-reader:not([data-floating='true']) .play-b { grid-template-rows: 20px; }
+.play-game[data-shared-reader='true'][data-reader-active='false'] .play-reader:not([data-floating='true']) .play-b .play-sub { display: none; }
+.play-game[data-shared-reader='true'][data-reader-active='true']:has(.play-reader[data-floating='false']):not(:has(.online-status)) .play-opponent-group { visibility: hidden; }
+.play-game[data-shared-reader='true'] .play-opp > button { position: relative; z-index: 4; }
+.play-game[data-shared-reader='true'][data-reader-active='true'] .play-bhead { padding-inline-end: 52px; }
+.play-game[data-form='compact'] .play-b:has(.play-step) .play-secondary { display: none; }
+.play-game[data-shared-reader='true'][data-reader-active='true'] .play-reader:not([data-floating='true']) { padding-top: 0; padding-bottom: 0; }
+.play-game[data-shared-reader='true'][data-reader-active='true']:not([data-state='arrange-wait']) .play-history-strip { display: none; }
+.play-game[data-shared-reader='true'][data-state='arrange-wait'] .play-reader:not([data-floating='true']) { padding-bottom: 44px; }
+.play-game[data-shared-reader='true'][data-state='choice'] .play-choices { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+/* Online actions keep the opponent's two subject controls in the shared header. */
+.play-game[data-shared-reader='true']:has(.online-status) .play-opponent-group { visibility: visible; position: absolute; top: 0; right: 52px; z-index: 4; height: 48px; }
+.play-game[data-shared-reader='true']:has(.online-status) .play-opponent-group > :is(.profile-portrait, strong) { display: none; }
+.play-game[data-shared-reader='true']:has(.online-status) .play-opp .play-power { flex-basis: 44px; width: 44px; height: 44px; }
+.play-game[data-shared-reader='true']:has(.online-status) .play-opp .play-power :is([data-button-label], small) { display: none; }
+.play-game[data-shared-reader='true'] .online-status p { padding-inline-end: 148px; }

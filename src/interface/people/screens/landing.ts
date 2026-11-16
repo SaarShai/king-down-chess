@@ -12,7 +12,7 @@ import { copyText } from '../../../clipboard';
 import { button, setButtonState } from '../../ui/kit.js';
 import { landingText, personText } from './copy';
 import { limitCount, serviceLine } from './problems';
-import { faultOf, inviteKey, type Fault, type InviteKey } from '../server';
+import { ObsoleteAction, faultOf, inviteKey, type Fault, type InviteKey } from '../server';
 import { node, peopleSheet, picture, say, statusLine } from './sheet';
 import { shareWay } from './person';
 import { nameSheet, plain, signInSheet, type SignInHost } from './sign-in';
@@ -22,7 +22,7 @@ export type LandingKind = 'valid' | 'plain' | 'own' | 'ended' | 'limit' | 'bad';
 export interface Landing { kind: LandingKind; inviter: string | null; icon: Icon | null; avatar?: string | null; facts: string[]; count?: number }
 
 /** The rule words of the game choice. */
-export const rulesWords = (options: Options | null) => !options?.kingPowers ? 'Pieces only' : options.cards ? 'With powers and cards' : 'With powers';
+export const rulesWords = (options: Options | null) => options?.kingPowers ? options.cards ? 'With powers and cards' : 'With powers' : options?.cards ? 'With cards' : 'Pieces';
 const factsOf = (preview: JoinPreview) => [rulesWords(preview.options), landingText.time, landingText.side(preview.colour === 'white')];
 
 /**
@@ -95,6 +95,7 @@ export function landingPage(host: LandingHost, fragment: string) {
     joining = true; setButtonState(control, { busy: true }); say(status);
     try { await host.join(key); }
     catch (error) {
+      if (error instanceof ObsoleteAction) return;
       const fault = faultOf(error, host.online?.() ?? navigator.onLine), line = serviceLine(fault);
       if (fault.code === 'HANDLE_NEEDED') name(control);
       else if (fault.kind === 'auth') signIn(control);
@@ -113,7 +114,7 @@ export function landingPage(host: LandingHost, fragment: string) {
   const inviteBack = async (control: HTMLButtonElement, handle: string) => {
     setButtonState(control, { busy: true }); say(status);
     try { await host.inviteBack(handle, known?.options ?? null); host.toast(landingText.inviteSent(handle)); host.toPlay(); }
-    catch (error) { setButtonState(control, {}); const fault = faultOf(error, host.online?.() ?? navigator.onLine); say(status, serviceLine(fault) ?? (fault.code === 'RATE_LIMITED' ? personText.tooMany : fault.code === 'FRIEND_GAME_LIMIT' ? personText.gameLimit(limitCount(fault), handle) : fault.code === 'FRIEND_INVITE_LIMIT' ? personText.inviteLimit(handle) : personText.closed(handle))); }
+    catch (error) { if (error instanceof ObsoleteAction) return; setButtonState(control, {}); const fault = faultOf(error, host.online?.() ?? navigator.onLine); say(status, serviceLine(fault) ?? (fault.code === 'RATE_LIMITED' ? personText.tooMany : fault.code === 'FRIEND_GAME_LIMIT' ? personText.gameLimit(limitCount(fault), handle) : fault.code === 'FRIEND_INVITE_LIMIT' ? personText.inviteLimit(handle) : personText.closed(handle))); }
   };
 
   function render(state: Landing, retry = false) {

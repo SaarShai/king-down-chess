@@ -1,7 +1,7 @@
 // Stage "readingb" (launch decisions 33 and 34): the layout classes of the game screen.
 // Inputs: the viewport after the safe areas and the game type. The game state is not an input, so a select,
 // a staged step or a reply never moves the board. All values are CSS px.
-export type Setup = 'pieces' | 'powers' | 'cards';
+export type Setup = 'pieces' | 'powers' | 'cards' | 'both';
 export type Form = 'tall' | 'compact' | 'wide';
 export interface GameLayout {
   /** Stack: one column (opponent strip, reader, board, resources, finish row). Rail: the board at the left, the rest at the right. */
@@ -15,8 +15,8 @@ export interface GameLayout {
   opp: number; reader: number; own: number; fin: number;
   /** Rail: the top and the height of the rail. */
   railTop: number; railH: number;
-  /** 0: pieces only. 1: the power and the cards in one row (option c2). 2: the power above the cards (option c1). */
-  ownRows: 0 | 1 | 2;
+  /** 0: pieces only. 1: the coin and hand in one row. */
+  ownRows: 0 | 1;
   /** The column or rail is under 352 px: the opponent controls use less width. */
   narrow: boolean;
   boardX: number; boardY: number;
@@ -30,19 +30,19 @@ function fit(room: number, limit: number) {
   return Math.max(8, board);
 }
 /** Each form's row heights from the design: opponent strip, the reader's least height, one resource row, finish row. */
-const ROWS = { tall: { opp: 56, reader: 283, own: 56, fin: 60 }, compact: { opp: 44, reader: 134, own: 46, fin: 52 }, wide: { opp: 56, reader: 0, own: 0, fin: 64 } };
-/** One resource row needs 352 px for 14 px card names (80 px power, four 64 px cards, four 4 px gaps). */
+const ROWS = { tall: { opp: 72, reader: 200, own: 112, fin: 60 }, compact: { opp: 64, reader: 64, own: 96, fin: 52 }, wide: { opp: 72, reader: 0, own: 144, fin: 64 } };
+/** The full phone column leaves space for the coin and four card names at 14 px. */
 export const ONE_ROW = 352;
 
 export function gameLayout(W: number, H: number, setup: Setup): GameLayout {
   W = Math.max(0, W); H = Math.max(0, H);
   if (W < H * 1.2) {
     const form: Form = H >= 760 ? 'tall' : 'compact', rows = ROWS[form];
-    // A column under 352 px (the soft case) cannot hold one resource row: the power goes above the cards and the board gives way.
-    const narrow = W - 8 < ONE_ROW, cardRows = narrow ? 2 : 1;
+    // The hand has its own height, even on a short phone. The reader gives space before the board.
+    const narrow = W - 8 < ONE_ROW;
     // The board keeps its size in every game type; Pieces only gives the resource rows to the reader and puts the board lower.
-    const board = fit(H - rows.opp - rows.reader - cardRows * rows.own - rows.fin, W - 8), head = clearance(board);
-    const ownRows = setup === 'pieces' ? 0 : setup === 'powers' ? 1 : cardRows, own = ownRows * rows.own, col = Math.max(board, Math.min(W - 8, ONE_ROW));
+    const board = fit(H - rows.opp - rows.reader - rows.own - rows.fin, W - 8), head = clearance(board);
+    const ownRows = setup === 'pieces' ? 0 : 1, own = ownRows * rows.own, col = Math.max(board, Math.min(W - 8, ONE_ROW));
     return { kind: 'stack', form, W, H, board, head, gap: 0, col, opp: rows.opp, own, fin: rows.fin, reader: H - rows.opp - own - rows.fin - head - board,
       railTop: 0, railH: 0, ownRows, narrow, boardX: (W - board) / 2, boardY: H - rows.fin - own - board };
   }
@@ -53,9 +53,8 @@ export function gameLayout(W: number, H: number, setup: Setup): GameLayout {
   const board = fit(H - 2 * margin, Math.min(960, Math.max(W - 320 - gap - edge, Math.min(8 * 44, W - 280 - gap - edge))));
   const head = clearance(board), rail = Math.min(440, W - board - gap - edge);
   const form: Form = side ? 'compact' : rail >= 400 && H >= 700 ? 'wide' : 'tall', narrow = rail < ONE_ROW;
-  const ownRows = setup === 'pieces' ? 0 : setup === 'powers' ? 1 : form === 'wide' || narrow ? 2 : 1;
-  // Wide: 8 + power 48 + 8 + cards 136 + 8. The other forms: one or two rows of the phone height.
-  const own = form === 'wide' ? [0, 64, 208][ownRows] : ownRows * ROWS[form].own, { opp, fin } = ROWS[form];
+  const ownRows = setup === 'pieces' ? 0 : 1;
+  const own = ownRows * ROWS[form].own, { opp, fin } = ROWS[form];
   // The rail has the height of the board and its clearance; it grows to the whole height when the reader needs more.
   const railH = Math.max(head + board, Math.min(H - 2 * margin, opp + own + fin + ROWS[form === 'compact' ? 'compact' : 'tall'].reader));
   const left = (W - (board + gap + rail)) / 2;

@@ -4,16 +4,18 @@
  * "Invite by name". A signed-out player signs in first (S1), and a player with no name takes the ready name (S3).
  */
 import { profilePortrait } from '../host/portrait';
+import type { GameOptions } from '../../play/new-game';
 import type { Icon } from '../../../account/profile';
 import { copyText } from '../../../clipboard';
-import { button, choiceGroup, setButtonState } from '../../ui/kit.js';
+import { button, setButtonState } from '../../ui/kit.js';
 import { againLine, personText } from './copy';
+import { ObsoleteAction } from '../server';
 import { inviteProblem } from './problems';
 import { node, peopleSheet, picture, say, statusLine, type PeopleSheet } from './sheet';
 import { nameSheet, plain, signInSheet, type SignInHost } from './sign-in';
 
 /** The game choice of Play (`src/interface/play/main.ts`). */
-export type Rules = 'pieces' | 'powers' | 'cards';
+export type Rules = 'pieces' | 'powers' | 'cards' | 'both';
 export interface Player { handle: string; icon: Icon | null; avatar?: string | null }
 /** A past opponent. `result` and `at` (ISO time of the last game) are null when the server does not give them. */
 export interface Recent extends Player { result: 'won' | 'lost' | 'drawn' | null; at: string | null }
@@ -32,8 +34,8 @@ export interface PersonHost extends SignInHost {
   /** Players whose game name starts with the text (2 letters or more). */
   find(text: string): Promise<Player[]>;
   /** Make a friend game with an open link; the answer is the link. */
-  createLink(rules: Rules): Promise<string>;
-  invite(handle: string, rules: Rules): Promise<void>;
+  createLink(rules: Rules, options?: GameOptions): Promise<string>;
+  invite(handle: string, rules: Rules, options?: GameOptions): Promise<void>;
   /** A toast on Play; the sheet closes after it. */
   toast(text: string): void;
   share?: (data: ShareData) => Promise<void>;
@@ -42,7 +44,6 @@ export interface PersonHost extends SignInHost {
   coarse?: boolean;
 }
 export const PLAY_AGAIN_ROWS = 3, SEARCH_LETTERS = 2, SEARCH_WAIT_MS = 250;
-const RULE_LABELS: Record<Rules, string> = { pieces: 'Pieces only', powers: 'With powers', cards: 'With powers and cards' };
 
 /** How "Send a link" gives the link: the share list on a touch device that has one, else a copy. */
 export function shareWay(host: Pick<PersonHost, 'share' | 'coarse'>): 'share' | 'copy' {
@@ -74,7 +75,7 @@ function inviter(sheet: PeopleSheet, host: PersonHost, status: HTMLElement, rule
     if (busy) return;
     busy = true; setButtonState(control, { busy: true }); say(status);
     try { await host.invite(handle, rules()); host.toast(host.named === false ? personText.linkCopied : personText.inviteSent(handle)); sheet.close(); }
-    catch (error) { say(status, inviteProblem(error, handle, host.online?.() ?? navigator.onLine)); }
+    catch (error) { if (error instanceof ObsoleteAction) return; say(status, inviteProblem(error, handle, host.online?.() ?? navigator.onLine)); }
     finally { busy = false; setButtonState(control, {}); }
   };
 }
@@ -82,38 +83,18 @@ function inviter(sheet: PeopleSheet, host: PersonHost, status: HTMLElement, rule
 /** P2, the main view. */
 export function personSheet(sheet: PeopleSheet, host: PersonHost, start: Rules = host.rules) {
   const status = statusLine(), now = host.now ?? Date.now;
-  let link: string | undefined, busy = false, chosen = start;
-  const rules = choiceGroup(personText.game, (Object.keys(RULE_LABELS) as Rules[]).map(value => ({ value, label: RULE_LABELS[value] })), chosen);
-  rules.addEventListener('kd-change', event => {
-    const next = (event as CustomEvent<{ value: Rules }>).detail.value;
-    // A new choice is a new game: a link made for the old choice does not go.
-    if (next !== chosen) { link = undefined; linkField.hidden = true; linkInput.value = ''; say(status); }
-    chosen = next; host.setRules(next);
-  });
+  const chosen = start; let sending = false;
   const again = node('section', 'people-again'); again.hidden = true;
   const main: HTMLButtonElement = button(personText.link, { kind: 'main', onPress: () => void send() });
-  const linkField = node('label', 'people-field'), linkInput = node('input'); linkInput.readOnly = true; linkField.hidden = true;
-  linkField.append(node('span', '', personText.linkField), linkInput);
   const search = () => nameSearch(sheet, host, chosen, () => personSheet(sheet, host, chosen));
   let byName: HTMLButtonElement = button(personText.byName, { onPress: search });
 
   const invite = inviter(sheet, host, status, () => chosen);
   async function send() {
-    if (busy) return;
-    busy = true; setButtonState(main, { busy: true, label: personText.making }); say(status);
-    try {
-      // A second tap after a closed share list gives the same link: it does not make a second game.
-      link ??= await host.createLink(chosen);
-      const you = host.me()?.handle ?? '';
-      if (shareWay(host) === 'share') {
-        try { await host.share!({ text: personText.share(you), url: link }); host.toast(personText.linkSent); sheet.close(); return; }
-        catch (error) { if ((error as Error)?.name === 'AbortError') return; }
-      }
-      if (await (host.copy ?? copyText)(link)) { host.toast(personText.linkCopied); sheet.close(); return; }
-      linkInput.value = link; linkField.hidden = false; say(status, personText.copyLink);
-      linkInput.focus({ preventScroll: true }); linkInput.select(); linkInput.scrollIntoView({ block: 'center' });
-    } catch (error) { say(status, inviteProblem(error, null, host.online?.() ?? navigator.onLine)); }
-    finally { busy = false; if (sheet.isOpen) setButtonState(main, { label: personText.link }); }
+    if (sending) return;
+    sending = true;
+    try { await sendPersonLink(sheet, host, chosen, () => personSheet(sheet, host, chosen)); }
+    finally { sending = false; }
   }
 
   // The main action and its status line stay in view on a short screen (people.css, `.people-main`).
@@ -128,8 +109,33 @@ export function personSheet(sheet: PeopleSheet, host: PersonHost, start: Rules =
       again.hidden = false;
       byName = plain(personText.byNameMore, search);
     }
-    sheet.show({ title: personText.title, body: [rules, node('p', 'people-muted', personText.time), again, action, linkField, ...(host.named === false ? [] : [byName])] });
+    sheet.show({ title: personText.title, body: [node('p', 'people-muted', personText.time), again, action, ...(host.named === false ? [] : [byName])] });
   }).finally(() => clearTimeout(timer));
+}
+
+/** The shared panel sends one link. A retry reuses it after a closed share list or a failed copy. */
+export async function sendPersonLink(sheet: PeopleSheet, host: PersonHost, rules: Rules, back: () => void) {
+  const status = statusLine(), linkField = node('label', 'people-field'), linkInput = node('input');
+  linkInput.readOnly = true; linkField.hidden = true; linkField.append(node('span', '', personText.linkField), linkInput);
+  let link: string | undefined, busy = false;
+  const main = button(personText.link, { kind: 'main', onPress: () => void send() });
+  sheet.show({ title: personText.link, body: [status, main, linkField], back });
+  async function send() {
+    if (busy || !sheet.isOpen) return;
+    busy = true; setButtonState(main, { busy: true, label: personText.making }); say(status);
+    try {
+      link ??= await host.createLink(rules);
+      if (!sheet.isOpen) return;
+      if (shareWay(host) === 'share') {
+        try { await host.share!({ text: personText.share(host.me()?.handle ?? ''), url: link }); host.toast(personText.linkSent); sheet.close(); return; }
+        catch (error) { if ((error as Error)?.name === 'AbortError') return; }
+      }
+      if (await (host.copy ?? copyText)(link)) { host.toast(personText.linkCopied); sheet.close(); return; }
+      linkInput.value = link; linkField.hidden = false; say(status, personText.copyLink); linkInput.focus(); linkInput.select(); linkInput.scrollIntoView({ block: 'center' });
+    } catch (error) { if (error instanceof ObsoleteAction) return; if (sheet.isOpen) say(status, inviteProblem(error, null, host.online?.() ?? navigator.onLine)); }
+    finally { busy = false; setButtonState(main, { label: personText.link }); }
+  }
+  await send();
 }
 
 /** P2, "Invite by name": the field, "Players you know", and the search from 2 letters. */

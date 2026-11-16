@@ -1,6 +1,6 @@
 // The new page's save wiring (src/interface/play/main.ts, interface-playable issue 01): the write after a step,
 // Undo, End turn and the computer's reply; the stored game type; Continue of an old-page save with Strong, which
-// plays and writes as Club; the stored Motion speed, Coordinates and Sound stay; the kept line and copy of a save
+// plays and writes as Fierce; the stored Motion speed, Coordinates and Sound stay; the kept line and copy of a save
 // that this page cannot open. Unit tests cannot reach main.ts.
 import assert from 'node:assert/strict';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
@@ -45,10 +45,10 @@ try {
   {
     // A fresh device: With powers (in the New game panel, launch decision 26), a step, Undo, a step, End turn and the reply.
     const { page, context } = await open();
-    await page.click('.home-summary .kd-button'); await page.waitForSelector('dialog.new-game-panel[open]');
-    await page.getByRole('radio', { name: /^With powers(?! and)/ }).click();
+    await page.click('.home-hero button'); await page.waitForSelector('dialog.new-game-panel[open]');
+    await page.getByRole('checkbox', { name: 'With powers', exact: true }).click();
     await page.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
-    assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.setup')), 'powers', 'the last game type is stored');
+    assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.game-type')), 'powers', 'the last game type is stored');
     assert.deepEqual((await writes(page)).map(w => [w.moves, w.staged]), [[0, 0]], 'the new game writes a save with no move');
     await pawnStep(page);
     assert.deepEqual((await writes(page)).at(-1), { moves: 1, staged: 1, skill: 'beginner', pace: 'off', coords: true, sound: false }, 'a step writes the staged turn; reduced motion gives Off');
@@ -60,10 +60,10 @@ try {
     await context.close();
   }
   {
-    // An old-page save at Strong with the computer to move: Continue, no Versus, the reply writes Club and keeps the stored settings.
+    // An old-page save at Strong with the computer to move: Continue, no Versus, the reply writes Fierce and keeps the stored settings.
     const { page, context } = await open({ back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'ai', coords: false, link: null, daily: null, resigned: null, skill: 'strong', sound: true, pace: 'fast' });
     assert.equal(await page.locator(CONTINUE).count(), 1, 'the saved game has one Continue row');
-    assert.deepEqual(await page.locator(CONTINUE + ' .home-game-copy').evaluate(copy => [...copy.children].map(node => node.textContent)), ['Club computer', 'Computer to move']);
+    assert.deepEqual(await page.locator(CONTINUE + ' .home-game-copy').evaluate(copy => [...copy.children].map(node => node.textContent)), ['Fierce computer', 'Computer to move']);
     // The home page no longer has the old game-type and turn-number labels.
     const mini = page.locator(CONTINUE + ' .mini-board');
     assert.equal(await mini.locator('.mini-cell').count(), 64);
@@ -74,7 +74,7 @@ try {
     await shot(page, 'saved-home');
     await page.click(CONTINUE); await ready(page);
     assert.equal(await page.locator('.play-versus').count(), 0, 'Continue shows no Versus');
-    assert.deepEqual((await writes(page)).at(-1), { moves: 2, staged: 0, skill: 'club', pace: 'fast', coords: false, sound: true }, 'the reply writes Club and the stored settings');
+    assert.deepEqual((await writes(page)).at(-1), { moves: 2, staged: 0, skill: 'club', pace: 'fast', coords: false, sound: true }, 'the reply writes Fierce and the stored settings');
     const resumed = await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')));
     assert.deepEqual(resumed.moves.slice(0, 1), ['e2-e4'], 'the saved first turn stays');
     assert.deepEqual(resumed.rules.kings, [null, null], 'Continue keeps Pieces only');
@@ -99,17 +99,17 @@ try {
     for (const [save, kept] of cases) {
       const { page, context } = await open(save, kept);
       assert.equal(await page.locator(CONTINUE).count(), 0, 'no Continue row');
-      assert.equal(await page.locator(MAIN).innerText(), 'Play', 'no Continue');
+      assert.equal(await page.locator(MAIN).innerText(), 'New game', 'no Continue');
       assert.ok((await page.locator('.play-home .home-note').allInnerTexts()).includes('A game from the earlier version cannot open here yet. It is kept.'), 'the kept line shows');
       const stored = await page.evaluate(() => [localStorage.getItem('kingdown.save'), localStorage.getItem('kingdown.save.kept')]);
       assert.equal(stored[1], stored[0], 'the copy holds the newest bytes');
-      await page.click(MAIN); await ready(page);
+      await page.click(MAIN); await page.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
       assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.save.kept')), stored[0], 'a new game keeps the rejected bytes');
       await context.close();
     }
   }
   assertNoErrors();
-  console.log('ok next-save: writes after a step, Undo, End turn and the reply; the game type; Continue of a Strong save as Club with its settings; the kept line for an older engine and a game of two people played on');
+  console.log('ok next-save: writes after a step, Undo, End turn and the reply; the game type; Continue of a Strong save as Fierce with its settings; the kept line for an older engine and a game of two people played on');
 } finally {
   await browser.close();
 }

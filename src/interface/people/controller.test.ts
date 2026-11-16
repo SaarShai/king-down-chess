@@ -325,7 +325,7 @@ it('the poll reads at the old cadence while the page shows, and not while it is 
 it('has no DOM: the people modules name no page part, and only start() reads the page and the window', async () => {
   const { readdirSync, readFileSync } = await import('node:fs');
   const files = readdirSync(import.meta.dirname).filter(name => name.endsWith('.ts') && !name.includes('.test.') && name !== 'fake-server.ts');
-  expect(files.sort()).toEqual(['controller.ts', 'receipt.ts', 'replica.ts', 'server.ts', 'words.ts']);
+  expect(files.sort()).toEqual(['controller.ts', 'receipt.ts', 'replica.ts', 'seat-king.ts', 'server.ts', 'words.ts']);
   for (const name of files) {
     const text = readFileSync(`${import.meta.dirname}/${name}`, 'utf8');
     expect(text, name).not.toMatch(/\bdocument\.|\bwindow\b|querySelector|HTMLElement|innerHTML|localStorage/);
@@ -412,4 +412,60 @@ it.each(['join', 'ready'])('reads the first reply within three seconds after %s 
     await vi.advanceTimersByTimeAsync(3000); expect(game.mock.calls.length).toBe(first + 1);
     await vi.advanceTimersByTimeAsync(3000); expect(game.mock.calls.length).toBe(first + 2);
   } finally { stop(); }
+});
+
+it.each([
+  [{ king: 'Mud', power: 'Leap' }, true, { king: 'Mud', power: 'March' }],
+  [{ king: 'Mud', power: 'March' }, false, { king: 'Mud', power: 'March' }],
+  [{ king: 'Frost', power: 'Freeze' }, true, { king: 'Spirit', power: 'Mercy' }],
+  [null, false, { king: 'Spirit', power: 'Mercy' }],
+] as const)('confirms the stored king when admitted, else the seat default (%j, cards %s)', async (king, cards, expected) => {
+  const games = fixtureService(); services.push(games);
+  for (const name of ['alice', 'bob']) await games.handle(name, { handle: name });
+  const server = fakeServer(games), options = { ...DEFAULT_OPTIONS, arrangement: true, kingPowers: true, cards };
+  const made = await games.create('alice', { kind: 'friend', colour: 'white', options });
+  const invite = await games.invite('alice', made.game_id), storage = memoryStorage();
+  storage.setItem('kingdown.game-options', JSON.stringify({ king }));
+  const bob = player(server, 'bob', { storage }).controller;
+  await bob.join({ token: invite.token }); expect(bob.state().phase).toBe('setup');
+  storage.setItem('kingdown.game-options', JSON.stringify({ king: { king: 'Shadow', power: 'Darkness' } }));
+  expect(await bob.ready()).toBe(true);
+  const action = commands(server, 'bob').at(-1)?.body as { action: { choice: unknown } };
+  expect(action.action.choice).toMatchObject({ king: expected });
+  storage.setItem('kingdown.game-options', JSON.stringify({ king: { king: 'Spirit', power: 'Mercy' } }));
+  await bob.refresh();
+  expect(bob.state().game!.rules.kings[1]).toEqual(expected);
+});
+
+it('sends each own arrangement, allows Black to confirm first and rejects a fault', async () => {
+  const games = fixtureService(); services.push(games);
+  for (const name of ['alice', 'bob']) await games.handle(name, { handle: name });
+  const server = fakeServer(games), made = await games.create('alice', { kind: 'friend', colour: 'white', options: { ...DEFAULT_OPTIONS, kingPowers: true } });
+  const invite = await games.invite('alice', made.game_id), storage = memoryStorage();
+  storage.setItem('kingdown.game-options', JSON.stringify({ king: { king: 'Mud', power: 'March' } }));
+  const alice = player(server, 'alice', { storage }).controller, bob = player(server, 'bob').controller;
+  await bob.join({ token: invite.token }); await alice.open(made.game_id);
+  expect(alice.state().game).toBeTruthy(); expect(bob.state().game).toBeTruthy();
+  expect(await bob.ready('KKKKKKKK')).toBe(false);
+  const army = bob.state().view!.draw!, order = [...army].reverse().join('');
+  expect(await bob.ready(order)).toBe(true); expect(bob.state().view!.ready?.[1]).toBe(true);
+  await alice.refresh(); expect(await alice.ready(army)).toBe(true); await bob.refresh();
+  expect(alice.state().phase).toBe('your-move'); expect(bob.state().phase).toBe('their-move');
+  expect(alice.state().game!.rules.kings[0]).toEqual({ king: 'Mud', power: 'March' });
+  const fen = toFen(alice.state().game!.pos).split(' ')[0].split('/');
+  expect(fen[0]).toBe(order.toLowerCase()); expect(fen[7]).toBe(army);
+});
+
+
+it('confirms both orders when both seats select Ready at the same revision', async () => {
+  const games = fixtureService(); services.push(games);
+  for (const name of ['alice', 'bob']) await games.handle(name, { handle: name });
+  const server = fakeServer(games), made = await games.create('alice', { kind: 'friend', colour: 'white', options: DEFAULT_OPTIONS });
+  const invite = await games.invite('alice', made.game_id);
+  const alice = player(server, 'alice').controller, bob = player(server, 'bob').controller;
+  await bob.join({ token: invite.token }); await alice.open(made.game_id);
+  const army = alice.state().view!.draw!;
+  expect(await Promise.all([alice.ready(army), bob.ready([...army].reverse().join(''))])).toEqual([true, true]);
+  await alice.refresh(); await bob.refresh();
+  expect(alice.state().phase).toBe('your-move'); expect(bob.state().phase).toBe('their-move');
 });

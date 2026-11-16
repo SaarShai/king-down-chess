@@ -465,6 +465,7 @@ export function createCharacterRuntime({url=indexUrl(),wake=()=>{},fetcher=fetch
    if(!path)return null;
    return t=>sample(bank,0,false,false,false,bank.frames[Math.round(path[0]+(path[1]-path[0])*Math.min(1,Math.max(0,t)))]);
   },
+  idleDuration(character,army){const all=forPiece(character,army),rest=idle(character,army);if(!rest)return 0;return all.filter(b=>b.kind==='idle').reduce((n,bank)=>{const route=turnRoute(all.filter(b=>b.kind==='turn'),rest.facing,bank.facing);return n+(route===null?0:bank.durationMs+2*route.reduce((ms,p)=>ms+p.bank.durationMs,0));},0);},
   rest(character,army,time=0,active=false){const bank=idle(character,army);if(!bank)return null;if(active){const all=forPiece(character,army),choice=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time);if(choice){const next=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time+160);if(next&&next.bank!==choice.bank)for(const frame of next.bank.frames.slice(0,6))void loadFrame(frame);return sample(choice.bank,choice.time,true,choice.reverse,true)??sample(bank,0,false);}}return sample(bank,0,false);},
   async prepare(character,army,direction,capture,oneSquare=false,signal,bites=null){
    const deadline=performance.now()+LOAD_TIMEOUT,remaining=()=>Math.max(0,deadline-performance.now());

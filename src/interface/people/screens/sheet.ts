@@ -5,7 +5,7 @@
  * then the task).
  */
 import { ICONS, type Icon } from '../../../account/profile';
-import { button, setButtonState } from '../../ui/kit.js';
+import { button, closeX, asCloseX, setButtonState } from '../../ui/kit.js';
 import './people.css';
 
 export const node = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = ''): HTMLElementTagNameMap[K] => {
@@ -33,7 +33,7 @@ export function peopleSheet(source: HTMLElement | null = document.activeElement 
   const head = node('div', 'people-sheet-head'), title = node('h2'), body = node('div', 'people-sheet-body');
   title.id = `people-sheet-${++ids}`; title.tabIndex = -1; dialog.setAttribute('aria-labelledby', title.id);
   let backTo: (() => void) | undefined, closed = false;
-  const back = button('Back', { onPress: () => backTo?.() }), close = button('Close', { onPress: () => shut() });
+  const back = button('Back', { onPress: () => backTo?.() }), close = closeX('Close panel', () => shut());
   back.classList.add('people-sheet-back'); close.classList.add('people-sheet-close');
   head.append(back, title, close); panel.append(head, body); dialog.append(panel);
   // The scrim is the dialog's own box outside the panel.
@@ -56,7 +56,8 @@ export function peopleSheet(source: HTMLElement | null = document.activeElement 
       if (!dialog.isConnected) document.body.append(dialog);
       if (!dialog.open) dialog.showModal();
       if (opener) setButtonState(opener, {});
-      title.textContent = view.title; body.replaceChildren(...view.body); backTo = view.back; back.hidden = !view.back;
+      title.textContent = view.title; close.setAttribute('aria-label', `Close ${view.title.toLowerCase()}`); body.replaceChildren(...view.body);
+      for (const control of body.querySelectorAll<HTMLButtonElement>('.kd-button')) if (control.querySelector('[data-button-label]')?.textContent === 'Cancel') asCloseX(control, `Cancel ${view.title.toLowerCase().replace(/\?$/, '')}`); backTo = view.back; back.hidden = !view.back;
       body.scrollTop = 0; title.focus();
     },
     get isOpen() { return dialog.open; },

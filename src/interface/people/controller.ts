@@ -4,15 +4,17 @@
  * on a `Game`); the server view stays the truth. Commands use the old page's durable receipt with the M12 fix, and
  * the engine identity (M3) decides whether the page engine may judge a turn alone.
  */
-import type { Game } from '../../game';
+import { AccountDataClosed } from '../../account/data';
+import { Game } from '../../game';
 import { needsServerPreview, PAGE_ENGINE } from '../../account-game/engine-identity';
 import type { Action, ErrorCode, JoinPreview, Opponent, View } from '../../match/protocol';
 import { pollSince, runPoll, type PollView } from '../../plugin/poll';
 import { boardActions } from '../../plugin/screens/board-model';
 import type { Move, Position } from '../../rules/engine';
 import { DraftTurn } from '../play/turn';
-import { defaultChoice } from '../../match/setup';
-import { faultOf, settled, type Fault, type InviteKey, type PeopleServer } from './server';
+import { defaultChoice, validateChoice } from '../../match/setup';
+import { bindSeatKing, readSeatKing, seatKing } from './seat-king';
+import { ObsoleteAction, faultOf, settled, type Fault, type InviteKey, type PeopleServer } from './server';
 import { actionOf, ReceiptBusy, receiptOf, receiptStore, type LockManager, type Receipt } from './receipt';
 import { lastTurnOf, playCommands, positionOf, replicaOf, restage, turnActions, type ReceivedTurn } from './replica';
 
@@ -69,6 +71,8 @@ export interface ControllerOptions {
   userId: string;
   storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
   locks?: LockManager;
+  /** The host session that opens this controller must still own the action. */
+  current?: () => Promise<unknown>;
   /** The page engine (`__KINGDOWN_PAGE_ENGINE__`); tests set it. */
   pageEngine?: string;
   now?: () => number;
@@ -78,14 +82,24 @@ export interface ControllerOptions {
 type Pending = { receipt: Receipt | undefined; tries: number };
 
 export function peopleController(options: ControllerOptions) {
+  const cancellation = new AbortController(), signal = cancellation.signal;
+  const obsolete = (error: unknown) => signal.aborted || error instanceof ObsoleteAction;
   const { server, now = Date.now, online = () => globalThis.navigator?.onLine !== false, uuid = () => crypto.randomUUID() } = options;
   const pageEngine = 'pageEngine' in options ? options.pageEngine : PAGE_ENGINE;
   const receipts = receiptStore(options.userId, options.storage, options.locks);
+  const writer = receipts.data;
   const listeners = new Set<(state: PeopleState) => void>();
   let view: View | undefined, game: Game | undefined, draft: DraftTurn | undefined, received: ReceivedTurn | undefined;
   let fatal: 'gone' | 'account' | 'failed' | undefined, engine: 'local' | 'server' = 'server', connection: Connection = 'online';
   let notice: Notice | undefined, pending: Pending | undefined, sending = false, busy = false, sent = false, declined = false;
   let readAt = 0, skew = 0, readFails = 0, seenAt = -Infinity, target: string | undefined, epoch = 0;
+  const currentAction = (mark = epoch) => async () => {
+    signal.throwIfAborted();
+    try { await options.current?.(); }
+    catch (error) { if (error instanceof ObsoleteAction) cancellation.abort(error); throw error; }
+    signal.throwIfAborted();
+    if (mark !== epoch) throw new ObsoleteAction();
+  };
   const offers = new Set<number>();
   let poll: ReturnType<typeof runPoll> | undefined;
 
@@ -127,7 +141,8 @@ export function peopleController(options: ControllerOptions) {
       check: pending && { game: pending.receipt?.args.game_id ?? null, tries: pending.tries, canDiscard: !pending.receipt || pending.tries >= CHECKS_BEFORE_DISCARD },
     };
   }
-  function emit() { poll?.update(); const now = state(); for (const listener of listeners) listener(now); }
+  function stop() { cancellation.abort(new ObsoleteAction()); epoch++; poll?.stop(); }
+  function emit() { if (signal.aborted) return; poll?.update(); const now = state(); for (const listener of listeners) listener(now); }
 
   /** The first draft of your move; `keep` stages earlier moves again when they are still legal. */
   function freshDraft(keep?: readonly string[]): DraftTurn | undefined {
@@ -153,7 +168,7 @@ export function peopleController(options: ControllerOptions) {
       const done = pending.receipt; pending = undefined; void receipts.drop(done);
       if (wentIn(done, next)) sent = true;
     }
-    if (next.kind !== 'solo' && now() - seenAt >= SEEN_MS) { seenAt = now(); void server.seen(next.game_id).catch(() => {}); }
+    if (next.kind !== 'solo' && now() - seenAt >= SEEN_MS) { seenAt = now(); void server.seen(next.game_id, signal).catch(() => {}); }
   }
   function badRead(error: unknown, first: boolean) {
     const fault = faultOf(error, online(), true);
@@ -165,10 +180,32 @@ export function peopleController(options: ControllerOptions) {
     emit();
   }
 
+  /** Each seat uses its own saved king when this game admits it. */
+  function setupChoice(order?: string) {
+    if (!view?.options || !view.draw) return;
+    const o = view.options, draw = { army: view.draw, hand: [...view.deal ?? []] };
+    const choice = { ...(view.choices?.[view.seat] ?? defaultChoice(o, draw, view.seat, Math.random, false, view.setup_admission)), ...(order !== undefined ? { order } : {}) };
+    try {
+      const king = readSeatKing(options.storage, options.userId, view);
+      if (!view.ready?.[view.seat] && king && !validateChoice(o, draw, { ...choice, king }, view.setup_admission)) choice.king = king;
+    } catch { /* unreadable options keep the seat default */ }
+    return choice;
+  }
+  function setupGame(next: View): Game | undefined {
+    const choice = setupChoice();
+    if (next.status !== 'setup' || !choice || !next.draw) return;
+    const kings: Game['rules']['kings'] = [next.seat === 0 ? choice.king : null, next.seat === 1 ? choice.king : null];
+    const setup = new Game(next.draw, { kings });
+    // The other seat's chosen order stays private until both players confirm.
+    const pos = setup.pos, board = pos.board.slice();
+    for (let sq = 0; sq < 64; sq++) if (sq < 16 && next.seat === 1 || sq >= 48 && next.seat === 0) board[sq] = 0;
+    setup.load({ ...pos, board });
+    return setup;
+  }
   /** A full view: build the copy again. */
   function adopt(next: View, keep?: readonly string[]) {
     const copy = replicaOf(next);
-    view = next; game = copy ?? positionOf(next); fatal = undefined;
+    view = next; game = copy ?? positionOf(next) ?? setupGame(next); fatal = undefined;
     engine = copy && !needsServerPreview(next.engine_fingerprint, pageEngine) ? 'local' : 'server';
     if (!game && (next.status === 'playing' || next.status === 'finished')) fatal = 'failed';
     draft = freshDraft(keep);
@@ -177,12 +214,19 @@ export function peopleController(options: ControllerOptions) {
   }
   async function fullRead(gameId: string, keep?: readonly string[]) {
     const mark = epoch;
-    try { const next = await server.game(gameId); if (mark === epoch) adopt(next, keep); }
-    catch (error) { if (mark === epoch) badRead(error, !view); }
+    try {
+      const next = await server.game(gameId, undefined, signal);
+      if (mark !== epoch) return;
+      if (next.status === 'setup') await seatKing(options.storage, options.userId, next, writer, currentAction(mark), signal);
+      if (mark === epoch) adopt(next, keep);
+    }
+    catch (error) { if (!obsolete(error) && mark === epoch) badRead(error, !view); }
   }
   /** A view after `view.revision` (a poll read or a command answer): play its moves on the copy. */
   function advance(next: View): boolean {
     if (!view || next.game_id !== view.game_id) return false;
+    if (view.status === 'setup' && next.status === 'playing') return false;
+    if (next.status === 'setup') { adopt(next); return true; }
     if (next.revision === view.revision) { view = { ...next, rules: next.rules ?? view.rules }; good(next); emit(); return true; }
     if (!game || !view.rules) return false;
     const before = game.history.length, offerOpen = view.draw_offer === view.seat;
@@ -204,10 +248,10 @@ export function peopleController(options: ControllerOptions) {
     if (!view || busy || fatal) return;
     const base = view, mark = epoch;
     try {
-      const next = await server.game(base.game_id, pollSince(base));
+      const next = await server.game(base.game_id, pollSince(base), signal);
       if (mark !== epoch || view !== base || busy) return;
       if (!advance(next)) await fullRead(base.game_id, draftLans());
-    } catch (error) { if (mark === epoch) badRead(error, false); }
+    } catch (error) { if (!obsolete(error) && mark === epoch) badRead(error, false); }
   }
 
   /** The server refused the command: it cannot apply later. */
@@ -230,6 +274,8 @@ export function peopleController(options: ControllerOptions) {
    * once). After two failed checks the player can discard it. True when no saved command waits.
    */
   async function settle(): Promise<boolean> {
+    if (signal.aborted) return false;
+    const current = currentAction();
     const saved = receipts.read();
     if (!saved) { pending = undefined; return true; }
     if (saved === 'unreadable') { pending = { receipt: undefined, tries: CHECKS_BEFORE_DISCARD }; emit(); return false; }
@@ -240,25 +286,30 @@ export function peopleController(options: ControllerOptions) {
     pending = { receipt: saved, tries }; busy = true; emit();
     let read = true;
     try {
-      const current = await server.game(gameId, expected);
-      if (current.revision > expected) {
-        await receipts.drop(saved); pending = undefined; busy = false;
-        if (wentIn(saved, current)) sent = true;
-        if (view?.game_id === gameId && !advance(current)) await fullRead(gameId);
+      const nextView = await server.game(gameId, expected, signal);
+      await current();
+      if (nextView.revision > expected) {
+        await receipts.drop(saved); await current(); pending = undefined; busy = false;
+        if (wentIn(saved, nextView)) sent = true;
+        if (view?.game_id === gameId && !advance(nextView)) await fullRead(gameId);
         else emit();
         return true;
       }
       read = false;
-      const next = await server.command(gameId, expected, action, saved.args.command_id);
-      await receipts.drop(saved); pending = undefined; busy = false;
+      const next = await server.command(gameId, expected, action, saved.args.command_id, signal);
+      await current();
+      await receipts.drop(saved); await current(); pending = undefined; busy = false;
       if (connection === 'auth') connection = 'online';
       if (view?.game_id === gameId) await landed(next, action); else emit();
       return true;
     } catch (error) {
       busy = false;
+      if (obsolete(error)) return false;
       const fault = faultOf(error, online(), read);
       if (settled(fault)) {
-        await receipts.drop(saved); pending = undefined;
+        await receipts.drop(saved);
+        if (signal.aborted) return false;
+        pending = undefined;
         if (view?.game_id === gameId) await refused(fault); else emit();
         return true;
       }
@@ -270,24 +321,29 @@ export function peopleController(options: ControllerOptions) {
 
   /** One command of this game, with its receipt written before the send. */
   async function command(action: Action, keep = draftLans()): Promise<boolean> {
-    if (!view || busy || fatal || phase() === 'checking') return false;
+    if (signal.aborted || !view || busy || fatal || phase() === 'checking') return false;
     notice = undefined;
     if (!online()) { notice = { kind: 'offline' }; emit(); return false; }
+    const current = currentAction();
     const base = view, receipt = receiptOf(base.game_id, base.revision, action, uuid());
-    try { await receipts.hold(receipt); }
+    try { await current(); await receipts.hold(receipt, current, signal); await current(); }
     catch (error) {
+      if (obsolete(error)) return false;
       if (!(error instanceof ReceiptBusy)) { notice = { kind: 'refused', message: 'This device cannot save the send. Free some space, then try again.' }; emit(); return false; }
       if (!await settle() || view !== base) return false;
-      await receipts.hold(receipt);
+      try { await receipts.hold(receipt, current, signal); await current(); }
+      catch (retryError) { if (obsolete(retryError)) return false; throw retryError; }
     }
     busy = sending = true; emit();
     try {
-      const next = await server.command(base.game_id, base.revision, action, receipt.args.command_id);
-      await receipts.drop(receipt); busy = sending = false;
+      const next = await server.command(base.game_id, base.revision, action, receipt.args.command_id, signal);
+      await current();
+      await receipts.drop(receipt); await current(); busy = sending = false;
       await landed(next, action);
       return true;
     } catch (error) {
       busy = sending = false;
+      if (obsolete(error)) return false;
       const fault = faultOf(error, online());
       if (!settled(fault)) {
         // The answer is not known: the receipt stays, and Check again sends it with the same ID.
@@ -296,6 +352,7 @@ export function peopleController(options: ControllerOptions) {
         emit(); return false;
       }
       await receipts.drop(receipt);
+      if (signal.aborted) return false;
       await refused(fault, keep);
       return false;
     }
@@ -321,12 +378,16 @@ export function peopleController(options: ControllerOptions) {
     },
     /** Join by an invite link. Returns the fault when the server refuses or does not answer. */
     async join(key: InviteKey): Promise<Fault | undefined> {
+      const current = currentAction();
       try {
-        const joined = await server.join(key);
+        const joined = await server.join(key, signal);
+        await bindSeatKing(options.storage, options.userId, joined, undefined, undefined, writer, current, signal);
+        await current();
         epoch++; target = joined.game_id; view = undefined; notice = undefined; sent = declined = false; offers.clear(); readFails = 0;
         if (joined.rules && joined.history) adopt(joined); else await fullRead(joined.game_id);
         return;
       } catch (error) {
+        if (obsolete(error)) return;
         const fault = faultOf(error, online());
         if (fault.kind === 'auth') { connection = 'auth'; emit(); }
         return fault;
@@ -334,7 +395,7 @@ export function peopleController(options: ControllerOptions) {
     },
     /** The invite before a join (the landing). */
     async preview(key: InviteKey): Promise<JoinPreview | Fault> {
-      try { return await server.preview(key); } catch (error) { return faultOf(error, online()); }
+      try { return await server.preview(key, signal); } catch (error) { if (obsolete(error)) throw new ObsoleteAction(); return faultOf(error, online()); }
     },
 
     stage: (move: Move) => edit(d => d.stage(move)),
@@ -345,6 +406,7 @@ export function peopleController(options: ControllerOptions) {
     /** Send the whole turn. With a second engine (M3) the server checks the turn first. */
     async send(): Promise<boolean> {
       if (!state().canSend || !draft || !view || busy) return false;
+      const current = currentAction();
       const actions = turnActions(draft);
       if (!actions) return false;
       if (engine === 'server') {
@@ -353,9 +415,11 @@ export function peopleController(options: ControllerOptions) {
         busy = sending = true; notice = undefined; emit();
         try {
           if (!base.engine_fingerprint) throw new Error('The game has no engine identity.');
-          await server.draft(base.game_id, { expected_revision: base.revision, engine_fingerprint: base.engine_fingerprint, actions });
+          await server.draft(base.game_id, { expected_revision: base.revision, engine_fingerprint: base.engine_fingerprint, actions }, signal);
+          await current();
         } catch (error) {
           busy = sending = false;
+          if (obsolete(error)) return false;
           const fault = faultOf(error, online());
           if (settled(fault)) await refused(fault, draftLans());
           else {
@@ -375,26 +439,41 @@ export function peopleController(options: ControllerOptions) {
     async check() { const free = await settle(); if (free) await refresh(); return free; },
     /** M12: after two failed checks, the player discards the saved command. The draft stays for a new Send. */
     async discard(): Promise<boolean> {
+      if (signal.aborted) return false;
       const s = state();
       if (!s.check?.canDiscard) return false;
-      await receipts.drop(pending?.receipt); pending = undefined; emit();
+      await receipts.drop(pending?.receipt);
+      if (signal.aborted) return false;
+      pending = undefined; emit();
       return true;
     },
     /** After a new sign-in: the saved command goes with its own ID, then the game reads again. */
     async signedIn() {
+      if (signal.aborted) return;
       connection = 'online'; emit();
       const had = !!pending?.receipt;
       const free = await settle();
+      if (signal.aborted) return;
       if (had && free && !notice) notice = { kind: 'signed-in' };
       if (view) await refresh(); else if (target) await fullRead(target); emit();
     },
     refresh,
 
-    /** The new page uses a drawn army and power, as its computer game does. */
-    ready() {
-      if (view?.status !== 'setup' || !view.options || !view.draw || view.ready?.[view.seat] || view.seat === 1 && view.ready?.[0] === false) return Promise.resolve(false);
-      const choice = view.choices?.[view.seat] ?? defaultChoice(view.options, { army: view.draw, hand: [...view.deal ?? []] }, view.seat, Math.random, false, view.setup_admission);
-      return command({ type: 'choose', choice, ready: true });
+    /** Confirm this seat's king and its own back-rank order. */
+    async ready(order?: string) {
+      if (signal.aborted) return false;
+      if (view?.status !== 'setup' || !view.options || !view.draw || view.ready?.[view.seat] || !view.options.arrangement && view.seat === 1 && view.ready?.[0] === false) return Promise.resolve(false);
+      const opening = view, mark = epoch;
+      try { await seatKing(options.storage, options.userId, opening, writer, currentAction(mark), signal); }
+      catch (error) { if (error instanceof AccountDataClosed || obsolete(error)) return false; throw error; }
+      if (mark !== epoch || view !== opening) return false;
+      const choice = setupChoice(order)!;
+      if (validateChoice(view.options, { army: view.draw, hand: [...view.deal ?? []] }, choice, view.setup_admission)) return Promise.resolve(false);
+      const base = view, sent = await command({ type: 'choose', choice, ready: true });
+      // The other seat can confirm at the same time. Retry once against its new revision.
+      if (!sent && !busy && !pending && notice?.kind === 'stale' && view?.game_id === base.game_id && view.status === 'setup' && !view.ready?.[view.seat] && view.revision !== base.revision)
+        return command({ type: 'choose', choice, ready: true });
+      return sent;
     },
 
     offerDraw: () => state().canOfferDraw ? command({ type: 'draw', choice: 'offer' }) : Promise.resolve(false),
@@ -418,8 +497,10 @@ export function peopleController(options: ControllerOptions) {
       const wentOffline = () => { if (connection !== 'auth') connection = 'offline'; emit(); };
       net.addEventListener('online', wentOnline); net.addEventListener('offline', wentOffline);
       poll = page ? runPoll(() => view && !fatal ? { view: pollView(), read: refresh, fastStart: true } : undefined, () => !busy && connection !== 'auth', page) : undefined;
-      return () => { poll?.stop(); poll = undefined; net.removeEventListener('online', wentOnline); net.removeEventListener('offline', wentOffline); };
+      return () => { stop(); poll = undefined; net.removeEventListener('online', wentOnline); net.removeEventListener('offline', wentOffline); };
     },
+    stop,
+    get signal() { return signal; },
     /** The game this controller shows (also while it loads). */
     get gameId() { return target; },
   };

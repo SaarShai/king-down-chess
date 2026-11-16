@@ -50,10 +50,11 @@ export const powerLines: Partial<Record<CardName, string>> = {
   SkyLift: 'Swap two different own types; no pawn or king.',
 };
 export const text = {
-  rematchHint: 'Select Rematch to play at the same level.', casual: 'Casual', clever: 'Clever', club: 'Club', computerFailed: 'The computer cannot play. Open Menu, then Back to home.', title: 'King Down', intro: 'Chess with new pieces. Checkmate wins.', army: 'This game’s army', level: 'Computer level', play: 'Play', pieces: 'Pieces', computer: 'Computer', you: 'You', menu: 'Menu', rule: 'Rule', undo: 'Undo', finish: 'End turn', close: 'Close',
-  setup: 'Game', piecesOnly: 'Pieces only', withPowers: 'With powers', withCards: 'With powers and cards',
+  yourCards: 'Your cards', cardsLeft: (n: number) => `${n} ${n === 1 ? 'card' : 'cards'} left`, unlimited: 'Unlimited', yourGames: 'Your games', showAllGames: 'Show all games',
+  rematchHint: 'Select Rematch to play at the same level.', casual: 'Friendly', clever: 'Focused', club: 'Fierce', computerFailed: 'The computer cannot play. Open Menu, then Back to home.', title: 'King Down', intro: 'Chess with new pieces. Checkmate wins.', army: 'This game’s army', level: 'Computer level', play: 'Play', pieces: 'Pieces', computer: 'Computer', you: 'You', menu: 'Menu', rule: 'Rule', undo: 'Undo', finish: 'End turn', close: 'Close',
+  setup: 'Game', withPowers: 'With powers', withCards: 'With cards', withBoth: 'With powers and cards',
   noPowers: 'No powers · No cards', powersNote: 'Each king gets a random power.', cardsNote: 'Each king gets an always-on power. Both players get the same four cards.',
-  ready: 'Your turn.', first: 'Your turn. · You move first', firstMinute: 'Tap a piece to see how it moves.', draft: 'Your move is ready. · Not final', notFinal: 'Not final', check: 'Check. · Your king is attacked', thinking: 'Computer is thinking…', choose: 'Choose a piece, then a marked square.', staged: 'Your move is ready. Tap End turn, or Undo to change it.', continue: 'Capture again, or select End turn.', endChain: 'Select End turn.', mustContinue: 'Capture again to keep your king safe.', noStep: 'No step to undo.', needMove: 'Complete a legal move first.', choiceFirst: 'Choose an action, or cancel.', choosePiece: 'Choose a piece to read its rule.', wait: 'The computer is choosing its action.', sent: 'This turn is final. The computer now plays.', invalid: 'Select one of your pieces first.', final: 'The game is over.', cancel: 'Cancel', take: 'Capture', push: 'Push', promote: 'Promote to', coordinates: 'Coordinates', sound: 'Sound', on: 'On', motion: 'Motion speed', normal: 'Normal', fast: 'Fast', off: 'Off', home: 'Back to home', resign: 'Resign', resignTitle: 'Resign this game?', resignCause: 'The computer wins. Your turn is final.', rematch: 'Rematch', newGame: 'New game', result: 'Game result', win: 'You win. Checkmate.', loss: 'The computer wins. Checkmate.', resigned: 'The computer wins. You resign.', stalemate: 'Draw. No legal action and no check.', draw50: 'Draw. No progress for 100 actions.', drawRepetition: 'Draw. The same position occurs three times.', drawMaterial: 'Draw. Insufficient material.', noMoves: 'This piece has no legal action.', undone: 'Last step removed.', loading: 'Loading the board.', loadFailed: 'The board cannot load. Reload the page.', last: 'Last action', steps: 'Turn steps', shortcuts: 'Arrows move the cursor. Enter selects. Escape clears.', openBoard: 'Open board', small: 'This view is too small for the board.',
+  ready: 'Your turn.', first: 'Your turn. · You move first', firstMinute: 'Tap a piece to see how it moves.', draft: '', notFinal: '', check: 'Check. · Your king is attacked', thinking: 'Computer is thinking…', choose: 'Choose a piece, then a marked square.', staged: 'Your move is ready. Tap End turn, or Undo to change it.', continue: 'Capture again, or select End turn.', endChain: 'Select End turn.', mustContinue: 'Capture again to keep your king safe.', noStep: 'No step to undo.', needMove: 'Complete a legal move first.', choiceFirst: 'Choose an action, or cancel.', choosePiece: 'Choose a piece to read its rule.', wait: 'The computer is choosing its action.', sent: 'This turn is final. The computer now plays.', invalid: 'Select one of your pieces first.', final: 'The game is over.', cancel: 'Cancel', take: 'Capture', push: 'Push', promote: 'Promote to', coordinates: 'Coordinates', sound: 'Sound', on: 'On', motion: 'Motion speed', normal: 'Normal', fast: 'Fast', off: 'Off', home: 'Back to home', resign: 'Resign', resignTitle: 'Resign this game?', resignCause: 'The computer wins. Your turn is final.', rematch: 'Rematch', newGame: 'New game', result: 'Game result', win: 'You win. Checkmate.', loss: 'The computer wins. Checkmate.', resigned: 'The computer wins. You resign.', stalemate: 'Draw. No legal action and no check.', draw50: 'Draw. No progress for 100 actions.', drawRepetition: 'Draw. The same position occurs three times.', drawMaterial: 'Draw. Insufficient material.', noMoves: 'This piece has no legal action.', undone: 'Last step removed.', loading: 'Loading the board.', loadFailed: 'The board cannot load. Reload the page.', last: 'Last action', steps: 'Turn steps', shortcuts: 'Arrows move the cursor. Enter selects. Escape clears.', openBoard: 'Open board', small: 'This view is too small for the board.',
   symbolsHint: 'Hard to tell the figures apart? Open Menu and choose Symbols.',
   pieceView: 'Pieces', figures: 'Figures', symbols: 'Symbols',
   handView: 'Powers and cards', hand: 'Hand', ribbon: 'Ribbon', fullRule: 'Full rule', power: 'power', card: 'card', alwaysOnShort: 'Always on',
@@ -62,7 +63,7 @@ export const text = {
   kept: 'A game from the earlier version cannot open here yet. It is kept.', cannotSave: 'This device cannot save the game.',
   otherTab: 'Your saved game changed in another tab. Load the newer game to continue.',
   keptFull: 'This game cannot open here. Another kept game uses the copy space. Both games stay saved.',
-  armed: 'Choose a target.', disarmed: 'You cancel the power.', disarmedCard: 'You cancel the card.', spent: 'You used this. It has no use left.', alwaysOn: 'Always on. It needs no tap.', left: 'left', noTarget: 'No legal target now.', notYet: 'You cannot use it at this step.', computerOwns: 'The computer has this.', again: 'Move it again, or select End turn.', another: 'Move another piece, or select End turn.', after: 'Now make your move.', effects: 'Active effects',
+  armed: 'Choose a target.', disarmed: 'You cancel the power.', disarmedCard: 'You cancel the card.', spent: 'You used this. It has no use left.', alwaysOn: 'Always on. It needs no tap.', left: 'left', noTarget: 'No legal target now.', notYet: 'You cannot use it at this step.', computerOwns: 'The computer has this.', again: 'Move it again, or select End turn.', another: 'Move another piece, or select End turn.', after: 'Now make your move.', effects: 'Effects', history: 'History', noHistory: 'No action yet.', stagedTurn: 'This turn', useSymbols: 'Use symbols', useRibbon: 'Use ribbon',
 };
 
 const article = (name: string) => /^[aeiou]/i.test(name) ? 'an' : 'a';
@@ -139,7 +140,6 @@ export function stateDescriptions(rules: GameRules, pos: Position, player: Color
     return { squares: [state.sq], line };
   });
   if (rules.inCheck(pos)) for (const check of checkersOf(rules, pos)) out.push({ squares: [check.sq, check.king], line: `Check: ${at(check.sq)} attacks ${at(check.king)}.` });
-  pos.board.forEach((code, sq) => { if (typeOf(code) === G) out.push({ squares: [sq], line: `Guard on ${sqName(sq)}: ${pieces[G].short}` }); });
   return out;
 }
 /** Each active mark and when it ends. `player`: the person's side. */
@@ -179,8 +179,6 @@ export function effectGroups(rules: GameRules, pos: Position, turn: Color = pos.
     const n = new Set(details.flatMap(d => d.squares)).size;
     return { key, summary: `${owner === viewer ? 'You' : 'Computer'}: ${EFFECT_NAME[kind]} ${kind === 'freeze' ? 'stops' : 'protects'} ${n} ${n === 1 ? 'piece' : 'pieces'}.`, details };
   });
-  const guards = lines.filter(d => d.line.startsWith('Guard on '));
-  if (guards.length) out.push({ key: 'guard', summary: `${guards.length} ${guards.length === 1 ? 'Guard' : 'Guards'}: only a king can capture a Guard.`, details: guards });
   return out;
 }
 /** Each check in the position, for either king, with its attacker and king squares. `mine`: the viewer's king is attacked. */
@@ -245,3 +243,22 @@ export function choicePrompt(moves: readonly Move[]): string {
 
 // Stage "readingb": the new labels of the B reading area (runs/review/reading-lab/design.md, marked "new" there).
 export const readingBText = { rivalCards: 'Computer’s cards', used: 'Used', notNow: 'Not now', computerTurn: 'Computer’s turn' };
+
+/** The shared New game panel (owner playtest decisions 88 to 93). */
+export const panelText = {
+  opponent: 'Opponent', person: 'Person', options: 'Game options', pieces: 'Pieces', powers: 'With powers', cards: 'With cards',
+  allPieces: 'All pieces', exampleArmy: 'Example army', pool: 'Piece pool', always: 'The king and eight pawns are always in.', poolLock: 'Keep at least 7 pieces in the pool. Add another kind to unlock a box.',
+  arrangement: 'Starting arrangement', random: 'Random', manual: 'Manual', manualLine: 'Arrange your pieces on the board before the first move.',
+  yourKing: 'Your king', power: 'King power', unavailable: 'Not available with cards.',
+  changedKing: (from: string, to: string) => `With cards, ${to} replaces ${from}. Turn cards off to restore it.`,
+  chooseCards: 'Choose cards', allCards: 'All cards', four: 'Pick four', shared: 'Both players get the same four cards.',
+  count: (n: number) => `${n} of 4`, needFour: 'Pick four cards to start.', use: (name: string) => `Use ${name}`,
+  send: 'Send link', byName: 'Invite by name', back: 'Back', closeRule: 'Back to cards', loading: 'Opening online play…', onlineFailed: 'Online play cannot load. Try again.',
+} as const;
+/** The same board step for a solo game and each online seat (owner playtest 90). */
+export const arrangeText = {
+  title: 'Arrange your back rank', instruction: 'Tap two pieces to swap.',
+  keys: 'Arrows move along your back rank. Enter or Space picks and swaps.',
+  ready: 'Ready', confirming: 'Confirming your choice…', legal: 'Select Ready to start.', wait: 'Ready. Wait for the other player.',
+  choose: 'Choose a piece on your back rank.', selected: 'Choose a second piece.',
+};

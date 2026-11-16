@@ -2068,3 +2068,13 @@ describe('a save from before the game time moved into the save', () => {
     expect(p.play.game().history.map(h => h.lan)).toEqual(original.moves);
   });
 });
+
+it('the old page restores and rewrites a confirmed zero-move Manual FEN save', () => {
+  const game = new Game('RQBNKBNR'); game.load(game.pos);
+  const saved: Save = { ...original, back: '', fen: toFen(game.pos), moves: [], black: 'ai', rules: game.rules };
+  writeSave(saved);
+  const { play } = page(); play.restore(readSave().save, request);
+  expect(play.game().backRank).toBe(''); expect(toFen(play.game().pos)).toBe(saved.fen);
+  expect(play.save()).toBe(true);
+  expect(readSave().save).toMatchObject({ back: '', fen: saved.fen, moves: [] });
+});

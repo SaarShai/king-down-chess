@@ -18,7 +18,7 @@ try {
       held = true; await new Promise(resolve => { release = resolve; }); await route.continue();
     });
     await context.addInitScript(({ setup, fault }) => {
-      localStorage.clear(); sessionStorage.clear(); localStorage.setItem('kingdown.solo-launch-seen', '1'); localStorage.setItem('kingdown.setup', setup); localStorage.setItem('kingdown.pace', 'off');
+      localStorage.clear(); sessionStorage.clear(); localStorage.setItem('kingdown.solo-launch-seen', '1'); localStorage.setItem('kingdown.game-type', setup); localStorage.setItem('kingdown.pace', 'off');
       const src = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
       Object.defineProperty(HTMLImageElement.prototype, 'src', { ...src, set(value) {
         if (!window.oldStillError && String(value).includes('/ui/pieces/') && this.onerror) window.oldStillError = this.onerror.bind(this);
@@ -35,6 +35,7 @@ try {
     try {
       await page.goto(new URL('/next.html', env('PLAYABLE_URL')).href);
       await page.locator('.home-hero button[data-kind="main"]').click();
+      await page.getByRole('button', { name: 'Start game', exact: true }).click();
       await page.getByRole('button', { name: 'Try again', exact: true }).waitFor({ state: 'visible', timeout: 15000 });
       if (fault === 'response') assert.equal(held, true, 'the surface response stays held');
       await page.locator('.play-versus').waitFor({ state: 'detached', timeout: 5000 });

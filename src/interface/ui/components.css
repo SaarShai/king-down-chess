@@ -38,7 +38,10 @@ p { font-size: var(--type-body); }
 /* No underline on a control (launch decision 24). Hover styles only where a pointer can hover (decision 37). */
 @media (hover: hover) { .kd-button:not([aria-disabled='true']):hover, .kd-choice:hover, .kd-segment:not([aria-checked='true']):hover, .kd-switch:hover, .kd-game-row:hover { filter: brightness(.97); } }
 .kd-button.kd-icon-button { padding: var(--space-3); }
+.kd-button.kd-x { min-inline-size: 44px; min-block-size: 44px; padding: 0; border-color: transparent; background: transparent; box-shadow: none; color: var(--text); }
+.kd-x .kd-icon { inline-size: 22px; block-size: 22px; stroke-width: 2; }
 .kd-icon { inline-size: var(--icon-size); block-size: var(--icon-size); flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.kd-icon[data-icon='more'] { stroke-width: 3.6; }
 .kd-control { display: grid; gap: var(--space-2); justify-items: start; min-inline-size: 0; }
 .kd-reason { font-size: var(--type-small); color: var(--text-muted); max-inline-size: 40ch; }
 .kd-nav { display: flex; justify-content: space-evenly; gap: var(--space-2); padding: var(--space-2); background: var(--surface-raised); border-block-start: var(--line-width) solid var(--divider); }
@@ -153,3 +156,10 @@ progress::-moz-progress-bar { background: var(--info); }
 .kd-resource[data-state='armed'] .kd-pill { color: var(--info); background: var(--info-soft); }
 .kd-game-row { flex-wrap: wrap; }
 .kd-game-copy { flex: 1 1 10rem; }
+
+/* One lifted paper surface for temporary content. */
+.kd-paper, .kd-sheet, .kd-dialog, .kd-toast { background: var(--surface-raised); border: 1px solid var(--divider); border-radius: var(--radius-surface); box-shadow: var(--elevation-panel); }
+.kd-sheet-head > :first-child { flex: 1; }
+
+.people-sheet .people-sheet-panel { border: 1px solid var(--divider); border-radius: var(--radius-surface); background: var(--surface-raised); box-shadow: var(--elevation-panel); }
+.people-sheet .people-sheet-head .kd-x { padding: 0; }

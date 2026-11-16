@@ -40,9 +40,11 @@ export function onlineClient({ token, origin = '', fetch: send = (input, init) =
       signal?.throwIfAborted();
       return send(origin + path, { method, ...(signal && { signal }), cache: 'no-store', headers: { Authorization: `Bearer ${bearer}`, ...(body !== undefined && { 'Content-Type': 'application/json' }) }, ...(body !== undefined && { body: JSON.stringify(body) }) });
     }).catch(error => {
+      signal?.throwIfAborted();
       if (error instanceof CachePolicyUnavailable) throw new OnlineError('UNAVAILABLE', 503, error.message);
       throw error;
     });
+    signal?.throwIfAborted();
     if (response.status === 204) return undefined as T;
     const value = await response.json().catch(() => null);
     signal?.throwIfAborted();
@@ -69,6 +71,7 @@ export function onlineClient({ token, origin = '', fetch: send = (input, init) =
     /** One command; a lost reply sends it again with the same command_id, and the server applies it once. */
     async command(gameId: string, expected_revision: number, action: Action, command_id: string = crypto.randomUUID(), signal?: AbortSignal): Promise<Extract<Reply, { type: 'ack' }>> {
       for (let attempt = 1; ; attempt++) {
+        signal?.throwIfAborted();
         try { return await call('POST', `/api/games/${encodeURIComponent(gameId)}/commands`, { command_id, expected_revision, action }, signal); }
         catch (error) { signal?.throwIfAborted(); if (attempt >= tries || !retryable(error)) throw error; await wait(250 * 2 ** attempt); }
       }

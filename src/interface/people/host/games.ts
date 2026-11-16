@@ -30,7 +30,7 @@ export function personGame(view: View): PersonGame {
     : mine ? 'Your move' : `${name} to move`;
   return { id: view.game_id, name, avatar, mine, deadline: view.deadline_at, state, status, preview: game ? savedPreview(new DraftTurn(game), view.seat) : null, view };
 }
-const rulesWords = (options: Options | null) => !options?.kingPowers ? 'Pieces only' : options.cards ? 'With powers and cards' : 'With powers';
+const rulesWords = (options: Options | null) => options?.kingPowers ? options.cards ? 'With powers and cards' : 'With powers' : options?.cards ? 'With cards' : 'Pieces';
 export function homeInvite(invitation: InvitationRow, now = Date.now()): HomeInvite {
   const name = invitation.player?.handle ?? 'A player', avatar = invitation.player?.avatar ?? null;
   if (invitation.direction === 'incoming') {

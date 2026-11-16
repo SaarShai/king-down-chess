@@ -3,7 +3,7 @@ import type { PaintedScene } from './painted/scene.mjs';
 export const PLAIN = { actor: '#fffaf0', move: '#fff3d6', enemy: '#ff9b7c', friend: '#bfe8dc', ice: '#c9f1f6', holy: '#ffe39a', ember: '#ffb36b', shadow: '#d3c6ea', last: '#f3e3b4' } as const;
 export interface PlainRing { square: number; color: string; width?: number; size?: number; dash?: number[]; role: 'actor' | 'target' | 'focus' | 'landing' | 'trail' | 'state' }
 export interface PlainPath { squares: number[]; color: string; arc?: boolean; dash?: number[] }
-export interface PlainMarks { rings: PlainRing[]; paths: PlainPath[]; steps: { square: number; number: number }[] }
+export interface PlainMarks { shadows?: { square: number; opacity: number }[]; rings: PlainRing[]; paths: PlainPath[]; steps: { square: number; number: number }[] }
 export const emptyMarks = (): PlainMarks => ({ rings: [], paths: [], steps: [] });
 
 /** All geometry uses one square. The scene supplies orientation and canvas scale. */
@@ -15,6 +15,13 @@ export function drawPlainMarks(ctx: CanvasRenderingContext2D, scene: Pick<Painte
     for (const [ink, line] of [['#16231ecc', width + s * .035], [color, width]] as const) { ctx.beginPath(); shape(); ctx.strokeStyle = ink; ctx.lineWidth = line; ctx.stroke(); }
   };
   ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  for (const shadow of marks.shadows ?? []) {
+    const c = scene.cell(shadow.square), inset = s * .08;
+    ctx.fillStyle = `rgba(50, 62, 66, ${shadow.opacity})`;
+    ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = s * .07;
+    ctx.fillRect(scene.PAD + c.col * s + inset, scene.PAD + c.row * s + inset, s - inset * 2, s - inset * 2);
+  }
+  ctx.shadowBlur = 0;
   for (const p of marks.paths) {
     if (p.squares.length < 2) continue;
     const points = p.squares.map(sq => point(sq, .27)), a = points[0], b = points.at(-1)!;
