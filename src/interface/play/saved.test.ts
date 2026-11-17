@@ -1,3 +1,4 @@
+import build6 from '../../../docs/specs/owner-playtest/build6-king-ids.json';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearDeletedAccount, localAccess, selectLocal } from '../../account/local';
 import { Game } from '../../game';
@@ -12,6 +13,7 @@ import { DEAL_CARDS } from '../../match/setup';
 import { ARRANGE_KEY, Arrangement, pendingArrangement } from './arrange';
 import { answerOffer, beforeNewGame, continueLine, gameKeyOf, gameType, keepCopy, KEPT_KEY, keptOffer, levelOf, OFFERED_KEY, readStored, rulesOf, SaveWriter, SKILLS, snapshot, storedChoice, storedGameType, GAME_KEY, type Prefs } from './saved';
 import { text } from './texts';
+import { readOptions } from './new-game';
 
 const store = new Map<string, string>();
 let failRead = false, failWrite: string | null = null;
@@ -526,4 +528,21 @@ it('the old page reads and rewrites the same zero-move confirmed FEN save', () =
   const old = savedGame(saved()); expect(toFen(old.pos)).toBe(toFen(game.pos));
   expect(writeSave({ ...saved(), coords: false, back: old.backRank, fen: toFen(old.pos), moves: old.history.map(h => h.lan) })).toBe(true);
   expect(readStored().kind).toBe('resume'); expect(toFen(readStored().resume!.game.pos)).toBe(toFen(game.pos));
+});
+
+
+it('loads build 6 saved games and stored options with the Stratus and Mud IDs', () => {
+  const kings: Rules['kings'] = [{ king: 'Stratus', power: 'Flight' }, { king: 'Mud', power: 'March' }];
+  // The build 6 save format and keys stay unchanged. Read the old raw JSON through both pages.
+  const raw = JSON.stringify(build6);
+  store.set(SAVE_KEY, raw);
+  const loaded = readStored();
+  expect(loaded.kind).toBe('resume');
+  expect(loaded.resume!.game.rules.kings).toEqual(kings);
+  expect(savedGame(JSON.parse(raw)).rules.kings).toEqual(kings);
+  for (const king of kings) {
+    store.set('kingdown.game-options', JSON.stringify({ king }));
+    expect(readOptions(JSON.parse(store.get('kingdown.game-options')!)).king).toEqual(king);
+  }
+  expect(store.get(SAVE_KEY)).toBe(raw);
 });

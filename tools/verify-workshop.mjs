@@ -1890,7 +1890,7 @@ async function tabSelection() {
     assert.equal(await p.getAttribute('.slot[data-king="Flame"]', 'aria-current'), 'true');
     await p.click('.slot[data-king="Mud"]');
     await change('kings');
-    assert.equal(await name(p), 'Mud King', `${label}: the same tab keeps the chosen king`);
+    assert.equal(await name(p), 'Earth King', `${label}: the same tab keeps the chosen king`);
     await change('cards');
     assert.equal(await name(p), 'Freeze', `${label}: Cards opens its first card`);
     assert.equal(await p.getAttribute('.cface[data-lab="Freeze"]', 'aria-current'), 'true');
@@ -2014,7 +2014,7 @@ async function kings() {
   await p.click('[data-tab="kings"]');
   assert.deepEqual(await p.$$eval('.lrow .slot', bs => bs.map(b => b.dataset.king)), ['Flame', 'Frost', 'Mud', 'Shadow', 'Spirit', 'Stratus'], 'the Kings tab shows the six kings');
   await p.click('.slot[data-king="Mud"]');
-  assert.equal(await name(p), 'Mud King', 'an open king stands on the plinth with his name');
+  assert.equal(await name(p), 'Earth King', 'an open king stands on the plinth with his name');
   assert.match(await p.getAttribute('.pg-figure img', 'src'), /kings\/mud\.webp$/, 'the plinth shows his figure');
   assert.deepEqual(await p.$$eval('.pline', ls => ls.map(l => [l.dataset.power, l.querySelector('b').textContent, l.querySelector('.pt').textContent, !!l.querySelector('.coin img')])), [
     ['March', 'March', 'Any pawn may step two squares from any rank.', true], ['Leap', 'Leap', 'A rook, bishop or queen passes over your own pawns.', true]], 'his two powers, each with its coin and its words');
@@ -2102,7 +2102,7 @@ async function kings() {
   await f.click('[data-tab="kings"]');
   assert.equal(await name(f), 'Flame King', 'the phone: the new Kings tab opens Flame and seats him');
   await f.click('.slot[data-king="Mud"]');
-  assert.deepEqual([await name(f), await f.locator('.pline').count(), (await marks(f)).includes('d7 take')], ['Mud King', 0, false], 'the phone: the king name and board show, and a new king clears the armed power');
+  assert.deepEqual([await name(f), await f.locator('.pline').count(), (await marks(f)).includes('d7 take')], ['Earth King', 0, false], 'the phone: the king name and board show, and a new king clears the armed power');
   await minTarget(f, '#workshop .pg-ledge button', 44);
   await shot(f, 'kings-390x844');
   await f.context().close();

@@ -1,3 +1,4 @@
+import { kingDisplayName } from '../../king-label';
 import { GameRules } from '../../game-rules';
 import { A, B, G, K, KINGS, L, M, N, O, P, Q, R, S, type PieceType } from '../../rules/engine';
 import { RELEASED_CARDS } from '../../content/cards';
@@ -21,7 +22,7 @@ export function guideEntries(section: string): GuideEntry[] {
   });
   if (section === 'Kings and powers') return Object.entries(KINGS).flatMap(([king, powers]) => powers.map(power => {
     const uses = usesAllowed(power, context.rules);
-    return { id: power, name: POWER_NAME[power], short: powerLines[power]!, full: sentence(capture(powerText(power, context.rules))), art: `/ui/pieces/king-${king.toLowerCase()}-w.webp`, subject: { kind: 'power' as const, id: power }, kind: `${king} King · ${uses == null || uses === 0 ? 'Always on' : `${uses} ${uses === 1 ? 'use' : 'uses'} per game`}` };
+    return { id: power, name: POWER_NAME[power], short: powerLines[power]!, full: sentence(capture(powerText(power, context.rules))), art: `/ui/pieces/king-${king.toLowerCase()}-w.webp`, subject: { kind: 'power' as const, id: power }, kind: `${kingDisplayName(king)} King · ${uses == null || uses === 0 ? 'Always on' : `${uses} ${uses === 1 ? 'use' : 'uses'} per game`}` };
   }));
   if (section === 'Cards') return RELEASED_CARDS.map(card => ({ id: card.id, name: card.name, short: powerLines[card.id]!, full: sentence(capture(cardText(card.id, context.rules))), art: `/${card.art}`, kind: 'Card · One use', subject: { kind: 'card', id: card.id } }));
   if (section === 'How a turn works') return [
@@ -88,8 +89,8 @@ function sectionList(section: string, go: (section?: string, entry?: string) => 
   if (section === 'Pieces') for (const group of pieceGroups()) {
     const box = node('section', 'guide-group'), head = node(small ? 'p' : 'h2', 'group-title', group.name); box.append(head, ...group.entries.map(item => entryRow(item, open(item.id), small))); list.append(box);
   } else if (section === 'Kings and powers') for (const block of kingBlocks()) {
-    const box = node('section', 'king-block'), title = node('div', 'king-title'), name = node(small ? 'p' : 'h2', '', `${block.king} King`);
-    title.append(picture(block.art), name); box.setAttribute('aria-label', `${block.king} King`);
+    const box = node('section', 'king-block'), title = node('div', 'king-title'), name = node(small ? 'p' : 'h2', '', `${kingDisplayName(block.king)} King`);
+    title.append(picture(block.art), name); box.setAttribute('aria-label', `${kingDisplayName(block.king)} King`);
     const powers = node('div', 'king-powers');
     powers.append(...block.powers.map(item => { const row = entryRow({ ...item, art: undefined }, open(item.id), small); row.querySelector('strong')!.after(node('span', 'uses', usesLine(item))); return row; }));
     box.append(title, powers); list.append(box);

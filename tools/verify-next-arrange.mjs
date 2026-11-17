@@ -130,7 +130,7 @@ async function inviteFromPanel(page, king, cards, named = false) {
   await panel.locator('[data-section="powers"]').click(); await panel.locator(`[data-king="${king.king}"]`).click();
   await panel.getByRole('radio', { name: king.power, exact: true }).click();
   await panel.getByRole('checkbox', { name: 'With cards', exact: true }).setChecked(cards);
-  if (cards && king.power === 'Leap') assert.match(await panel.locator('[data-section="powers"]').innerText(), /Mud · March/);
+  if (cards && king.power === 'Leap') assert.match(await panel.locator('[data-section="powers"]').innerText(), /Earth · March/);
   const response = page.waitForResponse(r => new URL(r.url()).pathname === '/api/games' && r.request().method() === 'POST');
   if (named) {
     await panel.getByRole('button', { name: 'Invite by name', exact: true }).click();

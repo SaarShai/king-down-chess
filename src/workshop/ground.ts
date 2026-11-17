@@ -1,3 +1,4 @@
+import { kingDisplayName } from '../king-label';
 import { GameRules } from '../game-rules';
 import { cardPicture } from '../card-symbol';
 import { cardDiagram } from '../card-diagram';
@@ -680,8 +681,8 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
     }
     // An open king (renderPlinth, proving-ground.html:1062-1066): his name and his figure on the stone.
     if (kingOpen) {
-      plinthEl.innerHTML = `<div class="pg-name"><div class="row"><h3>${kingOpen} King</h3></div></div>`
-        + `<div class="pg-figure"><span class="halo"></span><img src="${kingArt(kingOpen)}" alt="${kingOpen} king"></div><div class="pg-stone"><div class="top"></div><div class="front"></div></div>`;
+      plinthEl.innerHTML = `<div class="pg-name"><div class="row"><h3>${kingDisplayName(kingOpen)} King</h3></div></div>`
+        + `<div class="pg-figure"><span class="halo"></span><img src="${kingArt(kingOpen)}" alt="${kingDisplayName(kingOpen)} king"></div><div class="pg-stone"><div class="top"></div><div class="front"></div></div>`;
       return;
     }
     // An open card (renderPlinth, proving-ground.html:1067-1070): its name, and on the plinth its art, title and sentence with the LAB ribbon.
@@ -1291,12 +1292,12 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
       + ` aria-label="${!powersWork() ? `Card. ${WAIT_CARDS}` : laid ? `${cardName(laid)} card (LAB): lay another` : 'Card: lay a LAB card'}"><span class="cs${laid ? ' filled' : ''}"${laid ? ` style="background-image:url(${cardArt(laid)})"` : ''}></span></button>`;
     const socket = !powersWork() ? `<button type="button" class="tok pg-socket" data-act="nosocket" aria-disabled="true" aria-label="King. ${WAIT_POWERS}">${empty}</button>${slot}<span class="pg-kingnote">${WAIT_POWERS}</span>`
       : !king ? `<button type="button" class="tok pg-socket" data-act="seat" aria-expanded="${seating}" aria-label="King: seat a king and his powers" title="King: seat a king and his powers">${empty}</button>${slot}`
-      : `<span class="tok kingseat"><button type="button" class="pg-kingfig" data-act="seat" aria-expanded="${seating}" aria-label="${king} king: seat another king" title="${king} king"><img src="${kingArt(king)}" alt=""></button>`
+      : `<span class="tok kingseat"><button type="button" class="pg-kingfig" data-act="seat" aria-expanded="${seating}" aria-label="${kingDisplayName(king)} king: seat another king" title="${kingDisplayName(king)} king"><img src="${kingArt(king)}" alt=""></button>`
         + `<span class="coins">${KINGS[king].map(p => coinButton(p)).join('')}</span></span>${slot}`;
     trayEl.innerHTML = !on ? '' : `<h3 id="pg-tray-h">Try with</h3>`
       + (echo() ? `<p class="echo-note"><span class="echo-eq" aria-hidden="true">=</span> ${POWER_NAME[armed!]} adds nothing to ${cur.yours ? '' : 'the '}${esc(cur.d.name)}. No mark changes.</p>` : '')
       + `<div class="tokens">${tok('friend', 'Friend: one of your pieces')}${tok('enemy', 'Enemy: tap, then tap a square')}${socket}</div>`
-      + (seating ? `<div class="picker" role="group" aria-labelledby="pg-seat-h"><h4 id="pg-seat-h">SEAT A KING</h4><div class="row">${KING_LIST.map(k => `<button type="button" data-seat="${k}" aria-pressed="${king === k}"><img src="${kingArt(k)}" alt="">${k}</button>`).join('')}</div></div>` : '')
+      + (seating ? `<div class="picker" role="group" aria-labelledby="pg-seat-h"><h4 id="pg-seat-h">SEAT A KING</h4><div class="row">${KING_LIST.map(k => `<button type="button" data-seat="${k}" aria-pressed="${king === k}"><img src="${kingArt(k)}" alt="">${kingDisplayName(k)}</button>`).join('')}</div></div>` : '')
       + (laying ? `<div class="picker" role="group" aria-labelledby="pg-lay-h"><h4 id="pg-lay-h">LAY A LAB CARD</h4><div class="row">${LAY.map(c => `<button type="button" data-lay="${c}" aria-pressed="${laid === c}">`
         + `<span class="mini-card lab-host" style="background-image:url(${cardArt(c)})"></span>${cardName(c)}</button>`).join('')}</div></div>` : '')
       + `<div class="trow2"><button type="button" data-act="threats" aria-pressed="${threats}" aria-label="Threats" title="Threats: what can hit your piece">${sigil('eye', 22)}</button>`
@@ -1410,7 +1411,7 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
     // The Kings tab: the six kings (renderLedge, proving-ground.html:1455-1457).
     if (t === 'kings') {
       slotsEl.innerHTML = KING_LIST.map(k => `<button type="button" class="slot${kingOpen === k ? ' open' : ''}" data-king="${k}"${kingOpen === k ? ' aria-current="true"' : ''}>`
-        + `<img class="fig" src="${kingArt(k)}" alt=""><span class="nm">${k}</span></button>`).join('');
+        + `<img class="fig" src="${kingArt(k)}" alt=""><span class="nm">${kingDisplayName(k)}</span></button>`).join('');
       return;
     }
     const slot = (attr: string, key: string, d: PieceDesign, yours: boolean): string => {

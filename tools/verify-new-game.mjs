@@ -293,7 +293,7 @@ try {
   await page.click('label:has(#mode-powers)');
   assert.equal(await shown(page, 'king-picker'), true);
   for (const c of [0, 1]) {
-    assert.deepEqual(await page.$$eval(`#pick-${c} .emblem`, bs => bs.map(b => b.textContent)), ['Frost', 'Flame', 'Stratus', 'Mud', 'Spirit', 'Shadow']);
+    assert.deepEqual(await page.$$eval(`#pick-${c} .emblem`, bs => bs.map(b => b.textContent)), ['Frost', 'Flame', 'Sky', 'Earth', 'Spirit', 'Shadow']);
     assert.ok(await page.$$eval(`#pick-${c} .emblem img`, imgs => Promise.all(imgs.map(i => i.decode().then(() => i.naturalWidth > 0, () => false))).then(r => r.every(Boolean))), 'every emblem loads');
   }
   assert.deepEqual(await pressed(page, 0), ['Spirit', 'HolyLight']);

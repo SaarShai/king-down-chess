@@ -157,7 +157,7 @@ Output (`structuredContent`):
 
 Class: Read. Limit for each account: none.
 
-> Explains a King Down piece (by name or letter), a square, a king power or a card. Without game_id, it uses your most urgent game against the computer, if any. In a game against the computer, a square names its piece, and your piece also gets the moves it can make now. An unknown topic gives the names of the pieces in play.
+> Explains a King Down piece (by name or letter), a square, a king (Sky or Earth, for example), a king power or a card. Without game_id, it uses your most urgent game against the computer, if any. In a game against the computer, a square names its piece, and your piece also gets the moves it can make now. An unknown topic gives the names of the pieces in play.
 
 Side effects: None. It reads the rules, and the position of a game against the computer.
 

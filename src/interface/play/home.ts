@@ -1,3 +1,4 @@
+import { kingDisplayName } from '../../king-label';
 /**
  * Play, the games screen (launch decision 25), its piece card, and the New game panel (decision 26). The data and the
  * actions come from main.ts; this file draws them. One New game panel serves Computer and Person.
@@ -262,7 +263,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     const box = el('div', 'panel-section'), grid = el('div', 'king-grid'), chosen = shownKing(draft.setup, draft.options.king), legal = kingChoices(hasCards(draft.setup) ? 'both' : 'powers');
     grid.setAttribute('role', 'group'); grid.setAttribute('aria-label', panelText.yourKing);
     for (const king of Object.keys(KINGS) as KingName[]) {
-      const available = legal.filter(k => k.king === king), b = button(king, { disabledReason: available.length ? '' : panelText.unavailable, onPress: () => { options({ king: available[0] }); draw(); } });
+      const available = legal.filter(k => k.king === king), b = button(kingDisplayName(king), { disabledReason: available.length ? '' : panelText.unavailable, onPress: () => { options({ king: available[0] }); draw(); } });
       b.classList.add('king-choice'); b.setAttribute('aria-pressed', String(chosen.king === king)); key(b, king); b.dataset.king = king;
       const img = el('img'); img.src = `/ui/emblems/${king.toLowerCase()}.webp`; img.alt = ''; b.prepend(img); grid.append(b);
     }
@@ -305,7 +306,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
       if (!on && section === name) section = null;
       const king = shownKing(draft.setup, draft.options.king);
       const summary = name === 'pieces' ? `${draft.options.pool.length === POOL_KINDS.length ? panelText.allPieces : `${poolLetters(draft.options.pool).length} pieces`} · ${draft.options.arrangement === 'random' ? panelText.random : panelText.manual}`
-        : name === 'powers' ? `${king.king} · ${POWER_NAME[king.power]}` : cardMode === 'all' ? panelText.allCards : panelText.count(picked.length);
+        : name === 'powers' ? `${kingDisplayName(king.king)} · ${POWER_NAME[king.power]}` : cardMode === 'all' ? panelText.allCards : panelText.count(picked.length);
       const title = el('button', 'option-title'); title.type = 'button'; key(title, `open-${name}`); title.dataset.section = name;
       title.append(el('strong', '', panelText[name]), el('small', '', summary)); title.setAttribute('aria-expanded', String(on && section === name)); title.setAttribute('aria-controls', `options-${name}`); title.disabled = !on;
       title.addEventListener('click', () => { section = section === name ? null : name; draw(); });
@@ -313,7 +314,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
       row.append(title); if (on) row.append(icon('down')); group.append(row);
       const preferred = draft.options.king;
       if (name === 'powers' && on && hasCards(draft.setup) && preferred && (preferred.king !== king.king || preferred.power !== king.power)) {
-        const nameOf = (k: typeof king) => `${k.king} · ${POWER_NAME[k.power]}`;
+        const nameOf = (k: typeof king) => `${kingDisplayName(k.king)} · ${POWER_NAME[k.power]}`;
         const note = el('p', 'panel-note king-change', panelText.changedKing(nameOf(preferred), nameOf(king))); note.setAttribute('role', 'status'); group.append(note);
       }
       if (section === name) { const content = name === 'pieces' ? piecesSection() : name === 'powers' ? powersSection() : cardsSection(); content.id = `options-${name}`; group.append(content); }
