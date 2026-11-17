@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Muse tool documentation · King Down</title>
+<link rel="icon" href="./icons/icon-192.png" />
+<style>
+  @font-face { font-family: 'Cinzel'; src: url('./fonts/cinzel-latin.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'Alegreya Sans'; src: url('./fonts/alegreya-sans-regular-latin.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'Alegreya Sans'; font-weight: 700; src: url('./fonts/alegreya-sans-bold-latin.woff2') format('woff2'); font-display: swap; }
+  :root { color-scheme: light; --ink: #1d1915; --soft: #4d453c; --page: #f3ead7; --line: #c9bfac; --accent: #8a3b2b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #2b2621; color: var(--ink); font: 18px/1.55 'Alegreya Sans', system-ui, sans-serif; }
+  main { max-width: 760px; margin: 32px auto; padding: 32px 28px 40px; background: var(--page); border: 1px solid var(--line); border-radius: 10px; }
+  h1 { font-family: 'Cinzel', Georgia, serif; font-size: 30px; margin: 0 0 4px; letter-spacing: .02em; }
+  h2 { font-family: 'Cinzel', Georgia, serif; font-size: 20px; margin: 28px 0 8px; }
+  p, li { color: var(--soft); }
+  ul { padding-left: 22px; }
+  a { color: var(--accent); }
+  .meta { font-size: 15px; color: var(--soft); margin: 0 0 20px; }
+  nav { max-width: 760px; margin: 18px auto 0; padding: 0 16px; font-size: 16px; }
+  nav a { color: #f3ead7; margin-right: 16px; }
+  @media (max-width: 600px) { main { margin: 12px; padding: 22px 18px 28px; } body { font-size: 17px; } }
+  h3 { font-size: 20px; margin: 24px 0 8px; }
+  code { font-size: .85em; overflow-wrap: anywhere; }
+  p, li { overflow-wrap: anywhere; }
+  td code { white-space: nowrap; }
+  .table-scroll { overflow-x: auto; margin: 12px 0; }
+  .table-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  table { width: 100%; border-collapse: collapse; font-size: 16px; }
+  th, td { padding: 8px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+</style>
+</head>
+<body>
+<nav><a href="./">← King Down</a><a href="./support.html">Support</a><a href="./privacy.html">Privacy</a><a href="./terms.html">Terms</a><a href="./delete-data.html">Delete your data</a></nav>
+<main>
+<h1>Muse tool documentation</h1>
+
+<p>Use the King Down tools in Meta Muse to start, play and end casual games against the computer. This page comes from the tool listing that each MCP client gets.</p>
+
+<p>The listing is the answer to <code>tools/list</code> that each MCP client gets, and so the portal&#39;s MCP snapshot.</p>
+
+<h2>Connection and authorization</h2>
+
+<p>Endpoint: <a href="https://kingdown.dev/muse/mcp">https://kingdown.dev/muse/mcp</a>. Transport: stateless MCP over Streamable HTTP. Send JSON-RPC requests with POST. OPTIONS gives the CORS preflight response. GET streams and JSON-RPC batches are not supported.</p>
+
+<p>Authorization: OAuth 2.1 with the authorization code flow and PKCE S256. Muse uses a pre-registered public client, with no client secret. The scope is <code>openid</code>. Send the access token in <code>Authorization: Bearer &lt;access_token&gt;</code>.</p>
+
+<p>Authorization server: <a href="https://utqzovjmclfyojedmwok.supabase.co/auth/v1">https://utqzovjmclfyojedmwok.supabase.co/auth/v1</a>.</p>
+
+<p>Protected resource metadata: <a href="https://kingdown.dev/.well-known/oauth-protected-resource/muse/mcp">https://kingdown.dev/.well-known/oauth-protected-resource/muse/mcp</a>. The resource and token audience are <code>https://kingdown.dev/muse/mcp</code>.</p>
+
+<h2>Summary</h2>
+
+<div class="table-scroll" tabindex="0" role="region" aria-label="Reference table"><table>
+<thead><tr><th scope="col">Tool</th><th scope="col">Title</th><th scope="col">Class</th><th scope="col">Read only</th><th scope="col">Destructive</th><th scope="col">Idempotent</th><th scope="col">Open world</th><th scope="col">Limit for each account</th></tr></thead>
+<tbody>
+<tr><td><code>kingdown_games</code></td><td>Your games</td><td>Read</td><td>yes</td><td>no</td><td>yes</td><td>no</td><td>none</td></tr>
+<tr><td><code>kingdown_view</code></td><td>Show a game</td><td>Read</td><td>yes</td><td>no</td><td>yes</td><td>no</td><td>none</td></tr>
+<tr><td><code>kingdown_explain</code></td><td>Explain a rule</td><td>Read</td><td>yes</td><td>no</td><td>yes</td><td>no</td><td>none</td></tr>
+<tr><td><code>kingdown_new_game</code></td><td>New game</td><td>Write</td><td>no</td><td>no</td><td>yes</td><td>no</td><td>60 calls in 60 seconds</td></tr>
+<tr><td><code>kingdown_move</code></td><td>Play a move</td><td>Write</td><td>no</td><td>no</td><td>yes</td><td>no</td><td>120 calls in 60 seconds</td></tr>
+<tr><td><code>kingdown_end</code></td><td>End a game</td><td>Write</td><td>no</td><td>yes</td><td>yes</td><td>no</td><td>none</td></tr>
+</tbody>
+</table></div>
+
+<p>The class comes from the read-only hint: a read-only tool is a Read, and each other tool is a Write. No tool is a Sensitive write: no tool sends a message, spends money, or shares data outside King Down. Each tool acts only on the games of the signed-in King Down account. The account comes from the access token, never from a tool field.</p>
+
+<h2>Results</h2>
+
+<p>Each result starts with one or two sentences that Muse can speak as they are. Detail lines follow: the board, the choices or a link. <code>structuredContent</code> gives the same facts and agrees with the output schema of the tool. No result has a widget or an image.</p>
+
+<h2>Status and retries</h2>
+
+<p>Each write tool gives a <code>result</code> value:</p>
+
+<div class="table-scroll" tabindex="0" role="region" aria-label="Reference table"><table>
+<thead><tr><th scope="col"><code>result</code></th><th scope="col">Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>played</code></td><td>Your turn played, and the computer replied in the same call.</td></tr>
+<tr><td><code>computer</code></td><td>An earlier call stopped before the computer moved. The computer moved now; say your move again.</td></tr>
+<tr><td><code>choices</code></td><td>The words fit more than one move. The result gives numbered choices with their <code>move_ids</code>. Nothing played.</td></tr>
+<tr><td><code>refused</code></td><td>The words fit no legal move. The result gives the reason and some legal moves. Nothing played.</td></tr>
+<tr><td><code>pending</code></td><td>The turn has more actions (a king power such as Haste). The result gives the next choices. Nothing played.</td></tr>
+<tr><td><code>changed</code></td><td><code>expected_revision</code> is not the revision of the game. Nothing changed; the result gives the current state.</td></tr>
+<tr><td><code>ended</code></td><td>The game ended.</td></tr>
+</tbody>
+</table></div>
+
+<ul>
+<li><code>kingdown_move</code> and <code>kingdown_end</code> carry <code>expected_revision</code>, the revision of the last result for the game. When it is not the revision of the game, the tool changes nothing and gives the current state (<code>changed</code>).</li>
+<li>A write that comes again changes nothing more. The same <code>kingdown_move</code> or <code>kingdown_end</code> again has an old <code>expected_revision</code>, so it gives <code>changed</code>, with the current state and the last turns. The same <code>request_id</code> again gives the same game in its current position, with <code>computer: []</code>: the first move of the computer does not come again. Thus each tool has the idempotent hint.</li>
+<li>The server makes the command ID of each write from the game ID, the revision and the actions; <code>kingdown_new_game</code> makes it from <code>request_id</code>. Two equal calls at the same time have the same command ID, and the game service plays the command once: the second call gets the receipt of the first, or <code>STALE_REVISION</code>.</li>
+<li>After a lost reply, send the same call again: the answer gives the current state. Or read the game with <code>kingdown_view</code>.</li>
+</ul>
+
+<h2>Errors</h2>
+
+<p>A call that a tool refuses sets <code>isError</code>. Its text is one fixed sentence, and its <code>structuredContent</code> is <code>{ &quot;code&quot;: &quot;&lt;code&gt;&quot; }</code>. The text never repeats the input. The text of the game service never goes to Muse; this table gives the sentence for each code of the game service.</p>
+
+<div class="table-scroll" tabindex="0" role="region" aria-label="Reference table"><table>
+<thead><tr><th scope="col">Code</th><th scope="col">Sentence</th></tr></thead>
+<tbody>
+<tr><td><code>STALE_REVISION</code></td><td>The game changed. Read the game again, then move.</td></tr>
+<tr><td><code>INVALID_MOVE</code></td><td>This move is not available. Choose another move.</td></tr>
+<tr><td><code>WRONG_TURN</code></td><td>It is not your turn.</td></tr>
+<tr><td><code>MATCH_TERMINAL</code></td><td>This game is over.</td></tr>
+<tr><td><code>RATE_LIMITED</code></td><td>Too many requests. Wait one minute, then try again.</td></tr>
+<tr><td><code>UNAVAILABLE</code></td><td>The game server is busy. Try again.</td></tr>
+<tr><td><code>NOT_FOUND</code></td><td>There is no game with this ID.</td></tr>
+<tr><td><code>FORBIDDEN</code></td><td>You do not have a seat in this game.</td></tr>
+<tr><td><code>INVALID_INPUT</code></td><td>Invalid input: check the tool fields.</td></tr>
+<tr><td><code>COMMAND_CONFLICT</code></td><td>This request ID belongs to another request. Use a new request ID.</td></tr>
+<tr><td><code>NOT_ALLOWED</code></td><td>The game does not allow this now.</td></tr>
+<tr><td><code>MATCH_LIMIT</code></td><td>This game reached its length limit.</td></tr>
+<tr><td><code>MATCH_INCOMPATIBLE</code></td><td>This game uses an older version. Play it on the website.</td></tr>
+</tbody>
+</table></div>
+
+<p>The connector has more codes, each with its own fixed sentence: <code>NO_GAME</code> (no game against the computer), <code>PERSON_GAME</code> (the game is against a person; the sentence gives its link), <code>NOT_STARTED</code> (the setup of the game is not complete) and <code>INTERNAL_ERROR</code> (any other fault; &quot;Could not update the game. Try again.&quot;). The server log records the tool name and a fixed error category only.</p>
+
+<p>A call that does not fit the input schema stops in the MCP SDK, before the tool runs. Its result sets <code>isError</code> and has no <code>structuredContent</code>. Its text starts with &quot;Input validation error:&quot; and names the field and the rule that the input breaks.</p>
+
+<p>Before a tool runs, the HTTP edge can refuse the request:</p>
+
+<div class="table-scroll" tabindex="0" role="region" aria-label="Reference table"><table>
+<thead><tr><th scope="col">Status</th><th scope="col">When</th><th scope="col">Headers and body</th></tr></thead>
+<tbody>
+<tr><td>401</td><td>No valid King Down access token: a wrong issuer, audience or client, an expired token, or a session that ended.</td><td><code>WWW-Authenticate: Bearer resource_metadata=&quot;https://kingdown.dev/.well-known/oauth-protected-resource/muse/mcp&quot;, scope=&quot;openid&quot;</code></td></tr>
+<tr><td>429</td><td>The account has 3 requests in progress.</td><td><code>Retry-After: 1</code>, code <code>RATE_LIMITED</code></td></tr>
+<tr><td>503</td><td>The server instance has 4 requests in progress, or the sign-in check is not available.</td><td><code>Retry-After: 1</code> or <code>Retry-After: 5</code></td></tr>
+<tr><td>413</td><td>The body is larger than 128 KiB.</td><td></td></tr>
+<tr><td>400</td><td>The body is not JSON, or it is a JSON-RPC batch.</td><td></td></tr>
+<tr><td>405</td><td>The method is not POST or OPTIONS.</td><td><code>Allow: POST, OPTIONS</code></td></tr>
+</tbody>
+</table></div>
+
+<h2>Rate limits</h2>
+
+<p>The server counts each counted call for the account before the game work starts, so a call that the game then refuses also counts. Two refusals come before the count and count nothing: a call that does not fit the input schema, and a <code>kingdown_move</code> call with no <code>said</code> and no <code>move_ids</code>. The website uses the same counters for the same actions. The reads have no count limit. The limits of the HTTP edge (above) apply to all calls.</p>
+
+<div class="table-scroll" tabindex="0" role="region" aria-label="Reference table"><table>
+<thead><tr><th scope="col">Counter</th><th scope="col">Tools</th><th scope="col">Limit for each account</th></tr></thead>
+<tbody>
+<tr><td><code>kingdown_create</code></td><td><code>kingdown_new_game</code></td><td>60 calls in 60 seconds</td></tr>
+<tr><td><code>kingdown_computer</code></td><td><code>kingdown_move</code></td><td>120 calls in 60 seconds</td></tr>
+</tbody>
+</table></div>
+
+<p>A call over the limit gives code <code>RATE_LIMITED</code> and &quot;Too many requests. Wait one minute, then try again.&quot;</p>
+
+<h2>Tools</h2>
+
+<h3><code>kingdown_games</code>: Your games</h3>
+
+<p>Class: Read. Limit for each account: none.</p>
+
+<p>Lists your unfinished King Down games, your turn first. Each game has its ID, whether it is against the computer or a person, whether it is your turn, the move number, your colour, the computer level and a link to the game on the website. It gives no opponent name.</p>
+
+<p>Side effects: None. It reads the unfinished games of the account.</p>
+
+<p>Input:</p>
+
+<p>None.</p>
+
+<p>Output (<code>structuredContent</code>):</p>
+
+<div class="table-scroll" tabindex="0" role="region" aria-label="Reference table"><table>
+<thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Always given</th></tr></thead>
+<tbody>
+<tr><td><code>games</code></td><td>array of objects</td><td>yes</td></tr>
+<tr><td><code>games[].game_id</code></td><td>string</td><td>yes</td></tr>
+<tr><td><code>games[].against</code></td><td>one of <code>computer</code>, <code>person</code></td><td>yes</td></tr>
+<tr><td><code>games[].colour</code></td><td>one of <code>white</code>, <code>black</code></td><td>yes</td></tr>
+<tr><td><code>games[].status</code></td><td>string</td><td>yes</td></tr>
+<tr><td><code>games[].your_turn</code></td><td>boolean</td><td>yes</td></tr>
+<tr><td><code>games[].move</code></td><td>integer or null</td><td>yes</td></tr>
+<tr><td><code>games[].link</code></td><td>string</td><td>yes</td></tr>
+<tr><td><code>games[].level</code></td><td>string</td><td>no</td></tr>
+</tbody>
+</table></div>
+
+<h3><code>kingdown_view</code>: Show a game</h3>
+
+<p>Class: Read. Limit for each account: none.</p>
+
+<p>Shows one King Down game. Without game_id, it shows your most urgent game against the computer. A game against the computer gives the status, the last move, the check line, the pieces of each side, a letter grid with its legend, the revision, the FEN, your colour, the number of legal moves and a link. A game against a person gives only its status, the move number and a link.</p>
+
+<p>Side effects: None. It reads one game.</p>
+
+<p>Input:</p>
+
+<div class="table-scroll" tabindex="0" role="region" aria-label="Reference table"><table>
+<thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Required</th><th scope="col">Notes</th></tr></thead>
+<tbody>
+<tr><td><code>game_id</code></td><td>UUID</td><td>no</td><td>The game, from kingdown_games or an earlier result. Default: your most urgent game against the computer.</td></tr>
+</tbody>
+</table></div>
+
+<p>Output (<code>structuredContent</code>):</p>
+
+<div class="table-scroll" tabindex="0" role="region" aria-label="Reference table"><table>
+<thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Always given</th></tr></thead>
+<tbody>
+<tr><td><code>found</code></td><td>boolean</td><td>yes</td></tr>
+<tr><td><code>game_id</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>against</code></td><td>one of <code>computer</code>, <code>person</code></td><td>no</td></tr>
+<tr><td><code>colour</code></td><td>one of <code>white</code>, <code>black</code></td><td>no</td></tr>
+<tr><td><code>status</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>your_turn</code></td><td>boolean</td><td>no</td></tr>
+<tr><td><code>move</code></td><td>integer or null</td><td>no</td></tr>
+<tr><td><code>link</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>level</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>revision</code></td><td>integer</td><td>no</td></tr>
+<tr><td><code>fen</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>legal_count</code></td><td>integer</td><td>no</td></tr>
+<tr><td><code>status_line</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>last_move</code></td><td>string or null</td><td>no</td></tr>
+<tr><td><code>check</code></td><td>string or null</td><td>no</td></tr>
+<tr><td><code>white</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>black</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>grid</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>legend</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>ending</code></td><td>string or null</td><td>no</td></tr>
+</tbody>
+</table></div>
+
+<h3><code>kingdown_explain</code>: Explain a rule</h3>
+
+<p>Class: Read. Limit for each account: none.</p>
+
+<p>Explains a King Down piece (by name or letter), a square, a king power or a card. Without game_id, it uses your most urgent game against the computer, if any. In a game against the computer, a square names its piece, and your piece also gets the moves it can make now. An unknown topic gives the names of the pieces in play.</p>
+
+<p>Side effects: None. It reads the rules, and the position of a game against the computer.</p>
+
+<p>Input:</p>
+
+<div class="table-scroll" tabindex="0" role="region" aria-label="Reference table"><table>
+<thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Required</th><th scope="col">Notes</th></tr></thead>
+<tbody>
+<tr><td><code>topic</code></td><td>string, 1 to 60 characters</td><td>yes</td><td>A piece name or letter, a square, a king power or a card.</td></tr>
+<tr><td><code>game_id</code></td><td>UUID</td><td>no</td><td>The game, from kingdown_games or an earlier result. Default: your most urgent game against the computer.</td></tr>
+</tbody>
+</table></div>
+
+<p>Output (<code>structuredContent</code>):</p>
+
+<div class="table-scroll" tabindex="0" role="region" aria-label="Reference table"><table>
+<thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Always given</th></tr></thead>
+<tbody>
+<tr><td><code>known</code></td><td>boolean</td><td>yes</td></tr>
+<tr><td><code>pieces</code></td><td>array of string</td><td>no</td></tr>
+</tbody>
+</table></div>
+
+<h3><code>kingdown_new_game</code>: New game</h3>
+
+<p>Class: Write. Limit for each account: 60 calls in 60 seconds.</p>
+
+<p>Starts a new King Down game against the computer, with fairy pieces unless classic is true. A new request_id makes a new game; the same request_id on a retry returns the same game. The result gives your colour, the back rank, the computer&#39;s first move when it plays White, and the board.</p>
+
+<p>Side effects: It makes one casual game against the computer in the account; the game also shows on kingdown.dev. When you play Black, the computer plays its first move. The same <code>request_id</code> gives the same game again, not a second game.</p>
+
+<p>Input:</p>
+
+<div class="table-scroll" tabindex="0" role="region" aria-label="Reference table"><table>
+<thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Required</th><th scope="col">Notes</th></tr></thead>
+<tbody>
+<tr><td><code>request_id</code></td><td>string matching <code>^[A-Za-z0-9_-]{8,64}$</code></td><td>yes</td><td>A new ID for each new game; the same ID on a retry.</td></tr>
+<tr><td><code>colour</code></td><td>one of <code>white</code>, <code>black</code>, <code>random</code></td><td>no</td><td>Your colour. Default: white.</td></tr>
+<tr><td><code>level</code></td><td>one of <code>beginner</code>, <code>casual</code>, <code>club</code>, <code>strong</code></td><td>no</td><td>The computer level. Default: casual.</td></tr>
+<tr><td><code>king_powers</code></td><td>boolean</td><td>no</td><td>King powers on, with your default king. Default: false.</td></tr>
+<tr><td><code>classic</code></td><td>boolean</td><td>no</td><td>Classic chess pieces only, with no fairy pieces. Default: false.</td></tr>
+</tbody>
+</table></div>
+
+<p>Output (<code>structuredContent</code>):</p>
+
+<div class="table-scroll" tabindex="0" role="region" aria-label="Reference table"><table>
+<thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Always given</th></tr></thead>
+<tbody>
+<tr><td><code>back_rank</code></td><td>string</td><td>yes</td></tr>
+<tr><td><code>computer</code></td><td>array of string</td><td>yes</td></tr>
+<tr><td><code>game_id</code></td><td>string</td><td>yes</td></tr>
+<tr><td><code>against</code></td><td>one of <code>computer</code>, <code>person</code></td><td>yes</td></tr>
+<tr><td><code>colour</code></td><td>one of <code>white</code>, <code>black</code></td><td>yes</td></tr>
+<tr><td><code>status</code></td><td>string</td><td>yes</td></tr>
+<tr><td><code>your_turn</code></td><td>boolean</td><td>yes</td></tr>
+<tr><td><code>move</code></td><td>integer or null</td><td>yes</td></tr>
+<tr><td><code>link</code></td><td>string</td><td>yes</td></tr>
+<tr><td><code>level</code></td><td>string</td><td>yes</td></tr>
+<tr><td><code>revision</code></td><td>integer</td><td>yes</td></tr>
+<tr><td><code>fen</code></td><td>string</td><td>yes</td></tr>
+<tr><td><code>legal_count</code></td><td>integer</td><td>yes</td></tr>
+<tr><td><code>status_line</code></td><td>string</td><td>yes</td></tr>
+<tr><td><code>last_move</code></td><td>string or null</td><td>yes</td></tr>
+<tr><td><code>check</code></td><td>string or null</td><td>yes</td></tr>
+<tr><td><code>white</code></td><td>string</td><td>yes</td></tr>
+<tr><td><code>black</code></td><td>string</td><td>yes</td></tr>
+<tr><td><code>grid</code></td><td>string</td><td>yes</td></tr>
+<tr><td><code>legend</code></td><td>string</td><td>yes</td></tr>
+<tr><td><code>ending</code></td><td>string or null</td><td>yes</td></tr>
+</tbody>
+</table></div>
+
+<h3><code>kingdown_move</code>: Play a move</h3>
+
+<p>Class: Write. Limit for each account: 120 calls in 60 seconds.</p>
+
+<p>Plays your move in a King Down game against the computer, from words (said) or from exact move IDs of earlier choices (move_ids), or both: the IDs first, then the words. Words that fit several moves give numbered choices and play nothing; words that fit none give the reason and some legal moves. A turn with more actions (a power or a card) gives the next choices and plays nothing until it is complete. A complete turn plays, and the computer replies in the same call. When expected_revision is not the game&#39;s revision, nothing is played and the current state comes back.</p>
+
+<p>Side effects: It plays your complete turn and the computer&#39;s reply in that game; casual games change no rating. Choices, a refusal, an unfinished turn and an old revision play nothing.</p>
+
+<p>Input:</p>
+
+<div class="table-scroll" tabindex="0" role="region" aria-label="Reference table"><table>
+<thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Required</th><th scope="col">Notes</th></tr></thead>
+<tbody>
+<tr><td><code>expected_revision</code></td><td>integer, 0 to 1100</td><td>yes</td><td>The revision of the last result for this game.</td></tr>
+<tr><td><code>said</code></td><td>string, 1 to 200 characters</td><td>no</td><td>The move in the player&#39;s words, for example &quot;knight to f3&quot;.</td></tr>
+<tr><td><code>move_ids</code></td><td>array of (string, 1 to 120 characters), 1 to 4 items</td><td>no</td><td>Exact move IDs from earlier choices, in order.</td></tr>
+<tr><td><code>game_id</code></td><td>UUID</td><td>yes</td><td>The game, from kingdown_games or an earlier result.</td></tr>
+</tbody>
+</table></div>
+
+<p>Output (<code>structuredContent</code>):</p>
+
+<div class="table-scroll" tabindex="0" role="region" aria-label="Reference table"><table>
+<thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Always given</th></tr></thead>
+<tbody>
+<tr><td><code>result</code></td><td>one of <code>played</code>, <code>computer</code>, <code>choices</code>, <code>refused</code>, <code>pending</code>, <code>changed</code></td><td>yes</td></tr>
+<tr><td><code>you</code></td><td>array of string</td><td>yes</td></tr>
+<tr><td><code>computer</code></td><td>array of string</td><td>yes</td></tr>
+<tr><td><code>reason</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>move_ids</code></td><td>array of string</td><td>no</td></tr>
+<tr><td><code>choices</code></td><td>array of objects</td><td>no</td></tr>
+<tr><td><code>choices[].number</code></td><td>integer</td><td>yes</td></tr>
+<tr><td><code>choices[].words</code></td><td>string</td><td>yes</td></tr>
+<tr><td><code>choices[].move_ids</code></td><td>array of string</td><td>yes</td></tr>
+<tr><td><code>game_id</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>against</code></td><td>one of <code>computer</code>, <code>person</code></td><td>no</td></tr>
+<tr><td><code>colour</code></td><td>one of <code>white</code>, <code>black</code></td><td>no</td></tr>
+<tr><td><code>status</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>your_turn</code></td><td>boolean</td><td>no</td></tr>
+<tr><td><code>move</code></td><td>integer or null</td><td>no</td></tr>
+<tr><td><code>link</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>level</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>revision</code></td><td>integer</td><td>no</td></tr>
+<tr><td><code>fen</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>legal_count</code></td><td>integer</td><td>no</td></tr>
+<tr><td><code>status_line</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>last_move</code></td><td>string or null</td><td>no</td></tr>
+<tr><td><code>check</code></td><td>string or null</td><td>no</td></tr>
+<tr><td><code>white</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>black</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>grid</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>legend</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>ending</code></td><td>string or null</td><td>no</td></tr>
+</tbody>
+</table></div>
+
+<h3><code>kingdown_end</code>: End a game</h3>
+
+<p>Class: Write. Limit for each account: none.</p>
+
+<p>Ends a King Down game against the computer: resign (the computer wins) or abort (no result; only before each side has played a turn). When expected_revision is not the game&#39;s revision, nothing changes and the current state comes back.</p>
+
+<p>Side effects: Resign ends the game, and the computer wins. Abort ends the game with no result. A game that ended does not start again. An old revision changes nothing.</p>
+
+<p>Input:</p>
+
+<div class="table-scroll" tabindex="0" role="region" aria-label="Reference table"><table>
+<thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Required</th><th scope="col">Notes</th></tr></thead>
+<tbody>
+<tr><td><code>action</code></td><td>one of <code>resign</code>, <code>abort</code></td><td>yes</td><td>resign: the computer wins. abort: no result, only before each side has played a turn.</td></tr>
+<tr><td><code>expected_revision</code></td><td>integer, 0 to 1100</td><td>yes</td><td>The revision of the last result for this game.</td></tr>
+<tr><td><code>game_id</code></td><td>UUID</td><td>yes</td><td>The game, from kingdown_games or an earlier result.</td></tr>
+</tbody>
+</table></div>
+
+<p>Output (<code>structuredContent</code>):</p>
+
+<div class="table-scroll" tabindex="0" role="region" aria-label="Reference table"><table>
+<thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Always given</th></tr></thead>
+<tbody>
+<tr><td><code>result</code></td><td>one of <code>ended</code>, <code>changed</code></td><td>yes</td></tr>
+<tr><td><code>game_id</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>against</code></td><td>one of <code>computer</code>, <code>person</code></td><td>no</td></tr>
+<tr><td><code>colour</code></td><td>one of <code>white</code>, <code>black</code></td><td>no</td></tr>
+<tr><td><code>status</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>your_turn</code></td><td>boolean</td><td>no</td></tr>
+<tr><td><code>move</code></td><td>integer or null</td><td>no</td></tr>
+<tr><td><code>link</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>level</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>revision</code></td><td>integer</td><td>no</td></tr>
+<tr><td><code>fen</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>legal_count</code></td><td>integer</td><td>no</td></tr>
+<tr><td><code>status_line</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>last_move</code></td><td>string or null</td><td>no</td></tr>
+<tr><td><code>check</code></td><td>string or null</td><td>no</td></tr>
+<tr><td><code>white</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>black</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>grid</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>legend</code></td><td>string</td><td>no</td></tr>
+<tr><td><code>ending</code></td><td>string or null</td><td>no</td></tr>
+</tbody>
+</table></div>
+
+<h2>Disconnect and delete data</h2>
+
+<p>On <a href="https://kingdown.dev">kingdown.dev</a>, open Settings → Account → Disconnect Muse. This ends the link and deletes the games that you started in Muse at once. Games that you started on the website stay in your account, also when you moved in them through Muse.</p>
+
+<p>Muse does not tell King Down when you disconnect inside Muse. A daily check also deletes the games that you started in Muse when the link has no session, or has no use for 30 days. This applies also when you are still connected. Account deletion also deletes the games that you started in Muse.</p>
+
+<p>For account deletion and other data requests, see <a href="https://kingdown.dev/delete-data.html">Delete your data</a> and the <a href="https://kingdown.dev/privacy.html">Privacy policy</a>. For help, write to <a href="mailto:hello@kingdown.dev">hello@kingdown.dev</a>.</p>
+</main>
+</body>
+</html>

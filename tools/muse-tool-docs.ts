@@ -1,16 +1,17 @@
-/** The Muse tool documentation (ticket 16, step 2): writes docs/specs/muse-connector/tool-docs.md from the tool listing that
+/** The Muse tool documentation: writes the private reference and the public HTML page from the tool listing that
  *  an MCP client, and so the portal's MCP snapshot, gets from src/muse/tools.ts. Run `npm run muse:docs` after a tool change;
  *  tools/muse-tool-docs.docs.test.ts fails while the file and the listing differ. */
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { createMcpHandler } from '@modelcontextprotocol/server';
 import { MAX_ACTIVE_MCP, MAX_ACTIVE_MCP_PER_USER, MAX_MCP_BODY } from '../src/plugin/http';
 import { TOOL_LIMITS } from '../src/plugin/service';
-import { MUSE_METADATA_PATH } from '../src/muse/http';
+import { MUSE_METADATA_PATH, MUSE_PATH } from '../src/muse/http';
 import { COUNTERS, createMuseServer, REFUSED, type MuseGames } from '../src/muse/tools';
 
 export const TOOL_DOCS = 'docs/specs/muse-connector/tool-docs.md';
+export const PUBLIC_TOOL_DOCS = 'public/muse-connector.html';
 
 /** What each tool changes. A listed tool with no line here, or a line with no listed tool, stops the generator. */
 const EFFECTS: Record<string, string> = {
@@ -81,7 +82,7 @@ async function listing() {
   try { return (await client.listTools()).tools; } finally { await client.close(); }
 }
 
-export async function toolDocs(): Promise<string> {
+export async function toolDocs(publicPage = false): Promise<string> {
   const tools = await listing(), counters: Record<string, keyof typeof TOOL_LIMITS> = COUNTERS;
   same('tool names', tools.map(t => t.name), EFFECTS);
   same('result values', tools.flatMap(t => ((t.outputSchema?.properties as Record<string, Schema> | undefined)?.result?.enum ?? []).map(String)), RESULTS);
@@ -91,9 +92,19 @@ export async function toolDocs(): Promise<string> {
   return [
     '# Muse tool documentation',
     '',
-    'This file comes from the tool listing of [src/muse/tools.ts](../../../src/muse/tools.ts), through [tools/muse-tool-docs.ts](../../../tools/muse-tool-docs.ts). Do not edit it. After a tool change, run `npm run muse:docs`. The test `tools/muse-tool-docs.docs.test.ts` fails while this file and the listing differ.',
+    publicPage ? 'Use the King Down tools in Meta Muse to start, play and end casual games against the computer. This page comes from the tool listing that each MCP client gets.' : 'This file comes from the tool listing of [src/muse/tools.ts](../../../src/muse/tools.ts), through [tools/muse-tool-docs.ts](../../../tools/muse-tool-docs.ts). Do not edit it. After a tool change, run `npm run muse:docs`. The test `tools/muse-tool-docs.docs.test.ts` fails while this file and the listing differ.',
     '',
     'The listing is the answer to `tools/list` that each MCP client gets, and so the portal\'s MCP snapshot.',
+    '',
+    '## Connection and authorization',
+    '',
+    `Endpoint: [https://kingdown.dev${MUSE_PATH}](https://kingdown.dev${MUSE_PATH}). Transport: stateless MCP over Streamable HTTP. Send JSON-RPC requests with POST. OPTIONS gives the CORS preflight response. GET streams and JSON-RPC batches are not supported.`,
+    '',
+    'Authorization: OAuth 2.1 with the authorization code flow and PKCE S256. Muse uses a pre-registered public client, with no client secret. The scope is `openid`. Send the access token in `Authorization: Bearer <access_token>`.',
+    '',
+    'Authorization server: [https://utqzovjmclfyojedmwok.supabase.co/auth/v1](https://utqzovjmclfyojedmwok.supabase.co/auth/v1).',
+    '',
+    `Protected resource metadata: [https://kingdown.dev${MUSE_METADATA_PATH}](https://kingdown.dev${MUSE_METADATA_PATH}). The resource and token audience are \`https://kingdown.dev${MUSE_PATH}\`.`,
     '',
     '## Summary',
     '',
@@ -117,7 +128,7 @@ export async function toolDocs(): Promise<string> {
     '',
     '- `kingdown_move` and `kingdown_end` carry `expected_revision`, the revision of the last result for the game. When it is not the revision of the game, the tool changes nothing and gives the current state (`changed`).',
     '- A write that comes again changes nothing more. The same `kingdown_move` or `kingdown_end` again has an old `expected_revision`, so it gives `changed`, with the current state and the last turns. The same `request_id` again gives the same game in its current position, with `computer: []`: the first move of the computer does not come again. Thus each tool has the idempotent hint.',
-    '- The server makes the command ID of each write from the game ID, the revision and the actions; `kingdown_new_game` makes it from `request_id`. Two equal calls at the same time have the same command ID, and the game service plays the command once: the second call gets the receipt of the first, or `STALE_REVISION` (`src/match/service.ts`, `command`).',
+    '- The server makes the command ID of each write from the game ID, the revision and the actions; `kingdown_new_game` makes it from `request_id`. Two equal calls at the same time have the same command ID, and the game service plays the command once: the second call gets the receipt of the first, or `STALE_REVISION`.',
     '- After a lost reply, send the same call again: the answer gives the current state. Or read the game with `kingdown_view`.',
     '',
     '## Errors',
@@ -145,7 +156,7 @@ export async function toolDocs(): Promise<string> {
     '',
     '## Rate limits',
     '',
-    'The server counts each counted call for the account in Postgres (`plugin_tool_tries`) before the game work starts, so a call that the game then refuses also counts. Two refusals come before the count and count nothing: a call that does not fit the input schema, and a `kingdown_move` call with no `said` and no `move_ids`. The website uses the same counters for the same actions (`src/api/http.ts`). The reads have no count limit. The limits of the HTTP edge (above) apply to all calls.',
+    'The server counts each counted call for the account before the game work starts, so a call that the game then refuses also counts. Two refusals come before the count and count nothing: a call that does not fit the input schema, and a `kingdown_move` call with no `said` and no `move_ids`. The website uses the same counters for the same actions. The reads have no count limit. The limits of the HTTP edge (above) apply to all calls.',
     '',
     '| Counter | Tools | Limit for each account |',
     '|---|---|---|',
@@ -173,10 +184,58 @@ export async function toolDocs(): Promise<string> {
       ...fields(t.outputSchema as Schema | undefined, false),
     ]),
     '',
+    '## Disconnect and delete data',
+    '',
+    'On [kingdown.dev](https://kingdown.dev), open Settings → Account → Disconnect Muse. This ends the link and deletes the games that you started in Muse at once. Games that you started on the website stay in your account, also when you moved in them through Muse.',
+    '',
+    'Muse does not tell King Down when you disconnect inside Muse. A daily check also deletes the games that you started in Muse when the link has no session, or has no use for 30 days. This applies also when you are still connected. Account deletion also deletes the games that you started in Muse.',
+    '',
+    'For account deletion and other data requests, see [Delete your data](https://kingdown.dev/delete-data.html) and the [Privacy policy](https://kingdown.dev/privacy.html). For help, write to [hello@kingdown.dev](mailto:hello@kingdown.dev).',
+    '',
   ].join('\n');
+}
+
+const escapeHtml = (text: string) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+const inlineHtml = (text: string): string => text.split(/(`[^`]+`|\[[^\]]+\]\([^)]+\))/g).map(part => {
+  if (part.startsWith('`')) return `<code>${escapeHtml(part.slice(1, -1))}</code>`;
+  const link = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+  return link ? `<a href="${escapeHtml(link[2])}">${escapeHtml(link[1])}</a>` : escapeHtml(part);
+}).join('');
+
+/** Render only the block types that this generator emits. Refuse a new type until it has an HTML form. */
+export async function publicToolDocs(): Promise<string> {
+  const body = (await toolDocs(true)).trim().split('\n\n').map(block => {
+    if (block.startsWith('#')) {
+      const heading = block.match(/^(#{1,3}) (.+)$/);
+      if (!heading) throw new Error('Unsupported tool documentation heading');
+      return `<h${heading[1].length}>${inlineHtml(heading[2])}</h${heading[1].length}>`;
+    }
+    if (block.startsWith('|')) {
+      const lines = block.split('\n');
+      const cells = (line: string, tag: string) => line.slice(1, -1).split(/(?<!\\)\|/).map(value => `<${tag}${tag === 'th' ? ' scope="col"' : ''}>${inlineHtml(value.trim().replaceAll('\\|', '|'))}</${tag}>`).join('');
+      return `<div class="table-scroll" tabindex="0" role="region" aria-label="Reference table"><table>\n<thead><tr>${cells(lines[0], 'th')}</tr></thead>\n<tbody>\n${lines.slice(2).map(line => `<tr>${cells(line, 'td')}</tr>`).join('\n')}\n</tbody>\n</table></div>`;
+    }
+    if (block.startsWith('- ')) return `<ul>\n${block.split('\n').map(line => `<li>${inlineHtml(line.slice(2))}</li>`).join('\n')}\n</ul>`;
+    if (block.startsWith('> ')) return `<p>${inlineHtml(block.slice(2))}</p>`;
+    if (block.includes('\n')) throw new Error('Unsupported tool documentation block');
+    return `<p>${inlineHtml(block)}</p>`;
+  }).join('\n\n');
+  const head = readFileSync('public/support.html', 'utf8').split('<main>')[0]
+    .replace('<title>Support · King Down</title>', '<title>Muse tool documentation · King Down</title>')
+    .replace('</style>', `  h3 { font-size: 20px; margin: 24px 0 8px; }
+  code { font-size: .85em; overflow-wrap: anywhere; }
+  p, li { overflow-wrap: anywhere; }
+  td code { white-space: nowrap; }
+  .table-scroll { overflow-x: auto; margin: 12px 0; }
+  .table-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  table { width: 100%; border-collapse: collapse; font-size: 16px; }
+  th, td { padding: 8px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+</style>`);
+  return `${head}<main>\n${body}\n</main>\n</body>\n</html>\n`;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   writeFileSync(TOOL_DOCS, await toolDocs());
-  console.log(`Wrote ${TOOL_DOCS}`);
+  writeFileSync(PUBLIC_TOOL_DOCS, await publicToolDocs());
+  console.log(`Wrote ${TOOL_DOCS} and ${PUBLIC_TOOL_DOCS}`);
 }
