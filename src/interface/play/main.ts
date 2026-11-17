@@ -732,9 +732,9 @@ function fitResult() {
 function tap(square: number) {
   if (fault === 'art' || !onlineActive && writer.blocked) return; // a fault waits for recovery
   endOpening(); const wasEnded = ended; skipBoard();
+  cells.forEach(cell => cell.classList.remove('square-error')); // a new tap ends the red edge of an earlier refusal
   if (ended && !wasEnded) return; // the last reply can end the game inside skipBoard: the result and its announcement keep their place (decision 129)
   lastActions = []; notice = ''; onlineGameNotice = undefined;
-  cells.forEach(cell => cell.classList.remove('square-error')); // a new tap ends the red edge of an earlier refusal
   if (arrangement && !ended) {
     if (arrangementLocked()) return;
     closeLearning(false); if (reading === 'menu') reading = 'normal';

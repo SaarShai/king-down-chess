@@ -321,6 +321,9 @@ for (const engine of [chromium, webkit]) {
      await page.locator('.play-game[data-state=choice]').waitFor();
      check(await page.evaluate(()=>!matchMedia('(prefers-reduced-motion: reduce)').matches&&document.documentElement.dataset.motion==='normal'),`${label}: full motion`);
      await page.evaluate(()=>window.round2Board.events=[]);
+     // A person can reach both buttons: the trial clicks do every visibility, hit and enabled check and send no event.
+     await page.getByRole('button',{name:'Replay',exact:true}).click({trial:true});
+     await page.getByRole('button',{name:'Queen',exact:true}).click({trial:true});
      // One page task: Replay starts, its first step is checked, and Queen is chosen while that step plays. A slow driver cannot let the next step start first.
      const replay=await page.evaluate(()=>{
       const named=name=>[...document.querySelectorAll('.play-game button')].filter(b=>(b.getAttribute('aria-label')??b.textContent.trim())===name);
@@ -362,8 +365,10 @@ for (const engine of [chromium, webkit]) {
         if(save.moves.length<2)continue;
         if(window.round2Board.pending<1)return {ok:false,why:'the mating move ends before the tap',frame};
         const before={state:game.dataset.state,reading:game.dataset.reading,pending:window.round2Board.pending},node=game.querySelector(target);
+        // The red edge of an earlier refusal (a tap on an empty square while the computer chooses): the next tap ends it.
+        game.querySelector('.play-square[data-square="0"]').classList.add('square-error');
         node.click();
-        return {ok:true,frame,before,label:node.getAttribute('aria-label'),live:[...document.querySelectorAll('body > [role=status]')].map(n=>n.textContent),after:{reading:game.dataset.reading,floating:document.querySelector('.play-reader').dataset.floating}};
+        return {ok:true,frame,before,label:node.getAttribute('aria-label'),redEdges:game.querySelectorAll('.square-error').length,live:[...document.querySelectorAll('body > [role=status]')].map(n=>n.textContent),after:{reading:game.dataset.reading,floating:document.querySelector('.play-reader').dataset.floating}};
        }
        return {ok:false,why:'the computer does not reply'};
       })();},name==='result-panel-tap'?'.play-opp .play-power':'.play-square[data-square="7"]');
@@ -375,6 +380,7 @@ for (const engine of [chromium, webkit]) {
       if(name==='result-board-tap') {
        check(/King/.test(tapped.label),`${label}: the tap is on a square with a piece: ${JSON.stringify(tapped)}`);
        check(tapped.live.some(t=>t.endsWith('The computer wins. Checkmate.')),`${label}: the live region keeps the result after the board tap: ${JSON.stringify(tapped)}`);
+       check(tapped.redEdges===0,`${label}: the board tap ends the red edge of an earlier refusal: ${JSON.stringify(tapped)}`);
       }
       await page.waitForFunction(()=>window.round2Board.pending===0);
       await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
