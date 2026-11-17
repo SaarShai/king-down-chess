@@ -18,6 +18,7 @@ function setup(store = memoryStorage()) {
   vi.stubGlobal('location', new URL('https://kingdown.test/next.html'));
   vi.stubGlobal('history', { state: {}, replaceState() {} });
   vi.stubGlobal('localStorage', store); vi.stubGlobal('sessionStorage', memoryStorage());
+  vi.stubGlobal('caches', { keys: async () => [] });
   vi.stubGlobal('navigator', { onLine: true }); vi.stubGlobal('matchMedia', () => ({ matches: false }));
   store.setItem('fixture-auth', JSON.stringify(session('alice')));
   return store;
@@ -53,7 +54,7 @@ function screen() {
   };
   vi.stubGlobal('document', { getElementById: element, querySelector: () => element('entry'), addEventListener() {}, activeElement: null });
   vi.stubGlobal('addEventListener', () => {});
-  return { elements, click: () => handlers.get('account-body:click')!({ target: { closest: () => ({ dataset: { act: 'sign-out' } }) } }),
+  return { elements, openAccount: () => handlers.get('entry:click')!({}), click: () => handlers.get('account-body:click')!({ target: { closest: () => ({ dataset: { act: 'sign-out' } }) } }),
     act: (act: string) => handlers.get('account-body:click')!({ target: { closest: () => ({ dataset: { act } }) } }),
     closeDelete: () => { element('delete-account').returnValue = 'delete'; return handlers.get('delete-account:close')!({}); } };
 }
@@ -76,11 +77,12 @@ it('Disconnect Muse stays with the account that the player confirms', async () =
     if (path.endsWith('/verify')) return Response.json(session('later', 'bob'));
     return Response.json(path.includes('/rest/') ? null : {});
   });
-  vi.stubGlobal('__KINGDOWN_MUSE__', true); // A build that serves the Muse connector (staging today).
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ account_access: 'closed', valid_for_ms: 0, muse: true })));
   const { startAccount } = await import('./account');
   startAccount(() => {}, { blocked: () => false, accepts: () => true });
+  ui.openAccount();
   await vi.waitFor(() => expect(harness.syncs.length).toBe(1));
-  expect(ui.elements.get('account-body').innerHTML).toContain('data-act="disconnect-muse"');
+  await vi.waitFor(() => expect(ui.elements.get('account-body').innerHTML).toContain('data-act="disconnect-muse"'));
   const pending = ui.act('disconnect-muse'); await started.promise;
   await harness.auth.verifyOtp({ email: 'bob@example.test', token: '123456', type: 'email' });
   await vi.waitFor(() => expect(harness.syncs.some(s => s.user === 'bob')).toBe(true));
@@ -89,4 +91,18 @@ it('Disconnect Muse stays with the account that the player confirms', async () =
   expect(actions.filter(a => a.path.includes('/oauth/grants'))).toHaveLength(0);
   expect(actions.filter(a => a.path.includes('/rpc/delete_my_muse_games'))).toHaveLength(0);
   expect(actions.map(a => a.token)).not.toContain('Bearer ' + jwt('later'));
+});
+
+
+it.each([undefined, false, true])('shows Disconnect Muse only for server muse=%s', async muse => {
+  const store = setup(); store.setItem('kingdown.auth', JSON.stringify(session('first', 'alice')));
+  const ui = screen();
+  harness.fetch.mockImplementation(async () => Response.json(null));
+  const status = vi.fn(async () => Response.json({ account_access: 'closed', valid_for_ms: 0, ...(muse !== undefined && { muse }) }));
+  vi.stubGlobal('fetch', status);
+  const { startAccount } = await import('./account');
+  startAccount(() => {}, { blocked: () => false, accepts: () => true });
+  ui.openAccount();
+  await vi.waitFor(() => expect(status).toHaveBeenCalledOnce());
+  await vi.waitFor(() => expect(ui.elements.get('account-body').innerHTML.includes('data-act="disconnect-muse"')).toBe(muse === true));
 });

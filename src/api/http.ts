@@ -74,6 +74,7 @@ export interface ApiOptions {
  recordError?: ErrorWriter; build?: string;
  /** The website plays solo on the device; other adapters keep their existing default. */
  localSolo?: boolean;
+ muse?: boolean;
  players?: Pick<PluginService, 'settings' | 'profile' | 'handle' | 'block' | 'blocks' | 'toolTry'>;
  publicOrigin: string; operations?: ReadonlySet<string>;
  /** undefined: website sign-in is not configured */ verify?: (token: string) => Promise<string>;
@@ -99,7 +100,7 @@ function queryInput(query: URLSearchParams): Record<string, string> {
 }
 const redeemSchema = z.union([z.strictObject({ invite_id: z.string().regex(/^[a-f0-9]{64}$/) }), z.strictObject({ token: z.string().max(100) }), z.strictObject({ code: z.string().max(20) })]);
 
-export function createApiHandler({ games, accounts, safety, players, publicOrigin, verify, operations, webAccountAccess, admit, currentUser, localSolo = false }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
+export function createApiHandler({ games, accounts, safety, players, publicOrigin, verify, operations, webAccountAccess, admit, currentUser, localSolo = false, muse = false }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
  const origin = pluginOrigin(publicOrigin);
  const readAccess = async (fresh = false) => {
   try {
@@ -131,9 +132,9 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
     // A residual cached lease can expire in transit and refuse an open page at startup.
     const access = await readAccess(true);
     const remaining = access?.enabled === true && Number.isFinite(access.expiresAt) ? Math.floor(Math.min(WEB_ACCOUNT_ACCESS_TTL_MS, access.expiresAt - performance.now())) : 0;
-    if (remaining > 0) return { account_access: 'open', valid_for_ms: remaining };
+    if (remaining > 0) return { account_access: 'open', valid_for_ms: remaining, ...(muse && { muse: true }) };
    }
-   return { account_access: 'closed', valid_for_ms: 0 };
+   return { account_access: 'closed', valid_for_ms: 0, ...(muse && { muse: true }) };
   },
   // A friend game comes with its invitation (part 03, section 4.4); a lost link gets a new one from /invite.
   'POST /api/games': async (actor, _, body, _query, app) => {

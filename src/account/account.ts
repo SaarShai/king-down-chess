@@ -3,7 +3,7 @@
  * until Meta verifies the business), sign out, delete the account; and the cloud save while signed in.
  * main.ts loads this after the board is drawn; the Supabase client loads only for a sign-in or a
  * saved session. Without a network, or without an account, the game plays exactly as before.
- * A build that serves the Muse connector also shows "Disconnect Muse" (migration 0024).
+ * The server status enables "Disconnect Muse" (migration 0024).
  */
 import { Sync, stamp, type SavedGameAccess, type Section } from './sync';
 import type { Client, Provider, SignInOption } from './client';
@@ -12,12 +12,10 @@ import { allowedAvatarUrl } from './public-config';
 import { AUTH_KEY, sessionKey, type AccountSession } from './session';
 import { canWriteLocal } from './local';
 import { apiOrigin, inApp } from '../platform';
+import { readWebAccountAccess } from '../online/account-access';
 export type User = { name: string; avatar: string | null; provider: string };
 type AuthUser = { user_metadata?: Record<string, unknown>; app_metadata?: Record<string, unknown> };
-declare const __KINGDOWN_MUSE__: boolean;
 declare const __KINGDOWN_SOLO_LAUNCH__: boolean;
-/** On only in a build that serves the Muse connector (tools/muse-connector.mjs, vite.config.ts). */
-const MUSE = typeof __KINGDOWN_MUSE__ === 'boolean' && __KINGDOWN_MUSE__;
 
 const PROVIDERS: [Exclude<Provider, 'apple'>, string][] = [['google', 'Google'], ['github', 'GitHub'], ['facebook', 'Facebook']];
 /** Each service's own mark, as its sign-in branding rules ask (Google's sits on white). */
@@ -42,7 +40,7 @@ export function userOf(u: AuthUser | null | undefined): User | null {
 }
 
 /** The Account section's content. The name and picture come from outside the game, so both are escaped. */
-export function accountHtml(user: User | null, facebook: boolean, available: readonly SignInOption[] = [], muse = MUSE, newDeletion = false): string {
+export function accountHtml(user: User | null, facebook: boolean, available: readonly SignInOption[] = [], muse = false, newDeletion = false): string {
   // The app's own page path opens nothing there (capacitor://localhost); its stage's site opens in the system browser.
   const links = `<p class="account-links"><a href="${apiOrigin}/privacy.html" target="_blank" rel="noopener">Privacy</a>`
     + `<a href="${apiOrigin}/terms.html" target="_blank" rel="noopener">Terms</a></p>`;
@@ -79,6 +77,7 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
   const facebook = params.get('facebook') === '1';
   let client: Promise<Client> | null = null, user: User | null = null, userId = '', lastPull = 0;
   let shown: AccountSession | null = null, deleting: AccountSession | null = null;
+  let muse = false;
   // The session in storage now (the client delivers only events that match it).
   const storedSession = (): AccountSession | null => {
     try {
@@ -97,7 +96,7 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
   const keep = (t: string): void => { keptNote = t; say(t); };
   const render = (): void => {
     const hadFocus = body.contains(document.activeElement);
-    body.innerHTML = accountHtml(user, facebook, providers, MUSE, inApp && typeof __KINGDOWN_SOLO_LAUNCH__ === 'boolean' && __KINGDOWN_SOLO_LAUNCH__);
+    body.innerHTML = accountHtml(user, facebook, providers, muse, inApp && typeof __KINGDOWN_SOLO_LAUNCH__ === 'boolean' && __KINGDOWN_SOLO_LAUNCH__);
     // One form across redraws, so a code on its way keeps its step and typed address.
     if (user) { emailForm = null; forgetEmailCode(); }
     else if (providers.includes('email')) body.querySelector('small')!.before(emailForm ??= emailCodeForm(load, say));
@@ -132,7 +131,10 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
     } catch { if (!user) say('Sign-in options could not load. Check your connection and try again.'); }
     finally { checkingProviders = false; render(); }
   }
-  document.querySelector('[data-go="account"]')!.addEventListener('click', () => { void refreshProviders(); });
+  document.querySelector('[data-go="account"]')!.addEventListener('click', () => {
+    void refreshProviders();
+    void readWebAccountAccess().then(status => { muse = status.muse === true; render(); });
+  });
 
   // Back from the sign-in page. A refusal or a cancel leaves error fields in the address: clear them.
   if (params.has('error') || location.hash.includes('error')) {
@@ -170,7 +172,7 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
       render();
       keep('Signed out. Your games stay on this device.');
       await refreshProviders();
-    } else if (MUSE && b.dataset.act === 'disconnect-muse') {
+    } else if (muse && b.dataset.act === 'disconnect-muse') {
       if (window.top !== window.self) return say('Open King Down in its own tab to disconnect Muse.');
       if (!confirm('Disconnect Muse? Muse can no longer use your account, and we delete the games you started in Muse.')) return;
       say('Disconnecting Muse…');

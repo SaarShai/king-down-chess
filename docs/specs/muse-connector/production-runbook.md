@@ -139,17 +139,13 @@ on conflict (email) do nothing;
 
 Check: the read of 2.4 shows the two new addresses and no address that you removed.
 
-## Part 3. The code change (agent, pull request; not in this runbook's PR)
+## Part 3. Ship the code (agent, draft pull request)
 
-The switch `MUSE_CONNECTOR` in `tools/muse-connector.mjs` is on only when `KINGDOWN_STAGE=staging`, and `tools/deploy.sh` refuses `KINGDOWN_STAGE`. So a production build leaves Muse out. PR 354 did most of the work: `CHATGPT_PLUGIN` no longer follows the Muse switch, the live check (`tools/deploy-plugin-live-check.mjs`) checks each served connector, and the tests and checks accept a build with both. One PR to main makes these changes:
+This PR includes Muse in production and staging builds. It keeps the ChatGPT plugin on in production. The current ChatGPT-only server value keeps both Muse paths at 404. The consent page shows the ChatGPT text. The website hides "Disconnect Muse". Live checks pass in this state.
 
-1. `tools/muse-connector.mjs`: `export const MUSE_CONNECTOR = true;`. `CHATGPT_PLUGIN` stays true for production, so the production build serves both connectors.
-2. Run `npm test`, `npm run test:docs` and `npm run check:vercel` on a production build (no `KINGDOWN_STAGE`).
-3. Docs: the switch section of [MUSE.md](../../MUSE.md#the-switch) and "The ChatGPT plugin" in [HOSTING.md](../../HOSTING.md#the-chatgpt-plugin).
+Run `npm test`, `npm run test:docs` and `npm run check:vercel` on a production build with no `KINGDOWN_STAGE`. Check that the legal pages keep the same bytes. Merge and deploy only on the owner's word.
 
-Merge it only after parts 1 and 2 pass and the owner gives the word. A deploy of this build before part 4 starts: the server serves `/muse/mcp` with no Muse client, refuses each Muse token and logs a warning. The ChatGPT plugin works. Even so, do part 4 and part 6 in the same session.
-
-`tools/deploy.sh` builds a fresh `origin/main`. So do part 4 only after the part 3 PR is on `origin/main`. Do not merge a revert of part 3 while the list has the Muse ID.
+Part 4 turns Muse on. Each listed ID must have its resource row from part 2.3. Then add the Muse ID to the server value and redeploy. `tools/deploy.sh` builds a fresh `origin/main`, so the part 3 PR must be on main before part 4.
 
 ## Part 4. The production server values **[503]**
 
@@ -238,18 +234,10 @@ Signed in (owner; the agent does not sign in to the owner's account, AGENTS.md "
 
 ## Part 8. Rollback
 
-Use this when a check of part 7 fails, or when the site answers 503.
+Remove the Muse ID from `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS`. Keep the ChatGPT ID. Send the value as in part 4, then redeploy with `tools/release/live.sh publish` on the owner's word. No code revert is needed.
 
-If only Muse fails and the site and the ChatGPT plugin work (part 7 checks 1, 4 and 6 pass), use the short rollback: set the list back to `<CHATGPT_CLIENT_ID>` (as in part 4, steps 2 and 5), then run `tools/release/live.sh publish`. The build still serves `/muse/mcp`, but with no Muse client it refuses each Muse token. Revert the part 3 PR later, when the owner says so, and only after the list holds `<CHATGPT_CLIENT_ID>` alone.
+Check `/api/status`: it answers 200 without `muse: true`. Both Muse paths answer 404. The website hides "Disconnect Muse". The ChatGPT metadata and unsigned challenge still pass.
 
-If the site answers 503:
+If the site answers 503, the owner can first use **Instant Rollback** in Vercel to restore the previous production deployment. Correct the server value before the next deploy. After that deploy, use **Promote** to end the Vercel rollback state. Do not use **Undo Rollback** to restore the failed deployment.
 
-1. **Fast (the owner, Vercel dashboard):** project `kingdown` → **Deployments** → the previous production deployment (the ChatGPT-only build) → **Instant Rollback**. That deployment keeps the server values that it started with (the ChatGPT client ID), and its audience row (`/mcp`) is still in the database, so it starts. Check `https://kingdown.dev/api/status` (200) and `https://kingdown.dev/.well-known/oauth-protected-resource/mcp` (200).
-2. Set the old value back: in the private env file, change the `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS` line to `<CHATGPT_CLIENT_ID>` from the release log, then run `tools/deploy.sh --configure <private-env-file>`. Main (with Muse on) starts with this list, and so does the previous production deployment.
-3. Find the cause of the 503 (`vercel logs` of the faulty deployment: "King Down startup failed"). Fix it, or revert the part 3 PR on a branch and merge the revert PR to main. Merge a revert only after step 2: a revert while the list has the Muse ID answers 503 at the next deploy.
-4. Run `tools/release/live.sh publish`. After an Instant Rollback, Vercel stops moving the production domain to new deployments by itself. So the new deployment does not get `kingdown.dev`, and the live checks of `tools/deploy.sh --publish` can fail because they read the old deployment.
-5. In project `kingdown` → **Deployments**, open the new deployment of step 4 and press **Promote**. This ends the rollback state, and the domain follows production deployments again. Do not press **Undo Rollback**: it brings back the faulty deployment. Then run `tools/release/live.sh publish` again, so that its live checks read the new deployment and pass.
-6. Keep the database changes. Migration 0023, the new resource check and the Muse row do not change the ChatGPT plugin. To stop the review accounts, use the two `delete` lines of 2.4 for each review address.
-7. Do not delete the Muse OAuth client unless the owner says so. A new client gets a new ID, and the portal entry and the audience row must change with it.
-
-If only the Muse part fails (for example the portal test) and the site works, the owner can keep the release live and fix forward. Muse users see the connector only after Meta's review passes.
+Keep the database changes and both resource rows. To stop a review account, use the two delete statements in part 2.4. Do not delete the Muse OAuth client unless the owner asks.

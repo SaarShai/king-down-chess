@@ -10,11 +10,16 @@ describe('account status contract', () => {
  it.each([1, 4999, 5000])('accepts an open lease of %s ms', valid_for_ms => {
   expect(parseWebAccountStatus({ account_access: 'open', valid_for_ms })).toEqual({ account_access: 'open', valid_for_ms });
  });
+ it.each([false, true])('reads Muse state with account access closed: %s', async muse => {
+  vi.stubGlobal('fetch', vi.fn(async () => json({ account_access: 'closed', valid_for_ms: 0, muse })));
+  expect(await readWebAccountAccess()).toEqual({ ...closed, ...(muse && { muse: true }) });
+ });
  it('accepts closed with no lease', () => {
   expect(parseWebAccountStatus({ account_access: 'closed', valid_for_ms: 0 })).toEqual({ account_access: 'closed', valid_for_ms: 0 });
  });
  it.each([undefined, null, [], 'open', {}, { account_access: 'other', valid_for_ms: 0 },
   { account_access: 'open' }, ...[0, -1, 5001, 1.5, NaN, Infinity, '5'].map(valid_for_ms => ({ account_access: 'open', valid_for_ms })),
+  { account_access: 'closed', valid_for_ms: 0, muse: 'true' },
   { account_access: 'closed', valid_for_ms: 1 }, { account_access: 'closed', valid_for_ms: 0, user_id: 'private' },
  ])('refuses malformed status %j', value => { expect(() => parseWebAccountStatus(value)).toThrow(TypeError); });
 

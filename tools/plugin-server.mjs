@@ -148,6 +148,11 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
     try { await checkPluginDatabase(pool); } catch (databaseError) { await pool.end(); throw databaseError; }
     connectorFault(error); clients = [];
   }
+  // Local test personas have no OAuth client rows. Deployed servers need a listed Muse client.
+  if (serveMuse && !localDev && !clients.some(row => row.resource === `${publicOrigin}/muse/mcp`)) {
+    serveMuse = false;
+    console.info('Muse parked: no Muse OAuth client listed');
+  }
   if (config) try {
     const verifier = resourcePath => {
       const clientIds = clients.filter(row => row.resource === `${publicOrigin}${resourcePath}`).map(row => row.client_id);
@@ -183,7 +188,7 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
   const localSolo = typeof __KINGDOWN_SOLO_LAUNCH__ === 'boolean' ? __KINGDOWN_SOLO_LAUNCH__ : soloLaunch(env.KINGDOWN_SOLO_LAUNCH);
   const api = createApiHandler({ games, accounts: new AccountService(store), safety: new SafetyService(store), players: service, publicOrigin,
     ...(import.meta.env?.KINGDOWN_ERROR_RECORDER !== false && { recordError: createErrorWriter(pool, typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : ''), build: typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : '' }),
-    localSolo, admit: createAdmission(),
+    localSolo, muse: serveMuse, admit: createAdmission(),
     currentUser: websiteCurrentUser ?? (page ? createCurrentUserCheck({ supabaseUrl: page.supabaseUrl, publishableKey: page.publishableKey }, fetch, { localLoopback: localOnline }) : undefined),
     webAccountAccess: createWebAccountAccess(pool),
     verify: env.SUPABASE_URL ? sessionVerifier(env.SUPABASE_URL, websiteKeys, { localLoopback: localOnline }) : undefined, operations: localDev && websiteKeys === undefined && !localOnline ? WEB_OPERATIONS : ENABLED_WEB_OPERATIONS });
