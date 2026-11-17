@@ -51,8 +51,10 @@ export function poolLocked(pool: readonly string[], kind: string, seconds: reado
   const next = selectPiece({ ...DEFAULT_OPTIONS, pool, seconds }, kind, copy, false);
   return (copy === 1 ? pool : seconds).includes(kind) && poolLetters(next.pool, next.seconds).length < 7;
 }
-/** Decision 124 item 3: the server still deals both copies of each selected kind. */
-export const onlinePanelOptions = (options: GameOptions): GameOptions => ({ pool: [...options.pool], arrangement: options.arrangement, cardPool: [...options.cardPool], king: options.king });
+/** Decision 124 item 3: the panel keeps its 2nd-copy choices; `onlineOptions` sends each two-copy kind without its 2nd copy as `single`. */
+export const onlinePanelOptions = (options: GameOptions): GameOptions => ({ pool: [...options.pool], ...(options.seconds ? { seconds: [...options.seconds] } : {}), arrangement: options.arrangement, cardPool: [...options.cardPool], king: options.king });
+/** The server's `single` list (decision 124 item 3): selected two-copy kinds without a 2nd copy. No `seconds` means both copies, as before. */
+export const singleKinds = (options: Pick<GameOptions, 'pool' | 'seconds'>): string[] => options.seconds ? DOUBLE_KINDS.filter(kind => options.pool.includes(kind) && !options.seconds!.includes(kind)) : [];
 export const LEVELS: readonly Level[] = ['casual', 'clever', 'club'];
 /** Native slider keys, clamped at the two ends. */
 export function levelKey(level: Level, key: string): Level {

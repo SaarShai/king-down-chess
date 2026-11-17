@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { armyTypes, cardLocked, selectCard, selectPiece, onlinePanelOptions, DOUBLE_KINDS, changeDraft, createDraft, dealArmy, kingChoices, poolLetters, poolLocked, levelKey, readPanel, restorePanel, shownKing, readOptions, rulesFor, startOf, DEFAULT_OPTIONS, type Choices } from './new-game';
+import { armyTypes, cardLocked, selectCard, selectPiece, onlinePanelOptions, singleKinds, DOUBLE_KINDS, changeDraft, createDraft, dealArmy, kingChoices, poolLetters, poolLocked, levelKey, readPanel, restorePanel, shownKing, readOptions, rulesFor, startOf, DEFAULT_OPTIONS, type Choices } from './new-game';
 import { gameType } from './saved';
 import { DEAL_CARDS } from '../../match/setup';
 import { A, G, K, M, N, O, P, R, colorOf } from '../../rules/engine';
@@ -172,8 +172,11 @@ it('a computer game deals exactly one knight when only its first copy is selecte
     expect(startOf(draft).backRank).toBe(draft.back);
   }
   expect(dealArmy(options.pool, Math.random, []).split('N')).toHaveLength(2);
-  expect(onlinePanelOptions(options)).toEqual({ pool: options.pool, arrangement: 'random', cardPool: DEFAULT_OPTIONS.cardPool, king: DEFAULT_OPTIONS.king });
-  expect(onlinePanelOptions(options)).not.toHaveProperty('seconds');
+  expect(onlinePanelOptions(options)).toEqual({ pool: options.pool, seconds: [], arrangement: 'random', cardPool: DEFAULT_OPTIONS.cardPool, king: DEFAULT_OPTIONS.king });
+  expect(singleKinds(options)).toEqual(['R', 'B', 'N', 'A', 'M']);
+  expect(singleKinds({ ...options, seconds: ['R', 'B', 'A', 'M'] })).toEqual(['N']);
+  expect(singleKinds(DEFAULT_OPTIONS)).toEqual([]);
+  expect(singleKinds({ pool: options.pool })).toEqual([]);
 });
 it('build 6 options migrate the old piece pool, Random and both card modes', () => {
   const { seconds, ...oldOptions } = DEFAULT_OPTIONS;

@@ -63,6 +63,19 @@ it('the four online choices carry the panel options', () => {
     { fairy: true, arrangement: false, kingPowers: true, cards: true },
   ]);
 });
+it('decision 124 item 3: a panel game with Knight x1 and no Knight 2nd asks the server for one knight', async () => {
+  const pool = ['Q', 'R', 'B', 'N', 'A', 'G', 'M'], options = onlineOptions('pieces', { ...PANEL_OPTIONS, pool, seconds: ['R', 'B', 'A', 'M'] });
+  expect(options.single).toEqual(['N']);
+  expect(onlineOptions('pieces')).not.toHaveProperty('single');
+  expect(onlineOptions('pieces', { ...PANEL_OPTIONS, pool, seconds: undefined })).not.toHaveProperty('single');
+  const service = fixtureService();
+  try {
+    await service.handle('alice', { handle: 'alice' });
+    const view = await service.create('alice', { kind: 'friend', options });
+    expect(view.game_id).toBeTruthy();
+    await expect(service.create('alice', { kind: 'friend', options: { ...options, single: ['Q'] } })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  } finally { await service.close(); }
+});
 it('a reload restores only this account and revision of the unsent turn', async () => {
   const storage = memoryStorage(), before = state();
   before.draft.stage(before.draft.at(12, 28)[0]); await keepDraft(storage, 'alice', before, accountData('alice', storage));
