@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { expect, it } from 'vitest';
 import { buildPluginServer, vercelRoutes } from './plugin-server-build.mjs';
 import { CHATGPT_PLUGIN } from './chatgpt-plugin.mjs';
+import { MUSE_CONNECTOR } from './muse-connector.mjs';
 
 it('routes only the site API boundary to the one MCP function for every method', () => {
   const site = mkdtempSync(join(tmpdir(), 'kingdown-api-routes-'));
@@ -21,11 +22,11 @@ it('routes only the site API boundary to the one MCP function for every method',
     const art = routes.find(route => route.headers?.['Cache-Control'] === 'public, max-age=31536000, immutable' && route.src.includes('character-runtime'))!;
     expect(new RegExp(art.src).test(`/character-runtime/assets/${'a'.repeat(64)}.webp`)).toBe(true);
     for (const path of ['/character-runtime/manifest.json', '/character-runtime/assets/other.webp', `/character-runtime/assets/${'a'.repeat(64)}.png`]) expect(new RegExp(art.src).test(path)).toBe(false);
-    expect(routes.filter(route => route.src.startsWith('^/plugin-art/'))).toEqual(vercelRoutes());
+    expect(routes.filter(route => route.src.startsWith('^/plugin-art/'))).toEqual(vercelRoutes(undefined, { muse: false }));
     expect(vercelRoutes().some(route => new RegExp(route.src).test('/api'))).toBe(false);
     // Without the ChatGPT plugin (tools/chatgpt-plugin.mjs) there are no art routes; with the plugin in, one per art format.
-    expect(vercelRoutes(undefined, { chatgpt: false })).toEqual([]);
-    expect(vercelRoutes(undefined, { chatgpt: true }).map(route => route.src)).toEqual(['webp', 'png', 'svg', 'woff2'].map(type => `^/plugin-art/[\\w-]+\\.${type}$`));
+    expect(vercelRoutes(undefined, { chatgpt: false, muse: false })).toEqual([]);
+    expect(vercelRoutes(undefined, { chatgpt: true, muse: false }).map(route => route.src)).toEqual(['webp', 'png', 'svg', 'woff2'].map(type => `^/plugin-art/[\\w-]+\\.${type}$`));
   } finally { rmSync(site, { recursive: true, force: true }); }
 });
 
@@ -50,7 +51,7 @@ it('keeps every isolated operation set equal to the handler route keys', () => {
 it('omits the website recorder and the parked ChatGPT plugin surface from the emitted server', async () => {
  const out = mkdtempSync(join(tmpdir(), 'plugin-without-recorder-'));
  try {
-  const output = await buildPluginServer(out, { vercel: true, chatgpt: false });
+  const output = await buildPluginServer(out, { vercel: true, chatgpt: false, muse: false });
   const server = readFileSync(join(output, 'functions/mcp.func/server.mjs'), 'utf8');
   for (const text of ['/api/client-errors', 'client_errors', 'Unlisted message', 'Error message exceeds limit', 'Cannot read properties of [value]', '500ms']) expect(server.includes(text), text).toBe(false);
   expect(server).toContain('King Down API failed');
@@ -111,6 +112,7 @@ it('refuses a recovery rehearsal on a parked build instead of reporting a pass',
 });
 it('checks the ChatGPT plugin over compiled HTTP and PostgreSQL in CI: the default build serves it', () => {
   expect(CHATGPT_PLUGIN).toBe(true);
+  expect(MUSE_CONNECTOR).toBe(true);
   expect(readFileSync('.github/workflows/plugin-checks.yml', 'utf8')).toContain('      - run: npm run plugin:build\n      - run: npm run plugin:server:check\n');
   expect(JSON.parse(readFileSync('package.json', 'utf8')).scripts['plugin:build:chatgpt']).toBe('node tools/plugin-server-build.mjs plugin-server-chatgpt --chatgpt');
 });

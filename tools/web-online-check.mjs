@@ -18,7 +18,7 @@ import { build } from 'vite';
 import { createLocalJWKSet, exportJWK, generateKeyPair } from 'jose';
 import { buildPluginServer } from './plugin-server-build.mjs';
 import { CHATGPT_PLUGIN, PARKED_PATHS } from './chatgpt-plugin.mjs';
-import { MUSE_CONNECTOR } from './muse-connector.mjs';
+import { MUSE_PATHS } from './muse-connector.mjs';
 
 export const WORKSHOP_SHELF = JSON.stringify({ v: 1, designs: [{
   v: 1, kind: 'piece', id: 'local-knight', name: 'My Knight', named: true,
@@ -64,9 +64,11 @@ export async function checkAccountOff(page, origin, enabledFixture) {
   if (enabledFixture) {
     assert.equal(response.headers()['cache-control'], 'no-store');
     assert.equal(response.headers()['referrer-policy'], 'no-referrer');
-    assert.deepEqual(await response.json(), { account_access: 'closed', valid_for_ms: 0 });
+    const status = await response.json();
+    assert.deepEqual(status, { account_access: 'closed', valid_for_ms: 0, ...(status.muse === true && { muse: true }) });
   }
-  assert.deepEqual(await page.evaluate(() => window.readWebAccountAccess()), { enabled: false, expiresAt: 0 });
+  const access = await page.evaluate(() => window.readWebAccountAccess());
+  assert.deepEqual(access, { enabled: false, expiresAt: 0, ...(access.muse === true && { muse: true }) });
   assert.equal((await page.request.get(origin + '/api/me/profile')).status(), enabledFixture ? 503 : 404, 'Release switch and recovery phase close private reads');
 }
 
@@ -350,7 +352,11 @@ export async function main() {
     const mcp = await page.request.get(`${origin}/mcp`, { maxRedirects: 0 });
     assert.equal(mcp.status(), CHATGPT_PLUGIN ? 405 : 404, 'MCP follows the plugin switch');
     assert.match(mcp.headers()['content-type'], /^application\/json/, 'The compiled server answers with JSON');
-    if (!CHATGPT_PLUGIN) for (const path of PARKED_PATHS.filter(path => !MUSE_CONNECTOR || !['/authorize', '/consent.mjs'].includes(path))) assert.equal((await page.request.get(origin + path, { maxRedirects: 0 })).status(), 404, `${path} is parked`);
+    const museStatus = (await page.request.get(origin + '/muse/mcp')).status();
+    assert([404, 405].includes(museStatus), 'Muse is parked or serves MCP');
+    const muse = museStatus === 405;
+    if (!muse) for (const path of MUSE_PATHS) assert.equal((await page.request.get(origin + path)).status(), 404, `${path} is parked`);
+    if (!CHATGPT_PLUGIN) for (const path of PARKED_PATHS.filter(path => !muse || !['/authorize', '/consent.mjs'].includes(path))) assert.equal((await page.request.get(origin + path, { maxRedirects: 0 })).status(), 404, `${path} is parked`);
     for (const path of ['/play/', `/g/${randomUUID()}`, '/j']) {
       const response = await page.request.get(origin + path, { maxRedirects: 0 });
       assert.equal(response.status(), 200, `${path} serves the public account entry`);

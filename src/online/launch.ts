@@ -11,9 +11,9 @@ import type { CreateOptions, View } from '../match/protocol';
 import type { Client } from '../account/client';
 import type { AccountSession } from '../account/session';
 import { OnlineError, type OnlineClient } from './client';
+import { readWebAccountAccess } from './account-access';
 import './launch.css';
 
-declare const __KINGDOWN_MUSE__: boolean;
 function fresh(input: CreateOptions, previous?: View, king?: KingChoice | null): Save {
   const options = input.options;
   const seat = previous?.seat ?? (input.colour === 'black' || input.colour === 'random' && Math.random() < 0.5 ? 1 : 0);
@@ -124,7 +124,8 @@ export function installLocalSolo(api: OnlineClient, userId: string, handoff = op
 }
 
 /** `expected` is the page's account (online entry): each action binds to it, so a sign-in from another tab is never changed. */
-export function installAccountControls(auth: Pick<Client, 'deleteAccount' | 'disconnectMuse'>, expected?: AccountSession, muse = typeof __KINGDOWN_MUSE__ === 'boolean' && __KINGDOWN_MUSE__): void {
+export async function installAccountControls(auth: Pick<Client, 'deleteAccount' | 'disconnectMuse'>, expected?: AccountSession, muse?: boolean): Promise<void> {
+  if (muse === undefined) muse = (await readWebAccountAccess({ muse: true })).muse === true;
   const section = document.createElement('section'); section.className = 'fields launch-account';
   const title = document.createElement('h3'); title.className = 'group-head'; title.textContent = 'Account';
   const note = document.createElement('p'); note.setAttribute('role', 'status');

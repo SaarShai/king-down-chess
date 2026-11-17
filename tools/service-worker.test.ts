@@ -185,7 +185,7 @@ describe('private safety during installation', () => {
 });
 
 describe('public request boundary', () => {
-  it.each([...privatePaths.flatMap(path => [path, `${path}/child`]), '/play.html', '/consent.mjs', '/privacy.html', '/terms.html', '/delete-data.html', '/support.html', '/assets/unknown.js', '/sw.js'])('bypasses %s with queries and navigation', async path => {
+  it.each([...privatePaths.flatMap(path => [path, `${path}/child`]), '/api/status', '/api/status?muse=1', '/play.html', '/consent.mjs', '/privacy.html', '/terms.html', '/delete-data.html', '/support.html', '/muse-connector.html', '/assets/unknown.js', '/sw.js'])('bypasses %s with queries and navigation', async path => {
     const w = worker();
     for (const suffix of ['', '?probe=1']) for (const mode of ['navigate', 'cors'] as const) {
       expect(w.request(path + suffix, { mode }).response).toBeUndefined();
@@ -694,7 +694,7 @@ it('keeps the two launch page shells separate offline and preserves the private-
   for (const path of ['/', '/index.html', '/next.html']) {
     const request = w.request(path); expect(await (await request.response!).text()).toBe(path); await request.done();
   }
-  for (const path of ['/play', '/g/game', '/j', '/api/status', '/authorize']) expect(w.request(path).response).toBeUndefined();
+  for (const path of ['/play', '/g/game', '/j', '/api/status', '/api/status?muse=1', '/authorize']) expect(w.request(path).response).toBeUndefined();
   const proof = w.message(); await proof.done();
   expect(proof.postMessage).toHaveBeenCalledWith(expect.objectContaining({ policy: 'public-build-v1', version }));
   expect(w.storageAccess).not.toHaveBeenCalled();

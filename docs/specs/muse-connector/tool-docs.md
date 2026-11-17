@@ -4,6 +4,16 @@ This file comes from the tool listing of [src/muse/tools.ts](../../../src/muse/t
 
 The listing is the answer to `tools/list` that each MCP client gets, and so the portal's MCP snapshot.
 
+## Connection and authorization
+
+Endpoint: [https://kingdown.dev/muse/mcp](https://kingdown.dev/muse/mcp). Transport: stateless MCP over Streamable HTTP. Send JSON-RPC requests with POST. OPTIONS gives the CORS preflight response. GET streams and JSON-RPC batches are not supported.
+
+Authorization: OAuth 2.1 with the authorization code flow and PKCE S256. Muse uses a pre-registered public client, with no client secret. The scope is `openid`. Send the access token in `Authorization: Bearer <access_token>`.
+
+Authorization server: [https://utqzovjmclfyojedmwok.supabase.co/auth/v1](https://utqzovjmclfyojedmwok.supabase.co/auth/v1).
+
+Protected resource metadata: [https://kingdown.dev/.well-known/oauth-protected-resource/muse/mcp](https://kingdown.dev/.well-known/oauth-protected-resource/muse/mcp). The resource and token audience are `https://kingdown.dev/muse/mcp`.
+
 ## Summary
 
 | Tool | Title | Class | Read only | Destructive | Idempotent | Open world | Limit for each account |
@@ -23,7 +33,7 @@ Each result starts with one or two sentences that Muse can speak as they are. De
 
 ## Status and retries
 
-Each write tool gives a `result` value:
+`kingdown_move` and `kingdown_end` give a `result` value:
 
 | `result` | Meaning |
 |---|---|
@@ -37,7 +47,7 @@ Each write tool gives a `result` value:
 
 - `kingdown_move` and `kingdown_end` carry `expected_revision`, the revision of the last result for the game. When it is not the revision of the game, the tool changes nothing and gives the current state (`changed`).
 - A write that comes again changes nothing more. The same `kingdown_move` or `kingdown_end` again has an old `expected_revision`, so it gives `changed`, with the current state and the last turns. The same `request_id` again gives the same game in its current position, with `computer: []`: the first move of the computer does not come again. Thus each tool has the idempotent hint.
-- The server makes the command ID of each write from the game ID, the revision and the actions; `kingdown_new_game` makes it from `request_id`. Two equal calls at the same time have the same command ID, and the game service plays the command once: the second call gets the receipt of the first, or `STALE_REVISION` (`src/match/service.ts`, `command`).
+- The server makes the command ID of each write from the game ID, the revision and the actions; `kingdown_new_game` makes it from `request_id`. Two equal calls at the same time have the same command ID, and the game service plays the command once: the second call gets the receipt of the first, or `STALE_REVISION`.
 - After a lost reply, send the same call again: the answer gives the current state. Or read the game with `kingdown_view`.
 
 ## Errors
@@ -77,7 +87,7 @@ Before a tool runs, the HTTP edge can refuse the request:
 
 ## Rate limits
 
-The server counts each counted call for the account in Postgres (`plugin_tool_tries`) before the game work starts, so a call that the game then refuses also counts. Two refusals come before the count and count nothing: a call that does not fit the input schema, and a `kingdown_move` call with no `said` and no `move_ids`. The website uses the same counters for the same actions (`src/api/http.ts`). The reads have no count limit. The limits of the HTTP edge (above) apply to all calls.
+The server counts each counted call for the account before the game work starts, so a call that the game then refuses also counts. Two refusals come before the count and count nothing: a call that does not fit the input schema, and a `kingdown_move` call with no `said` and no `move_ids`. The website uses the same counters for the same actions. The reads have no count limit. The limits of the HTTP edge (above) apply to all calls.
 
 | Counter | Tools | Limit for each account |
 |---|---|---|
@@ -309,3 +319,11 @@ Output (`structuredContent`):
 | `grid` | string | no |
 | `legend` | string | no |
 | `ending` | string or null | no |
+
+## Disconnect and delete data
+
+On [kingdown.dev](https://kingdown.dev), open Settings → Account → Disconnect Muse. This ends the link and deletes the games that you started in Muse at once. Games that you started on the website stay in your account, also when you moved in them through Muse.
+
+Muse does not tell King Down when you disconnect inside Muse. A daily check also deletes the games that you started in Muse when the link has no session, or has no use for 30 days. This applies also when you are still connected. Account deletion also deletes the games that you started in Muse.
+
+For account deletion and other data requests, see [Delete your data](https://kingdown.dev/delete-data.html) and the [Privacy policy](https://kingdown.dev/privacy.html). For help, write to [hello@kingdown.dev](mailto:hello@kingdown.dev).

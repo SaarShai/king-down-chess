@@ -1244,7 +1244,7 @@ describe('deploy-plugin-live-check.mjs', () => {
     expect(live.requests.every(request => !request.cookie && !request.authorization)).toBe(true);
   });
 
-  it('checks a build that serves both connectors, and fails it while the live site serves only the ChatGPT plugin', async () => {
+  it('checks a build with both connectors when Muse is served or parked by the live server', async () => {
     const live = await pluginSite('both');
     const result = await runAsync(process.execPath, [pluginLiveCheck, museFolder(true), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '1500' } });
     expect(result.status, result.stderr).toBe(0);
@@ -1252,8 +1252,9 @@ describe('deploy-plugin-live-check.mjs', () => {
     expect(result.stdout).toContain('Muse connector: metadata and unsigned challenge');
     expect(live.requests.map(request => request.path).sort()).toEqual(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/mcp', ...MUSE_PATHS, authorizePath, '/consent.mjs', '/plugin-art/test-art.webp'].sort());
     const old = await runAsync(process.execPath, [pluginLiveCheck, museFolder(true), (await pluginSite()).url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '250' } });
-    expect(old.status).toBe(1);
-    expect(old.stderr).toContain('plugin-live-check: FAIL');
+    expect(old.status, old.stderr).toBe(0);
+    expect(old.stdout).toContain('2 parked paths answer 404 to GET and POST');
+    expect(old.stdout).not.toContain('Muse connector:');
   });
 
   it('checks that each parked plugin path answers 404 when the build has no consent script', async () => {

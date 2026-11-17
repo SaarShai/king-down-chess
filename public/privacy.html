@@ -28,7 +28,7 @@
 <nav><a href="./">← King Down</a><a href="./privacy.html">Privacy</a><a href="./terms.html">Terms</a><a href="./delete-data.html">Delete your data</a></nav>
 <main>
 <h1>Privacy policy</h1>
-<p class="meta">Last updated: 15 November 2026</p>
+<p class="meta">Last updated: 17 November 2026</p>
 <p>King Down is a chess game at <a href="https://kingdown.dev">kingdown.dev</a>, made by Wanderland London Ltd (company 15745882). Wanderland London Ltd is the data controller. This page says what data the game uses, why, and how you control it. Questions: <a href="mailto:hello@kingdown.dev">hello@kingdown.dev</a>.</p>
 
 <p>The website has sign-in, cloud saves, games against people, ratings and badges. The King Down app in ChatGPT uses the same account and the same games.</p>
@@ -52,7 +52,7 @@
   <li>your settings, lesson progress and saved games, so they follow you to other devices;</li>
   <li>your account settings, including <strong>Who sees when you are online</strong>, and the game options you chose last;</li>
   <li>games you play with your account against the computer or against other people, including the moves;</li>
-  <li>for each online game, the time you last opened or played it, and whether your last game action came from the website or from ChatGPT;</li>
+  <li>for each online game, the time you last opened or played it, and whether your last game action came from the website, from ChatGPT or from Muse;</li>
   <li>for each King Down board in a ChatGPT chat, the game that it shows, so that the board finds its game when it opens again;</li>
   <li>how many invitation codes you tried in the last hour, so that nobody can guess a code;</li>
   <li>how many new games, new boards, computer turns and reports you asked for on the website or in the ChatGPT app in the last minute or hour, so that one account cannot overload the game;</li>
@@ -62,7 +62,8 @@
   <li>reports, the reported handle or picture choice, and records of action on a report;</li>
   <li>alerts about your games against other players (that it is your move), and notices about an action on a report or about an appeal;</li>
   <li>a request to delete your account, with its dates;</li>
-  <li>the account and OAuth link that lets your ChatGPT connection use your King Down account.</li>
+  <li>the account and OAuth link that lets your ChatGPT connection use your King Down account;</li>
+  <li id="muse-link">the OAuth link that lets your Muse connection use your King Down account, if you connect Muse.</li>
 </ul>
 <p>Other players see your handle, preset picture, rating and the games you play with them. They never see your email address. The ChatGPT app gives the chat short game summaries. In games against people, it keeps the board position and opponent details inside the app. We do not store your ChatGPT conversation.</p>
 
@@ -78,6 +79,7 @@
 <p>Like most websites, our servers keep short technical logs. Vercel records each request to kingdown.dev, with its time, address (URL), result and your IP address. Supabase records each sign-in, with its time and your IP address. When a game action fails, our server logs the time, the tool name and an error code, but not your moves or your messages. We use these logs only to keep the game running, find faults and stop abuse. Vercel keeps them for 1 day. Supabase keeps them for the log period of our Supabase plan, at most 90 days.</p>
 <p id="fault-reports">To find and fix faults, the website sends fault reports to our server. A report holds the fault type and name, and an approved code message with private values removed (at most 300 characters). Variable values use a fixed mark. Other messages use one fixed text. No code location is sent or stored. The report holds the route path with IDs removed. Other paths use one fixed text. It includes the current build commit (other builds use one fixed text), browser family and major version, phone or desktop size class, and fault group code. Server faults hold the fault name, approved message and route, without code file locations or browser details. We store these reports, their counts and their first and last times in Supabase for 30 days. Reports are not linked to your account. They hold no account number, IP address, full browser string, moves, player messages or game IDs. They hold no URL query or fragment. We use no third-party tracking tool.</p>
 <p>When you play King Down in ChatGPT, OpenAI receives what the app sends to ChatGPT. That is a short summary for the chat (for example, whose move it is, or your rating), and the board data that ChatGPT shows in the King Down board (the position, the moves, and your and your opponent's handles and pictures). OpenAI handles this data under its own privacy policy. We do not receive your ChatGPT conversation.</p>
+<p id="muse-connector">If you connect King Down to Muse, the AI agent of Meta, you sign in to King Down from Muse and approve the link (OAuth through Supabase). Then you can start and play games against the computer in Muse, and see the turn status of your games. King Down sends Muse the result of each action: the board as text, the moves, the game status and links to your games on kingdown.dev. These results hold no handle, picture or email address. King Down uses the words of a move only to find that move, and does not store them. Muse sends King Down only the tool calls, not your Muse conversation. Meta and Wanderland London Ltd are independent controllers of this data under Meta's Data Protection Requirements. Meta can use your requests, the tool calls and their results under its own terms and privacy policy, for example to improve Muse and adapt it to you. To disconnect, use Settings → Account → Disconnect Muse on kingdown.dev. We then end the link and delete the games that you started in Muse at once. Muse does not tell us when you disconnect in Muse. So we also delete those games when Muse has not used the link for 30 days, also when you are still connected. Games that you started on kingdown.dev stay in your account. When you delete your account, we also delete the games that you started in Muse.</p>
 
 <h2>How long we keep it</h2>
 <p>A confirmed deletion request starts a seven-day grace period. A new sign-in on the website or through ChatGPT cancels it. A token refresh does not. After the period, the daily job deletes your account, email address, profile, settings, cloud saves, ratings, rating history, badges, alerts and games against the computer. It ends your open games first. A report hold can delay deletion. When the deletion is done, we try to send one email to the address of the account to confirm it.</p>

@@ -1,8 +1,6 @@
-/** The one switch for the Muse connector (docs/specs/muse-connector). It is on only for a staging build
- * (`KINGDOWN_STAGE=staging`, which tools/deploy.sh refuses), so production has no Muse code and no Muse routes: each
- * Muse path answers the parked 404. Set it to true for the production release that turns the connector on (ticket 17).
- * The checks of the Muse source build their own artifact with `muse: true`. */
-export const MUSE_CONNECTOR = globalThis.process?.env?.KINGDOWN_STAGE === 'staging';
+/** Builds include Muse. The listed OAuth client rows enable it at runtime (tools/plugin-server.mjs).
+ * A build with muse: false still drops the connector code and routes. */
+export const MUSE_CONNECTOR = true;
 
 /** The Muse paths: the MCP endpoint and its RFC 9728 metadata. The consent page (/authorize, /consent.mjs) serves
  *  when either connector is on. */

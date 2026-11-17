@@ -5,7 +5,6 @@ import { splitManifest, writeRuntimeParts } from './tools/lib/character-runtime-
 import { pluginSymbols } from './tools/lib/plugin-symbols.mjs';
 import { buildWorker } from './tools/plugin-runtime-build.mjs';
 import { launchSource, soloLaunch } from './tools/solo-launch.mjs';
-import { MUSE_CONNECTOR } from './tools/muse-connector.mjs';
 import { configDefaults, defineConfig, type Plugin } from 'vitest/config';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -162,8 +161,6 @@ export default defineConfig(({ command }) => {
       'Solo games run on this device.', 'The computer plays on this device.', 'This game cannot open on this device.',
       'This game needs the online page.', 'This game version cannot open on this device. Your online game stays saved.', 'Your online game stays saved.',
     ].includes(parts.join('')))), __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()),
-    // Settings shows "Disconnect Muse" only in a build that serves the Muse connector (src/account/account.ts).
-    __KINGDOWN_MUSE__: JSON.stringify(MUSE_CONNECTOR),
     __KINGDOWN_LOCAL_ONLINE__: JSON.stringify(localOnline) },
   // Both servers listen on 127.0.0.1, the address that the checks call; a `--host` flag overrides it.
   server: { host: '127.0.0.1', port: +(process.env.PORT || 5173), strictPort: true, ...(localOnline && { proxy: { '/api': { target: process.env.KINGDOWN_LOCAL_API_ORIGIN!, changeOrigin: false } } }) },

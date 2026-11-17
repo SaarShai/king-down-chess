@@ -64,7 +64,7 @@ it('adds no challenge route when the site or the token file is absent', () => {
 
 it('adds no challenge route without the ChatGPT plugin, also with a token file', () => {
   expect(CHATGPT_PLUGIN).toBe(true);
-  for (const routes of [vercelRoutes(site(randomUUID()), { chatgpt: false }), vercelRoutes(site('token\n'), { chatgpt: false })]) {
+  for (const routes of [vercelRoutes(site(randomUUID()), { chatgpt: false, muse: false }), vercelRoutes(site('token\n'), { chatgpt: false, muse: false })]) {
     expect(routes.some(route => /well-known|plugin-art/.test(route.src))).toBe(false);
   }
 });
