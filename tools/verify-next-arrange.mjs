@@ -124,7 +124,7 @@ async function setupPanels(page, width, height, wait = false) {
 async function inviteFromPanel(page, king, cards, named = false) {
   await page.locator('.home-hero-new, .home-top-new:visible, .home-side-new:visible').first().click();
   const panel = page.locator('dialog.new-game-panel[open]');
-  await panel.getByRole('radio', { name: 'Person', exact: true }).click();
+  await panel.getByRole('radio', { name: 'Player', exact: true }).click();
   await panel.getByRole('checkbox', { name: 'With powers', exact: true }).setChecked(true);
   await panel.getByRole('checkbox', { name: 'With cards', exact: true }).setChecked(false);
   await panel.locator('[data-section="powers"]').click(); await panel.locator(`[data-king="${king.king}"]`).click();

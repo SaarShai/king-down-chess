@@ -35,7 +35,7 @@ it('owner playtest: true level lines and "Your pieces"', () => {
   expect(Object.values(homeText.levels).join(' ')).not.toMatch(/mistakes often/);
   expect(homeText.side).toBe('Your pieces');
   expect(source('play/home.ts')).not.toContain('home-person');
-  expect(summaryLine({ level: 'clever', setup: 'both', sideChoice: 'random' })).toBe('Focused · With powers and cards · Random');
+  expect(summaryLine({ level: 'clever', setup: 'both', sideChoice: 'random' })).toBe('Focused · With powers and cards · Light');
 });
 it('launch decision 29: the Guide lists come from the content', () => {
   const groups = pieceGroups();

@@ -1,15 +1,14 @@
 /**
  * Play, the games screen (launch decision 25), its piece card, and the New game panel (decision 26). The data and the
- * actions come from main.ts; this file draws them. One New game panel serves Computer and Person.
+ * actions come from main.ts; this file draws them. One New game panel serves Computer and Player.
  */
 import { button, choiceGroup, closeX, icon, setButtonState } from '../ui/kit.js';
 import { KINGS, LETTERS, type KingName, type Color, type PieceType, type Rules } from '../../rules/engine';
 import type { DraftTurn } from './turn';
 import { panelText, pieces, text } from './texts';
-import { newPieces } from './learning';
-import { sideText, type SideChoice } from './sides';
+import { sideText, sideLine, type SideChoice } from './sides';
 import { miniBoard, savedPreview, stateText } from './mini-board';
-import { armyTypes, cardLocked, changeDraft, restorePanel, kingChoices, LEVELS, levelKey, poolLetters, poolLocked, shownKing, type GameOptions, type NewGameDraft, type PanelMemory } from './new-game';
+import { cardLocked, selectCard, selectPiece, onlinePanelOptions, DOUBLE_KINDS, changeDraft, restorePanel, kingChoices, LEVELS, poolLetters, poolLocked, shownKing, type GameOptions, type NewGameDraft, type PanelMemory } from './new-game';
 import { hasCards, hasPowers, typeName, typeOfFlags, type GameType, type Level } from './saved';
 import { DEAL_CARDS, POOL_KINDS } from '../../match/setup';
 import { RELEASED_CARDS } from '../../content/cards';
@@ -18,7 +17,7 @@ import { nameSearch, sendPersonLink, type PersonHost } from '../people/screens/p
 import { nameSheet, signInSheet } from '../people/screens/sign-in';
 import type { PeopleSheet } from '../people/screens/sheet';
 import { ObsoleteAction } from '../people/server';
-import { calm, ms } from './motion';
+import { ms } from './motion';
 import { computerPortrait, profilePortrait } from '../people/host/portrait';
 import { deadlineLine, gameOrder, type HomeInvite, type PersonGame } from '../people/host/games';
 
@@ -26,16 +25,16 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', conte
   const node = document.createElement(tag); node.className = className; node.textContent = content; return node;
 };
 export const homeText = {
-  army: 'Your next army', tap: 'Tap a figure to read its rule.', yourGame: 'Your game', turn: 'Turn',
+  yourGame: 'Your game', turn: 'Turn',
   startGame: 'Start game', side: 'Your pieces',
-  ends: (opponent: string) => `This ends your game against the ${opponent}.`,
   // Launch decision 46: the levels stay; each line is true (runs/launch/opponent/report.md).
   levels: { casual: 'The easiest level. A good level for a first game.', clever: 'Much stronger than Friendly. It makes some mistakes.', club: 'The strongest level. Much stronger than Focused.' } as Record<Level, string>,
 } as const;
 export { typeName };
+export const cardSummary = (pool: readonly string[]) => panelText.cardLine(RELEASED_CARDS.filter(card => pool.includes(card.id)).map(card => card.name));
 export const levelName = (level: Level) => `${text[level]} ${text.computer.toLowerCase()}`;
 /** The setup line on Play: level, game type and side choice. */
-export const summaryLine = (c: { level: Level; setup: GameType; sideChoice: SideChoice }) => `${text[c.level]} · ${typeName[c.setup]} · ${sideText[c.sideChoice]}`;
+export const summaryLine = (c: { level: Level; setup: GameType; sideChoice: SideChoice }) => `${text[c.level]} · ${typeName[c.setup]} · ${sideText[c.sideChoice === 'dark' ? 'dark' : 'light']}`;
 
 export interface Art {
   /** The rest still of a piece type of one side; the king follows the rules of its game. */
@@ -61,62 +60,6 @@ export interface PlayData {
   onChange(source: HTMLButtonElement): void;
   onRule(type: PieceType): void;
 }
-/** The piece type whose Full rule the person opened from Play: Back returns to its figure. */
-let ruleFrom: PieceType | null = null;
-
-/** A failed army picture keeps its piece name in view. */
-function armyImage(item: HTMLElement, img: HTMLImageElement, name: string) {
-  const fallback = el('span', 'army-fallback', name); fallback.hidden = true;
-  img.addEventListener('error', () => { img.hidden = true; fallback.hidden = false; });
-  item.append(img, fallback);
-}
-
-/** The army of the next game: each type one time, 44 px targets; a tap shows the piece card under the row. */
-function armyRow(draft: NewGameDraft, art: Art, onRule: (type: PieceType) => void): { element: HTMLElement; focus(type: PieceType): boolean } {
-  const box = el('div', 'home-army-box'), row = el('div', 'home-army'); row.setAttribute('role', 'group'); row.setAttribute('aria-label', homeText.army);
-  let card: HTMLElement | null = null, opener: HTMLButtonElement | null = null;
-  const close = (focus = true) => { card?.remove(); card = null; opener?.setAttribute('aria-expanded', 'false'); if (focus) opener?.focus(); opener = null; document.removeEventListener('pointerdown', outside, true); };
-  const outside = (event: Event) => { if (card && !card.contains(event.target as Node) && !row.contains(event.target as Node)) close(false); };
-  const show = (type: PieceType, source: HTMLButtonElement) => {
-    if (opener === source) { close(); return; }
-    close(false); opener = source; source.setAttribute('aria-expanded', 'true');
-    card = el('section', 'piece-card'); card.id = `piece-card-${type}`; card.setAttribute('role', 'dialog'); card.setAttribute('aria-label', pieces[type].name);
-    const head = el('div', 'piece-card-head'), name = el('h3', '', pieces[type].name); name.tabIndex = -1;
-    if (newPieces.has(type)) name.append(el('span', 'new-tag', 'New'));
-    head.append(art.figure(type, draft.player, draft.game.rules), name, closeX(`Close ${pieces[type].name}`, () => close()));
-    const full = button(text.fullRule, { icon: 'next', onPress: () => { ruleFrom = type; onRule(type); } });
-    card.append(head, el('p', '', pieces[type].short), full);
-    card.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); } });
-    box.append(card);
-    // The arrow points at the tapped figure; the card stays inside the row's width.
-    const at = source.getBoundingClientRect(), left = box.getBoundingClientRect().left;
-    card.style.setProperty('--arrow', `${Math.round(at.left + at.width / 2 - left)}px`);
-    source.setAttribute('aria-controls', card.id);
-    document.addEventListener('pointerdown', outside, true);
-    name.focus({ preventScroll: true }); card.scrollIntoView({ block: 'nearest' });
-  };
-  const items = armyTypes(draft.game, draft.player).map(({ type, count }) => {
-    const item = el('button', 'army-figure'); item.type = 'button'; item.dataset.type = String(type);
-    item.setAttribute('aria-label', count > 1 ? `${pieces[type].name}, ${count}` : pieces[type].name); item.setAttribute('aria-expanded', 'false');
-    armyImage(item, art.figure(type, draft.player, draft.game.rules), pieces[type].name);
-    item.addEventListener('click', () => show(type, item));
-    item.addEventListener('keydown', event => { if (event.key === 'Escape' && card) { event.preventDefault(); close(); } });
-    return item;
-  });
-  row.append(...items); box.append(row);
-  return { element: box, focus: type => { const item = items.find(node => node.dataset.type === String(type)); item?.focus(); return !!item; } };
-}
-/** The army of the panel: pictures only. */
-function armyPictures(draft: NewGameDraft, art: Art): HTMLElement {
-  const row = el('div', 'home-army panel-army'); row.setAttribute('role', 'list'); row.setAttribute('aria-label', homeText.army);
-  for (const { type, count } of armyTypes(draft.game, draft.player)) {
-    const item = el('span', 'army-figure'); item.setAttribute('role', 'listitem'); item.dataset.type = String(type);
-    const img = art.figure(type, draft.player, draft.game.rules); img.alt = count > 1 ? `${pieces[type].name}, ${count}` : pieces[type].name;
-    armyImage(item, img, pieces[type].name); row.append(item);
-  }
-  return row;
-}
-
 /** The closed list shows three rows and a half-row cue. */
 export const gamesListView = (count: number, expanded: boolean) => ({ collapsed: count > 3 && !expanded, shown: count > 3 && !expanded ? 4 : count });
 
@@ -159,7 +102,7 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
     rows.push({ mine: invite.kind === 'incoming', deadline: null, state: invite.kind === 'incoming' ? 'setup' : 'finished', row });
   }
   rows.sort(gameOrder); home.dataset.state = rows.length ? 'saved' : 'new'; home.append(title);
-  let army: ReturnType<typeof armyRow> | null = null, main: HTMLButtonElement;
+  let main: HTMLButtonElement;
   if (rows.length) {
     const top = button(text.newGame, { onPress: () => d.onChange(top) }); top.classList.add('home-top-new'); home.append(top);
     start.append(el('h2', '', text.yourGames));
@@ -185,14 +128,10 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
     img.width = 1672; img.height = 941; img.alt = ''; img.loading = 'lazy'; img.decoding = 'async'; img.fetchPriority = 'low';
     picture.append(source, img); hero.append(picture, main); home.append(hero, el('p', 'home-intro', text.intro));
     const summary = el('div', 'home-summary'); summary.append(el('p', '', summaryLine(d.next))); start.append(summary);
-    army = armyRow(d.next, art, d.onRule);
-    const block = el('section', 'home-army-block'); block.append(el('h2', 'group-title', homeText.army), army.element, el('p', 'home-hint', homeText.tap)); more.append(block);
   }
   start.append(...(d.status ? [el('p', 'home-note', d.status)] : []), ...[d.offer(main)].filter((node): node is HTMLElement => !!node));
   const columns = el('div', 'home-columns'); columns.append(start, more); home.append(columns);
   return { element: home, focus() {
-    const type = ruleFrom; ruleFrom = null;
-    if (type != null && army?.focus(type)) { home.dataset.restore = 'true'; return; }
     title.focus({ preventScroll: true });
   } };
 }
@@ -202,7 +141,6 @@ export interface PanelData {
   memory?: PanelMemory | null;
   people(): Promise<PersonHost>;
   remember(value: PanelMemory | null): void;
-  current(): { key: string; line: string };
   onStart(draft: NewGameDraft): Promise<void>;
   onInvite(draft: NewGameDraft): void;
   onClose(): void;
@@ -213,17 +151,16 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   dialog.setAttribute('aria-labelledby', heading.id);
   const saved = d.memory;
   let draft = saved ? restorePanel(saved) : d.next, opponent = saved?.opponent ?? 'computer', section = saved?.section ?? null;
-  let cardMode = saved?.cardMode ?? (draft.options.cardPool.length === 4 ? 'four' : 'all'), picked = saved?.picked ?? (cardMode === 'four' ? [...draft.options.cardPool] : []);
-  let opener: HTMLElement | null = null, starting = false, shownKey = '', busy = false, actionId = 0;
+  let cardError = '';
+  let opener: HTMLElement | null = null, starting = false, busy = false, actionId = 0;
   const head = el('div', 'panel-head'), body = el('div', 'panel-body'), foot = el('div', 'panel-foot');
   const back = button(panelText.back, { icon: 'back' }); back.hidden = true;
   head.append(back, heading, closeX(text.close, () => close()));
-  const warning = el('p', 'panel-warning'), status = el('p', 'panel-status'); status.setAttribute('role', 'status');
+  const status = el('p', 'panel-status'); status.setAttribute('role', 'status');
   const start: HTMLButtonElement = button(homeText.startGame, { kind: 'main', onPress: () => { if (opponent === 'computer') void begin(); else void person('link'); } });
   const byName = button(panelText.byName, { onPress: () => void person('name') }); byName.classList.add('text-button');
-  const setWarning = () => { const now = d.current(); shownKey = now.key; warning.textContent = now.line; warning.hidden = opponent === 'person' || !now.line; };
-  foot.append(warning, status, byName, start);
-  const memory = (): PanelMemory => ({ setup: draft.setup, level: draft.level, sideChoice: draft.sideChoice, options: draft.options, opponent, section, cardMode, picked, deal: { back: draft.back, player: draft.player, rules: draft.rules } });
+  foot.append(status, byName, start);
+  const memory = (): PanelMemory => ({ setup: draft.setup, level: draft.level, sideChoice: draft.sideChoice, options: draft.options, opponent, section, deal: { back: draft.back, player: draft.player, rules: draft.rules } });
   const edit = (change: Parameters<typeof changeDraft>[1]) => { draft = changeDraft(draft, change); };
   const options = (change: Partial<GameOptions>) => edit({ options: { ...draft.options, ...change } });
   const key = (node: HTMLElement, name: string) => { node.dataset.focus = name; return node; };
@@ -231,32 +168,36 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     const label = el('label', 'panel-check'), input = el('input'); input.type = 'checkbox'; input.checked = checked; input.disabled = locked; input.setAttribute('aria-label', name); key(input, name);
     label.append(input); input.addEventListener('change', () => { change(input.checked); draw(); }); return label;
   };
-  function levelSlider() {
-    const box = el('section', 'level-control'), label = el('h3', '', text.level); label.id = 'computer-level';
+  function slider(name: string, stops: readonly string[], selected: () => number, change: (at: number) => void, description: () => string, side = false) {
+    const box = el('section', `level-control${side ? ' side-control' : ''}`);
     const track = el('div', 'level-track'), input = el('input', 'level-range'), labels = el('div', 'level-labels'), line = el('p', 'level-line');
-    input.type = 'range'; input.min = '0'; input.max = '2'; input.step = '1'; input.setAttribute('aria-labelledby', label.id); key(input, 'level');
-    const sync = () => { const at = LEVELS.indexOf(draft.level); input.value = String(at); input.setAttribute('aria-valuetext', text[draft.level]); box.dataset.level = String(at); line.textContent = homeText.levels[draft.level]; labels.querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-pressed', String(at === i))); };
-    input.addEventListener('input', () => { edit({ level: LEVELS[+input.value] }); sync(); });
-    input.addEventListener('keydown', event => { if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return; event.preventDefault(); edit({ level: levelKey(draft.level, event.key) }); sync(); });
-    labels.append(...LEVELS.map((level, i) => { const b = button(text[level], { onPress: () => { edit({ level }); sync(); } }); b.dataset.stop = String(i); return b; }));
-    track.append(el('span', 'level-flow'), input); box.append(label, track, labels, line); sync(); return box;
+    input.type = 'range'; input.min = '0'; input.max = String(stops.length - 1); input.step = '1'; input.setAttribute('aria-label', name); key(input, side ? 'side' : 'level');
+    const sync = () => { const at = selected(); input.value = String(at); input.setAttribute('aria-valuetext', stops[at]); box.dataset.level = String(at); line.textContent = description(); labels.querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-pressed', String(at === i))); };
+    const set = (at: number) => { change(at); sync(); };
+    input.addEventListener('input', () => set(+input.value));
+    input.addEventListener('keydown', event => {
+      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault(); set(event.key === 'Home' ? 0 : event.key === 'End' ? stops.length - 1 : Math.max(0, Math.min(stops.length - 1, selected() + (['ArrowRight', 'ArrowUp'].includes(event.key) ? 1 : -1))));
+    });
+    labels.append(...stops.map((label, i) => { const b = button(label, { onPress: () => set(i) }); b.dataset.stop = String(i); return b; }));
+    track.append(el('span', 'level-flow'), input); box.append(track, labels, line); sync(); return box;
   }
   function piecesSection() {
     const box = el('div', 'panel-section'), list = el('div', 'pool-list');
-    const fixed = el('p', 'panel-note', panelText.always), lock = el('p', 'panel-note', panelText.poolLock); lock.id = 'pool-lock';
-    for (const letter of POOL_KINDS) {
-      const type = LETTERS.indexOf(letter) as PieceType, name = pieces[type].name, row = el('div', 'pool-row'), locked = poolLocked(draft.options.pool, letter);
-      const figure = art.figure(type, draft.player, draft.game.rules); figure.alt = '';
-      const label = el('span', '', name), count = el('span', 'pool-count', `×${poolLetters([letter]).length}`);
-      const toggle = check(panelText.use(name), draft.options.pool.includes(letter), on => options({ pool: on ? [...draft.options.pool, letter] : draft.options.pool.filter(k => k !== letter) }), locked);
+    const lock = el('p', 'panel-note', panelText.poolLock); lock.id = 'pool-lock';
+    for (const letter of POOL_KINDS) for (const copy of (DOUBLE_KINDS.includes(letter) ? [1, 2] : [1]) as (1 | 2)[]) {
+      const type = LETTERS.indexOf(letter) as PieceType, name = pieces[type].name + (DOUBLE_KINDS.includes(letter) ? copy === 1 ? ' x1' : ' 2nd' : ''), row = el('div', 'pool-row'), locked = poolLocked(draft.options.pool, letter, draft.options.seconds, copy);
+      row.dataset.letter = letter;
+      const figure = art.figure(type, opponent === 'person' ? 0 : draft.player, draft.game.rules); figure.alt = '';
+      const label = el('span', '', name);
+      const toggle = check(panelText.use(name), (copy === 1 ? draft.options.pool : draft.options.seconds ?? DOUBLE_KINDS).includes(letter), on => edit({ options: selectPiece(draft.options, letter, copy, on) }), locked);
       if (locked) { toggle.querySelector('input')!.setAttribute('aria-describedby', lock.id); row.dataset.locked = 'true'; }
-      row.append(figure, label, count, toggle); list.append(row);
+      row.append(figure, label, toggle); list.append(row);
     }
-    lock.hidden = !POOL_KINDS.some(k => poolLocked(draft.options.pool, k));
+    lock.hidden = !list.querySelector('[data-locked]');
     const arrangement = choiceGroup(panelText.arrangement, [{ value: 'random', label: panelText.random }, { value: 'manual', label: panelText.manual }], draft.options.arrangement);
     arrangement.addEventListener('kd-change', event => { options({ arrangement: (event as CustomEvent).detail.value }); draw(); });
-    const army = el('section', 'panel-army-block'); army.append(el('h3', '', opponent === 'computer' ? homeText.army : panelText.exampleArmy), armyPictures(draft, art));
-    box.append(fixed, list, lock, arrangement, el('p', 'panel-note', panelText.manualLine), army); return box;
+    box.append(list, lock, arrangement, el('p', 'panel-note', panelText.manualLine)); return box;
   }
   function powersSection() {
     const box = el('div', 'panel-section'), grid = el('div', 'king-grid'), chosen = shownKing(draft.setup, draft.options.king), legal = kingChoices(hasCards(draft.setup) ? 'both' : 'powers');
@@ -272,44 +213,46 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     return box;
   }
   function cardsSection() {
-    const box = el('div', 'panel-section'), mode = choiceGroup(panelText.chooseCards, [{ value: 'all', label: panelText.allCards }, { value: 'four', label: panelText.four }], cardMode);
-    mode.addEventListener('kd-change', event => { cardMode = (event as CustomEvent).detail.value; options({ cardPool: cardMode === 'all' ? DEAL_CARDS : picked.length === 4 ? picked : DEAL_CARDS }); draw(); });
-    box.append(mode, el('p', 'panel-note', panelText.shared));
-    if (cardMode === 'four') {
-      const count = el('p', 'card-count', panelText.count(picked.length)); count.setAttribute('role', 'status'); box.append(count);
-      const grid = el('div', 'panel-card-grid');
-      for (const [i, card] of RELEASED_CARDS.entries()) {
-        const tile = el('div', 'panel-card'), face = el('button', 'panel-card-art'); face.type = 'button'; face.setAttribute('aria-label', `${card.name} ${text.rule}`); key(face, card.id);
-        const img = art.card(i); img.alt = ''; face.append(img, el('span', '', card.name));
-        face.addEventListener('click', () => {
-          back.hidden = false; back.onclick = () => { draw(); body.querySelector<HTMLElement>(`[data-focus="${card.id}"]`)?.focus(); };
-          heading.textContent = card.name; body.replaceChildren(img.cloneNode(), el('p', 'card-rule', ruleLine(cardText(card.id, draft.game.rules)))); body.classList.add('panel-rule'); foot.hidden = true; heading.focus();
-        });
-        const toggle = check(panelText.use(card.name), picked.includes(card.id), on => { picked = on ? [...picked, card.id] : picked.filter(c => c !== card.id); if (picked.length === 4) options({ cardPool: picked }); }, cardLocked(picked, card.id));
-        tile.append(face, toggle); grid.append(tile);
-      }
-      box.append(grid);
+    const box = el('div', 'panel-section'), line = el('p', 'panel-note card-count', cardSummary(draft.options.cardPool)); line.setAttribute('role', 'status');
+    box.append(line);
+    const grid = el('div', 'panel-card-grid');
+    for (const [i, card] of RELEASED_CARDS.entries()) {
+      const tile = el('div', 'panel-card'), face = el('button', 'panel-card-art'); face.type = 'button'; face.setAttribute('aria-label', `${card.name} ${text.rule}`); key(face, card.id);
+      const img = art.card(i); img.alt = ''; face.append(img, el('span', '', card.name));
+      face.addEventListener('click', () => {
+        back.hidden = false; back.onclick = () => { draw(); body.querySelector<HTMLElement>(`[data-focus="${card.id}"]`)?.focus(); };
+        heading.textContent = card.name; body.replaceChildren(img.cloneNode(), el('p', 'card-rule', ruleLine(cardText(card.id, draft.game.rules)))); body.classList.add('panel-rule'); foot.hidden = true; heading.focus();
+      });
+      const toggle = check(panelText.use(card.name), draft.options.cardPool.includes(card.id), on => {
+        cardError = !on && cardLocked(draft.options.cardPool, card.id) ? panelText.needFour : '';
+        options({ cardPool: selectCard(draft.options.cardPool, card.id, on) });
+      });
+      tile.append(face, toggle); grid.append(tile);
     }
-    return box;
+    box.append(grid); return box;
   }
   function draw() {
     actionId++;
     const active = document.activeElement as HTMLElement | null, focus = active?.dataset.focus, radio = active?.getAttribute('role') === 'radio' ? active.textContent : null, scroll = body.scrollTop;
     heading.textContent = text.newGame; back.hidden = true; back.onclick = null; foot.hidden = false; body.classList.remove('panel-rule');
     busy = false;
-    const who = choiceGroup(panelText.opponent, [{ value: 'computer', label: text.computer }, { value: 'person', label: panelText.person }], opponent); who.classList.add('opponent-choice');
+    const who = choiceGroup(panelText.opponent, [{ value: 'computer', label: text.computer }, { value: 'person', label: panelText.player }], opponent); who.classList.add('opponent-choice');
     who.addEventListener('kd-change', event => { opponent = (event as CustomEvent).detail.value; draw(); });
     const rows = el('section', 'game-options'); rows.append(el('h3', 'group-title', panelText.options));
     for (const name of ['pieces', 'powers', 'cards'] as const) {
       const on = name === 'pieces' || (name === 'powers' ? hasPowers(draft.setup) : hasCards(draft.setup)), row = el('div', 'option-row'), group = el('div', 'option-group');
       if (!on && section === name) section = null;
       const king = shownKing(draft.setup, draft.options.king);
-      const summary = name === 'pieces' ? `${draft.options.pool.length === POOL_KINDS.length ? panelText.allPieces : `${poolLetters(draft.options.pool).length} pieces`} · ${draft.options.arrangement === 'random' ? panelText.random : panelText.manual}`
-        : name === 'powers' ? `${king.king} · ${POWER_NAME[king.power]}` : cardMode === 'all' ? panelText.allCards : panelText.count(picked.length);
+      const summary = name === 'pieces' ? `${poolLetters(draft.options.pool, draft.options.seconds).length === poolLetters(POOL_KINDS).length ? panelText.allPieces : `${poolLetters(draft.options.pool, draft.options.seconds).length} pieces`} · ${draft.options.arrangement === 'random' ? panelText.random : panelText.manual}`
+        : name === 'powers' ? `${king.king} · ${POWER_NAME[king.power]}` : cardSummary(draft.options.cardPool);
       const title = el('button', 'option-title'); title.type = 'button'; key(title, `open-${name}`); title.dataset.section = name;
       title.append(el('strong', '', panelText[name]), el('small', '', summary)); title.setAttribute('aria-expanded', String(on && section === name)); title.setAttribute('aria-controls', `options-${name}`); title.disabled = !on;
       title.addEventListener('click', () => { section = section === name ? null : name; draw(); });
-      if (name !== 'pieces') row.append(check(panelText[name], on, checked => edit({ setup: typeOfFlags(name === 'powers' ? checked : hasPowers(draft.setup), name === 'cards' ? checked : hasCards(draft.setup)) })));
+      if (name !== 'pieces') row.append(check(panelText[name], on, checked => {
+        if (name === 'cards') { cardError = ''; if (checked) options({ cardPool: DEAL_CARDS }); }
+        edit({ setup: typeOfFlags(name === 'powers' ? checked : hasPowers(draft.setup), name === 'cards' ? checked : hasCards(draft.setup)) });
+        if (checked) section = name;
+      }));
       row.append(title); if (on) row.append(icon('down')); group.append(row);
       const preferred = draft.options.king;
       if (name === 'powers' && on && hasCards(draft.setup) && preferred && (preferred.king !== king.king || preferred.power !== king.power)) {
@@ -321,12 +264,14 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     }
     body.replaceChildren(who);
     if (opponent === 'computer') {
-      const sides = choiceGroup(homeText.side, (['light', 'dark', 'random'] as SideChoice[]).map(value => ({ value, label: sideText[value] })), draft.sideChoice); sides.classList.add('side-choice');
-      sides.addEventListener('kd-change', event => { edit({ sideChoice: (event as CustomEvent).detail.value }); draw(); });
-      body.append(levelSlider(), sides);
+      body.append(slider(text.level, LEVELS.map(level => text[level]), () => LEVELS.indexOf(draft.level), at => edit({ level: LEVELS[at] }), () => homeText.levels[draft.level]));
+      body.append(slider(homeText.side, [sideText.light, sideText.dark], () => draft.player, at => {
+        edit({ sideChoice: at ? 'dark' : 'light' });
+        body.querySelectorAll<HTMLElement>('.pool-row').forEach(row => { const img = art.figure(LETTERS.indexOf(row.dataset.letter!), draft.player, draft.game.rules); img.alt = ''; row.querySelector('img')?.replaceWith(img); });
+      }, () => sideLine(draft.sideChoice), true));
     }
-    body.append(rows); byName.hidden = opponent !== 'person'; setWarning(); status.textContent = '';
-    setButtonState(start, { label: opponent === 'computer' ? homeText.startGame : panelText.send, reason: hasCards(draft.setup) && cardMode === 'four' && picked.length !== 4 ? panelText.needFour : '' });
+    body.append(rows); byName.hidden = opponent !== 'person'; status.textContent = cardError; status.classList.toggle('card-error', !!cardError); status.setAttribute('role', cardError ? 'alert' : 'status');
+    setButtonState(start, { label: opponent === 'computer' ? homeText.startGame : panelText.send, reason: '' });
     body.scrollTop = scroll;
     if (focus || radio) queueMicrotask(() => { const target = [...body.querySelectorAll<HTMLElement>('[data-focus], [role="radio"]')].find(n => focus ? n.dataset.focus === focus : n.textContent === radio); target?.focus({ preventScroll: true }); });
   }
@@ -336,7 +281,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     show(view) { heading.textContent = view.title; body.replaceChildren(...view.body); foot.hidden = true; back.hidden = false; back.onclick = view.back ?? (() => draw()); body.scrollTop = 0; heading.focus(); },
   };
   async function person(action: 'name' | 'link') {
-    if (busy || hasCards(draft.setup) && cardMode === 'four' && picked.length !== 4) return;
+    if (busy) return;
     const submitted = draft, own = ++actionId, current = () => dialog.open && own === actionId;
     const redraw = () => { if (current()) draw(); };
     const activeSheet: PeopleSheet = { element: dialog, get isOpen() { return current(); },
@@ -350,8 +295,8 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
       if (!host.me()!.handle) { nameSheet(activeSheet, host, redraw); return; }
       const invited = () => { if (!current()) throw new ObsoleteAction(); d.onInvite(submitted); };
       const scoped = { ...host, toast: (message: string) => { if (current()) host.toast(message); },
-        createLink: async (rules: GameType) => { const link = await host.createLink(rules, submitted.options); invited(); return link; },
-        invite: async (handle: string, rules: GameType) => { await host.invite(handle, rules, submitted.options); invited(); } };
+        createLink: async (rules: GameType) => { const link = await host.createLink(rules, onlinePanelOptions(submitted.options)); invited(); return link; },
+        invite: async (handle: string, rules: GameType) => { await host.invite(handle, rules, onlinePanelOptions(submitted.options)); invited(); } };
       if (action === 'name') nameSearch(activeSheet, scoped, submitted.setup, redraw);
       else await sendPersonLink(activeSheet, scoped, submitted.setup, redraw);
     } catch { if (current()) status.textContent = panelText.onlineFailed; }
@@ -363,8 +308,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
   dialog.addEventListener('click', event => { if (event.target === dialog) close(); });
   async function begin() {
-    if (starting || !dialog.open || hasCards(draft.setup) && cardMode === 'four' && picked.length !== 4) return;
-    if (d.current().key !== shownKey) { setWarning(); warning.animate([{ opacity: .2 }, { opacity: 1 }], { duration: calm() ? 1 : ms('--dur-msg-in') }); return; }
+    if (starting || !dialog.open) return;
     starting = true;
     const swallow = (event: Event) => { if ((event.target as Element).closest('.play-game')) return; event.preventDefault(); event.stopPropagation(); };
     document.addEventListener('click', swallow, true); setTimeout(() => document.removeEventListener('click', swallow, true), ms('--dur-sheet-in') + 300);
