@@ -482,3 +482,4 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .card-error { font-size: .875rem; line-height: 1.4; color: var(--danger); }
 .card-error:empty { display: none; }
 .new-game-panel .group-title { font-size: .875rem; }
+.home-more:empty { display: none; }
