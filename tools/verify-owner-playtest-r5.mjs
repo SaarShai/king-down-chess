@@ -95,11 +95,11 @@ async function normalReader(page, expected) {
   assert.equal(await page.locator('.play-detail .play-b').getAttribute('data-form'), form, 'the reader uses the screen form');
   if (expected === 'haste') assert.equal(await page.locator('.play-detail .play-headline').innerText(), 'Move it again, or select Send.', 'Haste recovery restores its instruction');
   else assert.equal(expected, 'selected', 'the recovery case is known');
+  const state = page.locator('.play-detail .play-b .play-turn-state');
   if (form !== 'compact' || expected === 'selected') {
-    const state = page.locator('.play-detail .play-b .play-turn-state');
     assert.equal(await state.count(), 1, 'the reader restores exactly one turn state');
     assert.equal(await state.innerText(), 'Your turn.', 'the reader restores the expected turn state');
-  }
+  } else assert.equal(await state.count(), 0, 'the compact Haste reader has no turn state');
 }
 async function bounds(page) {
   await visibleBounds(page, '.online-status p'); await visibleBounds(page, '.online-actions button', true);

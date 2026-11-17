@@ -10,7 +10,10 @@ mkdirSync(out, { recursive: true });
 const sizes = [[360,640],[390,844],[430,932],[768,1024],[844,390],[1440,900]], results = [];
 let count = 0;
 const check = (condition, message) => { assert(condition, message); count++; };
-const selectedCases = process.env.R2_CASES?.split(',');
+const caseNames = ['long-result','result-menu-close','result-menu-escape','result-resize','result-rotate','result-panel','result-panel-tap','result-board-tap','promotion-replay'];
+// R2B_CASES runs only the named new cases. The r2 check reads R2_CASES, so the two names stay apart.
+const selectedCases = process.env.R2B_CASES?.split(',');
+assert(!selectedCases || selectedCases.every(name => caseNames.includes(name)), `Unknown R2B_CASES: ${selectedCases}`);
 const repairSizes = [[360,640],[390,844],[390,763],[430,932],[768,1024],[844,390],[1440,900]];
 async function stateRules(page, label) {
  const data = await page.evaluate(() => {
@@ -270,6 +273,8 @@ for (const engine of [chromium, webkit]) {
  const context = await browser.newContext({viewport:{width:390,height:844},reducedMotion:'no-preference'});
  const page = await context.newPage(); await context.route(/supabase\.co/, r=>r.abort());
  await context.addInitScript(()=>localStorage.setItem('kingdown.game-options',JSON.stringify({pool:['G','A','M','O','L','S']})));
+ // The opening tags live about one second. The page records each tag's font size when the tag arrives, so a slow driver cannot miss them.
+ await context.addInitScript(()=>{window.round2TagSizes=[];new MutationObserver(list=>{for(const m of list)for(const n of m.addedNodes)if(n.nodeType===1)for(const tag of [n,...n.querySelectorAll('.play-tag')])if(tag.matches('.play-tag'))window.round2TagSizes.push(parseFloat(getComputedStyle(tag).fontSize));}).observe(document,{childList:true,subtree:true});});
  try {
   await page.goto(new URL('next.html',base).href); await page.locator('.play-home').waitFor();
   await page.locator('.home-hero-new, .home-top-new:visible, .home-side-new:visible').first().click();
@@ -277,8 +282,8 @@ for (const engine of [chromium, webkit]) {
   await panel.getByRole('checkbox',{name:/With powers/}).setChecked(false);await panel.getByRole('checkbox',{name:/With cards/}).setChecked(false);
   await panel.getByRole('button',{name:'Start game',exact:true}).click();
   await page.locator('.play-game[data-state=ready]').waitFor();await page.locator('.play-home').waitFor({state:'detached'});
-  await page.locator('.play-tag').first().waitFor({state:'attached'});
-  const tagSizes=await page.locator('.play-tag').evaluateAll(nodes=>nodes.map(n=>parseFloat(getComputedStyle(n).fontSize)));
+  await page.waitForFunction(()=>window.round2TagSizes.length>0);
+  const tagSizes=await page.evaluate(()=>window.round2TagSizes);
   check(tagSizes.length>0&&tagSizes.every(px=>px>=14),`${engine.name()}: opening tags use at least 14 px: ${tagSizes}`);
   const undo=page.getByRole('button',{name:'Undo',exact:true});
   check(await undo.getAttribute('aria-disabled')==='true',`${engine.name()}: first turn Undo is off`);
@@ -300,28 +305,33 @@ for (const engine of [chromium, webkit]) {
  }catch(error){results.push({label:`${engine.name()}-first-turn-and-motion`,pass:false,error:error.message});console.log(`FAIL motion: ${error.message}`);}
  finally{await context.close();}
  }
- for(const name of ['long-result','result-menu-close','result-menu-escape','result-resize','result-rotate','result-panel','result-panel-tap','promotion-replay']) {
+ for(const name of caseNames) {
   if(selectedCases&&!selectedCases.includes(name))continue;
-  const caseSizes=name==='result-resize'?[[430,932]]:name==='result-rotate'?[[844,390]]:name==='promotion-replay'||name==='result-panel'||name==='result-panel-tap'?[[390,844]]:[[390,844],[430,932],[360,640],[390,763]];
+  const caseSizes=name==='result-resize'?[[430,932]]:name==='result-rotate'?[[844,390]]:name==='promotion-replay'||name==='result-panel'||name==='result-panel-tap'||name==='result-board-tap'?[[390,844]]:[[390,844],[430,932],[360,640],[390,763]];
   for(const [width,height] of caseSizes) {
-   const context=await browser.newContext({viewport:{width,height},reducedMotion:name==='promotion-replay'||name==='result-panel-tap'?'no-preference':'reduce',hasTouch:true,serviceWorkers:'block'});
+   const context=await browser.newContext({viewport:{width,height},reducedMotion:name==='promotion-replay'||name==='result-panel-tap'||name==='result-board-tap'?'no-preference':'reduce',hasTouch:true,serviceWorkers:'block'});
    await context.route(/supabase\.co/,r=>r.abort());
    const page=await context.newPage(),errors=[],metrics=[],label=`${engine.name()}-${width}x${height}-${name}`;
    page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
    try {
-    if(name==='promotion-replay'||name==='result-panel'||name==='result-panel-tap')await observeBoard(context);
+    if(name==='promotion-replay'||name==='result-panel'||name==='result-panel-tap'||name==='result-board-tap')await observeBoard(context);
     await seedResult(page,name==='promotion-replay');
     if(name==='promotion-replay') {
      await page.locator('.play-square[data-square="48"]').tap();await page.locator('.play-square[data-square="56"]').tap();
      await page.locator('.play-game[data-state=choice]').waitFor();
      check(await page.evaluate(()=>!matchMedia('(prefers-reduced-motion: reduce)').matches&&document.documentElement.dataset.motion==='normal'),`${label}: full motion`);
      await page.evaluate(()=>window.round2Board.events=[]);
-     await page.getByRole('button',{name:'Replay',exact:true}).click();
-     await page.locator('.play-game[data-replaying=true]').waitFor();
-     const first=await page.evaluate(()=>window.round2Board.events.filter(e=>e.kind==='start'));
-     check(first.length===1&&first[0].move.power==='freeze',`${label}: the first Replay step is still playing: ${JSON.stringify(first)}`);
-     await page.getByRole('button',{name:'Queen',exact:true}).evaluate(b=>b.click());
-     const starts=await page.evaluate(()=>window.round2Board.events.filter(e=>e.kind==='start'));
+     // One page task: Replay starts, its first step is checked, and Queen is chosen while that step plays. A slow driver cannot let the next step start first.
+     const replay=await page.evaluate(()=>{
+      const named=name=>[...document.querySelectorAll('.play-game button')].filter(b=>(b.getAttribute('aria-label')??b.textContent.trim())===name);
+      const [replayButton]=named('Replay');replayButton.click();
+      const replaying=document.querySelector('.play-game').dataset.replaying,first=window.round2Board.events.filter(e=>e.kind==='start'),pending=window.round2Board.pending;
+      const queens=named('Queen');queens[0]?.click();
+      return {replaying,first,pending,queens:queens.length,starts:window.round2Board.events.filter(e=>e.kind==='start')};
+     });
+     const {first,starts}=replay;
+     check(replay.replaying==='true'&&replay.queens===1,`${label}: Replay plays and one Queen choice shows: ${JSON.stringify(replay)}`);
+     check(first.length===1&&first[0].move.power==='freeze'&&replay.pending>=1,`${label}: the first Replay step is still playing: ${JSON.stringify(replay)}`);
      check(starts.length===2&&starts[1].move.promo&&starts[1].replaying==='false',`${label}: Replay stops before promotion starts: ${JSON.stringify(starts)}`);
      await page.waitForFunction(()=>window.round2Board.pending===0&&document.querySelector('.play-game')?.dataset.state==='draft');
      const promoted=async()=>{
@@ -341,28 +351,41 @@ for (const engine of [chromium, webkit]) {
      if(name==='result-panel') {
       const opened=await page.evaluate(()=>{document.querySelector('.play-turn button.kd-button-main, .play-turn button:last-child').click();document.querySelector('.play-opp .play-power').click();const g=document.querySelector('.play-game');return {state:g.dataset.state,floating:document.querySelector('.play-reader').dataset.floating};});
       check(opened.state==='thinking'&&opened.floating==='true',`${label}: the computer panel opens during the live reply: ${JSON.stringify(opened)}`);
-     } else await page.getByRole('button',{name:'End turn',exact:true}).tap();
-     if(name==='result-panel-tap') {
-      // Decision 129: a tap on the computer's power while its mating move still plays must not replace the result.
-      const tapped=await page.evaluate(async()=>{
+     } else {
+      // Decision 129: a tap while the computer's mating move still plays must not replace the result.
+      // The page watches before End turn, so the tap cannot come too late on a slow driver.
+      if(name==='result-panel-tap'||name==='result-board-tap')await page.evaluate(target=>{window.round2Tap=(async()=>{
        for(let frame=0;frame<3600;frame++) {
         await new Promise(resolve=>requestAnimationFrame(resolve));
         const game=document.querySelector('.play-game'),save=JSON.parse(localStorage.getItem('kingdown.save')||'{"moves":[]}');
         if(game.querySelector('.play-result'))return {ok:false,why:'the result shows before the tap',frame};
         if(save.moves.length<2)continue;
         if(window.round2Board.pending<1)return {ok:false,why:'the mating move ends before the tap',frame};
-        const before={state:game.dataset.state,reading:game.dataset.reading,pending:window.round2Board.pending};
-        game.querySelector('.play-opp .play-power').click();
-        return {ok:true,frame,before,after:{reading:game.dataset.reading,floating:document.querySelector('.play-reader').dataset.floating}};
+        const before={state:game.dataset.state,reading:game.dataset.reading,pending:window.round2Board.pending},node=game.querySelector(target);
+        node.click();
+        return {ok:true,frame,before,label:node.getAttribute('aria-label'),live:[...document.querySelectorAll('body > [role=status]')].map(n=>n.textContent),after:{reading:game.dataset.reading,floating:document.querySelector('.play-reader').dataset.floating}};
        }
        return {ok:false,why:'the computer does not reply'};
-      });
-      check(tapped.ok&&tapped.before.state==='thinking'&&tapped.before.reading!=='result',`${label}: the power tap lands while the mating move plays: ${JSON.stringify(tapped)}`);
+      })();},name==='result-panel-tap'?'.play-opp .play-power':'.play-square[data-square="7"]');
+      await page.getByRole('button',{name:'End turn',exact:true}).tap();
+     }
+     if(name==='result-panel-tap'||name==='result-board-tap') {
+      const tapped=await page.evaluate(()=>window.round2Tap);
+      check(tapped.ok&&tapped.before.state==='thinking'&&tapped.before.reading!=='result',`${label}: the tap lands while the mating move plays: ${JSON.stringify(tapped)}`);
+      if(name==='result-board-tap') {
+       check(/King/.test(tapped.label),`${label}: the tap is on a square with a piece: ${JSON.stringify(tapped)}`);
+       check(tapped.live.some(t=>t.endsWith('The computer wins. Checkmate.')),`${label}: the live region keeps the result after the board tap: ${JSON.stringify(tapped)}`);
+      }
       await page.waitForFunction(()=>window.round2Board.pending===0);
       await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
       const kept=await page.evaluate(()=>{const game=document.querySelector('.play-game');return {reading:game.dataset.reading,result:!!game.querySelector('.play-result'),floating:document.querySelector('.play-reader').dataset.floating,focus:document.activeElement?.textContent?.trim()};});
       check(kept.reading==='result'&&kept.result&&kept.floating!=='true',`${label}: the result keeps its place after the tap: ${JSON.stringify({tapped,kept})}`);
       check(await page.getByRole('button',{name:'Rematch',exact:true}).isVisible(),`${label}: Rematch stays after the tap`);
+      if(name==='result-board-tap') {
+       const live=await page.evaluate(()=>[...document.querySelectorAll('body > [role=status]')].map(n=>n.textContent));
+       check(live.some(t=>t.endsWith('The computer wins. Checkmate.')),`${label}: no later step replaces the result announcement: ${JSON.stringify(live)}`);
+       check(kept.focus==='Rematch',`${label}: the focus stays on Rematch: ${JSON.stringify(kept)}`);
+      }
      }
      await page.locator('.play-result').waitFor({timeout:45000});
      if(name==='result-menu-close'||name==='result-menu-escape') {
@@ -394,4 +417,5 @@ for (const engine of [chromium, webkit]) {
 }
 writeFileSync(`${out}/round2-b.json`,JSON.stringify({checks:count,results},null,2));
 const failed=results.filter(r=>!r.pass);console.log(`${count} assertions; ${results.length-failed.length} cases pass, ${failed.length} fail`);
-process.exitCode=failed.length?1:0;
+if(!results.length)console.log('FAIL no case ran');
+process.exitCode=failed.length||!results.length?1:0;
