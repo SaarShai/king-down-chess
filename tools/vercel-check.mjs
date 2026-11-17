@@ -95,6 +95,7 @@ try {
   const soloLaunch = !!await exists(join(tree, 'static/solo-launch.json'));
   const home = soloLaunch ? 'next.html' : 'index.html';
   const allowlist = workerList('ALLOWLIST'), precache = workerList('PRECACHE');
+  assert(!allowlist.includes('muse-connector.html'), 'The public Muse page bypasses the service worker');
   assert.deepEqual(allowlist.slice(0, 2), ['./', 'index.html']);
   assert.deepEqual(precache, soloLaunch ? allowlist : allowlist.filter(file => file !== 'index.html'));
   if (soloLaunch) assert(allowlist.includes('next.html'));
@@ -174,11 +175,18 @@ try {
     assert.equal((await fetch(origin + path, { method: 'POST' })).status, 404);
   }
   assert((await (await fetch(origin)).text()).includes('<html'));
-  const publicPaths = allowlist.map(file => new URL(file, origin + '/').pathname);
+  const publicPaths = ['/muse-connector.html', ...allowlist.map(file => new URL(file, origin + '/').pathname)];
   for (const path of publicPaths) {
     const response = await fetch(origin + path, { redirect: 'manual' });
     assert.equal(response.status, 200, path);
     assert.deepEqual(Buffer.from(await response.arrayBuffer()), await readFile(join(tree, 'static', path === '/' ? home : path)), path);
+  }
+  const musePage = await readFile('public/muse-connector.html');
+  for (const query of ['', '?probe=1']) {
+    const response = await fetch(origin + '/muse-connector.html' + query, { redirect: 'manual' });
+    assert.equal(response.status, 200, 'The public Muse page serves as a static file');
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), musePage);
+    assert.equal((await fetch(origin + '/muse-connector.html' + query, { method: 'HEAD' })).status, 200);
   }
   const challenge = '/.well-known/openai-apps-challenge';
   const challengeFile = join(tree, 'static', challenge);
