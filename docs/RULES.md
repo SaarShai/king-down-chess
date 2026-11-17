@@ -77,10 +77,10 @@ rule defaults, `?rules=2017` and the lab keep the rulebook as printed. Every rea
 | Frost | **Ice Wall** (2 uses) | pick a friendly piece (not king); it cannot be captured during the opponent's next turn | a free action, then your move (`markFree`) |
 | Flame | **Strike** (1 use) | move any own piece (not king) as if it were a queen; counts as a turn | pieces only (no pawns), to an empty square (`strikePawns: false`, `strikeCaptures: false`) |
 | Flame | **Haste** (1 use) | move one piece twice in a single turn | neither move captures (`hasteCaptures: false`) |
-| Stratus | **Flight** (1 use) | move any own piece (not king) to any empty square in own half; counts as a turn | as printed |
-| Stratus | **Sacrifice** (1 use) | swap any own pawn with any own piece captured earlier; counts as a turn | as printed |
-| Mud | **March** (3 uses) | any pawn may move two forward (if unblocked) | always on (`marchUses: 0`) |
-| Mud | **Leap** (3 uses) | own pieces may jump over own pawns when moving several squares | as printed |
+| Sky | **Flight** (1 use) | move any own piece (not king) to any empty square in own half; counts as a turn | as printed |
+| Sky | **Sacrifice** (1 use) | swap any own pawn with any own piece captured earlier; counts as a turn | as printed |
+| Earth | **March** (3 uses) | any pawn may move two forward (if unblocked) | always on (`marchUses: 0`) |
+| Earth | **Leap** (3 uses) | own pieces may jump over own pawns when moving several squares | as printed |
 | Spirit | **Holy Light** (always on) | king cannot be captured by enemy pawns and cannot capture pawns | the king may take pawns, and **no piece beside, in front of or behind the Holy Light king can be captured** (`holyLightTakesPawns`, `holyLightShelter`, `holyLightShelterOrtho`) |
 | Spirit | **Mercy** (always on) | king moves 1 or 2 squares in any direction, cannot capture, jumps friendly pieces | as printed, but the king may take pawns; and **no piece next to the Mercy king can be captured, except by a pawn** (`mercyAura`, `mercyAuraPawnsTake`, `mercyTakesPawns`: reading M2, owner 2026-10-03) |
 | Shadow | **Death Touch** (always on) | king captures adjacent enemies without moving | as printed, and **it also reaches two squares straight forward or back (never sideways), over an empty square** (`deathTouchReach`, `deathTouchReachForwardBack`; §6 decision 24) |

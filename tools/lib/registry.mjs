@@ -104,6 +104,7 @@ export const checks = [
   { name: 'cache-registration', script: 'tools/cache-registration-check.mjs', limit: 45, channel: 'chromium', byName: true, exclusive: true },
   { name: 'web-online', script: 'tools/web-online-check.mjs', limit: 480, byName: true, exclusive: true },
   // The new page (next.html) by name only until the cutover: its save wiring (interface-playable issue 01).
+  { name: 'king-labels', script: 'tools/verify-king-labels.mjs', limit: 300, channel: 'chromium', byName: true },
   { name: 'next-save', script: 'tools/verify-next-save.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'selftest-dirty', script: 'tools/check-selftest-dirty.mjs', limit: 30, byName: true },
   { name: 'selftest-fail', script: 'tools/check-selftest-dirty.mjs', args: ['fail'], limit: 30, byName: true },

@@ -34,14 +34,14 @@ depth 4) and **Templar** (rejected) are **paused in the lab** (`docs/research/si
 
 | Ability | P | N | B | R | Q | K | A | L | G | M | S | O | C | Designed (not built) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| **1a Arriving — home rank only** | — | — | — | — | — | — | — | — | — | — | — | — | — | ○ Salvation, ○ Sacrifice (Stratus) return a captured piece [1] |
-| **1b Arriving — friendly half only** | — | — | — | — | — | — | — | — | — | — | — | — | — | ○ Flight (Stratus) relocates within own half [1] |
+| **1a Arriving — home rank only** | — | — | — | — | — | — | — | — | — | — | — | — | — | ○ Salvation, ○ Sacrifice (Sky) return a captured piece [1] |
+| **1b Arriving — friendly half only** | — | — | — | — | — | — | — | — | — | — | — | — | — | ○ Flight (Sky) relocates within own half [1] |
 | **2 Shield — cannot be taken by X** | — | — | — | — | — | ● never taken (mated) | — | — | ● by all but a king ◐ off | — | — | — | — | ○ Ice Wall (1 turn, any own piece), ○ Shield card, ○ Holy Light (king vs pawns) |
 | **3 Handicap — cannot take X** | — | — | — | — | — | — | ◐ a king | ● a king ◐ off | ● anything ◐ pawns / any | — | ● a king as a chain step | — | — | ○ Holy Light (king vs pawns), ○ Mercy (king takes nothing) |
 | **4a Movement — special first move** | ● 2 forward from home rank | — | — | — | — | — | — | — | ◐ 2 from home rank, slide or leap (Q1) | — | — | — | — | ○ March (pawns 2 forward always), ○ Darkness (no double step) |
 | **4b Taking = moving?** | differs | same | same | same | same | same | differs (shoots) | same | n/a | same | differs [2] | same | differs: it never takes by moving ◐ `land` makes the lob a displacement capture | ○ Death Touch (king shoots adjacent), ○ Darkness (pawns swap move/take) |
 | **4c Hop — over any piece** | — | ● | — | — | — | — | — | — | ◐ leap, home rank only (Q1) | — | — | — | — | ○ Leap card (range not obstructed) |
-| **4d Hop — over friends only** | — | — | — | — | — | — | — | ● ◐ off = blocked | — | — | — | — | — | ○ Mercy (king), ○ Mud Leap (over own pawns) |
+| **4d Hop — over friends only** | — | — | — | — | — | — | — | ● ◐ off = blocked | — | — | — | — | — | ○ Mercy (king), ○ Earth Leap (over own pawns) |
 | **4e Hop — over enemies only** | — | — | — | — | — | — | — | ◐ over enemies too (degenerate, `sim-lm-buffs`) | — | — | — | — | ◐ the lob hops exactly one enemy — the screen, which may not be a friend | — |
 | **5a Control — move any adjacent piece** | — | — | — | — | — | — | — | — | — | — | — | ● pushes one non-king neighbour 1 square straight away onto an empty square and follows; ◐ repel stays put | — | ○ Earth Quake (shove), ○ Sky Lift (swap two units) |
 | **5b Control — friends only** | — | — | — | — | — | — | — | — | — | ● swap with an adjacent friend; long swap with the king, both on home rank ◐ any friend anywhere (Q3) / king anywhere | — | ● a friend is pushable | — | ○ Control card, ○ Strike + Haste (Flame) |
@@ -91,7 +91,7 @@ aside: never built, for the reason given (`PIECES-PROPOSED.md`, "Set aside").
 |---|---|---|---|---|---|
 | Home rank | 1 / 8 | maester–king long swap (both on it) | guard double step from it (Q1) | — | arriving 1a |
 | Pawn rank | 2 / 7 | pawn double step | guard may not end a move on it (rejected: made the guard inert) | — | — |
-| Own half | ranks 1–4 / 5–8 | — | — | ○ Flight (Stratus): move any own piece to any empty square in own half | arriving 1b |
+| Own half | ranks 1–4 / 5–8 | — | — | ○ Flight (Sky): move any own piece to any empty square in own half | arriving 1b |
 | Last rank | 8 / 1 | promotion to Q R B N (the chess set, 2026-09-17) | promotion sets (`anyNonKingNoGuard`, `anyNonKing`, `anyNonKingNoFairy`) | — | — |
 | **Capital** | d4 d5 e4 e5 | — | — | ○ Burn card: capture inside the capital zone | see B.2 |
 

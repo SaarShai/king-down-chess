@@ -1,3 +1,4 @@
+import { kingDisplayName } from '../../king-label';
 import '../ui/tokens.css';
 import '../ui/components.css';
 import './play.css';
@@ -637,7 +638,7 @@ function versusCard(loaded: Promise<unknown>): Promise<number | null> {
   const side = (s: Color) => {
     const king = game.context.rules.kings[s]!, box = el('div', `vs-side ${s !== player ? 'vs-rival' : 'vs-you'}`), stage = el('div', 'vs-stage');
     stage.append(el('div', 'play-stage-floor'), figure(kingFile(s)));
-    box.append(stage, el('small', 'vs-who', s !== player ? levelName() : text.you), el('strong', 'vs-king', `${king.king} ${text.king}`), el('b', 'vs-power', POWER_NAME[king.power]), el('p', 'vs-line', powerLines[king.power] ?? ''));
+    box.append(stage, el('small', 'vs-who', s !== player ? levelName() : text.you), el('strong', 'vs-king', `${kingDisplayName(king.king)} ${text.king}`), el('b', 'vs-power', POWER_NAME[king.power]), el('p', 'vs-line', powerLines[king.power] ?? ''));
     return box;
   };
   const [you, mark, rival] = [side(player), el('div', 'vs-mark', text.versus), side(cpu())];

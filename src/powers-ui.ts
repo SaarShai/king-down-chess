@@ -1,3 +1,4 @@
+import { kingDisplayName } from './king-label';
 /**
  * The kings' powers in the HUD (docs/RULES.md §4): names and one-line rules, uses left, and which
  * power moves the player must arm first. The engine decides what is legal; this module only says
@@ -225,7 +226,7 @@ export function powerOptions(preset?: Partial<Rules>): { king: KingName; group: 
   const r = powersRules(preset);
   return (Object.entries(KINGS) as [KingName, readonly PowerName[]][]).map(([king, powers]) => ({
     king,
-    group: `${king} king`,
+    group: `${kingDisplayName(king)} king`,
     options: powers.map(p => ({ value: `${king}:${p}`, label: powerTitle(p, r), title: powerText(p, r) })),
   }));
 }

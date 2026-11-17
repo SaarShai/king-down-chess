@@ -1,3 +1,4 @@
+import { kingDisplayName } from '../../king-label';
 import { checkersOf } from '../../move-text';
 import { boardStates } from '../../render/effects/states';
 import type { PlainMarks } from '../../render/plain-marks';
@@ -149,7 +150,7 @@ export function routeLine(marks: PlainMarks): string {
   return marks.steps.length ? `Candidate Haste route. ${marks.steps.map(step => `Step ${step.number}: ${sqName(step.square)}.`).join(' ')} The second move is optional.` : '';
 }
 /** The Versus card for a screen reader: each king and its power. */
-export const versusLine = (you: string, youPower: string, rival: string, rivalPower: string) => `Your ${you} King has ${youPower}. The computer’s ${rival} King has ${rivalPower}.`;
+export const versusLine = (you: string, youPower: string, rival: string, rivalPower: string) => `Your ${kingDisplayName(you)} King has ${youPower}. The computer’s ${kingDisplayName(rival)} King has ${rivalPower}.`;
 
 /** The result card separates the outcome from its cause. */
 export function resultText(status: string, resigned: boolean, losingSide: number, player: Color = 0) {
