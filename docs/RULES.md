@@ -152,7 +152,7 @@ move captures (Haste's shape with two pieces). Not measured.
 3. **Beast first capture: any of the 7 non-forward adjacent squares** (per the rulebook diagram) — more options and more chain setups; straight ahead stays move-only as its one blind spot.
 4. **Draws: threefold repetition, 50-move rule and insufficient material are ON.** Needed because guards and paladins can create unwinnable endings.
 5. **Kings' powers (later): keep the rulebook's per-game use counts** (Freeze 2, Ice Wall 2, Strike 1, Haste 1, Flight 1, Sacrifice 1, March 3, Leap 3) as plain counters — the designer tuned them; only the card game's toll/action-point economy is dropped. Always-on powers stay always-on.
-6. **Armies: two armies for now** (ivory vs dark); when kings' powers arrive, the chosen king sets the army colour (Frost blue, Flame red, Stratus purple, Mud green, Spirit white, Shadow black).
+6. **Armies: two armies for now** (ivory vs dark); when kings' powers arrive, the chosen king sets the army colour (Frost blue, Flame red, Sky purple, Earth green, Spirit white, Shadow black).
 7. **Maester–king swap is subject to normal king safety** (illegal if the king would be in check).
 8. **Two measured changes to the 2017 pieces (2026-09-13).** Two self-play campaigns priced every fairy piece and
    A/B-tested the candidates (`docs/research/sim-buffed-2026-09-13.md`, `docs/research/sim-rules-2026-09-13.md`).

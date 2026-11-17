@@ -37,11 +37,14 @@ export const ONE_ROW = 352;
 export function gameLayout(W: number, H: number, setup: Setup): GameLayout {
   W = Math.max(0, W); H = Math.max(0, H);
   if (W < H * 1.2) {
-    const form: Form = H >= 760 ? 'tall' : 'compact', rows = ROWS[form];
     // The short form keeps 44 px squares, two records and a pinned action below the board.
+    // Decision 127: the tall form needs 760 px and 44 px squares (or the width that limits both forms). A 390x844 iPhone
+    // in the app has a 390x763 box after its safe areas: tall rows give 41 px squares there, so it takes the compact rows.
+    const sized = (f: Form) => { const r = ROWS[f]; return fit(H - r.opp - r.scroll - r.reader - r.own - r.fin, W - 8); };
+    const form: Form = H >= 760 && sized('tall') >= Math.min(8 * 44, sized('compact')) ? 'tall' : 'compact', rows = ROWS[form];
     const narrow = W - 8 < ONE_ROW;
     // The board keeps its size in every game type; Pieces only gives the resource rows to the reader and keeps the board in place.
-    const board = fit(H - rows.opp - rows.scroll - rows.reader - rows.own - rows.fin, W - 8), head = clearance(board);
+    const board = sized(form), head = clearance(board);
     const ownRows = setup === 'pieces' ? 0 : 1, own = ownRows * rows.own, col = Math.max(board, Math.min(W - 8, ONE_ROW));
     return { kind: 'stack', form, W, H, board, head, gap: 0, col, opp: rows.opp, scroll: rows.scroll, own, fin: rows.fin, reader: H - rows.opp - rows.scroll - own - rows.fin - head - board,
       railTop: 0, railH: 0, ownRows, narrow, boardX: (W - board) / 2, boardY: rows.opp + head };

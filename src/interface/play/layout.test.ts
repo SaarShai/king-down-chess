@@ -32,9 +32,17 @@ describe('the classes at each size of the matrix (decision 34)', () => {
   it('a rail when the width is 1.2 times the height or more; a stack in every other case', () => {
     for (const [W, H] of MATRIX) expect(gameLayout(W, H, 'cards').kind, `${W}x${H}`).toBe(W >= H * 1.2 ? 'rail' : 'stack');
   });
-  it('the stack forms: tall from 760 px of height, compact below it', () => {
-    expect(gameLayout(390, 760, 'cards').form).toBe('tall');
+  it('the stack forms: tall from 760 px of height when its squares are 44 px, compact below it (decision 127)', () => {
+    expect(gameLayout(390, 784, 'cards')).toMatchObject({ form: 'tall', board: 352 });
+    expect(gameLayout(390, 783, 'cards')).toMatchObject({ form: 'compact', board: 376 });
+    expect(gameLayout(390, 760, 'cards')).toMatchObject({ form: 'compact', board: 376 });
     expect(gameLayout(390, 759, 'cards').form).toBe('compact');
+    // A narrow phone: both forms give the same board, so 760 px still gives the tall rows.
+    expect(gameLayout(320, 760, 'cards')).toMatchObject({ form: 'tall', board: 312 });
+    for (let H = 760; H <= 1000; H += 1) for (const W of [360, 375, 390, 393, 402, 414, 428, 430, 440]) {
+      const l = gameLayout(W, H, 'cards');
+      if (l.kind === 'stack') expect(l.board, `${W}x${H}`).toBeGreaterThanOrEqual(Math.min(8 * 44, W - 8 - (W - 8) % 8));
+    }
   });
   it('the rail forms: wide when the rail is 400 px or more and H is 700 or more; compact when H is under 600', () => {
     for (const [W, H] of MATRIX.filter(([W, H]) => W >= H * 1.2)) {
@@ -98,6 +106,10 @@ describe('the classes at each size of the matrix (decision 34)', () => {
   });
   it('the safe areas come off before the calculation: 390x844 with 59 and 34 is a compact stack', () => {
     expect(gameLayout(390, 844 - 59 - 34, 'cards')).toMatchObject({ kind: 'stack', form: 'compact', board: 376 });
+    // Decision 127: the iPhone 12 to 14 box in the app (47 and 34) keeps 44 px squares: 47 px in the compact rows, not 41 px in the tall rows.
+    expect(gameLayout(390, 844 - 47 - 34, 'cards')).toMatchObject({ kind: 'stack', form: 'compact', board: 376 });
+    expect(gameLayout(390, 844 - 47 - 34, 'pieces')).toMatchObject({ kind: 'stack', form: 'compact', board: 376 });
+    expect(gameLayout(430, 932 - 59 - 34, 'cards')).toMatchObject({ kind: 'stack', form: 'tall' });
     expect(gameLayout(844 - 59 - 59, 390 - 21, 'cards')).toMatchObject({ kind: 'rail', form: 'compact', board: 352 });
   });
   it('the game type does not change the board side; the game state is not an input', () => {

@@ -272,6 +272,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
       }, () => sideLine(draft.sideChoice), true));
     }
     body.append(rows); byName.hidden = opponent !== 'person'; status.textContent = cardError; status.classList.toggle('card-error', !!cardError); status.setAttribute('role', cardError ? 'alert' : 'status');
+    cardError = ''; // the refusal shows once; the next change of the panel clears it
     setButtonState(start, { label: opponent === 'computer' ? homeText.startGame : panelText.send, reason: '' });
     body.scrollTop = scroll;
     if (focus || radio) queueMicrotask(() => { const target = [...body.querySelectorAll<HTMLElement>('[data-focus], [role="radio"]')].find(n => focus ? n.dataset.focus === focus : n.textContent === radio); target?.focus({ preventScroll: true }); });

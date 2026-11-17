@@ -36,9 +36,6 @@ body:not([data-page='game']) #app { padding-bottom: calc(var(--bar-phone) + var(
 }
 @media (max-width: 899px) { .shell-nav a { flex: 1; flex-direction: column; } }
 :root[data-motion='fast'] .play-result { animation-duration: 220ms; }
-/* A short result uses the opponent strip so each action stays above the board. */
-.play-game[data-layout='portrait'][data-short='true'][data-reading='result'] .play-opp { display: none; }
-.play-game[data-layout='portrait'][data-short='true'][data-reading='result'] .play-reader { padding-top: 0; }
 
 #app > :is(.play-home, .shell-page):not(.shell-departing) { position: relative; z-index: 1; background: var(--surface-page); min-height: calc(100dvh - var(--bar-phone) - var(--safe-bottom)); }
 @media (min-width: 900px) { #app > :is(.play-home, .shell-page):not(.shell-departing) { min-height: calc(100dvh - var(--bar-top) - var(--safe-top)); } }

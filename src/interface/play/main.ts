@@ -778,6 +778,8 @@ function tap(square: number) {
   } else refuse(refusalForTap(draft, source, square), square);
 }
 function stage(move: Move) {
+  // A choice button stages as a board tap does: it ends a Replay or an animation first (review finding, decision 127).
+  skipBoard();
   const card = armedResource(), before = draft.position; draft.stage(move);
   // A played card travels to its square; the card in the hand shows it as spent.
   if (card?.card != null) { const box = cells[move.to].getBoundingClientRect(); endCardFlight(); endCardFlight = cardFly(card.control, screen, box.left + box.width / 2, box.top + box.height / 2, box.width); }

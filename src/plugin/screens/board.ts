@@ -8,6 +8,7 @@ import { toFen } from '../../rules/setup';
 import { colorOf, findKing, K, moveNumber, NAMES, LETTERS, piece, PLAIN_KINGS, T, typeOf, type Color, type Move, type PieceType, type Position, type PowerName } from '../../rules/engine';
 import { cardName, cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText, ruleLine } from '../../powers-ui';
 import { LESSONS } from '../../lessons';
+import { kingDisplayName } from '../../king-label';
 import { momentKind } from '../../moment';
 import { boardFoot } from '../../screen/board-foot';
 import { soundsFor } from '../../screen/moments';
@@ -477,7 +478,7 @@ export function boardScreen(store: Store) {
         if (!canPlay()) return;
         armed = coin.power; selected = inspected = held = undefined; closeBoardSheet(); choices(named()); refresh();
       }));
-      boardSheet(coin.king + ' King', ...nodes);
+      boardSheet(kingDisplayName(coin.king) + ' King', ...nodes);
     }
   }
   function strips() {

@@ -167,7 +167,7 @@ img { display: block; }
 .play-game[data-layout='wide'] .play-versus { padding-inline: max(16px, calc((100% - 860px) / 2)); }
 .play-game[data-layout='wide'] .vs-king { font-size: 1.75rem; }
 .play-tag { position: absolute; z-index: 2; bottom: 2px; transform: translateX(-50%); pointer-events: none; white-space: nowrap; padding: 0 7px; border-radius: 6px;
-  background: #0f2c32eb; color: #fff5df; box-shadow: inset 0 0 0 1px #d8a552; font-size: .8125rem; font-weight: 650; line-height: 22px;
+  background: #0f2c32eb; color: #fff5df; box-shadow: inset 0 0 0 1px #d8a552; font-size: .875rem; font-weight: 650; line-height: 22px;
   animation: kd-tag var(--dur-tag) var(--ease-out3) both; }
 .play-tag[data-row='1'] { bottom: 26px; }
 @keyframes kd-tag { 0% { opacity: 0; transform: translate(-50%, 6px); } 12%, 78% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, 0); } }
@@ -210,8 +210,6 @@ img { display: block; }
 .play-result-actions { display: flex; flex-wrap: wrap; gap: 6px; flex: none; }
 .play-result-actions .kd-button { flex: 1 1 7rem; }
 .play-result-actions .kd-button:last-child { flex-basis: 100%; background: transparent; border: 0; box-shadow: none; text-decoration: none; }
-.play-game[data-layout='portrait'][data-reading='result'] .play-opp { display: none; }
-.play-game[data-layout='portrait'][data-reading='result'] .play-reader { padding-top: 0; }
 .guide-page .learn-panel { max-width: 65ch; }
 .guide-page .learn-top { position: static; }
 .guide-page .learn-top h3 { font-size: 1.5rem; }

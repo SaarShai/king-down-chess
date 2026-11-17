@@ -53,8 +53,12 @@ source file changes. No asset or schema enum changes.
 
 ## Remaining names and handoff
 
-The final text search has one old-name line in the player rule document:
-RULES line 155, the historical decision of 2026-09-13. It stays as a record.
+The final text search had one old-name line in the player rule document:
+RULES line 155, the historical decision of 2026-09-13. The merge review
+(decision 127) applies the owner's "EVERYWHERE" to it too: it now says Sky
+purple and Earth green. The same review renames the king sheet title of the
+ChatGPT game screen (`src/plugin/screens/board.ts`), which still built
+"Stratus King" from the stored ID.
 The other source matches are IDs, enum values, comments and old art prompts.
 Asset paths and data attributes keep their old names for compatibility.
 The round 2 build folder holds `lane-c-grep.txt` and the OCR log and results.

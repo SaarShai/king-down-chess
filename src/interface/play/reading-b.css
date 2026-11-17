@@ -227,6 +227,9 @@
 .play-history-record { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .play-history-toggle svg { flex: none; width: 20px; }
 .play-game[data-layout='portrait'] .play-reader:not([data-floating='true']) { top: calc(var(--board-y) + var(--board) + var(--scroll)); height: var(--reader); padding: 8px 5px 0; }
+/* The result follows the board and the scroll, as every reading does (decision 124), and takes the idle hand and finish rows.
+   The top line (opponent and Menu) stays; the card ends at the bottom of the screen. */
+.play-game[data-layout='portrait'][data-reading='result'] .play-reader:not([data-floating='true']) { height: calc(var(--reader) + var(--own) + var(--fin)); background: var(--surface-page); }
 .play-game[data-layout='wide'] .play-history-strip { top: calc(var(--rail-top) + var(--opp)); }
 .play-game[data-layout='wide'] .play-reader:not([data-floating='true']) { top: calc(var(--rail-top) + var(--opp) + var(--scroll)); height: var(--reader); padding: 8px 5px 0; }
 .play-game .play-b[data-form='tall'] { grid-template-rows: 24px auto minmax(0, 1fr); }
@@ -289,6 +292,10 @@
 .play-game[data-form='compact'] .play-b .play-choices { display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
 .play-game[data-form='compact'] .play-b .play-choices .kd-button { flex: 1 0 44px; }
 .play-game[data-form='compact'][data-state='arrange'] .play-bhead .play-headline { max-height: 44px; white-space: normal; }
+/* Decision 127: the compact second row holds a whole 20 px line at 360x640 (armed step), and an arrange notice gives the
+   header's spare height to the notice and the instruction below it. */
+.play-game .play-b[data-form='compact'] .play-lines { padding-top: 0; }
+.play-game[data-form='compact'][data-state='arrange'] .play-b:has(.play-notice) { grid-template-rows: auto minmax(0, 1fr); }
 
 /* A current sentence takes the compact header before the turn label. */
 .play-game .play-b .play-bhead .play-headline-line { max-height: 44px; white-space: normal; }
