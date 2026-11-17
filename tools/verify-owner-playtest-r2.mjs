@@ -42,7 +42,7 @@ async function clearBoard(page) {
   const layout = await page.locator('.play-game').getAttribute('data-layout');
   if (layout === 'portrait') {
     const reader = await page.locator('.play-detail').boundingBox(), board = await page.locator('.play-board').boundingBox();
-    assert(reader.y + reader.height <= board.y + 1, 'the reader stays above the board');
+    assert(reader.y >= board.y + board.height - 1, 'the reader stays below the board');
   }
 }
 const cases = {
@@ -68,11 +68,9 @@ const cases = {
         assert.equal(await page.locator('.play-rival-count').textContent(), '4', 'Manual creates the badge with the dealt hand size');
         assert.match(await page.locator('.play-rival-cards').getAttribute('aria-label'), /4 cards/);
       }
-      await visibleBounds(page, '.play-headline-line, .play-arrange-rule');
+      await visibleBounds(page, '.play-headline, .play-arrange-rule');
       await visibleBounds(page, '.play-turn button', true); await clearBoard(page);
-      const shared = await page.locator('.play-game').getAttribute('data-shared-reader') === 'true';
-      if (shared) assert.equal(await page.locator('.play-history-strip').isVisible(), false, 'Manual gives its reserve to the warning');
-      else assert.equal(await page.locator('.play-history-strip').isVisible(), true, 'history fits beside the Manual instruction and warning');
+      assert.equal(await page.locator('.play-history-strip').isVisible(), true, 'history has its own row during Manual instructions');
       if (size[0] === 1440 && type !== 'powers') await visibleBounds(page, '.play-rival-count');
       await shot(page, size, `manual-${type}-${side}-warning`);
       await home(page);
@@ -111,6 +109,34 @@ const cases = {
     await page.evaluate(() => { window.saveFails = false; });
     await cell(page, 8).tap(); await cell(page, 16).tap();
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).back), '', 'the next write saves the confirmed FEN game');
+  },
+  async staleReader(page, context, size) {
+    for (const type of ['pieces', 'powers', 'cards', 'both']) {
+      await page.goto(new URL('next.html', origin).href); await page.locator('.play-home').waitFor();
+      await page.evaluate(async type => {
+        const { Game } = await import('/src/game.ts'), { rulesOf } = await import('/src/interface/play/saved.ts'), { toFen } = await import('/src/rules/setup.ts');
+        const hand = ['cards', 'both'].includes(type) ? ['Freeze', 'IceWall', 'Haste', 'Flight'] : [];
+        const game = new Game('RNBQKBNR', rulesOf(type, [{ king:'Spirit', power:'Mercy' }, { king:'Mud', power:'March' }], [hand, hand]));
+        game.playLan(['e2-e4', 'e7-e5']);
+        localStorage.removeItem('kingdown.arrangement');
+        localStorage.setItem('kingdown.save', JSON.stringify({ back:game.backRank, fen:toFen(game.history[0].pos), moves:game.history.map(h=>h.lan), rules:game.rules, white:'human', black:'ai', skill:'casual', resigned:null, coords:true, pace:'off' }));
+      }, type);
+      await page.reload(); await resume(page);
+      const stale = await context.newPage();
+      try {
+        await stale.goto(new URL('next.html', origin).href); await resume(stale);
+        await cell(page, 11).tap(); await cell(page, 27).tap();
+        const saved = await page.evaluate(() => localStorage.getItem('kingdown.save'));
+        await cell(stale, 6).tap(); await cell(stale, 21).tap();
+        const load = stale.getByRole('button', { name:'Load the newer game', exact:true }); await load.waitFor();
+        await visibleBounds(stale, '.play-headline-line'); await visibleBounds(stale, '.play-tools > button', true);
+        assert.match(await stale.locator('.play-headline-line').innerText(), /changed in another tab/);
+        assert.equal(await stale.evaluate(() => localStorage.getItem('kingdown.save')), saved, 'the stale move cannot replace the newer save');
+        await shot(stale, size, `stale-${type}`);
+        await load.tap(); await stale.locator('.play-game[data-state="draft"]').waitFor();
+        assert.match(await cell(stale, 27).getAttribute('aria-label'), /Pawn/, 'Load restores the newer draft');
+      } finally { await stale.close(); }
+    }
   },
   async rematches(page, context, size) {
     if (size[0] !== 360) return;
@@ -304,10 +330,21 @@ const cases = {
       const move = game.legal.find(m => m.power === 'freeze');
       if (!move) throw new Error('The fixture needs a legal opponent card.');
       const action = game.context.toLan(game.pos, move); game.play(move);
-      return { fen: toFen(game.pos), turn: game.pos.turn, history: { initial_fen: initial, actions: [action] } };
+      const finish = game.legal.find(m => !m.power && !m.pass);
+      if (!finish) throw new Error('The opponent needs a move after the card.');
+      const final = game.context.toLan(game.pos, finish); game.play(finish);
+      return { fen: toFen(game.pos), turn: game.pos.turn, history: { initial_fen: initial, actions: [action, final] } };
     }, template);
     view = { ...view, ...used, draw_offer: null, revision: view.revision + 1 };
     await page.reload(); await page.locator('.home-game-row[data-game]').first().click(); await ready(page);
+    const replay = page.getByRole('button', { name: 'Replay', exact: true });
+    assert.equal(await replay.count(), 1, 'an online opponent turn gives Replay');
+    await replay.tap();
+    assert.equal(await page.locator('.play-game').getAttribute('data-replaying'), null, 'reduced online Replay has no motion');
+    view = { ...view, opponent: { ...view.opponent, handle: 'long-player-name-1234567890' } };
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.waitForFunction(() => document.querySelector('.play-opponent-name')?.textContent === 'long-player-name-1234567890');
+    assert.equal(await page.locator('.play-opponent-name').evaluate(n => getComputedStyle(n).whiteSpace), 'nowrap');
     assert.equal(await page.locator('.play-rival-count').innerText(), '3', 'an opponent card use reduces the badge');
     assert.match(await page.locator('.play-rival-cards').getAttribute('aria-label'), /3 cards left/);
 

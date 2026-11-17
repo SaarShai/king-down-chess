@@ -1,4 +1,4 @@
-export type IconName = 'back' | 'close' | 'play' | 'learn' | 'you' | 'check' | 'next' | 'more' | 'undo' | 'down';
+export type IconName = 'back' | 'close' | 'play' | 'learn' | 'you' | 'check' | 'next' | 'more' | 'undo' | 'rewind' | 'down';
 export function icon(name: IconName): SVGSVGElement;
 export function button(label: string, options?: { kind?: string; icon?: IconName; iconOnly?: boolean; onPress?: () => void; disabledReason?: string }): HTMLButtonElement;
 export function asCloseX(node: HTMLButtonElement, label: string): HTMLButtonElement;

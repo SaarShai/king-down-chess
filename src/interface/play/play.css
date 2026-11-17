@@ -9,7 +9,7 @@ img { display: block; }
 /* The stone floor under a figure: Versus and the result card. */
 .play-stage-floor { position: absolute; bottom: 0; left: 1%; width: 98%; height: 64px; background: url('/interface/stone-refined-light.webp') center/100% auto; transform: perspective(450px) rotateX(43deg); border-radius: 50% 50% 9px 9px; box-shadow: 0 8px 0 #7b7967, 0 18px 24px #061d2570; z-index: -1; }
 
-/* Game. Phone: opponent strip, reading area, board (low), your strip, finish row. The board never moves in a game. */
+/* Game. Phone: opponent strip, board, scroll, reading area, your strip, finish row. The board never moves in a game. */
 .play-game { background: var(--surface-page); position: fixed; inset: var(--safe-top, 0px) var(--safe-right, 0px) var(--safe-bottom, 0px) var(--safe-left, 0px); --col: max(4px, calc((100% - 720px) / 2)); }
 .play-opp, .play-reader, .play-own, .play-turn { position: absolute; min-width: 0; }
 .play-game[data-layout='portrait'] :is(.play-opp, .play-reader, .play-own, .play-turn) { left: var(--col); right: var(--col); }
@@ -87,7 +87,7 @@ img { display: block; }
 .play-grid { position: absolute; inset: 0; width: 100%; height: 100%; }
 .play-grid { display: grid; grid-template-columns: repeat(8,1fr); grid-template-rows: repeat(8,1fr); touch-action: none; }
 .play-square { position: relative; border: 0; padding: 0; border-radius: 0; background: transparent; touch-action: none; min-width: 44px; min-height: 44px; }
-[data-file]::after, [data-rank]::before { position: absolute; z-index: 1; font: 700 12px/1 var(--font-title); color: var(--text); background: transparent; padding: 0; letter-spacing: .02em; pointer-events: none; }
+[data-file]::after, [data-rank]::before { position: absolute; z-index: 1; font: 700 14px/1 var(--font-title); color: var(--text); background: transparent; padding: 0; letter-spacing: .02em; pointer-events: none; }
 [data-file]::after { content: attr(data-file); right: 1px; bottom: 1px; }
 [data-rank]::before { content: attr(data-rank); left: 1px; top: 1px; }
 .play-game[data-coords='false'] [data-file]::after, .play-game[data-coords='false'] [data-rank]::before { display: none; }
@@ -242,5 +242,5 @@ img { display: block; }
 
 
 .learn-cell-dark .learn-coordinate { color: #fffaf0; }
-.play-opp strong { overflow-wrap: anywhere; }
-.opponent-clock { font-size: 12px; font-weight: 400; }
+.play-opp strong { overflow-wrap: normal; }
+.opponent-clock { font-size: 14px; font-weight: 400; }
