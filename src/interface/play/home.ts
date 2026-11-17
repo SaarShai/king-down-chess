@@ -214,8 +214,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   }
   function cardsSection() {
     const box = el('div', 'panel-section'), line = el('p', 'panel-note card-count', cardSummary(draft.options.cardPool)); line.setAttribute('role', 'status');
-    const error = el('p', 'card-error', cardError); error.setAttribute('role', 'alert');
-    box.append(line, error);
+    box.append(line);
     const grid = el('div', 'panel-card-grid');
     for (const [i, card] of RELEASED_CARDS.entries()) {
       const tile = el('div', 'panel-card'), face = el('button', 'panel-card-art'); face.type = 'button'; face.setAttribute('aria-label', `${card.name} ${text.rule}`); key(face, card.id);
@@ -250,7 +249,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
       title.append(el('strong', '', panelText[name]), el('small', '', summary)); title.setAttribute('aria-expanded', String(on && section === name)); title.setAttribute('aria-controls', `options-${name}`); title.disabled = !on;
       title.addEventListener('click', () => { section = section === name ? null : name; draw(); });
       if (name !== 'pieces') row.append(check(panelText[name], on, checked => {
-        if (name === 'cards' && checked) { options({ cardPool: DEAL_CARDS }); cardError = ''; }
+        if (name === 'cards') { cardError = ''; if (checked) options({ cardPool: DEAL_CARDS }); }
         edit({ setup: typeOfFlags(name === 'powers' ? checked : hasPowers(draft.setup), name === 'cards' ? checked : hasCards(draft.setup)) });
         if (checked) section = name;
       }));
@@ -271,7 +270,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
         body.querySelectorAll<HTMLElement>('.pool-row').forEach(row => { const img = art.figure(LETTERS.indexOf(row.dataset.letter!), draft.player, draft.game.rules); img.alt = ''; row.querySelector('img')?.replaceWith(img); });
       }, () => sideLine(draft.sideChoice), true));
     }
-    body.append(rows); byName.hidden = opponent !== 'person'; status.textContent = '';
+    body.append(rows); byName.hidden = opponent !== 'person'; status.textContent = cardError; status.classList.toggle('card-error', !!cardError); status.setAttribute('role', cardError ? 'alert' : 'status');
     setButtonState(start, { label: opponent === 'computer' ? homeText.startGame : panelText.send, reason: '' });
     body.scrollTop = scroll;
     if (focus || radio) queueMicrotask(() => { const target = [...body.querySelectorAll<HTMLElement>('[data-focus], [role="radio"]')].find(n => focus ? n.dataset.focus === focus : n.textContent === radio); target?.focus({ preventScroll: true }); });

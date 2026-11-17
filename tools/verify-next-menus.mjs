@@ -55,7 +55,7 @@ async function signedIn(context, invites, redeem, polls = {}) {
 // Back. `preload` starts a local game first, so a faulty local start fails at once instead of after a slow import.
 // `reopen` presses New game again while the Back is held: the panel waits, and the game route goes first.
 async function panelRace(page, context, check, action, game, { preload = false, reopen = false } = {}) {
-  const invites = [invite('i1', 'ada')], polls = {};
+  const invites = [{ ...invite('i1', 'ada'), game_id: game }], polls = {};
   let release; const held = new Promise(done => { release = done; });
   await signedIn(context, invites, async json => { await held; invites.length = 0; return json({ game_id: game, revision: 1, status: 'setup', seat: 0, kind: 'person', action: 'wait', deadline_at: null }); }, polls);
   await page.goto(NEXT); await page.waitForSelector('.home-invite-row');
@@ -113,23 +113,22 @@ const cases = {
     await context.route('**/ui/pieces/*.webp', r => r.abort());
     await page.goto(NEXT); await page.waitForSelector('.play-home');
     await page.waitForTimeout(250);
-    check(await page.locator('.home-army img').evaluateAll(imgs => imgs.every(img => img.hidden)), 'failed home figures hide the broken picture');
-    check(await page.locator('.home-army .army-fallback').evaluateAll(nodes => nodes.length > 0 && nodes.every(n => !n.hidden && n.textContent)), 'each failed figure keeps a visible name');
-    // Use a long real piece name even when the random army does not deal it.
-    await page.locator('.home-army .army-fallback').first().evaluate(n => { n.textContent = 'Maester'; });
-    check(await unbroken(page, '.home-army .army-fallback'), 'fallback piece names keep whole words');
+    check(await page.locator('.home-army-block').count() === 0, 'the removed next-army block stays absent');
+    await page.locator('.home-hero button').click(); await page.locator('[data-section="pieces"]').click();
+    check(await page.locator('.pool-row').evaluateAll(rows => rows.length === 15 && rows.every(row => row.textContent.trim())), 'each piece option keeps its name when art fails');
+    check(await unbroken(page, '.pool-row > span'), 'piece names keep whole words');
     await shot(page, 'home-art');
   },
   async panel(page, context, check, size) {
     await page.goto(NEXT); await page.waitForSelector('.play-home');
     const before = await saved(page), choices = await page.locator('.home-summary p').innerText();
     await page.locator('.home-hero button').click();
-    await page.getByRole('radio', { name: 'Random', exact: true }).scrollIntoViewIfNeeded();
-    check(await unbroken(page, '.side-choice [role="radio"]'), 'side labels keep each word on one line');
+    await page.getByRole('slider', { name: 'Your pieces' }).scrollIntoViewIfNeeded();
+    check(await unbroken(page, '.side-control .level-labels button'), 'side labels keep each word on one line');
     const [w, h] = size.split('x').map(Number), panel = await page.locator('dialog[open]').boundingBox();
     check(w < 600 || panel.height <= h * .9 + 1, 'a wide panel uses at most 90 percent of the height');
     await shot(page, 'panel');
-    await page.getByRole('radio', { name: 'Dark', exact: true }).click();
+    await page.getByRole('button', { name: 'Dark', exact: true }).click();
     await page.getByRole('button', { name: 'Close', exact: true }).click();
     await page.waitForFunction(() => !history.state?.layer);
     check(await saved(page) === before && await page.locator('.home-summary p').innerText() === choices, 'Close keeps the save and choices');
@@ -143,12 +142,12 @@ const cases = {
     await page.goto(NEXT); await page.waitForSelector('.home-invite-row');
     const opener = page.locator('.home-top-new:visible, .home-side-new:visible').first(), openerClass = await opener.evaluate(node => node.classList.contains('home-top-new') ? 'home-top-new' : 'home-side-new');
     await opener.click(); await page.waitForSelector('dialog.new-game-panel[open]');
-    await page.getByRole('radio', { name: 'Dark', exact: true }).click();
+    await page.getByRole('button', { name: 'Dark', exact: true }).click();
     invites.push(invite('i2', 'bo'));
     const refreshed = await page.waitForFunction(() => document.querySelectorAll('.home-invite-row').length === 2, null, { timeout: 15000 }).then(() => true, () => false);
     check(refreshed, 'a new invite redraws Play while the panel is open');
     check(await page.locator('dialog.new-game-panel[open]').count() === 1, 'the panel stays open after the refresh');
-    check(await page.getByRole('radio', { name: 'Dark', exact: true }).isChecked().catch(() => false), 'the draft choice stays after the refresh');
+    check(await page.getByRole('slider', { name: 'Your pieces' }).getAttribute('aria-valuetext') === 'Dark', 'the draft choice stays after the refresh');
     check(await page.evaluate(() => !!document.activeElement?.closest('dialog.new-game-panel')), 'the focus stays in the panel after the refresh');
     await shot(page, 'panel-refresh');
     if (await page.locator('dialog.new-game-panel[open]').count()) {
@@ -262,13 +261,14 @@ const cases = {
     await shot(page, 'guide-entry');
   },
   async home_piece_close(page, context, check) {
-    await page.goto(NEXT); const source = page.locator('.home-army .army-figure').first(); await source.click();
-    const panel = page.locator('.piece-card'), name = await panel.getAttribute('aria-label');
-    const close = panel.getByRole('button', { name: `Close ${name}`, exact: true });
-    check(await close.evaluate(n => n.classList.contains('kd-x')), 'the home piece panel uses the plain X');
-    const box = await close.boundingBox(); check(box.width >= 44 && box.height >= 44, 'the home X is a 44 px target');
-    await close.click(); check(await source.evaluate(n => n === document.activeElement), 'the home X returns focus');
-    await source.click(); await page.keyboard.press('Escape'); check(await source.evaluate(n => n === document.activeElement), 'Escape returns focus from the home piece panel');
+    await page.goto(NEXT); await page.locator('.home-hero button').click();
+    await page.getByRole('checkbox', { name: 'With cards', exact: true }).check();
+    const source = page.getByRole('button', { name: 'Ice Wall Rule', exact: true }); await source.click();
+    check(await page.locator('.card-rule').isVisible(), 'a card opens its rule in the panel');
+    const back = page.getByRole('button', { name: 'Back', exact: true });
+    const box = await back.boundingBox(); check(box.width >= 44 && box.height >= 44, 'Back is a 44 px target');
+    await back.click(); check(await source.evaluate(n => n === document.activeElement), 'Back returns focus to the card');
+    await source.click(); await page.keyboard.press('Escape'); check(await page.locator('dialog[open]').count() === 0, 'Escape closes the panel from a rule');
   },
   async menu(page, context, check, size) {
     await page.goto(NEXT); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
