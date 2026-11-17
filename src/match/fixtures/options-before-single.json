@@ -1,0 +1,799 @@
+{
+  "source": "59843005f",
+  "seed": 124,
+  "cases": [
+    {
+      "options": {
+        "fairy": true,
+        "pool": [
+          "Q",
+          "O",
+          "L",
+          "R",
+          "B",
+          "N",
+          "A",
+          "G",
+          "M",
+          "S"
+        ],
+        "arrangement": true,
+        "classic": false,
+        "cards": false,
+        "cardPool": [
+          "Freeze",
+          "IceWall",
+          "Strike",
+          "Haste",
+          "Flight",
+          "Sacrifice",
+          "March",
+          "Leap",
+          "Salvation",
+          "MirrorB",
+          "Firewall",
+          "EarthQuake",
+          "Burn",
+          "FireStarter",
+          "Control",
+          "Rally",
+          "MorphP",
+          "Mimic",
+          "Vault",
+          "Curse",
+          "SkyLift"
+        ],
+        "kingPowers": false
+      },
+      "error": null,
+      "accepted": true,
+      "draws": [
+        {
+          "seed": 1,
+          "army": "OMNSRMKR",
+          "hand": []
+        },
+        {
+          "seed": 7,
+          "army": "MBNLRKGA",
+          "hand": []
+        },
+        {
+          "seed": 124,
+          "army": "OAKQAMBL",
+          "hand": []
+        }
+      ]
+    },
+    {
+      "options": {
+        "fairy": true,
+        "pool": [
+          "N",
+          "A",
+          "M",
+          "S"
+        ],
+        "arrangement": true,
+        "classic": false,
+        "cards": false,
+        "cardPool": [
+          "Freeze",
+          "IceWall",
+          "Strike",
+          "Haste",
+          "Flight",
+          "Sacrifice",
+          "March",
+          "Leap",
+          "Salvation",
+          "MirrorB",
+          "Firewall",
+          "EarthQuake",
+          "Burn",
+          "FireStarter",
+          "Control",
+          "Rally",
+          "MorphP",
+          "Mimic",
+          "Vault",
+          "Curse",
+          "SkyLift"
+        ],
+        "kingPowers": false
+      },
+      "error": null,
+      "accepted": true,
+      "draws": [
+        {
+          "seed": 1,
+          "army": "MNAMKSNA",
+          "hand": []
+        },
+        {
+          "seed": 7,
+          "army": "NMANSKMA",
+          "hand": []
+        },
+        {
+          "seed": 124,
+          "army": "AMNSNAKM",
+          "hand": []
+        }
+      ]
+    },
+    {
+      "options": {
+        "fairy": true,
+        "pool": [
+          "Q",
+          "R",
+          "B",
+          "N"
+        ],
+        "arrangement": true,
+        "classic": false,
+        "cards": false,
+        "cardPool": [
+          "Freeze",
+          "IceWall",
+          "Strike",
+          "Haste",
+          "Flight",
+          "Sacrifice",
+          "March",
+          "Leap",
+          "Salvation",
+          "MirrorB",
+          "Firewall",
+          "EarthQuake",
+          "Burn",
+          "FireStarter",
+          "Control",
+          "Rally",
+          "MorphP",
+          "Mimic",
+          "Vault",
+          "Curse",
+          "SkyLift"
+        ],
+        "kingPowers": false
+      },
+      "error": null,
+      "accepted": true,
+      "draws": [
+        {
+          "seed": 1,
+          "army": "QRBNKBNR",
+          "hand": []
+        },
+        {
+          "seed": 7,
+          "army": "RBBQNKNR",
+          "hand": []
+        },
+        {
+          "seed": 124,
+          "army": "BRNQRBNK",
+          "hand": []
+        }
+      ]
+    },
+    {
+      "options": {
+        "fairy": false,
+        "pool": [],
+        "arrangement": false,
+        "classic": false,
+        "cards": false,
+        "cardPool": [
+          "Freeze",
+          "IceWall",
+          "Strike",
+          "Haste",
+          "Flight",
+          "Sacrifice",
+          "March",
+          "Leap",
+          "Salvation",
+          "MirrorB",
+          "Firewall",
+          "EarthQuake",
+          "Burn",
+          "FireStarter",
+          "Control",
+          "Rally",
+          "MorphP",
+          "Mimic",
+          "Vault",
+          "Curse",
+          "SkyLift"
+        ],
+        "kingPowers": false
+      },
+      "error": null,
+      "accepted": true,
+      "draws": [
+        {
+          "seed": 1,
+          "army": "QRBNKBNR",
+          "hand": []
+        },
+        {
+          "seed": 7,
+          "army": "RBBQNKNR",
+          "hand": []
+        },
+        {
+          "seed": 124,
+          "army": "BRNQRBNK",
+          "hand": []
+        }
+      ]
+    },
+    {
+      "options": {
+        "fairy": false,
+        "pool": [
+          "Q",
+          "O",
+          "L",
+          "R",
+          "B",
+          "N",
+          "A",
+          "G",
+          "M",
+          "S"
+        ],
+        "arrangement": false,
+        "classic": true,
+        "cards": false,
+        "cardPool": [
+          "Freeze",
+          "IceWall",
+          "Strike",
+          "Haste",
+          "Flight",
+          "Sacrifice",
+          "March",
+          "Leap",
+          "Salvation",
+          "MirrorB",
+          "Firewall",
+          "EarthQuake",
+          "Burn",
+          "FireStarter",
+          "Control",
+          "Rally",
+          "MorphP",
+          "Mimic",
+          "Vault",
+          "Curse",
+          "SkyLift"
+        ],
+        "kingPowers": false
+      },
+      "error": null,
+      "accepted": true,
+      "draws": [
+        {
+          "seed": 1,
+          "army": "RNBQKBNR",
+          "hand": []
+        },
+        {
+          "seed": 7,
+          "army": "RNBQKBNR",
+          "hand": []
+        },
+        {
+          "seed": 124,
+          "army": "RNBQKBNR",
+          "hand": []
+        }
+      ]
+    },
+    {
+      "options": {
+        "fairy": true,
+        "pool": [
+          "Q",
+          "O",
+          "L",
+          "R",
+          "B",
+          "N",
+          "A",
+          "G",
+          "M",
+          "S"
+        ],
+        "arrangement": true,
+        "classic": false,
+        "cards": true,
+        "cardPool": [
+          "Freeze",
+          "IceWall",
+          "Strike",
+          "Haste",
+          "Flight",
+          "Sacrifice",
+          "March",
+          "Leap",
+          "Salvation",
+          "MirrorB",
+          "Firewall",
+          "EarthQuake",
+          "Burn",
+          "FireStarter",
+          "Control",
+          "Rally",
+          "MorphP",
+          "Mimic",
+          "Vault",
+          "Curse",
+          "SkyLift"
+        ],
+        "kingPowers": false
+      },
+      "error": null,
+      "accepted": true,
+      "draws": [
+        {
+          "seed": 1,
+          "army": "OMNSRMKR",
+          "hand": [
+            "Sacrifice",
+            "Mimic",
+            "Vault",
+            "Curse"
+          ]
+        },
+        {
+          "seed": 7,
+          "army": "MBNLRKGA",
+          "hand": [
+            "Vault",
+            "SkyLift",
+            "Haste",
+            "Control"
+          ]
+        },
+        {
+          "seed": 124,
+          "army": "OAKQAMBL",
+          "hand": [
+            "March",
+            "Flight",
+            "Rally",
+            "Salvation"
+          ]
+        }
+      ]
+    },
+    {
+      "options": {
+        "fairy": true,
+        "pool": [
+          "N",
+          "A",
+          "M"
+        ],
+        "arrangement": true,
+        "classic": false,
+        "cards": false,
+        "cardPool": [
+          "Freeze",
+          "IceWall",
+          "Strike",
+          "Haste",
+          "Flight",
+          "Sacrifice",
+          "March",
+          "Leap",
+          "Salvation",
+          "MirrorB",
+          "Firewall",
+          "EarthQuake",
+          "Burn",
+          "FireStarter",
+          "Control",
+          "Rally",
+          "MorphP",
+          "Mimic",
+          "Vault",
+          "Curse",
+          "SkyLift"
+        ],
+        "kingPowers": false
+      },
+      "error": "Keep at least 7 pieces in the pool.",
+      "accepted": false
+    },
+    {
+      "options": {
+        "fairy": true,
+        "pool": [
+          "K"
+        ],
+        "arrangement": true,
+        "classic": false,
+        "cards": false,
+        "cardPool": [
+          "Freeze",
+          "IceWall",
+          "Strike",
+          "Haste",
+          "Flight",
+          "Sacrifice",
+          "March",
+          "Leap",
+          "Salvation",
+          "MirrorB",
+          "Firewall",
+          "EarthQuake",
+          "Burn",
+          "FireStarter",
+          "Control",
+          "Rally",
+          "MorphP",
+          "Mimic",
+          "Vault",
+          "Curse",
+          "SkyLift"
+        ],
+        "kingPowers": false
+      },
+      "error": "Unknown or repeated piece kind.",
+      "accepted": false
+    },
+    {
+      "options": {
+        "fairy": true,
+        "pool": [
+          "N",
+          "N"
+        ],
+        "arrangement": true,
+        "classic": false,
+        "cards": false,
+        "cardPool": [
+          "Freeze",
+          "IceWall",
+          "Strike",
+          "Haste",
+          "Flight",
+          "Sacrifice",
+          "March",
+          "Leap",
+          "Salvation",
+          "MirrorB",
+          "Firewall",
+          "EarthQuake",
+          "Burn",
+          "FireStarter",
+          "Control",
+          "Rally",
+          "MorphP",
+          "Mimic",
+          "Vault",
+          "Curse",
+          "SkyLift"
+        ],
+        "kingPowers": false
+      },
+      "error": "Unknown or repeated piece kind.",
+      "accepted": false
+    },
+    {
+      "options": {
+        "fairy": true,
+        "pool": [
+          "Q",
+          "O",
+          "L",
+          "R",
+          "B",
+          "N",
+          "A",
+          "G",
+          "M",
+          "S"
+        ],
+        "arrangement": true,
+        "classic": true,
+        "cards": false,
+        "cardPool": [
+          "Freeze",
+          "IceWall",
+          "Strike",
+          "Haste",
+          "Flight",
+          "Sacrifice",
+          "March",
+          "Leap",
+          "Salvation",
+          "MirrorB",
+          "Firewall",
+          "EarthQuake",
+          "Burn",
+          "FireStarter",
+          "Control",
+          "Rally",
+          "MorphP",
+          "Mimic",
+          "Vault",
+          "Curse",
+          "SkyLift"
+        ],
+        "kingPowers": false
+      },
+      "error": "Classic needs Fairy pieces off.",
+      "accepted": false
+    },
+    {
+      "options": {
+        "fairy": false,
+        "pool": [
+          "Q",
+          "O",
+          "L",
+          "R",
+          "B",
+          "N",
+          "A",
+          "G",
+          "M",
+          "S"
+        ],
+        "arrangement": true,
+        "classic": false,
+        "cards": false,
+        "cardPool": [
+          "Freeze",
+          "IceWall",
+          "Strike",
+          "Haste",
+          "Flight",
+          "Sacrifice",
+          "March",
+          "Leap",
+          "Salvation",
+          "MirrorB",
+          "Firewall",
+          "EarthQuake",
+          "Burn",
+          "FireStarter",
+          "Control",
+          "Rally",
+          "MorphP",
+          "Mimic",
+          "Vault",
+          "Curse",
+          "SkyLift"
+        ],
+        "kingPowers": false
+      },
+      "error": "Arrangement needs Fairy pieces on.",
+      "accepted": false
+    },
+    {
+      "options": {
+        "fairy": true,
+        "pool": [
+          "Q",
+          "O",
+          "L",
+          "R",
+          "B",
+          "N",
+          "A",
+          "G",
+          "M",
+          "S"
+        ],
+        "arrangement": true,
+        "classic": false,
+        "cards": true,
+        "cardPool": [],
+        "kingPowers": false
+      },
+      "error": "Keep at least 4 cards.",
+      "accepted": false
+    }
+  ],
+  "options": {
+    "fairy": true,
+    "pool": [
+      "Q",
+      "O",
+      "L",
+      "R",
+      "B",
+      "N",
+      "A",
+      "G",
+      "M",
+      "S"
+    ],
+    "arrangement": true,
+    "classic": false,
+    "cards": false,
+    "cardPool": [
+      "Freeze",
+      "IceWall",
+      "Strike",
+      "Haste",
+      "Flight",
+      "Sacrifice",
+      "March",
+      "Leap",
+      "Salvation",
+      "MirrorB",
+      "Firewall",
+      "EarthQuake",
+      "Burn",
+      "FireStarter",
+      "Control",
+      "Rally",
+      "MorphP",
+      "Mimic",
+      "Vault",
+      "Curse",
+      "SkyLift"
+    ],
+    "kingPowers": false
+  },
+  "drawn": {
+    "army": "OAKQAMBL",
+    "hand": []
+  },
+  "choices": [
+    {
+      "king": null,
+      "order": "OAKQAMBL"
+    },
+    {
+      "king": null,
+      "order": "ALOMQKAB"
+    }
+  ],
+  "admission": {
+    "kings": [],
+    "arrangement": true,
+    "bishopsOpposite": true,
+    "guardAdjacent": true
+  },
+  "setup": {
+    "fen": "alomqkab/pppppppp/8/8/8/8/PPPPPPPP/OAKQAMBL w - - 0 1",
+    "kings": "none,none"
+  },
+  "save": {
+    "schema": "kingdown-local-match/1",
+    "engine": "sha256:dc67b7208b596c8d3f2fcc55a9999943c54abdbcc372b57b47239a34b0ce401d",
+    "setup": {
+      "fen": "alomqkab/pppppppp/8/8/8/8/PPPPPPPP/OAKQAMBL w - - 0 1",
+      "kings": "none,none"
+    },
+    "initialFen": "alomqkab/pppppppp/8/8/8/8/PPPPPPPP/OAKQAMBL w - - 0 1",
+    "rules": {
+      "archerChecks": true,
+      "beastChains": true,
+      "guardImmune": true,
+      "guardCaptures": "none",
+      "guardStep": 1,
+      "guardDoubleFirst": "off",
+      "guardNoSecondRank": false,
+      "guardNoCapital": false,
+      "guardReserve": "off",
+      "capitalSanctuary": false,
+      "capitalNoCapture": false,
+      "guardCapitalStep": false,
+      "guardNextToKing": true,
+      "pawnCapitalCapture": false,
+      "guardCaptureLimit": 0,
+      "archerMove": "any",
+      "archerShots": "far2",
+      "beastMove": "any",
+      "beastCapture": "adjacent",
+      "beastCaptureForward": true,
+      "maesterLongSwap": true,
+      "maesterKingSwapAnywhere": false,
+      "maesterSwapAny": false,
+      "maesterSwapEnemy": false,
+      "maesterStep": 1,
+      "paladinKamikaze": "nonPawn",
+      "paladinChecks": false,
+      "deathTouchMoves": false,
+      "paladinReturn": false,
+      "paladinJumpsFriends": true,
+      "paladinBlockedByEnemies": true,
+      "secondPlayerDoubleFirstTurn": false,
+      "ogreHop": false,
+      "ogreStep2": false,
+      "ogreMode": "push",
+      "ogreNoCapture": false,
+      "ogreShoveFriends": "both",
+      "strikeMode": "move",
+      "strikeCaptures": true,
+      "freezeUses": 2,
+      "iceWallUses": 2,
+      "hasteSecond": "any",
+      "hasteCaptures": true,
+      "hasteApart": false,
+      "hasteNoThreat": false,
+      "hasteNoForward": false,
+      "hasteNoCheck": false,
+      "markFree": false,
+      "freezeQuiet": false,
+      "markTurns": 1,
+      "mercyCaptures": false,
+      "mercyAura": false,
+      "strikePawns": true,
+      "sacrificeBehind": false,
+      "holyLightTakesPawns": false,
+      "holyLightAura": false,
+      "darknessKeep": false,
+      "holyLightKnights": false,
+      "holyLightShelter": false,
+      "holyLightShelterOrtho": false,
+      "mercyAuraOrtho": false,
+      "mercyAuraPawns": false,
+      "mercyAuraPawnsTake": false,
+      "mercyTakesPawns": false,
+      "mercyNoJump": false,
+      "darknessMoves": false,
+      "darknessTakeAhead": false,
+      "darknessStepDiag": false,
+      "darknessShelter": false,
+      "darknessShelterPawnsTake": false,
+      "darknessPawnArmor": false,
+      "darknessAuraPawns": false,
+      "darknessKingStep2": false,
+      "darknessKingStepSafe": false,
+      "darknessKingStepTakes": false,
+      "deathTouchReach": false,
+      "deathTouchReachOrtho": false,
+      "deathTouchReachNoBack": false,
+      "deathTouchReachForwardBack": false,
+      "deathTouchReachPieces": false,
+      "strikeUses": 1,
+      "hasteUses": 1,
+      "flightUses": 1,
+      "sacrificeUses": 1,
+      "marchUses": 3,
+      "leapUses": 3,
+      "reaverStep": "ortho",
+      "catapultCapture": "stay",
+      "kings": [
+        null,
+        null
+      ],
+      "hands": [
+        [],
+        []
+      ],
+      "piles": [
+        [],
+        []
+      ],
+      "fromMove": {},
+      "bishopsOppositeColours": true,
+      "classicChess": false,
+      "promotionSet": "standard",
+      "fiftyMove": true,
+      "threefold": true,
+      "insufficientMaterial": true,
+      "design": null
+    },
+    "revision": 0,
+    "commands": []
+  },
+  "played": {
+    "lan": "Oa1>a2-a3",
+    "fen": "alomqkab/pppppppp/8/8/8/P7/OPPPPPPP/1AKQAMBL b - - 1 1",
+    "turn": 1
+  },
+  "compiledEngine": "sha256:e58d7d379d0dad5ddde1c4e34e984923e856e4b3f702e7beeaee22db62d7a9b4"
+}

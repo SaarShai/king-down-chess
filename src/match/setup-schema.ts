@@ -5,9 +5,11 @@ import { DEAL_CARDS, POOL_KINDS, validate } from './setup';
 
 export const optionsSchema = z.strictObject({
   fairy: z.boolean(), pool: z.array(z.enum(POOL_KINDS as [string, ...string[]])).max(POOL_KINDS.length),
+  single: z.array(z.enum(POOL_KINDS as [string, ...string[]])).max(POOL_KINDS.length).optional(),
   arrangement: z.boolean(), classic: z.boolean(), cards: z.boolean(),
   cardPool: z.array(z.enum(DEAL_CARDS as [(typeof DEAL_CARDS)[number], ...(typeof DEAL_CARDS)[number][]])).max(DEAL_CARDS.length), kingPowers: z.boolean(),
-}).superRefine((o, ctx) => { const error = validate(o); if (error) ctx.addIssue({ code: 'custom', message: error }); });
+}).superRefine((o, ctx) => { const error = validate(o); if (error) ctx.addIssue({ code: 'custom', message: error }); })
+  .overwrite(o => { if (o.single?.length) return o; const { single: _, ...options } = o; return options; });
 
 /** Shape only: an existing game admits stable IDs through its stored setup contract. */
 export const choiceSchema = z.strictObject({
