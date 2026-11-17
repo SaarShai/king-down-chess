@@ -162,7 +162,11 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   const byName = button(panelText.byName, { onPress: () => void person('name') }); byName.classList.add('text-button');
   foot.append(status, byName, start);
   const memory = (): PanelMemory => ({ setup: draft.setup, level: draft.level, sideChoice: draft.sideChoice, options: draft.options, opponent, section, deal: { back: draft.back, player: draft.player, rules: draft.rules } });
-  const edit = (change: Parameters<typeof changeDraft>[1]) => { draft = changeDraft(draft, change); };
+  // A shown card refusal ends with the next change, also a slider change that does not draw the panel again (decision 127).
+  const edit = (change: Parameters<typeof changeDraft>[1]) => {
+    draft = changeDraft(draft, change);
+    if (status.classList.contains('card-error')) { status.textContent = ''; status.classList.remove('card-error'); status.setAttribute('role', 'status'); }
+  };
   const options = (change: Partial<GameOptions>) => edit({ options: { ...draft.options, ...change } });
   const key = (node: HTMLElement, name: string) => { node.dataset.focus = name; return node; };
   const check = (name: string, checked: boolean, change: (checked: boolean) => void, locked = false) => {

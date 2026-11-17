@@ -230,6 +230,9 @@
 /* The result follows the board and the scroll, as every reading does (decision 124), and takes the idle hand and finish rows.
    The top line (opponent and Menu) stays; the card ends at the bottom of the screen. */
 .play-game[data-layout='portrait'][data-reading='result'] .play-reader:not([data-floating='true']) { height: calc(var(--reader) + var(--own) + var(--fin)); background: var(--surface-page); }
+.play-game[data-layout='portrait'][data-result-fit='tight'][data-reading='result'] .play-result-art { display: none; }
+.play-game[data-layout='portrait'][data-result-fit='tight'][data-reading='result'] .play-result-actions { flex-wrap: nowrap; }
+.play-game[data-layout='portrait'][data-result-fit='tight'][data-reading='result'] .play-result-actions .kd-button { flex: 1 1 0; min-width: 0; padding-inline: 4px; font-size: 14px; }
 .play-game[data-layout='wide'] .play-history-strip { top: calc(var(--rail-top) + var(--opp)); }
 .play-game[data-layout='wide'] .play-reader:not([data-floating='true']) { top: calc(var(--rail-top) + var(--opp) + var(--scroll)); height: var(--reader); padding: 8px 5px 0; }
 .play-game .play-b[data-form='tall'] { grid-template-rows: 24px auto minmax(0, 1fr); }

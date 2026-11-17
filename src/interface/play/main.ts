@@ -721,6 +721,12 @@ function key(event: KeyboardEvent) {
   }
 }
 function clearChoice() { choice = []; choiceBox.replaceChildren(); }
+/** Decision 127: a portrait result that runs past its box (a long cause) takes the compact result: no figure, one action row. */
+function fitResult(card: HTMLElement) {
+  delete screen.dataset.resultFit;
+  const box = card.closest<HTMLElement>('.play-reader');
+  if (screen.dataset.layout === 'portrait' && box && card.getBoundingClientRect().bottom > box.getBoundingClientRect().bottom + 1) screen.dataset.resultFit = 'tight';
+}
 function tap(square: number) {
   if (fault === 'art' || !onlineActive && writer.blocked) return; // a fault waits for recovery
   endOpening(); skipBoard(); lastActions = []; notice = ''; onlineGameNotice = undefined;
@@ -1075,7 +1081,7 @@ function renderReader(actions?: HTMLElement) {
     if (state.view && humanOpponent(state.view)) {
       const options: HTMLButtonElement = button('Player options', { onPress: () => playerOptions(people!.safety, { game_id: state.view!.game_id }, options, () => { void people?.controller?.refresh(); }) }); actions.append(options);
     }
-    actions.append(button(text.home, { onPress: () => shell.go({ place: 'play' }) })); block.append(actions); detail.append(block); return;
+    actions.append(button(text.home, { onPress: () => shell.go({ place: 'play' }) })); block.append(actions); detail.append(block); fitResult(block); return;
   }
   if (reading === 'result') {
     const won = game.status === 'checkmate' && game.pos.turn === cpu(), lost = resultCause === text.resigned || (game.status === 'checkmate' && !won);
@@ -1089,6 +1095,7 @@ function renderReader(actions?: HTMLElement) {
     actions.append(button(text.rematch, { kind: 'main', onPress: () => { void start(); } }), button(text.newGame, { onPress: () => { panelNext = true; home(true); } }), button(text.home, { onPress: () => home() }));
     copy.append(body, rematch, actions);
     const card = el('div', 'play-result'); card.append(art, copy); detail.append(card);
+    fitResult(card);
     actions.querySelector<HTMLButtonElement>('button')!.focus({ preventScroll: true }); return;
   }
   // The fault sits on the board, which waits: the reader has no room on a short screen.
