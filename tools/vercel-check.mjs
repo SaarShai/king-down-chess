@@ -44,7 +44,7 @@ try {
   for (const path of ['internal', ...(CHATGPT ? pluginLinks : [])]) assert.equal(await realpath(join(tree, `functions/${path}.func`)), await realpath(fn), `${path} is the one function`);
   if (!CHATGPT) {
     for (const path of pluginLinks) assert.equal(await exists(join(tree, `functions/${path}.func`)), undefined, `The parked tree has no ${path} function`);
-    // A staging tree (tools/muse-connector.mjs) has the Muse connector, which serves the shared consent page.
+    // A Muse build has the shared consent page.
     for (const file of [join(fn, 'board.html'), ...MUSE ? [] : [join(fn, 'consent.html'), join(fn, 'consent.mjs')], join(tree, 'static/plugin-art'), join(tree, 'static/.well-known')]) assert.equal(await exists(file), undefined, `The parked tree has no ${file.slice(tree.length + 1)}`);
     assert(!config.routes.some(route => /plugin-art|well-known/.test(route.src) && !route.src.includes('/muse/mcp')), 'The parked tree has no plugin art or challenge route');
   }
@@ -229,11 +229,24 @@ try {
   }
   // Parked: no path of a connector that is off reaches a page or an MCP handler. /mcp reaches the function, which answers 404.
   // The launch tree answers the other parked paths with its static 404 page.
-  for (const path of [...CHATGPT ? [] : [...PARKED_PATHS.filter(path => !MUSE || !['/authorize', '/consent.mjs'].includes(path)), '/plugin-art/scroll-0123abcd.webp'], ...MUSE ? [] : MUSE_PATHS]) for (const method of ['GET', 'POST']) {
+  const museStatus = (await fetch(`${origin}/muse/mcp`)).status;
+  assert([404, 405].includes(museStatus), 'Muse is parked or serves MCP');
+  const serveMuse = museStatus === 405;
+  for (const path of [...CHATGPT ? [] : [...PARKED_PATHS.filter(path => !serveMuse || !['/authorize', '/consent.mjs'].includes(path)), '/plugin-art/scroll-0123abcd.webp'], ...serveMuse ? [] : MUSE_PATHS]) for (const method of ['GET', 'POST']) {
     const response = await fetch(origin + path, { method, redirect: 'manual', headers: { 'X-Kingdown-Dev-Actor': actor, 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream' }, ...(method === 'POST' && { body: '{}' }) });
     assert.equal(response.status, 404, `${method} ${path}`); assert.equal(response.headers.get('location'), null, path);
   }
-  if (MUSE) {
+  if (serveMuse) {
+    await app.pool.end();
+    app = await configurePlugin(webEnv, { localDev: true, muse: false });
+    assert.equal(app.muse, false);
+    for (const path of MUSE_PATHS) for (const method of ['GET', 'POST']) {
+      const response = await fetch(origin + path, { method, ...(method === 'POST' && { body: '{}' }) });
+      assert.equal(response.status, 404, `Muse off: ${method} ${path}`);
+      assert.equal(response.headers.get('cache-control'), 'no-store');
+    }
+    await app.pool.end();
+    app = await configurePlugin(webEnv, { localDev: true });
     // The Muse endpoint lists its tools for a local persona, and the consent page serves.
     const list = await fetch(`${origin}/muse/mcp`, { method: 'POST', headers: { 'X-Kingdown-Dev-Actor': actor, 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream', 'MCP-Protocol-Version': '2025-11-25' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }) });
     assert.equal(list.status, 200, 'POST /muse/mcp');
@@ -296,6 +309,9 @@ try {
   const offStatus = await fetch(`${origin}/api/status`);
   assert.equal(offStatus.status, 200); assert.equal(offStatus.headers.get('cache-control'), 'no-store'); assert.equal(offStatus.headers.get('referrer-policy'), 'no-referrer');
   assert.deepEqual(await offStatus.json(), { account_access: 'closed', valid_for_ms: 0 });
+  const museStatusResponse = await fetch(`${origin}/api/status?muse=1`);
+  assert.equal(museStatusResponse.status, 200); assert.equal(museStatusResponse.headers.get('cache-control'), 'no-store');
+  assert.deepEqual(await museStatusResponse.json(), { account_access: 'closed', valid_for_ms: 0, muse: app.muse });
   await app.pool.end(); app = undefined;
   await pool.query('update public.web_account_access set enabled=true where singleton=true');
   if (!CHATGPT) {
@@ -424,7 +440,7 @@ try {
   assert.deepEqual((await gameRows()).rows, before, 'Provider-refused writes have no game effect');
   assert.deepEqual([...served].sort(), ['/api', '/api/', '/api/games', `/api/games/${game_id}`, '/api/me/games', '/api/me/profile', '/api/status', '/api/unknown'].map(path => `function ${path}`).sort(), 'Enabled/test served paths');
   console.log(`Same-switch compiled status/direct effects: ${JSON.stringify(effects)}`);
-  console.log(`Site tree: worker ${version} / public-build-v1, ${precache.length} offline URLs, ${accountPaths.length} browser entry routes, ${closedPaths.length} closed legacy/unknown paths, ${CHATGPT ? `${art.length} board art files, MCP open and move, OAuth` : 'ChatGPT plugin parked (plugin paths 404), website API game and move'}${MUSE ? ', Muse connector (six tools, consent page)' : ', Muse paths 404'}, ${closedCases} closed/default API probes with zero pool calls, off-switch closure, ${enabledCases} enabled/test API probes with 3 current-provider refusals, internal jobs and ${archive.length} archived engine(s) passed`);
+  console.log(`Site tree: worker ${version} / public-build-v1, ${precache.length} offline URLs, ${accountPaths.length} browser entry routes, ${closedPaths.length} closed legacy/unknown paths, ${CHATGPT ? `${art.length} board art files, MCP open and move, OAuth` : 'ChatGPT plugin parked (plugin paths 404), website API game and move'}${serveMuse ? ', Muse connector (six tools, consent page)' : ', Muse paths 404'}, ${closedCases} closed/default API probes with zero pool calls, off-switch closure, ${enabledCases} enabled/test API probes with 3 current-provider refusals, internal jobs and ${archive.length} archived engine(s) passed`);
 } finally {
   try {
     if (savedAccountAccess !== undefined) {

@@ -6,6 +6,7 @@ import { configurePlugin, ENABLED_WEB_OPERATIONS } from './plugin-server.mjs';
 import { createServer, request } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { STAGING_ORIGIN, STAGING_SUPABASE_URL } from './staging-config.mjs';
+import { MUSE_PATHS } from './muse-connector.mjs';
 import { CHATGPT_PLUGIN, PARKED_PATHS } from './chatgpt-plugin.mjs';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 vi.mock('pg', () => ({ Pool: vi.fn() }));
@@ -34,7 +35,7 @@ it.each([false, true])('configures the real runtime pool for serverless=%s', asy
     KINGDOWN_PLUGIN_DATABASE_URL: 'postgresql://kingdown_plugin_runtime.puhspsyjyzaghmgtkzqd:fake@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require',
     KINGDOWN_PLUGIN_OAUTH_READY: '1', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test',
     KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: '00000000-0000-4000-8000-000000000001',
-  }, { serverless, chatgpt: false });
+  }, { serverless, chatgpt: false, muse: false });
   expect(app.pool).toBe(pool);
   expect(Pool).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
     port: serverless ? 6543 : 5432, max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 10000,
@@ -106,12 +107,12 @@ it('starts the parked production server without the ChatGPT OAuth setup', async 
   const query = vi.fn(async () => ({ rows: [{ singleton: true, enabled: false }] })), pool = { on: vi.fn(), end: vi.fn(), query };
   vi.mocked(Pool).mockImplementation(function () { return pool as unknown as Pool; });
   const provider = vi.fn(async () => new Response('OAuth server is off', { status: 404 })); vi.stubGlobal('fetch', provider);
-  const app = await configurePlugin(parked, { serverless: true, chatgpt: false });
+  const app = await configurePlugin(parked, { serverless: true, chatgpt: false, muse: false });
   expect(app.chatgpt).toBe(false);
   expect(provider).not.toHaveBeenCalled();
   expect(checkPluginDatabase).toHaveBeenCalledExactlyOnceWith(pool, undefined, []);
   // The website API still needs its public Supabase settings.
-  for (const name of ['SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY']) await expect(configurePlugin({ ...parked, [name]: undefined }, { chatgpt: false })).rejects.toThrow(/supabase/i);
+  for (const name of ['SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY']) await expect(configurePlugin({ ...parked, [name]: undefined }, { chatgpt: false, muse: false })).rejects.toThrow(/supabase/i);
   // The plugin path keeps its OAuth gate.
   const degraded = await configurePlugin(parked, { chatgpt: true });
   expect(degraded.chatgpt).toBe(false); expect(degraded.pool).toBe(pool);
@@ -121,6 +122,47 @@ it('serves the plugin metadata again with chatgpt: true', async () => {
   try {
     expect(await call('GET /.well-known/oauth-protected-resource/mcp')).toEqual({ status: 200, body: expect.objectContaining({ resource: 'https://kingdown.dev/mcp' }) });
   } finally { await close(); }
+});
+
+it.each([false, true])('parks a Muse build with only the ChatGPT client, with chatgpt=%s', async chatgpt => {
+  const pool = { on: vi.fn(), end: vi.fn(), query: vi.fn(async () => ({ rows: [{ singleton: true, enabled: true }] })) };
+  vi.mocked(Pool).mockImplementation(function () { return pool as unknown as Pool; });
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ issuer: `${production.SUPABASE_URL}/auth/v1`, scopes_supported: ['openid'] })));
+  const info = vi.spyOn(console, 'info').mockImplementation(() => {}), warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const museHttp = await import('../src/muse/http');
+  const construct = vi.spyOn(museHttp, 'createMuseHandler');
+  // With ChatGPT off, a listed ChatGPT ID is invalid. Use no OAuth config in this comparison.
+  const env = chatgpt ? production : { ...production, KINGDOWN_PLUGIN_OAUTH_READY: '0' };
+  const callApp = async (muse: boolean) => {
+    vi.mocked(checkPluginDatabase).mockResolvedValueOnce(chatgpt ? [{ client_id: production.KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS!, resource: 'https://kingdown.dev/mcp' }] : []);
+    const app = await configurePlugin(env, { serverless: true, chatgpt, muse });
+    expect(app.muse).toBe(false);
+    const server = createServer(app.handler); await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
+    const call = (method: string, path: string) => new Promise<any>((done, fail) => {
+      const req = request({ host: '127.0.0.1', port: (server.address() as AddressInfo).port, method, path, headers: { host: 'kingdown.dev' } }, res => {
+        let text = ''; res.on('data', chunk => { text += chunk; }); res.on('end', () => done({ status: res.statusCode, type: res.headers['content-type'], cache: res.headers['cache-control'], nosniff: res.headers['x-content-type-options'], body: JSON.parse(text) }));
+      }); req.on('error', fail); req.end();
+    });
+    try {
+      const replies: unknown[] = [];
+      for (const path of MUSE_PATHS) for (const method of ['GET', 'POST']) {
+        const reply = await call(method, path); expect(reply.status).toBe(404); replies.push(reply);
+      }
+      expect((await call('GET', '/api/status')).body.muse).not.toBe(true);
+      expect((await call('GET', '/api/status?muse=1')).body.muse).toBe(false);
+      if (chatgpt) expect((await call('GET', '/authorize?authorization_id=x')).body.museClientIds).toEqual([]);
+      return replies;
+    } finally { await new Promise(done => server.close(done)); }
+  };
+  try {
+    expect(await callApp(true)).toEqual(await callApp(false));
+    expect(construct).not.toHaveBeenCalled();
+    if (chatgpt) {
+      expect(checkPluginDatabase).toHaveBeenNthCalledWith(1, pool, expect.objectContaining({ clientIds: [production.KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS] }), ['https://kingdown.dev/mcp', 'https://kingdown.dev/muse/mcp']);
+      expect(info.mock.calls.filter(call => call[0] === 'Muse parked: no Muse OAuth client listed')).toHaveLength(1);
+      expect(warn).not.toHaveBeenCalled();
+    }
+  } finally { info.mockRestore(); warn.mockRestore(); construct.mockRestore(); }
 });
 
 it('serves both connectors in one build: each path accepts only a token for its own resource and client', async () => {
@@ -151,6 +193,8 @@ it('serves both connectors in one build: each path accepts only a token for its 
   const token = (aud: string, client_id: string) => new SignJWT({ iss: issuer, aud, sub: actor, role: 'authenticated', client_id, scope: 'openid', exp: Math.floor(Date.now() / 1000) + 300 }).setProtectedHeader({ alg: 'ES256', kid: 'oauth' }).sign(pair.privateKey);
   const list = async (path: string, aud: string, client: string) => (await call('POST', path, { Authorization: `Bearer ${await token(`https://kingdown.dev${aud}`, client)}`, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', 'MCP-Protocol-Version': '2025-11-25' }, JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }))).status;
   try {
+    expect(JSON.parse((await call('GET', '/api/status')).text).muse).toBeUndefined();
+    expect(JSON.parse((await call('GET', '/api/status?muse=1')).text).muse).toBe(true);
     for (const [path, aud, client, status] of [
       ['/mcp', '/mcp', chatgptClient, 200], ['/muse/mcp', '/muse/mcp', museClient, 200],
       // A token for the other connector's resource.

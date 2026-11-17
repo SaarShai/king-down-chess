@@ -11,6 +11,7 @@ import { APP_ORIGIN, createApiHandler, createInternalHandler, MAX_ACTIVE_ENGINE,
 import type { Pool } from 'pg';
 import { createWebAccountAccess } from './account-access';
 import { readWebAccountAccess } from '../online/account-access';
+import { parseWebAccountStatus as parseShippedWebAccountStatus } from './fixtures/ios-build-3-account-status';
 afterEach(() => { vi.unstubAllEnvs(); });
 
 const alice = '11111111-1111-4111-8111-111111111111', gameId = '33333333-3333-4333-8333-333333333333';
@@ -85,6 +86,33 @@ const raw = (path: string, headers: Record<string, string>, body?: string) => ne
 });
 
 describe('website API boundary', () => {
+ it.each([false, true])('keeps the shipped iOS status bytes with Muse on and account access=%s', async enabled => {
+  vi.spyOn(performance, 'now').mockReturnValue(100);
+  useApi({ muse: true, webAccountAccess: async () => ({ enabled, expiresAt: 1100 }) });
+  try {
+   const expected = { account_access: enabled ? 'open' : 'closed', valid_for_ms: enabled ? 1000 : 0 };
+   const callers: Record<string, string>[] = [{}, { Origin: address }, { Origin: APP_ORIGIN, 'Sec-Fetch-Site': 'cross-site' }];
+   for (const headers of callers) {
+    const response = await call('/api/status', { headers });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Vary')).toBe(headers.Origin === APP_ORIGIN ? 'Origin' : null);
+    const text = await response.text();
+    expect(text).toBe(JSON.stringify(expected));
+    expect(parseShippedWebAccountStatus(JSON.parse(text))).toEqual(expected);
+   }
+  } finally { vi.restoreAllMocks(); }
+ });
+ it.each([false, true])('gives Muse state only to the opt-in status URL with muse=%s', async muse => {
+  useApi({ muse, webAccountAccess: async () => ({ enabled: false, expiresAt: performance.now() + 5000 }) });
+  const closed = { account_access: 'closed', valid_for_ms: 0 };
+  for (const path of ['/api/status', '/api/status?muse=1', '/api/status', '/api/status?muse=0', '/api/status?muse=true', '/api/status?muse=1']) {
+   const response = await call(path);
+   expect(response.status).toBe(200);
+   expect(response.headers.get('Cache-Control')).toBe('no-store');
+   expect(await response.json()).toEqual({ ...closed, ...(path.endsWith('muse=1') && { muse }) });
+  }
+ });
  it('keeps page startup open when status starts at the end of a cached open proof', async () => {
   let now = 100; vi.spyOn(performance, 'now').mockImplementation(() => now);
   const query = vi.fn(async () => ({ rows: [{ singleton: true, enabled: true }] }));

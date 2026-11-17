@@ -10,8 +10,23 @@ import { assertNoErrors, launch, shot, trapErrors } from './lib/checks.mjs';
 import pg from 'pg';
 import { STAGING_ORIGIN, STAGING_SUPABASE_REF, STAGING_SUPABASE_URL } from './staging-config.mjs';
 const root = resolve(process.argv[2] || 'plugin-server-dist');
-const clientId = '11111111-1111-4111-8111-111111111111', actor = '22222222-2222-4222-8222-222222222222', authorizationId = '33333333-3333-4333-8333-333333333333';
-const config = { supabaseUrl: 'https://project.supabase.co', publishableKey: 'sb_publishable_browsercheck', clientIds: [clientId] };
+const clientId = '11111111-1111-4111-8111-111111111111', museClientId = '44444444-4444-4444-8444-444444444444', actor = '22222222-2222-4222-8222-222222222222', authorizationId = '33333333-3333-4333-8333-333333333333';
+const config = { supabaseUrl: 'https://project.supabase.co', publishableKey: 'sb_publishable_browsercheck', clientIds: [clientId, museClientId], museClientIds: [museClientId] };
+const permissions = {
+  ChatGPT: [
+    'play and continue games against the computer or people',
+    'make and join friend games, and find a random player',
+    'send game messages, offer draws, resign and ask for rematches',
+    'show your rating, badges and past games',
+    'change your player name, online status, sounds and other settings',
+    'report a player',
+  ],
+  Muse: [
+    'start, play and end games against the computer',
+    'list your unfinished games and show whose turn it is',
+    'show a game and explain its pieces, king powers and cards',
+  ],
+};
 const html = (await readFile(resolve(root, 'consent.html'), 'utf8')).replace('__KINGDOWN_CONSENT_CONFIG__', JSON.stringify(config));
 const script = await readFile(resolve(root, 'consent.mjs'));
 const server = createServer((req, res) => { res.setHeader('Content-Type', req.url.startsWith('/consent.mjs') ? 'text/javascript' : 'text/html'); res.end(req.url.startsWith('/consent.mjs') ? script : html); });
@@ -91,14 +106,7 @@ try {
   await review.getByRole('button', { name: 'Continue', exact: true }).click();
   await review.getByRole('button', { name: 'Allow connection' }).waitFor();
   await review.getByRole('heading', { name: 'Let ChatGPT use your King Down account?', exact: true }).waitFor();
-  assert.deepEqual(await review.locator('#consent li').allTextContents(), [
-    'play and continue games against the computer or people',
-    'make and join friend games, and find a random player',
-    'send game messages, offer draws, resign and ask for rematches',
-    'show your rating, badges and past games',
-    'change your player name, online status, sounds and other settings',
-    'report a player',
-  ]);
+  assert.deepEqual(await review.locator('#consent li:visible').allTextContents(), permissions.ChatGPT);
   assert(!/cannot read the chat|see your email address/.test(await review.locator('#consent').innerText()));
   const privacy = review.getByRole('link', { name: 'Privacy policy', exact: true });
   assert(await privacy.isVisible());
@@ -113,7 +121,7 @@ try {
   assert.deepEqual(grants, [['password', 'review@example.test'], ['password', 'review@example.test']]);
   assert.equal(new URL(review.url()).searchParams.get('authorization_id'), authorizationId);
   await review.close();
-  for (const action of ['approve', 'deny', 'unlisted']) {
+  for (const [requestClientId, connector, otherConnector] of [[clientId, 'ChatGPT', 'Muse'], [museClientId, 'Muse', 'ChatGPT']]) for (const action of ['approve', 'deny', 'unlisted']) {
     const page = await browser.newPage(); trapErrors(page, action === 'unlisted' ? [{ pattern: /^Failed to load resource: the server responded with a status of 503 \(Service Unavailable\)$/, reason: 'The sign-out failure case returns 503 on purpose.' }] : []); let decision;
     const now = Math.floor(Date.now() / 1000);
     const session = { access_token: `header.${Buffer.from(JSON.stringify({ exp: now + 3600, sub: actor })).toString('base64url')}.signature`, refresh_token: 'mock-refresh', expires_at: now + 3600, expires_in: 3600, token_type: 'bearer', user: { id: actor, email: 'player@example.test', is_anonymous: false, app_metadata: {}, user_metadata: {} } };
@@ -122,7 +130,7 @@ try {
       const request = route.request();
       if (new URL(request.url()).pathname.endsWith('/logout')) await route.fulfill({ status: 503, json: { message: 'Temporary sign-out failure' } });
       else if (request.url().endsWith('/consent')) { decision = request.postDataJSON(); await route.fulfill({ json: { redirect_url: `https://client.example/callback?${action === 'approve' ? 'code=mock-code' : 'error=access_denied'}&state=preserved` } }); }
-      else await route.fulfill({ json: { authorization_id: authorizationId, redirect_uri: 'https://client.example/callback', client: { id: action === 'unlisted' ? randomUUID() : clientId, name: '<script>Untrusted client</script>', uri: 'https://client.example', logo_uri: '' }, user: { id: actor, email: 'player@example.test' }, scope: 'openid email' } });
+      else await route.fulfill({ json: { authorization_id: authorizationId, redirect_uri: 'https://client.example/callback', client: { id: action === 'unlisted' ? randomUUID() : requestClientId, name: '<script>Untrusted client</script>', uri: 'https://client.example', logo_uri: '' }, user: { id: actor, email: 'player@example.test' }, scope: 'openid email' } });
     });
     await page.route('https://client.example/**', route => route.fulfill({ contentType: 'text/html', body: 'OAuth callback' }));
     await page.goto(`${origin}/authorize?authorization_id=${authorizationId}`);
@@ -136,7 +144,13 @@ try {
       assert(await page.getByRole('button', { name: 'Allow connection' }).isDisabled());
       assert(await page.getByRole('button', { name: 'Deny', exact: true }).isEnabled());
     }
-    else { await page.getByRole('button', { name: action === 'approve' ? 'Allow connection' : 'Deny', exact: true }).click(); await page.waitForURL('https://client.example/**'); assert.equal(decision.action, action); assert(new URL(page.url()).searchParams.has(action === 'approve' ? 'code' : 'error')); }
+    else {
+      await page.getByRole('heading', { name: `Let ${connector} use your King Down account?`, exact: true }).waitFor();
+      assert.deepEqual(await page.locator('#consent li:visible').allTextContents(), permissions[connector]);
+      assert(!(await page.locator('#consent').innerText()).includes(otherConnector), 'The other connector text stays hidden');
+      assert.equal((await page.locator('#consent').innerText()).includes('Muse cannot play games against a person.'), connector === 'Muse');
+      await page.getByRole('button', { name: action === 'approve' ? 'Allow connection' : 'Deny', exact: true }).click(); await page.waitForURL('https://client.example/**'); assert.equal(decision.action, action); assert(new URL(page.url()).searchParams.has(action === 'approve' ? 'code' : 'error'));
+    }
     await page.close();
   }
   for (const action of ['continue', 'switch']) {
@@ -164,7 +178,7 @@ try {
   }
   const missing = await browser.newPage(); trapErrors(missing); await missing.goto(`${origin}/authorize`); await missing.getByText('This authorization request is unavailable or expired.', { exact: false }).waitFor(); assert(await missing.getByRole('button', { name: 'Allow connection' }).isHidden()); await missing.close();
   assertNoErrors();
-  console.log('Consent browser: PKCE social return, review password sign-in (closed form, wrong password, account choice), account choice before existing-grant redirect, local account switch, SDK approve/deny, sign-out failure preserves blocked client, escaped client name, and missing request passed');
+  console.log('Consent browser: exact visible ChatGPT and Muse permissions, hidden other connector text, PKCE social return, review password sign-in (closed form, wrong password, account choice), account choice before existing-grant redirect, local account switch, SDK approve/deny, sign-out failure preserves blocked client, escaped client name, and missing request passed');
 } finally { await browser?.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 
 // Retry a failed OAuth-discovery configuration without contacting a real Auth server.

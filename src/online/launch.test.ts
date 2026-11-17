@@ -8,7 +8,7 @@ import type { OnlineClient } from './client';
 import { installLocalSolo, soloSave } from './launch';
 import { createWebTransport } from './runtime';
 
-const platform = vi.hoisted(() => ({ inApp: false }));
+const platform = vi.hoisted(() => ({ inApp: false, apiOrigin: '' }));
 vi.mock('../platform', () => platform);
 const records = new Map<string, string>();
 beforeEach(() => vi.stubGlobal('localStorage', { getItem: (key: string) => records.get(key) ?? null, setItem: (key: string, value: string) => { records.set(key, value); }, removeItem: (key: string) => { records.delete(key); }, get length() { return records.size; }, key: (i: number) => [...records.keys()][i] ?? null }));
@@ -71,6 +71,20 @@ it('connects the legal Account labels to their real handlers and keeps retry aft
     platform.inApp = true; const assign = vi.fn(); vi.stubGlobal('location', { assign });
     await controls[1].onclick!(); expect(assign).toHaveBeenCalledExactlyOnceWith('/next.html#you'); expect(deleteAccount).toHaveBeenCalledTimes(2);
   } finally { vi.unstubAllGlobals(); }
+});
+
+it.each([undefined, false, true])('uses server muse=%s for account controls', async muse => {
+  class Element {
+    children: Element[] = []; textContent = ''; className = ''; type = '';
+    setAttribute() {} append(...nodes: Element[]) { this.children.push(...nodes); }
+  }
+  const target = new Element();
+  vi.stubGlobal('document', { createElement: () => new Element(), querySelector: () => target });
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ account_access: 'closed', valid_for_ms: 0, ...(muse !== undefined && { muse }) })));
+  const { installAccountControls } = await import('./launch');
+  await installAccountControls({ deleteAccount: vi.fn(), disconnectMuse: vi.fn() });
+  expect(fetch).toHaveBeenCalledWith('/api/status?muse=1', expect.objectContaining({ cache: 'no-store' }));
+  expect(target.children[0].children.some(node => node.textContent === 'Disconnect Muse')).toBe(muse === true);
 });
 
 it('keeps the king that the player selects before the local start', async () => {

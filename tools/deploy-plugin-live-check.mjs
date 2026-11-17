@@ -1,6 +1,5 @@
 // Unsigned release check. No player token, session cookie or match operation is used.
-// It checks the surface that the build has: the ChatGPT plugin, the Muse connector, both or neither. A build without the
-// consent script parks both (tools/chatgpt-plugin.mjs, tools/muse-connector.mjs): then each connector path must answer 404.
+// It checks the built ChatGPT surface and the Muse state from the live server.
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -24,10 +23,10 @@ const artDir = join(folder, '../../static/plugin-art'), configFile = join(folder
 const routes = existsSync(configFile) ? JSON.parse(readFileSync(configFile, 'utf8')).routes ?? [] : [];
 // A Muse build routes /muse/mcp to the function (tools/plugin-server-build.mjs). A consent script without that route,
 // or with the board widget beside it, is the ChatGPT plugin.
-const muse = consentBuilt && routes.some(route => route.src === '^/muse/mcp$');
-const chatgpt = consentBuilt && (!muse || existsSync(join(folder, 'board.html')));
+const museBuilt = consentBuilt && routes.some(route => route.src === '^/muse/mcp$');
+const chatgpt = consentBuilt && (!museBuilt || existsSync(join(folder, 'board.html')));
 // One made-up art name per parked check: a tree without the ChatGPT plugin has no board art.
-const parkedPaths = [...chatgpt ? [] : [...PARKED_PATHS.filter(path => !muse || !['/authorize', '/consent.mjs'].includes(path)), '/plugin-art/deploy-check-0000.webp'], ...muse ? [] : MUSE_PATHS];
+let muse = false, parkedPaths = [];
 // One file per art format checks the static routes without a player token.
 const formats = new Set();
 const art = (existsSync(artDir) ? readdirSync(artDir).sort() : []).filter(name => {
@@ -49,15 +48,15 @@ const get = (path, options = {}) => fetch(origin + path, {
 });
 
 /** The parked paths: no metadata, MCP, consent page, consent script or board art of a connector that is off. */
-async function parkedCheck() {
-  const responses = await Promise.all(parkedPaths.flatMap(path => [get(path), get(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })]));
+async function parkedCheck(discovery) {
+  const responses = await Promise.all(parkedPaths.flatMap(path => [path === MUSE_PATHS[1] && discovery ? discovery : get(path), get(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })]));
   for (const [i, response] of responses.entries()) assert.equal(response.status, 404, `${i % 2 ? 'POST' : 'GET'} ${parkedPaths[i >> 1]} status (parked)`);
 }
 
 /** One connector's resource: its metadata, and the OAuth challenge to an unsigned call. */
-async function resourceCheck(path) {
+async function resourceCheck(path, discoveryResponse) {
   const metadataUrl = `${origin}/.well-known/oauth-protected-resource${path}`;
-  const [discovery, challenge] = await Promise.all([get(`/.well-known/oauth-protected-resource${path}`), get(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })]);
+  const [discovery, challenge] = await Promise.all([discoveryResponse ?? get(`/.well-known/oauth-protected-resource${path}`), get(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })]);
   assert.equal(discovery.status, 200, `${path} discovery status`);
   const metadata = await discovery.json();
   assert.equal(metadata.resource, origin + path, `${path} discovery resource`);
@@ -69,14 +68,20 @@ async function resourceCheck(path) {
 }
 
 async function check() {
+  const discovery = museBuilt ? await get(MUSE_PATHS[1]) : undefined;
+  if (discovery) {
+    assert([200, 404].includes(discovery.status), 'Muse metadata must be served or parked');
+    muse = discovery.status === 200;
+  }
+  parkedPaths = [...chatgpt ? [] : [...PARKED_PATHS.filter(path => !muse || !['/authorize', '/consent.mjs'].includes(path)), '/plugin-art/deploy-check-0000.webp'], ...muse ? [] : MUSE_PATHS];
   if (chatgpt) {
     const metadata = await resourceCheck('/mcp'), rootDiscovery = await get('/.well-known/oauth-protected-resource');
     assert.equal(rootDiscovery.status, 200, 'root discovery status');
     assert.deepEqual(await rootDiscovery.json(), metadata, 'root discovery metadata');
   }
-  if (muse) await resourceCheck('/muse/mcp');
-  if (parkedPaths.length) await parkedCheck();
-  if (!consentBuilt) return;
+  if (muse) await resourceCheck('/muse/mcp', discovery);
+  if (parkedPaths.length) await parkedCheck(discovery);
+  if (!chatgpt && !muse) return;
   const [consent, liveScript, ...liveArt] = await Promise.all([get(authorize), get('/consent.mjs'), ...art.map(file => get(file.path))]);
   assert.equal(consent.status, 200, 'consent status');
   assert.equal(consent.url, origin + authorize, 'consent authorization query');
@@ -98,7 +103,7 @@ async function check() {
 for (;;) {
   try {
     await check();
-    const served = [chatgpt && `ChatGPT plugin: both metadata paths, unsigned challenge and ${art.length} art files with built headers`, muse && 'Muse connector: metadata and unsigned challenge', consentBuilt && 'consent query/script'].filter(Boolean);
+    const served = [chatgpt && `ChatGPT plugin: both metadata paths, unsigned challenge and ${art.length} art files with built headers`, muse && 'Muse connector: metadata and unsigned challenge', (chatgpt || muse) && 'consent query/script'].filter(Boolean);
     console.log(`plugin-live-check: pass: ${origin}; ${served.length ? served.join('; ') : 'ChatGPT plugin parked'}${parkedPaths.length ? `; ${parkedPaths.length} parked paths answer 404 to GET and POST` : ''}`);
     break;
   } catch (error) {
