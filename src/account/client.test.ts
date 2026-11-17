@@ -2,10 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { connect } from './client';
 import { AUTH_KEY } from './session';
+import { memoryStorage } from '../interface/people/fake-server';
 
 const sdk = vi.hoisted(() => ({ auth: {
-  getSession: vi.fn(), onAuthStateChange: vi.fn(), signInWithOAuth: vi.fn(), signInWithPassword: vi.fn(), signInWithOtp: vi.fn(), verifyOtp: vi.fn(), exchangeCodeForSession: vi.fn(), signOut: vi.fn(),
+  initialize: vi.fn(async () => {}), getSession: vi.fn(), onAuthStateChange: vi.fn(), signInWithOAuth: vi.fn(), signInWithPassword: vi.fn(), signInWithOtp: vi.fn(), verifyOtp: vi.fn(), exchangeCodeForSession: vi.fn(), signOut: vi.fn(),
+  signInWithIdToken: vi.fn(),
 } }));
+const native = vi.hoisted(() => ({ authorize: vi.fn() }));
+vi.mock('@capacitor/core', () => ({ registerPlugin: () => native }));
 const createClient = vi.hoisted(() => vi.fn((_url: string, _key: string, _options: unknown) => sdk));
 vi.mock('@supabase/supabase-js', () => ({ createClient }));
 const session = (id: unknown = 'user-a', token: unknown = 'token-a') => ({ user: { id }, access_token: token } as Session);
@@ -27,6 +31,34 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe('account identity client', () => {
+  it('requires the release switch and the new-page option for web Apple sign-in', async () => {
+    const client = connect(AUTH_KEY, { apple: true });
+    await expect(client.startAccountSignIn('apple', { entryPath: '/next.html' })).rejects.toThrow('Invalid sign-in provider');
+    vi.stubEnv('VITE_KINGDOWN_APPLE_SIGN_IN', '1');
+    await expect(connect(AUTH_KEY).startAccountSignIn('apple', { entryPath: '/next.html' })).rejects.toThrow('Invalid sign-in provider');
+    expect(await client.startAccountSignIn('apple', { entryPath: '/next.html' })).toMatchObject({ flowId });
+    expect(sdk.auth.signInWithOAuth).toHaveBeenCalledExactlyOnceWith({ provider: 'apple', options: { redirectTo: 'https://kingdown.test/next.html', skipBrowserRedirect: true } });
+    await expect(client.startAccountSignIn('apple')).rejects.toThrow('Invalid sign-in provider');
+  });
+  it('uses the native Apple token with its original nonce and keeps other app providers hidden', async () => {
+    vi.stubGlobal('location', new URL('capacitor://localhost/next.html#join=fixture'));
+    vi.stubEnv('VITE_KINGDOWN_APPLE_SIGN_IN', '1'); vi.resetModules();
+    const { connect: appConnect } = await import('./client');
+    const client = appConnect(AUTH_KEY, { apple: true });
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ external: { apple: true, google: true, github: true, email: true } })));
+    expect(await client.providers()).toEqual(['apple', 'email']);
+    native.authorize.mockImplementation(async ({ state }) => ({ identityToken: 'native-fixture', state }));
+    sdk.auth.signInWithIdToken.mockResolvedValue({ data: { session: session() }, error: null });
+    expect(await client.signInWithApple()).toEqual({ userId: 'user-a', accessToken: 'token-a' });
+    expect(sdk.auth.signInWithIdToken).toHaveBeenCalledExactlyOnceWith({ provider: 'apple', token: 'native-fixture', nonce: expect.stringMatching(/^[a-f0-9]{64}$/) });
+    expect(sdk.auth.signInWithOAuth).not.toHaveBeenCalled();
+    expect(location.hash).toBe('#join=fixture');
+    sdk.auth.signInWithIdToken.mockResolvedValueOnce({ data: { session: null }, error: new Error('wrong audience') });
+    await expect(client.signInWithApple()).rejects.toThrow('wrong audience');
+    vi.stubEnv('VITE_KINGDOWN_APPLE_SIGN_IN', '0');
+    await expect(client.signInWithApple()).rejects.toThrow('Apple sign-in is off');
+    expect(await client.providers()).toEqual(['email']);
+  });
   it('offers only the email code in the iOS app', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ external: { google: true, github: true, email: true } }))));
     expect(await connect(AUTH_KEY).providers()).toEqual(['google', 'github', 'email']);
@@ -94,12 +126,21 @@ describe('account identity client', () => {
   });
 
   it('A02 defers initial, refresh, switch and sign-out events, then stops queued and later delivery on cleanup', () => {
+    const store = memoryStorage(); vi.stubGlobal('localStorage', store);
     const receive = vi.fn(), cleanup = connect(AUTH_KEY).onSession(receive);
     const initial = session(), refreshed = session('user-a', 'refreshed'), switched = session('user-b', 'token-b');
-    for (const [event, value] of [['INITIAL_SESSION', initial], ['TOKEN_REFRESHED', refreshed], ['SIGNED_IN', switched], ['SIGNED_OUT', null]] as const) emit(event, value);
-    expect(receive).not.toHaveBeenCalled();
-    vi.runAllTimers();
+    // The library stores each session before its event.
+    for (const [event, value] of [['INITIAL_SESSION', initial], ['TOKEN_REFRESHED', refreshed], ['SIGNED_IN', switched], ['SIGNED_OUT', null]] as const) {
+      if (value) store.setItem(AUTH_KEY, JSON.stringify(value)); else store.removeItem(AUTH_KEY);
+      emit(event, value);
+      if (event === 'INITIAL_SESSION') expect(receive).not.toHaveBeenCalled();
+      vi.runAllTimers();
+    }
     expect(receive.mock.calls).toEqual([[initial], [refreshed], [switched], [null]]);
+    store.setItem(AUTH_KEY, JSON.stringify(switched));
+    emit('SIGNED_OUT', null); emit('TOKEN_REFRESHED', refreshed); vi.runAllTimers();
+    expect(receive).toHaveBeenCalledTimes(4); // A late event for another session is not delivered.
+    store.setItem(AUTH_KEY, JSON.stringify(initial));
     emit('SIGNED_IN', initial); cleanup(); cleanup(); emit('SIGNED_IN', switched); vi.runAllTimers();
     expect(receive).toHaveBeenCalledTimes(4);
     expect(unsubscribe).toHaveBeenCalledOnce();
@@ -107,14 +148,14 @@ describe('account identity client', () => {
 
   it('A03 keeps local sign-in settings and its current-path redirect', async () => {
     const client = connect(AUTH_KEY);
-    expect(createClient.mock.calls[0][2]).toEqual({ auth: { flowType: 'pkce', persistSession: true, storageKey: AUTH_KEY } });
+    expect(createClient.mock.calls[0][2]).toEqual({ auth: { flowType: 'pkce', persistSession: true, storageKey: AUTH_KEY, storage: expect.any(Object) } });
     await client.signIn('facebook');
     expect(sdk.auth.signInWithOAuth).toHaveBeenCalledExactlyOnceWith({ provider: 'facebook', options: { redirectTo: 'https://kingdown.test/' } });
   });
 
   it.each(['google', 'github'] as const)('A03 starts %s with a fixed callback, manual detection and a flow ID', async provider => {
     const client = connect(AUTH_KEY, { manualCallback: true });
-    expect(createClient.mock.calls[0][2]).toEqual({ auth: { flowType: 'pkce', persistSession: true, storageKey: AUTH_KEY,
+    expect(createClient.mock.calls[0][2]).toEqual({ auth: { flowType: 'pkce', persistSession: true, storageKey: AUTH_KEY, storage: expect.any(Object),
       detectSessionInUrl: false, experimental: { appendPkceFlowIdToRedirects: true } } });
     expect(await client.startAccountSignIn(provider)).toEqual({ url: 'https://provider.test/start', flowId });
     expect(sdk.auth.signInWithOAuth).toHaveBeenCalledExactlyOnceWith({ provider, options: { redirectTo: 'https://kingdown.test/play/', skipBrowserRedirect: true } });
@@ -150,4 +191,9 @@ describe('account identity client', () => {
     await expect(client.finishAccountSignIn('code', flowId)).rejects.toThrow('Sign-in did not finish');
     expect(sdk.auth.getSession).not.toHaveBeenCalled();
   });
+});
+
+it.each(['google','github','facebook'] as const)('the new interface opts into its own %s callback; old defaults stay', async provider => {
+  await connect(AUTH_KEY, { manualCallback: true }).startAccountSignIn(provider, { entryPath: '/next.html' });
+  expect(sdk.auth.signInWithOAuth).toHaveBeenCalledExactlyOnceWith({ provider, options: { redirectTo: 'https://kingdown.test/next.html', skipBrowserRedirect: true } });
 });

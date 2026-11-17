@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      // Launch decision 12: when the page code cannot load at the first load (offline, or a failed file), show one line and Try again.
+      (function () {
+        var shown = false;
+        window.kdLeaving = false;
+        window.addEventListener('beforeunload', function () { window.kdLeaving = true; });
+        window.addEventListener('pagehide', function () { window.kdLeaving = true; });
+        window.addEventListener('pageshow', function () { window.kdLeaving = false; });
+        function show() {
+          if (window.kdBooted || window.kingdownSupported === false || shown) return; shown = true;
+          var draw = function () {
+            var box = document.createElement('section'), title = document.createElement('p'), line = document.createElement('p'), retry = document.createElement('button');
+            box.id = 'boot-fault'; box.style.cssText = 'max-width: 32rem; margin: 15vh auto 0; padding: 0 24px; font: 18px/1.45 system-ui, sans-serif; color: #262e2c';
+            title.style.cssText = 'font-size: 28px; font-weight: 700; margin: 0 0 12px'; title.textContent = 'King Down';
+            line.id = 'boot-line'; line.style.margin = '0 0 20px';
+            line.textContent = navigator.onLine === false ? 'You are offline. Connect to the internet, then try again.' : 'The game cannot load. Try again.';
+            retry.type = 'button'; retry.id = 'boot-retry'; retry.textContent = 'Try again'; retry.onclick = reload;
+            retry.style.cssText = 'min-height: 48px; padding: 0 24px; font: 600 18px/1 system-ui, sans-serif; color: #322817; border: 0; border-radius: 10px; background: linear-gradient(180deg, #ffe1a0 0%, #edc575 55%, #d8a552 100%); box-shadow: inset 0 1px 0 #fff0ca, inset 0 -3px 0 #a87935, 0 4px 8px #05171d66';
+            box.append(title, line, retry); document.body.append(box); retry.focus();
+          };
+          if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', draw); else draw();
+        }
+        // WebKit keeps a failed module preload in its memory cache across reloads: fetch each page file again first.
+        function reload() {
+          var files = [].map.call(document.querySelectorAll('script[src], link[rel=modulepreload]'), function (node) { return fetch(node.src || node.href, { cache: 'reload' }).catch(function () {}); });
+          Promise.race([Promise.all(files), new Promise(function (done) { setTimeout(done, 4000); })]).then(function () { location.reload(); });
+        }
+        window.kdBootFault = show;
+        window.addEventListener('error', function (event) { var t = event.target; if (t && (t.tagName === 'SCRIPT' || (t.tagName === 'LINK' && (t.rel === 'modulepreload' || t.rel === 'stylesheet')))) show(); }, true);
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- The build links the manifest only for the solo launch. -->
+    <meta name="color-scheme" content="only light" />
+    <meta name="theme-color" content="#f7f5ed" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/crown-192.png" />
+    <link rel="apple-touch-icon" href="/icons/crown-192.png" />
+    <link rel="preload" href="/fonts/alegreya-sans-bold-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <title>King Down</title>
+    <meta name="description" content="Chess with new pieces, king powers and cards. Play on this device, or play a person online." />
+    <meta property="og:title" content="King Down" />
+    <meta property="og:description" content="Chess with new pieces, king powers and cards." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://kingdown.dev/icons/icon-512.png" />
+    <meta name="twitter:card" content="summary" />
+    <script src="/browser-support.js"></script>
+    <style>html { background: #f7f5ed; } body { margin: 0; }</style>
+  </head>
+  <body>
+    <main id="app"></main>
+    <section id="browser-support" hidden style="max-width:30rem;margin:15vh auto;padding:24px;color:#262e2c;font:18px/1.5 sans-serif">
+      <h1>Update your browser</h1>
+      <p>King Down needs a newer browser. Update your browser, then open the game again.</p>
+    </section>
+    <noscript>Turn on JavaScript to play King Down.</noscript>
+    <script type="module" src="/src/interface/entry.ts"></script>
+  </body>
+</html>

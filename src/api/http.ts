@@ -15,8 +15,9 @@ import { commandLimit, handleSchema, type PluginService } from '../plugin/servic
 import { settingsSchema } from '../plugin/settings';
 import { noticesBeforeSchema, type AccountService } from '../online/accounts';
 import type { SafetyService } from '../online/safety';
-import { cleanup, runDeletions, sweepDeadlines } from '../online/jobs';
-import { ACTOR_UUID, AuthenticationError, AuthenticationUnavailable, pluginOrigin } from '../plugin/auth';
+import { cleanup, DAILY_BUDGET_MS, runDeletions, sweepDeadlines } from '../online/jobs';
+import type { Sender } from '../online/mail';
+import { ACTOR_UUID, AuthenticationError, AuthenticationUnavailable, isLoopback, pluginOrigin } from '../plugin/auth';
 import { diagnostic } from '../plugin/diagnostics';
 import { errorAdmission, readClientError, recordServerError, type ErrorWriter } from '../diagnostics/server';
 import { WEB_ACCOUNT_ACCESS_TTL_MS } from './account-access';
@@ -33,9 +34,10 @@ const sha256 = (text: string) => createHash('sha256').update(text).digest();
 /** A website session token (Supabase Auth, 1 hour) gives its user ID. Refused: another audience, an OAuth access
  * token for /mcp (it has a client_id), a guest (anonymous), another role. jose checks the signature, issuer and expiry.
  * Reads use this local check until token expiry. Writes also require the injected current-user check. */
-export function sessionVerifier(supabaseUrl: string, keys?: JWTVerifyGetKey): (token: string) => Promise<string> {
+export function sessionVerifier(supabaseUrl: string, keys?: JWTVerifyGetKey, { localLoopback = false } = {}): (token: string) => Promise<string> {
  const base = new URL(supabaseUrl);
- if (base.protocol !== 'https:' || base.username || base.password || base.search || base.hash || base.pathname !== '/') throw new Error('Expected a fixed HTTPS Supabase origin');
+ const allowedLocal = localLoopback && base.protocol === 'http:' && isLoopback(base.hostname);
+ if ((!allowedLocal && base.protocol !== 'https:') || base.username || base.password || base.search || base.hash || base.pathname !== '/') throw new Error('Expected a fixed HTTPS Supabase origin');
  const issuer = `${base.origin}/auth/v1`, jwks = keys ?? createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`), { timeoutDuration: 5000 });
  return async token => {
   let payload;
@@ -70,6 +72,8 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
 export interface ApiOptions {
  games: GameService; accounts: AccountService; safety: SafetyService;
  recordError?: ErrorWriter; build?: string;
+ /** The website plays solo on the device; other adapters keep their existing default. */
+ localSolo?: boolean;
  players?: Pick<PluginService, 'settings' | 'profile' | 'handle' | 'block' | 'blocks' | 'toolTry'>;
  publicOrigin: string; operations?: ReadonlySet<string>;
  /** undefined: website sign-in is not configured */ verify?: (token: string) => Promise<string>;
@@ -77,7 +81,7 @@ export interface ApiOptions {
  admit?: (actor: string) => () => void;
  currentUser?: (token: string, actor: string) => Promise<void>;
 }
-type Route = (actor: string, id: string, body: unknown, query: URLSearchParams) => Promise<unknown>;
+type Route = (actor: string, id: string, body: unknown, query: URLSearchParams, app?: boolean) => Promise<unknown>;
 /** The invitation as the website shares it: a link built from the fixed origin, and the short code. */
 export type InviteLink = Invite & { url: string };
 const emptySchema = z.strictObject({}).optional();
@@ -95,7 +99,7 @@ function queryInput(query: URLSearchParams): Record<string, string> {
 }
 const redeemSchema = z.union([z.strictObject({ invite_id: z.string().regex(/^[a-f0-9]{64}$/) }), z.strictObject({ token: z.string().max(100) }), z.strictObject({ code: z.string().max(20) })]);
 
-export function createApiHandler({ games, accounts, safety, players, publicOrigin, verify, operations, webAccountAccess, admit, currentUser }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
+export function createApiHandler({ games, accounts, safety, players, publicOrigin, verify, operations, webAccountAccess, admit, currentUser, localSolo = false }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
  const origin = pluginOrigin(publicOrigin);
  const readAccess = async (fresh = false) => {
   try {
@@ -132,8 +136,10 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
    return { account_access: 'closed', valid_for_ms: 0 };
   },
   // A friend game comes with its invitation (part 03, section 4.4); a lost link gets a new one from /invite.
-  'POST /api/games': async (actor, _, body) => {
-   const { command_id, ...options } = parse(startSchema, body); await playerService().toolTry(actor, 'kingdown_create');
+  'POST /api/games': async (actor, _, body, _query, app) => {
+   const { command_id, ...options } = parse(startSchema, body);
+   if (localSolo && !app && options.kind === 'solo') throw failure('NOT_ALLOWED', 403, 'Solo games run on this device.');
+   await playerService().toolTry(actor, 'kingdown_create');
    const { invite, ...view } = await games.create(actor, options.kind === 'friend' && !options.recipient_id && !options.recipient_handle ? { ...options, open_link: true } : options, command_id);
    return { view, ...(invite && { invite: { ...invite, url: `${origin}/j#${invite.token}` } }) };
   },
@@ -146,9 +152,12 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
    if (since !== null && !/^\d{1,4}$/.test(since)) throw failure('INVALID_INPUT', 400, 'Invalid revision');
    return games.view(actor, id, since === null ? undefined : Number(since));
   },
-  'POST /api/games/:id/preview': (actor, id, body) => games.previewDraft(actor, id, parse(draftSchema, body)),
+  'POST /api/games/:id/preview': async (actor, id, body) => { const input = parse(draftSchema, body); await playerService().toolTry(actor, 'kingdown_computer'); return games.previewDraft(actor, id, input); },
   'POST /api/games/:id/seen': (actor, id, body) => { parse(z.strictObject({}).optional(), body); return games.seen(actor, id); },
-  'POST /api/games/:id/commands': async (actor, id, body) => { const limit = commandLimit((body as { action?: { type?: unknown; choice?: unknown } } | null)?.action); if (limit) await playerService().toolTry(actor, limit); const view = await games.command(actor, id, body, 'web'); return { type: 'ack', command_id: (body as { command_id: string }).command_id, revision: view.revision, view }; },
+  'POST /api/games/:id/commands': async (actor, id, body, _query, app) => {
+   if (localSolo && !app && (body as { action?: { type?: unknown } } | null)?.action?.type === 'computer') throw failure('NOT_ALLOWED', 403, 'The computer plays on this device.');
+   if (localSolo && !app && (body as { action?: { type?: unknown } } | null)?.action?.type === 'rematch' && (await games.view(actor, id)).kind === 'solo') throw failure('NOT_ALLOWED', 403, 'Solo games run on this device.');
+   const limit = commandLimit((body as { action?: { type?: unknown; choice?: unknown } } | null)?.action); if (limit) await playerService().toolTry(actor, limit); const view = await games.command(actor, id, body, 'web'); return { type: 'ack', command_id: (body as { command_id: string }).command_id, revision: view.revision, view }; },
   'POST /api/games/:id/invite': (actor, id, body) => link(actor, id, parse(inviteSchema, body ?? {})),
   'POST /api/invites/preview': (actor, _, body) => { const key = parse(redeemSchema, body); return games.preview(actor, 'invite_id' in key ? key : 'token' in key ? key.token : key.code); },
   'POST /api/invites/redeem': (actor, _, body) => { const key = parse(redeemSchema, body); return games.join(actor, 'invite_id' in key ? key : 'token' in key ? key.token : key.code); },
@@ -253,7 +262,7 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
    if (engine) active++;
    try {
     // The service checks the ID (a UUID), so the path segment goes as it is.
-    const value = await route.run(actor, route.id, body, new URL(req.url!, origin).searchParams);
+    const value = await route.run(actor, route.id, body, new URL(req.url!, origin).searchParams, app);
     respond(res, value === undefined ? 204 : created.has(route.key) ? 201 : 200, value);
    } finally { if (engine) active--; }
   } catch (error) {
@@ -272,16 +281,19 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
  };
 }
 
-export interface InternalOptions { games: GameService; publicOrigin: string; /** at least 32 characters; else /internal answers 503 */ secret?: string }
-/** pg_cron calls these through pg_net with the shared secret (supabase/ops/cron.sql). Each job is idempotent. */
-export function createInternalHandler({ games, publicOrigin, secret }: InternalOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
+export interface InternalOptions { games: GameService; publicOrigin: string; /** at least 32 characters; else /internal answers 503 */ secret?: string; /** the deletion notice; none when mail is not configured */ send?: Sender }
+/**
+ * pg_cron calls these through pg_net with the shared secret (supabase/ops/cron.sql). Each job is idempotent.
+ * `startedAt` is the request start, before any server startup work (tools/plugin-server.mjs), so the daily budget holds.
+ */
+export function createInternalHandler({ games, publicOrigin, secret, send }: InternalOptions): (req: IncomingMessage, res: ServerResponse, startedAt?: number) => Promise<void> {
  const origin = pluginOrigin(publicOrigin), expected = secret && secret.length >= 32 ? sha256(secret) : undefined;
- const jobs: Record<string, () => Promise<object>> = {
+ const jobs: Record<string, (deadline: number) => Promise<object>> = {
   '/internal/tick': async () => ({ ended: await sweepDeadlines(games) }),
-  // The cleanup first, so a deletion that fails does not stop it.
-  '/internal/daily': async () => { const cleaned = await cleanup(games); return { deleted: await runDeletions(games), ...cleaned }; },
+  // The cleanup first, so a deletion that fails does not stop it. One budget covers the cleanup, the deletions and the emails.
+  '/internal/daily': async deadline => { const cleaned = await cleanup(games, new Date(), deadline); return { deleted: await runDeletions(games, send, deadline), ...cleaned }; },
  };
- return async (req, res) => {
+ return async (req, res, startedAt = Date.now()) => {
   const path = guard(req, res, origin); if (path === undefined) return;
   req.resume(); // the jobs read no body
   if (!expected) { respond(res, 503, { code: 'UNAVAILABLE', message: 'Internal jobs are not configured' }); return; }
@@ -291,7 +303,7 @@ export function createInternalHandler({ games, publicOrigin, secret }: InternalO
   const job = Object.hasOwn(jobs, path) ? jobs[path] : undefined;
   if (!job) { respond(res, 404, { code: 'NOT_FOUND', message: 'Not found' }); return; }
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); respond(res, 405, { code: 'NOT_ALLOWED', message: 'Method not allowed' }); return; }
-  try { respond(res, 200, await job()); }
+  try { respond(res, 200, await job(startedAt + DAILY_BUDGET_MS)); }
   catch (error) {
    const known = error instanceof MatchServiceError ? error : undefined;
    if (!known) console.error('King Down job failed', { path, requestId: randomUUID(), ...diagnostic(error) });

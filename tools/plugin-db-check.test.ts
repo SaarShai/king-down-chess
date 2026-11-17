@@ -5,13 +5,13 @@ import { diagnostic } from '../src/plugin/diagnostics';
 const probes = (allowed = true) => [{ rows: [] }, { rows: [{ allowed }] }];
 describe('plugin startup checks and safe diagnostics', () => {
  it('checks every table the server uses, the board key and the exact audience allowlist', async () => {
-  const query=vi.fn().mockResolvedValueOnce(probes()).mockResolvedValueOnce({rows:[{confdeltype:'n',games:true}]}).mockResolvedValueOnce({rows:[{client_id:'client'}]});
-  await checkPluginDatabase({query},{clientIds:['client']},'https://example/mcp');
+  const query=vi.fn().mockResolvedValueOnce(probes()).mockResolvedValueOnce({rows:[{confdeltype:'n',games:true}]}).mockResolvedValueOnce({rows:[{client_id:'client',resource:'https://example/mcp'}]});
+  expect(await checkPluginDatabase({query},{clientIds:['client']},['https://example/mcp','https://example/muse/mcp'])).toEqual([{client_id:'client',resource:'https://example/mcp'}]);
   for (const table of ['public.plugin_boards','public.games','kingdown_jobs.delete_account','public.profiles','public.account_deletions','public.invite_code_tries','public.plugin_tool_tries','kingdown_jobs.request_deletion','public.player_ratings','public.rating_history','public.player_badges','public.player_settings','public.notifications']) expect(query.mock.calls[0][0]).toContain(table);
   expect(query.mock.calls[0][0]).toContain('select id,user_id,kind,payload,created_at from public.notifications limit 0');
   expect(query.mock.calls[0][0]).not.toContain("to_regprocedure('kingdown_jobs.user_email(uuid)')");
   expect(query.mock.calls[0][0]).not.toContain('select kingdown_jobs.user_email(');
-  expect(query.mock.calls[2][1]).toEqual([['client'],'https://example/mcp']);
+  expect(query.mock.calls[2][1]).toEqual([['client'],['https://example/mcp','https://example/muse/mcp']]);
  });
  it('preserves database faults rather than diagnosing them as missing configuration', async () => {
   const error=Object.assign(new Error('private connection URL'),{code:'ECONNRESET'});
@@ -25,6 +25,6 @@ describe('plugin startup checks and safe diagnostics', () => {
   await expect(checkPluginDatabase({query:vi.fn().mockResolvedValueOnce(probes(false))},undefined,undefined)).rejects.toMatchObject({code:'SCHEMA_REQUIRED',message:expect.stringContaining('0005-0015')});
   for (const row of [{confdeltype:'c',games:true},{confdeltype:'n',games:false}]) await expect(checkPluginDatabase({query:vi.fn().mockResolvedValueOnce(probes()).mockResolvedValueOnce({rows:[row]})},undefined,undefined)).rejects.toThrow('0006');
   const query=vi.fn().mockResolvedValueOnce(probes()).mockResolvedValueOnce({rows:[{confdeltype:'n',games:true}]}).mockResolvedValueOnce({rows:[]});
-  await expect(checkPluginDatabase({query},{clientIds:['client']},'resource')).rejects.toThrow('allowlist');
+  await expect(checkPluginDatabase({query},{clientIds:['client']},['resource'])).rejects.toThrow('allowlist');
  });
 });

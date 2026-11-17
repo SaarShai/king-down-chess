@@ -5,7 +5,7 @@ import { builtinModules } from 'node:module';
 import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { existsSync, readFileSync } from 'node:fs';
-import { cp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdir, rm, rmdir, symlink, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildRuntime } from './plugin-runtime-build.mjs';
@@ -23,7 +23,9 @@ export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNE
   const routes = chatgpt ? Object.entries(ART_TYPES).map(([type, contentType]) => ({ src: `^/plugin-art/[\\w-]+\\.${type}$`, headers: { ...ART_HEADERS, 'Content-Type': contentType }, continue: true })) : [];
   if (muse) for (const path of [...MUSE_PATHS, ...chatgpt ? [] : ['/authorize', '/consent.mjs']]) routes.push({ src: `^${path.replace(/[.]/g, '\\.')}$`, dest: '/mcp' });
   if (site) {
+    if (existsSync(resolve(site, '.well-known/apple-app-site-association'))) routes.push({ src: '^/\\.well-known/apple-app-site-association$', headers: { 'Content-Type': 'application/json' }, continue: true });
     routes.push({ src: '^/character-runtime/assets/[a-f0-9]{64}\\.webp$', headers: { 'Cache-Control': 'public, max-age=31536000, immutable' }, continue: true });
+    routes.push({ src: '^/character-runtime/(?:index\\.json|parts/[^/]+\\.json)$', headers: { 'Cache-Control': 'no-cache' }, continue: true });
     const challenge = resolve(site, '.well-known/openai-apps-challenge');
     if (chatgpt && existsSync(challenge)) {
       const token = readFileSync(challenge, 'utf8');
@@ -32,9 +34,31 @@ export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNE
     }
     routes.push({ src: '^/internal/.+$', dest: '/internal' });
     routes.push({ src: '^/api(?:/.*)?$', dest: '/mcp' });
+    if (existsSync(resolve(site, 'solo-launch.json'))) routes.push({ src: '^/j/?$', dest: '/join.html' });
     routes.push({ src: '^/(?:play(?:/.*)?|g/[^/]+/?|j/?)$', dest: '/index.html' });
   }
+  if (site && existsSync(resolve(site, 'solo-launch.json'))) {
+    routes.push({ src: '^/$', dest: '/next.html' });
+    routes.push({ handle: 'filesystem' });
+    routes.push({ src: '^/.*$', dest: '/next.html', status: 404 });
+  }
   return routes;
+}
+
+/** The consent page of a Muse build: the Muse tools (src/muse/tools.ts) in place of the ChatGPT list in consent.html.
+ *  It names no data limit: the token gives the client the email address and the provider metadata. With `chatgpt`
+ *  too, the page keeps both texts in [data-connector] parts, and src/plugin/consent.ts shows the one of the client. */
+export function museConsent(html, { chatgpt = false } = {}) {
+  const page = /(<h2>Let ChatGPT use your King Down account\?<\/h2>)(<dl>[\s\S]*?<\/dl>)(<p>ChatGPT can:<\/p><ul>[\s\S]*?<\/ul>)/;
+  if (!page.test(html)) throw new Error('consent.html has no ChatGPT access list to replace');
+  const heading = '<h2>Let Muse use your King Down account?</h2>', list = `<p>Muse can:</p><ul>
+<li>start, play and end games against the computer</li>
+<li>list your unfinished games and show whose turn it is</li>
+<li>show a game and explain its pieces, king powers and cards</li>
+</ul><p>Muse cannot play games against a person.</p>`;
+  return html.replace(page, (_, chatgptHeading, details, chatgptList) => chatgpt
+    ? `<div data-connector="chatgpt">${chatgptHeading}</div><div data-connector="muse" hidden>${heading}</div>${details}<div data-connector="chatgpt">${chatgptList}</div><div data-connector="muse" hidden>${list}</div>`
+    : `${heading}${details}${list}`);
 }
 
 /** `chatgpt` (default: the switch in tools/chatgpt-plugin.mjs) adds the plugin surface: the board widget and its art,
@@ -60,14 +84,16 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
     } finally { await rm(boardDir, { recursive: true, force: true }); }
   }
   if (chatgpt || muse) {
-    await cp(resolve(root, 'src/plugin/consent.html'), resolve(functionDir, 'consent.html'));
-    await build({ configFile: false, root, publicDir: false, logLevel: 'warn', build: { target: 'es2022', outDir: functionDir, emptyOutDir: false, minify: true, lib: { entry: resolve(root, 'src/plugin/consent.ts'), formats: ['es'], fileName: () => 'consent.mjs' }, rollupOptions: { output: { entryFileNames: 'consent.mjs', codeSplitting: false } } } });
+    const consentHtml = readFileSync(resolve(root, 'src/plugin/consent.html'), 'utf8');
+    await writeFile(resolve(functionDir, 'consent.html'), muse ? museConsent(consentHtml, { chatgpt }) : consentHtml);
+    // KINGDOWN_CHATGPT and KINGDOWN_MUSE show the review password form (src/plugin/consent.ts).
+    await build({ configFile: false, root, publicDir: false, logLevel: 'warn', define: { 'import.meta.env.KINGDOWN_CHATGPT': JSON.stringify(chatgpt), 'import.meta.env.KINGDOWN_MUSE': JSON.stringify(muse) }, build: { target: 'es2022', outDir: functionDir, emptyOutDir: false, minify: true, lib: { entry: resolve(root, 'src/plugin/consent.ts'), formats: ['es'], fileName: () => 'consent.mjs' }, rollupOptions: { output: { entryFileNames: 'consent.mjs', codeSplitting: false } } } });
   }
   await cp(resolve(root, 'tools/supabase-ca.crt'), resolve(functionDir, 'supabase-ca.crt'));
   await buildRuntime(resolve(functionDir, 'runtime'));
   await build({
     configFile: false, root, publicDir: false, logLevel: 'warn', ssr: { noExternal: true },
-    define: { 'import.meta.env.KINGDOWN_ERROR_RECORDER': JSON.stringify(Boolean(site)), 'import.meta.env.KINGDOWN_CHATGPT': JSON.stringify(chatgpt), 'import.meta.env.KINGDOWN_MUSE': JSON.stringify(muse), ...(site && { __KINGDOWN_ERROR_FORMS__: JSON.stringify(sourceErrorForms(resolve(root, 'src'))), __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()) }) },
+    define: { __KINGDOWN_SOLO_LAUNCH__: JSON.stringify(Boolean(site && existsSync(resolve(site, 'solo-launch.json')))), 'import.meta.env.KINGDOWN_ERROR_RECORDER': JSON.stringify(Boolean(site)), 'import.meta.env.KINGDOWN_CHATGPT': JSON.stringify(chatgpt), 'import.meta.env.KINGDOWN_MUSE': JSON.stringify(muse), __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()), ...(site && { __KINGDOWN_ERROR_FORMS__: JSON.stringify(sourceErrorForms(resolve(root, 'src'))), __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()) }) },
     plugins: [{ name: 'isolated-match-runtime', enforce: 'pre', resolveId(source, importer) {
       if (!importer || !source.startsWith('.')) return;
       const path = resolve(dirname(importer), source);
@@ -94,9 +120,17 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
     if (site) {
       await cp(site, resolve(output, 'static'), { recursive: true });
       // A parked tree publishes no OpenAI domain challenge.
-      if (!chatgpt) await rm(resolve(output, 'static/.well-known'), { recursive: true, force: true });
+      if (!chatgpt) {
+        const known = resolve(output, 'static/.well-known');
+        await rm(resolve(known, 'openai-apps-challenge'), { force: true });
+        try { await rmdir(known); }
+        catch (error) { if (!['ENOENT', 'ENOTEMPTY'].includes(error.code)) throw error; }
+      }
       // The function entry (tools/plugin-server.mjs) dispatches these paths; Vercel keeps the request path.
       await symlink('mcp.func', resolve(output, 'functions/internal.func'));
+    }
+    if (site && existsSync(resolve(site, 'solo-launch.json'))) {
+      await writeFile(resolve(output, 'static/join.html'), '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Join King Down</title><script>location.replace("/next.html#join=" + location.hash.slice(1));</script></html>');
     }
     await writeFile(resolve(output, 'config.json'), JSON.stringify({ version: 3, routes }) + '\n');
     if (staging) {
@@ -108,8 +142,9 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   // --site takes the website from dist/ (npm run build:vercel builds it first). --chatgpt builds the parked plugin surface
   // for its checks (by hand: npm run plugin:build:chatgpt, then plugin:server:check on that tree); never deploy that tree.
+  // --muse adds the Muse connector; with --chatgpt it builds the tree that serves both (check it with check:vercel -- <tree> --chatgpt --muse).
   const args = process.argv.slice(2), site = args.includes('--site') ? resolve('dist') : undefined, vercel = args.includes('--vercel');
-  if (args.filter(arg => !arg.startsWith('--')).length > 1 || args.some(arg => arg.startsWith('--') && !['--vercel', '--site', '--chatgpt'].includes(arg))) throw new Error('Usage: node tools/plugin-server-build.mjs [output] [--vercel | --site] [--chatgpt]');
+  if (args.filter(arg => !arg.startsWith('--')).length > 1 || args.some(arg => arg.startsWith('--') && !['--vercel', '--site', '--chatgpt', '--muse'].includes(arg))) throw new Error('Usage: node tools/plugin-server-build.mjs [output] [--vercel | --site] [--chatgpt] [--muse]');
   const path = args.find(arg => !arg.startsWith('--'));
-  console.log(await buildPluginServer(path ? resolve(path) : resolve(site ? 'kingdown-deploy' : vercel ? 'plugin-deploy' : 'plugin-server-dist'), { vercel, site, ...(args.includes('--chatgpt') && { chatgpt: true }) }));
+  console.log(await buildPluginServer(path ? resolve(path) : resolve(site ? 'kingdown-deploy' : vercel ? 'plugin-deploy' : 'plugin-server-dist'), { vercel, site, ...(args.includes('--chatgpt') && { chatgpt: true }), ...(args.includes('--muse') && { muse: true }) }));
 }

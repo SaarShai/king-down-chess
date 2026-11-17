@@ -7,8 +7,9 @@ const STRIPS=22,MAX_TILT=1.2;
 // How far a tint moves the painted ivory and blue toward its own colour; the light and shade stay.
 const TINTS={lilac:['#9a7fc8',.62]};
 
-let sheet=null;
-if(typeof Image!=='undefined'){const image=new Image();image.crossOrigin='anonymous';image.onload=()=>{sheet=image;};image.src=new URL('./wind-bands.webp',import.meta.url).href;}
+let sheet=null,asked=false;
+/** Loads the sheet once: the scene asks for it when it is made, or after its first frame (scene.mjs, lazySheets). */
+export function loadWindArt(){if(asked||typeof Image==='undefined')return;asked=true;const image=new Image();image.crossOrigin='anonymous';image.onload=()=>{sheet=image;};image.src=new URL('./wind-bands.webp',import.meta.url).href;}
 const tinted=new Map();
 function art(tint){
  if(!sheet||!tint)return sheet;

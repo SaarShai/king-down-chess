@@ -132,13 +132,16 @@ async function play(game: Game, mover: Seat, lans: string[] | 'computer', engine
 
 export class GameService {
  constructor(readonly store: PostgresMatchStore, private readonly inviteSecret = process.env.KINGDOWN_INTERNAL_SECRET) {}
+ /** The same service over another store: the daily job gives its game commands a time bound this way (src/online/budget.ts). */
+ withStore(store: PostgresMatchStore): GameService { return new GameService(store, this.inviteSecret); }
  private codeHash(code: string): string {
   const secret = this.inviteSecret;
   if (!secret || secret.length < 32) return fail('UNAVAILABLE', 503, 'Invitation codes are unavailable. Try again later.');
   return createHmac('sha256', secret).update('kingdown:invite-code:').update(code).digest('hex');
  }
- /** With a command ID, a resent Create (the reply was lost or late) gets the first game; other input is COMMAND_CONFLICT. */
- async create(actor: string, input: unknown, commandId?: string): Promise<View> {
+ /** With a command ID, a resent Create (the reply was lost or late) gets the first game; other input is COMMAND_CONFLICT.
+  * `surface` marks the start receipt: 'muse' marks a game played through Muse (migration 0024 deletes those on a disconnect). */
+ async create(actor: string, input: unknown, commandId?: string, surface: Surface | null = null): Promise<View> {
   actor = id(actor); const options = canonicalCreate(parse(createSchema, input)), key = startKey(options);
   if (options.level && !options.options) fail('INVALID_INPUT', 400, 'A computer level needs game options');
   if (options.kind !== 'solo') await this.requireHandle(actor);
@@ -158,7 +161,7 @@ export class GameService {
    if (send) await this.checkSend(client, actor, recipient);
    if (!await this.store.insert(game, client)) return this.view(actor, game.id);
    const invite = send ? await this.issue(client, game, actor, recipient) : undefined;
-   const view = commandId === undefined ? await this.render(game, seatOf(game, actor), { client, rules: true }) : await this.receipt(client, game, actor, commandId, key);
+   const view = commandId === undefined ? await this.render(game, seatOf(game, actor), { client, rules: true }) : await this.receipt(client, game, actor, commandId, key, surface);
    return { ...view, ...(invite && { invite }) };
   });
  }
@@ -176,10 +179,10 @@ export class GameService {
   return this.render(game, seatOf(game, actor), { client, rules: true });
  }
  /** Writes the start receipt on a game that a start made or reused: a 'start' row with the command ID and the input. */
- private async receipt(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string, commandId: string, key: StartKey): Promise<View> {
+ private async receipt(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string, commandId: string, key: StartKey, surface: Surface | null = null): Promise<View> {
   if (game.revision >= START_RECEIPTS) fail('RATE_LIMITED', 429, 'Too many starts on this open game. Wait for an opponent, or cancel the game.');
   const next = step(game), seat = seatOf(game, actor);
-  await this.write(client, game, next, { seat, actor_id: actor, command_id: commandId, kind: 'start', payload: key, actions: null, surface: null, received_at: new Date() });
+  await this.write(client, game, next, { seat, actor_id: actor, command_id: commandId, kind: 'start', payload: key, actions: null, surface, received_at: new Date() });
   return this.render(next, seat, { client, rules: true });
  }
  private async newGame(actor: string, input: CreateOptions, gameId: string = randomUUID()): Promise<Game> {
@@ -567,7 +570,8 @@ export class GameService {
   if (host.user_id !== actor && (!host.user_id || !await this.store.mayJoin(this.store.pool, invite.recipient_id ?? host.user_id, invite.recipient_id ? host.user_id : actor))) this.unavailable();
   if (invite.state !== 'open' || game.status !== 'waiting') fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.closed);
   const recipient = invite.recipient_id ? (await this.store.pool.query('select handle from public.profiles where id=$1', [invite.recipient_id])).rows[0]?.handle : null;
-  return { code, options: game.options, colour: colour(invite.seat), kind: game.kind, creator: { handle: host.handle, icon: host.icon ?? null }, expires_at: invite.expires_at.toISOString(), recipient_id: invite.recipient_id, recipient_handle: recipient, invite_id: invite.token_hash };
+  const avatar = host.user_id && host.user_id !== actor && typeof this.store.avatar === 'function' ? await this.store.avatar(this.store.pool, actor, host.user_id) : null;
+  return { code, options: game.options, colour: colour(invite.seat), kind: game.kind, creator: { handle: host.handle, icon: host.icon ?? null, avatar }, expires_at: invite.expires_at.toISOString(), recipient_id: invite.recipient_id, recipient_handle: recipient, invite_id: invite.token_hash };
  }
  /** Build a possible starting position before account or row locks. Recheck the revision on commit. */
  private async prepareEntry(game: Game): Promise<Game> {
@@ -642,10 +646,10 @@ export class GameService {
   });
  }
  private async invitationRow(client: Parameters<PostgresMatchStore['privacy']>[0], actor: string, inviteId: string, byGame = false): Promise<InvitationRow | null> {
-  const r = (await client.query(`select i.*,i.expires_at<=statement_timestamp() as expired,g.revision,g.options,g.end_reason,p.id as player_id,p.handle,p.icon from public.game_invites i join public.games g on g.id=i.game_id
+  const r = (await client.query(`select i.*,i.expires_at<=statement_timestamp() as expired,g.revision,g.options,g.end_reason,p.id as player_id,p.handle,p.icon,kingdown_jobs.user_avatar($2,p.id) as avatar from public.game_invites i join public.games g on g.id=i.game_id
    left join public.profiles p on p.id=case when i.created_by=$2 then i.recipient_id else i.created_by end where ${byGame ? 'i.game_id' : 'i.token_hash'}=$1`, [inviteId, actor])).rows[0];
   if (!r) return null;
-  return { revision: r.revision, invite_id: r.token_hash, game_id: r.game_id, recipient_id: r.recipient_id, direction: r.created_by === actor ? 'outgoing' : 'incoming', player: r.player_id ? { user_id: r.player_id, handle: r.handle, icon: r.icon } : null,
+  return { revision: r.revision, invite_id: r.token_hash, game_id: r.game_id, recipient_id: r.recipient_id, direction: r.created_by === actor ? 'outgoing' : 'incoming', player: r.player_id ? { user_id: r.player_id, handle: r.handle, icon: r.icon, avatar: r.avatar ?? null } : null,
    options: r.options, expires_at: r.expires_at.toISOString(), state: (r.state === 'open' || r.state === 'cancelled' && r.end_reason === 'no_start') && r.expired ? 'expired' : r.state };
  }
  /** Ends missed deadlines, expired invitations and 24-hour open games; safe to run twice at once. */
@@ -700,7 +704,7 @@ export class GameService {
    game_id: game.id, rating_policy: game.rating_policy, revision: game.revision, engine_fingerprint: game.engine_fingerprint, seat, kind: game.kind, speed: game.speed, days_per_move: game.days_per_move, status: game.status, turn: game.turn, action: actionOf(game, seat),
    fen: game.snapshot?.fen ?? '', in_check: game.snapshot?.inCheck ?? false, legal: playing && game.turn === seat ? game.snapshot!.legal : [],
    last_commands: commands.map(entry => entry.seat === opponent.seat && (entry.action.type === 'choose' && !game.players.every(p => p.ready) || entry.action.type === 'say' && !sees.presets) ? { ...entry, action: { type: 'hidden' as const } } : entry),
-   opponent: vacant ? null : { handle: opponent.handle, icon: opponent.icon ?? null, ...(rating && { rating }), computer: opponent.computer, deleted: !opponent.user_id && !opponent.computer, last_seen_ms: sees.online ? opponent.last_seen_ms : null },
+   opponent: vacant ? null : { handle: opponent.handle, icon: opponent.icon ?? null, avatar: sees.avatar ?? null, ...(rating && { rating }), computer: opponent.computer, deleted: !opponent.user_id && !opponent.computer, last_seen_ms: sees.online ? opponent.last_seen_ms : null },
    rematch_allowed: sees.unblocked, draw_offer: game.draw_offer, rematch_offer: game.rematch_offer, rematch_game_id: game.rematch_game_id,
    ...(game.options && { options: game.options, ...(game.setup_admission && { setup_admission: game.setup_admission }), draw: game.draw!, deal: game.deal!, level: game.level,
     choices: game.players.map(p => p.seat === seat || game.players.every(s => s.ready) ? p.choice : null) as View['choices'],

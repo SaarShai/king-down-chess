@@ -1,6 +1,7 @@
 // The painted board scene: art, poses, capture animations and effects drawn on one canvas.
 // Shared by the board trial (prototype.mjs) and the game's painted look (src/render/PaintedView.ts).
 // Rules helpers are passed in, so the scene never bundles its own copy of the engine.
+import { idleSchedule } from './idle-schedule.mjs';
 import { clamp } from './painted-mesh.mjs';
 import {connected,createCharacterRuntime,prefetchCharacterIndex,facingOf,anchorAt,bankPointToWorld,bankScale,figureHeight,measuredScale,walkStride} from './character-runtime.mjs';
 import {PIECE_STILLS} from './piece-stills.mjs';
@@ -14,7 +15,7 @@ import * as rook from './rook/motion.mjs';
 import * as guard from './guard/motion.mjs';
 import * as court from './court-motion.mjs';
 import {chargeAt,CHARGE_CONTACT} from './board/motion.mjs';
-import {swapBellsAt,swapArtReady,drawSwapFloor,drawSwapBells} from './swap-bells.mjs';
+import {SWAP as SWAP_BELLS,swapBellsAt,swapArtReady,drawSwapFloor,drawSwapBells} from './swap-bells.mjs';
 import {BLOW,KING_BLOW,STRAIGHT_REACH,blows,kingActionMs,tiltAt,footAt,stopPoint} from './blows.mjs';
 import {GAITS,GAIT_OF,idleAt,paintedPace,paintedTravel} from './gait.mjs';
 import {createKingEffects,phaseOffset} from './king-effects.mjs';
@@ -26,6 +27,8 @@ import {DEATHS,THEMED,drawDeath,kingBodyBounds} from './king-captures.mjs';
 import * as pawnIdle from './idle.mjs';
 import {CLIPS,frameAt,drawFrame as drawClipFrame,inCell} from './clips.mjs';
 import {afterBoard,boardReady} from './after-board.mjs';
+import {loadWindArt} from './wind-art.mjs';
+import {loadRiftArt} from './fx-kings.mjs';
 import {SHADE,shadowField,shadowWeights,fxFade,poolShape,poolAlpha,glidePool} from './contact-shadow.mjs';
 import {SHOT,RANGED,rangedPlan,heldClock,rangedFrame,drawDissolve,drawFlash,struckAt} from './fx-ranged.mjs';
 export const SIZE=960, PAD=32, TILE=112;
@@ -56,13 +59,17 @@ const BOARD_ART=new URL('../../../docs/2d-first-pieces/board-art/stone-board.web
  * kings: [white, black] king designs (court.KING_DESIGNS); the trial and the trailer keep the Frost King.
  * floor: the colour round the board (floorOf: FLOOR when none is named; paintFloor); null leaves the canvas clear there.
  */
-export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0,kings:initialKings=['frost','frost'],floor:floorOption,characterRuntime=false}) {
+export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0,kings:initialKings=['frost','frost'],floor:floorOption,characterRuntime=false,holdStills=false,lazySheets=false,initialBoardArt,onArtError}) {
  const floor=floorOf(floorOption);
  const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName}=pieces;
  const ctx=canvas.getContext('2d');
  const CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150};
  let bodyRuntime=null, bodyWarm=!characterRuntime, startBodyRuntime=null;
  if(characterRuntime)prefetchCharacterIndex();
+ // lazySheets: the legacy sheets and the art behind afterBoard start after the first frame (firstFrameLoads), so the
+ // stone and the stills have the whole link. The wind and rift sheets load with the scene, or behind that gate.
+ const late=lazySheets&&characterRuntime;let firstFrameLoads=null;
+ const moduleArt=()=>{loadWindArt();loadRiftArt();};if(late)afterBoard(moduleArt);else moduleArt();
  const onPageShow=event=>{if(event.persisted)startBodyRuntime?.();};
  // These idles move the whole figure, so a quiet move, a deselect or another selection leaves them along the painted frames.
  const LARGE_IDLE=new Set(['king-stratus','king-mud','rook']);
@@ -72,6 +79,8 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  const ART={[K]:'king',[S]:'beast',[Q]:'queen',[L]:'paladin',[M]:'maester',[P]:'pawn',[A]:'archer',[O]:'ogre',[N]:'knight',[B]:'bishop',[R]:'rook',[G]:'guard'};
  // CORS images (crossOrigin 'anonymous'): a canvas may read them when the art comes from another origin (the plugin page).
  const corsImage=()=>Object.assign(new Image(),{crossOrigin:'anonymous'});
+ // lazySheets (the new page, same origin): the stills and the board art load in the mode of the page's own pictures, so each file loads once.
+ const pageImage=()=>lazySheets?new Image():corsImage();
  const art=Object.fromEntries(Object.keys(ART).filter(type=>+type!==K).map(type=>[type,corsImage()]));
  // King sheets load on demand: the two in play before the scene is ready, others when a side picks them.
  const kingArt={}, drawnKings=[null,null];
@@ -99,17 +108,20 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
   const character=characterOf(value),army=armyOf(value),meta=characterRuntime?PIECE_STILLS[character]?.[army]:null;if(!meta)return null;
   const key=`${character}:${army}`;let entry=stillArt[key];
   if(!entry){
-   const image=corsImage();
-   entry=stillArt[key]={body:null,done:false,loaded:new Promise(resolve=>{image.onload=()=>{entry.done=true;entry.body={image,pivot:meta.pivot,size:meta.size,scale:bankScale({character,boardScale:meta.boardScale,registrationHeightPx:meta.registrationHeightPx}),unitHeight:meta.registrationHeightPx,footprint:meta.footprint};wake();resolve();};image.onerror=()=>{entry.done=true;resolve();};})};
+   const image=pageImage();
+   entry=stillArt[key]={body:null,done:false,loaded:new Promise(resolve=>{image.onload=()=>{entry.done=true;entry.body={image,pivot:meta.pivot,size:meta.size,scale:bankScale({character,boardScale:meta.boardScale,registrationHeightPx:meta.registrationHeightPx}),unitHeight:meta.registrationHeightPx,footprint:meta.footprint};wake();resolve();};image.onerror=()=>{entry.done=true;if(!disposed)onArtError?.(image.src);resolve();};})};
    image.src=publicUrl(`/ui/pieces/${character}-${army[0]}.webp`);
   }
   return entry;
  }
  // (Not when the loaded package has no body for it: then its legacy drawings move it, so it rests as one of them too.)
- const stillBody=value=>bodyRuntime?.stats.manifestReady&&!bodyRuntime.has(characterOf(value),armyOf(value))?null:stillImage(value)?.body??null;
+ // holdStills: a part still in transfer keeps the still (the index alone does not drop it).
+ const stillBody=value=>(holdStills?bodyRuntime&&!bodyRuntime.has(characterOf(value),armyOf(value))&&bodyRuntime.lacks(characterOf(value),armyOf(value)):bodyRuntime?.stats.manifestReady&&!bodyRuntime.has(characterOf(value),armyOf(value)))?null:stillImage(value)?.body??null;
+ // lazySheets: a figure whose legacy sheet has not loaded draws its still, at rest and along a move, so it never goes blank.
+ const sheetless=value=>lazySheets&&!(typeOf(value)===K?kingArt[kings[colorOf(value)]]?.image:art[typeOf(value)]?.naturalWidth);
  // The loads still pending for the figures on the board, or null when none is.
  const warmStills=()=>{const waits=[...new Set(position.board)].filter(Boolean).map(stillImage).filter(entry=>entry&&!entry.done).map(entry=>entry.loaded);return waits.length?Promise.all(waits):null;};
- const boardArt=corsImage();
+ let boardArt=initialBoardArt?pageImage():corsImage();
  // Clips load after the first frame with motion on, or when a selection needs one. They never gate readiness.
  // Choose the clip at selection time, so a late sheet never starts a clip in the middle of a selection.
  const CLIP_OF={[N]:'knight',[R]:'rook'},clipArt=Object.fromEntries(Object.keys(CLIPS).map(name=>[name,corsImage()]));
@@ -142,12 +154,13 @@ for(const [type,name] of Object.entries(courtNames)){
  const smokeStreams=new Map();let smokeTime=0;
  // Opt-in liveliness (setLively): quiet-move gaits, the selected figure's idle, the board's frame and light,
  // and each king's own idle effect (king-effects.mjs). All off by default, so the trial and the trailer draw exactly as before.
- const lively={moves:false,idle:false,atmosphere:false,kings:false,captures:false,pawns:false};
+ const idleClocks=idleSchedule();let ambientIdles=new Map();
+ const lively={ambient:false,moves:false,idle:false,atmosphere:false,kings:false,captures:false,pawns:false};
  const kingFx=createKingEffects({sheet:design=>kingArt[design]?.image??null,onLoad:()=>wake()}),queenThorns=createQueenThorns({onLoad:()=>wake()}),demise=createDemise({onLoad:()=>wake()});
  // Square → when a king's effect started there (what stands on his square grows back after a move).
  // drawnBefore: how many kings' effects the frame before drew (none: they all start together now).
  let kingSince=new Map(),nextSince=new Map(),frames=0,fxDrawn=[],drawnBefore=0,pawnsAtRest=0,pawnsActing=0;
- let clipShown=null, selectedClip=null, selectedAt=null, idleTimer=0, framePattern=null, awakeUntil=0, passiveUntil=0;
+ let arrival=null, clipShown=null, selectedClip=null, selectedAt=null, idleTimer=0, framePattern=null, awakeUntil=0, passiveUntil=0;
  const ease=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
  const mix=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
  const cell=s=>({col:flipped?7-(s&7):s&7,row:flipped?s>>3:7-(s>>3)});
@@ -188,7 +201,7 @@ function sprite(value,angle=0,extension=0,sheet=null,rest=null) {
  const type=typeOf(value),side=colorOf(value),design=type===K?kings[side]:null,key=spriteKey(value,sheet);
  if(!ART[type])return token(value);
  const image=design?sheet??kingImage(design).image:art[type];
- if(design&&!image)return blank;
+ if(design?!image:!image.naturalWidth)return blank; // a sheet that has not loaded never goes into the idle cache
  if(design)drawnKings[side]=design;
  const staticPose=Math.abs(angle)<.00001&&Math.abs(extension)<.0001;
  if(rest&&staticPose&&type===P){
@@ -671,11 +684,13 @@ function vortex(out,foot,phase,strength) {
  }
  const poses=new Map();
  for(let sq=0;sq<64;sq++)if(shown.board[sq])poses.set(sq,{value:shown.board[sq],pose:poseFor(shown.board[sq],sq),opacity:1,extension:0});
+ // arrive(): each listed figure fades in and rises into place after its delay; its pool stays on the floor.
+ if(arrival){const t=time-arrival.start;if(t>=arrival.end||reducedMotion)arrival=null;else for(const [sq,u] of poses){const d=arrival.delays.get(sq);if(d==null)continue;const e=1-(1-clamp((t-d)/arrival.ms,0,1))**3;u.opacity*=e;u.pose.ground=u.pose.foot;u.pose.foot={x:u.pose.foot.x,y:u.pose.foot.y+arrival.rise*(1-e)};}}
  if(selected!==null&&poses.has(selected))Object.assign(poses.get(selected).pose,{angle:aimAngle,facing:aimFacing});
  // The selected figure plays his clip once (if he has one), then breathes from where the clip ends. The clock
  // starts on the first frame that draws him, so a late first frame (a busy page) still shows the first drawing.
  clipShown=null;
- if(idling()&&!bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected]))){
+ if(!lively.ambient&&idling()&&!bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected]))){
   selectedAt??=time;
   const p=poses.get(selected).pose,name=CLIP_OF[typeOf(poses.get(selected).value)]===selectedClip?selectedClip:null,ms=time-selectedAt,index=name?frameAt(name,ms):null;
   if(index!==null){p.clip={name,index};clipShown={name,frame:index};}
@@ -835,11 +850,12 @@ function vortex(out,foot,phase,strength) {
   else if(a.type==='swap'){
    // Each figure stands on its own square until its bell covers it, and on the other square before the bell lifts.
    a.swapArt??=swapArtReady();
-   const p=t/duration,s=swapBellsAt(p,a.swapArt);
+   const p=t/duration*(a.finishSwapOnArrival?SWAP_BELLS.arrived:1),s=swapBellsAt(p,a.swapArt);
+   if(a.finishSwapOnArrival&&s.arrived)s.opacity=1;
    actor.pose=s.arrived?a.to:a.from;actor.extension=s.arrived?0:court.actionAt(p);victim.pose=s.arrived?a.partnerEnd:a.partner;
    actor.opacity=victim.opacity=s.opacity;
-   drawSwapFloor(ctx,p,a.from.foot,a.to.foot);
-   effects.push(()=>drawSwapBells(ctx,p,a.from.foot,a.to.foot,headroom));
+   if(!a.finishSwapOnArrival||!s.arrived){drawSwapFloor(ctx,p,a.from.foot,a.to.foot);
+    effects.push(()=>drawSwapBells(ctx,p,a.from.foot,a.to.foot,headroom));}
   }
   else if(a.type==='paladin'){
    const motion=chargeAt(t/duration),ground=mix(a.from.foot,a.to.foot,motion.travel);
@@ -910,18 +926,19 @@ function vortex(out,foot,phase,strength) {
  }
  // Resting pawns (lance/idle.mjs): any pawn that is not selected, moving, struck or aiming.
  pawnsAtRest=0;pawnsActing=0;
- if(lively.pawns&&!reducedMotion)for(const [sq,u] of poses){
+ if(lively.pawns&&!lively.ambient&&!reducedMotion)for(const [sq,u] of poses){
   if(typeOf(u.value)!==P||sq===selected||u.fx||u.extension||u.pose.angle||animation&&!animation.done&&animation.move.from===sq)continue;
   pawnsAtRest++;const rest=pawnIdle.idleAt(sq*2+colorOf(u.value)+1,time);
   if(rest){u.pose={...u.pose,rest};pawnsActing++;}
  }
+ if(lively.ambient)ambientIdles=idleClocks.update(time,new Map([...poses].filter(([sq,u])=>!u.fx&&!u.extension&&!u.pose.angle&&fallen?.sq!==sq).map(([sq,u])=>[sq,u.value])),sq=>bodyRuntime?.idleDuration(characterOf(position.board[sq]),armyOf(position.board[sq]))??0,lively.idle&&!reducedMotion&&!animation);
  if(bodyRuntime){
   if(selected!==null&&idleOut?.square!==selected)selectedAt??=time;
   for(const [sq,u] of poses){
    const actor=animation&&!animation.effect&&animation.move.from===sq,a=actor?animation:null;
    const at=a?.rewind?.kind==='move'?Math.max(a.start,Math.min(a.rewind.at,a.rewind.at-(time-a.rewind.start))):time,elapsed=a?(at-a.start)/a.speed:0,local=a?.drawingMovementStart?0:a?.drawingMovementEndpoint?a.actionDuration:elapsed-(a?.runtime?.beforeMs??0);
    const settling=!actor&&idleOut?.square===sq&&idleOut.value===u.value;
-   let body=settling?idleOut.exit((time-idleOut.start)/200)??bodyRuntime.rest(characterOf(u.value),armyOf(u.value)):a?.exitBody?(a.exitStart==null?a.exitBody:a.exit((time-a.exitStart)/200)):a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,a.runtime.ranged&&local<=a.actionDuration?heldClock(local,a.runtime.ranged.hold):local,a.actionDuration,a.contactTime,a.drawingTurnEndpoint?'turn-end':a.drawingMovementStart?'start':a.drawingMovementEndpoint?'end':undefined):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),time-(selectedAt??time),sq===selected&&!animation&&!reducedMotion&&(characterOf(u.value)!=='king-stratus'||idleReady));
+   let body=settling?idleOut.exit((time-idleOut.start)/200)??bodyRuntime.rest(characterOf(u.value),armyOf(u.value)):a?.exitBody?(a.exitStart==null?a.exitBody:a.exit((time-a.exitStart)/200)):a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,a.runtime.ranged&&local<=a.actionDuration?heldClock(local,a.runtime.ranged.hold):local,a.actionDuration,a.contactTime,a.drawingTurnEndpoint?'turn-end':a.drawingMovementStart?'start':a.drawingMovementEndpoint?'end':undefined):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),lively.ambient?(ambientIdles.get(sq)??0):time-(selectedAt??time),lively.ambient?ambientIdles.has(sq):sq===selected&&!animation&&!reducedMotion&&(characterOf(u.value)!=='king-stratus'||idleReady));
    if(settling&&body)idleOut.body=body;
    if(body){
     if(a?.runtime){
@@ -934,7 +951,7 @@ function vortex(out,foot,phase,strength) {
  }
  if(bodyRuntime&&animation?.rookFrom&&animation.rookLocal!=null&&poses.has(animation.move.castle.from)){const a=animation,body=bodyRuntime.action(a.rookRuntime,a.rookLocal,a.rookWalk);if(body)poses.get(a.move.castle.from).pose.bank=body;}
  // A figure at rest with no runtime frame yet: its still picture.
- if(characterRuntime)for(const [sq,u] of poses)if(!u.pose.bank&&!u.pose.clip&&!u.fx&&!u.extension&&!u.pose.angle&&!(animation&&!animation.effect&&animation.move.from===sq)){const still=stillBody(u.value);if(still)u.pose.still=still;}
+ if(characterRuntime)for(const [sq,u] of poses)if(!u.pose.bank&&!u.pose.clip&&!u.fx){const bare=sheetless(u.value);if(bare||!u.extension&&!u.pose.angle&&!(animation&&!animation.effect&&animation.move.from===sq)){const still=bare?stillImage(u.value)?.body:stillBody(u.value);if(still)u.pose.still=still;}}
  bodyFrames=[...poses].filter(([,u])=>u.pose.bank).map(([square,u])=>({square,bank:u.pose.bank.bank,sourceSha256:u.pose.bank.sourceSha256,sourceBankSha256:u.pose.bank.sourceBankSha256,opacity:u.opacity,struck:!!u.fx?.ranged,time:u.pose.bank.time,foot:{...u.pose.foot},pivot:[...u.pose.bank.pivot],scale:u.pose.bank.scale}));
  const ordered=[...poses].sort((a,b)=>a[1].pose.foot.y-b[1].pose.foot.y);
  if(animation&&!animation.effect){const i=ordered.findIndex(([sq])=>sq===animation.move.from);ordered.push(...ordered.splice(i,1));}
@@ -1029,6 +1046,7 @@ function drawEncounter(a,t) {
   if(labels)drawLabels();
   if(frames===1)requestAnimationFrame(()=>{
    if(disposed)return;
+   const loads=firstFrameLoads;firstFrameLoads=null;loads?.();
    if(!reducedMotion)loadClips();
    if(characterRuntime){
     const start=()=>{if(disposed||bodyRuntime)return;bodyRuntime=createCharacterRuntime({wake:()=>wake(),drawnEffects:['queen'],lateEffects:RANGED});void bodyRuntime.ready().then(()=>{if(!disposed)return warmBodies();}).then(()=>{bodyWarm=true;loadClips();});};
@@ -1037,7 +1055,7 @@ function drawEncounter(a,t) {
    }
   });
   if((a&&!a.done&&(!a.preparing||a.exitReady||a.rewind))||(wanted&&aimAngle!==wanted.angle)||(fallen&&fallMs(time)<DEMISE)||time<awakeUntil||poolsGliding||clipShown||idleOut)wake(false);
-  else{previousTime=0;if((idling()&&bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected])))||time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
+  else{previousTime=0;if(lively.ambient&&lively.idle&&!reducedMotion&&position.board.some(Boolean)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),ambientIdles.size?33:250);}else if((idling()&&bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected])))||time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
  }
  function idling(){return lively.idle&&!reducedMotion&&!animation&&selected!==null&&!!position.board[selected]&&fallen?.sq!==selected;}
  function drawLabels() {
@@ -1058,7 +1076,7 @@ function drawEncounter(a,t) {
   animation=null;
  }
  function reserveSelected(sq){
-  if(sq==null||reducedMotion||!bodyRuntime||!position.board[sq]||!LARGE_IDLE.has(characterOf(position.board[sq])))return;
+  if(lively.ambient||sq==null||reducedMotion||!bodyRuntime||!position.board[sq]||!LARGE_IDLE.has(characterOf(position.board[sq])))return;
   const value=position.board[sq],generation=++selectionGeneration;void bodyRuntime.reserveIdle(characterOf(value),armyOf(value)).then(ok=>{if(ok&&generation===selectionGeneration&&selected===sq&&position.board[sq]===value&&!disposed&&!reducedMotion){idleReady=true;wake();}});
  }
  function startPrepared(a,prepared,now){
@@ -1088,6 +1106,7 @@ function drawEncounter(a,t) {
    a.duration=a.actionDuration+prepared.beforeMs+prepared.afterMs;
   }
   if(a.rookFrom)planRook(a);
+  if(a.targetMs)a.speed=a.pace*a.targetMs/a.duration;
   a.preparing=false;a.start=now;
  }
  // Castling: the rook walks round the king on a curve toward the board's middle, so neither passes through the other.
@@ -1229,7 +1248,19 @@ function drawEncounter(a,t) {
   /** Board square under a point in canvas pixels, or null. */
   squareAt(x,y){y-=headroom;const col=Math.floor((x-PAD)/TILE),row=Math.floor((y-PAD)/TILE);if(col<0||col>7||row<0||row>7)return null;return flipped?row*8+(7-col):(7-row)*8+col;},
   // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
-  load(){afterBoard(()=>demise.prepare());const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{const start=()=>{ready=true;warmBodies();wake();},stills=warmStills();return stills?stills.then(start):start();}).finally(boardReady);},
+  load(){afterBoard(()=>demise.prepare());const board=new Promise((resolve,reject)=>{
+    // One cold-play budget covers both the response and decode; only the new surface opts in.
+    const timer=initialBoardArt?setTimeout(()=>finish(new Error('The board art takes too long.')),5000):null;
+    let settled=false;
+    const finish=error=>{if(settled)return;settled=true;clearTimeout(timer);boardArt.onload=boardArt.onerror=null;if(error&&initialBoardArt)reject(error);else resolve();};
+    boardArt.onload=()=>Promise.resolve().then(()=>boardArt.decode?.()).then(()=>finish(),finish);
+    boardArt.onerror=()=>finish(new Error('The board art cannot load.'));
+    boardArt.src=initialBoardArt??BOARD_ART;
+   }); /* decoded, so the first frame has the stone */
+   const sheets=()=>[...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))],start=()=>{if(disposed)return;ready=true;warmBodies();wake();};
+   // lazySheets: the first frame needs only the stone and the rest stills; the legacy sheets (3 MB) load after that frame.
+   if(late)return board.then(()=>warmStills()).then(start).finally(()=>{firstFrameLoads=()=>{boardReady();void Promise.all(sheets().map(sheet=>sheet.then(()=>wake()))).catch(()=>{});};});
+   return Promise.all([board,...sheets()]).then(()=>{const stills=warmStills();return stills?stills.then(start):start();}).finally(boardReady);},
   /** New position: ends any finished or running animation. */
   setPosition(next){const a=animation,m=a?.move;
    if(a?.done&&!a.rewind&&!a.effect&&!reducedMotion&&m.from!==m.to&&!m.captures.length&&!m.swap&&!m.shove&&!m.promo&&!m.selfRemove&&!m.power&&typeOf(a.value)===K&&kings[colorOf(a.value)]==='stratus'&&next.board[m.from]===0&&next.board[m.to]===a.value)landed={animation:a,source:position,post:next,sourceEntry:kingSince.get(m.from)};
@@ -1246,7 +1277,7 @@ function drawEncounter(a,t) {
    selectionGeneration++;
    const ownIdle=sq!==null&&sq!==idleOut?.square&&!!position.board[sq]&&LARGE_IDLE.has(characterOf(position.board[sq]));
    if(ownIdle){pendingIdle=null;idleOut=null;bodyRuntime?.releaseIdle();}
-   else if(idleReady&&lastSelectedBody?.square===selected)pendingIdle=lastSelectedBody;
+   else if(!lively.ambient&&idleReady&&lastSelectedBody?.square===selected)pendingIdle=lastSelectedBody;
    else {pendingIdle=null;if(!idleOut)bodyRuntime?.releaseIdle();}
    idleReady=false;lastSelectedBody=null;selected=sq;selectedAt=null;
    reserveSelected(sq);
@@ -1258,7 +1289,7 @@ function drawEncounter(a,t) {
   // (The footprints are kept: no sprite depends on the side shown.)
   setFlipped(on){if(on!==flipped)landed=null;flipped=on;idle.clear();wake();},
   /** [white, black] king designs ('frost' … 'shadow'): each side's king figure. */
-  setKings(next){if(next[0]===kings[0]&&next[1]===kings[1])return;if(landed&&next[colorOf(landed.animation.value)]!==kings[colorOf(landed.animation.value)])landed=null;if(animation?.exitBody||animation?.rewind&&next[colorOf(animation.value)]!==kings[colorOf(animation.value)])endMove();const value=selected!==null?position.board[selected]:null,selectedDesign=value?characterOf(value):null,keepIdle=!animation&&idleReady&&LARGE_IDLE.has(selectedDesign)&&next[colorOf(value)]===kings[colorOf(value)];if(!keepIdle){selectionGeneration++;pendingIdle=null;idleOut=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}kings=[...next];if(selectedDesign&&selectedDesign!==characterOf(value))selectedAt=null;for(const design of kings){kingImage(design).loaded.catch(()=>{});if(lively.kings)afterBoard(()=>kingFx.has(design));}if(!keepIdle)reserveSelected(selected);wake();},
+  setKings(next){if(next[0]===kings[0]&&next[1]===kings[1])return;if(landed&&next[colorOf(landed.animation.value)]!==kings[colorOf(landed.animation.value)])landed=null;if(animation?.exitBody||animation?.rewind&&next[colorOf(animation.value)]!==kings[colorOf(animation.value)])endMove();const value=selected!==null?position.board[selected]:null,selectedDesign=value?characterOf(value):null,keepIdle=!animation&&idleReady&&LARGE_IDLE.has(selectedDesign)&&next[colorOf(value)]===kings[colorOf(value)];if(!keepIdle){selectionGeneration++;pendingIdle=null;idleOut=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}kings=[...next];if(selectedDesign&&selectedDesign!==characterOf(value))selectedAt=null;for(const design of kings){const sheet=()=>kingImage(design).loaded.catch(()=>{});if(late)afterBoard(sheet);else sheet();if(lively.kings)afterBoard(()=>kingFx.has(design));}if(!keepIdle)reserveSelected(selected);wake();},
   get kings(){return [...kings];},
   /** Restart the visible ground loops together for the effects workshop. */
   restartKingGround(){landed=null;const since=performance.now();for(const entry of kingSince.values()){entry.since=since;entry.offset=0;delete entry.resume;delete entry.lastG;}wake();},
@@ -1274,7 +1305,7 @@ function drawEncounter(a,t) {
   /** size: letter height in board units (default 13); a small board on a phone needs more. */
   setCoords(on,size=13,inset=14){coords=on;coordSize=size;coordInset=inset;wake();},
   setLabels(on){labels=on;wake();},
-  setReducedMotion(on){const was=reducedMotion;reducedMotion=on;if(on){landed=null;selectionGeneration++;pendingIdle=null;idleOut=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}if(on&&(animation?.runtime||animation?.preparing||animation?.rewind||animation?.value&&typeOf(animation.value)===K&&animation.move.captures.length))endMove();if(on)awakeUntil=0;else if(was){loadClips();reserveSelected(selected);}wake();},
+  setReducedMotion(on){const was=reducedMotion;reducedMotion=on;if(on){ambientIdles.clear();idleClocks.update(0,new Map(),()=>0,false);landed=null;selectionGeneration++;pendingIdle=null;idleOut=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}if(on&&(animation?.runtime||animation?.preparing||animation?.rewind||animation?.value&&typeOf(animation.value)===K&&animation.move.captures.length))endMove();if(on)awakeUntil=0;else if(was){loadClips();reserveSelected(selected);}wake();},
   /** Lay the king on `sq` down (null: nobody); animate=false shows it already fallen. speed: as in play (.5 is twice as fast). */
   setFallen(sq,animate=true,rotation=-1.5,speed=1){
    const value=sq==null?0:position.board[sq];
@@ -1295,6 +1326,7 @@ function drawEncounter(a,t) {
   /** The clip drawing the last frame showed ({name, frame}), or null (for checks). */
   get clip(){return clipShown&&{...clipShown};},
   /** Resting pawns in the last frame, and how many of them were acting (for checks). */
+  get idles(){return [...ambientIdles.keys()];},
   get pawns(){return {resting:pawnsAtRest,acting:pawnsActing};},
   /** Frames drawn so far (for checks). */
   get frames(){return frames;},
@@ -1308,14 +1340,18 @@ function drawEncounter(a,t) {
   get characterEffects(){return effectFrames;},
   setDecorate(fn){decorate=fn;wake();},
   redraw(){wake();},
+  /** Swap the board texture; square geometry does not change. A decode failure keeps the old art and rejects. */
+  async setBoardArt(url){const next=pageImage();next.src=url;await next.decode();boardArt=next;floorMap=null;framePattern=null;wake();},
   /** Draw every frame for the next `ms` (a decoration's own short animation, such as markers appearing). */
   keepAwake(ms){awakeUntil=Math.max(awakeUntil,performance.now()+ms);wake();},
+  /** The figures on `delays` (square: ms) rise `rise` units into place in `ms` each; an empty map or reduced motion ends it. */
+  arrive(delays,ms=380,rise=24){arrival=delays.size&&!reducedMotion?{start:performance.now(),delays,ms,rise,end:Math.max(...delays.values())+ms}:null;if(arrival)awakeUntil=Math.max(awakeUntil,performance.now()+arrival.end+40);wake();},
   /** A see-through copy of a figure standing on `square` (a move preview); for setDecorate. */
   /** Board-unit bounds {x,foot,top,l,r} of figure `value` standing at rest on `square`; from its height while its frames load. */
   figureBox(value,square){const pose=poseFor(value,square);pose.bank=bodyRuntime?.rest(characterOf(value),armyOf(value))??null;const h=figureHeight(characterOf(value)),{x,y}=pose.foot;return bankShape(pose,typeOf(value))??{x,foot:y,top:y-h,l:x-h*.4,r:x+h*.4};},
   ghost(out,value,square,opacity=.4){if(ready&&value){const pose=poseFor(value,square);pose.bank=bodyRuntime?.rest(characterOf(value),armyOf(value));if(!pose.bank)pose.still=stillBody(value);drawPiece(out,value,pose,opacity);}},
   /** Animate a move on the current position. Resolves true at the final frame, false if cancelled. */
-  play(move,{speed=1,onContact=null,gait=null,effect=null}={}){
+  play(move,{speed=1,onContact=null,gait=null,effect=null,targetMs,finishSwapOnArrival=false}={}){
    if(disposed)return Promise.resolve(false);
    landed=null;lifted=null;
    if(animation)cancelAnimation(animation);
@@ -1325,7 +1361,10 @@ function drawEncounter(a,t) {
     // A first manifest load still in transfer (manifestPending) is waited for inside the prepare limit: a late manifest
     // no longer slides the still picture at once. A retry after a failed load is not waited for.
     const available=!effect&&!!bodyRuntime&&(bodyRuntime.has(characterOf(base.value),armyOf(base.value))||bodyRuntime.stats.manifestPending);
-    const a=animation={...base,resolve,onContact,bodyUnavailable:!!bodyRuntime&&!available};onStatus(verb);
+    if(finishSwapOnArrival&&base.type==='swap'){base.finishSwapOnArrival=true;base.duration*=SWAP_BELLS.arrived;if(targetMs)targetMs*=SWAP_BELLS.arrived;}
+    const a=animation={...base,resolve,onContact,bodyUnavailable:!!bodyRuntime&&!available,targetMs,pace:speed};
+    if(targetMs)a.speed=speed*targetMs/a.duration;
+    onStatus(verb);
     if(idleOut){if(idleOut.square===move.from)pendingIdle=idleOut;idleOut=null;}
     const lastPose=pendingIdle?.pose;
     if(pendingIdle&&pendingIdle.square===move.from&&pendingIdle.value===base.value&&!move.shove&&!move.swap&&!effect&&!reducedMotion&&fallen?.sq!==move.from&&lastPose.foot.x===base.from.foot.x&&lastPose.foot.y===base.from.foot.y&&lastPose.scale===base.from.scale&&!(lastPose.rotation??0)&&(lastPose.sx??1)===1&&(lastPose.sy??1)===1){

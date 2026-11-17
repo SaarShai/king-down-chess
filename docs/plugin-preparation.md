@@ -1,7 +1,5 @@
 # King Down private plugin setup
 
-> **Parked (2026-10-28).** The build leaves out the ChatGPT plugin: see [Parked: the ChatGPT plugin](HOSTING.md#parked-the-chatgpt-plugin). The source and its checks stay. `npm run plugin:build` makes a parked server; the named plugin checks build their own tree with the plugin in.
-
 The private plugin shares the website's engine and painted board, with a Node worker per operation and PostgreSQL as match authority. Players can play the computer, create a friend invitation, join as Black, and resume their latest game. Moves go directly through MCP Apps without a model turn. The private service is live. Test accounts pass a full computer game, two-player moves, seat isolation, automatic updates, host disconnect/reconnect and normal selected-game reopening in ChatGPT. Consent denial and controlled live lost-result retry also pass. The provider revocation fix is released; the second connection recovers and opens its saved game. A fresh-token live revoke cycle and immediate full-page reload also pass. The owner confirms layout, selected-game reopening, repaired destination taps and Computer move in the iPhone ChatGPT app. [The live acceptance ticket](specs/match-foundation/issues/06-live-acceptance.md) records the completed private test scope.
 
 ## Local checks
@@ -29,7 +27,7 @@ npm run check:browser plugin-oauth plugin-ui plugin-ui-http
 
 The OAuth check needs Playwright Chromium (`npx playwright install chromium` if missing). It exercises the compiled consent page with the actual Supabase SDK against a local provider mock: social sign-in with PKCE, the return to the original authorization request, approval, denial, unapproved clients and escaped client names. It also executes the audience hook in PostgreSQL inside a rolled-back transaction, including ordinary website, anonymous, service-role, spoofed-metadata and refresh cases. This verifies our integration contract; the actual provider remains a separate check.
 
-The [validation workflow](../.github/workflows/plugin-checks.yml) supplies PostgreSQL and runs unit, HTTP and browser checks (the OAuth check runs by name only since the plugin was parked), including a browser connected to the compiled server and database. It publishes nothing. The existing manual website publishing workflow is unchanged. A workflow file prepared locally is not evidence that hosted CI has run.
+The [validation workflow](../.github/workflows/plugin-checks.yml) supplies PostgreSQL and runs unit, HTTP and browser checks, including a browser connected to the compiled server and database. It publishes nothing. The existing manual website publishing workflow is unchanged. A workflow file prepared locally is not evidence that hosted CI has run.
 
 ## Play the local board
 

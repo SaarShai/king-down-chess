@@ -66,13 +66,13 @@ export class PostgresMatchStore {
    to_char(i.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_at,
    case when i.created_by=$1 then 'outgoing' else 'incoming' end as direction,
    case when (i.state='open' or i.state='cancelled' and g.end_reason='no_start') and i.expires_at<=statement_timestamp() then 'expired' else i.state end as state,
-   i.expires_at,g.options,p.id as user_id,p.handle,p.icon from public.game_invites i join public.games g on g.id=i.game_id
+   i.expires_at,g.options,p.id as user_id,p.handle,p.icon,kingdown_jobs.user_avatar($1,p.id) as avatar from public.game_invites i join public.games g on g.id=i.game_id
    left join public.profiles p on p.id=case when i.created_by=$1 then i.recipient_id else i.created_by end
    where (i.created_by=$1 or i.recipient_id=$1 and ${unblocked('i.created_by', '$1')})
    and ($2::timestamptz is null or (i.created_at,i.token_hash)<($2::timestamptz,$3::text))
    order by i.created_at desc,i.token_hash desc limit $4`, [actor, before?.[0] ?? null, before?.[1] ?? null, limit + 1])).rows;
-  return { invitations: rows.slice(0, limit).map(({ created_at: _at, cursor_at: _cursor, user_id, handle, icon, ...row }) => ({ ...row,
-   player: user_id ? { user_id, handle, icon } : null, expires_at: row.expires_at.toISOString() })),
+  return { invitations: rows.slice(0, limit).map(({ created_at: _at, cursor_at: _cursor, user_id, handle, icon, avatar, ...row }) => ({ ...row,
+   player: user_id ? { user_id, handle, icon, avatar: avatar ?? null } : null, expires_at: row.expires_at.toISOString() })),
    next_before: rows.length > limit ? `${rows[limit-1].cursor_at}|${rows[limit-1].invite_id}` : null };
  }
  async friends(actor: string, after?: string, limit = 20, handle?: string): Promise<FriendsPage> {
@@ -184,12 +184,12 @@ export class PostgresMatchStore {
     nullif(split_part(g.snapshot->>'fen',' ',6),'')::int as move,
     case when g.kind='friend' and g.status='waiting' then (select token_hash from public.game_invites where game_id=g.id) end as invite_id,
     case when g.status='waiting' then case when g.kind='random' then g.created_at+interval '24 hours' else (select expires_at from public.game_invites where game_id=g.id) end end as open_until,
-    op.user_id as op_user,op.computer as op_computer,case when ${online('$1', 'op.user_id', 'pr.online_visible_to')} then (extract(epoch from statement_timestamp()-op.last_seen_at)*1000)::double precision end as op_seen,pr.handle as op_handle,pr.icon as op_icon
+    op.user_id as op_user,op.computer as op_computer,case when ${online('$1', 'op.user_id', 'pr.online_visible_to')} then (extract(epoch from statement_timestamp()-op.last_seen_at)*1000)::double precision end as op_seen,pr.handle as op_handle,pr.icon as op_icon,kingdown_jobs.user_avatar($1,op.user_id) as op_avatar
    from public.game_players me join public.games g on g.id=me.game_id
    join public.game_players op on op.game_id=me.game_id and op.seat<>me.seat left join public.profiles pr on pr.id=op.user_id
    where me.user_id=$1 and me.active order by me.action='ready' desc,g.deadline_at asc nulls last,g.updated_at desc limit 100`, [actor]);
-  return result.rows.map(({ op_user, op_computer, op_seen, op_handle, op_icon, ...r }) => ({ ...r, created_at: r.created_at.toISOString(), open_until: r.open_until?.toISOString() ?? null, deadline_at: r.deadline_at?.toISOString() ?? null, updated_at: r.updated_at.toISOString(),
-   opponent: r.status === 'waiting' && !op_user ? null : { handle: op_handle ?? null, icon: op_icon ?? null, computer: op_computer, deleted: !op_user && !op_computer, last_seen_ms: op_seen } }));
+  return result.rows.map(({ op_user, op_computer, op_seen, op_handle, op_icon, op_avatar, ...r }) => ({ ...r, created_at: r.created_at.toISOString(), open_until: r.open_until?.toISOString() ?? null, deadline_at: r.deadline_at?.toISOString() ?? null, updated_at: r.updated_at.toISOString(),
+   opponent: r.status === 'waiting' && !op_user ? null : { handle: op_handle ?? null, icon: op_icon ?? null, avatar: op_avatar ?? null, computer: op_computer, deleted: !op_user && !op_computer, last_seen_ms: op_seen } }));
  }
  /** Open random games, oldest first. `switches` (JSON) keeps only games whose options contain those values. */
  async lobby(actor: string, { client = this.pool as Client, lock = false, switches, ratingPolicy }: { client?: Client; lock?: boolean; switches?: string; ratingPolicy?: RatingPolicy } = {}): Promise<LobbyEntry[]> {
@@ -206,10 +206,14 @@ export class PostgresMatchStore {
   return (await this.pool.query("select count(distinct user_id)::int as n from public.game_players where user_id is not null and last_seen_at>=now()-interval '10 minutes'")).rows[0].n;
  }
  /** What `viewer` sees of `other`: their presets (no block, and the viewer's quiet mode is off) and when they were last seen. */
- async privacy(client: Client, viewer: string, other: string): Promise<{ presets: boolean; online: boolean; unblocked: boolean }> {
+ async privacy(client: Client, viewer: string, other: string): Promise<{ presets: boolean; online: boolean; unblocked: boolean; avatar?: string | null }> {
   const result = await client.query(`select ${unblocked('$1', '$2')} as unblocked, ${unblocked('$1', '$2')} and not (select quiet_mode from public.profiles where id=$1) as presets,
-   coalesce((select ${online('$1', '$2', 'online_visible_to')} from public.profiles where id=$2), false) as online`, [viewer, other]);
+   coalesce((select ${online('$1', '$2', 'online_visible_to')} from public.profiles where id=$2), false) as online,
+   kingdown_jobs.user_avatar($1, $2) as avatar`, [viewer, other]);
   return result.rows[0];
+ }
+ async avatar(client: Client, viewer: string, subject: string): Promise<string | null> {
+  return (await client.query('select kingdown_jobs.user_avatar($1,$2) as url', [viewer, subject])).rows[0]?.url ?? null;
  }
  /** Games past their deadline, expired invitations, friends with no code after 7 days and random games after 24 hours. */
  async due(now: Date, limit = 100): Promise<string[]> {

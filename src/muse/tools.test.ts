@@ -54,7 +54,7 @@ describe('Muse tools', () => {
     expect(played.data.computer).toHaveLength(1);
     expect(played.text).toMatch(/^You: White pawn e2 to e4\. Computer: Black .+ Your move\./);
     expect(words(played.text)).toBeLessThan(30);
-    expect(toolTry).toHaveBeenCalledWith('alice', 'kingdown_move');
+    expect(toolTry).toHaveBeenCalledWith('alice', 'kingdown_computer');
 
     const view = await call('kingdown_view');
     expect(view.data).toMatchObject({ found: true, game_id: made.data.game_id, revision: played.data.revision, fen: played.data.fen, last_move: `Computer: ${played.data.computer[0]}` });

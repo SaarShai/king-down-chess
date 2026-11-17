@@ -228,12 +228,12 @@ it('drops a private draft before saving a newly selected board ownership scope',
 
 it('keeps browser drafts scoped to the signed-in account when its board binding changes', () => {
   let saved: any;
-  const client = createClient({ callServerTool: async () => ({ content: [] }) }, { accountId: 'signed-in-account', savePage: state => { saved = structuredClone(state); } });
+  const client = createClient({ callServerTool: async () => ({ content: [] }) }, { accountId: 'signed-in-account', savePage: state => { saved = structuredClone(state); return false; } });
   client.state.board_id = 'old-board';
   const draft = { game_tag: 'aabbccdd', fen: 'f', lans: ['a2-a4'], scope: { account: 'signed-in-account', game: 'aabbccdd-1122-4455-8899-aabbccddeeff', revision: 7, rules: '{}', engine: 'engine-a' } };
   client.state.draft = draft;
   client.state.board_id = 'new-board';
-  client.save();
+  expect(client.save()).toBe(false);
   expect(saved.draft).toEqual(draft);
 });
 

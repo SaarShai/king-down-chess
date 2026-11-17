@@ -32,8 +32,10 @@ const PROBES = `select id,actor_id,match_id,game_selected,created_at from public
 // A missing table, column, function or schema, or a missing grant.
 const SCHEMA = ['42P01', '42703', '42883', '3F000', '42501'];
 const required = message => Object.assign(new Error(message), { code: 'SCHEMA_REQUIRED' });
-/** Check the runtime role against the required schema before accepting requests. */
-export async function checkPluginDatabase(pool, config, resource) {
+/** Check the runtime role against the required schema before accepting requests. With `config`, each listed OAuth
+ *  client must map to one of the served `resources` (kingdown_oauth.client_resources has one row per client); the result
+ *  is those rows, so that each connector accepts only its own clients. */
+export async function checkPluginDatabase(pool, config, resources = []) {
   let probes;
   try { probes = await pool.query(PROBES); }
   catch (error) { if (SCHEMA.includes(error?.code)) throw required('Apply migrations 0005-0015, then plugin-deploy/runtime-role.sql, before starting the server'); throw error; }
@@ -42,7 +44,9 @@ export async function checkPluginDatabase(pool, config, resource) {
   const constraint = await pool.query("select confdeltype,confrelid=to_regclass('public.games') as games from pg_constraint where conrelid='public.plugin_boards'::regclass and conname='plugin_boards_match_id_fkey'");
   if (constraint.rows[0]?.confdeltype !== 'n' || !constraint.rows[0].games) throw required('Apply plugin migrations 0004 and 0006 before starting the server');
   if (config) {
-    const allowed = await pool.query('select client_id::text from kingdown_oauth.client_resources where client_id=any($1::uuid[]) and resource=$2', [config.clientIds, resource]);
-    if (allowed.rows.length !== config.clientIds.length) throw Object.assign(new Error('Configure the OAuth audience hook allowlist for this resource'), {code:'CONFIG_REQUIRED'});
+    const allowed = await pool.query('select client_id::text,resource from kingdown_oauth.client_resources where client_id=any($1::uuid[]) and resource=any($2::text[])', [config.clientIds, resources]);
+    if (allowed.rows.length !== config.clientIds.length) throw Object.assign(new Error('Configure the OAuth audience hook allowlist: each listed client needs the resource of a served connector'), {code:'CONFIG_REQUIRED'});
+    return allowed.rows;
   }
+  return [];
 }

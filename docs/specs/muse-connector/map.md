@@ -28,6 +28,7 @@ King Down as a Meta Muse connector that Meta can review: a user links a kingdown
 - [Choose the tools and their classes](issues/07-tools.md): six tools, three reads and three writes; derived command IDs make writes safe to retry.
 - [Choose how the board shows without a widget](issues/08-board-text.md): a spoken status line, piece lists, a letter grid and a link; no picture or widget in version 1.
 - [Build the connector foundation](issues/09-foundation.md): `src/muse/`, the server wiring behind `MUSE_CONNECTOR`, migration 0023, `npm run muse:dev`.
+- [Delete the Muse games on a disconnect](issues/19-disconnect-deletion.md): Settings → Disconnect Muse revokes the grant and deletes the games started in Muse at once; a daily sweep deletes them when Muse has not used the link for 30 days, also for a user who is still connected (owner, 2026-11-12).
 
 ## Not yet specified
 

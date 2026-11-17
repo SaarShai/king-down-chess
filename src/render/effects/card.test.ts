@@ -163,6 +163,20 @@ describe('released card playback uses real engine frames', () => {
     expect(effect.position(release * 1.01).marks?.[0]).toBeUndefined();
     expect(effect.position(1).marks?.[0]?.sq).toBe(36);
   });
+
+  it('keeps the other side\'s freeze that the card ends until the card ends, so it thaws once', () => {
+    // markFree off: each Freeze ends its side's turn, so Black's Freeze is the move that ends White's freeze.
+    const context = new GameRules({ ...POWERS_BALANCED, markFree: false, kings: [{ king: 'Frost', power: 'Freeze' }, { king: 'Frost', power: 'Freeze' }] });
+    const start = context.fromFen('7k/7p/n7/8/8/8/7P/K6N w - - 0 1');
+    const freeze = (pos: pieces.Position, sq?: number) => context.legalMoves(pos).find(m => m.power === 'freeze' && (sq == null || m.to === sq))!;
+    const a6 = 40, frozen = context.makeMove(start, freeze(start, a6));
+    expect(frozen.turn).toBe(1);
+    expect(frozen.marks?.[0]?.sq).toBe(a6);
+    const card = cardPlayback(context, frozen, freeze(frozen))!;
+    expect(card.after.marks?.[0]).toBeUndefined(); // the reply ends White's freeze
+    // White's mark stays on the last card frames; the live board then thaws it once.
+    for (const t of [.62, .8, .99, 1]) expect(card.position(t).marks?.[0]).toEqual(frozen.marks![0]);
+  });
 });
 
 describe('production PaintedView card invocation and scene lifecycle', () => {

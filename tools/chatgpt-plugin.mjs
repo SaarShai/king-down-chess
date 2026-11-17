@@ -1,10 +1,11 @@
-/** The one switch for the ChatGPT plugin surface (owner, 2026-10-28: "park all of these outside the build").
- * While it is false, the built server and the Vercel tree leave out /mcp, the OAuth metadata under /.well-known,
- * /authorize, /consent.mjs, the board widget (board.html) and its /plugin-art/ files: each answers 404. The website,
- * /play/, /g/<id>, /j, /api/* and /internal/* do not change. All plugin source stays in the repository; the checks
- * that test it build their own artifact with `chatgpt: true`. Set it to true to bring the plugin back
- * (docs/HOSTING.md, "Parked: the ChatGPT plugin"). */
-export const CHATGPT_PLUGIN = false;
+/** The one switch for the ChatGPT plugin surface: /mcp, the OAuth metadata under /.well-known, /authorize,
+ * /consent.mjs, the board widget (board.html) and its /plugin-art/ files (docs/HOSTING.md, "The ChatGPT plugin").
+ * It is on for the production build and off for a staging build, which serves only the Muse connector. It does not
+ * follow the Muse switch (tools/muse-connector.mjs): one build can serve both connectors. While it is false, each of
+ * those paths answers 404, except the consent page when Muse is on; the website, /play/, /g/<id>, /j, /api/* and
+ * /internal/* do not change. */
+export const CHATGPT_PLUGIN = globalThis.process?.env?.KINGDOWN_STAGE !== 'staging';
 
-/** The paths that the parked surface answered. Each must answer 404 while CHATGPT_PLUGIN is false. */
+/** The paths of the plugin surface. Each must answer 404 while CHATGPT_PLUGIN is false, except the consent page
+ *  (/authorize, /consent.mjs) while the Muse connector is on. */
 export const PARKED_PATHS = ['/mcp', '/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/authorize', '/consent.mjs', '/.well-known/openai-apps-challenge'];

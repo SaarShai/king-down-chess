@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.setConfig({ testTimeout: 60_000 }); // each case runs a real script or hook in a child process; under load one takes more than vitest's 5 s
 import { tempRepo } from './lib/temp-repo.mjs';
 import { PARKED_PATHS } from './chatgpt-plugin.mjs';
+import { MUSE_PATHS } from './muse-connector.mjs';
 
 const script = fileURLToPath(new URL('./deploy.sh', import.meta.url));
 const liveCheck = fileURLToPath(new URL('./deploy-live-check.mjs', import.meta.url));
@@ -59,6 +60,7 @@ function setup() {
   cpSync(keepAssets, join(repo.dir, 'tools', 'deploy-keep-assets.mjs'));
   cpSync(pluginLiveCheck, join(repo.dir, 'tools', 'deploy-plugin-live-check.mjs'));
   cpSync(pluginSwitch, join(repo.dir, 'tools', 'chatgpt-plugin.mjs'));
+  cpSync(fileURLToPath(new URL('./muse-connector.mjs', import.meta.url)), join(repo.dir, 'tools', 'muse-connector.mjs'));
   repo.write('vercel.json', readFileSync(fileURLToPath(new URL('../vercel.json', import.meta.url)), 'utf8'));
   repo.write('app.txt', 'one\n');
   repo.git('add', '.');
@@ -359,7 +361,7 @@ describe('deploy.sh', () => {
     expect(calls()).toHaveLength(before);
   });
 
-  it('configures the combined project through private stdin and refuses mail or invalid server keys', () => {
+  it('configures the combined project through private stdin and refuses one mail key alone or invalid server keys', () => {
     const { repo, deploy, calls } = setup();
     const values = {
       KINGDOWN_PLUGIN_ORIGIN: 'https://kingdown.dev', SUPABASE_URL: 'https://utqzovjmclfyojedmwok.supabase.co',
@@ -378,7 +380,7 @@ describe('deploy.sh', () => {
     expect(calls().some(line => line.startsWith('npm ') || line.includes(' deploy '))).toBe(false);
     expect(result.stdout + result.stderr + calls().join('\n')).not.toMatch(/fake-site-password|fake-internal-secret/);
     const before = calls().length;
-    for (const data of [valid + '\nRESEND_API_KEY=forbidden', valid + '\nKINGDOWN_MAIL_FROM=forbidden', valid + '\nKINGDOWN_ENGINES_DATABASE_URL=forbidden', valid + '\nPLUGIN_TEST_DATABASE_URL=forbidden', valid.replace('https://kingdown.dev', 'https://wrong.example'), valid.replace(values.KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS, 'a6478e14-9e9a-43a7-a4b7-b888aed30791'), valid.replace(values.KINGDOWN_INTERNAL_SECRET, 'short'), valid.replace('kingdown_plugin_runtime.', 'postgres.'), valid.replace('?sslmode=require', ''), valid.replace(values.KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS, 'invalid'), valid.replace('KINGDOWN_INTERNAL_SECRET=', 'UNEXPECTED=')]) {
+    for (const data of [valid + '\nRESEND_API_KEY=re_alone', valid + '\nKINGDOWN_MAIL_FROM=King Down <hello@kingdown.dev>', valid + '\nKINGDOWN_ENGINES_DATABASE_URL=forbidden', valid + '\nPLUGIN_TEST_DATABASE_URL=forbidden', valid.replace('https://kingdown.dev', 'https://wrong.example'), valid.replace(values.KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS, 'a6478e14-9e9a-43a7-a4b7-b888aed30791'), valid.replace(values.KINGDOWN_INTERNAL_SECRET, 'short'), valid.replace('kingdown_plugin_runtime.', 'postgres.'), valid.replace('?sslmode=require', ''), valid.replace(values.KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS, 'invalid'), valid.replace('KINGDOWN_INTERNAL_SECRET=', 'UNEXPECTED=')]) {
       writeFileSync(file, data);
       const invalid = deploy(['--configure', file], { STUB_ENV_DIR: inputDir });
       expect(invalid.status).not.toBe(0); expect(calls()).toHaveLength(before);
@@ -491,6 +493,8 @@ describe('deploy.sh', () => {
       'npm run build:vercel',
       'npm run check:vercel',
       'node tools/check.mjs web-online',
+      'npm run plugin:check:protocol',
+      'node tools/check.mjs plugin-ui plugin-ui-http',
     ]);
     expect(result.stdout).not.toMatch(/skipped npm test/);
   });
@@ -510,7 +514,7 @@ describe('deploy.sh', () => {
       'npm run build:vercel',
       'npm run check:vercel',
     ]);
-    expect(result.stdout).toMatch(/CI passed at [0-9a-f]{40}; skipped npm test, the browser checks that CI ran and the web journey/);
+    expect(result.stdout).toMatch(/CI passed at [0-9a-f]{40}; skipped npm test, the browser checks that CI ran, the web journey and the plugin checks/);
   });
 
   it('with CI passed on a commit whose workflow has no such step, keeps the browser checks', () => {
@@ -526,7 +530,7 @@ describe('deploy.sh', () => {
       'npm run build:vercel',
       'npm run check:vercel',
     ]);
-    expect(result.stdout).toMatch(/CI passed at [0-9a-f]{40}; skipped npm test and the web journey/);
+    expect(result.stdout).toMatch(/CI passed at [0-9a-f]{40}; skipped npm test, the web journey and the plugin checks/);
   });
 
   it('runs the plugin target without the CI check', () => {
@@ -698,7 +702,7 @@ async function site(files: () => Record<string, string>, challengeReply: { statu
     if (challengeReply.drop && path === challengeReply.path) { challengeReply.drop--; req.socket.destroy(); return; }
     if (req.headers.cookie !== undefined) { res.writeHead(400).end('cookie sent'); return; }
     if (challengeReply.delayMs && (!challengeReply.path || path === challengeReply.path)) await new Promise(done => setTimeout(done, challengeReply.delayMs));
-    const body = files()[path === '/' ? 'index.html' : path.slice(1)];
+    const body = files()[path === '/' ? (files()['solo-launch.json'] ? 'next.html' : 'index.html') : path.slice(1)];
     if (path === (challengeReply.path ?? '/.well-known/openai-apps-challenge')) {
       const api = apiPaths.includes(path);
       const type = challengeReply.type === undefined ? (api ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8') : challengeReply.type;
@@ -1176,6 +1180,10 @@ async function pluginSite(fault = '', files?: Record<string, string> | (() => Re
     if (file !== undefined) { res.setHeader('content-type', contentType(path)); res.end(file); }
     // parked: the live site without the ChatGPT plugin (tools/chatgpt-plugin.mjs) answers 404 for each plugin path.
     else if (fault === 'parked') { if (!(served && siteRoute(req, res, path, served, 'closed'))) res.writeHead(404).end(); }
+    // muse and both: the Muse connector serves its resource; muse parks each ChatGPT path but the consent page.
+    else if (['muse', 'both'].includes(fault) && path === '/.well-known/oauth-protected-resource/muse/mcp') res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ resource: `${url}/muse/mcp`, authorization_servers: ['https://utqzovjmclfyojedmwok.supabase.co/auth/v1'], scopes_supported: ['openid'] }));
+    else if (['muse', 'both'].includes(fault) && path === '/muse/mcp') res.writeHead(401, { 'www-authenticate': `Bearer resource_metadata="${url}/.well-known/oauth-protected-resource/muse/mcp", scope="openid"` }).end('{}');
+    else if (fault === 'muse' && (/^\/(mcp|plugin-art\/|\.well-known\/)/.test(path))) res.writeHead(404).end();
     else if (path === '/.well-known/oauth-protected-resource/mcp' || path === '/.well-known/oauth-protected-resource') {
       if (fault === 'metadata-root' && path === '/.well-known/oauth-protected-resource') { res.writeHead(404).end(); return; }
       res.setHeader('content-type', 'application/json');
@@ -1212,7 +1220,41 @@ function pluginFolder() {
 
 describe('deploy-plugin-live-check.mjs', () => {
   const parkedFolder = () => { const folder = join(buildFolder({}), 'functions/mcp.func'); mkdirSync(folder, { recursive: true }); return folder; };
-  const parkedRequests = [...PARKED_PATHS, '/plugin-art/deploy-check-0000.webp'].flatMap(path => [`GET ${path}`, `POST ${path}`]).sort();
+  const parkedRequests = [...PARKED_PATHS, ...MUSE_PATHS, '/plugin-art/deploy-check-0000.webp'].flatMap(path => [`GET ${path}`, `POST ${path}`]).sort();
+  // A ChatGPT build checks that the Muse paths answer 404 to GET and POST.
+  const museParked = MUSE_PATHS.flatMap(path => [path, path]);
+  const authorizePath = '/authorize?authorization_id=deploy-check%2Bquery&state=keep%20me';
+  /** A tree with the Muse route; `chatgpt` adds the board widget and the ChatGPT art. */
+  const museFolder = (chatgpt: boolean) => {
+    const folder = chatgpt ? pluginFolder() : join(buildFolder({}), 'functions/mcp.func');
+    mkdirSync(folder, { recursive: true }); writeFileSync(join(folder, 'consent.mjs'), 'consent-v1');
+    if (chatgpt) writeFileSync(join(folder, 'board.html'), 'board');
+    const configFile = join(folder, '../../config.json'), routes = chatgpt ? JSON.parse(readFileSync(configFile, 'utf8')).routes : [];
+    writeFileSync(configFile, JSON.stringify({ version: 3, routes: [...routes, ...MUSE_PATHS.map(path => ({ src: `^${path.replace(/[.]/g, '\\.')}$`, dest: '/mcp' }))] }));
+    return folder;
+  };
+
+  it('checks a Muse build: its metadata, its challenge and the consent page; each ChatGPT path answers 404', async () => {
+    const live = await pluginSite('muse');
+    const result = await runAsync(process.execPath, [pluginLiveCheck, museFolder(false), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '1500' } });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain('Muse connector: metadata and unsigned challenge');
+    const parked = [...PARKED_PATHS.filter(path => !['/authorize', '/consent.mjs'].includes(path)), '/plugin-art/deploy-check-0000.webp'].flatMap(path => [path, path]);
+    expect(live.requests.map(request => request.path).sort()).toEqual(['/.well-known/oauth-protected-resource/muse/mcp', '/muse/mcp', authorizePath, '/consent.mjs', ...parked].sort());
+    expect(live.requests.every(request => !request.cookie && !request.authorization)).toBe(true);
+  });
+
+  it('checks a build that serves both connectors, and fails it while the live site serves only the ChatGPT plugin', async () => {
+    const live = await pluginSite('both');
+    const result = await runAsync(process.execPath, [pluginLiveCheck, museFolder(true), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '1500' } });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain('ChatGPT plugin: both metadata paths');
+    expect(result.stdout).toContain('Muse connector: metadata and unsigned challenge');
+    expect(live.requests.map(request => request.path).sort()).toEqual(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/mcp', ...MUSE_PATHS, authorizePath, '/consent.mjs', '/plugin-art/test-art.webp'].sort());
+    const old = await runAsync(process.execPath, [pluginLiveCheck, museFolder(true), (await pluginSite()).url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '250' } });
+    expect(old.status).toBe(1);
+    expect(old.stderr).toContain('plugin-live-check: FAIL');
+  });
 
   it('checks that each parked plugin path answers 404 when the build has no consent script', async () => {
     const live = await pluginSite('parked');
@@ -1236,7 +1278,7 @@ describe('deploy-plugin-live-check.mjs', () => {
     const result = await runAsync(process.execPath, [pluginLiveCheck, buildFolder({ 'consent.mjs': 'consent-v1' }), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '1500' } });
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain('plugin-live-check: pass');
-    expect(live.requests.map(request => request.path).sort()).toEqual(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/authorize?authorization_id=deploy-check%2Bquery&state=keep%20me', '/consent.mjs', '/mcp']);
+    expect(live.requests.map(request => request.path).sort()).toEqual(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/authorize?authorization_id=deploy-check%2Bquery&state=keep%20me', '/consent.mjs', '/mcp', ...museParked].sort());
     expect(live.requests.every(request => !request.cookie && !request.authorization)).toBe(true);
   });
 
@@ -1244,7 +1286,7 @@ describe('deploy-plugin-live-check.mjs', () => {
     const live = await pluginSite();
     const result = await runAsync(process.execPath, [pluginLiveCheck, pluginFolder(), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '900000' } });
     expect(result.status, result.stderr).toBe(0);
-    expect(live.requests.map(request => request.path).sort()).toEqual(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/authorize?authorization_id=deploy-check%2Bquery&state=keep%20me', '/consent.mjs', '/mcp', '/plugin-art/test-art.webp']);
+    expect(live.requests.map(request => request.path).sort()).toEqual(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/authorize?authorization_id=deploy-check%2Bquery&state=keep%20me', '/consent.mjs', '/mcp', ...museParked, '/plugin-art/test-art.webp'].sort());
     expect(live.requests.every(request => !request.cookie && !request.authorization)).toBe(true);
   });
 
@@ -1427,4 +1469,15 @@ describe('deploy.sh --publish', () => {
     expect(result.stdout).not.toContain('live-check');
     expectGone(repo, worktreeOf(result.stdout));
   });
+});
+
+
+it('checks the launch root against the new page and keeps the old online page byte check', async () => {
+  const files = { ...pages(), 'solo-launch.json': '{"soloLaunch":true}', 'next.html': pages()['index.html'] + '<p>New solo page</p>' };
+  const live = await site(() => files);
+  const result = await check(buildFolder(files), live.url);
+  expect(result.status, result.stderr).toBe(0);
+  const wrong = await site(() => files, { path: '/play', status: 200, type: 'text/html', body: files['next.html'] });
+  const refused = await check(buildFolder(files), wrong.url, 0);
+  expect(refused.status).toBe(1); expect(refused.stderr).toContain('play (app page)');
 });

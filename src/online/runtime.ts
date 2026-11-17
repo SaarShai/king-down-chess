@@ -8,6 +8,7 @@ import { OnlineError, type OnlineClient } from './client';
 import { createWebPageHost } from './page-host';
 import { friendInvites } from '../plugin/invite';
 import { accountPath, parseAccountRoute, type AccountEntryRoute } from './routes';
+import { accountData } from '../account/data';
 import { READ_TOOLS } from '../account-game/types';
 
 const text = (value = ''): ToolResult['content'] => [{ type: 'text', text: value }];
@@ -19,7 +20,7 @@ type Receipt = { name: string; args: Record<string, unknown> };
 const GAME_SCREENS: string[] = ['board', 'seat', 'friend', 'wait', 'end'];
 /** The receipt is durable before the send. A network fault or timeout retains the exact ID, game, revision and payload. */
 export function createWebTransport(api: OnlineClient, userId: string, storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>) {
-  const key = `kingdown.account-command.${userId}`;
+  const key = `kingdown.account-command.${userId}`, gate = accountData(userId, storage);
   function pending(): Receipt | undefined {
     const raw = storage.getItem(key);
     if (!raw) return;
@@ -27,7 +28,8 @@ export function createWebTransport(api: OnlineClient, userId: string, storage: P
     if (!receipt || typeof receipt.name !== 'string' || !receipt.args || typeof receipt.args.command_id !== 'string') throw new Error('The saved command cannot be read.');
     return receipt;
   }
-  const clear = (receipt: string, signal?: AbortSignal) => navigator.locks.request(key, { signal }, async () => {
+  const clear = (receipt: string, signal?: AbortSignal) => gate.write(() => {
+    signal?.throwIfAborted();
     if (storage.getItem(key) === receipt) storage.removeItem(key);
   });
   const send: GameTransport = async (name, args, options) => {
@@ -39,7 +41,7 @@ export function createWebTransport(api: OnlineClient, userId: string, storage: P
     if (durable) {
       if (typeof args.command_id !== 'string') throw new Error('The game command has no request ID.');
       // Record writes and clears share one account lock across tabs; requests run outside it.
-      await navigator.locks.request(key, { signal: options.signal }, async () => {
+      await gate.write(() => {
         options.signal?.throwIfAborted();
         const previous = pending();
         if (previous && JSON.stringify(previous) !== receipt) throw new Error('Retry the saved command before you start another command.');
@@ -119,8 +121,8 @@ function commandAction(name: string, args: Record<string, unknown>): Action | un
   }
 }
 
-export function createBrowserRuntime(api: OnlineClient, userId: string): AccountGameHost {
-  const page = createWebPageHost(userId), key = `kingdown.account-game.${userId}`;
+export function createBrowserRuntime(api: OnlineClient, userId: string): AccountGameHost & { onSaveRefused?: () => void } {
+  const gate = accountData(userId, window.localStorage), page = createWebPageHost(userId, gate), key = `kingdown.account-game.${userId}`;
   const transport = createWebTransport(api, userId, window.localStorage);
   let saved: Partial<PageState> | undefined;
   try { saved = JSON.parse(window.localStorage.getItem(key) ?? 'null') ?? undefined; } catch { /* A bad page record does not change a saved command. */ }
@@ -146,7 +148,10 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
   }
   const stateHost: WidgetHost = {
     accountId: userId, pendingScope: 'account', widgetState: { privateContent: saved },
-    savePage(state) { window.localStorage.setItem(key, JSON.stringify(state)); },
+    async savePage(state) {
+      const value = JSON.stringify(state);
+      try { await gate.write(() => window.localStorage.setItem(key, value)); return true; } catch { host.onSaveRefused?.(); return false; }
+    },
   };
   let stopped = false, started = false, routeGeneration = 0;
   const publish = async (route: AccountEntryRoute, generation: number) => {
@@ -168,14 +173,14 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
     if (route) void publish(route, generation);
   };
   const close = () => { stopped = true; window.removeEventListener('popstate', fromLocation); host.onClose?.(); };
-  const host: AccountGameHost = {
+  const host: AccountGameHost & { onSaveRefused?: () => void } = {
     call: transport.call, stateHost, dispose: close,
     async connect() { window.addEventListener('popstate', fromLocation); window.addEventListener('pagehide', event => { if (!event.persisted) close(); }); queueMicrotask(() => { fromLocation(); started = true; }); },
     getHostContext: () => ({ displayMode: 'fullscreen', availableDisplayModes: ['fullscreen'], deviceCapabilities: { touch: page.viewport().touch }, safeAreaInsets: page.viewport().safe, theme: 'light' }),
     requestDisplayMode: async () => ({ mode: 'fullscreen' }),
     async openLink({ url }) { window.location.assign(url); return {}; },
     route(screen, gameId) {
-      if (!started) return;
+      if (!started || stopped) return;
       const gameScreen = GAME_SCREENS.includes(screen);
       // Fullscreen startup restores the screen before the first authoritative game view arrives.
       if (gameScreen && !gameId) return;
@@ -185,7 +190,7 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
       const route: AccountEntryRoute = gameScreen && gameId ? { screen: 'game', gameId } : screen === 'join' ? { screen: 'join', key: null } : { screen: screen === 'profile' || screen === 'settings' ? screen : 'play' };
       const path = accountPath(route);
       if (window.location.pathname + window.location.hash !== path) window.history.pushState(null, '', path);
-      if (route.screen !== 'join') page.save(route);
+      if (route.screen !== 'join') void Promise.resolve(page.save(route)).then(saved => { if (!saved) host.onSaveRefused?.(); });
     },
   };
   return host;

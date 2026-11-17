@@ -40,8 +40,13 @@ describe('parked entry points', () => {
     expect(read('docs/qa/plugin-qa-protocol.md')).not.toMatch(/join with a code|type (the|a) code/i);
   });
 
-  it('no screen reaches named invitations or the invitation inbox', () => {
-    const files = ['src/online/client.ts', 'src/online/runtime.ts', ...sources('src/account-game'), ...sources('src/plugin/screens')];
+  it('the new interface (next.html) keeps other parked features out', () => {
+    const files = ['next.html', ...sources('src/interface'), ...sources('src/interface/play'), ...sources('src/interface/ui'), 'src/interface/ui/kit.js'];
+    for (const file of files) expect(read(file), file).not.toMatch(/workshop|lesson|trick|badge|today|collection|two players|pass-and-play|game link|game code|keyMoments|listMoments|\/api\/friends/i);
+  });
+
+  it('no old screen reaches named invitations or the invitation inbox', () => {
+    const files = ['src/online/runtime.ts', ...sources('src/account-game'), ...sources('src/plugin/screens')];
     for (const file of files) expect(read(file), file).not.toMatch(/\/api\/friends|\/decline'|kingdown_friends|kingdown_decline_invite|recipient_(id|handle)|invitations/);
   });
 });

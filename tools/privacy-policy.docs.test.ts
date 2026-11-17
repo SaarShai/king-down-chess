@@ -1,10 +1,17 @@
 // The privacy policy must say what the code does (approval items D9 a, D12 a, D14 a): each cleanup period of the
-// daily job, the Settings control by its exact name, OpenAI and Meta as recipients, each kind of stored alert, and what
-// a deletion keeps. A changed period, label or alert kind fails here.
+// daily job, the Settings control by its exact name, OpenAI as a recipient, each kind of stored alert, and what a
+// deletion keeps. A changed period, label or alert kind fails here.
+// Both pages are checked: the default build publishes public/privacy.html, the launch build (tools/solo-launch.mjs)
+// publishes its own copy. Each page keeps its own words where the two differ.
 import { readdirSync, readFileSync } from 'node:fs';
-import { expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 
-const policy = readFileSync('public/privacy.html', 'utf8'), text = policy.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ');
+const pages = [
+ { file: 'public/privacy.html', counters: 'how many new games, new boards, computer turns and reports you asked for on the website or in the ChatGPT app', deletion: 'badges, alerts and games against the computer' },
+ { file: 'tools/solo-launch/privacy.html', counters: 'how many new games, new boards, computer turns, draft previews and reports you asked for on the website or through a connector', deletion: 'old progress data, alerts and games against the computer' },
+];
+describe.each(pages)('$file', ({ file, counters, deletion }) => {
+const policy = readFileSync(file, 'utf8'), text = policy.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ');
 
 test('the policy gives each cleanup period of the daily job', () => {
  const job = readFileSync('src/online/jobs.ts', 'utf8').match(/export async function cleanup[\s\S]*?\n}/)![0];
@@ -13,7 +20,7 @@ test('the policy gives each cleanup period of the daily job', () => {
  for (const period of periods) expect(text, period).toContain(`${period}`);
 });
 
-test('the policy names the online control as Settings shows it, says the default applies, and names OpenAI for the parked app', () => {
+test('the policy names the online control as Settings shows it, says the default applies, and names OpenAI', () => {
  const label = readFileSync('src/plugin/index.html', 'utf8').match(/<legend>(Who sees when you are online)<\/legend>/)![1];
  const html = readFileSync('src/plugin/index.html', 'utf8') + readFileSync('src/account-game/hall.ts', 'utf8');
  expect(html.match(new RegExp(`Symbols only, Show threats, ${label}\\.`, 'g'))).toHaveLength(1);
@@ -24,39 +31,16 @@ test('the policy names the online control as Settings shows it, says the default
  for (const source of [text, html, readFileSync('docs/submission/review-notes.md', 'utf8')]) expect(source).toContain(limit);
  expect(text).not.toContain('off by default');
  expect(text).toContain('the default applies, and no setting stops it');
- // The ChatGPT app is parked (tools/chatgpt-plugin.mjs): the policy says that it is closed and what OpenAI received.
- expect(text).toContain('That app is closed, and King Down sends no data to OpenAI now');
- expect(text).toContain('OpenAI received what the app sent to ChatGPT');
+ expect(text).toContain('OpenAI receives what the app sends to ChatGPT');
 });
 
 test('the policy names each try counter that the server keeps for an account', () => {
  const migrations = readdirSync('supabase/migrations').map(file => readFileSync(`supabase/migrations/${file}`, 'utf8')).join('\n');
- // A new counter fails here: add it to the list in public/privacy.html, then here.
+ // A new counter fails here: add it to the list in both privacy pages, then here.
  expect([...migrations.matchAll(/create table if not exists public\.(\w+_tries)/g)].map(match => match[1]).sort()).toEqual(['invite_code_tries', 'plugin_tool_tries']);
  expect(text).toContain('how many invitation codes you tried in the last hour');
  // The website API uses the same counter (src/api/http.ts toolTry).
- expect(text).toContain('how many new games, computer turns and reports you asked for in the last minute or hour');
-});
-
-test('the policy mentions ChatGPT only in the note about the closed app', () => {
- const outside = policy.replace(/<p id="chatgpt-app">[\s\S]*?<\/p>/, '');
- expect(outside).not.toMatch(/ChatGPT|OpenAI/);
- expect(text).toContain('The daily job deletes the record of which game a ChatGPT board showed after 7 days');
-});
-
-test('the policy names Meta as a recipient of the Muse connector, and Muse only there and in the stored link', () => {
- const paragraph = policy.match(/<p id="muse-connector">([\s\S]*?)<\/p>/)?.[1];
- expect(paragraph).toBeDefined();
- for (const words of ['You can play King Down in Muse, the AI agent of Meta', 'approve the link (OAuth through Supabase)', 'start and play games against the computer in Muse',
-  'King Down sends Muse the result of each action: the board as text, the moves, the game status and links to your games on kingdown.dev', 'These results hold no handle, picture or email address',
-  'King Down uses the words of a move only to find that move, and does not store them', 'Muse sends King Down only the tool calls, not your Muse conversation',
-  'Meta and King Down are independent controllers of this data under Meta\'s Data Protection Requirements', 'Meta can use your requests, the tool calls and their results under its own terms and privacy policy',
-  'Settings → Account → Disconnect Muse', 'we also delete those games when Muse has not used the link for 30 days, also when you are still connected']) expect(paragraph).toContain(words);
- // The results hold no handle, picture or email address: the Muse tools (src/muse/tools.ts) never name one.
- expect(readFileSync('src/muse/tools.ts', 'utf8')).not.toMatch(/\bhandles?\b|avatar|picture|email/i);
- expect(text).toContain('the OAuth link that lets your Muse connection use your King Down account');
- const outside = policy.replace(/<p id="muse-connector">[\s\S]*?<\/p>/, '').replace(/<li id="muse-link">[\s\S]*?<\/li>/, '');
- expect(outside).not.toMatch(/Muse/);
+ expect(text).toContain(counters);
 });
 
 test('the policy has no placeholder left from the draft', () => {
@@ -68,13 +52,13 @@ test('the policy names the alerts and notices that the server stores for an acco
  const code = readdirSync('src', { recursive: true, encoding: 'utf8' }).filter(file => file.endsWith('.ts') && !file.endsWith('.test.ts'))
   .map(file => readFileSync(`src/${file}`, 'utf8')).join('\n');
  const kinds = [...code.matchAll(/insert into public\.notifications\(user_id,kind,payload\) values\(\$1,'(\w+)'|notify\.push\(\{ user_id: [^,]+, kind: '(\w+)'/g)].map(match => match[1] ?? match[2]);
- // A new kind fails here: add it to the list item in public/privacy.html, then here.
+ // A new kind fails here: add it to the list item in both privacy pages, then here.
  expect([...new Set(kinds)].sort()).toEqual(['appeal', 'moderation']);
  // The policy also covers turn alerts already stored before the writer was removed.
  expect(text).toContain('alerts about your games against other players (that it is your move), and notices about an action on a report or about an appeal');
  // A deletion deletes them with the account (on delete cascade).
  expect(readFileSync('supabase/migrations/0006_games.sql', 'utf8')).toMatch(/table if not exists public\.notifications \([^;]*user_id uuid not null references auth\.users \(id\) on delete cascade/);
- expect(text).toContain('badges, alerts and games against the computer');
+ expect(text).toContain(deletion);
 });
 
 test('the policy says that a deletion keeps the handle in stored games and in records of action', () => {
@@ -106,4 +90,23 @@ test('the policy keeps the first-party fault disclosure and its 30-day period', 
  expect(policy.indexOf('id="fault-reports"')).toBeGreaterThan(policy.indexOf('Vercel keeps them for 1 day'));
  expect(readFileSync('src/diagnostics/server.ts', 'utf8')).toContain("interval '30 days'");
  expect(readFileSync('src/online/jobs.ts', 'utf8')).toContain("client_errors where last_seen<now()-interval '30 days'");
+});
+});
+
+// The Muse connector (docs/specs/muse-connector, ticket 16 step 4): only the website page names it. The words are
+// conditional ("If you connect"), so the page is true before the connector serves and before Meta's review passes.
+test('the website policy names Meta as a recipient of the Muse connector, and Muse only there, in the stored link and in the surface', () => {
+ const policy = readFileSync('public/privacy.html', 'utf8');
+ const paragraph = policy.match(/<p id="muse-connector">([\s\S]*?)<\/p>/)?.[1];
+ expect(paragraph).toBeDefined();
+ for (const words of ['If you connect King Down to Muse, the AI agent of Meta', 'approve the link (OAuth through Supabase)', 'start and play games against the computer in Muse',
+  'King Down sends Muse the result of each action: the board as text, the moves, the game status and links to your games on kingdown.dev', 'These results hold no handle, picture or email address',
+  'King Down uses the words of a move only to find that move, and does not store them', 'Muse sends King Down only the tool calls, not your Muse conversation',
+  'Meta and Wanderland London Ltd are independent controllers of this data under Meta\'s Data Protection Requirements', 'Meta can use your requests, the tool calls and their results under its own terms and privacy policy',
+  'Settings → Account → Disconnect Muse', 'we also delete those games when Muse has not used the link for 30 days, also when you are still connected']) expect(paragraph).toContain(words);
+ // The results hold no handle, picture or email address: the Muse tools (src/muse/tools.ts) never name one.
+ expect(readFileSync('src/muse/tools.ts', 'utf8')).not.toMatch(/\bhandles?\b|avatar|picture|email/i);
+ expect(policy).toContain('<li id="muse-link">the OAuth link that lets your Muse connection use your King Down account, if you connect Muse.</li>');
+ const outside = policy.replace(/<p id="muse-connector">[\s\S]*?<\/p>/, '').replace(/<li id="muse-link">[\s\S]*?<\/li>/, '').replace('from the website, from ChatGPT or from Muse;', '');
+ expect(outside).not.toMatch(/Muse/);
 });

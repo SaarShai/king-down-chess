@@ -341,7 +341,8 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
    const sql = clients.flatMap(client => vi.mocked(client.query).mock.calls.map(([query]) => typeof query === 'string' ? query : (query as pg.QueryConfig).text));
    expect(sql.length).toBeGreaterThan(50);
    // These reads use only SELECT and these built-in expressions. A helper call needs a review.
-   const expressions = new Set(['extract', 'statement_timestamp', 'coalesce', 'exists', 'select', 'not', 'and', 'or', 'in']);
+   // kingdown_jobs.user_avatar (migration 0025) is a reviewed read-only helper: stable, it returns one picture address.
+   const expressions = new Set(['extract', 'statement_timestamp', 'coalesce', 'exists', 'select', 'not', 'and', 'or', 'in', 'kingdown_jobs.user_avatar']);
    for (const statement of sql) {
     const text = statement.replace(/'(?:[^']|'')*'/g, "''");
     expect(text).toMatch(/^select\s/i); expect(text).not.toMatch(/[";]|\b(insert|update|delete|merge|call|copy|create|alter|drop|truncate|set|lock|into)\b/i);

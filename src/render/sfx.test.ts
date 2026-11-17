@@ -1,5 +1,5 @@
-import { expect, it } from 'vitest';
-import { SOUNDS } from './sfx';
+import { expect, it, vi } from 'vitest';
+import { SOUNDS, setSound, unlockSound } from './sfx';
 
 it('sounds check as one low note with a 220 Hz partial', () => {
   const tones: { type: string; start: number; frequencies: number[] }[] = [];
@@ -26,4 +26,12 @@ it('sounds check as one low note with a 220 Hz partial', () => {
     { type: 'triangle', start: 3, frequencies: [110, 98] },
     { type: 'sine', start: 3, frequencies: [220] },
   ]);
+});
+
+it('unlocks one audio context only when sound is on', () => {
+  const resume = vi.fn(() => Promise.resolve()), make = vi.fn();
+  vi.stubGlobal('AudioContext', class { constructor() { make(); } resume = resume; });
+  setSound(false); unlockSound(); expect(make).not.toHaveBeenCalled();
+  setSound(true); unlockSound(); unlockSound(); expect(make).toHaveBeenCalledOnce(); expect(resume).toHaveBeenCalledTimes(2);
+  setSound(false); unlockSound(); expect(resume).toHaveBeenCalledTimes(2); vi.unstubAllGlobals();
 });

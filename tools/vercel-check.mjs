@@ -15,34 +15,46 @@ import { isCharacterRuntimePublic, isCharacterRuntimeStartup } from './lib/chara
 import { privateRuntimeData, validateManifest, validateRuntimeImage } from './lib/character-runtime-guard.mjs';
 import { splitManifest } from './lib/character-runtime-split.mjs';
 import { CHATGPT_PLUGIN, PARKED_PATHS } from './chatgpt-plugin.mjs';
+import { siteRoute } from './lib/site-route.mjs';
+import { MUSE_CONNECTOR, MUSE_PATHS } from './muse-connector.mjs';
 
+// The tree's connectors follow the switches; --chatgpt and --muse add one, for a tree built with that flag of
+// tools/plugin-server-build.mjs (with both: the tree that serves both connectors).
+const args = process.argv.slice(2), treeArg = args.find(arg => !arg.startsWith('--'));
+if (args.filter(arg => !arg.startsWith('--')).length > 1 || args.some(arg => arg.startsWith('--') && !['--chatgpt', '--muse'].includes(arg))) throw new Error('Usage: node tools/vercel-check.mjs [tree] [--chatgpt] [--muse]');
+const CHATGPT = CHATGPT_PLUGIN || args.includes('--chatgpt'), MUSE = MUSE_CONNECTOR || args.includes('--muse');
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
 if (!connectionString) throw new Error('Set PLUGIN_TEST_DATABASE_URL to a disposable loopback PostgreSQL database');
 const url = new URL(connectionString);
 if (!['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || !url.pathname.endsWith('_test')) throw new Error('This check requires a disposable loopback database ending in _test');
 const tree = await mkdtemp(join(tmpdir(), 'kingdown-vercel-'));
 const pool = new pg.Pool({ connectionString });
-const actor = randomUUID(), clientId = randomUUID(), secret = randomUUID() + randomUUID();
+const actor = randomUUID(), guest = randomUUID(), clientId = randomUUID(), secret = randomUUID() + randomUUID();
 const server = createServer(); let app, savedAccountAccess, actorCreated = false;
 const exists = path => stat(path).then(s => s, () => undefined);
 try {
   // Keep the relative function links: they must resolve inside the copy.
-  await cp(resolve(process.argv[2] || 'kingdown-deploy/.vercel/output'), tree, { recursive: true, verbatimSymlinks: true });
+  await cp(resolve(treeArg || 'kingdown-deploy/.vercel/output'), tree, { recursive: true, verbatimSymlinks: true });
   const config = JSON.parse(await readFile(join(tree, 'config.json'), 'utf8'));
   assert.equal(config.version, 3);
   const fn = join(tree, 'functions/mcp.func');
   assert.equal(JSON.parse(await readFile(join(fn, '.vc-config.json'), 'utf8')).handler, 'server.mjs');
   // The parked ChatGPT plugin (tools/chatgpt-plugin.mjs) has no OAuth function paths, board, art or consent files.
   const pluginLinks = ['authorize', 'consent.mjs', '.well-known/oauth-protected-resource', '.well-known/oauth-protected-resource/mcp'];
-  for (const path of ['internal', ...(CHATGPT_PLUGIN ? pluginLinks : [])]) assert.equal(await realpath(join(tree, `functions/${path}.func`)), await realpath(fn), `${path} is the one function`);
-  if (!CHATGPT_PLUGIN) {
+  for (const path of ['internal', ...(CHATGPT ? pluginLinks : [])]) assert.equal(await realpath(join(tree, `functions/${path}.func`)), await realpath(fn), `${path} is the one function`);
+  if (!CHATGPT) {
     for (const path of pluginLinks) assert.equal(await exists(join(tree, `functions/${path}.func`)), undefined, `The parked tree has no ${path} function`);
-    for (const file of [join(fn, 'board.html'), join(fn, 'consent.html'), join(fn, 'consent.mjs'), join(tree, 'static/plugin-art'), join(tree, 'static/.well-known')]) assert.equal(await exists(file), undefined, `The parked tree has no ${file.slice(tree.length + 1)}`);
-    assert(!config.routes.some(route => /plugin-art|well-known/.test(route.src)), 'The parked tree has no plugin art or challenge route');
+    // A staging tree (tools/muse-connector.mjs) has the Muse connector, which serves the shared consent page.
+    for (const file of [join(fn, 'board.html'), ...MUSE ? [] : [join(fn, 'consent.html'), join(fn, 'consent.mjs')], join(tree, 'static/plugin-art'), join(tree, 'static/.well-known')]) assert.equal(await exists(file), undefined, `The parked tree has no ${file.slice(tree.length + 1)}`);
+    assert(!config.routes.some(route => /plugin-art|well-known/.test(route.src) && !route.src.includes('/muse/mcp')), 'The parked tree has no plugin art or challenge route');
   }
+  const museRoutes = config.routes.filter(route => route.dest === '/mcp' && [...MUSE_PATHS, '/authorize', '/consent.mjs'].some(path => new RegExp(route.src).test(path)));
+  assert.equal(museRoutes.length, MUSE ? MUSE_PATHS.length + (CHATGPT ? 0 : 2) : 0, MUSE ? 'The tree routes the Muse paths' : 'This tree has no Muse route');
   assert.equal(await exists(join(tree, 'functions/api.func')), undefined, 'No website API function');
   const apiRule = { src: '^/api(?:/.*)?$', dest: '/mcp' };
-  assert.deepEqual(config.routes.filter(route => new RegExp(route.src).test('/api/games')), [apiRule]);
+  // Routes after `handle: filesystem` apply only when no file or earlier route answers: the launch tree ends with its 404 page.
+  const filesystem = config.routes.findIndex(route => route.handle === 'filesystem');
+  assert.deepEqual(config.routes.slice(0, filesystem < 0 ? undefined : filesystem).filter(route => new RegExp(route.src).test('/api/games')), [apiRule]);
   for (const path of ['/api', '/api/', '/api/games', '/api/me/games']) assert(new RegExp(apiRule.src).test(path), path);
   for (const path of ['/apix', '/apiary', '/play', '/unrelated-path']) assert(!new RegExp(apiRule.src).test(path), path);
   for (const path of (await readdir(join(tree, 'functions'), { recursive: true })).filter(path => path.endsWith('.func'))) {
@@ -80,17 +92,20 @@ try {
     assert.equal(new Set(list).size, list.length, `${name} has no duplicate`);
     return list;
   };
+  const soloLaunch = !!await exists(join(tree, 'static/solo-launch.json'));
+  const home = soloLaunch ? 'next.html' : 'index.html';
   const allowlist = workerList('ALLOWLIST'), precache = workerList('PRECACHE');
   assert.deepEqual(allowlist.slice(0, 2), ['./', 'index.html']);
-  assert.deepEqual(precache, allowlist.filter(file => file !== 'index.html'));
+  assert.deepEqual(precache, soloLaunch ? allowlist : allowlist.filter(file => file !== 'index.html'));
+  if (soloLaunch) assert(allowlist.includes('next.html'));
   assert(!allowlist.some(file => file.startsWith('character-runtime/') && !isCharacterRuntimeStartup(file)), 'Optional runtime art stays out of the worker');
   for (const file of await readdir(runtimeDir, { recursive: true }).catch(() => [])) {
     const path = `character-runtime/${file}`;
     if (isCharacterRuntimeStartup(path)) assert(precache.includes(path), `Runtime startup file is offline: ${file}`);
   }
   for (const file of allowlist) {
-    assert(typeof file === 'string' && (['./', 'index.html'].includes(file) || isCharacterRuntimeStartup(file) || /^(?:assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file)), `Public build file: ${file}`);
-    assert((await exists(join(tree, 'static', file === './' ? 'index.html' : file)))?.isFile(), `Offline file exists: ${file}`);
+    assert(typeof file === 'string' && (['./', 'index.html', ...soloLaunch ? ['next.html', 'browser-support.js', 'interface/stone-refined-light.webp'] : []].includes(file) || isCharacterRuntimeStartup(file) || /^(?:assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file)), `Public build file: ${file}`);
+    assert((await exists(join(tree, 'static', file === './' ? home : file)))?.isFile(), `Offline file exists: ${file}`);
   }
   const index = await readFile(join(tree, 'static/index.html'), 'utf8');
   const entryFiles = [...index.matchAll(/(?:src|href)="(?:\.\/|\/)(assets\/[^"?]+)"/g)].map(match => match[1]);
@@ -106,7 +121,7 @@ try {
     finally { await old.close(); }
   }
 
-  for (const id of [actor]) {
+  for (const id of [actor, guest]) {
     await pool.query('insert into auth.users(id) values($1)', [id]); actorCreated = true;
     await pool.query('update public.profiles set handle=$2 where id=$1', [id, `vercel-${id.slice(0,8)}`]);
   }
@@ -122,12 +137,12 @@ try {
   server.on('request', async (req, res) => {
     try {
       const path = new URL(req.url, origin).pathname;
-      const routes = config.routes?.filter(route => new RegExp(route.src).test(path)) ?? [];
-      const dest = routes.find(route => route.dest)?.dest ?? path;
-      // A `continue` route adds its headers and goes on to the next match.
-      for (const route of routes) if (route.headers) for (const [name, value] of Object.entries(route.headers)) res.setHeader(name, value);
+      const original = join(tree, 'static', path.endsWith('/') ? `${path}index.html` : path);
+      const present = (await exists(original))?.isFile() || !!await exists(join(tree, 'functions', `${path}.func`));
+      const { dest, headers, status } = siteRoute(config, path, present);
+      for (const [name, value] of Object.entries(headers)) res.setHeader(name, value);
       const file = join(tree, 'static', dest.endsWith('/') ? `${dest}index.html` : dest);
-      if (['GET', 'HEAD'].includes(req.method) && (await exists(file))?.isFile()) { served.add(`static ${path.startsWith('/plugin-art/') ? '/plugin-art/*' : path}`); res.end(req.method === 'HEAD' ? undefined : await readFile(file)); return; }
+      if (['GET', 'HEAD'].includes(req.method) && (await exists(file))?.isFile()) { if (status) res.statusCode = status; served.add(`static ${path.startsWith('/plugin-art/') ? '/plugin-art/*' : path}`); res.end(req.method === 'HEAD' ? undefined : await readFile(file)); return; }
       // Vercel gives the function the original request path, also after a route.
       if (await exists(join(tree, 'functions', `${dest}.func`))) { served.add(`function ${path}`); await app.handler(req, res); return; }
       res.writeHead(404).end();
@@ -163,7 +178,7 @@ try {
   for (const path of publicPaths) {
     const response = await fetch(origin + path, { redirect: 'manual' });
     assert.equal(response.status, 200, path);
-    assert.deepEqual(Buffer.from(await response.arrayBuffer()), await readFile(join(tree, 'static', path === '/' ? 'index.html' : path)), path);
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), await readFile(join(tree, 'static', path === '/' ? home : path)), path);
   }
   const challenge = '/.well-known/openai-apps-challenge';
   const challengeFile = join(tree, 'static', challenge);
@@ -176,7 +191,7 @@ try {
   }
   // The game that the API reads below: made through MCP with the plugin, else through the website API (enabled section).
   let game_id, lastCommand, art = [];
-  if (CHATGPT_PLUGIN) {
+  if (CHATGPT) {
     let requestId = 0;
     const tool = async (name, args) => {
       const response = await fetch(`${origin}/mcp`, { method: 'POST', headers: { 'X-Kingdown-Dev-Actor': actor, 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream', 'MCP-Protocol-Version': '2025-11-25' }, body: JSON.stringify({ jsonrpc: '2.0', id: ++requestId, method: 'tools/call', params: { name, arguments: args } }) });
@@ -211,12 +226,26 @@ try {
       const response = await fetch(origin + path);
       assert.equal(response.status, status, path); assert.match(response.headers.get('content-type'), /^application\/json/, `${path} reaches the function`);
     }
-  } else {
-    // Parked: no plugin path reaches a page or the MCP handler. /mcp reaches the function, which answers 404.
-    for (const path of [...PARKED_PATHS, '/plugin-art/scroll-0123abcd.webp']) for (const method of ['GET', 'POST']) {
-      const response = await fetch(origin + path, { method, redirect: 'manual', headers: { 'X-Kingdown-Dev-Actor': actor, 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream' }, ...(method === 'POST' && { body: '{}' }) });
-      assert.equal(response.status, 404, `${method} ${path}`); assert.equal(response.headers.get('location'), null, path);
-    }
+  }
+  // Parked: no path of a connector that is off reaches a page or an MCP handler. /mcp reaches the function, which answers 404.
+  // The launch tree answers the other parked paths with its static 404 page.
+  for (const path of [...CHATGPT ? [] : [...PARKED_PATHS.filter(path => !MUSE || !['/authorize', '/consent.mjs'].includes(path)), '/plugin-art/scroll-0123abcd.webp'], ...MUSE ? [] : MUSE_PATHS]) for (const method of ['GET', 'POST']) {
+    const response = await fetch(origin + path, { method, redirect: 'manual', headers: { 'X-Kingdown-Dev-Actor': actor, 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream' }, ...(method === 'POST' && { body: '{}' }) });
+    assert.equal(response.status, 404, `${method} ${path}`); assert.equal(response.headers.get('location'), null, path);
+  }
+  if (MUSE) {
+    // The Muse endpoint lists its tools for a local persona, and the consent page serves.
+    const list = await fetch(`${origin}/muse/mcp`, { method: 'POST', headers: { 'X-Kingdown-Dev-Actor': actor, 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream', 'MCP-Protocol-Version': '2025-11-25' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }) });
+    assert.equal(list.status, 200, 'POST /muse/mcp');
+    // A 2025-era request may get its one reply as an event stream.
+    const reply = await list.text();
+    assert.deepEqual(JSON.parse(reply.startsWith('event:') ? reply.split('\n').find(line => line.startsWith('data:')).slice(5) : reply).result.tools.map(tool => tool.name).sort(), ['kingdown_end', 'kingdown_explain', 'kingdown_games', 'kingdown_move', 'kingdown_new_game', 'kingdown_view']);
+    const authorize = await fetch(`${origin}/authorize?authorization_id=${randomUUID()}`);
+    assert.equal(authorize.status, 200); assert.match(authorize.headers.get('content-type'), /^text\/html/);
+    assert((await authorize.text()).includes(clientId)); assert.match(authorize.headers.get('content-security-policy'), /frame-ancestors 'none'/);
+    const script = await fetch(`${origin}/consent.mjs`); assert.equal(script.status, 200); assert.match(script.headers.get('content-type'), /^text\/javascript/);
+    const metadata = await fetch(origin + MUSE_PATHS[1]);
+    assert.equal(metadata.status, 404, 'Local personas have no OAuth metadata'); assert.match(metadata.headers.get('content-type'), /^application\/json/, 'The Muse metadata path reaches the function');
   }
   {
     const response = await fetch(origin + '/internal/sweep');
@@ -252,8 +281,8 @@ try {
   const outbox = await job('/internal/outbox', secret); assert.equal(outbox.status, 404);
   assert.deepEqual(await outbox.json(), { code: 'NOT_FOUND', message: 'Not found' });
   const unknownJob = await job('/internal/unknown', secret); assert.equal(unknownJob.status, 404);
-  const pluginServed = CHATGPT_PLUGIN ? ['function /.well-known/oauth-protected-resource', 'function /.well-known/oauth-protected-resource/mcp', 'function /authorize', 'function /consent.mjs', 'static /plugin-art/*'] : [];
-  assert.deepEqual([...served].sort(), [...new Set([...pluginServed, 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /internal/unknown', 'function /mcp', 'function /api/games', ...closedApi.map(([, path]) => `function ${new URL(path, origin).pathname}`), 'static /', 'static /privacy.html', 'static /sw.js', ...accountPaths.map(path => `static ${path}`), ...publicPaths.map(path => `static ${path}`), ...(hasChallenge ? [`static ${challenge}`] : [])])].sort(), 'Closed/default served paths');
+  const pluginServed = [...CHATGPT ? ['function /.well-known/oauth-protected-resource', 'function /.well-known/oauth-protected-resource/mcp', 'function /authorize', 'function /consent.mjs', 'static /plugin-art/*'] : [], ...MUSE ? [...MUSE_PATHS, '/authorize', '/consent.mjs'].map(path => `function ${path}`) : []];
+  assert.deepEqual([...served].sort(), [...new Set([...pluginServed, 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /internal/unknown', 'function /mcp', 'function /api/games', ...closedApi.map(([, path]) => `function ${new URL(path, origin).pathname}`), 'static /', 'static /privacy.html', 'static /sw.js', ...accountPaths.map(path => `static ${path}`), ...publicPaths.map(path => `static ${path}`), ...soloLaunch ? closedPaths.map(path => `static ${path}`) : [], ...soloLaunch && !MUSE ? MUSE_PATHS.map(path => `static ${path}`) : [], ...(hasChallenge ? [`static ${challenge}`] : [])])].sort(), 'Closed/default served paths');
 
   await app.pool.end(); app = undefined;
   savedAccountAccess = (await pool.query('select enabled from public.web_account_access where singleton=true')).rows[0]?.enabled;
@@ -269,18 +298,30 @@ try {
   assert.deepEqual(await offStatus.json(), { account_access: 'closed', valid_for_ms: 0 });
   await app.pool.end(); app = undefined;
   await pool.query('update public.web_account_access set enabled=true where singleton=true');
-  if (!CHATGPT_PLUGIN) {
-    // The parked tree makes the game through the website API, with a local session that the provider accepts.
-    app = await configurePlugin(webEnv, { localDev: true, websiteKeys, websiteCurrentUser: async (bearer, user) => { assert.equal(bearer, token); assert.equal(user, actor); } });
-    const web = async (path, body, status) => {
-      const response = await fetch(origin + path, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!CHATGPT) {
+    // Two browser sessions play the friend game. Solo work stays on the device.
+    const guestToken = await sign({ sub: guest });
+    app = await configurePlugin(webEnv, { localDev: true, websiteKeys, websiteCurrentUser: async (bearer, user) => { assert([token, guestToken].includes(bearer)); assert([actor, guest].includes(user)); } });
+    const web = async (path, body, status = 200, bearer = token) => {
+      const response = await fetch(origin + path, { method: body === undefined ? 'GET' : 'POST', headers: { Authorization: `Bearer ${bearer}`, 'Content-Type': 'application/json' }, ...(body !== undefined && { body: JSON.stringify(body) }) });
       const value = await response.json(); assert.equal(response.status, status, `${path}: ${JSON.stringify(value)}`); return value;
     };
     const options = { fairy: true, pool: ['R', 'A', 'G', 'Q', 'M', 'S', 'O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false };
-    const created = (await web('/api/games', { kind: 'solo', options, colour: 'white', command_id: randomUUID() }, 201)).view;
-    game_id = created.game_id;
-    const moved = await web(`/api/games/${game_id}/commands`, { command_id: 'vercel-first', expected_revision: created.revision, action: { type: 'turn', actions: [created.legal.find(lan => !lan.includes('!'))] } }, 200);
-    assert.equal(moved.revision, created.revision + 1);
+    if (soloLaunch) assert.equal((await web('/api/games', { kind: 'solo', command_id: randomUUID() }, 403)).code, 'NOT_ALLOWED');
+    else {
+      // With the launch option off, the old /play page plays web solo: the solo game and its first move stay checked.
+      const solo = (await web('/api/games', { kind: 'solo', options, colour: 'white', command_id: randomUUID() }, 201)).view;
+      assert.equal(solo.kind, 'solo');
+      const first = await web(`/api/games/${solo.game_id}/commands`, { command_id: 'vercel-solo-first', expected_revision: solo.revision, action: { type: 'turn', actions: [solo.legal.find(lan => !lan.includes('!'))] } });
+      assert.equal(first.revision, solo.revision + 1);
+    }
+    const created = await web('/api/games', { kind: 'friend', options, colour: 'white', command_id: randomUUID() }, 201);
+    game_id = created.view.game_id;
+    await web('/api/invites/redeem', { token: created.invite.token }, 200, guestToken);
+    const initial = await web(`/api/games/${game_id}`);
+    if (soloLaunch) assert.equal((await web(`/api/games/${game_id}/commands`, { command_id: 'vercel-cpu', expected_revision: initial.revision, action: { type: 'computer' } }, 403)).code, 'NOT_ALLOWED');
+    const moved = await web(`/api/games/${game_id}/commands`, { command_id: 'vercel-first', expected_revision: initial.revision, action: { type: 'turn', actions: [initial.legal.find(lan => !lan.includes('!'))] } });
+    assert.equal(moved.revision, initial.revision + 1);
     lastCommand = moved.view.last_commands.at(-1);
     await app.pool.end(); app = undefined;
   }
@@ -383,7 +424,7 @@ try {
   assert.deepEqual((await gameRows()).rows, before, 'Provider-refused writes have no game effect');
   assert.deepEqual([...served].sort(), ['/api', '/api/', '/api/games', `/api/games/${game_id}`, '/api/me/games', '/api/me/profile', '/api/status', '/api/unknown'].map(path => `function ${path}`).sort(), 'Enabled/test served paths');
   console.log(`Same-switch compiled status/direct effects: ${JSON.stringify(effects)}`);
-  console.log(`Site tree: worker ${version} / public-build-v1, ${precache.length} offline URLs, ${accountPaths.length} browser entry routes, ${closedPaths.length} closed legacy/unknown paths, ${CHATGPT_PLUGIN ? `${art.length} board art files, MCP open and move, OAuth` : 'ChatGPT plugin parked (plugin paths 404), website API game and move'}, ${closedCases} closed/default API probes with zero pool calls, off-switch closure, ${enabledCases} enabled/test API probes with 3 current-provider refusals, internal jobs and ${archive.length} archived engine(s) passed`);
+  console.log(`Site tree: worker ${version} / public-build-v1, ${precache.length} offline URLs, ${accountPaths.length} browser entry routes, ${closedPaths.length} closed legacy/unknown paths, ${CHATGPT ? `${art.length} board art files, MCP open and move, OAuth` : 'ChatGPT plugin parked (plugin paths 404), website API game and move'}${MUSE ? ', Muse connector (six tools, consent page)' : ', Muse paths 404'}, ${closedCases} closed/default API probes with zero pool calls, off-switch closure, ${enabledCases} enabled/test API probes with 3 current-provider refusals, internal jobs and ${archive.length} archived engine(s) passed`);
 } finally {
   try {
     if (savedAccountAccess !== undefined) {
@@ -394,8 +435,8 @@ try {
     server.closeAllConnections(); await new Promise(done => server.close(done));
     await app?.pool.end();
     if (actorCreated) {
-      await pool.query('delete from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[]))', [[actor]]);
-      await pool.query('delete from auth.users where id=any($1::uuid[])', [[actor]]);
+      await pool.query('delete from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[]))', [[actor, guest]]);
+      await pool.query('delete from auth.users where id=any($1::uuid[])', [[actor, guest]]);
     }
     await pool.end();
     await rm(tree, { recursive: true, force: true });

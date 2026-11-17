@@ -34,6 +34,15 @@ describe('Settings → Account', () => {
     expect(accountHtml(user, false)).toContain('Signed in with email');
   });
 
+  it('shows Disconnect Muse only when signed in, in a build that serves the Muse connector', () => {
+    const user = userOf({ app_metadata: { provider: 'email' }, user_metadata: {} });
+    expect(buttons(accountHtml(user, false, [], true))).toEqual(['Sign out', 'Disconnect Muse', 'Delete my account']);
+    expect(buttons(accountHtml(user, false, [], false))).toEqual(['Sign out', 'Delete my account']);
+    expect(buttons(accountHtml(null, false, ['github'], true))).toEqual(['Continue with GitHub']);
+    // The test build is not a staging build, so the default leaves the button out.
+    expect(buttons(accountHtml(user, false))).not.toContain('Disconnect Muse');
+  });
+
   it('ignores a name and picture that a stranger set on an email account', () => {
     expect(userOf({ app_metadata: { provider: 'email' }, user_metadata: { full_name: 'Any text', avatar_url: 'https://evil.example/x.png' } })).toEqual({ name: 'Player', avatar: null, provider: 'email' });
   });
@@ -101,4 +110,14 @@ describe('no secrets in what the browser gets', () => {
     const hits = files.flatMap(f => { const s = readFileSync(f, 'utf8'); return patterns.filter(p => p.test(s)).map(p => `${f}: ${p}`); });
     expect(hits).toEqual([]);
   });
+});
+
+it('the launch app local board links to the new deletion control; the default keeps its old control', () => {
+  const user = userOf({ app_metadata: { provider: 'email' }, user_metadata: {} });
+  const app = accountHtml(user, false, [], false, true), old = accountHtml(user, false);
+  expect(app).toContain('<a class="menu-row" href="/next.html#you">Delete my account</a>');
+  expect(app).not.toContain('data-act="delete"');
+  expect(old).toContain('data-act="delete"'); expect(old).not.toContain('/next.html#you');
+  const source = readFileSync(new URL('./account.ts', import.meta.url), 'utf8');
+  expect(source).toContain("inApp && typeof __KINGDOWN_SOLO_LAUNCH__ === 'boolean' && __KINGDOWN_SOLO_LAUNCH__");
 });

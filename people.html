@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- The test page of the people screens (docs/specs/people-screens). A fixture answers; it signs in nowhere. -->
+    <meta name="color-scheme" content="only light" />
+    <meta name="theme-color" content="#f7f5ed" />
+    <meta name="robots" content="noindex" />
+    <link rel="preload" href="/fonts/alegreya-sans-bold-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <title>People screens · King Down</title>
+    <style>html { background: #f7f5ed; } body { margin: 0; } #people-demo:not(:has(.people-landing)) { max-width: 40rem; margin: auto; padding: 24px 20px; display: grid; gap: 16px; } .demo-toast { position: fixed; inset: auto 16px 24px; padding: 12px 16px; border-radius: 12px; background: #262e2c; color: #fff; z-index: 10; }</style>
+  </head>
+  <body>
+    <main id="people-demo"></main>
+    <script type="module" src="/src/interface/people/screens/demo.ts"></script>
+  </body>
+</html>

@@ -91,6 +91,7 @@ const fixedRoutes = new Set([
 /** Use only the patterns in online/routes.ts and api/http.ts. Drop all other paths. */
 export function errorRoute(path: string): string {
  const clean = path.split(/[?#]/, 1)[0].replace(/\/$/, '') || '/';
+ if (clean === '/next.html') return '/next.html';
  if (fixedRoutes.has(clean)) return clean;
  if (/^\/g\/[^/]+$/.test(clean)) return '/g/:game';
  const game = /^\/api\/games\/[^/]+(\/(?:accept|cancel|preview|seen|commands|invite))?$/.exec(clean);

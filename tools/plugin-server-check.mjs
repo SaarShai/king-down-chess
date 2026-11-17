@@ -94,7 +94,7 @@ try {
   } finally { app.pool.query = query; app.pool.connect = connect; }
   if (!app.chatgpt) {
     // tools/chatgpt-plugin.mjs parks the ChatGPT plugin: the build has no widget, art or consent page, and each plugin
-    // path answers 404. The website API keeps its sign-in, games and computer turns.
+    // path answers 404. The website API keeps sign-in and friend games; it refuses solo work.
     for (const file of ['board.html', 'plugin-art', 'consent.html', 'consent.mjs']) assert(!existsSync(join(artifact, file)), `The parked build has no ${file}`);
     let parkedCases = 0;
     // tools/muse-connector.mjs parks the Muse connector the same way: no tool code in the bundle, and its paths answer 404.
@@ -109,22 +109,41 @@ try {
     savedAccountAccess = (await pool.query('select enabled from public.web_account_access where singleton=true')).rows[0]?.enabled;
     assert.equal(typeof savedAccountAccess, 'boolean');
     await pool.query('update public.web_account_access set enabled=true where singleton=true');
-    app = await configurePlugin(webEnv, { localDev: true, websiteKeys, websiteCurrentUser: async (bearer, user) => { assert.equal(bearer, token); assert.equal(user, actors[0]); } });
-    const web = async (path, body, status = 200) => {
-      const response = await fetch(origin + path, { method: body === undefined ? 'GET' : 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, ...(body !== undefined && { body: JSON.stringify(body) }) });
+    const guestToken = await sign({ sub: actors[1] });
+    app = await configurePlugin(webEnv, { localDev: true, websiteKeys, websiteCurrentUser: async (bearer, user) => { assert([token, guestToken].includes(bearer)); assert(actors.includes(user)); } });
+    const web = async (path, body, status = 200, bearer = token) => {
+      const response = await fetch(origin + path, { method: body === undefined ? 'GET' : 'POST', headers: { Authorization: `Bearer ${bearer}`, 'Content-Type': 'application/json' }, ...(body !== undefined && { body: JSON.stringify(body) }) });
       const value = await response.json(); assert.equal(response.status, status, `${path}: ${JSON.stringify(value)}`); assert.equal(response.headers.get('cache-control'), 'no-store'); return value;
     };
     const lease = await web('/api/status');
     assert.equal(lease.account_access, 'open'); assert(Number.isInteger(lease.valid_for_ms) && lease.valid_for_ms > 0 && lease.valid_for_ms <= 5000);
     assert.equal((await web('/api/me/profile')).user_id, actors[0]);
     const options = { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false };
-    const initial = (await web('/api/games', { kind: 'solo', options, colour: 'white', command_id: randomUUID() }, 201)).view;
+    if (app.localSolo) assert.equal((await web('/api/games', { kind: 'solo', command_id: randomUUID() }, 403)).code, 'NOT_ALLOWED');
+    else {
+      // With the launch option off, the old /play page plays web solo: a move and a computer turn with real PostgreSQL.
+      const solo = (await web('/api/games', { kind: 'solo', options, colour: 'white', command_id: randomUUID() }, 201)).view;
+      assert.equal(solo.kind, 'solo'); assert(solo.legal.length);
+      const first = await web(`/api/games/${solo.game_id}/commands`, { command_id: 'http-solo-first', expected_revision: solo.revision, action: { type: 'turn', actions: [solo.legal.find(lan => !lan.includes('!'))] } });
+      assert.equal(first.revision, solo.revision + 1);
+      const ai = await web(`/api/games/${solo.game_id}/commands`, { command_id: 'http-ai', expected_revision: solo.revision + 1, action: { type: 'computer' } });
+      assert.equal(ai.revision, solo.revision + 2);
+      const stored = await pool.query('select revision from public.games where id=$1', [solo.game_id]);
+      assert.equal(stored.rows[0].revision, solo.revision + 2);
+    }
+    // A game against another person needs a handle for each player (as tools/vercel-check.mjs sets them).
+    for (const id of actors) await pool.query('update public.profiles set handle=$2 where id=$1', [id, `check-${id.slice(0, 8)}`]);
+    const created = await web('/api/games', { kind: 'friend', options, colour: 'white', command_id: randomUUID() }, 201);
+    await web('/api/invites/redeem', { token: created.invite.token }, 200, guestToken);
+    const initial = await web(`/api/games/${created.view.game_id}`);
     assert(initial.legal.length);
     const start = initial.revision;
     const moved = await web(`/api/games/${initial.game_id}/commands`, { command_id: 'http-first', expected_revision: start, action: { type: 'turn', actions: [initial.legal.find(lan => !lan.includes('!'))] } });
     assert.equal(moved.revision, start + 1);
-    const ai = await web(`/api/games/${initial.game_id}/commands`, { command_id: 'http-ai', expected_revision: start + 1, action: { type: 'computer' } });
-    assert.equal(ai.revision, start + 2);
+    if (app.localSolo) assert.equal((await web(`/api/games/${initial.game_id}/commands`, { command_id: 'http-ai', expected_revision: start + 1, action: { type: 'computer' } }, 403)).code, 'NOT_ALLOWED');
+    const guest = await web(`/api/games/${initial.game_id}`, undefined, 200, guestToken);
+    const reply = await web(`/api/games/${initial.game_id}/commands`, { command_id: 'http-reply', expected_revision: guest.revision, action: { type: 'turn', actions: [guest.legal.find(lan => !lan.includes('!'))] } }, 200, guestToken);
+    assert.equal(reply.revision, start + 2);
     const since = await web(`/api/games/${initial.game_id}?since=${start}`);
     assert.equal(since.game_id, initial.game_id); assert.equal(since.rules, undefined); assert.equal(since.last_commands.length, 2);
     const persisted = await pool.query('select state as save,revision,(select count(*)::int from public.game_commands where game_id=$1) as commands from public.games where id=$1', [initial.game_id]);
@@ -132,7 +151,7 @@ try {
     // Parked production needs no OAuth setup, only the website's public Supabase settings; the parked build has no MCP code.
     await assert.rejects(configurePlugin(productionEnv), /SUPABASE_PUBLISHABLE_KEY must be/);
     await assert.rejects(configurePlugin(productionEnv, { chatgpt: true }), /This build parks the ChatGPT plugin/);
-    console.log(`Compiled HTTP + real PostgreSQL (ChatGPT plugin parked): ${closedCases} default API closures with zero pool calls, ${unsafeCases} unsafe website-key refusals, ${parkedCases} parked plugin paths answer 404, website status, profile, solo game, move, computer turn and since read, production website settings gate and no MCP code passed`);
+    console.log(`Compiled HTTP + real PostgreSQL (ChatGPT plugin parked): ${closedCases} default API closures with zero pool calls, ${unsafeCases} unsafe website-key refusals, ${parkedCases} parked plugin paths answer 404, website status, profile, friend game, two human turns, ${app.localSolo ? 'solo and computer refusals' : 'solo game, move and computer turn'} and since read, production website settings gate and no MCP code passed`);
   } else {
   async function rpc(actor, method, params) {
     const response = await fetch(`${origin}/mcp`, { method: 'POST', headers: { 'X-Kingdown-Dev-Actor': actor, 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream', 'MCP-Protocol-Version': '2025-11-25' }, body: JSON.stringify({ jsonrpc: '2.0', id: ++requestId, method, params }) });
@@ -207,7 +226,8 @@ try {
   const uri = tools.find(tool => tool.name === 'kingdown_open')._meta.ui.resourceUri;
   assert.match(uri, /^ui:\/\/kingdown\/board-[a-f0-9]{64}\.html$/);
   const resource = await rpc(actors[0], 'resources/read', { uri });
-  assert(resource.result.contents[0].text.includes('<html')); assert(resource.bytes < 1_000_000);
+  // A build budget, not a host limit: the board page grew with the game to 1.09 MB while the plugin was parked (2026-11-10).
+  assert(resource.result.contents[0].text.includes('<html')); assert(resource.bytes < 1_500_000, `board resource ${resource.bytes} bytes`);
   // The page names each art file on this origin; a cross-origin page may read it into a canvas, and a new build gets new names.
   const art = [...new Set(resource.result.contents[0].text.match(new RegExp(`${origin}/plugin-art/[\\w-]+\\.(?:webp|png|svg|woff2)`, 'g')))];
   const counts = Object.fromEntries(['webp', 'png', 'svg', 'woff2'].map(type => [type, art.filter(file => file.endsWith(`.${type}`)).length]));
@@ -224,7 +244,9 @@ try {
     assert.match(response.headers.get('cache-control'), /max-age=31536000.*immutable/); assert((await response.arrayBuffer()).byteLength > 0);
   }
   assert.equal((await fetch(`${origin}/plugin-art/missing.webp`)).status, 404); assert.equal((await fetch(`${origin}/plugin-art/..%2fserver.mjs`)).status, 404);
-  await assert.rejects(configurePlugin(productionEnv), /Enable Supabase OAuth/);
+  // M6: production without OAuth readiness turns off only the connector (plugin-server-config.test.ts, case readiness).
+  // It still needs the website's public settings before any provider or database access.
+  await assert.rejects(configurePlugin(productionEnv), /SUPABASE_PUBLISHABLE_KEY must be/);
   await assert.rejects(configurePlugin({ NODE_ENV: 'production', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, KINGDOWN_INTERNAL_SECRET: secret }, { localDev: true }), /Local personas/);
   if (process.argv[3]) {
     recoveryArtifact = await mkdtemp(join(tmpdir(), 'kingdown-recovery-artifact-'));

@@ -24,7 +24,7 @@ describe('web check site routes', () => {
   });
 
   it('uses the build headers for board art when the tree has the ChatGPT plugin', () => {
-    expect(siteRoute(config, '/plugin-art/pawn.svg')).toEqual({ dest: '/plugin-art/pawn.svg', headers: {} });
+    expect(siteRoute({ routes: vercelRoutes(undefined, { chatgpt: false }) }, '/plugin-art/pawn.svg')).toEqual({ dest: '/plugin-art/pawn.svg', headers: {} });
     expect(siteRoute({ routes: vercelRoutes(undefined, { chatgpt: true }) }, '/plugin-art/pawn.svg')).toEqual({
       dest: '/plugin-art/pawn.svg', headers: { ...ART_HEADERS, 'Content-Type': 'image/svg+xml' },
     });
@@ -406,4 +406,17 @@ it('cleans the work tree when the event log cannot be written', async () => {
     for (const { name, before } of listeners) for (const listener of process.listeners(name)) if (!before.includes(listener)) process.removeListener(name, listener);
     vi.doUnmock('node:fs/promises'); vi.doUnmock('./plugin-server-build.mjs'); vi.unstubAllEnvs(); vi.resetModules();
   }
+});
+
+it('keeps native files and functions ahead of the launch missing-page route', () => {
+  const config = { routes: [
+    { src: '^/$', dest: '/next.html' },
+    { src: '^/(?:play|g/[^/]+|j)$', dest: '/index.html' },
+    { handle: 'filesystem' },
+    { src: '^/.*$', dest: '/next.html', status: 404 },
+  ] };
+  expect(siteRoute(config, '/')).toEqual({ dest: '/next.html', headers: {} });
+  for (const path of ['/play', '/g/game', '/j']) expect(siteRoute(config, path)).toEqual({ dest: '/index.html', headers: {} });
+  for (const path of ['/mcp', '/authorize', '/assets/file.js']) expect(siteRoute(config, path, true)).toEqual({ dest: path, headers: {} });
+  expect(siteRoute(config, '/missing')).toEqual({ dest: '/next.html', headers: {}, status: 404 });
 });

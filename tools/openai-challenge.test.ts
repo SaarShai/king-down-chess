@@ -16,7 +16,8 @@ it('the site build keeps the domain challenge dot folder and exact bytes', async
     writeFileSync(join(root, 'public', challenge), token);
     cpSync(resolve('public/sw.js'), join(root, 'public/sw.js'));
     writeFileSync(join(root, 'index.html'), '<!doctype html><title>Build check</title>');
-    await build({ configFile: resolve('vite.config.ts'), root, logLevel: 'silent', envFile: false });
+    // The fixture page replaces the config's page inputs, which point into the repository.
+    await build({ configFile: resolve('vite.config.ts'), root, logLevel: 'silent', envFile: false, build: { rollupOptions: { input: join(root, 'index.html') } } });
     expect(readFileSync(join(root, 'dist', challenge))).toEqual(token);
     const worker = readFileSync(join(root, 'dist/sw.js'), 'utf8');
     const precache = JSON.parse(/const PRECACHE = (\[.*\]);/.exec(worker)![1]);
@@ -50,15 +51,20 @@ it('serves the domain challenge as plain text with no rewrite or redirect when t
   }
 });
 
+it('keeps the domain challenge in a build that serves the Muse connector too', () => {
+  const routes = vercelRoutes(site(randomUUID()), { chatgpt: true, muse: true });
+  expect(routes.filter(route => new RegExp(route.src).test('/.well-known/openai-apps-challenge'))).toEqual([{ src: '^/\\.well-known/openai-apps-challenge$', headers: { 'Content-Type': 'text/plain' }, continue: true }]);
+});
+
 it('adds no challenge route when the site or the token file is absent', () => {
   for (const root of [undefined, site()]) {
     expect(vercelRoutes(root, { chatgpt: true }).some(route => new RegExp(route.src).test('/.well-known/openai-apps-challenge'))).toBe(false);
   }
 });
 
-it('adds no challenge route while the ChatGPT plugin is parked, also with a token file', () => {
-  expect(CHATGPT_PLUGIN).toBe(false);
-  for (const routes of [vercelRoutes(site(randomUUID())), vercelRoutes(site('token\n'))]) {
+it('adds no challenge route without the ChatGPT plugin, also with a token file', () => {
+  expect(CHATGPT_PLUGIN).toBe(true);
+  for (const routes of [vercelRoutes(site(randomUUID()), { chatgpt: false }), vercelRoutes(site('token\n'), { chatgpt: false })]) {
     expect(routes.some(route => /well-known|plugin-art/.test(route.src))).toBe(false);
   }
 });
@@ -68,7 +74,7 @@ it('leaves the domain challenge out of a parked site tree', async () => {
   writeFileSync(join(root, 'index.html'), '<!doctype html><title>Parked</title>');
   const out = mkdtempSync(join(tmpdir(), 'kingdown-parked-tree-'));
   sites.push(out);
-  const output = await buildPluginServer(out, { site: root });
+  const output = await buildPluginServer(out, { site: root, chatgpt: false });
   expect(existsSync(join(output, 'static/index.html'))).toBe(true);
   expect(existsSync(join(output, 'static/.well-known'))).toBe(false);
   expect(existsSync(join(output, 'static/plugin-art'))).toBe(false);

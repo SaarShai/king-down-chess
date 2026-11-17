@@ -7,12 +7,12 @@ import { setRules } from '../rules/engine';
 import type { PaintedScene } from './painted/scene.mjs';
 import { SHARED_MECHANICS, assertMechanicExpected } from '../../tools/fixtures/shared-mechanics';
 
-const { reducedMotion, lively, aim, decorate, disposeScene, disconnectResize, selectScene } = vi.hoisted(() => ({ reducedMotion: vi.fn(), lively: vi.fn(), aim: vi.fn(), decorate: vi.fn(), disposeScene: vi.fn(), disconnectResize: vi.fn(), selectScene: vi.fn() }));
+const { reducedMotion, lively, aim, decorate, disposeScene, disconnectResize, selectScene, sceneOptions, coords } = vi.hoisted(() => ({ reducedMotion: vi.fn(), lively: vi.fn(), aim: vi.fn(), decorate: vi.fn(), disposeScene: vi.fn(), disconnectResize: vi.fn(), selectScene: vi.fn(), sceneOptions: vi.fn(), coords: vi.fn() }));
 let resolveLoad: () => void = () => {};
 let pickedSquare: number | null = null;
 vi.mock('./painted/scene.mjs', () => ({
-  createScene: () => new Proxy({ prepareUndo: () => false, rewindUndo: async () => true, play: async () => true, load: () => new Promise<void>(r => { resolveLoad = r; }), dispose: disposeScene, squareAt: () => pickedSquare, kings: [], drawnKings: [], setReducedMotion: reducedMotion, setLively: lively, setAim: aim, setSelected: selectScene, setDecorate: decorate, animating: false, falling: false, PAD: 32, TILE: 112, cell: (sq: number) => ({col:sq % 8,row:7 - (sq >> 3)}) } as Record<string, unknown>,
-    { get: (t, k: string) => k in t ? t[k] : () => {} }),
+  createScene: (options: unknown) => (sceneOptions(options), new Proxy({ prepareUndo: () => false, rewindUndo: async () => true, play: async () => true, load: () => new Promise<void>(r => { resolveLoad = r; }), dispose: disposeScene, squareAt: () => pickedSquare, kings: [], drawnKings: [], setReducedMotion: reducedMotion, setLively: lively, setAim: aim, setSelected: selectScene, setDecorate: decorate, setCoords: coords, animating: false, falling: false, PAD: 32, TILE: 112, cell: (sq: number) => ({col:sq % 8,row:7 - (sq >> 3)}) } as Record<string, unknown>,
+    { get: (t, k: string) => k in t ? t[k] : () => {} })),
 }));
 
 const frames: FrameRequestCallback[] = [];
@@ -362,4 +362,131 @@ describe('Undo through the painted view', () => {
     press(true); expect(skip).not.toHaveBeenCalled(); expect(consume).not.toHaveBeenCalled();
     press(false); expect(skip).toHaveBeenCalledOnce(); expect(consume).toHaveBeenCalledTimes(2);
   });
+});
+
+// The new interface turns these on; the old screens pass none of them.
+describe('PaintedView options and methods for the new interface', () => {
+  it('passes no new option to the scene and keeps the document skip handler by default', async () => {
+    const container = stubDom(), { PaintedView } = await import('./PaintedView');
+    const view = new PaintedView(container as unknown as HTMLElement);
+    expect(sceneOptions).toHaveBeenLastCalledWith(expect.objectContaining({ holdStills: undefined, lazySheets: undefined }));
+    expect([...documentListeners.keys()]).toEqual(expect.arrayContaining(['pointerdown', 'pointerup', 'click', 'pointercancel']));
+    expect(lively).toHaveBeenLastCalledWith(expect.objectContaining({ atmosphere: true, kings: true, pawns: true }));
+    expect(coords).not.toHaveBeenCalledWith(false, expect.anything(), expect.anything());
+    view.dispose();
+  });
+
+  it('passes the still error callback to the scene only when the caller names it', async () => {
+    const container = stubDom(), { PaintedView } = await import('./PaintedView');
+    new PaintedView(container as unknown as HTMLElement).dispose();
+    expect(sceneOptions.mock.lastCall![0]).toMatchObject({ onArtError: undefined });
+    const onArtError = vi.fn();
+    new PaintedView(container as unknown as HTMLElement, { onArtError }).dispose();
+    expect(sceneOptions.mock.lastCall![0]).toMatchObject({ onArtError });
+  });
+
+  it('passes holdStills and lazySheets to the scene', async () => {
+    const container = stubDom(), { PaintedView } = await import('./PaintedView');
+    new PaintedView(container as unknown as HTMLElement, { holdStills: true, lazySheets: true }).dispose();
+    expect(sceneOptions).toHaveBeenLastCalledWith(expect.objectContaining({ holdStills: true, lazySheets: true }));
+  });
+
+  it('liveInput: no document capture handler; a board press during playback skips it, then acts', async () => {
+    const container = stubDom(), { PaintedView } = await import('./PaintedView');
+    const view = new PaintedView(container as unknown as HTMLElement, { liveInput: true });
+    expect(['pointerdown', 'pointerup', 'click', 'pointercancel'].filter(name => documentListeners.has(name))).toEqual([]);
+    view.sync(fromFen('7k/8/8/8/8/8/4P3/K7 w - - 0 1'));
+    const { scene } = view as unknown as { scene: PaintedScene };
+    const order: string[] = [];
+    Object.assign(scene, { animating: true, cancel: () => order.push('cancel') });
+    view.onSkipAnimation = () => order.push('skip-notice');
+    view.onSquareClick = vi.fn((sq: number) => { order.push(`click ${sq}`); });
+    const down = { button: 0, pointerId: 1, pointerType: 'mouse', clientX: 0, clientY: 0, shiftKey: false };
+    pickedSquare = 20; listeners.get('pointerdown')!(down as unknown as Event); listeners.get('pointerup')!(down as unknown as Event);
+    expect(order).toEqual(['skip-notice', 'cancel', 'click 20']);
+    Object.assign(scene, { animating: false }); order.length = 0;
+    listeners.get('pointerdown')!(down as unknown as Event); listeners.get('pointerup')!(down as unknown as Event);
+    expect(order).toEqual(['click 20']);
+    view.dispose();
+  });
+
+  it('quiet: no coordinates or atmosphere effects; bounded figure idles stay', async () => {
+    const container = stubDom(), { PaintedView } = await import('./PaintedView');
+    const view = new PaintedView(container as unknown as HTMLElement, { quiet: true });
+    expect(coords).toHaveBeenLastCalledWith(false, expect.anything(), expect.anything());
+    expect(lively).toHaveBeenLastCalledWith({ ambient: true, moves: true, atmosphere: false, captures: true, idle: true, kings: false, pawns: false });
+    view.dispose();
+  });
+
+  it.each([false, true])('setReducedMotion overrides the system setting (system %s); null follows the system again', async systemReduced => {
+    const container = stubDom();
+    vi.stubGlobal('matchMedia', () => ({ matches: systemReduced, addEventListener() {} }));
+    const { PaintedView } = await import('./PaintedView');
+    const view = new PaintedView(container as unknown as HTMLElement);
+    view.setReducedMotion(!systemReduced);
+    expect(reducedMotion).toHaveBeenLastCalledWith(!systemReduced);
+    expect(view.motion()).toBe(systemReduced);
+    view.setReducedMotion(null);
+    expect(reducedMotion).toHaveBeenLastCalledWith(systemReduced);
+    expect(view.motion()).toBe(!systemReduced);
+    view.dispose();
+  });
+
+  it('animating is true while a move or a king fall plays', async () => {
+    const container = stubDom(), { PaintedView } = await import('./PaintedView');
+    const view = new PaintedView(container as unknown as HTMLElement);
+    const { scene } = view as unknown as { scene: PaintedScene };
+    expect(view.animating).toBe(false);
+    Object.assign(scene, { falling: true }); expect(view.animating).toBe(true);
+    Object.assign(scene, { falling: false, animating: true }); expect(view.animating).toBe(true);
+    view.dispose();
+  });
+
+  it('setSelected selects on the scene and leaves the marks as they are', async () => {
+    const container = stubDom(), { PaintedView } = await import('./PaintedView');
+    const view = new PaintedView(container as unknown as HTMLElement);
+    view.highlight({ last: [16] });
+    view.setSelected(12, [20]);
+    expect(selectScene).toHaveBeenLastCalledWith(12, [20], []);
+    expect((view as unknown as { marks: object }).marks).toEqual({ last: [16] });
+    view.dispose();
+  });
+
+  it('setSkin and arrive reach the scene', async () => {
+    const container = stubDom(), { PaintedView } = await import('./PaintedView');
+    const view = new PaintedView(container as unknown as HTMLElement);
+    const { scene } = view as unknown as { scene: PaintedScene };
+    const setBoardArt = vi.fn(async () => {}), arrive = vi.fn();
+    Object.assign(scene, { setBoardArt, arrive });
+    await view.setSkin('/interface/stone-refined-light.webp');
+    expect(setBoardArt).toHaveBeenCalledWith('/interface/stone-refined-light.webp');
+    const delays = new Map([[0, 0], [1, 35]]);
+    view.arrive(delays, 360);
+    expect(arrive).toHaveBeenCalledWith(delays, 360, undefined);
+    view.dispose();
+  });
+});
+
+it('can keep a thaw on skip, while the old default still settles it', async () => {
+  const container = stubDom(), { PaintedView } = await import('./PaintedView');
+  const view = new PaintedView(container as unknown as HTMLElement);
+  const { StateEffects } = await import('./effects/states');
+  const states = (view as unknown as { stateEffects: InstanceType<typeof StateEffects> }).stateEffects;
+  const settle = vi.spyOn(states, 'settle');
+  view.skip({ keepStates: true }); expect(settle).not.toHaveBeenCalled();
+  view.skip(); expect(settle).toHaveBeenCalledOnce(); view.dispose();
+});
+
+it.each([false, true])('draws Plain marks only below figures, including symbols %s', async symbols => {
+  const container = stubDom(), { PaintedView } = await import('./PaintedView');
+  const view = new PaintedView(container as unknown as HTMLElement, { plainMarks: true });
+  view.sync(fromFen('7k/7p/8/8/8/8/P7/K7 w - - 0 1'));
+  if (symbols) view.setSymbols(() => ({} as HTMLImageElement));
+  view.setPlainMarks({ rings: [{ square: 8, color: '#fffaf0', role: 'actor' }], paths: [], steps: [] });
+  const calls: string[] = [], ctx = new Proxy({}, { get: (_o, key) => () => { if (key === 'ellipse' || key === 'drawImage') calls.push(String(key)); } });
+  const draw = decorate.mock.lastCall![0], scene = (view as unknown as { scene: PaintedScene }).scene;
+  draw(ctx, scene, 'over', 7); expect(calls).toEqual([]);
+  draw(ctx, scene, 'under'); expect(calls[0]).toBe('ellipse');
+  if (symbols) expect(calls.indexOf('drawImage')).toBeGreaterThan(calls.lastIndexOf('ellipse'));
+  view.dispose();
 });

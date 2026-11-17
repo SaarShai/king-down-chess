@@ -66,12 +66,13 @@ export interface PaintedScene {
    * captures: a piece a king takes dies that king's way (king-captures.mjs);
    * pawns: resting pawns now and then shake the spear, move the helmet or hitch the shield (lance/idle.mjs).
    */
-  setLively(options: { moves?: boolean; idle?: boolean; atmosphere?: boolean; kings?: boolean; captures?: boolean; pawns?: boolean }): void;
+  setLively(options: { ambient?: boolean; moves?: boolean; idle?: boolean; atmosphere?: boolean; kings?: boolean; captures?: boolean; pawns?: boolean }): void;
   /** The king designs whose effects the last frame drew (empty: none). */
   readonly effects: KingDesign[];
   /** The clip drawing the last frame showed, or null: none plays. */
   readonly clip: { name: 'knight' | 'rook'; frame: number } | null;
   /** Resting pawns in the last frame and how many of them were acting. */
+  readonly idles: number[];
   readonly pawns: { resting: number; acting: number };
   /** Frames drawn since the scene was made. */
   readonly frames: number;
@@ -86,8 +87,12 @@ export interface PaintedScene {
    */
   setDecorate(fn: ((ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row?: number) => void) | null): void;
   redraw(): void;
+  /** Swap the board texture. Square geometry does not change. A decode failure keeps the old art and rejects. */
+  setBoardArt(url: string): Promise<void>;
   /** Draw every frame for the next `ms` milliseconds (a decoration's own short animation). */
   keepAwake(ms: number): void;
+  /** The figures on `delays` (square: ms) rise `rise` units into place in `ms` each; an empty map or reduced motion ends it. */
+  arrive(delays: Map<number, number>, ms?: number, rise?: number): void;
   /** Board-unit bounds of figure `piece` standing at rest on `square`: foot x and y, head top, left and right. */
   figureBox(piece: number, square: number): { x: number; foot: number; top: number; l: number; r: number };
   /** A see-through copy of figure `piece` standing on `square` (a move preview), drawn into `ctx`; for setDecorate. */
@@ -95,7 +100,8 @@ export interface PaintedScene {
   /** onContact fires once when the strike lands (not for plain moves or swaps). */
   /** speed scales duration: 2 is half playback speed; 0.5 is double. */
   /** gait: play a quiet move with this gait (a GAITS name) even when `moves` is off. */
-  play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null; gait?: string | null; effect?: SceneEffect }): Promise<boolean>;
+  /** targetMs: opt-in action time before the speed factor; the default keeps the recorded timing. */
+  play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null; gait?: string | null; effect?: SceneEffect; targetMs?: number; finishSwapOnArrival?: boolean }): Promise<boolean>;
   prepareUndo(move: SceneMove, source?: { board: ArrayLike<number> }): boolean;
   rewindUndo(): Promise<boolean>;
   cancel(): void;
@@ -113,4 +119,12 @@ export function createScene(options: {
   floor?: string | null;
   /** Use the ready-only character body package in the game. */
   characterRuntime?: boolean;
+  /** With the runtime: a figure keeps its rest still while its part is in transfer; only a figure the package lacks drops it. Default false. */
+  holdStills?: boolean;
+  /** With the runtime: ready needs only the stone and the rest stills; the legacy sheets, the wind, rift and king sheets load after the first frame, and a figure draws its still until its sheet loads. The stills and `setBoardArt` load without CORS, so their art must come from the page's origin. Default false. */
+  lazySheets?: boolean;
+  /** The first board surface. Default: the original stone image. With lazySheets, use the page's origin. */
+  initialBoardArt?: string;
+  /** Called with the URL of a rest still that cannot load. Default none: the figure then waits for its sheet, as before. */
+  onArtError?: (url: string) => void;
 }): PaintedScene;

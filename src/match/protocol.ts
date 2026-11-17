@@ -81,7 +81,7 @@ export interface LoggedCommand { seq: number; seat: Seat | null; action: LoggedA
 /** `deleted`: the account was deleted; show "Deleted player". `last_seen_ms`: time since the seat's last command,
  * null unless the opponent's "who sees that I am online" setting lets you see it (and no block). The setting does not
  * hide the time of each move in a shared game (`last_commands[].at`, `deadline_at`): the safety page says so. */
-export interface Opponent { handle: string | null; icon: Icon | null; rating?: { rating: number; provisional: boolean }; computer: boolean; deleted: boolean; last_seen_ms: number | null }
+export interface Opponent { handle: string | null; icon: Icon | null; avatar?: string | null; rating?: { rating: number; provisional: boolean }; computer: boolean; deleted: boolean; last_seen_ms: number | null }
 
 /** One seat's public view, never the full save. Full reads include rules and move history. */
 export interface View {
@@ -142,7 +142,7 @@ export interface GameOutcome { rating_before: number | null; rating: number | nu
 export interface InboxEntry { invite_id?: string | null; rating_policy: RatingPolicy; options: Options | null; move: number | null; created_at: string; open_until: string | null; level: SkillName; game_id: string; kind: 'solo' | 'friend' | 'random'; speed: 'daily' | 'live'; status: 'waiting' | 'setup' | 'playing'; seat: Seat; action: SeatAction; turn: Seat; revision: number; deadline_at: string | null; opponent: Opponent | null; updated_at: string }
 /** The link token (43 characters) and the short code (6 characters) open the same seat. */
 export type InvitationState = 'open' | 'accepted' | 'declined' | 'cancelled' | 'expired';
-export interface InvitationRow { revision: number; invite_id: string; game_id: string; direction: 'incoming' | 'outgoing'; recipient_id: string | null; player: { user_id: string; handle: string | null; icon: Icon | null } | null; options: Options | null; expires_at: string; state: InvitationState }
+export interface InvitationRow { revision: number; invite_id: string; game_id: string; direction: 'incoming' | 'outgoing'; recipient_id: string | null; player: { user_id: string; handle: string | null; icon: Icon | null; avatar?: string | null } | null; options: Options | null; expires_at: string; state: InvitationState }
 export interface InvitationPage { invitations: InvitationRow[]; next_before: string | null }
 export interface Friend { user_id: string; handle: string; icon: Icon | null; source: 'recent' | 'follow' | 'lookup' }
 export interface FriendsPage { friends: Friend[]; next_after: string | null }
@@ -151,7 +151,7 @@ export interface Invite { token: string; code: string; expires_at: string; invit
 export const inviteSchema = z.strictObject({ recipient_id: z.uuid().optional(), recipient_handle: z.string().min(1).max(40).optional(), open_link: z.literal(true).optional(), rotate: z.boolean().optional() }).refine(v => [v.recipient_id, v.recipient_handle, v.open_link].filter(x => x !== undefined).length <= 1);
 export const friendsSchema = z.strictObject({ handle: z.string().min(1).max(40).optional(), after: z.uuid().optional(), limit: z.coerce.number().int().min(1).max(50).default(20) });
 export const invitationsSchema = z.strictObject({ before: z.string().max(120).optional(), limit: z.coerce.number().int().min(1).max(50).default(20) });
-export interface JoinPreview { code: string; options: Options | null; colour: 'white' | 'black'; kind: 'friend' | 'random' | 'solo'; creator: { handle: string | null; icon: Icon | null }; expires_at: string; recipient_id?: string | null; recipient_handle?: string | null; invite_id?: string }
+export interface JoinPreview { code: string; options: Options | null; colour: 'white' | 'black'; kind: 'friend' | 'random' | 'solo'; creator: { handle: string | null; icon: Icon | null; avatar?: string | null }; expires_at: string; recipient_id?: string | null; recipient_handle?: string | null; invite_id?: string }
 export interface LobbyEntry { rating_policy: RatingPolicy; game_id: string; options: Options | null; colour: 'white' | 'black'; creator: { handle: string; icon: Icon | null }; created_at: string }
 export interface Lobby { games: LobbyEntry[]; active_count?: number }
 

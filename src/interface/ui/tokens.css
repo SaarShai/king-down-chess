@@ -1,0 +1,130 @@
+/* Change the tokens here. Components use semantic tokens only. One light theme (docs/specs/interface-move). */
+@font-face { font-family: Table; src: url('/fonts/alegreya-sans-bold-latin.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
+:root {
+  /* Materials: brass is the one main action; enamel is a power. */
+  --main-fill: linear-gradient(180deg, #ffe1a0 0%, #edc575 55%, #d8a552 100%);
+  --main-ink: #322817;
+  --main-depth: inset 0 1px 0 #fff0ca, inset 0 -3px 0 #a87935, 0 4px 8px #05171d66;
+  --power-fill: linear-gradient(170deg, #c7f5ef, #9ac6cd);
+  --power-ink: #163d46;
+  --power-depth: inset 0 1px #efffef, inset 0 -3px #638e9e, 0 3px 6px #05171d73;
+  --rival-fill: linear-gradient(170deg, #ffd2bd, #e9a487);
+  --rival-ink: #3d1c10;
+  --rival-depth: inset 0 1px #fff3ea, inset 0 -3px #b86e52, 0 2px 4px #05171d73;
+  --card-edge: inset 0 0 0 1px #c1aa78, inset 0 -3px #806b45, 0 3px 6px #05171d73;
+  --paper-50: #f7f5ed;
+  --paper-0: #fffdf7;
+  --ink-900: #262e2c;
+  --sage-700: #62685e;
+  --sage-500: #798071;
+  --sage-100: #e9ece1;
+  --rust-700: #a9442e;
+  --rust-100: #f5e4da;
+  --blue-700: #235cbb;
+  --blue-100: #e5edf9;
+  --white: #ffffff;
+  --red-800: #9d292e;
+  --red-100: #ffe9e7;
+  --green-800: #245c3c;
+  --green-100: #e1efdf;
+  --unit: .25rem;
+  --font-reading: 'Avenir Next', Avenir, 'Segoe UI', sans-serif;
+  --font-title: Table, Georgia, 'Times New Roman', serif;
+  --type-small: .9375rem;
+  --type-body: 1rem;
+  --type-label: 1.125rem;
+  --type-heading: 1.75rem;
+  --type-display: clamp(2.5rem, 5vw, 4rem);
+  --leading: 1.5;
+  --leading-title: 1.15;
+  --weight-normal: 400;
+  --weight-strong: 650;
+  --tracking-title: -.025em;
+  --space-1: var(--unit);
+  --space-2: calc(var(--unit) * 2);
+  --space-3: calc(var(--unit) * 3);
+  --space-4: calc(var(--unit) * 4);
+  --space-6: calc(var(--unit) * 6);
+  --space-8: calc(var(--unit) * 8);
+  --space-12: calc(var(--unit) * 12);
+  --radius-control: .75rem;
+  --radius-surface: .875rem;
+  --radius-chip: .375rem;
+  --radius-round: 999px;
+  --line-width: 1px;
+  --line-selected: 2px;
+  --focus-width: 3px;
+  --focus-offset: 3px;
+  --target-min: 44px;
+  --target-comfort: 50px;
+  --portrait-size: 4rem;
+  --card-art-height: 6rem;
+  --icon-size: 1.5rem;
+  --motion-fast: 120ms;
+  --motion-panel: 240ms;
+  --motion-fade: 100ms;
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-linear: linear;
+  --travel-panel: 1.5rem;
+  --elevation-panel: 0 12px 32px #17282026;
+  --elevation-none: none;
+  --panel-max: 30rem;
+  --content-max: 80rem;
+  /* Interface motion (runs/motion/motion-spec.md). Strength Exaggerated = 2, Medium = 1: distances, scales and
+     overshoots follow it (play/motion.ts). Times do not. play/motion.ts adds --ease-spring, --ease-seal, --ease-label,
+     --ease-rest, --ease-screen-in and --ease-vanish as linear() curves from the lab formulas. */
+  --motion-strength: 2;
+  --ease-out2: cubic-bezier(.5, 1, .89, 1);
+  --ease-out3: cubic-bezier(.33, 1, .68, 1);
+  --ease-out5: cubic-bezier(.22, 1, .36, 1);
+  --ease-in3: cubic-bezier(.32, 0, .67, 0);
+  --ease-io3: cubic-bezier(.65, 0, .35, 1);
+  --dur-press-glow: 150ms; --dur-release-glow: 460ms;
+  --dur-press-weight: 170ms; --dur-seal-weight: 260ms; --dur-label-weight: 440ms; --dur-rest-weight: 380ms;
+  --dur-arm: 200ms; --dur-disarm: 280ms; --dur-ring-glow: 380ms; --ring-stagger: 60ms; --dur-ring-out: 240ms; --dur-halo: 900ms;
+  --dur-card-lift: 560ms; --dur-card-travel: 520ms; --dur-card-vanish: 240ms;
+  --card-lift: calc(-22px * var(--motion-strength)); --card-scale: calc(1 + .12 * var(--motion-strength));
+  --dur-tab-out: 260ms; --dur-tab-in: 520ms; --dur-tab-marker: 400ms;
+  --dur-sheet-in: 280ms; --dur-sheet-out: 200ms;
+  --dur-screen-in: 560ms; --dur-screen-back: 520ms; --dur-screen-out: 440ms;
+  --dur-msg-in: 220ms; --dur-msg-out: 150ms; --dur-error-hold: 1500ms; --dur-shake: 220ms;
+  --dur-reduced-in: 120ms; --dur-reduced-out: 100ms; --dur-reduced-press: 60ms;
+  /* The match opening: Versus, then Roll call (main.ts). */
+  --dur-versus: 1600ms; --dur-versus-out: 240ms;
+  --dur-arrive: 360ms; --arrive-stagger: 35ms; --arrive-rise: 24;
+  --dur-tag: 640ms; --tag-start: 160ms; --tag-stagger: 90ms;
+  /* Safe areas (launch decision 37): each part at a screen edge pads with these. A test can set them. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  /* The shell: the phone bar, the top bar from 900 px, and the brass of the bar marker (motion spec: gold). */
+  --bar-phone: 56px;
+  --bar-top: 72px;
+  --brass: #d8a552;
+  --tab-mark-width: 32px;
+}
+:root {
+  color-scheme: light;
+  --surface-page: var(--paper-50);
+  --surface-raised: var(--paper-0);
+  --surface-muted: var(--sage-100);
+  --text: var(--ink-900);
+  --text-muted: #535b50;
+  --border: #747d70;
+  --divider: #c6cbbd;
+  --action: var(--rust-700);
+  --on-action: var(--white);
+  --action-soft: var(--rust-100);
+  --info: var(--blue-700);
+  --info-soft: var(--blue-100);
+  --danger: var(--red-800);
+  --danger-soft: var(--red-100);
+  --success: var(--green-800);
+  --success-soft: var(--green-100);
+  --focus-ring: var(--blue-700);
+  --art-ground: #d7e0d9;
+  --symbol-ground: var(--white);
+  --scrim: #151e2466;
+  --raise: inset 0 1px 0 #ffffff, inset 0 -2px 0 #c9ccbf;
+}

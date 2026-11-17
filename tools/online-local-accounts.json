@@ -1,0 +1,37 @@
+[
+  {
+    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+    "email": "test-a@example.test",
+    "handle": "test-a",
+    "provider": "github",
+    "raw_user_meta_data": {
+      "full_name": "Test A"
+    }
+  },
+  {
+    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2",
+    "email": "test-b@example.test",
+    "handle": "test-b",
+    "provider": "github",
+    "raw_user_meta_data": {
+      "full_name": "Test B"
+    }
+  },
+  {
+    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3",
+    "email": "test-c@example.test",
+    "handle": "test-c",
+    "provider": "google",
+    "raw_user_meta_data": {
+      "full_name": "Test C",
+      "avatar_url": "/interface/computer-king-1-96.webp"
+    }
+  },
+  {
+    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4",
+    "email": "test-d@example.test",
+    "handle": "test-d",
+    "provider": "email",
+    "raw_user_meta_data": {}
+  }
+]

@@ -209,3 +209,15 @@ it('shows a remote solo move within 5 s in the first 2 idle minutes, and within 
     expect(reads.filter(read => read > seen && read <= seen + 15000).length).toBe(3);
   }
 });
+
+it('opts into the first-move watch without changing old hosts or private presence', () => {
+  for (const type of ['join', 'ready']) for (const seat of [0, 1] as const) {
+    const fresh = view({ last_commands: [{ seq: 1, seat, at: '2026-10-11T11:58:00.001Z', action: { type } }] } as Partial<View>);
+    expect(pollDelay(fresh, 0, false)).toBe(seat === fresh.seat ? 30000 : 3000);
+    expect(pollDelay(fresh, 0, false, { fastStart: true })).toBe(3000);
+    expect(pollDelay({ ...fresh, server_now: '2026-10-11T12:00:00.001Z' }, 0, false, { fastStart: true })).toBe(30000);
+    expect(pollDelay(fresh, 0, true, { fastStart: true })).toBeUndefined();
+    expect(pollDelay({ ...fresh, status: 'finished' }, 0, false, { fastStart: true })).toBeUndefined();
+    expect(fresh.opponent?.last_seen_ms).toBeNull();
+  }
+});

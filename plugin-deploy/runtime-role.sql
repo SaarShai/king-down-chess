@@ -194,3 +194,13 @@ drop policy if exists kingdown_plugin_runtime_old_errors on public.client_errors
 create policy kingdown_plugin_runtime_old_errors on public.client_errors as restrictive for delete to kingdown_plugin_runtime
  using (last_seen < now()-interval '30 days');
 commit;
+
+-- 14. Opponent picture helper (0025). The runtime sees a social sign-in picture only for shared games or invites.
+begin;
+grant execute on function kingdown_jobs.user_avatar(uuid, uuid) to kingdown_plugin_runtime;
+commit;
+
+-- 15. Deletion notice helper (0026). The runtime reads an address only for a due account deletion, to confirm it.
+begin;
+grant execute on function kingdown_jobs.deletion_email(uuid) to kingdown_plugin_runtime;
+commit;

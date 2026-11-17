@@ -1,0 +1,85 @@
+/* The people screens (docs/specs/people-screens). The kit owns the materials; this file only places them. */
+.people-sheet {
+  margin: auto 0 0; padding: 0; border: 0; inline-size: 100%; max-inline-size: 100%; max-block-size: 90dvh;
+  background: transparent; color: var(--text); overflow: visible; -webkit-tap-highlight-color: transparent;
+  animation: kd-sheet-in var(--dur-sheet-in) var(--ease-out5);
+}
+.people-sheet::backdrop { background: var(--scrim); }
+.people-sheet-panel {
+  display: grid; grid-template-rows: auto minmax(0, 1fr); max-block-size: 90dvh; background: var(--surface-raised);
+  border-radius: var(--radius-surface) var(--radius-surface) 0 0; box-shadow: var(--elevation-panel);
+  padding: var(--space-2) max(var(--space-4), var(--safe-right, env(safe-area-inset-right, 0px))) max(var(--space-4), var(--safe-bottom, env(safe-area-inset-bottom, 0px))) max(var(--space-4), var(--safe-left, env(safe-area-inset-left, 0px)));
+}
+/* Search answers change the rows. Keep the field and the sheet controls in place. */
+.people-sheet-panel:has(input[name='handle']) { block-size: min(90dvh, 40rem); }
+.people-sheet-head { display: flex; align-items: center; gap: var(--space-2); padding-block: var(--space-2); }
+.people-sheet-head h2 { flex: 1; min-inline-size: 0; font-size: 1.5rem; }
+.people-sheet-head h2:focus, .people-landing h2:focus, .people-recovery h2:focus { outline: none; }
+.people-sheet-head .kd-button { flex: none; padding-inline: var(--space-3); }
+.people-sheet-body { overflow: auto; overscroll-behavior: contain; display: grid; gap: var(--space-3); align-content: start; padding: var(--space-1) var(--space-1) var(--space-2); }
+.people-plain.kd-button { background: transparent; border-color: transparent; box-shadow: none; color: var(--info); min-block-size: var(--target-min); }
+.people-muted { color: var(--text-muted); }
+.people-small { color: var(--text-muted); font-size: var(--type-small); }
+.people-small a { display: inline-flex; align-items: center; justify-content: center; min-block-size: var(--target-min); min-inline-size: var(--target-min); }
+.people-legal { margin-block-start: calc(-1 * var(--space-3)); }
+.people-center { text-align: center; margin-block-start: calc(-1 * var(--space-2)); }
+/* The main action of a long sheet: at the foot of the view on a short screen, in its place when the sheet has room.
+   The margins cancel the padding, so the layout with room does not change; the padding covers the rows below it. */
+.people-main {
+  position: sticky; inset-block-end: calc(-1 * var(--space-2)); z-index: 1; display: grid; gap: var(--space-3);
+  margin: calc(-1 * var(--space-2)) calc(-1 * var(--space-1)); padding: var(--space-2) var(--space-1); background: var(--surface-raised);
+}
+/* A control that takes the focus does not go under the main action. */
+.people-sheet-body:has(> .people-main) { scroll-padding-block-end: 8rem; }
+/* A failed copy makes the link the task. Let it scroll past the send action. */
+.people-sheet-body:has(.people-field:not([hidden]) > input[readonly]) .people-main { position: static; }
+.people-status { color: var(--danger); font-weight: var(--weight-strong); }
+.people-status:empty { margin: 0; }
+.people-ways, .people-list, .people-again, .people-form { display: grid; gap: var(--space-2); }
+.people-again h3, .people-sheet-body > h3 { margin-block-start: var(--space-2); }
+.people-row {
+  display: flex; align-items: center; gap: var(--space-3); min-block-size: 58px; padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border: var(--line-width) solid var(--divider); border-radius: var(--radius-surface); background: var(--surface-raised);
+}
+.people-row-copy { flex: 1; min-inline-size: 0; display: grid; overflow-wrap: anywhere; }
+.people-row .kd-button { flex: none; }
+.people-picture { flex: none; border-radius: var(--radius-round); background: var(--art-ground); object-fit: cover; object-position: center 8%; border: var(--line-width) solid var(--divider); }
+.people-picture-small { inline-size: 44px; block-size: 44px; }
+.people-picture-large { inline-size: 88px; block-size: 88px; }
+.people-who { display: grid; justify-items: center; gap: var(--space-2); }
+.people-name { font-size: 1.25rem; overflow-wrap: anywhere; text-align: center; }
+.people-field { display: grid; gap: var(--space-2); font-weight: var(--weight-strong); }
+.people-field input {
+  min-block-size: 50px; padding: var(--space-3) var(--space-4); border: var(--line-width) solid var(--border); border-radius: var(--radius-control);
+  background: var(--white); color: var(--text); font-weight: var(--weight-normal); min-inline-size: 0;
+}
+.people-field input.people-code { font-size: 1.5rem; letter-spacing: .4em; text-align: center; font-variant-numeric: tabular-nums; }
+.people-landing {
+  /* The safe areas add to the column: on a phone on the side they do not make the text column narrow. */
+  min-block-size: 100dvh; display: grid; align-content: center; justify-items: center; gap: var(--space-3); margin-inline: auto; text-align: center;
+  max-inline-size: calc(30rem + var(--safe-left, env(safe-area-inset-left, 0px)) + var(--safe-right, env(safe-area-inset-right, 0px)));
+  padding: max(var(--space-6), var(--safe-top, env(safe-area-inset-top, 0px))) max(var(--space-4), var(--safe-right, env(safe-area-inset-right, 0px))) max(var(--space-6), var(--safe-bottom, env(safe-area-inset-bottom, 0px))) max(var(--space-4), var(--safe-left, env(safe-area-inset-left, 0px)));
+  -webkit-tap-highlight-color: transparent;
+}
+.people-landing > .kd-button { inline-size: 100%; }
+.people-brand { font-size: 2rem; }
+.people-facts { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); }
+.people-fact { padding: var(--space-1) var(--space-2); border-radius: var(--radius-chip); background: var(--surface-muted); font-size: var(--type-small); }
+.people-recovery { display: grid; gap: var(--space-3); max-inline-size: 30rem; margin-inline: auto;
+  padding: max(var(--space-6), var(--safe-top, env(safe-area-inset-top, 0px))) max(var(--space-4), var(--safe-right, env(safe-area-inset-right, 0px))) max(var(--space-6), var(--safe-bottom, env(safe-area-inset-bottom, 0px))) max(var(--space-4), var(--safe-left, env(safe-area-inset-left, 0px))); }
+@media (min-width: 600px) {
+  .people-sheet { margin: auto; inline-size: min(560px, calc(100% - 2 * var(--space-6))); }
+  .people-sheet-panel { border-radius: var(--radius-surface); padding: var(--space-4) var(--space-6) var(--space-6); }
+}
+/* A phone on the side: the main action stays in view; the rest scrolls in the sheet. */
+@media (max-height: 500px) {
+  .people-picture-large { inline-size: 56px; block-size: 56px; }
+  .people-landing { align-content: start; gap: var(--space-2); }
+  .people-brand { font-size: 1.5rem; }
+}
+@media (prefers-reduced-motion: reduce) { .people-sheet { animation: kd-fade var(--motion-fade) var(--ease-linear); } }
+:root[data-motion='reduce'] .people-sheet { animation: kd-fade var(--motion-fade) var(--ease-linear); }
+.safety-block-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.people-field select, .people-field textarea { min-height: 44px; width: 100%; border: 1px solid var(--divider); border-radius: var(--radius-control); background: var(--surface-raised); color: var(--text); font: inherit; padding: 10px 12px; }
+.people-field textarea { resize: vertical; }
+.apple-sign-in.kd-button { background: #000; color: #fff; border-color: #000; font-family: system-ui, sans-serif; }

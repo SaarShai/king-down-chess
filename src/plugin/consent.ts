@@ -7,10 +7,12 @@ const authorizationId = new URL(location.href).searchParams.get('authorization_i
 const status = document.getElementById('status')!, signin = document.getElementById('signin')!, consent = document.getElementById('consent')!;
 const accountChoice = document.getElementById('choose-account')!;
 const buttons = [...document.querySelectorAll<HTMLButtonElement>('button')];
-/** The OpenAI review account (approval D8 a) signed in here with a password. It is off while the ChatGPT plugin is
- *  parked (tools/chatgpt-plugin.mjs, 2026-10-28): the form stays hidden and sends nothing. The Supabase hook and
- *  kingdown_auth.password_accounts are outside the app (docs/HOSTING.md, "Parked: the ChatGPT plugin"). */
-const REVIEW_PASSWORD_SIGNIN = false;
+/** The review accounts sign in here with a password: OpenAI's (approval D8 a) and Meta's two
+ *  (docs/specs/muse-connector/issues/15-review-accounts.md). A build that serves the ChatGPT plugin or the Muse connector
+ *  shows the form (KINGDOWN_CHATGPT, KINGDOWN_MUSE, tools/plugin-server-build.mjs); other builds hide it and send nothing.
+ *  The guard is in Supabase: the access token hook refuses a password session for each address not in
+ *  kingdown_auth.password_accounts (plugin-deploy/oauth-audience-hook.sql). */
+const REVIEW_PASSWORD_SIGNIN = import.meta.env.KINGDOWN_CHATGPT === true || import.meta.env.KINGDOWN_MUSE === true;
 function busy(on: boolean): void { buttons.forEach(button => { button.disabled = on; }); }
 function say(message: string): void { status.textContent = message; }
 function redirect(value: string): void {
@@ -32,7 +34,7 @@ async function main(): Promise<void> {
         if (error) throw error;
       } catch { busy(false); say('Sign-in could not start. Try again.'); }
     };
-    // The one review account (approval D8 a). The before-user-created hook refuses every other password sign-up.
+    // The review accounts (ticket 15). The access token hook refuses a password session for each other address.
     const email = document.getElementById('password-email') as HTMLInputElement, password = document.getElementById('password-value') as HTMLInputElement;
     document.getElementById('password-signin')!.hidden = !REVIEW_PASSWORD_SIGNIN;
     document.getElementById('password-form')!.onsubmit = async event => {
@@ -78,6 +80,9 @@ async function main(): Promise<void> {
   if (data.authorization_id !== authorizationId) throw new Error('Authorization request does not match this page.');
   if (data.user.id !== session.data.session.user.id) throw new Error('Authorization account mismatch');
   const enabled = config.clientIds.includes(data.client.id.toLowerCase()) && data.scope.split(/\s+/).includes('openid');
+  // A build that serves both connectors has both texts (tools/plugin-server-build.mjs); show the one of this client.
+  const connector = config.museClientIds?.includes(data.client.id.toLowerCase()) ? 'muse' : 'chatgpt';
+  for (const part of document.querySelectorAll<HTMLElement>('[data-connector]')) part.hidden = part.dataset.connector !== connector;
   document.getElementById('client-name')!.textContent = data.client.name;
   document.getElementById('account')!.textContent = data.user.email || 'Your signed-in account';
   document.getElementById('redirect')!.textContent = data.redirect_uri;

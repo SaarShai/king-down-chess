@@ -239,3 +239,28 @@ it('projects stored policies and keeps Ranked matching and accept separate in th
   await expect(s.find('bob',undefined,undefined,'invalid',true,'ranked')).rejects.toMatchObject({code:'INVALID_INPUT'});
  } finally { await s.close(); }
 });
+
+it('supports named invitations, decline, friends lookup and social picture privacy in the fixture', async () => {
+ const s = fixtureService(), alicePic = 'https://lh3.googleusercontent.com/a/alice', bobPic = 'https://avatars.githubusercontent.com/u/2';
+ try {
+  await s.handle('alice',{handle:'alice'}); await s.handle('bob',{handle:'bob'}); await s.handle('carol',{handle:'carol'});
+  s.seed('alice', { metadata: { avatar_url: alicePic, provider: 'google' } });
+  s.seed('bob', { metadata: { picture: bobPic, provider: 'github' } });
+  s.seed('carol', { metadata: { avatar_url: 'https://example.com/email-pic.png', provider: 'email' } });
+  expect((await s.friends('alice', { handle: 'bob' })).friends[0]).not.toHaveProperty('avatar');
+  await expect(s.friends('alice', { handle: 'nobody' })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  const named = await s.create('alice', { kind: 'friend', recipient_handle: 'bob', options: DEFAULT_OPTIONS });
+  expect(named.invitation).toMatchObject({ direction: 'outgoing', state: 'open', player: { handle: 'bob', avatar: bobPic } });
+  expect((await s.invitations('bob')).invitations[0]).toMatchObject({ direction: 'incoming', state: 'open', player: { handle: 'alice', avatar: alicePic } });
+  expect((await s.preview('bob', { invite_id: named.invite_id })).creator.avatar).toBe(alicePic);
+  await expect(s.preview('carol', named.invite!.token)).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
+  const declined = await s.declineInvite('bob', named.invite_id!);
+  expect(declined.state).toBe('declined');
+  expect((await s.invitations('alice')).invitations[0]).toMatchObject({ state: 'declined', player: { handle: 'bob', avatar: bobPic } });
+  const emailNamed = await s.create('alice', { kind: 'friend', recipient_handle: 'carol', options: DEFAULT_OPTIONS });
+  expect(emailNamed.invitation?.player?.avatar).toBeNull();
+  const active = await s.join('carol', { invite_id: emailNamed.invite_id });
+  expect(active.opponent?.avatar).toBe(alicePic);
+  expect((await s.view('alice', active.game_id)).opponent?.avatar).toBeNull();
+ } finally { await s.close(); }
+});

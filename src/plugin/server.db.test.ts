@@ -690,7 +690,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
   const opened = await guest.ok('kingdown_open', { code });
   for (const result of [preview, opened]) {
    expect(result.structuredContent.screen).toBe('join');
-   expect(result._meta.preview).toEqual({ code, options, colour: 'white', kind: 'friend', creator: { handle: `preview-a-${tag}`, icon: 'mud' }, expires_at, invite_id, recipient_id: null, recipient_handle: null });
+   expect(result._meta.preview).toEqual({ code, options, colour: 'white', kind: 'friend', creator: { handle: `preview-a-${tag}`, icon: 'mud', avatar: null }, expires_at, invite_id, recipient_id: null, recipient_handle: null });
    for (const secret of [code, `preview-a-${tag}`, 'mud']) expect(JSON.stringify([result.content, result.structuredContent])).not.toContain(secret);
   }
   expect(view(await host.ok('kingdown_get', { game_id })).status).toBe('waiting');

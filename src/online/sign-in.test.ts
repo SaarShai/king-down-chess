@@ -1,9 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { beginAccountSignIn, consumeSignInReturn, type SignInHost } from './sign-in';
 
 const origin = 'https://kingdown.test', key = 'kingdown.account-signin', flow = 'flow_12345678', otherFlow = 'flow_87654321';
 const target = '/g/abcdef12-3456-7890-abcd-1234567890ab';
 const session = { userId: 'user-a', accessToken: 'token-a' };
+afterEach(() => vi.unstubAllEnvs());
 const callback = (id = flow, code = 'one-use-code') => `/play/?code=${code}&sb_flow_id=${id}`;
 const record = (extra = {}) => ({ flow, target, created: 1_000_000, ...extra });
 
@@ -31,6 +32,15 @@ function tab(path = callback()) {
 }
 
 describe('checked account sign-in return', () => {
+  it('permits Apple only on the new page with the release switch and keeps the invite target', async () => {
+    const t = tab('/next.html#join=ABC234'); t.host.entryPath = '/next.html';
+    await expect(beginAccountSignIn('apple', '/j#ABC234', t.host)).rejects.toThrow('Invalid sign-in target');
+    vi.stubEnv('VITE_KINGDOWN_APPLE_SIGN_IN', '1');
+    await beginAccountSignIn('apple', '/j#ABC234', t.host);
+    expect(t.client.startAccountSignIn).toHaveBeenCalledExactlyOnceWith('apple', { entryPath: '/next.html' });
+    expect(JSON.parse(t.records.get(key)!)).toMatchObject({ target: '/j#ABC234' });
+    const old = tab('/play/'); await expect(beginAccountSignIn('apple', '/j#ABC234', old.host)).rejects.toThrow('Invalid sign-in target');
+  });
   it('A05 saves only a checked route, flow and date before it leaves for the provider', async () => {
     const t = tab('/j#ABC234');
     await beginAccountSignIn('github', '/j?next=unchecked#abc-234', t.host);
@@ -202,4 +212,19 @@ describe('checked account sign-in return', () => {
     expect(await consumeSignInReturn(t.host)).toEqual({ status: 'retry' });
     expect(t.host.location.href).toBe(origin + '/play/'); expect(t.host.client).not.toHaveBeenCalled();
   });
+});
+
+it('the new interface keeps the checked link target through its own callback', async () => {
+  const t = tab('/next.html'); t.host.entryPath = '/next.html';
+  const token = 'a'.repeat(43);
+  await beginAccountSignIn('facebook', '/j#' + token, t.host);
+  expect(t.client.startAccountSignIn).toHaveBeenCalledWith('facebook', { entryPath: '/next.html' });
+  t.host.location.href = origin + '/next.html?code=one-use-code&sb_flow_id=' + flow;
+  t.client.finishAccountSignIn.mockImplementationOnce(async () => session);
+  expect(await consumeSignInReturn(t.host)).toMatchObject({ status:'signed-in', route:{screen:'join',key:token} });
+  expect(t.host.location.href).toBe(origin + '/next.html#join=' + token);
+});
+it('an unchecked return is refused on the new interface too', async () => {
+  const t=tab('/next.html?code=one-use-code&sb_flow_id='+otherFlow); t.host.entryPath='/next.html'; t.put();
+  expect(await consumeSignInReturn(t.host)).toEqual({status:'retry'}); expect(t.client.finishAccountSignIn).not.toHaveBeenCalled();
 });

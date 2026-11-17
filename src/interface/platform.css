@@ -1,0 +1,6 @@
+.platform-message { box-sizing: border-box; width: min(100%, var(--panel-max)); margin: 12vh auto 0; padding: var(--space-6); color: var(--text); font: var(--type-body)/var(--leading) var(--font-reading); }
+.platform-message h1 { margin: 0 0 var(--space-4); font: var(--weight-strong) var(--type-heading)/var(--leading-title) var(--font-title); }
+/* The script moves focus to the heading so that a screen reader reads it; the frame shows only on keyboard controls. */
+.platform-message h1:focus { outline: none; }
+.platform-message p { margin: 0 0 var(--space-6); }
+body { background: var(--surface-page); }

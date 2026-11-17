@@ -1,0 +1,14 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["6M9C2YSWT4.dev.kingdown.app"],
+        "components": [
+          {"/": "/g/*"},
+          {"/": "/j"},
+          {"/": "/j/"}
+        ]
+      }
+    ]
+  }
+}

@@ -1412,9 +1412,7 @@ it('gives one offline sentence on Start and Join', async () => {
     await hall(page);
     await page.context().setOffline(true); await frame.locator('#setup-start').click();
     await expect.poll(() => frame.locator('#error').textContent()).toBe('Cannot connect. Check your connection, then try again.');
-    await page.context().setOffline(false);
     // Code typing is parked (docs/PARKED.md): an invite link fills the code, and the join screen reads it.
-    await page.context().setOffline(true);
     await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; app.memory.code = 'ABC234'; app.navigate('join'); });
     await expect.poll(() => frame.locator('#join-message').textContent()).toBe('Cannot connect. Check your connection, then try again.');
   } finally { await page.close(); }

@@ -16,6 +16,7 @@ Decided 2026-11-07:
 
 - Bundle ID `dev.kingdown.app` (the reverse of kingdown.dev). It is permanent once the App Store record exists.
 - Name "King Down". Team `6M9C2YSWT4`.
+- Changed 2026-11-14 for the launch build ([the iOS shell](../../interface-ios/spec.md)): iPhone upright and on the side, iPad in all four orientations. The new page lays out from 320 px to 2560 px wide and pads for the safe areas. The first choice follows.
 - iPhone only, portrait only. iPad support can come later; App Store Connect does not let an app drop iPad support after a release, so we start without it. Landscape needs left and right safe-area padding that the current layout lacks.
 - Minimum iOS 16.4, the target of the web build (Vite 8's default, pinned in `vite.config.ts`). The game code uses a RegExp lookbehind (`src/read.ts:216`), which WebKit has from iOS 16.4: on an older iOS the game cannot start. The first choice, 15.0 (the Capacitor 8 default), changed on 2026-11-08 after the readiness check of the first archive.
 - `ITSAppUsesNonExemptEncryption` is NO: the app uses only HTTPS.

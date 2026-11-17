@@ -681,3 +681,37 @@ describe('purge and policy proof', () => {
     expect(w.caches.keys).not.toHaveBeenCalled(); expect(w.caches.open).not.toHaveBeenCalled();
   });
 });
+
+it('keeps the two launch page shells separate offline and preserves the private-cache proof', async () => {
+  const source = readFileSync(new URL('./solo-launch/sw.js', import.meta.url), 'utf8');
+  const w = worker(storage(), version, [...files, 'next.html'], undefined, source);
+  w.fetch.mockImplementation(async (request: Request) => response(request.url, {}, new URL(request.url).pathname));
+  await w.fire('install').done();
+  // The public old shell has its own key in a launch build.
+  const cache = await w.caches.open(current);
+  await cache.put(url('/index.html'), response('/index.html', {}, '/index.html'));
+  w.fetch.mockRejectedValue(new Error('offline'));
+  for (const path of ['/', '/index.html', '/next.html']) {
+    const request = w.request(path); expect(await (await request.response!).text()).toBe(path); await request.done();
+  }
+  for (const path of ['/play', '/g/game', '/j', '/api/status', '/authorize']) expect(w.request(path).response).toBeUndefined();
+  const proof = w.message(); await proof.done();
+  expect(proof.postMessage).toHaveBeenCalledWith(expect.objectContaining({ policy: 'public-build-v1', version }));
+  expect(w.storageAccess).not.toHaveBeenCalled();
+});
+
+it('recovers an offline online-page navigation without caching private responses', async () => {
+ const source = readFileSync(new URL('./solo-launch/sw.js', import.meta.url), 'utf8');
+ const w = worker(storage(), version, [...files, 'next.html'], undefined, source);
+ await w.fire('install').done();
+ const cache = await w.caches.open(current), before = [...cache.entries.keys()];
+ w.fetch.mockRejectedValue(new Error('offline'));
+ for (const path of ['/play', '/play/settings', '/g/game', '/j?code=private']) {
+  const navigation = w.request(path, { mode: 'navigate' }), response = await navigation.response!;
+  expect(response).toBeDefined(); expect(response.headers.get('Cache-Control')).toBe('no-store');
+  const html = await response.text(); expect(html).toContain('You are offline'); expect(html).toContain('href="/next.html"'); expect(html).not.toContain('private');
+  await navigation.done();
+ }
+ expect([...cache.entries.keys()]).toEqual(before);
+ for (const path of ['/api/me/games', '/authorize', '/play']) expect(w.request(path).response).toBeUndefined();
+});

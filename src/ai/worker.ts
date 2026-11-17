@@ -19,3 +19,5 @@ ctx.onmessage = (e: MessageEvent<{ id: number; pos: Position; opts: SearchOption
   setDesignValue(rules.design);
   ctx.postMessage({ id, ...search(pos, opts) });
 };
+// The module graph has loaded: the engine starts its fallback timer from here (decision 44).
+ctx.postMessage({ ready: true });
