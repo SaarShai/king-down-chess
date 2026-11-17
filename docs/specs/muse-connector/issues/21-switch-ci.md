@@ -28,3 +28,14 @@ The rebase on `1da48ebdc` has no conflict. The app code does not change in this 
 The full suite runs with a disposable loopback database. The owner report outside this worktree holds its final result, the doc and production build checks, the pushed head, and the CI result.
 
 The local commit and push gate reads credential files. The brief forbids those reads. This run checks file size, private paths, the commit message, and changed assertions directly. The type checks are part of `npm test`. Only these commit and push commands suppress hooks. No repo setting changes.
+
+## Second CI fault
+
+At `b926c92ef`, 11 CI jobs pass, including `browser-ui`. `browser-default` fails at `tools/verify-menu-extra.mjs:123`. The check inserts long Account content after the sign-in providers appear. A late Muse status reply can replace that content, even when Muse stays off. The overflow shade then has no long content to mark. The same redraw can move focus from an account control to the first button.
+
+The regression holds the status reply until the providers load. With the old code, both a missing Muse field and `muse: false` replace the later content. Both cases fail. The repair redraws Account only when the Muse value changes. The same two cases then pass and keep focus. The existing Muse-on and disconnect tests also pass. No browser assertion or time limit changes for this fault.
+
+- Focused `npm test`: 29 files and 551 tests pass, including every account test.
+- `npm run check:browser plugin-oauth menu-extra account`: all three pass in 6.2, 9.7 and 57.4 seconds.
+
+The owner playtest holds the machine lease before the regression runs. This run waits for the lease; it removes no lock and stops no other process. The first regression fixture uses the wrong fetch mock for provider discovery. The corrected fixture reaches and proves the content replacement before the code repair.

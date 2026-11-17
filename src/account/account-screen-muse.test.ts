@@ -107,3 +107,23 @@ it.each([undefined, false, true])('shows Disconnect Muse only for server muse=%s
   expect(status).toHaveBeenCalledWith('/api/status?muse=1', expect.objectContaining({ cache: 'no-store' }));
   await vi.waitFor(() => expect(ui.elements.get('account-body').innerHTML.includes('data-act="disconnect-muse"')).toBe(muse === true));
 });
+
+it.each([undefined, false])('keeps Account content and focus when a late Muse status stays off (%s)', async muse => {
+  setup();
+  const ui = screen(), release = latch();
+  harness.fetch.mockImplementation(async () => Response.json({ external: { github: true } }));
+  vi.stubGlobal('fetch', async () => Response.json({ external: { github: true } }));
+  const reading = release.promise.then(() => ({ enabled: false, expiresAt: 0, ...(muse !== undefined && { muse }) }));
+  vi.spyOn(await import('../online/account-access'), 'readWebAccountAccess').mockReturnValue(reading);
+  const { startAccount } = await import('./account');
+  startAccount(() => {}, { blocked: () => false, accepts: () => true });
+  ui.openAccount();
+  await vi.waitFor(() => expect(ui.elements.get('account-body').innerHTML).toContain('data-provider="github"'));
+  const body = ui.elements.get('account-body'), focus = vi.fn();
+  body.innerHTML = '<p>Account content after the providers load</p>';
+  body.contains = () => true;
+  body.querySelector = (selector: string) => selector === 'button' ? { focus } : null;
+  release.release(); await reading;
+  expect(body.innerHTML).toBe('<p>Account content after the providers load</p>');
+  expect(focus).not.toHaveBeenCalled();
+});
