@@ -29,8 +29,10 @@ source file changes. No asset or schema enum changes.
 ## Checks
 
 - Full `npm test`: 7,338 pass, 387 skip, one fail. Only the known animation
-  rebuild case fails. It needs 31 GiB free; the disk has about 13 GiB free.
-  The test stays unchanged.
+  rebuild case fails. It needs 31 GiB free; only about 13 GiB is free at that run.
+  The test stays unchanged. After 55 GiB becomes free, its focused retry
+  passes both cases in `tools/anim/promote-painted-moves.test.ts`. The full
+  suite is not run again after that retry.
 - Focused `npm test`: 159 pass in six files. These are king-label,
   interface/play/saved, interface/play/menus, muse/board-words, new-game and
   powers-ui. All 114 render tests in the 30 `.test.mjs` files also pass.
