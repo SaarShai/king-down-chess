@@ -17,6 +17,7 @@ export const checks = [
   { name: 'owner-playtest-r5', script: 'tools/verify-owner-playtest-r5.mjs', limit: 660, channel: 'chromium', byName: true, external: true },
   { name: 'owner-playtest-r4', script: 'tools/verify-owner-playtest-r4.mjs', limit: 240, channel: 'chromium', byName: true, external: true },
   { name: 'owner-playtest-r2', script: 'tools/verify-owner-playtest-r2.mjs', limit: 480, channel: 'chromium', byName: true, external: true },
+  { name: 'owner-playtest-round2-b', script: 'tools/verify-owner-playtest-round2-b.mjs', limit: 1200, channel: 'chromium', byName: true, external: true },
   { name: 'owner-playtest-b', script: 'tools/verify-owner-playtest-b.mjs', previewPort: 5443, limit: 300, channel: 'chromium', byName: true },
   // Uses the local online stack at PLAYABLE_URL; it must keep the lane's assigned port.
   { name: 'next-arrange', script: 'tools/verify-next-arrange.mjs', limit: 480, channel: 'chromium', byName: true, external: true },

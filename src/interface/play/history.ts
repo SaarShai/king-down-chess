@@ -17,3 +17,7 @@ export function historyGroups(history: readonly { pos: Position; move: Move }[],
 }
 /** Undo removes the last staged step, including one capture in a chain. */
 export const removedHistoryLine = (before: readonly HistoryGroup[], after: readonly HistoryGroup[]) => before.flatMap(group => group.lines).find(line => !after.some(group => group.lines.some(next => next.key === line.key)));
+
+/** The closed scroll keeps the newest two records, across turn boundaries. */
+export const historyPreview = (groups: readonly HistoryGroup[], erased?: HistoryLine): HistoryLine[] =>
+  [...(erased ? [erased] : []), ...groups.flatMap(group => group.lines)].slice(0, 2);

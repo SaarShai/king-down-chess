@@ -37,3 +37,9 @@ export function replayController() {
     },
   };
 }
+
+/** One finish control: staged steps undo; otherwise the last opponent turn replays. */
+export const undoReplayState = (staged: number, reply: number, blocked = false) => ({
+  replay: !staged && !!reply,
+  enabled: !blocked && !!(staged || reply),
+});

@@ -42,7 +42,7 @@ async function clearBoard(page) {
   const layout = await page.locator('.play-game').getAttribute('data-layout');
   if (layout === 'portrait') {
     const reader = await page.locator('.play-detail').boundingBox(), board = await page.locator('.play-board').boundingBox();
-    assert(reader.y + reader.height <= board.y + 1, 'the reader stays above the board');
+    assert(reader.y >= board.y + board.height - 1, 'the reader stays below the board');
   }
 }
 const cases = {
@@ -68,11 +68,9 @@ const cases = {
         assert.equal(await page.locator('.play-rival-count').textContent(), '4', 'Manual creates the badge with the dealt hand size');
         assert.match(await page.locator('.play-rival-cards').getAttribute('aria-label'), /4 cards/);
       }
-      await visibleBounds(page, '.play-headline-line, .play-arrange-rule');
+      await visibleBounds(page, '.play-headline, .play-arrange-rule');
       await visibleBounds(page, '.play-turn button', true); await clearBoard(page);
-      const shared = await page.locator('.play-game').getAttribute('data-shared-reader') === 'true';
-      if (shared) assert.equal(await page.locator('.play-history-strip').isVisible(), false, 'Manual gives its reserve to the warning');
-      else assert.equal(await page.locator('.play-history-strip').isVisible(), true, 'history fits beside the Manual instruction and warning');
+      assert.equal(await page.locator('.play-history-strip').isVisible(), true, 'history has its own row during Manual instructions');
       if (size[0] === 1440 && type !== 'powers') await visibleBounds(page, '.play-rival-count');
       await shot(page, size, `manual-${type}-${side}-warning`);
       await home(page);
@@ -308,6 +306,14 @@ const cases = {
     }, template);
     view = { ...view, ...used, draw_offer: null, revision: view.revision + 1 };
     await page.reload(); await page.locator('.home-game-row[data-game]').first().click(); await ready(page);
+    const replay = page.getByRole('button', { name: 'Replay', exact: true });
+    assert.equal(await replay.count(), 1, 'an online opponent turn gives Replay');
+    await replay.tap();
+    assert.equal(await page.locator('.play-game').getAttribute('data-replaying'), null, 'reduced online Replay has no motion');
+    view = { ...view, opponent: { ...view.opponent, handle: 'long-player-name-1234567890' } };
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.waitForFunction(() => document.querySelector('.play-opponent-name')?.textContent === 'long-player-name-1234567890');
+    assert.equal(await page.locator('.play-opponent-name').evaluate(n => getComputedStyle(n).whiteSpace), 'nowrap');
     assert.equal(await page.locator('.play-rival-count').innerText(), '3', 'an opponent card use reduces the badge');
     assert.match(await page.locator('.play-rival-cards').getAttribute('aria-label'), /3 cards left/);
 

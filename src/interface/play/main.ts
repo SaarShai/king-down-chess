@@ -5,7 +5,7 @@ import './shell.css';
 import './sides.css';
 import './menus.css';
 import './reading-b.css';
-import { historyGroups, removedHistoryLine, type HistoryLine } from './history';
+import { historyGroups, historyPreview, removedHistoryLine, type HistoryLine } from './history';
 import { mountShell, type Route } from './shell';
 import { guidePage, closeGuidePanel } from './guide';
 import { button, closeX, icon, confirmDialog, errorState, liveRegion, setButtonState, targetChoice } from '../ui/kit.js';
@@ -18,7 +18,7 @@ import { learningEntry, firstMinute, stepLine, subjectKey, type LearnSubject } f
 import { learningPanel } from './learning-panel';
 import { markHintSeen, readHints, resetHints } from './hints';
 import { refusalForTap } from './refusals';
-import { lastReplySteps, type ReplayStep } from './replay';
+import { lastReplySteps, replayController, undoReplayState, type ReplayStep } from './replay';
 import { S, L, K, A, G, M, O, PLAIN_KINGS, colorOf, findKing, sqName, typeOf, TAG_POWER, type Color, type PowerTag, type Rules, type Status } from '../../rules/engine';
 import { toFen } from '../../rules/setup';
 import { RELEASED_CARDS } from '../../content/cards';
@@ -27,7 +27,7 @@ import { DraftTurn, isDirect, armKey } from './turn';
 import { Arrangement, ARRANGE_KEY, pendingArrangement } from './arrange';
 import { actorMarks, mergeMarks, previewMarks, resultMarks, stateMarks, type MarkAction } from './marks';
 import { pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, resultText } from './texts';
-import { readingText, effectGroups, checkLines, selectionLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
+import { readingText, checkLines, selectionLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
 import { calm, cardFly, disarm, ms, screenChange, seal, shake, token, unseal, setInterfaceMotion, time } from './motion';
 import { gameLayout, type Form } from './layout';
 import { finishKind, fitReader, readerNodes, readerView, resetFit, sentences, type ReaderModel } from './reader';
@@ -108,6 +108,7 @@ let lastActions: MarkAction[] = [], playingAction: MarkAction | null = null, mar
 let keyed = false;
 document.addEventListener('keydown', () => { keyed = true; }, true); document.addEventListener('pointerdown', () => { keyed = false; }, true);
 let replySteps: ReplayStep[] = [];
+const boardReplay = replayController();
 let learning: { subject: LearnSubject; side: Color; cardIndex?: number } | null = null, panel: ReturnType<typeof learningPanel> | null = null;
 let panelReturn: HTMLElement | null = null, ruleAnchor: DOMRect | null = null, ruleReturnLabel = '';
 let last = '', notice = '', resultCause = '', choice: Move[] = [], choiceSquare = -1;
@@ -119,8 +120,8 @@ let form: Form = 'tall', nodes = readerNodes(), rivalGroup: Resource | null = nu
 let screen: HTMLElement, boardBox: HTMLElement, boardHost: HTMLElement, reader: HTMLElement, detail: HTMLElement, choiceBox: HTMLElement;
 let cells: HTMLButtonElement[] = [], choiceCancel: HTMLButtonElement;
 let menuButton: HTMLButtonElement;
-let historyStrip: HTMLElement, historyButton: HTMLButtonElement, effectsButton: HTMLButtonElement, scrollPanel: HTMLElement;
-let scrollOpen: 'history' | 'effects' | null = null, floatingSource: HTMLElement | null = null, swallowedPointer = false;
+let historyStrip: HTMLElement, historyButton: HTMLButtonElement, scrollPanel: HTMLElement;
+let scrollOpen: 'history' | null = null, floatingSource: HTMLElement | null = null, swallowedPointer = false;
 let erased: HistoryLine | undefined, eraseTimer: ReturnType<typeof setTimeout> | undefined;
 let stopPortrait = () => {};
 
@@ -214,7 +215,7 @@ async function personFlow(source: HTMLElement | null = null) {
 async function openOnline(id: string) {
   if (onlineGameNotice?.id !== id) onlineGameNotice = undefined;
   onlineActive = true; onlineState = undefined; shownRevision = -1; arrangement = undefined; arrangementGame = '';
-  generation++; engine.cancel(); endOpening(); endEntry(); board?.dispose(); board = undefined;
+  boardReplay.cancel(); generation++; engine.cancel(); endOpening(); endEntry(); board?.dispose(); board = undefined;
   document.body.dataset.page = 'game'; root.replaceChildren(el('p', 'people-loading', 'Loading your game…'));
   try { const host = await loadPeople(); if (!onlineActive || shell.route.entry !== id) return; await host.open(id, receiveOnline); }
   catch { root.replaceChildren(el('p', 'people-loading', onlineNote), button(text.home, { onPress: () => shell.go({ place: 'play' }) })); }
@@ -337,7 +338,7 @@ function home(newArmy = false) {
   }
   onlineActive = false; onlineState = undefined; people?.stopGame();
   closeLearning(false); closeGuidePanel();
-  generation++; engine.cancel(); endOpening(); endEntry(); endCardFlight(); cancelCheckPulse(); endReply = null;
+  boardReplay.cancel(); generation++; engine.cancel(); endOpening(); endEntry(); endCardFlight(); cancelCheckPulse(); endReply = null;
   // The game screen slides away over the home screen; its board goes when it has left.
   board?.skip();
   const old = root.querySelector<HTMLElement>('.play-game'), oldBoard = board; board = undefined;
@@ -486,7 +487,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   }
   const fromHome = document.body.dataset.page !== 'game', homeScreen = root.querySelector<HTMLElement>('.play-home');
   closeLearning(false); closeGuidePanel();
-  generation++; const own = generation; engine.cancel(); endOpening(); endEntry(); endCardFlight(); cancelCheckPulse(); endReply = null;
+  boardReplay.cancel(); generation++; const own = generation; engine.cancel(); endOpening(); endEntry(); endCardFlight(); cancelCheckPulse(); endReply = null;
   // A rematch keeps the board and its loaded art: no new load, so no empty frame.
   const keep = fromHome ? undefined : board;
   if (!keep) { board?.dispose(); board = undefined; }
@@ -530,7 +531,8 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   // The name has two lines, Computer and the level; the computer's four cards are one group (option b1).
   const oppName = onlineActive ? onlineState?.opponent?.deleted ? 'Deleted player' : onlineState?.opponent?.handle ?? 'A player' : text.computer;
   const oppAvatar = onlineActive && onlineState?.opponent && !onlineState.opponent.computer && !onlineState.opponent.deleted ? onlineState.opponent.avatar ?? null : null;
-  const opponent = el('div', 'play-opp'), who = el('strong', '', oppName);
+  const opponent = el('div', 'play-opp'), who = el('strong');
+  who.append(el('span', 'play-opponent-name', oppName));
   who.append(el('small', 'opponent-clock', onlineActive ? '' : text[gameLevel]));
   const face = onlineActive ? profilePortrait(oppName, oppAvatar) : el('img', 'profile-portrait');
   if (!onlineActive && face instanceof HTMLImageElement) { face.src = computerPortrait(gameLevel); face.alt = ''; }
@@ -570,7 +572,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   // A pointer that leaves the board leaves no candidate sentence (check "play" fault 4).
   grid.addEventListener('pointerleave', event => { if (event.pointerType !== 'touch' && markFocus !== undefined) { markFocus = undefined; drawMarks(); } });
   choiceBox = el('div', 'play-choices'); boardBox.append(host, grid); // the choice box shows in the reading area
-  controls = turnControls(onlineActive ? { ...text, finish: 'Send' } : text, { undo, finish: () => { void finish(); } });
+  controls = turnControls(onlineActive ? { ...text, finish: 'Send' } : text, { undo: undoOrReplay, finish: () => { void finish(); } });
   reader.append(controls.line, detail);
   resignDialog = confirmDialog({ title: text.resignTitle, consequence: onlineActive ? 'Your opponent wins. Your unsent turn does not count.' : text.resignCause, action: text.resign, fallback: controls.finish, onConfirm: () => {
     if (onlineActive) { void people?.controller?.resign(); return; }
@@ -582,14 +584,12 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   historyStrip = el('div', 'play-history-strip');
   historyButton = button(text.history, { onPress: () => toggleScroll('history', historyButton) });
   historyButton.append(icon('down')); historyButton.classList.add('play-history-toggle');
-  effectsButton = button(text.effects, { onPress: () => toggleScroll('effects', effectsButton) });
-  effectsButton.classList.add('play-effects-toggle');
-  historyStrip.append(historyButton, effectsButton);
+  historyStrip.append(historyButton);
   scrollPanel = el('section', 'play-scroll-panel kd-paper'); scrollPanel.id = 'play-scroll';
-  historyButton.setAttribute('aria-controls', scrollPanel.id); effectsButton.setAttribute('aria-controls', scrollPanel.id);
+  historyButton.setAttribute('aria-controls', scrollPanel.id);
   scrollPanel.hidden = true; scrollOpen = null;
   controls.undo.replaceChildren(icon('undo'), el('span', 'kd-sr', text.undo)); controls.undo.classList.add('kd-icon-button');
-  screen.append(opponent, reader, historyStrip, scrollPanel, boardBox, mine, controls.element, resignDialog.element);
+  screen.append(opponent, boardBox, historyStrip, reader, mine, controls.element, scrollPanel, resignDialog.element);
   if (fromHome) { root.querySelectorAll('.play-game').forEach(node => node.remove()); screen.style.visibility = 'hidden'; root.append(screen); }
   else root.replaceChildren(screen);
   const onArtError = () => { if (host === boardHost && document.body.dataset.page === 'game') artFailed(generation); };
@@ -701,11 +701,11 @@ function rollCall() {
 }
 function endOpening() { opening?.end(); }
 /** End any board playback; a computer reply that only waits for its playback ends with it. */
-function skipBoard() { endCardFlight(); cancelCheckPulse(); board?.skip(); playingAction = null; endReply?.(); }
+function skipBoard() { boardReplay.cancel(); endCardFlight(); cancelCheckPulse(); board?.skip(); playingAction = null; endReply?.(); }
 function moveCursor(square: number) { cells[cursor].tabIndex = -1; cursor = square; cells[cursor].tabIndex = 0; cells[cursor].focus({ preventScroll: true }); }
 document.addEventListener('keydown', event => {
   if (document.body.dataset.page !== 'game' || event.defaultPrevented || (event.target as Element).closest('dialog, input, textarea, select, [contenteditable="true"]')) return;
-  if (event.key.toLowerCase() === 'z' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); undo(); return; }
+  if (event.key.toLowerCase() === 'z' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); undoOrReplay(); return; }
   if (event.key !== 'Escape') return;
   if (scrollOpen || reader?.dataset.floating === 'true') { event.preventDefault(); closeFloating(); return; }
   if (reading === 'rule') { event.preventDefault(); closeLearning(); return; }
@@ -810,6 +810,21 @@ function animate(before: Position, move: Move, after: Position): Promise<unknown
     }
   });
   drawMarks(); return done;
+}
+function undoOrReplay() {
+  const state = undoReplayState(draft.length, replySteps.length, thinking || ended || !!fault || !!arrangement || !onlineActive && writer.blocked);
+  if (!state.enabled) return;
+  if (!state.replay) { undo(); return; }
+  if (!board || boardReplay.running) return;
+  closeFloating(false);
+  lastActions = replySteps.map(({ before, move }) => ({ before, move }));
+  if (calm() || motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) { drawMarks(); announce(text.replay); return; }
+  const own = generation, view = board;
+  screen.dataset.replaying = 'true';
+  void boardReplay.play(replySteps, view, game.context, () => own === generation && board === view,
+    () => { playingAction = null; view.setPosition(draft.position, game.context); screen.dataset.replaying = 'false'; drawMarks(); },
+    (pos, step) => { playingAction = step ? { before: pos, move: step.move } : null; drawMarks(); })
+    .catch(error => refuse(String(error)));
 }
 function undo() {
   if (!draft.length || thinking || ended || !onlineActive && writer.blocked) return;
@@ -958,7 +973,7 @@ function update() {
     const oppAvatar = state.opponent && !state.opponent.computer && !state.opponent.deleted ? state.opponent.avatar ?? null : null;
     const opp = screen.querySelector<HTMLElement>('.play-opp'), who = opp?.querySelector<HTMLElement>('.play-opponent-group > strong'), clock = who?.querySelector<HTMLElement>('.opponent-clock');
     const nameChanged = !!who && (who.firstChild?.textContent ?? '') !== oppName;
-    if (who && clock && nameChanged) who.replaceChildren(oppName, clock);
+    if (who && nameChanged) who.querySelector('.play-opponent-name')!.textContent = oppName;
     const face = opp?.querySelector<HTMLElement>('.profile-portrait');
     const nextSrc = allowedAvatarUrl(oppAvatar) ? oppAvatar : null;
     const currentSrc = face?.dataset.avatar ?? null;
@@ -981,8 +996,10 @@ function update() {
   if (!thinking) unseal(controls.finish);
   // End turn is quiet after a free action alone and brass after a move (option d2); it stays enabled when it is legal.
   controls.finish.dataset.kind = finishKind(!!free && draft.canFinish);
+  const replay = undoReplayState(draft.length, replySteps.length, thinking || ended || !!fault).replay;
+  controls.undo.replaceChildren(icon(replay ? 'rewind' : 'undo'), el('span', 'kd-sr', replay ? text.replay : text.undo));
   controls.update({ sent: thinking && !fault, state: ended ? resultCause : fault ? fault === 'art' ? sideText.artFailed : sideText.computerFailed : net && personTurn(net) || (thinking ? text.thinking : choice.length ? choicePrompt(choice) : draft.armed ? armedStep(draft.armedMoves, draft.now, selected, player) : checked ? text.check : free || (draft.length ? draft.canFinish ? text.draft : text.mustContinue : fresh() && !replySteps.length && !code && !player ? text.first : text.ready)), help,
-    undoReason: !onlineActive && writer.blocked ? writer.warning : !thinking && !ended && !fault && draft.length ? '' : text.noStep,
+    undoReason: !onlineActive && writer.blocked ? writer.warning : undoReplayState(draft.length, replySteps.length, thinking || ended || !!fault).enabled ? '' : text.noStep,
     finishReason: !onlineActive && writer.blocked ? writer.warning : ended ? text.final : fault ? fault === 'art' ? sideText.artFailed : sideText.computerFailed : net?.connection === 'auth' ? 'Sign in to send your turn.' : thinking ? net ? personTurn(net) ?? text.wait : text.wait : choice.length ? text.choiceFirst : draft.canFinish ? '' : draft.length ? text.mustContinue : text.needMove });
   const pos = draft.position;
   screen.querySelector<HTMLElement>('.play-grid')!.inert = ended || !!fault || !onlineActive && writer.blocked;
@@ -1121,7 +1138,7 @@ function turnState(mine: boolean, code: number): string {
 /** The words of the reading area in each state, from the A functions of texts.ts, placed in the B slots. */
 function readerModel(): ReaderModel {
   if (arrangement && !ended) return { state: arrangementWaiting() ? arrangeText.wait : arrangeText.title,
-    title: notice || arrangementWaiting() ? '' : arrangeText.instruction, named: false, headTools: [],
+    title: notice || arrangementWaiting() ? '' : arrangeText.instruction, named: form === 'compact', headTools: [],
     primary: [...(notice ? [line('play-notice', notice)] : []), ...(arrangementWaiting() ? [] : [line('play-arrange-rule', `${notice ? arrangeText.instruction + ' ' : ''}${arrangement.error ?? arrangeText.legal}`)])],
     secondary: [], tools: [], summary: null };
 
@@ -1139,7 +1156,8 @@ function readerModel(): ReaderModel {
   }
   if (choice.length) {
     const at = draft.position.board[choiceSquare];
-    Object.assign(m, { title: choicePrompt(choice), named: true, headTools: [choiceCancel], primary: [line('play-target', at ? `${nameOf(at)} on ${sqName(choiceSquare)}` : sqName(choiceSquare)), ...notices], tools: [choiceBox] });
+    const target = at ? `${nameOf(at)} on ${sqName(choiceSquare)}` : sqName(choiceSquare);
+    Object.assign(m, { state: form === 'compact' ? target : m.state, title: choicePrompt(choice), named: true, headTools: [choiceCancel], primary: [...(form === 'compact' ? [] : [line('play-target', target)]), ...notices], tools: [choiceBox] });
   } else if (res?.card === -1) rivalCardsModel(m, res);
   else if (res) {
     const armed = res === armedResource();
@@ -1176,13 +1194,13 @@ function readerModel(): ReaderModel {
 /** Temporary panels stay in the rail on wide screens. Outside input closes only. */
 function closeFloating(focus = true) {
   const ruleLabel = reading === 'rule' ? ruleReturnLabel : '';
-  const target = scrollOpen ? scrollOpen === 'history' ? historyButton : effectsButton : floatingSource;
+  const target = scrollOpen ? historyButton : floatingSource;
   scrollOpen = null; closeLearning(false); shown = null;
   if (reading === 'menu') reading = ended ? 'result' : 'normal';
   update(); const returned = ruleLabel ? detail.querySelector<HTMLElement>(`[aria-label="${CSS.escape(ruleLabel)}"]`) ?? target : target;
   if (focus && returned?.isConnected) returned.focus({ preventScroll: true });
 }
-function toggleScroll(kind: 'history' | 'effects', source: HTMLElement) {
+function toggleScroll(kind: 'history', source: HTMLElement) {
   const open = scrollOpen !== kind; closeFloating(false); scrollOpen = open ? kind : null;
   renderHistory(); placeFloating();
   (open ? scrollPanel.querySelector<HTMLButtonElement>('button') : source)?.focus({ preventScroll: true });
@@ -1193,30 +1211,22 @@ function currentHistory() {
 }
 function renderHistory() {
   if (!historyStrip) return;
-  const groups = currentHistory(), latest = erased ?? groups[0]?.lines[0];
-  historyButton.querySelector('[data-button-label]')!.textContent = latest?.line ?? text.noHistory;
-  historyButton.setAttribute('aria-label', `${text.history}: ${latest?.line ?? text.noHistory}`);
+  const groups = currentHistory(), preview = historyPreview(groups, erased);
+  const records = preview.map(item => { const record = el('span', 'play-history-record', item.line); record.dataset.historyKey = item.key; if (item === erased) record.classList.add('play-ink-wipe'); return record; });
+  historyButton.querySelector('[data-button-label]')!.replaceChildren(...(records.length ? records : [el('span', 'play-history-record', text.noHistory)]));
+  historyButton.setAttribute('aria-label', `${text.history}: ${preview.map(item => item.line).join(' ') || text.noHistory}`);
   historyButton.setAttribute('aria-expanded', String(scrollOpen === 'history'));
-  historyButton.classList.toggle('play-ink-wipe', !!erased);
-  const effects = effectGroups(game.context, draft.position, draft.base.turn, player);
-  effectsButton.hidden = !effects.length; effectsButton.querySelector('[data-button-label]')!.textContent = `${text.effects} ${effects.length}`;
-  effectsButton.setAttribute('aria-expanded', String(scrollOpen === 'effects'));
-  if (scrollOpen === 'effects' && !effects.length) scrollOpen = null;
   scrollPanel.hidden = !scrollOpen;
   if (!scrollOpen) { scrollPanel.dataset.kind = ''; return; }
   const was = scrollPanel.dataset.kind; scrollPanel.dataset.kind = scrollOpen;
   const focused = scrollPanel.contains(document.activeElement);
-  const head = el('div', 'play-panel-head'), title = scrollOpen === 'history' ? text.history : text.effects;
+  const head = el('div', 'play-panel-head'), title = text.history;
   const heading = el('h3', '', title); heading.id = 'play-scroll-title'; scrollPanel.setAttribute('aria-labelledby', heading.id);
   head.append(heading, closeX(`Close ${title.toLowerCase()}`, () => closeFloating()));
   const body = el('div', 'play-panel-body');
-  if (scrollOpen === 'effects') {
-    effects.forEach(group => { const section = el('section'); section.append(el('h4', '', gameWords(group.summary)), ...group.details.map(item => line('', item.line))); body.append(section); });
-  } else {
-    if (erased) { const ink = line('play-history-line play-ink-wipe', erased.line); body.append(ink); }
-    groups.forEach(group => { const section = el('section', 'play-history-turn'); section.append(el('h4', '', group.title)); group.lines.forEach(item => { const ink = line('play-history-line', item.line); ink.dataset.historyKey = item.key; section.append(ink); }); body.append(section); });
-    if (!groups.length && !erased) body.append(line('', text.noHistory));
-  }
+  if (erased) { const ink = line('play-history-line play-ink-wipe', erased.line); body.append(ink); }
+  groups.forEach(group => { const section = el('section', 'play-history-turn'); section.append(el('h4', '', group.title)); group.lines.forEach(item => { const ink = line('play-history-line', item.line); ink.dataset.historyKey = item.key; section.append(ink); }); body.append(section); });
+  if (!groups.length && !erased) body.append(line('', text.noHistory));
   scrollPanel.replaceChildren(head, body);
   if (focused) scrollPanel.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
   if (was !== scrollOpen && !calm() && !matchMedia('(prefers-reduced-motion: reduce)').matches) scrollPanel.animate([{ clipPath: 'inset(0 0 100% 0)' }, { clipPath: 'inset(0)' }], { duration: 200, easing: 'ease-out' });
@@ -1243,13 +1253,13 @@ function placeFloating() {
     panel.style.setProperty('--panel-height', `${Math.max(88, box.height - below < 220 ? above - top : box.height - top - 8)}px`);
   };
   if (source) { place(reader, source); if (!wasFloating && keyed) detail.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true }); }
-  if (scrollOpen) place(scrollPanel, scrollOpen === 'history' ? historyButton : effectsButton);
+  if (scrollOpen) place(scrollPanel, historyButton);
 }
 function outsidePanel(event: Event) {
   if (event.type === 'pointerdown') swallowedPointer = false;
   if (document.body.dataset.page !== 'game' || document.querySelector('dialog[open]')) return;
   const target = event.target as Node, active = scrollOpen ? scrollPanel : reader?.dataset.floating === 'true' ? reader : null;
-  const control = scrollOpen ? scrollOpen === 'history' ? historyButton : effectsButton : floatingSource;
+  const control = scrollOpen ? historyButton : floatingSource;
   if (!active || active.contains(target) || control?.contains(target)) return;
   event.preventDefault(); event.stopImmediatePropagation(); closeFloating(); swallowedPointer = event.type === 'pointerdown';
 }
@@ -1370,8 +1380,8 @@ function layout() {
   if (!boardBox?.isConnected) return;
   const l = gameLayout(screen.clientWidth, screen.clientHeight, gameType(game.context.rules)), changed = form !== l.form;
   form = l.form;
-  Object.assign(screen.dataset, { layout: l.kind === 'rail' ? 'wide' : 'portrait', form: l.form, narrow: String(l.narrow), sharedReader: String(l.kind === 'stack' && l.reader < (arrangement ? 152 : 144)), ownRows: String(l.ownRows), roomy: String(l.kind === 'stack' && l.form === 'tall'), short: String(l.form === 'compact'), tight: String(l.kind === 'rail' && l.reader + l.opp < 200) });
-  const values = { board: l.board, head: l.head, opp: l.opp, own: l.own, fin: l.fin, reader: l.reader, 'usable-height': l.H, rail: l.col, col: (l.W - l.col) / 2, gap: l.gap, 'rail-top': l.railTop, 'rail-h': l.railH, 'board-x': l.boardX, 'board-y': l.boardY };
+  Object.assign(screen.dataset, { layout: l.kind === 'rail' ? 'wide' : 'portrait', form: l.form, narrow: String(l.narrow), ownRows: String(l.ownRows), roomy: String(l.kind === 'stack' && l.form === 'tall'), short: String(l.form === 'compact'), tight: String(l.kind === 'rail' && l.reader + l.opp < 200) });
+  const values = { board: l.board, head: l.head, opp: l.opp, own: l.own, fin: l.fin, reader: l.reader, scroll: l.scroll, 'usable-height': l.H, rail: l.col, col: (l.W - l.col) / 2, gap: l.gap, 'rail-top': l.railTop, 'rail-h': l.railH, 'board-x': l.boardX, 'board-y': l.boardY };
   for (const [name, value] of Object.entries(values)) screen.style.setProperty(`--${name}`, `${value}px`);
   // A rotation or a resize keeps the draft, the selection and the save; only the places change.
   if (changed) { resetFit(); update(); }
@@ -1447,7 +1457,7 @@ function renderPlace(route: Route) {
     shell.go({ place: 'play' }); return;
   }
   if (route.place === 'play') { home(); return; }
-  generation++; engine.cancel(); endOpening(); endEntry(); endCardFlight(); cancelCheckPulse(); board?.dispose(); board = undefined; endReply = null;
+  boardReplay.cancel(); generation++; engine.cancel(); endOpening(); endEntry(); endCardFlight(); cancelCheckPulse(); board?.dispose(); board = undefined; endReply = null;
   document.body.dataset.page = route.place;
   if (route.place === 'guide') root.replaceChildren(guidePage(route.section, route.entry, (section, entry) => shell.go({ place: 'guide', ...(section && { section }), ...(entry && { entry }) }), announce));
   else {

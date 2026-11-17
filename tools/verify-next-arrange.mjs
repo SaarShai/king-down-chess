@@ -114,9 +114,7 @@ async function setupPanels(page, width, height, wait = false) {
   await page.touchscreen.tap(outside.x + outside.width / 2, outside.y + outside.height / 2);
   assert.equal(await page.locator('.game-menu').count(), 0); assert.deepEqual(await row(page, wait ? 1 : 0), before);
   if (!wait) assert.equal(await cell(page, 0).getAttribute('aria-selected'), 'false', 'the outside input only closes Menu');
-  if (await page.locator('.play-game').getAttribute('data-shared-reader') === 'true' && !wait) {
-    assert.equal(await page.locator('.play-history-strip').isVisible(), false, 'Manual instructions use the shared area'); return;
-  }
+  assert.equal(await page.locator('.play-history-strip').isVisible(), true, 'Manual keeps the scroll below the board');
   await page.locator('.play-history-toggle').tap(); await page.locator('.play-scroll-panel').waitFor({ state: 'visible' });
   assert.match(await page.locator('.play-panel-body').innerText(), /No action yet/);
   await page.keyboard.press('Escape');
