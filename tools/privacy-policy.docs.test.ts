@@ -103,9 +103,12 @@ test('the website policy names Meta as a recipient of the Muse connector, and Mu
   'King Down sends Muse the result of each action: the board as text, the moves, the game status and links to your games on kingdown.dev', 'These results hold no handle, picture or email address',
   'King Down uses the words of a move only to find that move, and does not store them', 'Muse sends King Down only the tool calls, not your Muse conversation',
   'Meta and Wanderland London Ltd are independent controllers of this data under Meta\'s Data Protection Requirements', 'Meta can use your requests, the tool calls and their results under its own terms and privacy policy',
-  'Settings → Account → Disconnect Muse', 'we also delete those games when Muse has not used the link for 30 days, also when you are still connected']) expect(paragraph).toContain(words);
+  'Settings → Account → Disconnect Muse', 'We then end the link and delete the games that you started in Muse at once', 'Muse does not tell us when you disconnect in Muse',
+  'we also delete those games when Muse has not used the link for 30 days, also when you are still connected', 'Games that you started on kingdown.dev stay in your account',
+  'When you delete your account, we also delete the games that you started in Muse.']) expect(paragraph).toContain(words);
  // The results hold no handle, picture or email address: the Muse tools (src/muse/tools.ts) never name one.
  expect(readFileSync('src/muse/tools.ts', 'utf8')).not.toMatch(/\bhandles?\b|avatar|picture|email/i);
+ expect(policy).toContain('whether your last game action came from the website, from ChatGPT or from Muse;');
  expect(policy).toContain('<li id="muse-link">the OAuth link that lets your Muse connection use your King Down account, if you connect Muse.</li>');
  const outside = policy.replace(/<p id="muse-connector">[\s\S]*?<\/p>/, '').replace(/<li id="muse-link">[\s\S]*?<\/li>/, '').replace('from the website, from ChatGPT or from Muse;', '');
  expect(outside).not.toMatch(/Muse/);
