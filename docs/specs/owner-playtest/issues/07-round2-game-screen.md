@@ -1,6 +1,6 @@
 # Round 2: game screen
 
-Status: claimed
+Status: resolved
 
 The owner approves this build in decision 124, items 5 to 7. The lane brief adds the replay states and the size checks.
 
@@ -16,4 +16,11 @@ Use the top line, board, two-record scroll, text, hand and finish row in that or
 
 ## Checks
 
-In progress. The lane report holds the command results and screenshots.
+- Full `npm test`: 7,336 tests pass; 387 existing tests skip. The 114 rendering tests pass. No failure.
+- Focused `npm test`: 51 tests pass in layout, history, replay, reading-b and menus.
+- `npm run test:docs`: 197 tests pass; one existing test skips. Type check and build pass.
+- The six sizes pass in Chromium and WebKit: 54 cases and 940 assertions. The older repair check passes 24 cases. The stale-save check passes all four game types at 360x640 and 844x390 in both browsers.
+- The built site passes 12 history and reduced Replay cases. The lead's four-games script passes 144 checks with no failure or changed script.
+- Static reviews find four faults: short choices, Manual warnings, online name updates and the long stale-save warning. The repairs keep each required line and 44 px action in view. Browser checks verify them.
+- The old checks use the new order and no Effects opener. The commit messages give a Removed-check reason for each removed assertion.
+- No physical phone check. No push, pull request or deploy. No change is required in another lane.

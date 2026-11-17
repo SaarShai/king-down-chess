@@ -294,3 +294,10 @@
 .play-game .play-b .play-bhead .play-headline-line { max-height: 44px; white-space: normal; }
 .play-game[data-form='compact'][data-own-rows='1']:is([data-state='choice'], [data-state='arrange'], :has(.online-status)) .play-own .play-power-coin { width: 22px; height: 22px; }
 .play-game[data-form='compact'][data-own-rows='1']:is([data-state='choice'], [data-state='arrange'], :has(.online-status)) .play-own .play-power small { display: none; }
+
+/* A blocked save keeps its full warning above the Load action. */
+.play-game[data-form='compact'][data-own-rows='1']:has(.play-b .play-tools > .kd-button) .play-reader:not([data-floating='true']) { height: calc(var(--reader) + 28px); }
+.play-game[data-form='compact'][data-own-rows='1']:has(.play-b .play-tools > .kd-button) .play-own { top: calc(var(--usable-height) - var(--fin) - var(--own) + 28px); height: calc(var(--own) - 28px); padding-block: 0; }
+.play-game[data-layout='wide'][data-form='compact'][data-own-rows='1']:has(.play-b .play-tools > .kd-button) .play-own { top: calc(var(--rail-top) + var(--opp) + var(--scroll) + var(--reader) + 28px); }
+.play-game[data-form='compact'][data-own-rows='1']:has(.play-b .play-tools > .kd-button) .play-own .play-power-coin { width: 22px; height: 22px; }
+.play-game[data-form='compact'][data-own-rows='1']:has(.play-b .play-tools > .kd-button) .play-own .play-power small { display: none; }

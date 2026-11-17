@@ -110,6 +110,34 @@ const cases = {
     await cell(page, 8).tap(); await cell(page, 16).tap();
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).back), '', 'the next write saves the confirmed FEN game');
   },
+  async staleReader(page, context, size) {
+    for (const type of ['pieces', 'powers', 'cards', 'both']) {
+      await page.goto(new URL('next.html', origin).href); await page.locator('.play-home').waitFor();
+      await page.evaluate(async type => {
+        const { Game } = await import('/src/game.ts'), { rulesOf } = await import('/src/interface/play/saved.ts'), { toFen } = await import('/src/rules/setup.ts');
+        const hand = ['cards', 'both'].includes(type) ? ['Freeze', 'IceWall', 'Haste', 'Flight'] : [];
+        const game = new Game('RNBQKBNR', rulesOf(type, [{ king:'Spirit', power:'Mercy' }, { king:'Mud', power:'March' }], [hand, hand]));
+        game.playLan(['e2-e4', 'e7-e5']);
+        localStorage.removeItem('kingdown.arrangement');
+        localStorage.setItem('kingdown.save', JSON.stringify({ back:game.backRank, fen:toFen(game.history[0].pos), moves:game.history.map(h=>h.lan), rules:game.rules, white:'human', black:'ai', skill:'casual', resigned:null, coords:true, pace:'off' }));
+      }, type);
+      await page.reload(); await resume(page);
+      const stale = await context.newPage();
+      try {
+        await stale.goto(new URL('next.html', origin).href); await resume(stale);
+        await cell(page, 11).tap(); await cell(page, 27).tap();
+        const saved = await page.evaluate(() => localStorage.getItem('kingdown.save'));
+        await cell(stale, 6).tap(); await cell(stale, 21).tap();
+        const load = stale.getByRole('button', { name:'Load the newer game', exact:true }); await load.waitFor();
+        await visibleBounds(stale, '.play-headline-line'); await visibleBounds(stale, '.play-tools > button', true);
+        assert.match(await stale.locator('.play-headline-line').innerText(), /changed in another tab/);
+        assert.equal(await stale.evaluate(() => localStorage.getItem('kingdown.save')), saved, 'the stale move cannot replace the newer save');
+        await shot(stale, size, `stale-${type}`);
+        await load.tap(); await stale.locator('.play-game[data-state="draft"]').waitFor();
+        assert.match(await cell(stale, 27).getAttribute('aria-label'), /Pawn/, 'Load restores the newer draft');
+      } finally { await stale.close(); }
+    }
+  },
   async rematches(page, context, size) {
     if (size[0] !== 360) return;
     for (const type of ['pieces', 'powers', 'cards', 'both']) for (const side of [0, 1]) {

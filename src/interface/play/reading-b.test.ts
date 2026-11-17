@@ -122,3 +122,8 @@ it('a compact current sentence uses the header before the turn label', () => {
   expect(reader).toContain("m.title && !m.named ? null : nodes.state, title");
   expect(css).toMatch(/play-bhead \.play-headline-line \{ max-height: 44px; white-space: normal/);
 });
+
+it('a blocked-save action stays below the full-width compact warning', () => {
+  expect(reader).toContain('m.named && m.tools.length === 1');
+  expect(css).toContain(":has(.play-b .play-tools > .kd-button) .play-reader:not([data-floating='true']) { height: calc(var(--reader) + 28px);");
+});
