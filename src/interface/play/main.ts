@@ -721,11 +721,13 @@ function key(event: KeyboardEvent) {
   }
 }
 function clearChoice() { choice = []; choiceBox.replaceChildren(); }
-/** Decision 127: a portrait result that runs past its box (a long cause) takes the compact result: no figure, one action row. */
-function fitResult(card: HTMLElement) {
+/** Decision 127: a portrait result that runs past its box (a long cause) takes the compact result: no figure, one action row.
+ *  It measures the docked reader after each render and each layout pass, so a Menu close, a resize or a rotation fits it again. */
+function fitResult() {
   delete screen.dataset.resultFit;
-  const box = card.closest<HTMLElement>('.play-reader');
-  if (screen.dataset.layout === 'portrait' && box && card.getBoundingClientRect().bottom > box.getBoundingClientRect().bottom + 1) screen.dataset.resultFit = 'tight';
+  if (reading !== 'result' || screen.dataset.layout !== 'portrait' || !reader || reader.dataset.floating === 'true') return;
+  const card = detail?.querySelector<HTMLElement>('.play-result, .play-result-copy');
+  if (card && card.getBoundingClientRect().bottom > reader.getBoundingClientRect().bottom) screen.dataset.resultFit = 'tight';
 }
 function tap(square: number) {
   if (fault === 'art' || !onlineActive && writer.blocked) return; // a fault waits for recovery
@@ -938,7 +940,7 @@ function showResult() {
   ended = true; thinking = false; liveGame = false;
   const status: Status = game.status;
   resultCause = status === 'checkmate' ? game.pos.turn === cpu() ? text.win : text.loss : text[status as 'stalemate' | 'draw50' | 'drawRepetition' | 'drawMaterial'];
-  board?.skip(); board?.setPosition(game.pos, game.context); reading = 'result'; update(); focusResult();
+  board?.skip(); board?.setPosition(game.pos, game.context); shown = null; reading = 'result'; update(); focusResult();
   announce(`${replyText()} ${resultCause}`);
   if (status === 'checkmate') void board?.play({ kind: 'fall', square: findKing(game.pos.board, game.pos.turn) }).catch(() => {});
 }
@@ -1042,7 +1044,7 @@ function update() {
   screen.dataset.reading = reading; screen.dataset.borrow = 'false';
   const actions = net ? onlineActions(net) : undefined;
   screen.dataset.readerActive = String(!!(selected != null || !draft.length && inspected != null || draft.armed || choice.length || notice || actions?.childElementCount));
-  renderReader(actions); renderHistory(); placeFloating();
+  renderReader(actions); renderHistory(); placeFloating(); fitResult();
   drawMarks();
 }
 const armedResource = () => resources.find(r => r.side === player && draft.armed && r.key === draft.armed);
@@ -1081,7 +1083,7 @@ function renderReader(actions?: HTMLElement) {
     if (state.view && humanOpponent(state.view)) {
       const options: HTMLButtonElement = button('Player options', { onPress: () => playerOptions(people!.safety, { game_id: state.view!.game_id }, options, () => { void people?.controller?.refresh(); }) }); actions.append(options);
     }
-    actions.append(button(text.home, { onPress: () => shell.go({ place: 'play' }) })); block.append(actions); detail.append(block); fitResult(block); return;
+    actions.append(button(text.home, { onPress: () => shell.go({ place: 'play' }) })); block.append(actions); detail.append(block); return;
   }
   if (reading === 'result') {
     const won = game.status === 'checkmate' && game.pos.turn === cpu(), lost = resultCause === text.resigned || (game.status === 'checkmate' && !won);
@@ -1095,7 +1097,6 @@ function renderReader(actions?: HTMLElement) {
     actions.append(button(text.rematch, { kind: 'main', onPress: () => { void start(); } }), button(text.newGame, { onPress: () => { panelNext = true; home(true); } }), button(text.home, { onPress: () => home() }));
     copy.append(body, rematch, actions);
     const card = el('div', 'play-result'); card.append(art, copy); detail.append(card);
-    fitResult(card);
     actions.querySelector<HTMLButtonElement>('button')!.focus({ preventScroll: true }); return;
   }
   // The fault sits on the board, which waits: the reader has no room on a short screen.
@@ -1237,7 +1238,8 @@ function renderHistory() {
 }
 function placeFloating() {
   if (!reader || !screen) return;
-  const source = reading === 'menu' ? menuButton : reading === 'rule' ? panelReturn : shown && shown !== armedResource() ? shown.control : undefined;
+  // A power or card panel floats only in the normal reading: the result stays in its docked place (decision 124).
+  const source = reading === 'menu' ? menuButton : reading === 'rule' ? panelReturn : reading === 'normal' && shown && shown !== armedResource() ? shown.control : undefined;
   const wasFloating = reader.dataset.floating === 'true';
   reader.dataset.floating = String(!!source);
   reader.classList.toggle('kd-paper', !!source);
@@ -1388,7 +1390,7 @@ function layout() {
   const values = { board: l.board, head: l.head, opp: l.opp, own: l.own, fin: l.fin, reader: l.reader, scroll: l.scroll, 'usable-height': l.H, rail: l.col, col: (l.W - l.col) / 2, gap: l.gap, 'rail-top': l.railTop, 'rail-h': l.railH, 'board-x': l.boardX, 'board-y': l.boardY };
   for (const [name, value] of Object.entries(values)) screen.style.setProperty(`--${name}`, `${value}px`);
   // A rotation or a resize keeps the draft, the selection and the save; only the places change.
-  if (changed) { resetFit(); update(); }
+  if (changed) { resetFit(); update(); } else fitResult();
 }
 // The layout runs again when the game box changes size: a resize, a rotation, or safe-area values that arrive or change (iOS need P3).
 const fit = new ResizeObserver(() => layout());
