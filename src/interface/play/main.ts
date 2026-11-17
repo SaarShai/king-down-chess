@@ -1355,7 +1355,9 @@ function pressResource(res: Resource) {
   if (arrangement) return;
   if (!onlineActive && writer.blocked) return;
   if (ended) return; // after the end the result card keeps its place (reading decision 21)
-  closeLearning(false); skipBoard(); clearChoice(); selected = inspected = null; reading = 'normal'; shown = res;
+  closeLearning(false); skipBoard();
+  if (ended) return; // the last reply can end the game inside skipBoard: the result keeps its place (decision 129)
+  clearChoice(); selected = inspected = null; reading = 'normal'; shown = res;
   const spent = res.control.dataset.spent === 'true', short = res.side === cpu() && res.subject.kind === 'power' ? opponentLines[res.subject.id] ?? res.short : res.short;
   // The owner line of the reading area names who has a power; the cancel line names a card or a power (reading decisions 19 and 22).
   if (res.side === cpu() || !res.key) notice = '';

@@ -29,8 +29,9 @@ function fit(room: number, limit: number) {
   while (board > 8 && board + clearance(board) > room) board -= 8;
   return Math.max(8, board);
 }
-/** Each form's row heights from the design: opponent strip, the reader's least height, one resource row, finish row. */
-const ROWS = { tall: { opp: 64, scroll: 56, reader: 128, own: 112, fin: 60 }, compact: { opp: 44, scroll: 44, reader: 64, own: 72, fin: 52 }, wide: { opp: 72, scroll: 56, reader: 0, own: 144, fin: 64 } };
+/** Each form's row heights from the design: opponent strip, the reader's least height, one resource row, finish row.
+ *  Decision 129: the tall reader holds a choice step (state, headline, target line, 44 px choices), so it needs 152 px. */
+const ROWS = { tall: { opp: 64, scroll: 56, reader: 152, own: 112, fin: 60 }, compact: { opp: 44, scroll: 44, reader: 64, own: 72, fin: 52 }, wide: { opp: 72, scroll: 56, reader: 0, own: 144, fin: 64 } };
 /** The full phone column leaves space for the coin and four card names at 14 px. */
 export const ONE_ROW = 352;
 

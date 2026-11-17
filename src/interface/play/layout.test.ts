@@ -32,13 +32,15 @@ describe('the classes at each size of the matrix (decision 34)', () => {
   it('a rail when the width is 1.2 times the height or more; a stack in every other case', () => {
     for (const [W, H] of MATRIX) expect(gameLayout(W, H, 'cards').kind, `${W}x${H}`).toBe(W >= H * 1.2 ? 'rail' : 'stack');
   });
-  it('the stack forms: tall from 760 px of height when its squares are 44 px, compact below it (decision 127)', () => {
-    expect(gameLayout(390, 784, 'cards')).toMatchObject({ form: 'tall', board: 352 });
-    expect(gameLayout(390, 783, 'cards')).toMatchObject({ form: 'compact', board: 376 });
+  it('the stack forms: tall from 760 px of height when its squares are 44 px, compact below it (decisions 127 and 129)', () => {
+    // Decision 129: the 152 px tall reader moves the 390 px edge from 784 to 808 px.
+    expect(gameLayout(390, 808, 'cards')).toMatchObject({ form: 'tall', board: 352, reader: 152 });
+    expect(gameLayout(390, 807, 'cards')).toMatchObject({ form: 'compact', board: 376 });
     expect(gameLayout(390, 760, 'cards')).toMatchObject({ form: 'compact', board: 376 });
     expect(gameLayout(390, 759, 'cards').form).toBe('compact');
-    // A narrow phone: both forms give the same board, so 760 px still gives the tall rows.
-    expect(gameLayout(320, 760, 'cards')).toMatchObject({ form: 'tall', board: 312 });
+    // A narrow phone: both forms give the same board, so the tall rows start where they fit that board (767 px).
+    expect(gameLayout(320, 767, 'cards')).toMatchObject({ form: 'tall', board: 312, reader: 152 });
+    expect(gameLayout(320, 766, 'cards')).toMatchObject({ form: 'compact', board: 312 });
     for (let H = 760; H <= 1000; H += 1) for (const W of [360, 375, 390, 393, 402, 414, 428, 430, 440]) {
       const l = gameLayout(W, H, 'cards');
       if (l.kind === 'stack') expect(l.board, `${W}x${H}`).toBeGreaterThanOrEqual(Math.min(8 * 44, W - 8 - (W - 8) % 8));
@@ -67,7 +69,7 @@ describe('the classes at each size of the matrix (decision 34)', () => {
       expect(l.boardY + l.board, what).toBeLessThanOrEqual(H);
       if (l.kind === 'stack') {
         expect(l.opp + l.scroll + l.reader + l.head + l.board + l.own + l.fin, what).toBe(H);
-        expect(l.reader, what).toBeGreaterThanOrEqual(l.form === 'tall' ? 128 : 64);
+        expect(l.reader, what).toBeGreaterThanOrEqual(l.form === 'tall' ? 152 : 64);
         expect(l.col, what).toBeLessThanOrEqual(W);
       } else {
         expect(l.boardX + l.board + l.gap + l.col, what).toBeLessThanOrEqual(W);
