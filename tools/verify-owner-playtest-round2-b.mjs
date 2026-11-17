@@ -10,7 +10,8 @@ mkdirSync(out, { recursive: true });
 const sizes = [[360,640],[390,844],[430,932],[768,1024],[844,390],[1440,900]], results = [];
 let count = 0;
 const check = (condition, message) => { assert(condition, message); count++; };
-const repairSizes = [[360,640],[390,844],[390,763],[844,390]];
+const selectedCases = process.env.R2_CASES?.split(',');
+const repairSizes = [[360,640],[390,844],[390,763],[430,932],[768,1024],[844,390],[1440,900]];
 async function stateRules(page, label) {
  const data = await page.evaluate(() => {
   const visible = node => {
@@ -30,7 +31,7 @@ async function stateRules(page, label) {
   return {scroll:{width:document.scrollingElement.scrollWidth,height:document.scrollingElement.scrollHeight,viewport:[innerWidth,innerHeight]},
    squareCount:squares.length,minSquare:Math.min(...squares.flatMap(n=>[n.r.width,n.r.height])),
    smallControls:controls.filter(n=>n.r.width<43.99||n.r.height<43.99),smallText,
-   top:box('.play-opp'),board:box('.play-board'),strip:box('.play-history-strip'),reader:box('.play-reader'),result:box('.play-result')};
+   top:box('.play-opp'),board:box('.play-board'),strip:box('.play-history-strip'),reader:box('.play-reader'),result:box('.play-result'),reading:game.dataset.reading,stripVisible:!!game.querySelector('.play-history-strip')&&visible(game.querySelector('.play-history-strip'))};
  });
  const faults=[];
  if(data.scroll.width>data.scroll.viewport[0]+1||data.scroll.height>data.scroll.viewport[1]+1)faults.push(`page scroll ${JSON.stringify(data.scroll)}`);
@@ -38,6 +39,10 @@ async function stateRules(page, label) {
  if(data.smallControls.length)faults.push(`controls under 44 px: ${JSON.stringify(data.smallControls)}`);
  if(data.smallText.length)faults.push(`text under 14 px: ${JSON.stringify(data.smallText)}`);
  if(await page.locator('.play-game').getAttribute('data-layout')==='portrait'&&data.reader.top<data.board.bottom-1)faults.push(`reader top ${data.reader.top}, board bottom ${data.board.bottom}`);
+ if(data.reading==='result') {
+  if(!data.stripVisible)faults.push('the result needs a visible history strip');
+  if(!data.strip||data.reader.top<data.strip.bottom-0.5)faults.push(`result reader top ${data.reader.top}, strip bottom ${data.strip?.bottom}`);
+ }
  check(!faults.length,`${label}: ${faults.join('; ')}`);
  return data;
 }
@@ -70,10 +75,60 @@ async function setupManual(page, context, storage) {
   await page.locator('.play-notice').filter({hasText:'This device cannot save the send. Free some space, then try again.'}).waitFor();
  }
 }
+async function observeBoard(context) {
+ // Observe the real board calls. Keep their bodies and playback timing intact.
+ await context.route('**/src/interface/board-api.ts*',async route=>{
+  const response=await route.fetch();let body=await response.text();
+  for(const marker of ['async play(action, after) {','setPosition(next, context = rules) {','finally {'])assert(body.includes(marker),`board observer anchor: ${marker}`);
+  body=body.replace('setPosition(next, context = rules) {','setPosition(next, context = rules) { globalThis.round2Board ??= {events:[],pending:0}; globalThis.round2Board.position=structuredClone(next);');
+  body=body.replace('async play(action, after) {',`async play(action, after) { globalThis.round2Board.pending++; globalThis.round2Board.events.push({kind:'start',move:structuredClone(action),replaying:document.querySelector('.play-game').dataset.replaying,floating:document.querySelector('.play-reader').dataset.floating});`);
+  body=body.replace('finally {',`finally { globalThis.round2Board.pending--; globalThis.round2Board.position=structuredClone(position); globalThis.round2Board.events.push({kind:'end',move:structuredClone(action)});`);
+  await route.fulfill({response,body});
+ });
+}
+async function seedResult(page,promotion=false) {
+ await page.goto(new URL('next.html',base).href);await page.locator('.play-home').waitFor();
+ await page.evaluate(async promotion=>{
+  const {Game}=await import('/src/game.ts'),{rulesOf}=await import('/src/interface/play/saved.ts');
+  const rules=rulesOf('powers',[null,promotion?{king:'Frost',power:'Freeze'}:{king:'Flame',power:'Haste'}],[[],[]]);
+  const fen=promotion?'7k/P7/8/8/8/8/1P6/7K w - - 0 1':'8/8/3q4/8/8/5k2/P7/7K w - - 0 1';
+  const moves=promotion?['Kh1-g1','!F:b2','Kh8-g8']:[];
+  const game=new Game('RNBQKBNR',rules);game.load(game.context.fromFen(fen));game.playLan(moves);
+  if(game.status!=='playing')throw Error('the case must start in a live game');
+  localStorage.setItem('kingdown.save',JSON.stringify({back:'',fen,moves,white:'human',black:'ai',skill:'club',coords:true,resigned:null,rules:game.rules,pace:promotion?'normal':'off',sound:false}));
+ },promotion);
+ await page.reload();await page.locator('.home-game-row[data-kind=computer]').click();
+ await page.locator('.play-game[data-state=ready]').waitFor({timeout:45000});await page.locator('.play-home,.shell-departing').waitFor({state:'detached'});await page.locator('.play-board-host[style*="visibility: hidden"]').waitFor({state:'detached'});
+}
+async function longResultRules(page,label,errors) {
+ await page.waitForFunction(()=>{const n=document.querySelector('.play-result');return n&&getComputedStyle(n).opacity==='1'&&!document.querySelector('.game-menu');});
+ const data=await page.evaluate(()=>{
+  const game=document.querySelector('.play-game'),card=game.querySelector('.play-result'),reader=game.querySelector('.play-reader'),strip=game.querySelector('.play-history-strip'),fit=game.getAttribute('data-result-fit');
+  let natural;
+  try {game.removeAttribute('data-result-fit');natural={card:card.getBoundingClientRect().toJSON(),reader:reader.getBoundingClientRect().toJSON()};}
+  finally {if(fit===null)game.removeAttribute('data-result-fit');else game.setAttribute('data-result-fit',fit);}
+  const box=n=>n.getBoundingClientRect().toJSON(),figure=game.querySelector('.play-result-art');
+  const cause=game.querySelector('.play-result-cause'),range=document.createRange();range.selectNodeContents(cause);
+  const clips=[];for(let n=cause;n;n=n.parentElement){const css=getComputedStyle(n),r=box(n);clips.push({r,x:/(hidden|clip|auto|scroll)/.test(css.overflowX),y:/(hidden|clip|auto|scroll)/.test(css.overflowY)});}
+  return {fit,natural,layout:game.dataset.layout,form:game.dataset.form,card:box(card),reader:box(reader),strip:box(strip),stripVisible:strip.checkVisibility(),figureVisible:figure.checkVisibility()&&figure.getBoundingClientRect().height>0,cause:cause.innerText,causeBox:box(cause),text:[...range.getClientRects()].map(r=>r.toJSON()),clips,actions:[...game.querySelectorAll('.play-result-actions button')].map(n=>({r:box(n),visible:n.checkVisibility()})),height:innerHeight,width:innerWidth,scroll:[document.scrollingElement.scrollWidth,document.scrollingElement.scrollHeight]};
+ });
+ check(data.stripVisible&&data.reader.top>=data.strip.bottom-0.5,`${label}: visible history before result: ${JSON.stringify(data)}`);
+ check(data.card.bottom<=data.height,`${label}: result bottom ${data.card.bottom} <= ${data.height}`);
+ check(data.cause.startsWith('Checkmate.')&&data.cause.length===119,`${label}: the real computer mate has its full long cause: ${data.cause}`);
+ await visibleBounds(page,'.play-result-cause');await visibleBounds(page,'.play-result-actions button',true);
+ check(data.text.length>0&&data.text.every(r=>r.left>=0&&r.right<=data.width&&r.top>=0&&r.bottom<=data.height&&data.clips.every(c=>(!c.x||r.left>=c.r.left&&r.right<=c.r.right)&&(!c.y||r.top>=c.r.top&&r.bottom<=c.r.bottom))),`${label}: every cause line fits without clipping: ${JSON.stringify(data)}`);
+ check(data.actions.length===3&&data.actions.every(({r,visible})=>visible&&r.left>=0&&r.right<=data.width&&r.top>=0&&r.bottom<=data.height),`${label}: all result buttons fit: ${JSON.stringify(data.actions)}`);
+ check(data.scroll[0]<=data.width&&data.scroll[1]<=data.height,`${label}: no page scroll ${data.scroll}`);
+ if(data.layout==='portrait')check((data.fit==='tight')===(data.natural.card.bottom>data.natural.reader.bottom),`${label}: tight exactly matches natural overflow: ${JSON.stringify(data)}`);
+ else check(data.fit===null,`${label}: the wide result needs no portrait fit`);
+ check(data.figureVisible===(data.fit!=='tight'&&data.form!=='compact'),`${label}: the full result shows its figure; compact and tight results hide it`);
+ await stateRules(page,label);check(!errors.length,`${label}: no page errors ${errors}`);
+ return data;
+}
 for (const engine of [chromium, webkit]) {
  const browser = await engine.launch();
  try {
-  for (const [width, height] of sizes) for (const setup of ['pieces','powers','cards','both']) {
+  for (const [width, height] of selectedCases ? [] : sizes) for (const setup of ['pieces','powers','cards','both']) {
    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', hasTouch: true });
    await context.route(/supabase\.co/, route => route.abort());
    const page = await context.newPage(), errors = [];
@@ -138,7 +193,7 @@ for (const engine of [chromium, webkit]) {
    } catch(error) { results.push({label,pass:false,error:error.message}); console.log(`FAIL ${label}: ${error.message}`); }
    finally { await context.close(); }
   }
- for(const [width,height] of repairSizes) {
+ for(const [width,height] of selectedCases ? [] : repairSizes) {
   const context=await browser.newContext({viewport:{width,height},reducedMotion:'reduce',hasTouch:true});
   const page=await context.newPage();await context.route(/supabase\.co/,r=>r.abort());
   try {
@@ -153,6 +208,7 @@ for (const engine of [chromium, webkit]) {
    await page.locator('.play-game[data-state=choice]').waitFor();
    await visibleBounds(page,'.play-choices button',true);await visibleBounds(page,'.play-choice-cancel',true);
    await visibleBounds(page,'.play-headline');await visibleBounds(page,'.play-b[data-form="compact"] .play-turn-state, .play-b:not([data-form="compact"]) .play-target');
+   check(/a8/.test(await page.locator('.play-b[data-form="compact"] .play-turn-state, .play-b:not([data-form="compact"]) .play-target').innerText()),`${engine.name()} ${width}: the promotion target names a8`);
    await stateRules(page,`${engine.name()}-${width}x${height}-choice`);
    check(await page.locator('.play-choices button').count()>=4,`${engine.name()} ${width}: all promotion choices stay in view`);
    await page.screenshot({path:`${out}/${engine.name()}-${width}x${height}-choice.png`});
@@ -161,7 +217,7 @@ for (const engine of [chromium, webkit]) {
   }catch(error){results.push({label:`${engine.name()}-${width}x${height}-choice`,pass:false,error:error.message});console.log(`FAIL choice: ${error.message}`);}
   finally{await context.close();}
  }
- for(const [width,height] of repairSizes) for(const state of ['armed-card','armed-power','manual','manual-storage','result']) {
+ for(const [width,height] of selectedCases ? [] : repairSizes) for(const state of ['armed-card','armed-power','manual','manual-storage','result']) {
   const context=await browser.newContext({viewport:{width,height},reducedMotion:'reduce',hasTouch:true,serviceWorkers:'block'});
   const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(10000);
   await context.route(/supabase\.co/,r=>r.abort());
@@ -210,8 +266,10 @@ for (const engine of [chromium, webkit]) {
   }catch(error){await page.screenshot({path:`${out}/${label}-failure.png`});results.push({label,pass:false,error:error.message});console.log(`FAIL ${label}: ${error.message}`);}
   finally{await context.close();}
  }
+ if(!selectedCases) {
  const context = await browser.newContext({viewport:{width:390,height:844},reducedMotion:'no-preference'});
  const page = await context.newPage(); await context.route(/supabase\.co/, r=>r.abort());
+ await context.addInitScript(()=>localStorage.setItem('kingdown.game-options',JSON.stringify({pool:['G','A','M','O','L','S']})));
  try {
   await page.goto(new URL('next.html',base).href); await page.locator('.play-home').waitFor();
   await page.locator('.home-hero-new, .home-top-new:visible, .home-side-new:visible').first().click();
@@ -219,6 +277,9 @@ for (const engine of [chromium, webkit]) {
   await panel.getByRole('checkbox',{name:/With powers/}).setChecked(false);await panel.getByRole('checkbox',{name:/With cards/}).setChecked(false);
   await panel.getByRole('button',{name:'Start game',exact:true}).click();
   await page.locator('.play-game[data-state=ready]').waitFor();await page.locator('.play-home').waitFor({state:'detached'});
+  await page.locator('.play-tag').first().waitFor({state:'attached'});
+  const tagSizes=await page.locator('.play-tag').evaluateAll(nodes=>nodes.map(n=>parseFloat(getComputedStyle(n).fontSize)));
+  check(tagSizes.length>0&&tagSizes.every(px=>px>=14),`${engine.name()}: opening tags use at least 14 px: ${tagSizes}`);
   const undo=page.getByRole('button',{name:'Undo',exact:true});
   check(await undo.getAttribute('aria-disabled')==='true',`${engine.name()}: first turn Undo is off`);
   check(await undo.locator('[data-icon=undo]').count()===1,`${engine.name()}: first turn uses undo ink`);
@@ -238,6 +299,97 @@ for (const engine of [chromium, webkit]) {
   results.push({label:`${engine.name()}-first-turn-and-motion`,pass:true});
  }catch(error){results.push({label:`${engine.name()}-first-turn-and-motion`,pass:false,error:error.message});console.log(`FAIL motion: ${error.message}`);}
  finally{await context.close();}
+ }
+ for(const name of ['long-result','result-menu-close','result-menu-escape','result-resize','result-rotate','result-panel','result-panel-tap','promotion-replay']) {
+  if(selectedCases&&!selectedCases.includes(name))continue;
+  const caseSizes=name==='result-resize'?[[430,932]]:name==='result-rotate'?[[844,390]]:name==='promotion-replay'||name==='result-panel'||name==='result-panel-tap'?[[390,844]]:[[390,844],[430,932],[360,640],[390,763]];
+  for(const [width,height] of caseSizes) {
+   const context=await browser.newContext({viewport:{width,height},reducedMotion:name==='promotion-replay'||name==='result-panel-tap'?'no-preference':'reduce',hasTouch:true,serviceWorkers:'block'});
+   await context.route(/supabase\.co/,r=>r.abort());
+   const page=await context.newPage(),errors=[],metrics=[],label=`${engine.name()}-${width}x${height}-${name}`;
+   page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
+   try {
+    if(name==='promotion-replay'||name==='result-panel'||name==='result-panel-tap')await observeBoard(context);
+    await seedResult(page,name==='promotion-replay');
+    if(name==='promotion-replay') {
+     await page.locator('.play-square[data-square="48"]').tap();await page.locator('.play-square[data-square="56"]').tap();
+     await page.locator('.play-game[data-state=choice]').waitFor();
+     check(await page.evaluate(()=>!matchMedia('(prefers-reduced-motion: reduce)').matches&&document.documentElement.dataset.motion==='normal'),`${label}: full motion`);
+     await page.evaluate(()=>window.round2Board.events=[]);
+     await page.getByRole('button',{name:'Replay',exact:true}).click();
+     await page.locator('.play-game[data-replaying=true]').waitFor();
+     const first=await page.evaluate(()=>window.round2Board.events.filter(e=>e.kind==='start'));
+     check(first.length===1&&first[0].move.power==='freeze',`${label}: the first Replay step is still playing: ${JSON.stringify(first)}`);
+     await page.getByRole('button',{name:'Queen',exact:true}).evaluate(b=>b.click());
+     const starts=await page.evaluate(()=>window.round2Board.events.filter(e=>e.kind==='start'));
+     check(starts.length===2&&starts[1].move.promo&&starts[1].replaying==='false',`${label}: Replay stops before promotion starts: ${JSON.stringify(starts)}`);
+     await page.waitForFunction(()=>window.round2Board.pending===0&&document.querySelector('.play-game')?.dataset.state==='draft');
+     const promoted=async()=>{
+      check(/Queen/.test(await page.locator('.play-square[data-square="56"]').getAttribute('aria-label')),`${label}: Queen stands on a8`);
+      const value=await page.evaluate(async()=>{const save=JSON.parse(localStorage.getItem('kingdown.save')),{readStored}=await import('/src/interface/play/saved.ts');const loaded=readStored();return {saved:save,board:window.round2Board.position.board[56],draft:loaded?.resume?.draft.position.board[56]};});
+      check(value.board===5&&value.draft===5,`${label}: the rendered board and saved draft have a Queen on a8: ${JSON.stringify(value)}`);
+      return value.saved;
+     };
+     const saved=await promoted();
+     // All cancelled play promises finish before the extra frame turns check for a later restore.
+     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+     check(JSON.stringify(await promoted())===JSON.stringify(saved),`${label}: no later Replay step restores the old board or save`);
+     check((await page.evaluate(()=>window.round2Board.events.filter(e=>e.kind==='start').length))===2,`${label}: Replay never starts its second step`);
+     check(!(await page.locator('.play-detail').innerText()).includes('The board already plays an action.'),`${label}: no busy-board notice`);
+    } else {
+     await page.locator('.play-square[data-square="8"]').tap();await page.locator('.play-square[data-square="16"]').tap();
+     if(name==='result-panel') {
+      const opened=await page.evaluate(()=>{document.querySelector('.play-turn button.kd-button-main, .play-turn button:last-child').click();document.querySelector('.play-opp .play-power').click();const g=document.querySelector('.play-game');return {state:g.dataset.state,floating:document.querySelector('.play-reader').dataset.floating};});
+      check(opened.state==='thinking'&&opened.floating==='true',`${label}: the computer panel opens during the live reply: ${JSON.stringify(opened)}`);
+     } else await page.getByRole('button',{name:'End turn',exact:true}).tap();
+     if(name==='result-panel-tap') {
+      // Decision 129: a tap on the computer's power while its mating move still plays must not replace the result.
+      const tapped=await page.evaluate(async()=>{
+       for(let frame=0;frame<3600;frame++) {
+        await new Promise(resolve=>requestAnimationFrame(resolve));
+        const game=document.querySelector('.play-game'),save=JSON.parse(localStorage.getItem('kingdown.save')||'{"moves":[]}');
+        if(game.querySelector('.play-result'))return {ok:false,why:'the result shows before the tap',frame};
+        if(save.moves.length<2)continue;
+        if(window.round2Board.pending<1)return {ok:false,why:'the mating move ends before the tap',frame};
+        const before={state:game.dataset.state,reading:game.dataset.reading,pending:window.round2Board.pending};
+        game.querySelector('.play-opp .play-power').click();
+        return {ok:true,frame,before,after:{reading:game.dataset.reading,floating:document.querySelector('.play-reader').dataset.floating}};
+       }
+       return {ok:false,why:'the computer does not reply'};
+      });
+      check(tapped.ok&&tapped.before.state==='thinking'&&tapped.before.reading!=='result',`${label}: the power tap lands while the mating move plays: ${JSON.stringify(tapped)}`);
+      await page.waitForFunction(()=>window.round2Board.pending===0);
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+      const kept=await page.evaluate(()=>{const game=document.querySelector('.play-game');return {reading:game.dataset.reading,result:!!game.querySelector('.play-result'),floating:document.querySelector('.play-reader').dataset.floating,focus:document.activeElement?.textContent?.trim()};});
+      check(kept.reading==='result'&&kept.result&&kept.floating!=='true',`${label}: the result keeps its place after the tap: ${JSON.stringify({tapped,kept})}`);
+      check(await page.getByRole('button',{name:'Rematch',exact:true}).isVisible(),`${label}: Rematch stays after the tap`);
+     }
+     await page.locator('.play-result').waitFor({timeout:45000});
+     if(name==='result-menu-close'||name==='result-menu-escape') {
+      await page.getByRole('button',{name:'Menu',exact:true}).tap();await page.locator('.game-menu').waitFor();
+      if(name==='result-menu-close')await page.getByRole('button',{name:'Close menu',exact:true}).tap();else await page.keyboard.press('Escape');
+      await page.locator('.game-menu').waitFor({state:'detached'});
+     }
+     if(name==='result-panel') {
+      const end=await page.evaluate(()=>{const reader=document.querySelector('.play-reader'),strip=document.querySelector('.play-history-strip'),moves=window.round2Board.events.filter(e=>e.kind==='start'&&e.move.to!==undefined);return {lastMove:moves.at(-1),floating:reader.dataset.floating,readerTop:reader.getBoundingClientRect().top,stripBottom:strip.getBoundingClientRect().bottom};});
+      check(end.lastMove?.floating==='true',`${label}: the panel stays open when the mating move starts: ${JSON.stringify(end)}`);
+      check(end.floating!=='true'&&end.readerTop>=end.stripBottom-0.5,`${label}: the result reader docks after the computer panel: ${JSON.stringify(end)}`);
+     }
+     metrics.push(await longResultRules(page,label,errors));
+     for(const [w,h] of name==='result-resize'?[[390,808],[390,784],[430,932]]:name==='result-rotate'?[[390,844]]:[]) {
+      await page.setViewportSize({width:w,height:h});
+      await page.waitForFunction(([w,h])=>{const g=document.querySelector('.play-game').getBoundingClientRect();return g.width===w&&g.height===h;},[w,h]);
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+      metrics.push(await longResultRules(page,`${label}-to-${w}x${h}`,errors));
+     }
+    }
+    check(!errors.length,`${label}: no page errors ${errors}`);
+    await page.screenshot({path:`${out}/${label}.png`});results.push({label,pass:true,metrics});console.log(`PASS ${label}`);
+   } catch(error) {
+    await page.screenshot({path:`${out}/${label}-failure.png`});results.push({label,pass:false,error:error.message,metrics});console.log(`FAIL ${label}: ${error.message}`);
+   } finally {await context.close();}
+  }
+ }
  } finally { await browser.close(); }
 }
 writeFileSync(`${out}/round2-b.json`,JSON.stringify({checks:count,results},null,2));

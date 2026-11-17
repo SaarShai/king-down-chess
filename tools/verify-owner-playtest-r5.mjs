@@ -88,11 +88,18 @@ async function online(page, context, { setup = false, manual = false, seat = 0, 
     await page.evaluate(() => new Promise(requestAnimationFrame));
   } };
 }
-async function normalReader(page) {
+async function normalReader(page, expected) {
   assert.equal(await page.locator('.play-detail .play-b').isVisible(), true, 'the normal reader returns inside the reader');
-  const state = page.locator('.play-detail .play-b .play-turn-state');
-  if (await state.count()) assert.match(await state.innerText(), /Your turn\./, 'the reader restores the turn state');
-  else assert.equal(await page.locator('.play-detail .play-headline').innerText(), 'Move it again, or select Send.', 'the compact reader restores the Haste instruction');
+  const form = await page.locator('.play-game').getAttribute('data-form');
+  assert(['compact', 'tall', 'wide'].includes(form), 'the screen has a known reader form');
+  assert.equal(await page.locator('.play-detail .play-b').getAttribute('data-form'), form, 'the reader uses the screen form');
+  if (expected === 'haste') assert.equal(await page.locator('.play-detail .play-headline').innerText(), 'Move it again, or select Send.', 'Haste recovery restores its instruction');
+  else assert.equal(expected, 'selected', 'the recovery case is known');
+  if (form !== 'compact' || expected === 'selected') {
+    const state = page.locator('.play-detail .play-b .play-turn-state');
+    assert.equal(await state.count(), 1, 'the reader restores exactly one turn state');
+    assert.equal(await state.innerText(), 'Your turn.', 'the reader restores the expected turn state');
+  }
 }
 async function bounds(page) {
   await visibleBounds(page, '.online-status p'); await visibleBounds(page, '.online-actions button', true);
@@ -131,7 +138,7 @@ async function send(page, context, size, auth = false) {
   await page.getByRole('button', { name: 'Discard send', exact: true }).tap();
   await page.waitForFunction(() => !document.querySelector('.online-actions'));
   assert.equal(await send.getAttribute('aria-disabled'), 'false', 'discard restores Send for the draft');
-  await normalReader(page);
+  await normalReader(page, 'haste');
   assert.equal(server.commands(), 12, 'Send and two failed checks each make four transport attempts');
 }
 async function notice(page, context, size, manual, seat, accept) {
@@ -180,7 +187,7 @@ async function menuSend(page, context, size, action) {
   await bounds(page); await shot(page, size, `menu-${action.toLowerCase().replaceAll(' ', '-')}-recovery`);
   await page.getByRole('button', { name: 'Discard send', exact: true }).tap();
   await page.waitForFunction(() => !document.querySelector('.online-actions'));
-  await normalReader(page);
+  await normalReader(page, 'selected');
   assert.match(await page.locator('.play-detail .play-headline').innerText(), /Knight/, 'the selected piece returns after recovery');
   assert.equal(server.commands(), 12, 'the Menu command and two checks each make four attempts');
 }

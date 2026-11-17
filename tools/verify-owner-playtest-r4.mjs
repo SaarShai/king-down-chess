@@ -75,6 +75,7 @@ const cases = {
     await online(page, context); await page.getByRole('button', { name: 'Accept draw', exact: true }).waitFor();
     await cell(page, 48).tap();
     await cell(page, 56).tap(); await ownStep(page, '.play-b[data-form="compact"] .play-turn-state, .play-b:not([data-form="compact"]) .play-target', 'Cancel action choice');
+    if (await page.locator('.play-game').getAttribute('data-form') === 'compact') assert.match(await page.locator('.play-b[data-form="compact"] .play-turn-state').innerText(), /a8/, 'the compact promotion names a8');
     assert.equal(await page.locator('.play-choices button').count() >= 4, true, 'promotion choices show');
     assert.equal(await page.locator('.play-choices button').first().evaluate(el => el === document.activeElement), true, 'the choice receives focus');
     await shot(page, size, 'draw-promotion');
@@ -86,6 +87,7 @@ const cases = {
   async actionChoice(page, context, size) {
     await online(page, context, { fen: '7k/8/8/2r5/2O5/8/8/K7 w - - 0 1' });
     await cell(page, 26).tap(); await cell(page, 34).tap(); await ownStep(page, '.play-b[data-form="compact"] .play-turn-state, .play-b:not([data-form="compact"]) .play-target', 'Cancel action choice');
+    if (await page.locator('.play-game').getAttribute('data-form') === 'compact') assert.match(await page.locator('.play-b[data-form="compact"] .play-turn-state').innerText(), /Rook on c5/, 'the compact choice names its target');
     assert.match(await page.locator('.play-headline').innerText(), /Capture or push/);
     await shot(page, size, 'draw-action-choice');
     await page.getByRole('button', { name: 'Cancel action choice', exact: true }).tap(); await page.getByRole('button', { name: 'Accept draw', exact: true }).waitFor();

@@ -103,6 +103,8 @@ const cases = {
     await home(page);
     await page.locator('.home-top-new:visible, .home-side-new:visible').first().click();
     await page.locator('.new-game-panel[open]').waitFor();
+    await page.locator('dialog.new-game-panel[open]').waitFor();
+    assert.doesNotMatch(await page.locator('dialog.new-game-panel[open]').innerText(), /This ends your game/, 'the open panel has no replacement warning text');
     assert.equal(await page.locator('.new-game-panel .panel-warning').count(), 0, 'the memory game has no replacement warning');
     await page.locator('.new-game-panel').getByRole('button', { name: 'Close', exact: true }).click();
     await resume(page); await page.locator('.play-game[data-state="ready"]').waitFor();

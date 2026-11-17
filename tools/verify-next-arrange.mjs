@@ -169,6 +169,8 @@ try {
     await page.getByRole('button', { name: 'Menu', exact: true }).click();
     await page.getByRole('button', { name: 'Back to home', exact: true }).click();
     await page.locator('.home-hero-new, .home-top-new:visible, .home-side-new:visible').first().click();
+    await page.locator('dialog.new-game-panel[open]').waitFor();
+    assert.doesNotMatch(await page.locator('dialog.new-game-panel[open]').innerText(), /This ends your game/, 'the open panel has no replacement warning text');
     assert.equal(await page.locator('.new-game-panel .panel-warning').count(), 0, 'a new game has no replacement warning');
     await page.locator('.new-game-panel').getByRole('button', { name: 'Close', exact: true }).click();
     await page.locator('.home-game-row[data-kind="computer"]').click();

@@ -117,6 +117,15 @@ try {
     const refusal = await page.locator('.card-error').boundingBox();
     assert(refusal.y >= 0 && refusal.y + refusal.height <= page.viewportSize().height, 'the refusal stays visible when the last card is below the fold');
     await shot(page, 'cards-four-refusal');
+    for (const slider of [range, side]) {
+      await slider.focus(); const before = await slider.inputValue(); await slider.press(before === '0' ? 'End' : 'Home');
+      assert.notEqual(await slider.inputValue(), before, 'the slider changes its value');
+      assert.equal(await page.locator('.card-error').count(), 0, 'a slider change removes the card error');
+      assert.doesNotMatch(await panel(page).innerText(), /You must select at least 4 cards/, 'a slider change clears the refusal text');
+      await toggle(page, 'Use Sky Lift').click();
+      assert.equal(await page.locator('.card-error').innerText(), 'You must select at least 4 cards', 'the next attempt shows the refusal again');
+    }
+
     await page.getByRole('button', { name: 'Ice Wall Rule', exact: true }).click(); assert.match(await page.locator('.card-rule').innerText(), /cannot be taken/i);
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     await section(page, 'cards').click(); await page.getByRole('radio', { name: 'Player', exact: true }).click();
