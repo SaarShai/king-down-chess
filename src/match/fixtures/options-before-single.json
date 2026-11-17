@@ -671,7 +671,7 @@
   },
   "save": {
     "schema": "kingdown-local-match/1",
-    "engine": "sha256:dc67b7208b596c8d3f2fcc55a9999943c54abdbcc372b57b47239a34b0ce401d",
+    "engine": "sha256:e58d7d379d0dad5ddde1c4e34e984923e856e4b3f702e7beeaee22db62d7a9b4",
     "setup": {
       "fen": "alomqkab/pppppppp/8/8/8/8/PPPPPPPP/OAKQAMBL w - - 0 1",
       "kings": "none,none"

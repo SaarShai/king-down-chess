@@ -221,7 +221,8 @@ const cases = {
   },
   async you(page, context, check) {
     await page.goto(`${NEXT}#you`); await page.waitForSelector('.you-page');
-    check((await order(page)).join(',') === 'pieces,hand,coords,sound', 'settings keep one order');
+    const settings = (await order(page)).join(',');
+    check(settings === 'pieces,hand,coords,sound,motion', `settings keep one order: ${settings}`);
     check(await unbroken(page, '[data-setting="motion"] [role="radio"]'), 'Motion speed keeps each word on one line');
     check(await page.locator('[role="switch"]').evaluateAll(nodes => nodes.every(n => !n.hasAttribute('aria-describedby') && n.querySelectorAll('.kd-switch-copy > span').length === 0)), 'an empty switch description creates no empty note');
     const sound = page.getByRole('switch', { name: 'Sound', exact: true }); await sound.click();
@@ -274,7 +275,9 @@ const cases = {
     await page.goto(NEXT); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
     const before = await saved(page);
     await page.getByRole('button', { name: 'Menu', exact: true }).click();
-    check((await order(page)).join(',') === 'pieces,hand,coords,sound', 'settings keep one order');
+    // The game Menu keeps four settings; Motion is on You only (src/interface/play/menus.ts, the Menu rows).
+    const settings = (await order(page)).join(',');
+    check(settings === 'pieces,hand,coords,sound', `settings keep one order: ${settings}`);
     check(await page.locator('.menu-note').evaluate(n => parseFloat(getComputedStyle(n).fontSize) >= 14), 'the save note is at least 14 px');
     check(await page.locator('.menu-settings').evaluate(n => n.clientHeight >= 44), 'at least one whole setting row fits');
     check(await unbroken(page, '.menu-settings [role="switch"]'), 'Menu labels keep each word on one line');

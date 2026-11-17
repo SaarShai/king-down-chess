@@ -167,8 +167,8 @@
 .play-game[data-tight='true'][data-reading='result'] .play-state-line { display: none; }
 .play-game[data-tight='true'][data-reading='result'] .play-result-actions { flex-wrap: nowrap; }
 .play-game[data-tight='true'][data-reading='result'] .play-result-actions .kd-button { flex: 1 1 0; min-width: 0; min-height: 44px; padding-inline: 4px; font-size: 14px; }
-.play-game[data-layout='wide'][data-form='compact'][data-reading='result'] .play-opp { display: none; }
-.play-game[data-layout='wide'][data-form='compact'][data-reading='result'] .play-reader { top: var(--rail-top); height: calc(var(--reader) + var(--opp)); }
+/* Decision 127: a compact rail result keeps the top line; it takes the idle hand and finish rows below the scroll. */
+.play-game[data-layout='wide'][data-form='compact'][data-reading='result'] .play-reader { height: calc(var(--reader) + var(--own) + var(--fin)); background: var(--surface-page); }
 /* The Menu and the full rule take the opponent strip on a rail too, as in the stack (reading decision 21); the state line goes. */
 .play-game[data-layout='wide'][data-borrow='true'] .play-opp { display: none; }
 .play-game[data-layout='wide'][data-borrow='true'] .play-reader { top: var(--rail-top); height: calc(var(--reader) + var(--opp)); }
@@ -298,6 +298,8 @@
 /* Decision 127: the compact second row holds a whole 20 px line at 360x640 (armed step), and an arrange notice gives the
    header's spare height to the notice and the instruction below it. */
 .play-game .play-b[data-form='compact'] .play-lines { padding-top: 0; }
+/* The primary lines keep their height before the secondary lines take the rest; the gap between them never cuts a line. */
+.play-game .play-b[data-form='compact'] .play-primary { flex: 0 0 auto; max-height: 100%; }
 .play-game[data-form='compact'][data-state='arrange'] .play-b:has(.play-notice) { grid-template-rows: auto minmax(0, 1fr); }
 
 /* A current sentence takes the compact header before the turn label. */

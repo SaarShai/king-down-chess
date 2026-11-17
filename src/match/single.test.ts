@@ -10,7 +10,7 @@ import { optionsSchema } from './setup-schema';
 import { DEFAULT_OPTIONS, RANKED_OPTIONS, draw, setupAdmission, validate, type Choice, type Draw, type Options, type SetupAdmission } from './setup';
 import type { Game, PostgresMatchStore } from './store';
 
-// Captured from 59843005f before the optional field exists.
+// Options come from 59843005f. The save comes from its archived compiled engine.
 const base = JSON.parse(readFileSync(new URL('./fixtures/options-before-single.json', import.meta.url), 'utf8')) as {
   seed: number; options: Options; drawn: Draw; choices: [Choice, Choice]; admission: SetupAdmission; setup: MatchSetup; save: MatchSave;
   played: { lan: string; fen: string; turn: number };
@@ -66,7 +66,12 @@ describe('single-copy pool options', () => {
     expect([...created.draw!].sort().join('')).toBe('GKLMNOQS');
     expect(db.game.options).toEqual(options);
     expect(db.game.snapshot?.fen.split('/').at(-1)?.split(' ')[0]).toBe(created.draw);
-    expect(JSON.parse(db.game.state!).engine).toBe(base.save.engine);
+    const { single: _single, ...withoutSingle } = options, other = memory();
+    await other.service.create(actor, { kind: 'solo', options: withoutSingle });
+    const engine = JSON.parse(other.game.state!).engine;
+    expect(JSON.parse(db.game.state!).engine).toBe(engine);
+    expect(db.game.engine_fingerprint).toBe(engine);
+    expect(other.game.engine_fingerprint).toBe(engine);
     expect(created.setup_admission).toEqual(setupAdmission(options));
   });
 
@@ -90,7 +95,9 @@ describe('single-copy pool options', () => {
     expect(db.game.options).toEqual(base.options);
     expect(db.game.options).not.toHaveProperty('single');
     expect(db.game.setup_admission).toEqual(base.admission);
-    expect(db.game.engine_fingerprint).toBe(base.save.engine);
+    const current = await createMatch(base.setup);
+    try { expect(db.game.engine_fingerprint).toBe(JSON.parse(await current.exportSave()).engine); }
+    finally { await current.close(); }
     expect(optionsSchema.parse({ ...base.options, fairy: false, arrangement: false, single: [] })).not.toHaveProperty('single');
   });
 
@@ -112,13 +119,15 @@ describe('single-copy pool options', () => {
 });
 
 describe('games saved before single-copy options', () => {
-  it('loads and plays the base save, and keeps the current engine fingerprint', async () => {
-    const current = await createMatch(base.setup), old = await loadMatch(JSON.stringify(base.save));
+  it('loads and plays the base save on its archived engine', async () => {
+    const old = await loadMatch(JSON.stringify(base.save)), current = await createMatch(base.setup);
     try {
-      expect(JSON.parse(await current.exportSave()).engine).toBe(base.save.engine);
+      expect(JSON.parse(await old.exportSave())).toEqual(base.save);
+      // The current engine starts the same game from the same setup; only its development fingerprint can differ.
+      expect({ ...JSON.parse(await current.exportSave()), engine: base.save.engine }).toEqual(base.save);
       const played = await old.apply({ id: 'old-save-move', expectedRevision: 0, lan: base.played.lan });
       expect(played).toMatchObject({ fen: base.played.fen, turn: base.played.turn, revision: 1 });
-    } finally { await current.close(); await old.close(); }
+    } finally { await old.close(); await current.close(); }
   });
 
   it('finishes a stored online setup and plays without changing its old options or admission', async () => {

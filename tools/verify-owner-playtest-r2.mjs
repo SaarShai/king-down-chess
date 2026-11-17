@@ -103,7 +103,7 @@ const cases = {
     await home(page);
     await page.locator('.home-top-new:visible, .home-side-new:visible').first().click();
     await page.locator('.new-game-panel[open]').waitFor();
-    assert.equal(await page.locator('.new-game-panel .panel-warning').isVisible(), true, 'the memory game keeps the replacement warning');
+    assert.equal(await page.locator('.new-game-panel .panel-warning').count(), 0, 'the memory game has no replacement warning');
     await page.locator('.new-game-panel').getByRole('button', { name: 'Close', exact: true }).click();
     await resume(page); await page.locator('.play-game[data-state="ready"]').waitFor();
     await page.evaluate(() => { window.saveFails = false; });
@@ -129,8 +129,8 @@ const cases = {
         const saved = await page.evaluate(() => localStorage.getItem('kingdown.save'));
         await cell(stale, 6).tap(); await cell(stale, 21).tap();
         const load = stale.getByRole('button', { name:'Load the newer game', exact:true }); await load.waitFor();
-        await visibleBounds(stale, '.play-headline-line'); await visibleBounds(stale, '.play-tools > button', true);
-        assert.match(await stale.locator('.play-headline-line').innerText(), /changed in another tab/);
+        await visibleBounds(stale, '.play-headline'); await visibleBounds(stale, '.play-tools > button', true);
+        assert.match(await stale.locator('.play-headline').innerText(), /changed in another tab/);
         assert.equal(await stale.evaluate(() => localStorage.getItem('kingdown.save')), saved, 'the stale move cannot replace the newer save');
         await shot(stale, size, `stale-${type}`);
         await load.tap(); await stale.locator('.play-game[data-state="draft"]').waitFor();
