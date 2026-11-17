@@ -721,13 +721,18 @@ function key(event: KeyboardEvent) {
   }
 }
 function clearChoice() { choice = []; choiceBox.replaceChildren(); }
-/** Decision 127: a portrait result that runs past its box (a long cause) takes the compact result: no figure, one action row.
+/** Decision 127: a docked result that runs past its fixed box (a long cause) takes the compact result: no figure, one action row.
+ *  If the compact result still runs past the box, the cause scrolls in its own box; the title, the note and the actions stay in view.
  *  It measures the docked reader after each render and each layout pass, so a Menu close, a resize or a rotation fits it again. */
 function fitResult() {
   delete screen.dataset.resultFit;
-  if (reading !== 'result' || screen.dataset.layout !== 'portrait' || !reader || reader.dataset.floating === 'true') return;
+  const docked = screen.dataset.layout === 'portrait' || (screen.dataset.layout === 'wide' && screen.dataset.form === 'compact');
+  if (reading !== 'result' || !docked || !reader || reader.dataset.floating === 'true') return;
   const card = detail?.querySelector<HTMLElement>('.play-result, .play-result-copy');
-  if (card && card.getBoundingClientRect().bottom > reader.getBoundingClientRect().bottom) screen.dataset.resultFit = 'tight';
+  const over = () => !!card && card.getBoundingClientRect().bottom > reader!.getBoundingClientRect().bottom;
+  if (!over()) return;
+  screen.dataset.resultFit = 'tight';
+  if (over()) screen.dataset.resultFit = 'scroll';
 }
 function tap(square: number) {
   if (fault === 'art' || !onlineActive && writer.blocked) return; // a fault waits for recovery

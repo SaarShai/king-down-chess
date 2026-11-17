@@ -10,7 +10,7 @@ mkdirSync(out, { recursive: true });
 const sizes = [[360,640],[390,844],[430,932],[768,1024],[844,390],[1440,900]], results = [];
 let count = 0;
 const check = (condition, message) => { assert(condition, message); count++; };
-const caseNames = ['long-result','result-menu-close','result-menu-escape','result-resize','result-rotate','result-panel','result-panel-tap','result-board-tap','promotion-replay'];
+const caseNames = ['long-result','result-menu-close','result-menu-escape','result-resize','result-rotate','result-panel','result-panel-tap','result-board-tap','promotion-replay','quake-result'];
 // R2B_CASES runs only the named new cases. The r2 check reads R2_CASES, so the two names stay apart.
 const selectedCases = process.env.R2B_CASES?.split(',');
 assert(!selectedCases || selectedCases.every(name => caseNames.includes(name)), `Unknown R2B_CASES: ${selectedCases}`);
@@ -103,18 +103,32 @@ async function seedResult(page,promotion=false) {
  await page.reload();await page.locator('.home-game-row[data-kind=computer]').click();
  await page.locator('.play-game[data-state=ready]').waitFor({timeout:45000});await page.locator('.play-home,.shell-departing').waitFor({state:'detached'});await page.locator('.play-board-host[style*="visibility: hidden"]').waitFor({state:'detached'});
 }
-async function longResultRules(page,label,errors) {
+async function resultData(page) {
  await page.waitForFunction(()=>{const n=document.querySelector('.play-result');return n&&getComputedStyle(n).opacity==='1'&&!document.querySelector('.game-menu');});
- const data=await page.evaluate(()=>{
+ return page.evaluate(()=>{
   const game=document.querySelector('.play-game'),card=game.querySelector('.play-result'),reader=game.querySelector('.play-reader'),strip=game.querySelector('.play-history-strip'),fit=game.getAttribute('data-result-fit');
-  let natural;
-  try {game.removeAttribute('data-result-fit');natural={card:card.getBoundingClientRect().toJSON(),reader:reader.getBoundingClientRect().toJSON()};}
-  finally {if(fit===null)game.removeAttribute('data-result-fit');else game.setAttribute('data-result-fit',fit);}
   const box=n=>n.getBoundingClientRect().toJSON(),figure=game.querySelector('.play-result-art');
+  // The same result without a fit and with the tight fit: the page must take the first of full, tight and scroll that fits.
+  const measure=value=>{if(value===null)game.removeAttribute('data-result-fit');else game.setAttribute('data-result-fit',value);return {card:box(card),reader:box(reader)};};
+  let natural,tight;
+  try {natural=measure(null);tight=measure('tight');}
+  finally {measure(fit);}
   const cause=game.querySelector('.play-result-cause'),range=document.createRange();range.selectNodeContents(cause);
   const clips=[];for(let n=cause;n;n=n.parentElement){const css=getComputedStyle(n),r=box(n);clips.push({r,x:/(hidden|clip|auto|scroll)/.test(css.overflowX),y:/(hidden|clip|auto|scroll)/.test(css.overflowY)});}
-  return {fit,natural,layout:game.dataset.layout,form:game.dataset.form,card:box(card),reader:box(reader),strip:box(strip),stripVisible:strip.checkVisibility(),figureVisible:figure.checkVisibility()&&figure.getBoundingClientRect().height>0,cause:cause.innerText,causeBox:box(cause),text:[...range.getClientRects()].map(r=>r.toJSON()),clips,actions:[...game.querySelectorAll('.play-result-actions button')].map(n=>({r:box(n),visible:n.checkVisibility()})),height:innerHeight,width:innerWidth,scroll:[document.scrollingElement.scrollWidth,document.scrollingElement.scrollHeight]};
+  const css=getComputedStyle(cause),title=game.querySelector('.play-result-copy h3'),note=game.querySelector('.play-rematch-note');
+  return {fit,natural,tight,floating:reader.dataset.floating??null,layout:game.dataset.layout,form:game.dataset.form,card:box(card),reader:box(reader),strip:box(strip),stripVisible:strip.checkVisibility(),figureVisible:figure.checkVisibility()&&figure.getBoundingClientRect().height>0,cause:cause.innerText,causeBox:box(cause),text:[...range.getClientRects()].map(r=>r.toJSON()),clips,actions:[...game.querySelectorAll('.play-result-actions button')].map(n=>({r:box(n),visible:n.checkVisibility()})),
+   causeText:cause.textContent,causeScroll:{top:cause.scrollTop,height:cause.scrollHeight,client:cause.clientHeight,overflowY:css.overflowY,lineHeight:parseFloat(css.lineHeight)},
+   fonts:[cause,title,note,...game.querySelectorAll('.play-result-actions button')].map(n=>parseFloat(getComputedStyle(n).fontSize)),
+   save:JSON.parse(localStorage.getItem('kingdown.save')||'null')?.moves??null,reply:globalThis.round2Reply??null,height:innerHeight,width:innerWidth,scroll:[document.scrollingElement.scrollWidth,document.scrollingElement.scrollHeight]};
  });
+}
+// A docked result has a fixed box: the portrait reader and the compact rail reader. A floating or wide reader takes no fit.
+const expectedFit=d=>{
+ const docked=d.floating!=='true'&&(d.layout==='portrait'||d.layout==='wide'&&d.form==='compact');
+ return !docked||d.natural.card.bottom<=d.natural.reader.bottom?null:d.tight.card.bottom<=d.tight.reader.bottom?'tight':'scroll';
+};
+async function longResultRules(page,label,errors) {
+ const data=await resultData(page);
  check(data.stripVisible&&data.reader.top>=data.strip.bottom-0.5,`${label}: visible history before result: ${JSON.stringify(data)}`);
  check(data.card.bottom<=data.height,`${label}: result bottom ${data.card.bottom} <= ${data.height}`);
  check(data.cause.startsWith('Checkmate.')&&data.cause.length===119,`${label}: the real computer mate has its full long cause: ${data.cause}`);
@@ -122,11 +136,92 @@ async function longResultRules(page,label,errors) {
  check(data.text.length>0&&data.text.every(r=>r.left>=0&&r.right<=data.width&&r.top>=0&&r.bottom<=data.height&&data.clips.every(c=>(!c.x||r.left>=c.r.left&&r.right<=c.r.right)&&(!c.y||r.top>=c.r.top&&r.bottom<=c.r.bottom))),`${label}: every cause line fits without clipping: ${JSON.stringify(data)}`);
  check(data.actions.length===3&&data.actions.every(({r,visible})=>visible&&r.left>=0&&r.right<=data.width&&r.top>=0&&r.bottom<=data.height),`${label}: all result buttons fit: ${JSON.stringify(data.actions)}`);
  check(data.scroll[0]<=data.width&&data.scroll[1]<=data.height,`${label}: no page scroll ${data.scroll}`);
- if(data.layout==='portrait')check((data.fit==='tight')===(data.natural.card.bottom>data.natural.reader.bottom),`${label}: tight exactly matches natural overflow: ${JSON.stringify(data)}`);
- else check(data.fit===null,`${label}: the wide result needs no portrait fit`);
- check(data.figureVisible===(data.fit!=='tight'&&data.form!=='compact'),`${label}: the full result shows its figure; compact and tight results hide it`);
+ check(data.fit===expectedFit(data),`${label}: the fit is the first of full, tight and scroll that fits: ${JSON.stringify(data)}`);
+ check(data.fit!=='scroll'&&data.causeScroll.height<=data.causeScroll.client+1,`${label}: the 119-character cause needs no scroll: ${JSON.stringify(data.causeScroll)}`);
+ check(data.figureVisible===(data.fit===null&&data.form!=='compact'),`${label}: the full result shows its figure; compact, tight and scroll results hide it`);
  await stateRules(page,label);check(!errors.length,`${label}: no page errors ${errors}`);
  return data;
+}
+// The lead's review of PR 372: White has spent all four cards; after a2-a3 the computer mates with Mirror as Earth Quake on f4.
+const quakeMoves=['a2-a3','!Q:f4!Z'];
+const quakeCause='Checkmate. The opponent plays Mirror as Earth Quake on f4. The Rook on g4 moves to h4; The Knight on e4 moves to d4; The Rook on f5 moves to f6; The Queen on f3 moves to f2; The Bishop on g5 moves to h6; The Bishop on e5 moves to d6; The Pawn on e3 moves to d2.';
+const quakeSizes=[[320,568],[360,640],[390,763],[390,844],[430,932],[768,1024],[844,390],[667,375],[568,320],[1440,900]];
+async function fixReply(context,lans) {
+ // The engine's mating choice varies (Haste, Freeze, or Earth Quake on e4 or f4). The engine still thinks; the page then plays this legal reply.
+ await context.route('**/src/interface/play/main.ts*',async route=>{
+  const response=await route.fetch();let body=await response.text();const anchor=': result.move;';
+  assert(body.split(anchor).length===2,`reply anchor: ${anchor}`);
+  body=body.replace(anchor,': (globalThis.round2Reply?.length ? (lan => game.legal.find(x => game.context.toLan(game.pos, x) === lan))(globalThis.round2Reply.shift()) : result.move);');
+  await route.fulfill({response,body});
+ });
+ await context.addInitScript(lans=>{globalThis.round2Reply=[...lans];},lans);
+}
+async function seedQuake(page) {
+ await page.goto(new URL('next.html',base).href);await page.locator('.play-home').waitFor();
+ await page.evaluate(async moves=>{
+  const {Game}=await import('/src/game.ts'),{rulesOf}=await import('/src/interface/play/saved.ts');
+  const hand=['MirrorB','EarthQuake','Freeze','Haste'],rules=rulesOf('cards',[null,null],[hand,hand]),fen='8/8/8/4brb1/4n1r1/4pqk1/P7/6K1 w - - 0 1 u15.0';
+  const proof=new Game('RNBQKBNR',rules);proof.load(proof.context.fromFen(fen));
+  if(proof.playLan(moves)!==2||proof.status!=='checkmate')throw Error(`the real rules must accept the Earth Quake mate: ${proof.status}`);
+  const game=new Game('RNBQKBNR',rules);game.load(game.context.fromFen(fen));
+  if(game.status!=='playing')throw Error('the case must start in a live game');
+  localStorage.setItem('kingdown.save',JSON.stringify({back:'',fen,moves:[],white:'human',black:'ai',skill:'club',coords:true,resigned:null,rules:game.rules,pace:'off',sound:false}));
+ },quakeMoves);
+ await page.reload();await page.locator('.home-game-row[data-kind=computer]').click();
+ await page.locator('.play-game[data-state=ready]').waitFor({timeout:45000});await page.locator('.play-home,.shell-departing').waitFor({state:'detached'});await page.locator('.play-board-host[style*="visibility: hidden"]').waitFor({state:'detached'});
+}
+async function quakeRules(page,label,errors,smallBoard) {
+ const data=await resultData(page);
+ check(data.stripVisible&&data.reader.top>=data.strip.bottom-0.5,`${label}: visible history before result: ${JSON.stringify(data)}`);
+ check(JSON.stringify(data.save)===JSON.stringify(quakeMoves)&&Array.isArray(data.reply)&&data.reply.length===0,`${label}: the computer plays the Earth Quake mate: ${JSON.stringify({save:data.save,reply:data.reply})}`);
+ check(data.causeText===quakeCause,`${label}: the result has the full Earth Quake cause: ${data.causeText}`);
+ check(data.fonts.every(px=>px>=14),`${label}: result text is 14 px or more: ${data.fonts}`);
+ await visibleBounds(page,'.play-result-copy h3');await visibleBounds(page,'.play-rematch-note');await visibleBounds(page,'.play-result-actions button',true);
+ check(data.actions.length===3&&data.actions.every(({r,visible})=>visible&&r.left>=0&&r.right<=data.width&&r.top>=0&&r.bottom<=data.height),`${label}: all result buttons fit: ${JSON.stringify(data.actions)}`);
+ check(data.scroll[0]<=data.width&&data.scroll[1]<=data.height,`${label}: no page scroll ${data.scroll}`);
+ check(data.card.bottom<=data.height,`${label}: result bottom ${data.card.bottom} <= ${data.height}`);
+ check(data.fit===expectedFit(data),`${label}: the fit is the first of full, tight and scroll that fits: ${JSON.stringify(data)}`);
+ check(data.figureVisible===(data.fit===null&&data.form!=='compact'),`${label}: the full result shows its figure; compact, tight and scroll results hide it`);
+ const s=data.causeScroll,inBox=r=>r.top>=data.causeBox.top-2&&r.bottom<=data.causeBox.bottom+2; // the glyph box can pass the line box: the tolerance of visibleBounds
+ if(data.fit==='scroll') {
+  check(/^(auto|scroll)$/.test(s.overflowY)&&s.height>s.client+1,`${label}: the cause scrolls in its own box: ${JSON.stringify(s)}`);
+  check(s.client>=2*s.lineHeight-1,`${label}: at least two cause lines show: ${JSON.stringify(s)}`);
+  check(data.causeBox.top>=data.reader.top-0.5&&data.causeBox.bottom<=Math.min(data.reader.bottom,data.height)+0.5,`${label}: the cause box is in the reader: ${JSON.stringify({cause:data.causeBox,reader:data.reader})}`);
+  check(s.top===0&&inBox(data.text[0]),`${label}: the first cause line shows: ${JSON.stringify({first:data.text[0],box:data.causeBox})}`);
+  // A person scrolls the cause: the wheel stands for a finger on the box.
+  const cause=page.locator('.play-result-cause');await cause.hover();await page.mouse.wheel(0,2000);
+  await page.waitForFunction(()=>{const n=document.querySelector('.play-result-cause');return n.scrollTop>=n.scrollHeight-n.clientHeight-1;});
+  const end=await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(()=>{
+   const n=document.querySelector('.play-result-cause'),range=document.createRange();range.selectNodeContents(n);
+   resolve({top:n.scrollTop,max:n.scrollHeight-n.clientHeight,box:n.getBoundingClientRect().toJSON(),last:[...range.getClientRects()].at(-1).toJSON(),page:[document.scrollingElement.scrollTop,document.scrollingElement.scrollHeight]});
+  },300)))));
+  check(end.top>=end.max-1&&end.last.top>=end.box.top-2&&end.last.bottom<=end.box.bottom+2,`${label}: the last cause line shows after a scroll, and the scroll holds: ${JSON.stringify(end)}`);
+  check(end.page[0]===0&&end.page[1]<=data.height,`${label}: the cause scroll moves no page: ${JSON.stringify(end.page)}`);
+  await visibleBounds(page,'.play-result-actions button',true);
+ } else {
+  await visibleBounds(page,'.play-result-cause');
+  check(s.height<=s.client+1&&data.text.length>0&&data.text.every(r=>r.left>=0&&r.right<=data.width&&r.top>=0&&r.bottom<=data.height&&data.clips.every(c=>(!c.x||r.left>=c.r.left&&r.right<=c.r.right)&&(!c.y||r.top>=c.r.top&&r.bottom<=c.r.bottom))),`${label}: the full cause shows with no scroll: ${JSON.stringify(data)}`);
+ }
+ // 8 x 44 px squares need 352 px: a 320 px side has 40 px squares on the base too. Those sizes check the result rules only.
+ if(!smallBoard)await stateRules(page,label);
+ check(!errors.length,`${label}: no page errors ${errors}`);
+ return data;
+}
+async function quakeCase(browser,engine,width,height) {
+ const context=await browser.newContext({viewport:{width,height},reducedMotion:'reduce',hasTouch:true,serviceWorkers:'block'});
+ await context.route(/supabase\.co/,r=>r.abort());await fixReply(context,['!Q:f4!Z']);
+ const page=await context.newPage(),errors=[],metrics=[],label=`${engine.name()}-${width}x${height}-quake-result`;
+ page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
+ try {
+  await seedQuake(page);
+  await page.locator('.play-square[data-square="8"]').tap();await page.locator('.play-square[data-square="16"]').tap();
+  await page.getByRole('button',{name:'End turn',exact:true}).tap();
+  await page.locator('.play-result').waitFor({timeout:45000});
+  metrics.push(await quakeRules(page,label,errors,Math.min(width,height)<352));
+  await page.screenshot({path:`${out}/${label}.png`});results.push({label,pass:true,metrics});console.log(`PASS ${label}`);
+ } catch(error) {
+  await page.screenshot({path:`${out}/${label}-failure.png`});results.push({label,pass:false,error:error.message,metrics});console.log(`FAIL ${label}: ${error.message}`);
+ } finally {await context.close();}
 }
 for (const engine of [chromium, webkit]) {
  const browser = await engine.launch();
@@ -307,6 +402,7 @@ for (const engine of [chromium, webkit]) {
  }
  for(const name of caseNames) {
   if(selectedCases&&!selectedCases.includes(name))continue;
+  if(name==='quake-result'){for(const [width,height] of quakeSizes)await quakeCase(browser,engine,width,height);continue;}
   const caseSizes=name==='result-resize'?[[430,932]]:name==='result-rotate'?[[844,390]]:name==='promotion-replay'||name==='result-panel'||name==='result-panel-tap'||name==='result-board-tap'?[[390,844]]:[[390,844],[430,932],[360,640],[390,763]];
   for(const [width,height] of caseSizes) {
    const context=await browser.newContext({viewport:{width,height},reducedMotion:name==='promotion-replay'||name==='result-panel-tap'||name==='result-board-tap'?'no-preference':'reduce',hasTouch:true,serviceWorkers:'block'});
