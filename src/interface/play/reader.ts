@@ -65,9 +65,10 @@ export function readerView(m: ReaderModel, form: Form, nodes: ReaderNodes): HTML
     // Show again shares the header when no name tools are there; the summary goes to the header when it has room.
     const headTools = m.headTools.length ? m.headTools : m.tools.length === 1 && m.tools[0].matches('.kd-button') ? m.tools : [];
     const bodyTools = headTools === m.tools ? [] : m.tools, summaryInHead = !m.headTools.length && !!m.summary;
-    const text = div('play-bhead-text', nodes.state, m.named && m.title ? headline(m, nodes) : null);
+    const title = m.title ? headline(m, nodes) : null;
+    if (title && !m.named) title.classList.add('play-headline-line');
+    const text = div('play-bhead-text', m.title && !m.named ? null : nodes.state, title);
     box.append(div('play-bhead', text, div('play-bhead-tools', ...headTools, summaryInHead ? m.summary : null)));
-    if (!m.named && m.title) { const line = headline(m, nodes); line.classList.add('play-headline-line'); primary.prepend(line); }
     if (bodyTools.length) primary.append(div('play-tools', ...bodyTools));
     if (m.summary && !summaryInHead) {
       const target = primary.querySelector('.play-target');

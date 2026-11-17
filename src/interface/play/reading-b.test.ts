@@ -117,3 +117,8 @@ it('online name updates keep the single-line name box', () => {
   expect(main).toContain("who.querySelector('.play-opponent-name')!.textContent = oppName");
   expect(main).not.toContain('who.replaceChildren(oppName');
 });
+
+it('a compact current sentence uses the header before the turn label', () => {
+  expect(reader).toContain("m.title && !m.named ? null : nodes.state, title");
+  expect(css).toMatch(/play-bhead \.play-headline-line \{ max-height: 44px; white-space: normal/);
+});

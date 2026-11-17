@@ -302,7 +302,10 @@ const cases = {
       const move = game.legal.find(m => m.power === 'freeze');
       if (!move) throw new Error('The fixture needs a legal opponent card.');
       const action = game.context.toLan(game.pos, move); game.play(move);
-      return { fen: toFen(game.pos), turn: game.pos.turn, history: { initial_fen: initial, actions: [action] } };
+      const finish = game.legal.find(m => !m.power && !m.pass);
+      if (!finish) throw new Error('The opponent needs a move after the card.');
+      const final = game.context.toLan(game.pos, finish); game.play(finish);
+      return { fen: toFen(game.pos), turn: game.pos.turn, history: { initial_fen: initial, actions: [action, final] } };
     }, template);
     view = { ...view, ...used, draw_offer: null, revision: view.revision + 1 };
     await page.reload(); await page.locator('.home-game-row[data-game]').first().click(); await ready(page);

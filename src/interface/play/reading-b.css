@@ -289,3 +289,8 @@
 .play-game[data-form='compact'] .play-b .play-choices { display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
 .play-game[data-form='compact'] .play-b .play-choices .kd-button { flex: 1 0 44px; }
 .play-game[data-form='compact'][data-state='arrange'] .play-bhead .play-headline { max-height: 44px; white-space: normal; }
+
+/* A current sentence takes the compact header before the turn label. */
+.play-game .play-b .play-bhead .play-headline-line { max-height: 44px; white-space: normal; }
+.play-game[data-form='compact'][data-own-rows='1']:is([data-state='choice'], [data-state='arrange'], :has(.online-status)) .play-own .play-power-coin { width: 22px; height: 22px; }
+.play-game[data-form='compact'][data-own-rows='1']:is([data-state='choice'], [data-state='arrange'], :has(.online-status)) .play-own .play-power small { display: none; }
