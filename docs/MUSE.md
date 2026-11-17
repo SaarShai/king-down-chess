@@ -34,7 +34,7 @@ The server turns Muse on only when a listed ID in `KINGDOWN_PLUGIN_OAUTH_CLIENT_
 
 Each listed ID needs a row for one of the two resources. Both IDs need both rows. Each connector accepts only its own resource and clients. The ChatGPT plugin stays on in production. The consent page shows the ChatGPT text unless the request uses a Muse client.
 
-`/api/status` reports `muse: true` only when the server serves Muse. Without that field, the website hides "Disconnect Muse". Live checks read the Muse metadata response and check the served or parked paths.
+`/api/status` keeps the exact two-field account response for shipped apps. Only Account controls request `/api/status?muse=1`; this response adds the `muse` boolean. Both forms use `Cache-Control: no-store`, and the service worker bypasses `/api`. The query selects the form, so it needs no new `Vary` field. Without `muse: true`, the website hides "Disconnect Muse". Live checks read the Muse metadata response and check the served or parked paths.
 
 ## Server settings
 

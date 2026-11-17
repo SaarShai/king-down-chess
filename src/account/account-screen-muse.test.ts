@@ -104,5 +104,6 @@ it.each([undefined, false, true])('shows Disconnect Muse only for server muse=%s
   startAccount(() => {}, { blocked: () => false, accepts: () => true });
   ui.openAccount();
   await vi.waitFor(() => expect(status).toHaveBeenCalledOnce());
+  expect(status).toHaveBeenCalledWith('/api/status?muse=1', expect.objectContaining({ cache: 'no-store' }));
   await vi.waitFor(() => expect(ui.elements.get('account-body').innerHTML.includes('data-act="disconnect-muse"')).toBe(muse === true));
 });

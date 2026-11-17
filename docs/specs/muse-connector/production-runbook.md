@@ -236,7 +236,7 @@ Signed in (owner; the agent does not sign in to the owner's account, AGENTS.md "
 
 Remove the Muse ID from `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS`. Keep the ChatGPT ID. Send the value as in part 4, then redeploy with `tools/release/live.sh publish` on the owner's word. No code revert is needed.
 
-Check `/api/status`: it answers 200 without `muse: true`. Both Muse paths answer 404. The website hides "Disconnect Muse". The ChatGPT metadata and unsigned challenge still pass.
+Check `/api/status?muse=1`: it answers 200 with `muse: false`. The default `/api/status` keeps the exact two-field account response. Both Muse paths answer 404. The website hides "Disconnect Muse". The ChatGPT metadata and unsigned challenge still pass.
 
 If the site answers 503, the owner can first use **Instant Rollback** in Vercel to restore the previous production deployment. Correct the server value before the next deploy. After that deploy, use **Promote** to end the Vercel rollback state. Do not use **Undo Rollback** to restore the failed deployment.
 

@@ -83,6 +83,7 @@ it.each([undefined, false, true])('uses server muse=%s for account controls', as
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({ account_access: 'closed', valid_for_ms: 0, ...(muse !== undefined && { muse }) })));
   const { installAccountControls } = await import('./launch');
   await installAccountControls({ deleteAccount: vi.fn(), disconnectMuse: vi.fn() });
+  expect(fetch).toHaveBeenCalledWith('/api/status?muse=1', expect.objectContaining({ cache: 'no-store' }));
   expect(target.children[0].children.some(node => node.textContent === 'Disconnect Muse')).toBe(muse === true);
 });
 

@@ -125,7 +125,7 @@ export function installLocalSolo(api: OnlineClient, userId: string, handoff = op
 
 /** `expected` is the page's account (online entry): each action binds to it, so a sign-in from another tab is never changed. */
 export async function installAccountControls(auth: Pick<Client, 'deleteAccount' | 'disconnectMuse'>, expected?: AccountSession, muse?: boolean): Promise<void> {
-  if (muse === undefined) muse = (await readWebAccountAccess()).muse === true;
+  if (muse === undefined) muse = (await readWebAccountAccess({ muse: true })).muse === true;
   const section = document.createElement('section'); section.className = 'fields launch-account';
   const title = document.createElement('h3'); title.className = 'group-head'; title.textContent = 'Account';
   const note = document.createElement('p'); note.setAttribute('role', 'status');

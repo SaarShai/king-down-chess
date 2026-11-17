@@ -149,6 +149,7 @@ it.each([false, true])('parks a Muse build with only the ChatGPT client, with ch
         const reply = await call(method, path); expect(reply.status).toBe(404); replies.push(reply);
       }
       expect((await call('GET', '/api/status')).body.muse).not.toBe(true);
+      expect((await call('GET', '/api/status?muse=1')).body.muse).toBe(false);
       if (chatgpt) expect((await call('GET', '/authorize?authorization_id=x')).body.museClientIds).toEqual([]);
       return replies;
     } finally { await new Promise(done => server.close(done)); }
@@ -192,7 +193,8 @@ it('serves both connectors in one build: each path accepts only a token for its 
   const token = (aud: string, client_id: string) => new SignJWT({ iss: issuer, aud, sub: actor, role: 'authenticated', client_id, scope: 'openid', exp: Math.floor(Date.now() / 1000) + 300 }).setProtectedHeader({ alg: 'ES256', kid: 'oauth' }).sign(pair.privateKey);
   const list = async (path: string, aud: string, client: string) => (await call('POST', path, { Authorization: `Bearer ${await token(`https://kingdown.dev${aud}`, client)}`, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', 'MCP-Protocol-Version': '2025-11-25' }, JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }))).status;
   try {
-    expect(JSON.parse((await call('GET', '/api/status')).text).muse).toBe(true);
+    expect(JSON.parse((await call('GET', '/api/status')).text).muse).toBeUndefined();
+    expect(JSON.parse((await call('GET', '/api/status?muse=1')).text).muse).toBe(true);
     for (const [path, aud, client, status] of [
       ['/mcp', '/mcp', chatgptClient, 200], ['/muse/mcp', '/muse/mcp', museClient, 200],
       // A token for the other connector's resource.

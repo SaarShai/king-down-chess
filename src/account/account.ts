@@ -133,7 +133,7 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
   }
   document.querySelector('[data-go="account"]')!.addEventListener('click', () => {
     void refreshProviders();
-    void readWebAccountAccess().then(status => { muse = status.muse === true; render(); });
+    void readWebAccountAccess({ muse: true }).then(status => { muse = status.muse === true; render(); });
   });
 
   // Back from the sign-in page. A refusal or a cancel leaves error fields in the address: clear them.

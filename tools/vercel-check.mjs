@@ -308,7 +308,10 @@ try {
   assert.deepEqual(await off.json(), { code: 'UNAVAILABLE', message: 'Account play is temporarily unavailable. Try again or play on this device.' });
   const offStatus = await fetch(`${origin}/api/status`);
   assert.equal(offStatus.status, 200); assert.equal(offStatus.headers.get('cache-control'), 'no-store'); assert.equal(offStatus.headers.get('referrer-policy'), 'no-referrer');
-  assert.deepEqual(await offStatus.json(), { account_access: 'closed', valid_for_ms: 0, ...(app.muse && { muse: true }) });
+  assert.deepEqual(await offStatus.json(), { account_access: 'closed', valid_for_ms: 0 });
+  const museStatusResponse = await fetch(`${origin}/api/status?muse=1`);
+  assert.equal(museStatusResponse.status, 200); assert.equal(museStatusResponse.headers.get('cache-control'), 'no-store');
+  assert.deepEqual(await museStatusResponse.json(), { account_access: 'closed', valid_for_ms: 0, muse: app.muse });
   await app.pool.end(); app = undefined;
   await pool.query('update public.web_account_access set enabled=true where singleton=true');
   if (!CHATGPT) {
@@ -382,7 +385,7 @@ try {
       const current = await api('/api/status'); assert.equal(current.status, 200);
       const next = await current.json(); assert.equal(next.account_access, enabled ? 'open' : 'closed');
       if (!enabled) {
-        assert.deepEqual(next, { account_access: 'closed', valid_for_ms: 0, ...(app.muse && { muse: true }) });
+        assert.deepEqual(next, { account_access: 'closed', valid_for_ms: 0 });
         assert.deepEqual(await held.json(), previous, 'The old open response can arrive after direct closure');
         assert(performance.now() >= requestStart + previous.valid_for_ms, 'A held open status cannot renew its lease');
       }

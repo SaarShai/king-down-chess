@@ -11,8 +11,10 @@ describe('account status contract', () => {
   expect(parseWebAccountStatus({ account_access: 'open', valid_for_ms })).toEqual({ account_access: 'open', valid_for_ms });
  });
  it.each([false, true])('reads Muse state with account access closed: %s', async muse => {
-  vi.stubGlobal('fetch', vi.fn(async () => json({ account_access: 'closed', valid_for_ms: 0, muse })));
-  expect(await readWebAccountAccess()).toEqual({ ...closed, ...(muse && { muse: true }) });
+  const fetch = vi.fn(async () => json({ account_access: 'closed', valid_for_ms: 0, muse }));
+  vi.stubGlobal('fetch', fetch);
+  expect(await readWebAccountAccess({ muse: true })).toEqual({ ...closed, ...(muse && { muse: true }) });
+  expect(fetch).toHaveBeenCalledExactlyOnceWith('/api/status?muse=1', { cache: 'no-store', credentials: 'omit', referrer: '', referrerPolicy: 'no-referrer', redirect: 'error' });
  });
  it('accepts closed with no lease', () => {
   expect(parseWebAccountStatus({ account_access: 'closed', valid_for_ms: 0 })).toEqual({ account_access: 'closed', valid_for_ms: 0 });

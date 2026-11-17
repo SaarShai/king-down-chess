@@ -127,14 +127,16 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
  };
  const link = async (actor: string, id: string, input: unknown): Promise<InviteLink> => { const invite = await games.invite(actor, id, input); return { ...invite, url: `${origin}/j#${invite.token}` }; };
  const routes: Record<string, Route> = {
-  'GET /api/status': async (): Promise<WebAccountStatus> => {
+  'GET /api/status': async (_actor, _id, _body, query): Promise<WebAccountStatus> => {
+   // The shipped iOS parser needs the exact two-field default response.
+   const museStatus = query.get('muse') === '1' ? { muse } : {};
    if (table.some(route => route.method === 'GET' && route.key !== 'GET /api/status' && operations?.has(route.key))) {
     // A residual cached lease can expire in transit and refuse an open page at startup.
     const access = await readAccess(true);
     const remaining = access?.enabled === true && Number.isFinite(access.expiresAt) ? Math.floor(Math.min(WEB_ACCOUNT_ACCESS_TTL_MS, access.expiresAt - performance.now())) : 0;
-    if (remaining > 0) return { account_access: 'open', valid_for_ms: remaining, ...(muse && { muse: true }) };
+    if (remaining > 0) return { account_access: 'open', valid_for_ms: remaining, ...museStatus };
    }
-   return { account_access: 'closed', valid_for_ms: 0, ...(muse && { muse: true }) };
+   return { account_access: 'closed', valid_for_ms: 0, ...museStatus };
   },
   // A friend game comes with its invitation (part 03, section 4.4); a lost link gets a new one from /invite.
   'POST /api/games': async (actor, _, body, _query, app) => {
