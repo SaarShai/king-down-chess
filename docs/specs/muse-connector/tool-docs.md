@@ -33,7 +33,7 @@ Each result starts with one or two sentences that Muse can speak as they are. De
 
 ## Status and retries
 
-Each write tool gives a `result` value:
+`kingdown_move` and `kingdown_end` give a `result` value:
 
 | `result` | Meaning |
 |---|---|

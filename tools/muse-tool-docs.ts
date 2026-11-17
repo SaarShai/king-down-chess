@@ -120,7 +120,7 @@ export async function toolDocs(publicPage = false): Promise<string> {
     '',
     '## Status and retries',
     '',
-    'Each write tool gives a `result` value:',
+    '`kingdown_move` and `kingdown_end` give a `result` value:',
     '',
     '| `result` | Meaning |',
     '|---|---|',
