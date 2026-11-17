@@ -1,16 +1,15 @@
 import { expect, it } from 'vitest';
 import { Game } from '../../game';
 import { sqName } from '../../rules/engine';
-import { arrowStep, cellOf, fileLabelRow, rankLabelColumn, resolveSide, SIDE_CHOICES, squareAt } from './sides';
+import { arrowStep, cellOf, fileLabelRow, rankLabelColumn, resolveSide, sideLine, SIDE_CHOICES, squareAt } from './sides';
 import { firstMinute } from './learning';
 import { DraftTurn } from './turn';
 
-it('side choice defaults to Light; Dark is Dark; Random uses equal halves once', () => {
-  expect(SIDE_CHOICES[0]).toBe('light');
-  expect(resolveSide('light', () => 0.9)).toBe(0);
-  expect(resolveSide('dark', () => 0.1)).toBe(1);
-  expect([0, 0.25, 0.4999, 0.5, 0.75, 0.9999].map(r => resolveSide('random', () => r))).toEqual([0, 0, 0, 1, 1, 1]);
-  let draws = 0; resolveSide('random', () => { draws++; return 0.6; }); expect(draws).toBe(1);
+it('the side slider has two stops and reads stored Random as Light', () => {
+  expect(SIDE_CHOICES).toEqual(['light', 'dark']);
+  expect(resolveSide('light')).toBe(0); expect(resolveSide('dark')).toBe(1); expect(resolveSide('random')).toBe(0);
+  expect(sideLine('light')).toBe('White. You start.'); expect(sideLine('dark')).toBe('Black. You go second.');
+  expect(sideLine('random')).toBe(sideLine('light'));
 });
 
 it('all 64 squares map to one cell and back in both views', () => {

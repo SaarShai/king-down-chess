@@ -31,10 +31,10 @@ import { readingText, effectGroups, checkLines, selectionLines, armedStep, cance
 import { calm, cardFly, disarm, ms, screenChange, seal, shake, token, unseal, setInterfaceMotion, time } from './motion';
 import { gameLayout, type Form } from './layout';
 import { finishKind, fitReader, readerNodes, readerView, resetFit, sentences, type ReaderModel } from './reader';
-import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, storeChoice as store, storedChoice as stored, storedGameType, type GameType as Setup, type KeptOffer, type Level } from './saved';
+import { answerOffer, beforeNewGame, GAME_KEY, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, storeChoice as store, storedChoice as stored, storedGameType, type GameType as Setup, type KeptOffer, type Level } from './saved';
 import { arrowStep, cellOf, fileLabelRow, rankLabelColumn, sideText, SIDE_CHOICES, SIDE_KEY, squareAt, type SideChoice } from './sides';
 import { changeDraft, createDraft, OPTIONS_KEY, PANEL_KEY, readPanel, readOptions, rulesFor, startOf, type NewGameDraft } from './new-game';
-import { homeText, levelName as computerName, newGamePanel, playScreen, type Art } from './home';
+import { levelName as computerName, newGamePanel, playScreen, type Art } from './home';
 import { gameMenu, menuEnter, menuText, youPage, type Settings } from './menus';
 import { allowedAvatarUrl } from '../../account/public-config';
 import { computerPortrait, profilePortrait } from '../people/host/portrait';
@@ -391,15 +391,9 @@ function newGameLayer(source: HTMLElement, person: boolean) {
   const candidate = changeDraft(next, accepted());
   const panel = newGamePanel({
     next: candidate,
-    memory: memory ?? (person ? { ...accepted(), opponent: 'person', section: null, cardMode: options.cardPool.length === 4 ? 'four' : 'all', picked: options.cardPool.length === 4 ? [...options.cardPool] : [] } : null),
+    memory: memory ?? (person ? { ...accepted(), opponent: 'person', section: null } : null),
     people: async () => (await loadPeople()).host,
     remember: value => { try { if (value) sessionStorage.setItem(PANEL_KEY, JSON.stringify(value)); else sessionStorage.removeItem(PANEL_KEY); } catch { /* The current panel still keeps its draft. */ } },
-    // The game that a start ends: the game in memory, or the stored game, read again at each press.
-    current: () => {
-      if (inMemory()) return { key: 'memory', line: homeText.ends(levelName(gameLevel)) };
-      const now = readStored();
-      return { key: gameKeyOf(now), line: now.kind === 'resume' ? homeText.ends(levelName(levelOf(now.save!.skill))) : '' };
-    },
     onStart: async draft => {
       await shell.closeLayer();
       // A late invite reply can open the online game during that wait: the local start then stops.
