@@ -5,7 +5,7 @@ import type { View } from '../../match/protocol';
 import { fromFen, toFen, toLan } from '../../rules/setup';
 import { legalMoves, setRules, status, type CardName, type Rules } from '../../rules/engine';
 import { REPORT_CATEGORIES } from '../../account/profile';
-import { applyLan, humanOpponent, REPORT_REASONS, reportArgs, reportReply, choicesFrom, choiceSources, boardActions, cardCoins, cardUseReason, draftChoices, draftTurn, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
+import { applyLan, humanOpponent, REPORT_REASONS, reportArgs, reportReply, choicesFrom, choiceSources, boardActions, cardCoins, cardUseReason, draftChoices, draftTurn, lastOpponentTurn, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
 
 const view = (fields: Partial<View> = {}): View => ({ rating_policy: 'legacy', game_id: 'game', revision: 2, engine_fingerprint: 'engine-a', created_at: '2026-10-11T00:00:00Z', abort_open: false, seat: 0, kind: 'friend', speed: 'daily', days_per_move: 3, status: 'playing', turn: 1, action: 'waiting', fen: '7k/8/8/8/8/8/P7/K7 b - - 0 1', in_check: false, legal: [], last_commands: [], opponent: null, draw_offer: null, deadline_at: '2026-10-11T00:00:01Z', server_now: '2026-10-11T00:00:00Z', ...fields });
 
@@ -89,6 +89,16 @@ test('a full read restores every move beyond the recent command window', () => {
   const next = view({fen:toFen(pos),history:{initial_fen,actions},last_commands:[]});
   expect(replayHistory(next, {})?.map(step => step.lan)).toEqual(actions);
   expect(replayHistory({...next,fen:initial_fen}, {})).toBeUndefined();
+});
+
+test.each(['a2-a3', '--'])('replays a complete opponent turn with a free action and %s', end => {
+  const partial = stage(FREEZE, ['!F:d5'], freezeRules);
+  expect(lastOpponentTurn(partial.steps, { fen: toFen(partial.pos), seat: 1 })).toEqual([]);
+  const full = stage(FREEZE, ['!F:d5', end], freezeRules);
+  const current = { fen: toFen(full.pos), seat: 1 as const };
+  expect(lastOpponentTurn(full.steps, current).map(step => step.lan)).toEqual(['!F:d5', end]);
+  expect(lastOpponentTurn(full.steps, { ...current, fen: FREEZE })).toEqual([]);
+  expect(lastOpponentTurn([], current)).toEqual([]);
 });
 
 test('Firewall names the card action on the shared move text path', () => {

@@ -173,6 +173,24 @@ export function replayHistory(next: View, rules: Partial<Rules>): BoardMove[] | 
   } catch { return; }
 }
 
+/** Take the last complete turn of the opponent from history that reaches the current view. */
+export function lastOpponentTurn(history: readonly BoardMove[], view: Pick<View, 'fen' | 'seat'>): BoardMove[] {
+  const last = history.at(-1);
+  if (!last || toFen(last.pos) !== view.fen) return [];
+  let end = history.length;
+  while (end && history[end - 1].pre.turn === view.seat) {
+    if (end > 1 && toFen(history[end - 2].pos) !== toFen(history[end - 1].pre)) return [];
+    end--;
+  }
+  if (!end || history[end - 1].pos.turn !== view.seat) return [];
+  let start = end - 1;
+  while (start && history[start - 1].pre.turn !== view.seat) {
+    if (toFen(history[start - 1].pos) !== toFen(history[start].pre)) return [];
+    start--;
+  }
+  return history.slice(start, end);
+}
+
 export function boardActions(view: View, elapsed = 0): { abort: boolean; claim: 'win' | 'end' | null } {
   const playing = view.status === 'playing';
   const missed = playing && view.kind !== 'solo' && view.turn !== view.seat && view.deadline_at !== null

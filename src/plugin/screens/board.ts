@@ -29,7 +29,7 @@ import { locks, noticeShows, pendingHere, staleRead, type Page, type Store } fro
 import { nextGame } from '../../account-game/next-game';
 import { actionButtons, playerBlockButton, playerReportButton } from './board-actions';
 import { guardEndTaps, updateEnd } from './end';
-import { applyLan, boardActions, cardCoins, cardUseReason, choicesFrom, choiceSources, committedPreview, draftChoices, draftLans, draftTurn, previewSteps, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
+import { applyLan, boardActions, cardCoins, cardUseReason, choicesFrom, choiceSources, committedPreview, draftChoices, draftLans, draftTurn, lastOpponentTurn, previewSteps, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
 import { policyLabel, policyDetail } from '../../account-game/rating-policy';
 import './board.css';
 import { UiMotion, castRelease, checkFrame, handoff } from '../../ui/motion';
@@ -149,6 +149,7 @@ function ruleCards(first: PieceType, position: Position) {
 }
 export function boardScreen(store: Store) {
   let generation = 0, animating = false, rush = false, steps: BoardMove[] = [];
+  let replaying = false, replayShadow: readonly BoardMove[] | undefined;
   const motion = new UiMotion(() => !tornDown && active() && board.motion(), () => memory.settings?.symbols_only ? 'off' : 'fast');
   const clearConfirmation = () => {
     const check = $('end-turn').querySelector('.ui-send-check');
@@ -162,6 +163,7 @@ export function boardScreen(store: Store) {
   let shownNextGame: string | undefined;
   let serverDraft: DraftPreview | undefined, previewing = false, previewAbort: AbortController | undefined;
   const remote = () => needsServerPreview(view?.engine_fingerprint);
+  const reply = () => view?.status === 'playing' && !remote() ? lastOpponentTurn(history, view) : [];
   const previewPosition = (): DraftPosition | undefined => remote() ? serverDraft?.positions.at(-1) ?? { fen: view?.fen ?? '', status: 'playing', turn: pos?.turn ?? view!.turn, in_check: view!.in_check, moves: [] } : undefined;
   const marksLayer = document.createElement('div');
   marksLayer.id = 'board-marks'; marksLayer.setAttribute('aria-hidden', 'true'); $('board').append(marksLayer);
@@ -272,7 +274,7 @@ export function boardScreen(store: Store) {
   }
   const scheduleComputer = () => { if (!tornDown) setTimeout(() => void computer(), 0); };
   const events = new AbortController(), signal = events.signal;
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { clearTimeout(deadlineTimer); skipBoardCeremony(); } else if (!tornDown && active()) updateTime(); }, { signal });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { cancelReplay(); clearTimeout(deadlineTimer); skipBoardCeremony(); } else if (!tornDown && active()) updateTime(); }, { signal });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleComputer(); }, { signal });
   function moveLine() {
     if (!pos) return;
@@ -309,6 +311,7 @@ export function boardScreen(store: Store) {
     if (!tornDown && !document.hidden && view?.status === 'playing' && remaining > 0) deadlineTimer = setTimeout(() => remainingTime() > 0 ? updateTime() : refresh(), Math.min(60000, remaining + 1));
   }
   function choose(lan: string) {
+    cancelReplay();
     if (!canPlay()) return;
     if (remote()) { void requestPreview([...steps.map(step => step.lan), lan], true); return; }
     const step = applyLan(pos!, lan, view!.rules!, moves.map(choice => choice.lan));
@@ -318,7 +321,7 @@ export function boardScreen(store: Store) {
   function stageMove(step: BoardMove) {
     const keyboard = document.activeElement === $('board') || !!sheet?.contains(document.activeElement);
     closeBoardSheet(); armed = undefined; armedCard = undefined; selected = inspected = held = undefined; choices([]);
-    liveOnsets = true;
+    liveOnsets = true; replayShadow = undefined;
     const token = ++generation; steps.push(step); lastMove = step; pos = step.pos; animating = true;
     board.skip(); board.setLifted(null); moveLine(); refresh(); saveDraft();
     if (step.move.drop !== undefined && !step.move.power) board.sync(step.pos);
@@ -371,7 +374,18 @@ export function boardScreen(store: Store) {
     }
   }
   function undo() {
-    if (blocked() || !steps.length || sheet?.open) return;
+    if (replaying) { cancelReplay(); return; }
+    if (blocked() || sheet?.open || client.state.screen !== 'board') return;
+    if (!steps.length) {
+      const playback = reply();
+      if (!playback.length || !pos) return;
+      replayShadow = playback;
+      if (board.motion()) {
+        board.skip(); board.sync(playback[0].pre);
+        playSteps(playback, ++generation, pos, true);
+      }
+      refresh(); return;
+    }
     if (serverDraft) serverDraft = { ...serverDraft, actions: serverDraft.actions.slice(0, -1), positions: serverDraft.positions.slice(0, -1) };
     const step = steps.pop()!; ++generation; board.skip(); pos = step.pre; lastMove = steps.at(-1) ?? history.at(-1);
     armed = undefined; armedCard = undefined; selected = inspected = held = undefined; choices([]);
@@ -389,7 +403,7 @@ export function boardScreen(store: Store) {
   $('table-bar').onkeydown = event => { if (event.key.toLowerCase() === 'z' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); undo(); } };
   rollbackBoardMove = async (code?: string) => {
     if (!view) return;
-    ++generation; board.skip(); animating = false;
+    ++generation; board.skip(); animating = replaying = false;
     // W7 ticket 04: INVALID_MOVE drops the draft; the other codes re-read, and the redraw rule keeps or drops it.
     if (code === 'INVALID_MOVE') { steps = []; dropDraft(); }
     lastMove = steps.length ? steps.at(-1) : history.at(-1);
@@ -403,11 +417,14 @@ export function boardScreen(store: Store) {
   $('app-frame').addEventListener('keydown', event => {
     if (event.key !== 'Escape' || client.state.screen !== 'board' && !sheet?.contains(event.target as Node)) return;
     event.preventDefault();
+    if (replaying) { cancelReplay(); return; }
     if (animating) { cursorShown = false; drawCursor(); rush = true; board.skip(); if (sheet?.open) closeBoardSheet(); return; }
     cursorShown = false; armed = undefined; armedCard = undefined; selected = held = earlyTap = undefined; allMoveChoices = false; choices([]); refresh(); closeBoardSheet();
   }, { signal });
   function select(square: number, submit = true) {
+    cancelReplay();
     if (!view || !pos || !canRead()) return;
+    replayShadow = undefined;
     // A second target tap plays the move. Any other tap ends the preview and only selects or reads.
     const hold = holding(); held = earlyTap = undefined;
     if (hold && submit && heldSquare(hold.move) === square) return choose(hold.lan);
@@ -434,8 +451,8 @@ export function boardScreen(store: Store) {
   function bindBoard() {
     mountTable();
     if ($('board').parentElement !== $('game-table')) $('game-table').prepend($('board'));
-    board.onSquareClick = square => { if (animating) { rush = true; board.skip(); return; } select(square); };
-    board.onDragSelect = square => { if (animating) { rush = true; board.skip(); return; } select(square, false); };
+    board.onSquareClick = square => { if (animating && !replaying) { rush = true; board.skip(); return; } select(square); };
+    board.onDragSelect = square => { if (animating && !replaying) { rush = true; board.skip(); return; } select(square, false); };
     $('board').tabIndex = 0;
     $('board').onblur = () => { cursorShown = false; const hold = holding(); board.setPreview(hold ? heldSquare(hold.move) : null); drawCursor(); sayCursor(); };
     $('board').onkeydown = event => {
@@ -447,6 +464,7 @@ export function boardScreen(store: Store) {
     };
   }
   function coinRead(side: Color, index?: number) {
+    cancelReplay();
     if (!view || !pos || !canRead()) return;
     if (index !== undefined) {
       const card = gameRules.rules.hands[side][index];
@@ -547,7 +565,12 @@ export function boardScreen(store: Store) {
     draft ??= turn();
     const open = blocked() || !!sheet?.open || client.state.screen !== 'board';
     const ready = !open && view.action === 'ready' && view.status === 'playing' && draft.ready;
-    $('undo').setAttribute('aria-disabled', String(open || !steps.length));
+    const replay = !steps.length && reply().length > 0, undo = $('undo');
+    const words = replay ? 'Replay' : 'Undo';
+    undo.setAttribute('aria-disabled', String(open || !steps.length && !replay));
+    undo.title = replay ? 'Replay the last opponent turn (Z)' : 'Undo a move in this turn (Z)';
+    undo.querySelector('span')!.textContent = words;
+    undo.querySelector('use')!.setAttribute('href', replay ? '#i-play' : '#i-undo');
     const end = $('end-turn'), label = mode() === 'computer' ? 'End turn' : 'Send your turn';
     end.setAttribute('aria-disabled', String(!ready)); end.setAttribute('aria-label', label); end.title = label; end.classList.toggle('primary', ready);
   }
@@ -577,7 +600,7 @@ export function boardScreen(store: Store) {
     // Mark every step of the last turn (Haste, free marks); a pass step has no square.
     let start = history.length;
     if (lastMove && history.at(-1) === lastMove) while (start > 0 && history[start - 1].pre.turn === lastMove.pre.turn) start--;
-    const trailSteps = steps.length ? steps : start < history.length ? history.slice(start) : lastMove ? [lastMove] : [];
+    const trailSteps = steps.length ? steps : replayShadow ?? (start < history.length ? history.slice(start) : lastMove ? [lastMove] : []);
     const trail = trailSteps.flatMap(({move: last}) => last.pass ? [] : [...(last.drop === undefined ? [last.from] : []), last.to, ...last.captures, ...(last.shove ? [last.shove.from, last.shove.to] : [])]);
     const users = selected === undefined ? choiceSources(cardChoices().filter(c => !c.move.pass && c.move.drop === undefined)) : [];
     highlight({ ...marks, selected, last: [...new Set(trail)], read: inspected === undefined ? undefined : reachOf(gameRules, pos, inspected), powers: [...new Set([...cands.filter(m => m.power && !m.pass).map(m => m.to), ...named().map(c => c.move.to), ...users])], rails: selected === undefined ? [] : railsOf(gameRules.rules.design, pos.board, selected, [...marks.moves, ...marks.captures], marks.captures), check: (previewPosition()?.in_check ?? gameRules.inCheck(pos)) ? findKing(pos.board, pos.turn) : null, checkers: checkersOf(gameRules, pos), threats: view.status === 'playing' && !animating ? threatsIn(gameRules, {...pos, turn:view.seat}) : [] });
@@ -629,9 +652,9 @@ export function boardScreen(store: Store) {
       const face = art(type === K ? portraitPath(colorOf(code)) : `ui/pieces/${NAMES[type]}-${colorOf(code) ? 'b' : 'w'}.webp`);
       all.innerHTML = `<span class="portrait" aria-hidden="true">${face ? `<img id="piece-info-art" alt="" src="${face}">` : ''}</span>`;
       if (!face) all.firstElementChild!.textContent = (type === T && gameRules.playedDesign()?.letter) || LETTERS[type];
-      all.onclick = () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(gameRules, pos!, square!)}` : readText(gameRules, pos!, square!)), ruleCards(type, pos!));
+      all.onclick = () => { cancelReplay(); boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(gameRules, pos!, square!)}` : readText(gameRules, pos!, square!)), ruleCards(type, pos!)); };
     }
-    if ((!drawReply || unarmed) && selected !== undefined && choicesFrom(moves, selected).some(({move}) => !move.pass && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
+    if ((!drawReply || unarmed) && selected !== undefined && choicesFrom(moves, selected).some(({move}) => !move.pass && needsArming(move))) actions.push(button('Choose a move', () => { cancelReplay(); boardSheet('Choose a move', $('choices')); }));
     if (!unarmed) actions.push(button('Cancel', () => { armed = undefined; armedCard = undefined; held = undefined; choices([]); refresh(); }));
     const gameActions = actionButtons(view,Date.now()-readAt,refused);
     if (!view.result) actions.push(...gameActions);
@@ -664,6 +687,7 @@ export function boardScreen(store: Store) {
   }
   $('reload').addEventListener('click', closeBoardSheet, { signal });
   $('board-menu').onclick = () => {
+    cancelReplay();
     const chooseMove = button('Choose a move', () => {
       const all = selected === undefined && !armed && armedCard === undefined;
       if (canPlay() && all) choices(moves.filter(c => !c.move.pass && reachable(c)));
@@ -679,6 +703,7 @@ export function boardScreen(store: Store) {
   function moveRows() { return history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)); }
   function movesOpen() { return !!sheet?.open && sheet.querySelector('h2')?.textContent === 'Moves'; }
   function showMoves() {
+    cancelReplay();
     boardSheet('Moves', ...moveRows());
     sheet.querySelector('button')!.setAttribute('data-free', '');
     $('moves-line').setAttribute('aria-expanded', 'true');
@@ -707,6 +732,7 @@ export function boardScreen(store: Store) {
   const key = (p: Page) => { const l = locks(p); return [p.screen, p.view?.game_id, p.view?.revision, p.view?.status, p.view?.fen, l.game, l.blocked, staleRead(p), p.notice?.kind === 'refusal' ? p.notice.text : ''].join('|'); };
   const unsubscribe = store.subscribe((page, before) => {
     if (!active() || page.writing || page.pending?.error || page.view?.game_id !== before.view?.game_id || page.view?.turn !== before.view?.turn) clearConfirmation();
+    if (page.screen !== 'board') cancelReplay();
     $('app-root').dataset.uiMotion = memory.settings?.symbols_only ? 'off' : 'fast'; if (memory.settings?.symbols_only) motion.cancel(); if (active()) { if (key(page) !== key(before)) refresh(); if (page.screen !== before.screen) restorePreview(); } else { movesChoice = undefined; fitMoves(); skipBoardCeremony(); motion.cancel(); if (['board', 'end'].includes(before.screen)) { dealing = opening = false; dealtAt = openingAt = turnAt = checkAt = -Infinity; } }
     if (active() && page.pending?.error && page.pending.error !== before.pending?.error) { motion.reveal($('error'), 400, 8); motion.reveal($('retry'), 350, 5, 650); }
     if (active() && before.writing && !page.writing && !page.pending && before.pending?.name === 'kingdown_move') {
@@ -724,6 +750,26 @@ export function boardScreen(store: Store) {
   resultObserver.observe($('over'), {attributes:true, attributeFilter:['open']});
   const sheetObserver = new MutationObserver(() => turnControls());
   sheetObserver.observe($('app-frame'), {attributes:true, attributeFilter:['open'], subtree:true});
+  function cancelReplay() {
+    if (!replaying) return;
+    ++generation; board.skip(); animating = replaying = false;
+    if (pos) board.sync(pos);
+    if (active()) refresh();
+  }
+  function playSteps(playback: readonly BoardMove[], token: number, current: Position, manual = false) {
+    animating = true; rush = false; replaying = manual;
+    void (async () => {
+      for (const step of playback) {
+        if (token !== generation) return;
+        const hit = manual ? undefined : hitSound(step, token);
+        if (!step.move.pass && !rush && (step.move.drop === undefined || step.move.power)) await board.animateMove(step.pre, step.move, hit);
+        if (token !== generation) return;
+        board.sync(step.pos); hit?.();
+        if (!manual && (previewPosition()?.in_check ?? gameRules.inCheck(step.pos))) snd.check();
+      }
+      if (token === generation) { board.sync(current); animating = replaying = false; refresh(); scheduleComputer(); }
+    })();
+  }
   const draw = (next: View, restoring = false) => {
     if (tornDown) return;
     if (view?.game_id === next.game_id && next.revision < view.revision) return;
@@ -764,7 +810,7 @@ export function boardScreen(store: Store) {
       scheduleComputer(); return;
     }
     previewAbort?.abort(); previewAbort = undefined; previewing = false; serverDraft = undefined;
-    const token = ++generation; board.skip(); animating = false; $('board').dataset.animating='false';
+    const token = ++generation; board.skip(); animating = replaying = false; replayShadow = undefined; $('board').dataset.animating='false';
     if (!same) { board.resetEffects(); movesChoice = undefined; history = []; lastMove = undefined; steps = []; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); taught.clear(); }
     if (next.turn === next.seat || next.status !== 'playing') { computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; }
     const local = steps; steps = []; if (local.length) lastMove = history.at(-1);
@@ -798,20 +844,8 @@ export function boardScreen(store: Store) {
     moves = draftChoices(view, pos, steps, gameRules, previewPosition());
     bindBoard(); board.flip(next.seat === 1); moveLine();
     const replay = replayed?.filter((step, index) => !step.move.pass && !(local[index] && toFen(local[index].pos) === toFen(step.pos))) ?? [];
-    const authoritative = pos;
-    if (replay.length) {
-      animating = true; rush = false;
-      void (async () => {
-        for (const step of replay) {
-          if (token !== generation) return;
-          const hit = hitSound(step, token);
-          if (!rush && (step.move.drop === undefined || step.move.power)) await board.animateMove(step.pre, step.move, hit);
-          if (token !== generation) return;
-          board.sync(step.pos); hit(); if (previewPosition()?.in_check ?? gameRules.inCheck(step.pos)) snd.check();
-        }
-        if (token === generation) { board.sync(authoritative); animating = false; refresh(); scheduleComputer(); }
-      })();
-    } else board.sync(pos);
+    if (replay.length) playSteps(replay, token, pos);
+    else board.sync(pos);
     $('computer').hidden = true; $('invite').hidden = true;
     refresh(); scheduleComputer();
     restorePreview();
