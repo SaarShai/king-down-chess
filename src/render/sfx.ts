@@ -12,13 +12,17 @@ export function setSound(on: boolean): void {
   enabled = on;
 }
 
+/** The page's audio context, or null with Sound off or with no audio: the game then continues silent. */
+function audio(): AudioContext | null {
+  if (!enabled) return null;
+  try { return ctx ??= new AudioContext(); } catch { return null; }
+}
+const hidden = () => typeof document !== 'undefined' && document.hidden;
+
 /** Unlock audio in a page gesture. The old screens keep their sound path. */
 export function unlockSound(): void {
-  if (enabled) {
-    const c = ctx ??= new AudioContext();
-    void c.resume().catch(() => {});
-    preloadArmour();
-  }
+  const c = audio();
+  if (c) { void c.resume().catch(() => {}); preloadArmour(); }
 }
 
 const samples = {
@@ -53,29 +57,39 @@ const selectionSamples: Partial<Record<number, Sample>> = {
   [A]: 'archerSelect', [L]: 'paladinSelect', [G]: 'guardSelect', [M]: 'maesterSelect',
   [S]: 'beastSelect', [O]: 'ogreSelect',
 };
+const selections = new Set<SamplePlayback>();
 export function selectPieceSound(type: number, king?: KingName): void {
   const sound = type === K && king ? kingSamples[king].select : selectionSamples[type];
-  if (sound) playArmour(sound);
+  if (!sound) return;
+  const cue = playArmour(sound); selections.add(cue); void cue.done.then(() => selections.delete(cue));
 }
+/** Stop the selection cues that play or still load. */
+export function stopSelection(): void { for (const cue of selections) cue.cancel(); selections.clear(); }
 export function movementSample(type: number, king?: KingName): Sample | undefined {
   return type === K && king ? kingSamples[king].move
     : type === B ? 'bishopMove' : type === R ? 'rookMove'
     : type === G ? 'guardMove' : type === M ? 'maesterMove' : type === O ? 'ogreMove' : undefined;
 }
 const loaded = new Map<Sample, Promise<AudioBuffer>>();
+const LOAD_MS = 15_000, CUE_MS = 150;
+/** Reject after `ms`. The caller clears the timer. */
+const deadline = (ms: number, set: (timer: ReturnType<typeof setTimeout>) => void) =>
+  new Promise<never>((_, reject) => set(setTimeout(() => reject(new Error('Sound: late')), ms)));
 /** Load before play starts; a suspended context does not make sound. */
 export function preloadArmour(): void {
-  if (!enabled) return;
-  const c = ctx ??= new AudioContext();
-  for (const name of Object.keys(samples) as Sample[]) void loadSample(c, name).catch(() => {});
+  const c = audio();
+  if (c) for (const name of Object.keys(samples) as Sample[]) void loadSample(c, name).catch(() => {});
 }
+/** One shared load for each file. A failed or stalled load clears, so a later cue loads the file again. */
 function loadSample(c: AudioContext, name: Sample): Promise<AudioBuffer> {
   let b = loaded.get(name);
   if (!b) {
-    b = fetch(`/audio/armour/${samples[name]}.wav`).then(r => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    b = Promise.race([fetch(`/audio/armour/${samples[name]}.wav`).then(r => {
       if (!r.ok) throw new Error(`Sound: ${r.status}`);
       return r.arrayBuffer();
-    }).then(data => c.decodeAudioData(data)).catch(error => { loaded.delete(name); throw error; });
+    }).then(data => c.decodeAudioData(data)), deadline(LOAD_MS, t => { timer = t; })])
+      .finally(() => clearTimeout(timer)).catch(error => { loaded.delete(name); throw error; });
     loaded.set(name, b);
   }
   return b;
@@ -98,18 +112,21 @@ export function playArmour(name: Sample, loop = false): SamplePlayback {
   };
   const finish = () => { finishing = true; if (source && !cancelled) source.loop = false; };
   const playback = { cancel, finish, done };
-  if (!enabled) { resolveDone(); return playback; }
-  const c = ctx ??= new AudioContext(), started = performance.now(), generation = soundGeneration;
-  void c.resume().catch(() => {});
-  void loadSample(c, name).then(buffer => {
-    if (cancelled || !enabled || generation !== soundGeneration || performance.now() - started > 150) { resolveDone(); return; }
+  const c = audio();
+  if (!c || hidden()) { resolveDone(); return playback; }
+  const generation = soundGeneration;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  // Start only a current cue on a running context, within CUE_MS: a late or suspended cue stays silent.
+  void Promise.race([Promise.all([loadSample(c, name), c.resume()]), deadline(CUE_MS, t => { timer = t; })]).then(([buffer]) => {
+    if (cancelled || !enabled || generation !== soundGeneration || c.state !== 'running' || hidden()) { resolveDone(); return; }
     source = c.createBufferSource(); source.buffer = buffer; source.loop = loop && !finishing;
     const exact = name === 'rookMove' || name === 'guardSelect' || name === 'guardMove' || name === 'maesterMove' || name === 'ogreMove' || name.includes('King');
     source.playbackRate.value = exact ? 1 : 1 + (Math.random() - .5) * .06;
     if (loop || name === 'bishopMove') { gain = c.createGain(); gain.connect(c.destination); }
-    source.connect(gain ?? c.destination); playingSamples.add(source);
-    const active = source; source.onended = () => { playingSamples.delete(active); gain?.disconnect(); resolveDone(); }; source.start();
-  }).catch(() => { resolveDone(); });
+    source.connect(gain ?? c.destination);
+    const active = source; source.onended = () => { playingSamples.delete(active); gain?.disconnect(); resolveDone(); };
+    source.start(); playingSamples.add(source);
+  }).catch(() => { source?.disconnect(); gain?.disconnect(); source = undefined; resolveDone(); }).finally(() => clearTimeout(timer));
   return playback;
 }
 
@@ -180,8 +197,8 @@ export const SOUNDS: Record<'move' | 'capture' | 'check' | 'shove' | 'shot' | 'c
 };
 
 function play(sound: Sound): void {
-  if (!enabled) return;
-  const c = ctx ??= new AudioContext();
+  const c = audio();
+  if (!c) return;
   void c.resume().catch(() => {}); // A browser may keep audio locked until the next gesture.
   if (!synthOutput) { synthOutput = c.createGain(); synthOutput.connect(c.destination); }
   sound(c, synthOutput, c.currentTime + 0.005);

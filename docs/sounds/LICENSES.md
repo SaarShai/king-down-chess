@@ -32,4 +32,4 @@ The files in `public/audio/armour/` come from the sound review of 2026-11-16 and
 | `select-spirit-r10-A.wav` / `select-spirit-r10-C.wav` | Generated Spirit aura or light gesture, and Spirit texture. | Stability AI Community Licence |
 | `select-shadow-r10-A.wav` / `select-shadow-r10-C.wav` | Generated Shadow hands or darkness gesture, and Shadow texture. | Stability AI Community Licence |
 
-The owner accepted the model licence. Registration for the Community Licence must be confirmed before release.
+The owner accepted the model licence. On 2026-11-17 the owner decided that the Community Licence registration is not a release condition.

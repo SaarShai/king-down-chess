@@ -715,3 +715,19 @@ it('recovers an offline online-page navigation without caching private responses
  expect([...cache.entries.keys()]).toEqual(before);
  for (const path of ['/api/me/games', '/authorize', '/play']) expect(w.request(path).response).toBeUndefined();
 });
+
+it.each(['../public/sw.js', './solo-launch/sw.js'])('fault 6: a failed character sound does not stop the install, the activation or the proof (%s)', async path => {
+  const source = readFileSync(new URL(path, import.meta.url), 'utf8');
+  const w = worker(storage(), version, [...files, 'audio/armour/a.wav', 'audio/armour/b.wav'], undefined, source);
+  w.fetch.mockImplementation(async (request: Request) => request.url.endsWith('a.wav') ? response(request.url, { status: 404 })
+    : request.url.endsWith('b.wav') ? Promise.reject(new Error('offline')) : response(request.url));
+  await w.fire('install').done(); await w.fire('activate').done();
+  const cache = w.caches.entries.get(current)!;
+  expect(w.skipWaiting).toHaveBeenCalledOnce(); expect(w.claim).toHaveBeenCalledOnce();
+  expect(cache.entries.has(url('/assets/main.js'))).toBe(true); expect(cache.entries.has(url('/audio/armour/a.wav'))).toBe(false);
+  // The asset handler loads and keeps the missing sound later.
+  w.fetch.mockImplementation(async (request: Request) => response(request.url));
+  const later = w.request('audio/armour/a.wav'); await later.done();
+  expect(cache.entries.has(url('/audio/armour/a.wav'))).toBe(true);
+  const proof = w.message(); await proof.done(); expect(proof.postMessage).toHaveBeenCalledOnce();
+});

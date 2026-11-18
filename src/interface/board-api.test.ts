@@ -4,7 +4,7 @@ import { parseKings } from '../rules/rules';
 /** The mock view's parts that the tests read. */
 interface MockView { options: Record<string, unknown>; onSquareClick(square: number): void; onSkipAnimation(): void; sync: Mock; setSelected: Mock; highlight: Mock; setReducedMotion: Mock; setPace: Mock; setPlainMarks: Mock; dispose: Mock; animateMove: Mock; skip: Mock }
 const mock = vi.hoisted(() => ({ view: null as unknown as MockView, end: () => {}, start: () => {}, deferred: false, waiting: false, stop: vi.fn(), finish: vi.fn(), done: new Promise<void>(() => {}) }));
-vi.mock('../render/sfx', async importOriginal => ({ ...await importOriginal<typeof import('../render/sfx')>(), snd: Object.fromEntries(['move','capture','shot','shove','chain','swap','check'].map(k => [k, vi.fn()])), playArmour: vi.fn(() => ({ cancel: mock.stop, finish: mock.finish, done: mock.done })) }));
+vi.mock('../render/sfx', async importOriginal => ({ ...await importOriginal<typeof import('../render/sfx')>(), snd: Object.fromEntries(['move','capture','shot','shove','chain','swap','check'].map(k => [k, vi.fn()])), playArmour: vi.fn(() => ({ cancel: mock.stop, finish: mock.finish, done: mock.done })), stopSelection: vi.fn() }));
 vi.mock('../render/PaintedView', () => ({ PaintedView: class {
   onSquareClick = () => {}; onSkipAnimation = () => {}; canDrag = () => false; animating = false;
   constructor(_element: unknown, readonly options: Record<string, unknown>) { mock.view = this as unknown as MockView; }
@@ -18,7 +18,7 @@ vi.mock('../render/PaintedView', () => ({ PaintedView: class {
   flip = vi.fn();
 } }));
 import { mountBoard } from './board-api';
-import { playArmour, snd } from '../render/sfx';
+import { playArmour, snd, stopSelection } from '../render/sfx';
 /** The position of the last sync. */
 const synced = () => mock.view.sync.mock.lastCall![0];
 beforeEach(() => { vi.clearAllMocks(); mock.deferred = false; mock.waiting = false; mock.end = () => {}; mock.start = () => {}; vi.stubGlobal('requestAnimationFrame', (fn: () => void) => queueMicrotask(fn)); });
@@ -290,4 +290,23 @@ it('flip forwards both orientations without a new position or new marks', () => 
 it('passes the art error callback only when the caller names it', () => {
   mountBoard(element()); expect(mock.view.options.onArtError).toBeUndefined();
   const onArtError = vi.fn(); mountBoard(element(), undefined, { onArtError }); expect(mock.view.options.onArtError).toBe(onArtError);
+});
+it('fault 2: a skip in the board hold stops every character cue, an idle skip keeps the last take, and a stopped knight does not land', async () => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
+  try {
+    const p = rules.fromFen('7k/8/8/8/8/8/8/KR6 w - - 0 1');
+    const board = mountBoard(element(), undefined, { plainMarks: true }); board.setPosition(p, rules);
+    const held = board.play({ from: 1, to: 9, captures: [] }); await vi.advanceTimersByTimeAsync(50);
+    expect(mock.finish).toHaveBeenCalledOnce(); expect(mock.stop).not.toHaveBeenCalled();
+    board.skip(); expect(mock.stop).toHaveBeenCalledOnce(); expect(stopSelection).toHaveBeenCalledOnce(); await held;
+    // End turn and the next move's start skip and set an idle board: the finished take plays to its end.
+    board.setPosition(p, rules); const normal = board.play({ from: 1, to: 9, captures: [] });
+    await vi.advanceTimersByTimeAsync(900); await normal; board.skip(); board.setPosition(p, rules);
+    expect(mock.finish).toHaveBeenCalledTimes(2); expect(mock.stop).toHaveBeenCalledOnce(); expect(stopSelection).toHaveBeenCalledOnce();
+  } finally { vi.useRealTimers(); }
+  const knight = rules.fromFen('7k/8/8/8/8/8/8/KN6 w - - 0 1');
+  const board = mountBoard(element()); board.setPosition(knight, rules); mock.deferred = true;
+  const leaping = board.play({ from: 1, to: 18, captures: [] });
+  board.setMotion('off'); expect(mock.stop).toHaveBeenCalledTimes(2); mock.end(); await leaping;
+  expect(playArmour).toHaveBeenLastCalledWith('knightLeapA'); expect(playArmour).not.toHaveBeenCalledWith('knightLandA');
 });

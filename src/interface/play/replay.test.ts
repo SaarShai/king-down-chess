@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { Game } from '../../game';
 import { lastReplySteps, replayController, undoReplayState } from './replay';
 import type { Board } from '../board-api';
@@ -50,4 +51,19 @@ it('the finish button is off before a reply, then Replay, Undo, and Replay after
   expect(undoReplayState(draft.length, reply)).toEqual({ replay: true, enabled: true });
   expect(undoReplayState(1, reply, true).enabled).toBe(false);
   expect(undoReplayState(0, reply, true).enabled).toBe(false);
+});
+
+it('fault 3: Motion Off cancels a running Replay; its later step does not play and the draft returns', async () => {
+  const game = new Game('RNBQKBNR'); game.play(game.legal[0]); game.play(game.legal[0]);
+  const step = lastReplySteps(game)[0], plays: unknown[] = []; let end = () => {}, restores = 0;
+  const board = { setPosition() {}, play: (move: unknown) => { plays.push(move); return new Promise<void>(done => { end = done; }); }, skip() { end(); } } as unknown as Board;
+  const replay = replayController(), playing = replay.play([step, step], board, game.context, () => true, () => { restores++; }, () => {});
+  replay.cancel(); await playing;
+  expect(plays).toHaveLength(1); expect(restores).toBe(1); expect(replay.running).toBe(false);
+  // The game page wires it: the effective motion (Motion, system Reduce Motion or Symbols) going Off cancels the Replay.
+  const main = readFileSync('src/interface/play/main.ts', 'utf8'), at = main.indexOf('function setMotion() {');
+  const setMotion = main.slice(at, main.indexOf('\n}\n', at));
+  expect(setMotion).toContain("const pace = reduce || pieceView === 'symbols' ? 'off' : motion;");
+  expect(setMotion).toContain('board?.setMotion(pace);');
+  expect(setMotion).toContain("if (pace === 'off') boardReplay.cancel();");
 });

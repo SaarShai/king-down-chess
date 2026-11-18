@@ -44,7 +44,7 @@ it('does not play a delayed sample after sound is switched off and on', async ()
   let decode!: (buffer: AudioBuffer) => void;
   const start = vi.fn(), stop = vi.fn();
   vi.stubGlobal('AudioContext', class {
-    destination = {}; resume() { return Promise.resolve(); }
+    destination = {}; state = 'running'; resume() { return Promise.resolve(); }
     decodeAudioData() { return new Promise<AudioBuffer>(resolve => { decode = resolve; }); }
     createBufferSource() { return { buffer: null, playbackRate: { value: 1 }, connect() {}, start, stop }; }
   });
@@ -68,7 +68,7 @@ it('cancels a pending loop and fades an active loop on stop', async () => {
   let decode!: (buffer: AudioBuffer) => void;
   const start = vi.fn(), stop = vi.fn(), fade = vi.fn(), sources: { loop: boolean }[] = [];
   vi.stubGlobal('AudioContext', class {
-    destination = {}; currentTime = 2; resume() { return Promise.resolve(); }
+    destination = {}; state = 'running'; currentTime = 2; resume() { return Promise.resolve(); }
     decodeAudioData() { return new Promise<AudioBuffer>(resolve => { decode = resolve; }); }
     createBufferSource() { const source = { buffer: null, loop: false, playbackRate: { value: 1 }, connect() {}, start, stop }; sources.push(source); return source; }
     createGain() { return { gain: { value: 1, setValueAtTime: vi.fn(), linearRampToValueAtTime: fade }, connect() {}, disconnect() {} }; }
@@ -92,7 +92,7 @@ it('finishes the current recording without a new repeat or an early stop', async
   let decode!: (buffer: AudioBuffer) => void;
   const stop = vi.fn(), sources: { loop: boolean; onended?: () => void }[] = [];
   vi.stubGlobal('AudioContext', class {
-    destination = {}; currentTime = 2; resume() { return Promise.resolve(); }
+    destination = {}; state = 'running'; currentTime = 2; resume() { return Promise.resolve(); }
     decodeAudioData() { return new Promise<AudioBuffer>(resolve => { decode = resolve; }); }
     createBufferSource() { const source = { loop: false, playbackRate: { value: 1 }, connect() {}, start() {}, stop, onended: undefined as (() => void) | undefined }; sources.push(source); return source; }
     createGain() { return { gain: { value: 1, setValueAtTime() {}, linearRampToValueAtTime() {} }, connect() {}, disconnect() {} }; }
@@ -120,7 +120,7 @@ it('plays Rook C at its original speed for both loop and single play', async () 
   vi.resetModules();
   const sources: { loop: boolean; playbackRate: { value: number } }[] = [];
   vi.stubGlobal('AudioContext', class {
-    destination = {}; currentTime = 0; resume() { return Promise.resolve(); }
+    destination = {}; state = 'running'; currentTime = 0; resume() { return Promise.resolve(); }
     decodeAudioData() { return Promise.resolve({} as AudioBuffer); }
     createBufferSource() { const source = { loop: false, playbackRate: { value: 0 }, connect() {}, start() {}, stop() {} }; sources.push(source); return source; }
     createGain() { return { gain: { value: 1, setValueAtTime() {}, linearRampToValueAtTime() {} }, connect() {}, disconnect() {} }; }
@@ -140,7 +140,7 @@ it('maps each approved piece selection to its chosen file and respects mute', as
   vi.resetModules();
   const start = vi.fn(), fetcher = vi.fn(async (_url: string) => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(0) }));
   vi.stubGlobal('AudioContext', class {
-    destination = {}; resume() { return Promise.resolve(); }
+    destination = {}; state = 'running'; resume() { return Promise.resolve(); }
     decodeAudioData() { return Promise.resolve({} as AudioBuffer); }
     createBufferSource() { return { playbackRate: { value: 1 }, connect() {}, start, stop() {} }; }
   });
@@ -164,7 +164,7 @@ it('maps all six kings to the approved selection and movement files', async () =
   vi.resetModules();
   const start = vi.fn(), fetcher = vi.fn(async (_url: string) => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(0) }));
   vi.stubGlobal('AudioContext', class {
-    destination = {}; currentTime = 0; resume() { return Promise.resolve(); }
+    destination = {}; state = 'running'; currentTime = 0; resume() { return Promise.resolve(); }
     decodeAudioData() { return Promise.resolve({} as AudioBuffer); }
     createBufferSource() { return { playbackRate: { value: 1 }, connect() {}, start, stop() {} }; }
     createGain() { return { gain: { value: 1, setValueAtTime() {}, linearRampToValueAtTime() {} }, connect() {}, disconnect() {} }; }
@@ -192,7 +192,7 @@ it('uses the natural playback rate for every new approved sound', async () => {
   vi.resetModules();
   const rates: { value: number }[] = [];
   vi.stubGlobal('AudioContext', class {
-    destination = {}; currentTime = 0; resume() { return Promise.resolve(); }
+    destination = {}; state = 'running'; currentTime = 0; resume() { return Promise.resolve(); }
     decodeAudioData() { return Promise.resolve({} as AudioBuffer); }
     createBufferSource() { const playbackRate = { value: 0 }; rates.push(playbackRate); return { playbackRate, connect() {}, start() {}, stop() {} }; }
     createGain() { return { gain: { value: 1, setValueAtTime() {}, linearRampToValueAtTime() {} }, connect() {}, disconnect() {} }; }
@@ -206,4 +206,62 @@ it('uses the natural playback rate for every new approved sound', async () => {
     await vi.waitFor(() => expect(rates).toHaveLength(names.length));
     expect(rates.map(rate => rate.value)).toEqual(names.map(() => 1)); setSound(false);
   } finally { random.mockRestore(); vi.unstubAllGlobals(); }
+});
+
+it('fault 1: with no audio context the sound calls return and the game continues', async () => {
+  for (const missing of [undefined, class { constructor() { throw new Error('blocked'); } }]) {
+    vi.resetModules(); vi.stubGlobal('AudioContext', missing);
+    try {
+      const sfx = await import('./sfx'); sfx.setSound(true);
+      expect(() => { sfx.unlockSound(); sfx.preloadArmour(); sfx.selectPieceSound(P); sfx.snd.move(); sfx.stopSelection(); }).not.toThrow();
+      await sfx.playArmour('rookMove', true).done;
+    } finally { vi.unstubAllGlobals(); }
+  }
+});
+
+it('fault 4: a hidden page starts no character cue, also one that was loading when the page hid', async () => {
+  vi.resetModules();
+  let decode!: (buffer: AudioBuffer) => void;
+  const start = vi.fn(), page = { hidden: true };
+  vi.stubGlobal('document', page);
+  vi.stubGlobal('AudioContext', class {
+    destination = {}; state = 'running'; resume() { return Promise.resolve(); }
+    decodeAudioData() { return new Promise<AudioBuffer>(resolve => { decode = resolve; }); }
+    createBufferSource() { return { playbackRate: { value: 1 }, connect() {}, start, stop() {} }; }
+  });
+  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(0) })));
+  try {
+    const { playArmour, selectPieceSound, setSound } = await import('./sfx'); setSound(true);
+    await playArmour('pawnWalkA').done; expect(fetch).not.toHaveBeenCalled();
+    page.hidden = false; selectPieceSound(N); await vi.waitFor(() => expect(decode).toBeDefined());
+    page.hidden = true; decode({} as AudioBuffer); await new Promise(resolve => setTimeout(resolve, 0));
+    expect(start).not.toHaveBeenCalled(); setSound(false);
+  } finally { vi.unstubAllGlobals(); }
+});
+
+it('fault 5: a suspended context, a stalled file or a failed start leaves no queued sound', async () => {
+  vi.resetModules(); vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  let state = 'suspended', fail = false, stalled = true;
+  const start = vi.fn(() => { if (fail) throw new Error('start'); }), disconnect = vi.fn();
+  vi.stubGlobal('AudioContext', class {
+    destination = {}; get state() { return state; }
+    resume() { return state === 'running' ? Promise.resolve() : new Promise<void>(() => {}); }
+    decodeAudioData() { return Promise.resolve({} as AudioBuffer); }
+    createBufferSource() { return { playbackRate: { value: 1 }, connect() {}, disconnect, start, stop: vi.fn() }; }
+    createGain() { return { gain: { value: 1 }, connect() {}, disconnect }; }
+  });
+  vi.stubGlobal('fetch', vi.fn(() => stalled ? new Promise(() => {}) : Promise.resolve({ ok: true, arrayBuffer: async () => new ArrayBuffer(0) })));
+  try {
+    const { playArmour, setSound } = await import('./sfx'); setSound(true);
+    // A stalled file: the cue ends at its 150 ms deadline, and the shared load clears at its own deadline.
+    const late = playArmour('rookMove'); await vi.advanceTimersByTimeAsync(150); await late.done;
+    await vi.advanceTimersByTimeAsync(15_000); stalled = false;
+    // A suspended context: the decoded cue does not start and does not wait for a later resume.
+    const quiet = playArmour('rookMove'); await vi.advanceTimersByTimeAsync(150); await quiet.done;
+    expect(fetch).toHaveBeenCalledTimes(2); expect(start).not.toHaveBeenCalled();
+    // A start that throws disconnects its nodes and leaves nothing for Sound Off to stop.
+    state = 'running'; fail = true; await playArmour('rookMove', true).done;
+    expect(start).toHaveBeenCalledOnce(); expect(disconnect).toHaveBeenCalledTimes(2);
+    fail = false; await vi.advanceTimersByTimeAsync(0); setSound(false);
+  } finally { vi.useRealTimers(); vi.unstubAllGlobals(); }
 });

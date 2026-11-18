@@ -1388,7 +1388,10 @@ function applyPieceView() { board?.setSymbols(pieceView === 'symbols' ? symbolIm
 function setMotion() {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   setInterfaceMotion(motion, reduce);
-  board?.setMotion(reduce || pieceView === 'symbols' ? 'off' : motion);
+  const pace = reduce || pieceView === 'symbols' ? 'off' : motion;
+  board?.setMotion(pace);
+  // Motion Off ends a running Replay: its restore shows the current draft.
+  if (pace === 'off') boardReplay.cancel();
 }
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', setMotion); setMotion();
 /** The layout classes of decision 34 (layout.ts). The game box is the viewport after the safe areas, so its size is W and H. */
