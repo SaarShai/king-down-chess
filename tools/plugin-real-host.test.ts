@@ -134,15 +134,20 @@ it('plays the recorded Knight cues in the widget only with Sound on', async () =
     expect(new URL(modules[0]).origin).toBe(new URL(built.url).origin);
     await ui.locator('#page-back').click();
 
-    const played = () => frame.evaluate(() => (window as any).testAudio.played as number[]);
+    const played = async (count: number) => {
+      await frame.waitForFunction(n => (window as any).testAudio.played.length >= n, count, { ...POLL, timeout: 10_000 });
+      return frame.evaluate(() => (window as any).testAudio.played as number[]);
+    };
     const expected = await Promise.all(['select-armour-A', 'knight-leap-A', 'knight-land-A'].map(async name =>
       (await stat(`public/audio/armour/${name}.wav`)).size));
     // Select the queen on d1, then select the knight again on b1 and capture on c3.
     await board.press('ArrowRight'); await board.press('ArrowRight'); await board.press('Enter');
     await board.press('ArrowLeft'); await board.press('ArrowLeft'); await board.press('Enter');
-    await expect.poll(played).toEqual(expected.slice(0, 1));
+    expect(await played(1)).toEqual(expected.slice(0, 1));
     await board.press('ArrowRight'); await board.press('ArrowUp'); await board.press('ArrowUp'); await board.press('Enter');
-    await expect.poll(played).toEqual(expected);
+    // The renderer can load frames before the landing.
+    await ui.locator('#board[data-animating="false"]').waitFor({ timeout: 10_000 });
+    expect(await played(expected.length)).toEqual(expected);
   } finally { await page.close(); }
 });
 
