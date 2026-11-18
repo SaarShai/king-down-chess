@@ -56,19 +56,19 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(read('tools/lib/checks.mjs')).not.toContain('pre-push');
   });
 
-  it('removes the slow Azure mirror and limits downloads in all eight browser install steps', () => {
+  it('uses the standard Ubuntu mirrors and keeps the limits in all eight browser install steps', () => {
     const directory = join(import.meta.dirname, '..', '.github', 'workflows');
-    const removeMirror = "sudo sed -i '/azure\\.archive\\.ubuntu\\.com/d' /etc/apt/apt-mirrors.txt";
+    const mirrors = "printf 'https://archive.ubuntu.com/ubuntu/\\tpriority:2\\nhttps://security.ubuntu.com/ubuntu/\\tpriority:3\\n' | sudo tee /etc/apt/apt-mirrors.txt";
     let installs = 0;
     for (const file of readdirSync(directory).filter(name => /\.ya?ml$/.test(name))) {
       const source = readFileSync(join(directory, file), 'utf8');
       for (const step of source.split(/^      - /m).filter(step => /\bplaywright install\b/.test(step))) {
         installs++;
-        expect(step).toContain(removeMirror);
+        expect(step).toContain(mirrors);
         expect(step).toContain('timeout-minutes: 10');
         expect(step).toContain('echo \'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";\' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads');
-        expect(step.indexOf(removeMirror)).toBeLessThan(step.indexOf('npx playwright install'));
-        expect(step.indexOf('sudo tee')).toBeLessThan(step.indexOf('npx playwright install'));
+        expect(step.indexOf(mirrors)).toBeLessThan(step.indexOf('npx playwright install'));
+        expect(step.indexOf('sudo tee /etc/apt/apt.conf.d/99-ci-downloads')).toBeLessThan(step.indexOf('npx playwright install'));
       }
     }
     expect(installs).toBe(8);
