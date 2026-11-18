@@ -85,7 +85,7 @@ let codeFailed = false;
 const refetchCode = () => Promise.race([Promise.all([...document.querySelectorAll<HTMLLinkElement>('link[rel=modulepreload]')].map(link => fetch(link.href, { cache: 'reload' }).catch(() => {}))), new Promise(done => setTimeout(done, 4000))]);
 const loadBoardCode = () => { if (!skinLoad) { skinLoad = new Image(); skinLoad.fetchPriority = 'high'; skinLoad.src = SKIN; } return codeLoad ??= (codeFailed ? refetchCode() : Promise.resolve())
   .then(() => Promise.all([import('../board-api'), import('../../render/sfx')]))
-  .then(([b, s]) => { boardCode = b; sfx = s; s.setSound(sound); }, error => { codeLoad = undefined; codeFailed = true; throw error; }); };
+  .then(([b, s]) => { boardCode = b; sfx = s; s.setSound(sound); if (sound) s.preloadArmour(); }, error => { codeLoad = undefined; codeFailed = true; throw error; }); };
 // Sound unlocks on the first press after the sound code is loaded.
 const unlock = () => { if (sound && sfx) { sfx.unlockSound(); document.removeEventListener('pointerdown', unlock, true); document.removeEventListener('keydown', unlock, true); } };
 document.addEventListener('pointerdown', unlock, true); document.addEventListener('keydown', unlock, true);
@@ -784,6 +784,7 @@ function tap(square: number) {
     inspected = square;
     if (own.length || colorOf(code) === player) {
       selected = selected === square ? null : square; if (selected == null) inspected = null;
+      if (selected != null) sfx?.selectPieceSound(typeOf(code), game.context.rules.kings[colorOf(code)]?.king ?? PLAIN_KINGS[colorOf(code)]);
       if (selected != null && !own.length) notice = refusalForTap(draft, draft.armed ? null : square, square);
     } else { selected = null; notice = draft.armed ? text.armed : text.computerOwns; }
     const showSymbolsHint = fresh() && pieceView === 'figures' && ++selectTaps >= 6 && !readHints().has('view:symbols');

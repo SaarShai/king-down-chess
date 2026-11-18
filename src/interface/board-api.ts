@@ -3,8 +3,8 @@ import { GameRules } from '../game-rules';
 import type { Move, Position } from '../rules/engine';
 import { momentKind } from '../moment';
 import { soundsFor } from '../render/sounds';
-import { snd } from '../render/sfx';
-import { colorOf, type Color } from '../rules/engine';
+import { snd, playArmour, movementSample, type SamplePlayback } from '../render/sfx';
+import { colorOf, typeOf, N, P, G, M, O, K, PLAIN_KINGS, type Color } from '../rules/engine';
 import type { Highlights } from '../render/marks';
 import type { PlainMarks } from '../render/plain-marks';
 
@@ -48,11 +48,20 @@ const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => res
 
 /** Mount one board. The callback receives a1=0 through h8=63. Input pauses during playback. */
 /** `onArtError`: a rest still of a figure cannot load (no default: the old fallback stays). */
-export function mountBoard(element: HTMLElement, onSquare: (square: number) => void = () => {}, options: { liveInput?: boolean; quiet?: boolean; plainMarks?: boolean; initialBoardArt?: string; onArtError?: (url: string) => void } = {}): Board {
+export function mountBoard(element: HTMLElement, onSquare: (square: number) => void = () => {}, options: { liveInput?: boolean; quiet?: boolean; plainMarks?: boolean; initialBoardArt?: string; armourSounds?: boolean; onArtError?: (url: string) => void } = {}): Board {
   const view = new PaintedView(element, { ...options, holdStills: true, lazySheets: true, floor: options.quiet ? null : undefined, webInk: options.quiet });
   let rules = new GameRules(), position: Position | null = null, busy = false, skipped = false, generation = 0;
+  let knightTake = false, pawnTake = false;
+  let movementSound: SamplePlayback | undefined;
+  const tails = new Set<SamplePlayback>();
+  function stopMovement() { movementSound?.cancel(); movementSound = undefined; }
+  function stopTails() { for (const tail of tails) tail.cancel(); tails.clear(); }
+  function keepTail(tail: SamplePlayback) { tails.add(tail); void tail.done.then(() => tails.delete(tail)); }
+  const page = typeof document === 'undefined' ? undefined : document;
+  const hideMovement = () => { if (page?.hidden) { stopMovement(); stopTails(); } };
+  page?.addEventListener('visibilitychange', hideMovement);
   let loadError: unknown;
-  let pace: Pace = 'normal', reduced = false, releaseHold = () => {};
+  let pace: Pace = 'normal', reduced = false, symbolsActive = false, releaseHold = () => {};
   const hold = (start: number) => new Promise<void>(resolve => {
     const timer = setTimeout(resolve, Math.max(0, (pace === 'fast' ? 450 : 900) - (performance.now() - start)));
     releaseHold = () => { clearTimeout(timer); resolve(); };
@@ -63,12 +72,12 @@ export function mountBoard(element: HTMLElement, onSquare: (square: number) => v
   const effects = new Map<number, { kind: 'frozen' | 'protected'; turns: number }>();
   view.onLoadError = error => { loadError = error; };
   function finish() {
-    releaseHold(); skipped = true; view.skip({ keepStates: true });
+    stopMovement(); releaseHold(); skipped = true; view.skip({ keepStates: true });
     if (options.liveInput && busy) { generation++; busy = false; if (position) syncEffects(); applySelection(); }
   }
   view.onSquareClick = square => { if (options.liveInput && busy) finish(); if (!busy) onSquare(square); };
   view.canDrag = () => false;
-  view.onSkipAnimation = () => { if (options.liveInput) finish(); else skipped = true; };
+  view.onSkipAnimation = () => { if (options.liveInput) finish(); else { stopMovement(); skipped = true; } };
   function syncEffects(): void {
     if (!position) return;
     const shown = structuredClone(position);
@@ -86,7 +95,7 @@ export function mountBoard(element: HTMLElement, onSquare: (square: number) => v
     async ready() { await view.ready(); if (loadError) throw loadError; },
     setSkin(url) { return view.setSkin(url); },
     setPosition(next, context = rules) {
-      releaseHold(); generation++; view.skip(); busy = false; effects.clear(); position = structuredClone(next); rules = context;
+      stopMovement(); releaseHold(); generation++; view.skip(); busy = false; effects.clear(); position = structuredClone(next); rules = context;
       view.setRules(rules); view.setFallen(null, false); view.highlight({}); shownSelection = JSON.stringify([null, [], []]); view.sync(position);
     },
     async play(action, after) {
@@ -102,11 +111,36 @@ export function mountBoard(element: HTMLElement, onSquare: (square: number) => v
           while (view.animating && own === generation) await frame();
         } else {
           const sounds = soundsFor(momentKind(before, action), action);
-          if (sounds.now) snd[sounds.now]();
+          const piece = before.board[action.from], type = typeOf(piece), side = colorOf(piece);
+          const knight = options.armourSounds !== false && type === N && action.from !== action.to && action.drop === undefined && !action.swap && sounds.now !== 'shot' && sounds.now !== 'swap';
+          const pawn = options.armourSounds !== false && type === P && action.from !== action.to && action.drop === undefined && !action.swap && sounds.now !== 'shot' && sounds.now !== 'swap';
+          const moves = options.armourSounds !== false && action.from !== action.to && action.drop === undefined && !action.pass && !action.pushes && !action.swap && sounds.now !== 'shot' && sounds.now !== 'swap';
+          const newMove = options.armourSounds !== false && action.from !== action.to && action.drop === undefined && !action.pass && !action.pushes && [G, M, O, K].includes(type) && (!action.swap || type === M);
+          const movement = moves || newMove ? movementSample(type, rules.rules.kings[side]?.king ?? PLAIN_KINGS[side]) : undefined;
+          const bishop = movement === 'bishopMove';
+          const take = knightTake ? 'B' : 'A';
+          if (knight) { knightTake = !knightTake; playArmour(`knightLeap${take}`); }
+          if (pawn) { playArmour(pawnTake ? 'pawnWalkB' : 'pawnWalkA'); pawnTake = !pawnTake; }
+          const animated = pace !== 'off' && !symbolsActive && !page?.hidden;
+          let playback: SamplePlayback | undefined;
+          const startMove = () => {
+            if (own !== generation || skipped || pace === 'off' || symbolsActive || page?.hidden) return;
+            playback = movement ? (bishop ? playArmour(movement) : playArmour(movement, true)) : undefined;
+            if (playback) movementSound = playback;
+          };
+          if (!animated && !page?.hidden && movement) keepTail(playArmour(movement));
+          if (sounds.now && !((knight || pawn || movement) && sounds.now === 'move')) snd[sounds.now]();
           let struck = false;
-          const contact = () => { if (!struck && own === generation) { struck = true; if (sounds.hit) snd[sounds.hit](); } };
+          const contact = () => { if (!struck && own === generation) { struck = true; if (knight) playArmour(`knightLand${take}`); if (sounds.hit) snd[sounds.hit](); } };
           // A reserve drop has no motion; a Salvation return or an Earth Quake may start on an empty square (main board.ts:325).
-          if (action.drop === undefined || action.power) await view.animateMove(before, action, contact);
+          try { if (action.drop === undefined || action.power) await view.animateMove(before, action, contact, undefined, startMove); }
+          finally {
+            if (playback) {
+              if (own === generation && !skipped) { playback.finish(); keepTail(playback); }
+              else playback.cancel();
+              if (movementSound === playback) movementSound = undefined;
+            }
+          }
           contact();
           if (options.plainMarks && !action.swap && pace !== 'off' && !reduced && !skipped && own === generation) await hold(start);
           if (own === generation) {
@@ -126,14 +160,14 @@ export function mountBoard(element: HTMLElement, onSquare: (square: number) => v
       return rules.markKind((by ^ 1) as Color, by as Color, kind === 'protected') !== '';
     },
     clearEffect(square) { if (square == null) effects.clear(); else effects.delete(square); syncEffects(); },
-    setMotion(speed, reducedMotion = null) { pace = speed; reduced = reducedMotion ?? (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches); if (pace === 'off' || reduced) releaseHold(); view.setReducedMotion(reducedMotion); view.setPace(speed); },
+    setMotion(speed, reducedMotion = null) { pace = speed; reduced = reducedMotion ?? (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches); if (pace === 'off') stopMovement(); if (pace === 'off' || reduced) releaseHold(); view.setReducedMotion(reducedMotion); view.setPace(speed); },
     skip() { finish(); },
-    setSymbols(symbols) { view.setSymbols(symbols); },
+    setSymbols(symbols) { symbolsActive = !!symbols; if (symbols) stopMovement(); view.setSymbols(symbols); },
     highlight(marks) { view.highlight(marks); },
     mark(marks) { if (options.plainMarks) view.setPlainMarks(marks); },
     select(square, targets = [], captures = []) { selection = [square, targets, captures]; applySelection(); },
     arrive(delays, ms, rise) { view.arrive(delays, ms, rise); },
-    dispose() { releaseHold(); generation++; busy = false; view.dispose(); element.replaceChildren(); },
+    dispose() { stopMovement(); stopTails(); page?.removeEventListener('visibilitychange', hideMovement); releaseHold(); generation++; busy = false; view.dispose(); element.replaceChildren(); },
     flip(black) { view.flip(black); },
   };
 }

@@ -1,13 +1,116 @@
-/** Short synthesized board sounds: filtered noise and decaying tones. Web Audio only — no sound files. */
+/** Board sounds and the approved character samples. */
+import { P, N, B, R, A, L, G, M, S, O, K, type KingName } from '../rules/engine';
 let ctx: AudioContext | null = null;
 let enabled = true;
+let soundGeneration = 0;
+let synthOutput: GainNode | null = null;
 const noiseBuffers = new WeakMap<BaseAudioContext, AudioBuffer>();
+const playingSamples = new Set<AudioBufferSourceNode>();
 
-export function setSound(on: boolean): void { enabled = on; }
+export function setSound(on: boolean): void {
+  if (!on) { soundGeneration++; for (const source of playingSamples) source.stop(); playingSamples.clear(); synthOutput?.disconnect(); synthOutput = null; }
+  enabled = on;
+}
 
 /** Unlock audio in a page gesture. The old screens keep their sound path. */
 export function unlockSound(): void {
-  if (enabled) void (ctx ??= new AudioContext()).resume().catch(() => {});
+  if (enabled) {
+    const c = ctx ??= new AudioContext();
+    void c.resume().catch(() => {});
+    preloadArmour();
+  }
+}
+
+const samples = {
+  knightSelect: 'select-armour-A', pawnSelect: 'select-armour-B',
+  knightLeapA: 'knight-leap-A', knightLeapB: 'knight-leap-B',
+  knightLandA: 'knight-land-A', knightLandB: 'knight-land-B',
+  pawnWalkA: 'select-knight-E', pawnWalkB: 'select-knight-F',
+  bishopSelect: 'select-bishop-v2-B', bishopMove: 'select-bishop-v2-A',
+  rookSelect: 'select-rook-v2-A', rookMove: 'select-rook-v2-C',
+  archerSelect: 'select-archer-B', paladinSelect: 'select-paladin-A',
+  guardSelect: 'select-guard-r10-A', maesterSelect: 'select-maester-C',
+  beastSelect: 'select-beast-B', ogreSelect: 'select-ogre-B',
+  guardMove: 'select-guard-r10-C', maesterMove: 'select-maester-r10-C', ogreMove: 'select-ogre-r10-C',
+  flameKingSelect: 'select-flame-r10-A', flameKingMove: 'select-flame-r10-B',
+  frostKingSelect: 'select-frost-r10-B', frostKingMove: 'select-frost-r10-A',
+  stratusKingSelect: 'select-stratus-r10-B', stratusKingMove: 'select-stratus-r10-A',
+  mudKingSelect: 'select-mud-r10-C', mudKingMove: 'select-mud-r10-B',
+  spiritKingSelect: 'select-spirit-r10-C', spiritKingMove: 'select-spirit-r10-A',
+  shadowKingSelect: 'select-shadow-r10-C', shadowKingMove: 'select-shadow-r10-A',
+} as const;
+type Sample = keyof typeof samples;
+const kingSamples: Record<KingName, { select: Sample; move: Sample }> = {
+  Flame: { select: 'flameKingSelect', move: 'flameKingMove' },
+  Frost: { select: 'frostKingSelect', move: 'frostKingMove' },
+  Stratus: { select: 'stratusKingSelect', move: 'stratusKingMove' },
+  Mud: { select: 'mudKingSelect', move: 'mudKingMove' },
+  Spirit: { select: 'spiritKingSelect', move: 'spiritKingMove' },
+  Shadow: { select: 'shadowKingSelect', move: 'shadowKingMove' },
+};
+const selectionSamples: Partial<Record<number, Sample>> = {
+  [P]: 'pawnSelect', [N]: 'knightSelect', [B]: 'bishopSelect', [R]: 'rookSelect',
+  [A]: 'archerSelect', [L]: 'paladinSelect', [G]: 'guardSelect', [M]: 'maesterSelect',
+  [S]: 'beastSelect', [O]: 'ogreSelect',
+};
+export function selectPieceSound(type: number, king?: KingName): void {
+  const sound = type === K && king ? kingSamples[king].select : selectionSamples[type];
+  if (sound) playArmour(sound);
+}
+export function movementSample(type: number, king?: KingName): Sample | undefined {
+  return type === K && king ? kingSamples[king].move
+    : type === B ? 'bishopMove' : type === R ? 'rookMove'
+    : type === G ? 'guardMove' : type === M ? 'maesterMove' : type === O ? 'ogreMove' : undefined;
+}
+const loaded = new Map<Sample, Promise<AudioBuffer>>();
+/** Load before play starts; a suspended context does not make sound. */
+export function preloadArmour(): void {
+  if (!enabled) return;
+  const c = ctx ??= new AudioContext();
+  for (const name of Object.keys(samples) as Sample[]) void loadSample(c, name).catch(() => {});
+}
+function loadSample(c: AudioContext, name: Sample): Promise<AudioBuffer> {
+  let b = loaded.get(name);
+  if (!b) {
+    b = fetch(`/audio/armour/${samples[name]}.wav`).then(r => {
+      if (!r.ok) throw new Error(`Sound: ${r.status}`);
+      return r.arrayBuffer();
+    }).then(data => c.decodeAudioData(data)).catch(error => { loaded.delete(name); throw error; });
+    loaded.set(name, b);
+  }
+  return b;
+}
+
+export interface SamplePlayback { cancel(): void; finish(): void; done: Promise<void> }
+/** Skip a late load so a sound cannot play after its action or after Sound is switched off. */
+export function playArmour(name: Sample, loop = false): SamplePlayback {
+  let cancelled = false, stopping = false, finishing = false, source: AudioBufferSourceNode | undefined, gain: GainNode | undefined;
+  let resolveDone!: () => void; const done = new Promise<void>(resolve => { resolveDone = resolve; });
+  const cancel = () => {
+    cancelled = true;
+    if (!source) { resolveDone(); return; }
+    if (!playingSamples.has(source) || stopping) return;
+    stopping = true;
+    if (gain && ctx) {
+      const now = ctx.currentTime; gain.gain.setValueAtTime(gain.gain.value, now);
+      gain.gain.linearRampToValueAtTime(0, now + .012); source.stop(now + .012);
+    } else source.stop();
+  };
+  const finish = () => { finishing = true; if (source && !cancelled) source.loop = false; };
+  const playback = { cancel, finish, done };
+  if (!enabled) { resolveDone(); return playback; }
+  const c = ctx ??= new AudioContext(), started = performance.now(), generation = soundGeneration;
+  void c.resume().catch(() => {});
+  void loadSample(c, name).then(buffer => {
+    if (cancelled || !enabled || generation !== soundGeneration || performance.now() - started > 150) { resolveDone(); return; }
+    source = c.createBufferSource(); source.buffer = buffer; source.loop = loop && !finishing;
+    const exact = name === 'rookMove' || name === 'guardSelect' || name === 'guardMove' || name === 'maesterMove' || name === 'ogreMove' || name.includes('King');
+    source.playbackRate.value = exact ? 1 : 1 + (Math.random() - .5) * .06;
+    if (loop || name === 'bishopMove') { gain = c.createGain(); gain.connect(c.destination); }
+    source.connect(gain ?? c.destination); playingSamples.add(source);
+    const active = source; source.onended = () => { playingSamples.delete(active); gain?.disconnect(); resolveDone(); }; source.start();
+  }).catch(() => { resolveDone(); });
+  return playback;
 }
 
 /** One second of white noise per context, reused by every noisy sound. */
@@ -80,7 +183,8 @@ function play(sound: Sound): void {
   if (!enabled) return;
   const c = ctx ??= new AudioContext();
   void c.resume().catch(() => {}); // A browser may keep audio locked until the next gesture.
-  sound(c, c.destination, c.currentTime + 0.005);
+  if (!synthOutput) { synthOutput = c.createGain(); synthOutput.connect(c.destination); }
+  sound(c, synthOutput, c.currentTime + 0.005);
 }
 
 export const snd = Object.fromEntries(

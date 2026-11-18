@@ -86,6 +86,18 @@ it('F7: the offline install does not fetch optional clip sheets', () => {
   expect(precache).toContain('assets/knight-Abcd1234.webp');
 });
 
+it('precaches character sounds in both build modes without caching other audio files', () => {
+  const { bundle, files } = fixture();
+  const sounds = ['audio/armour/select-flame-r10-A.wav', 'audio/armour/select-guard-r10-C.wav'];
+  const excluded = ['audio/armour/private.json', 'audio/other.wav', 'audio/armour/nested/file.wav'];
+  files.push(...sounds, ...excluded);
+  for (const solo of [false, true]) {
+    const { allowlist, precache } = offlineCacheFiles(bundle, root, files, solo);
+    for (const sound of sounds) { expect(allowlist).toContain(sound); expect(precache).toContain(sound); }
+    for (const file of excluded) { expect(allowlist).not.toContain(file); expect(precache).not.toContain(file); }
+  }
+});
+
 it('precaches the index, the parts and the startup effect modules but no frames, whole manifest or optional runtime files', () => {
   const { bundle, files } = fixture();
   const effect = `character-runtime/effects/${'b'.repeat(64)}`;

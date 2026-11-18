@@ -1,24 +1,187 @@
 import { beforeEach, expect, it, vi, type Mock } from 'vitest';
 import { GameRules } from '../game-rules';
+import { parseKings } from '../rules/rules';
 /** The mock view's parts that the tests read. */
-interface MockView { options: Record<string, unknown>; onSquareClick(square: number): void; sync: Mock; setSelected: Mock; highlight: Mock; setReducedMotion: Mock; setPace: Mock; setPlainMarks: Mock; dispose: Mock; animateMove: Mock; skip: Mock }
-const mock = vi.hoisted(() => ({ view: null as unknown as MockView, end: () => {}, deferred: false }));
-vi.mock('../render/sfx', () => ({ snd: Object.fromEntries(['move','capture','shot','shove','chain','swap','check'].map(k => [k, vi.fn()])) }));
+interface MockView { options: Record<string, unknown>; onSquareClick(square: number): void; onSkipAnimation(): void; sync: Mock; setSelected: Mock; highlight: Mock; setReducedMotion: Mock; setPace: Mock; setPlainMarks: Mock; dispose: Mock; animateMove: Mock; skip: Mock }
+const mock = vi.hoisted(() => ({ view: null as unknown as MockView, end: () => {}, start: () => {}, deferred: false, waiting: false, stop: vi.fn(), finish: vi.fn(), done: new Promise<void>(() => {}) }));
+vi.mock('../render/sfx', async importOriginal => ({ ...await importOriginal<typeof import('../render/sfx')>(), snd: Object.fromEntries(['move','capture','shot','shove','chain','swap','check'].map(k => [k, vi.fn()])), playArmour: vi.fn(() => ({ cancel: mock.stop, finish: mock.finish, done: mock.done })) }));
 vi.mock('../render/PaintedView', () => ({ PaintedView: class {
   onSquareClick = () => {}; onSkipAnimation = () => {}; canDrag = () => false; animating = false;
   constructor(_element: unknown, readonly options: Record<string, unknown>) { mock.view = this as unknown as MockView; }
   setPlainMarks = vi.fn(); setSelected = vi.fn(); sync = vi.fn(); highlight = vi.fn(); setFallen = vi.fn(); setRules = vi.fn();
-  setReducedMotion = vi.fn(); setPace = vi.fn(); dispose = vi.fn(); ready = () => Promise.resolve();
-  animateMove = vi.fn(() => mock.deferred ? new Promise<void>(r => { mock.end = r; }) : Promise.resolve());
+  setReducedMotion = vi.fn(); setPace = vi.fn(); setSymbols = vi.fn(); dispose = vi.fn(); ready = () => Promise.resolve();
+  animateMove = vi.fn((_pos, _move, _contact, _speed, onStart?: () => void) => {
+    mock.start = () => onStart?.(); if (!mock.waiting) mock.start();
+    return mock.deferred ? new Promise<void>(r => { mock.end = r; }) : Promise.resolve();
+  });
   skip = vi.fn(() => mock.end());
   flip = vi.fn();
 } }));
 import { mountBoard } from './board-api';
+import { playArmour, snd } from '../render/sfx';
 /** The position of the last sync. */
 const synced = () => mock.view.sync.mock.lastCall![0];
-beforeEach(() => { mock.deferred = false; mock.end = () => {}; vi.stubGlobal('requestAnimationFrame', (fn: () => void) => queueMicrotask(fn)); });
+beforeEach(() => { vi.clearAllMocks(); mock.deferred = false; mock.waiting = false; mock.end = () => {}; mock.start = () => {}; vi.stubGlobal('requestAnimationFrame', (fn: () => void) => queueMicrotask(fn)); });
 const rules = new GameRules(), pos = () => rules.fromFen('7k/8/8/8/8/8/P7/K7 w - - 0 1');
 const element = () => ({ replaceChildren: vi.fn() }) as unknown as HTMLElement;
+it('plays both Knight variations at launch and contact, and keeps capture sound', async () => {
+  const board = mountBoard(element()), p = rules.fromFen('7k/8/8/8/8/2p5/8/KN6 w - - 0 1');
+  board.setPosition(p, rules);
+  await board.play({ from: 1, to: 18, captures: [18] });
+  expect(playArmour).toHaveBeenNthCalledWith(1, 'knightLeapA');
+  expect(playArmour).toHaveBeenNthCalledWith(2, 'knightLandA');
+  expect(snd.capture).toHaveBeenCalledOnce(); expect(snd.move).not.toHaveBeenCalled();
+  board.setPosition(p, rules); await board.play({ from: 1, to: 16, captures: [] });
+  expect(playArmour).toHaveBeenNthCalledWith(3, 'knightLeapB');
+  expect(playArmour).toHaveBeenNthCalledWith(4, 'knightLandB');
+});
+it('does not play Knight sounds on a pass or on a lab board', async () => {
+  const p = rules.fromFen('7k/8/8/8/8/8/8/KN6 w - - 0 1');
+  const board = mountBoard(element()); board.setPosition(p, rules);
+  await board.play({ from: 1, to: 1, captures: [], pass: true }, p);
+  const lab = mountBoard(element(), undefined, { armourSounds: false }); lab.setPosition(p, rules);
+  await lab.play({ from: 1, to: 16, captures: [] });
+  expect(playArmour).not.toHaveBeenCalled(); expect(snd.move).toHaveBeenCalled();
+});
+it('alternates Pawn walks, keeps capture sound, and skips passes and lab boards', async () => {
+  const p = rules.fromFen('7k/8/8/8/8/1p6/P7/K7 w - - 0 1');
+  const board = mountBoard(element()); board.setPosition(p, rules);
+  await board.play({ from: 8, to: 16, captures: [] });
+  board.setPosition(p, rules); await board.play({ from: 8, to: 17, captures: [17] });
+  expect(playArmour).toHaveBeenNthCalledWith(1, 'pawnWalkA');
+  expect(playArmour).toHaveBeenNthCalledWith(2, 'pawnWalkB');
+  expect(snd.move).not.toHaveBeenCalled(); expect(snd.capture).toHaveBeenCalledOnce();
+  board.setPosition(p, rules); await board.play({ from: 8, to: 8, captures: [], pass: true }, p);
+  const lab = mountBoard(element(), undefined, { armourSounds: false }); lab.setPosition(p, rules);
+  await lab.play({ from: 8, to: 16, captures: [] });
+  expect(playArmour).toHaveBeenCalledTimes(2);
+});
+it('plays the Bishop movement sound and keeps capture contact', async () => {
+  const p = rules.fromFen('7k/8/8/8/8/2p5/8/KB6 w - - 0 1');
+  const board = mountBoard(element()); board.setPosition(p, rules);
+  await board.play({ from: 1, to: 18, captures: [18] });
+  expect(playArmour).toHaveBeenCalledWith('bishopMove'); expect(snd.capture).toHaveBeenCalledOnce();
+  board.setPosition(p, rules); await board.play({ from: 1, to: 1, captures: [], pass: true }, p);
+  expect(playArmour).toHaveBeenCalledTimes(1);
+});
+it('stops the Bishop movement sound on skip', async () => {
+  const p = rules.fromFen('7k/8/8/8/8/8/8/KB6 w - - 0 1');
+  const board = mountBoard(element()); board.setPosition(p, rules); mock.deferred = true;
+  const playing = board.play({ from: 1, to: 10, captures: [] });
+  expect(playArmour).toHaveBeenCalledWith('bishopMove'); board.skip();
+  expect(mock.stop).toHaveBeenCalled(); await playing;
+});
+it('lets the current Rook recording finish after the move, before the board hold', async () => {
+  const p = rules.fromFen('7k/8/8/8/8/8/8/KR6 w - - 0 1');
+  const board = mountBoard(element()); board.setPosition(p, rules); mock.deferred = true;
+  const playing = board.play({ from: 1, to: 9, captures: [] });
+  expect(playArmour).toHaveBeenCalledWith('rookMove', true); expect(mock.stop).not.toHaveBeenCalled();
+  mock.end(); await playing; expect(mock.finish).toHaveBeenCalledOnce(); expect(mock.stop).not.toHaveBeenCalled(); expect(snd.move).not.toHaveBeenCalled();
+});
+it.each(['skip', 'position', 'motion', 'symbols', 'dispose', 'view-skip'] as const)('stops the Rook loop immediately on %s', async action => {
+  const p = rules.fromFen('7k/8/8/8/8/8/8/KR6 w - - 0 1');
+  const board = mountBoard(element()); board.setPosition(p, rules); mock.deferred = true;
+  const playing = board.play({ from: 1, to: 9, captures: [] });
+  if (action === 'skip') board.skip();
+  if (action === 'position') board.setPosition(p, rules);
+  if (action === 'motion') board.setMotion('off');
+  if (action === 'symbols') board.setSymbols(() => ({} as HTMLImageElement));
+  if (action === 'dispose') board.dispose();
+  if (action === 'view-skip') mock.view.onSkipAnimation();
+  expect(mock.stop).toHaveBeenCalled(); mock.end(); await playing;
+});
+it('stops a Rook loop when the page is hidden', async () => {
+  let hide = () => {};
+  const page = { hidden: false, addEventListener: (_: string, fn: () => void) => { hide = fn; }, removeEventListener: vi.fn() };
+  vi.stubGlobal('document', page);
+  try {
+    const p = rules.fromFen('7k/8/8/8/8/8/8/KR6 w - - 0 1');
+    const board = mountBoard(element()); board.setPosition(p, rules); mock.deferred = true;
+    const playing = board.play({ from: 1, to: 9, captures: [] });
+    page.hidden = true; hide(); expect(mock.stop).toHaveBeenCalled();
+    mock.end(); await playing;
+    vi.mocked(playArmour).mockClear(); board.setPosition(p, rules); mock.deferred = false;
+    await board.play({ from: 1, to: 9, captures: [] }); expect(playArmour).not.toHaveBeenCalled();
+    board.dispose(); expect(page.removeEventListener).toHaveBeenCalledWith('visibilitychange', hide);
+  } finally { vi.unstubAllGlobals(); }
+});
+it('stops a no-motion sound on hide and dispose even after the move ends', async () => {
+  let hide = () => {};
+  const page = { hidden: false, addEventListener: (_: string, fn: () => void) => { hide = fn; }, removeEventListener: vi.fn() };
+  vi.stubGlobal('document', page);
+  try {
+    const p = rules.fromFen('7k/8/8/8/8/8/8/KR6 w - - 0 1');
+    const board = mountBoard(element()); board.setPosition(p, rules); board.setMotion('off');
+    await board.play({ from: 1, to: 9, captures: [] }); expect(mock.stop).not.toHaveBeenCalled();
+    page.hidden = true; hide(); expect(mock.stop).toHaveBeenCalledOnce();
+    page.hidden = false; board.setPosition(p, rules); board.setSymbols(() => ({} as HTMLImageElement));
+    await board.play({ from: 1, to: 9, captures: [] }); mock.stop.mockClear();
+    board.dispose(); expect(mock.stop).toHaveBeenCalledOnce();
+  } finally { vi.unstubAllGlobals(); }
+});
+it('plays the Rook sound once with motion off or symbols, and excludes the lab board', async () => {
+  const p = rules.fromFen('7k/8/8/8/8/8/8/KR6 w - - 0 1');
+  const board = mountBoard(element()); board.setPosition(p, rules); board.setMotion('off');
+  await board.play({ from: 1, to: 9, captures: [] });
+  board.setMotion('normal'); board.setPosition(p, rules); board.setSymbols(() => ({} as HTMLImageElement));
+  await board.play({ from: 1, to: 9, captures: [] });
+  const lab = mountBoard(element(), undefined, { armourSounds: false }); lab.setPosition(p, rules);
+  await lab.play({ from: 1, to: 9, captures: [] });
+  expect(playArmour).toHaveBeenCalledTimes(2); expect(playArmour).toHaveBeenCalledWith('rookMove');
+  expect(snd.move).toHaveBeenCalledOnce();
+});
+it('waits for movement preparation and does not start a cancelled Rook sound', async () => {
+  const p = rules.fromFen('7k/8/8/8/8/8/8/KR6 w - - 0 1');
+  const board = mountBoard(element()); board.setPosition(p, rules); mock.deferred = true; mock.waiting = true;
+  const playing = board.play({ from: 1, to: 9, captures: [] });
+  expect(playArmour).not.toHaveBeenCalled(); mock.start();
+  expect(playArmour).toHaveBeenCalledWith('rookMove', true); board.skip(); await playing;
+  board.setPosition(p, rules); const cancelled = board.play({ from: 1, to: 9, captures: [] });
+  board.skip(); mock.start(); await cancelled; expect(playArmour).toHaveBeenCalledTimes(1);
+});
+it.each([
+  ['Flame:Haste', 'flameKingMove'], ['Frost:Freeze', 'frostKingMove'],
+  ['Stratus:Flight', 'stratusKingMove'], ['Mud:March', 'mudKingMove'],
+  ['Spirit:HolyLight', 'spiritKingMove'], ['Shadow:Darkness', 'shadowKingMove'],
+] as const)('uses the moving king’s %s design for its sound', async (choice, sound) => {
+  const context = new GameRules({ kings: parseKings(`${choice},none`) });
+  const p = context.fromFen('7k/8/8/8/8/8/8/4K3 w - - 0 1');
+  const board = mountBoard(element()); board.setPosition(p, context);
+  await board.play({ from: 4, to: 12, captures: [] }, p);
+  expect(playArmour).toHaveBeenCalledWith(sound, true); expect(mock.finish).toHaveBeenCalledOnce();
+});
+it('uses each unpowered king’s visual design and the moving piece’s color', async () => {
+  const context = new GameRules(), p = context.fromFen('7k/8/8/8/8/8/8/4K3 w - - 0 1');
+  const board = mountBoard(element()); board.setPosition(p, context);
+  await board.play({ from: 4, to: 12, captures: [] }, p);
+  board.setPosition(p, context); await board.play({ from: 63, to: 55, captures: [] }, p);
+  expect(playArmour).toHaveBeenNthCalledWith(1, 'spiritKingMove', true);
+  expect(playArmour).toHaveBeenNthCalledWith(2, 'shadowKingMove', true);
+  const changed = new GameRules({ kings: parseKings('none,Frost:Freeze') });
+  board.setPosition(p, changed); await board.play({ from: 63, to: 55, captures: [] }, p);
+  expect(playArmour).toHaveBeenNthCalledWith(3, 'frostKingMove', true);
+});
+it('plays Maester travel with the swap sound and Guard/Ogre travel with the shove sound', async () => {
+  const context = new GameRules();
+  const maester = context.fromFen('7k/8/8/8/8/8/P7/KM6 w - - 0 1');
+  const board = mountBoard(element()); board.setPosition(maester, context);
+  await board.play({ from: 1, to: 8, captures: [], swap: true }, maester);
+  expect(playArmour).toHaveBeenCalledWith('maesterMove', true); expect(snd.swap).toHaveBeenCalledOnce();
+  const guard = context.fromFen('7k/8/8/8/8/8/p7/KG6 w - - 0 1');
+  board.setPosition(guard, context); await board.play({ from: 1, to: 8, captures: [], shove: { from: 8, to: 16 } }, guard);
+  expect(playArmour).toHaveBeenCalledWith('guardMove', true); expect(snd.shove).toHaveBeenCalledOnce();
+  const ogre = context.fromFen('7k/8/8/8/8/8/p7/KO6 w - - 0 1');
+  board.setPosition(ogre, context); await board.play({ from: 1, to: 8, captures: [], shove: { from: 8, to: 16 } }, ogre);
+  expect(playArmour).toHaveBeenCalledWith('ogreMove', true); expect(snd.shove).toHaveBeenCalledTimes(2);
+});
+it('keeps the Strike launch with a moving Guard and excludes stationary powers', async () => {
+  const context = new GameRules(), p = context.fromFen('7k/8/8/8/8/8/8/KG6 w - - 0 1');
+  const board = mountBoard(element()); board.setPosition(p, context);
+  await board.play({ from: 1, to: 9, captures: [], power: 'strike' }, p);
+  expect(playArmour).toHaveBeenCalledWith('guardMove', true); expect(snd.shot).toHaveBeenCalledOnce();
+  board.setPosition(p, context); await board.play({ from: 1, to: 1, captures: [], power: 'freeze' }, p);
+  expect(playArmour).toHaveBeenCalledTimes(1);
+});
 it('plays a real move, keeps caller state detached, and resolves with the final board', async () => {
   const board = mountBoard(element()), p = pos(); board.setPosition(p, rules); p.board[8] = 0;
   await board.play({ from: 8, to: 16, captures: [] });
