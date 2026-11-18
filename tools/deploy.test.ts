@@ -1209,6 +1209,7 @@ async function pluginSite(fault = '', files?: Record<string, string> | (() => Re
       const headers: Record<string, string> = { ...artHeaders };
       if (fault === 'csp') headers['Content-Security-Policy'] = "default-src 'none'";
       if (fault === 'cors') delete headers['Access-Control-Allow-Origin'];
+      if (fault === 'charset') headers['Content-Type'] += '; charset=utf-8';
       res.writeHead(200, headers).end(fault === 'art' ? 'stale-art' : 'art-v1');
     } else if (path === '/consent.mjs') res.end(fault === 'script' ? 'old-consent' : 'consent-v1');
     else if (!(served && siteRoute(req, res, path, served, 'closed'))) res.writeHead(404).end();
@@ -1308,8 +1309,15 @@ describe('deploy-plugin-live-check.mjs', () => {
       const result = await runAsync(process.execPath, [pluginLiveCheck, pluginFolder(), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '250' } });
       expect(result.status, fault).toBe(1);
       expect(result.stderr).toContain('plugin-live-check: FAIL');
+      // The report names the check that failed, not the last short request.
+      if (fault === 'cors') expect(result.stderr).toContain('/plugin-art/test-art.webp Access-Control-Allow-Origin');
       expect(result.seconds).toBeLessThan(5);
     }
+  });
+
+  it('accepts a charset that the host adds to an art file type', async () => {
+    const result = await runAsync(process.execPath, [pluginLiveCheck, pluginFolder(), (await pluginSite('charset')).url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '1500' } });
+    expect(result.status, result.stderr).toBe(0);
   });
 });
 
