@@ -13,7 +13,7 @@ import { art } from '../account-game/art';
 import { handleProblem, ICONS, type Icon } from '../account/profile';
 import { boardScreen, rollbackBoardMove } from '../plugin/screens/board';
 import { setSettings } from '../plugin/board-view';
-import { setSound, snd } from '../render/sfx';
+import { preloadArmour, setSound, snd, unlockSound } from '../render/sfx';
 import { pollSince, runPoll, type PollTarget } from '../plugin/poll';
 import { createRouter } from '../plugin/router';
 import { applyLocks, createStore, isStart, isStartStep, locks, messageLine } from '../account-game/state';
@@ -680,12 +680,14 @@ navigate(state.screen, queuedAtStart);
 
 // Sound is per device and off by default. The tap that turns it on unlocks audio with one knock.
 const soundOn = () => { try { return localStorage.getItem('kingdown-sound') === 'on'; } catch { return false; } };
-setSound(soundOn()); $<HTMLInputElement>('sound').checked = soundOn();
-$<HTMLInputElement>('sound').onchange = event => {
+const sound = $('sound') as HTMLInputElement;
+sound.checked = soundOn(); setSound(sound.checked);
+if (sound.checked) preloadArmour();
+sound.onchange = event => {
   const on = (event.target as HTMLInputElement).checked; setSound(on);
   try { localStorage.setItem('kingdown-sound', on ? 'on' : 'off'); } catch { /* a sandboxed frame may refuse storage; the switch still works for this visit */ }
   const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession; if (session) session.type = 'ambient';
-  if (on) snd.move();
+  if (on) { unlockSound(); snd.move(); }
 };
 async function applySettings() {
   if (!memory.settings) return;

@@ -9,9 +9,8 @@ import { colorOf, findKing, K, moveNumber, NAMES, LETTERS, piece, PLAIN_KINGS, T
 import { cardName, cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText, ruleLine } from '../../powers-ui';
 import { LESSONS } from '../../lessons';
 import { kingDisplayName } from '../../king-label';
-import { momentKind } from '../../moment';
 import { boardFoot } from '../../screen/board-foot';
-import { soundsFor } from '../../screen/moments';
+import { boardSounds } from '../../render/sounds';
 import { contextLine } from '../../context-line';
 import { waitNotice } from '../../turn';
 import type { DraftPosition, DraftPreview, PlayerRecord, View } from '../../match/protocol';
@@ -22,7 +21,7 @@ import { cardArt } from '../card-face';
 import { motionTag } from '../card-motion/tag';
 import { cardDiagram } from '../../card-diagram';
 import { pieceIcon } from '../../piece-icons';
-import { snd } from '../../render/sfx';
+import { selectPieceSound, snd } from '../../render/sfx';
 import '../../ceremony.css';
 import { client, memory, navigate, queue, routeView, send } from '../../account-game/runtime';
 import { locks, noticeShows, pendingHere, staleRead, type Page, type Store } from '../../account-game/state';
@@ -149,6 +148,7 @@ function ruleCards(first: PieceType, position: Position) {
 }
 export function boardScreen(store: Store) {
   let generation = 0, animating = false, rush = false, steps: BoardMove[] = [];
+  const moveSounds = boardSounds();
   let replaying = false, replayShadow: readonly BoardMove[] | undefined;
   const motion = new UiMotion(() => !tornDown && active() && board.motion(), () => memory.settings?.symbols_only ? 'off' : 'fast');
   const clearConfirmation = () => {
@@ -217,20 +217,22 @@ export function boardScreen(store: Store) {
   let toppling = false;
   let stopCeremony = () => {};
   skipBoardCeremony = () => { toppling = false; stopCeremony(); };
-  board.onSkipAnimation = () => { rush = true; skipBoardCeremony(); };
+  board.onSkipAnimation = () => { if (animating) moveSounds.stop(); rush = true; skipBoardCeremony(); };
   // Keep event times when a render replaces a control.
   const cardSpent = new Map<string, boolean>(), spentAt = new Map<string, number>();
   // Q3 b: the board's height on the last render with no draw reply. A draw offer pins the board to it.
   let boardRoom = 0;
   // When the four cards dealt (a live game start), and when a check last began.
   let dealtAt = -Infinity, dealing = false, opening = false, checkAt = -Infinity, checked: number | null = null;
-  // Sound is off unless the player turns it on in Settings (render/sfx.ts).
-  const hitSound = (step: BoardMove, token: number) => {
-    const sounds = soundsFor(momentKind(step.pre, step.move), step.move);
-    if (sounds.now) snd[sounds.now]();
-    let struck = false;
-    return () => { if (struck || token !== generation) return; struck = true; if (sounds.hit) snd[sounds.hit](); };
-  };
+  function skipMove() { if (animating) moveSounds.stop(); board.skip(); }
+  async function playStep(step: BoardMove, token: number, manual = false) {
+    const animate = !rush && !step.move.pass && (step.move.drop === undefined || !!step.move.power);
+    const sound = manual ? undefined : moveSounds.move(step.pre, step.move, gameRules, animate && board.motion(),
+      () => token === generation, !rush && active());
+    try { if (animate) await board.animateMove(step.pre, step.move, sound?.contact, undefined, sound?.start); }
+    finally { sound?.finish(); }
+    sound?.contact();
+  }
   const refused = new Set<string>(), taught = new Map<string, number>();
   const active = () => ['board', 'end'].includes(client.state.screen);
 
@@ -274,7 +276,7 @@ export function boardScreen(store: Store) {
   }
   const scheduleComputer = () => { if (!tornDown) setTimeout(() => void computer(), 0); };
   const events = new AbortController(), signal = events.signal;
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { cancelReplay(); clearTimeout(deadlineTimer); skipBoardCeremony(); } else if (!tornDown && active()) updateTime(); }, { signal });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { moveSounds.stop(); cancelReplay(); clearTimeout(deadlineTimer); skipBoardCeremony(); } else if (!tornDown && active()) updateTime(); }, { signal });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleComputer(); }, { signal });
   function moveLine() {
     if (!pos) return;
@@ -322,13 +324,13 @@ export function boardScreen(store: Store) {
     const keyboard = document.activeElement === $('board') || !!sheet?.contains(document.activeElement);
     closeBoardSheet(); armed = undefined; armedCard = undefined; selected = inspected = held = undefined; choices([]);
     liveOnsets = true; replayShadow = undefined;
+    skipMove(); rush = false;
     const token = ++generation; steps.push(step); lastMove = step; pos = step.pos; animating = true;
-    board.skip(); board.setLifted(null); moveLine(); refresh(); saveDraft();
+    board.setLifted(null); moveLine(); refresh(); saveDraft();
     if (step.move.drop !== undefined && !step.move.power) board.sync(step.pos);
-    const hit = hitSound(step, token);
-    void ((step.move.drop === undefined || step.move.power) ? board.animateMove(step.pre, step.move, hit) : Promise.resolve()).then(() => {
+    void playStep(step, token).then(() => {
       if (token !== generation) return;
-      hit(); if (previewPosition()?.in_check ?? gameRules.inCheck(step.pos)) snd.check();
+      if (previewPosition()?.in_check ?? gameRules.inCheck(step.pos)) snd.check();
     }).finally(() => {
       if (token !== generation) return;
       board.sync(step.pos); animating = false; refresh();
@@ -347,7 +349,7 @@ export function boardScreen(store: Store) {
     if (!view.engine_fingerprint) { store.dispatch({ type: 'failed-read', game: view.game_id, text: 'This game implementation is unavailable. Select Try again.' }); return; }
     previewAbort?.abort();
     const controller = previewAbort = new AbortController(), token = ++generation, base = view, account = client.accountId;
-    if (animating) { board.skip(); animating = false; board.sync(pos!); }
+    if (animating) { skipMove(); animating = false; board.sync(pos!); }
     previewing = true; refresh();
     const current = () => !tornDown && !queue.closed() && active() && token === generation && account === client.accountId && view?.game_id === base.game_id && view.revision === base.revision && view.engine_fingerprint === base.engine_fingerprint;
     try {
@@ -387,7 +389,7 @@ export function boardScreen(store: Store) {
       refresh(); return;
     }
     if (serverDraft) serverDraft = { ...serverDraft, actions: serverDraft.actions.slice(0, -1), positions: serverDraft.positions.slice(0, -1) };
-    const step = steps.pop()!; ++generation; board.skip(); pos = step.pre; lastMove = steps.at(-1) ?? history.at(-1);
+    const step = steps.pop()!; ++generation; moveSounds.stop(); board.skip(); pos = step.pre; lastMove = steps.at(-1) ?? history.at(-1);
     armed = undefined; armedCard = undefined; selected = inspected = held = undefined; choices([]);
     board.sync(pos); refresh(); saveDraft();
     motion.play($('moves-line'), [{ transform: 'translateX(12px)' }, { transform: 'translateX(0)' }], 600);
@@ -403,7 +405,7 @@ export function boardScreen(store: Store) {
   $('table-bar').onkeydown = event => { if (event.key.toLowerCase() === 'z' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); undo(); } };
   rollbackBoardMove = async (code?: string) => {
     if (!view) return;
-    ++generation; board.skip(); animating = replaying = false;
+    ++generation; moveSounds.stop(); board.skip(); animating = replaying = false;
     // W7 ticket 04: INVALID_MOVE drops the draft; the other codes re-read, and the redraw rule keeps or drops it.
     if (code === 'INVALID_MOVE') { steps = []; dropDraft(); }
     lastMove = steps.length ? steps.at(-1) : history.at(-1);
@@ -418,7 +420,7 @@ export function boardScreen(store: Store) {
     if (event.key !== 'Escape' || client.state.screen !== 'board' && !sheet?.contains(event.target as Node)) return;
     event.preventDefault();
     if (replaying) { cancelReplay(); return; }
-    if (animating) { cursorShown = false; drawCursor(); rush = true; board.skip(); if (sheet?.open) closeBoardSheet(); return; }
+    if (animating) { cursorShown = false; drawCursor(); rush = true; skipMove(); if (sheet?.open) closeBoardSheet(); return; }
     cursorShown = false; armed = undefined; armedCard = undefined; selected = held = earlyTap = undefined; allMoveChoices = false; choices([]); refresh(); closeBoardSheet();
   }, { signal });
   function select(square: number, submit = true) {
@@ -438,7 +440,11 @@ export function boardScreen(store: Store) {
     if (one) return choose(one.lan);
     if (options.length > 1) { choices(options); boardSheet('Choose a move', $('choices')); return; }
     if (!pos.board[square]) { selected = inspected = undefined; choices(named()); }
-    else if (canPlay() && (colorOf(pos.board[square]) === view.seat || armedCard !== undefined && cardChoices().some(c=>c.move.from===square))) { selected = square; inspected = undefined; choices(choicesFrom(moves, square).filter(c => (armed || armedCard !== undefined || gameRules.rules.hands[view!.seat].length ? reachable(c) : true))); }
+    else if (canPlay() && (colorOf(pos.board[square]) === view.seat || armedCard !== undefined && cardChoices().some(c=>c.move.from===square))) {
+      const code = pos.board[square], side = colorOf(code);
+      if (selected !== square) selectPieceSound(typeOf(code), gameRules.rules.kings[side]?.king ?? PLAIN_KINGS[side]);
+      selected = square; inspected = undefined; choices(choicesFrom(moves, square).filter(c => (armed || armedCard !== undefined || gameRules.rules.hands[view!.seat].length ? reachable(c) : true)));
+    }
     else { inspected = square; if (submit && previewWaits()) earlyTap = square; }
     refresh();
   }
@@ -451,8 +457,8 @@ export function boardScreen(store: Store) {
   function bindBoard() {
     mountTable();
     if ($('board').parentElement !== $('game-table')) $('game-table').prepend($('board'));
-    board.onSquareClick = square => { if (animating && !replaying) { rush = true; board.skip(); return; } select(square); };
-    board.onDragSelect = square => { if (animating && !replaying) { rush = true; board.skip(); return; } select(square, false); };
+    board.onSquareClick = square => { if (animating && !replaying) { rush = true; skipMove(); return; } select(square); };
+    board.onDragSelect = square => { if (animating && !replaying) { rush = true; skipMove(); return; } select(square, false); };
     $('board').tabIndex = 0;
     $('board').onblur = () => { cursorShown = false; const hold = holding(); board.setPreview(hold ? heldSquare(hold.move) : null); drawCursor(); sayCursor(); };
     $('board').onkeydown = event => {
@@ -732,6 +738,7 @@ export function boardScreen(store: Store) {
   const key = (p: Page) => { const l = locks(p); return [p.screen, p.view?.game_id, p.view?.revision, p.view?.status, p.view?.fen, l.game, l.blocked, staleRead(p), p.notice?.kind === 'refusal' ? p.notice.text : ''].join('|'); };
   const unsubscribe = store.subscribe((page, before) => {
     if (!active() || page.writing || page.pending?.error || page.view?.game_id !== before.view?.game_id || page.view?.turn !== before.view?.turn) clearConfirmation();
+    if (!active() && ['board', 'end'].includes(before.screen)) moveSounds.stop();
     if (page.screen !== 'board') cancelReplay();
     $('app-root').dataset.uiMotion = memory.settings?.symbols_only ? 'off' : 'fast'; if (memory.settings?.symbols_only) motion.cancel(); if (active()) { if (key(page) !== key(before)) refresh(); if (page.screen !== before.screen) restorePreview(); } else { movesChoice = undefined; fitMoves(); skipBoardCeremony(); motion.cancel(); if (['board', 'end'].includes(before.screen)) { dealing = opening = false; dealtAt = openingAt = turnAt = checkAt = -Infinity; } }
     if (active() && page.pending?.error && page.pending.error !== before.pending?.error) { motion.reveal($('error'), 400, 8); motion.reveal($('retry'), 350, 5, 650); }
@@ -761,10 +768,9 @@ export function boardScreen(store: Store) {
     void (async () => {
       for (const step of playback) {
         if (token !== generation) return;
-        const hit = manual ? undefined : hitSound(step, token);
-        if (!step.move.pass && !rush && (step.move.drop === undefined || step.move.power)) await board.animateMove(step.pre, step.move, hit);
+        await playStep(step, token, manual);
         if (token !== generation) return;
-        board.sync(step.pos); hit?.();
+        board.sync(step.pos);
         if (!manual && (previewPosition()?.in_check ?? gameRules.inCheck(step.pos))) snd.check();
       }
       if (token === generation) { board.sync(current); animating = replaying = false; refresh(); scheduleComputer(); }
@@ -810,7 +816,8 @@ export function boardScreen(store: Store) {
       scheduleComputer(); return;
     }
     previewAbort?.abort(); previewAbort = undefined; previewing = false; serverDraft = undefined;
-    const token = ++generation; board.skip(); animating = replaying = false; replayShadow = undefined; $('board').dataset.animating='false';
+    if (!same && !animating) moveSounds.stop();
+    const token = ++generation; skipMove(); animating = replaying = false; replayShadow = undefined; $('board').dataset.animating='false';
     if (!same) { board.resetEffects(); movesChoice = undefined; history = []; lastMove = undefined; steps = []; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); taught.clear(); }
     if (next.turn === next.seat || next.status !== 'playing') { computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; }
     const local = steps; steps = []; if (local.length) lastMove = history.at(-1);
@@ -854,7 +861,7 @@ export function boardScreen(store: Store) {
   return Object.assign(draw, { dispose() {
     if (tornDown) return;
     tornDown = true; ++generation; previewAbort?.abort(); previewAbort = undefined;
-    clearConfirmation(); motion.dispose(); skipBoardCeremony(); stopPlacingChoice(); refreshCardSheet = undefined;
+    moveSounds.stop(); clearConfirmation(); motion.dispose(); skipBoardCeremony(); stopPlacingChoice(); refreshCardSheet = undefined;
     clearTimeout(thinkingTimer); clearTimeout(deadlineTimer);
     events.abort(); unsubscribe(); cursorObserver.disconnect(); movesObserver.disconnect(); resultObserver.disconnect(); sheetObserver.disconnect();
     disposeBoard(); view = undefined; pos = undefined; history = []; lastMove = undefined; steps = [];

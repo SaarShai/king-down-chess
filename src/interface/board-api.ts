@@ -1,10 +1,9 @@
 import { PaintedView, type Pace } from '../render/PaintedView';
 import { GameRules } from '../game-rules';
 import type { Move, Position } from '../rules/engine';
-import { momentKind } from '../moment';
-import { soundsFor } from '../render/sounds';
-import { snd, playArmour, movementSample, stopSelection, type SamplePlayback } from '../render/sfx';
-import { colorOf, typeOf, N, P, G, M, O, K, PLAIN_KINGS, type Color } from '../rules/engine';
+import { boardSounds } from '../render/sounds';
+import { snd } from '../render/sfx';
+import { colorOf, type Color } from '../rules/engine';
 import type { Highlights } from '../render/marks';
 import type { PlainMarks } from '../render/plain-marks';
 
@@ -51,13 +50,7 @@ const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => res
 export function mountBoard(element: HTMLElement, onSquare: (square: number) => void = () => {}, options: { liveInput?: boolean; quiet?: boolean; plainMarks?: boolean; initialBoardArt?: string; armourSounds?: boolean; onArtError?: (url: string) => void } = {}): Board {
   const view = new PaintedView(element, { ...options, holdStills: true, lazySheets: true, floor: options.quiet ? null : undefined, webInk: options.quiet });
   let rules = new GameRules(), position: Position | null = null, busy = false, skipped = false, generation = 0;
-  let knightTake = false, pawnTake = false;
-  // Every character cue of this board: leap, landing, walk, movement and the takes that end after their move.
-  const cues = new Set<SamplePlayback>();
-  let cueRound = 0;
-  function cue(playback: SamplePlayback) { cues.add(playback); void playback.done.then(() => cues.delete(playback)); return playback; }
-  /** Stop every character cue at once; the pending cues of the move that plays stay silent. */
-  function stopCues() { cueRound++; for (const playback of cues) playback.cancel(); cues.clear(); stopSelection(); }
+  const { move: moveSound, stop: stopCues } = boardSounds();
   // An idle skip or position (End turn, the next move's start) keeps the natural end of the last take.
   function interrupt() { if (busy) stopCues(); }
   const page = typeof document === 'undefined' ? undefined : document;
@@ -104,7 +97,7 @@ export function mountBoard(element: HTMLElement, onSquare: (square: number) => v
     async play(action, after) {
       if (!position) throw new Error('Set a position before playback.');
       if (busy) throw new Error('The board already plays an action.');
-      const own = generation, round = cueRound, before = position, start = performance.now();
+      const own = generation, before = position, start = performance.now();
       busy = true; skipped = false;
       if (options.liveInput && !('kind' in action)) position = structuredClone(after ?? rules.makeMove(before, action));
       try {
@@ -113,34 +106,11 @@ export function mountBoard(element: HTMLElement, onSquare: (square: number) => v
           else view.setFallen(action.square);
           while (view.animating && own === generation) await frame();
         } else {
-          const sounds = soundsFor(momentKind(before, action), action);
-          const piece = before.board[action.from], type = typeOf(piece), side = colorOf(piece);
-          const knight = options.armourSounds !== false && type === N && action.from !== action.to && action.drop === undefined && !action.swap && sounds.now !== 'shot' && sounds.now !== 'swap';
-          const pawn = options.armourSounds !== false && type === P && action.from !== action.to && action.drop === undefined && !action.swap && sounds.now !== 'shot' && sounds.now !== 'swap';
-          const moves = options.armourSounds !== false && action.from !== action.to && action.drop === undefined && !action.pass && !action.pushes && !action.swap && sounds.now !== 'shot' && sounds.now !== 'swap';
-          const newMove = options.armourSounds !== false && action.from !== action.to && action.drop === undefined && !action.pass && !action.pushes && [G, M, O, K].includes(type) && (!action.swap || type === M);
-          const movement = moves || newMove ? movementSample(type, rules.rules.kings[side]?.king ?? PLAIN_KINGS[side]) : undefined;
-          const bishop = movement === 'bishopMove';
-          const take = knightTake ? 'B' : 'A';
-          if (knight) { knightTake = !knightTake; cue(playArmour(`knightLeap${take}`)); }
-          if (pawn) { cue(playArmour(pawnTake ? 'pawnWalkB' : 'pawnWalkA')); pawnTake = !pawnTake; }
-          const animated = pace !== 'off' && !symbolsActive && !page?.hidden;
-          let playback: SamplePlayback | undefined;
-          const startMove = () => {
-            if (own !== generation || round !== cueRound || skipped || pace === 'off' || symbolsActive || page?.hidden) return;
-            playback = movement ? cue(bishop ? playArmour(movement) : playArmour(movement, true)) : undefined;
-          };
-          if (!animated && !page?.hidden && movement) cue(playArmour(movement));
-          if (sounds.now && !((knight || pawn || movement) && sounds.now === 'move')) snd[sounds.now]();
-          let struck = false;
-          const contact = () => { if (!struck && own === generation) { struck = true; if (knight && round === cueRound) cue(playArmour(`knightLand${take}`)); if (sounds.hit) snd[sounds.hit](); } };
+          const sound = moveSound(before, action, rules, pace !== 'off' && !symbolsActive, () => own === generation, options.armourSounds !== false);
           // A reserve drop has no motion; a Salvation return or an Earth Quake may start on an empty square (main board.ts:325).
-          try { if (action.drop === undefined || action.power) await view.animateMove(before, action, contact, undefined, startMove); }
-          finally {
-            // A normal end keeps the current take to its end; it stays in `cues` until then.
-            if (own === generation && round === cueRound && !skipped) playback?.finish(); else playback?.cancel();
-          }
-          contact();
+          try { if (action.drop === undefined || action.power) await view.animateMove(before, action, sound.contact, undefined, sound.start); }
+          finally { sound.finish(); }
+          sound.contact();
           if (options.plainMarks && !action.swap && pace !== 'off' && !reduced && !skipped && own === generation) await hold(start);
           if (own === generation) {
             position = structuredClone(after ?? rules.makeMove(before, action));

@@ -30,7 +30,7 @@ let muse = false, parkedPaths = [];
 // One file per art format checks the static routes without a player token.
 const formats = new Set();
 const art = (existsSync(artDir) ? readdirSync(artDir).sort() : []).filter(name => {
-  const format = /^[\w-]+\.(webp|png|svg|woff2)$/.exec(name)?.[1];
+  const format = /^[\w-]+\.(webp|png|svg|woff2|mjs)$/.exec(name)?.[1];
   if (!format || formats.has(format)) return false;
   formats.add(format); return true;
 }).map(name => {
