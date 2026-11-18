@@ -73,8 +73,8 @@ it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 215, 175], [320, 568
     await hall(page);
     await page.evaluate(async safe => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: safe, deviceCapabilities: { touch: true } }); }, { top, bottom, left: 0, right: 0 });
     await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
-    await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).locator('..').click();
-    for (const name of ['Rook', 'Bishop', 'Knight', 'Maester']) await frame.getByRole('checkbox', { name, exact: true }).uncheck();
+    await frame.locator('#setup-sorting').getByRole('radio', { name: 'Manual', exact: true }).locator('..').click();
+    for (const name of ['Rook x1', 'Bishop x1', 'Knight x1', 'Maester x1']) await frame.getByRole('checkbox', { name, exact: true }).uncheck();
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
     await frame.locator('html').evaluate(() => document.fonts.ready.then(() => {}));
     await frame.locator('#board[aria-busy="false"]').waitFor();
@@ -173,7 +173,7 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
       await page.goto(harness.url); await hall(page);
       await page.evaluate(async safe => { await (window as any).harnessSetContext({displayMode:'fullscreen',safeAreaInsets:safe,deviceCapabilities:{touch:true}}); },{top,bottom,left,right});
       await frame.getByRole('radio',{name:'Computer',exact:true}).locator('..').click();
-      await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).locator('..').click();
+      await frame.locator('#setup-sorting').getByRole('radio', { name: 'Manual', exact: true }).locator('..').click();
       await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
       const canvasWidth=()=>frame.locator('#board canvas').evaluate(e=>e.getBoundingClientRect().width);
       await frame.locator('html').evaluate(() => document.fonts.ready.then(() => {}));
@@ -213,7 +213,7 @@ it('counts the phone safe area once when browser and host both report it', async
     await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
     await page.evaluate(async () => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', deviceCapabilities: { touch: true }, safeAreaInsets: { top: 102, bottom: 118, left: 0, right: 0 } }); });
     await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
-    await frame.locator('#setup-sorting').getByRole('radio', {name:'Player',exact:true}).locator('..').click();
+    await frame.locator('#setup-sorting').getByRole('radio', {name:'Manual',exact:true}).locator('..').click();
     for (const name of ['Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).check();
     await frame.locator('#setup-start').click();
     await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
@@ -254,7 +254,7 @@ it('keeps 44 px card and power targets in two player rows', async () => {
     await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-nav="handle"]').click();
     await frame.locator('#handle').fill('wwwwwwwwwwwwwwwwwwww'); await frame.locator('#save-handle').click(); await frame.locator('#page-back').click();
     await frame.getByRole('radio',{name:'Computer',exact:true}).locator('..').click();
-    await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).locator('..').click();
+    await frame.locator('#setup-sorting').getByRole('radio', { name: 'Manual', exact: true }).locator('..').click();
     await frame.getByRole('checkbox',{name:'Cards',exact:true}).check(); await frame.getByRole('checkbox',{name:'King powers',exact:true}).check();
     await frame.locator('#setup-start').click();
     await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
@@ -297,9 +297,10 @@ it('returns focus to each sheet opener after a pointer opens the sheet', async (
     await page.goto(harness.url); await frame.locator('#home-games:not(:disabled)').click(); await frame.locator('#setup-options').evaluate(e => { (e as HTMLDetailsElement).open = true; });
     await page.evaluate(async()=>{await (window as any).harnessSetContext({deviceCapabilities:{touch:true},displayMode:'fullscreen',safeAreaInsets:{top:20,bottom:0,left:0,right:0}});});
     await frame.getByRole('radio',{name:'Computer',exact:true}).locator('..').click();
-    await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).locator('..').click();
+    await frame.locator('#setup-sorting').getByRole('radio', { name: 'Manual', exact: true }).locator('..').click();
     await frame.getByRole('checkbox',{name:'Cards',exact:true}).check(); await frame.getByRole('checkbox',{name:'King powers',exact:true}).check();
-    for (const id of ['setup-card-Haste','setup-king']) await opens(id, '#menu-sheet');
+    await frame.locator('#cards-heading').click(); await opens('setup-card-Haste', '#menu-sheet');
+    await frame.locator('#kingPowers-heading').click(); await opens('setup-king', '#menu-sheet');
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
     await frame.locator('#seat-menu:not(:disabled)').waitFor();
     await opens('seat-menu', '#seat-menu-sheet'); await opens('seat-menu', '#seat-menu-sheet', '×');
@@ -393,7 +394,7 @@ it('opens Menu from seat Back and board Main menu on a portrait phone', async ()
   } finally { await page.close(); }
 });
 
-it('shows each checked flat choice in light and dark mode', async () => {
+it('shows each checked opponent choice in light and dark mode', async () => {
   const page = await browser.newPage({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
   try {
     await page.goto(harness.url); await hall(page);
@@ -403,7 +404,7 @@ it('shows each checked flat choice in light and dark mode', async () => {
     for (const theme of ['light', 'dark'] as const) {
       await page.emulateMedia({ colorScheme: theme });
       await page.evaluate(theme => (window as any).harnessSetContext({ theme }), theme);
-      for (const [first, second] of [['A friend', 'Computer'], ['Black', 'White']]) {
+      for (const [first, second] of [['A friend', 'Computer']]) {
         await frame.getByRole('radio', { name: first, exact: true }).locator('..').click();
         const selected = await face(first), clear = await face(second);
         expect(selected.fill).not.toBe(clear.fill); expect(selected.colour).not.toBe(clear.colour);
@@ -539,7 +540,7 @@ it('keeps page-title words whole, the seat title short and the title at body siz
     await frame.locator('#page-back').click(); await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
     await frame.locator('#page-back').click();
     await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click({ timeout: 3000 * STEP });
-    await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).locator('..').click({ timeout: 3000 * STEP });
+    await frame.locator('#setup-sorting').getByRole('radio', { name: 'Manual', exact: true }).locator('..').click({ timeout: 3000 * STEP });
      await frame.locator('#setup-start').click({ timeout: 3000 * STEP }); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
      // Layout B hides this title in portrait. Keep the 197 px width and check it in landscape, where it shows.
      await page.setViewportSize({ width: 197, height: 196 });
@@ -581,7 +582,7 @@ it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)'
     const { page, frame } = await hostPage(197, 426, 51, 59), all = features.includes('Cards');
     try {
       await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
-      await frame.locator('#setup-sorting').getByRole('radio', {name:'Player',exact:true}).locator('..').click();
+      await frame.locator('#setup-sorting').getByRole('radio', {name:'Manual',exact:true}).locator('..').click();
       for (const name of ['Fairy pieces', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).setChecked(features.includes(name));
       await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
       await frame.locator('#board[aria-busy="false"]').waitFor();
@@ -648,7 +649,7 @@ it('keeps the board screen unscrolled without cards where the rows fit under 320
   const { page, frame } = await hostPage(314, 681, 82, 94);
   try {
     await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
-    await frame.locator('#setup-sorting').getByRole('radio', {name:'Player',exact:true}).locator('..').click();
+    await frame.locator('#setup-sorting').getByRole('radio', {name:'Manual',exact:true}).locator('..').click();
       for (const name of ['Fairy pieces', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).setChecked(name === 'Fairy pieces');
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
     await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
@@ -679,8 +680,9 @@ it.each([[320, 568, 63, 84, true, 214, 109], [393, 852, 102, 118, true, 382, 300
     await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     // Cards and King powers stay on from the zoom test above; the test sets them, so its widths do not depend on the order.
     for (const name of ['Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).check();
+    if (await frame.locator('#fairy-body').isHidden()) await frame.locator('#fairy-heading').click();
     // Every kind but the guard (an earlier test keeps a smaller pool), so no guard note takes a row from the seat board.
-    await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).locator('..').click();
+    await frame.locator('#setup-sorting').getByRole('radio', { name: 'Manual', exact: true }).locator('..').click();
     const pieces = frame.locator('#fairy-body');
     for (const kind of await pieces.getByRole('checkbox').all()) await kind.check();
     await pieces.getByRole('checkbox', { name: 'Guard', exact: true }).uncheck();
@@ -704,7 +706,7 @@ it.each([[426, 59], [800, 0]])('keeps Back clear and end actions reachable at 19
   const { page, frame } = await hostPage(197, height, 51, bottom);
   try {
     await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
-    await frame.getByRole('radio', { name: 'White', exact: true }).locator('..').click();
+    await frame.locator('#setup-colour').fill('0');
     await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).check();
     await frame.locator('#setup-sorting').getByRole('radio', {name:'Random',exact:true}).locator('..').click();
     for (const name of ['Fairy pieces', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).uncheck();

@@ -187,7 +187,7 @@ export function createMuseServer({ games, actorId, publicOrigin }: { games: Muse
       const context = new GameRules(v?.rules ?? DEFAULT_RULES);
       const types = solo ? [...board(solo.rules!, solo.fen).pos.board].filter(Boolean).map(typeOf) : [...`KQRBNP${POOL}`].map(l => LETTERS.indexOf(l) as PieceType);
       const pieces = [...new Set(types)].map(t => context.nameOf(t));
-      return { lead: 'That is not a piece, square, king power or card of King Down.', lines: [`Pieces in play: ${pieces.join(', ')}.`], data: { known: false, pieces } };
+      return { lead: 'I do not know that King Down topic.', lines: [`Pieces in play: ${pieces.join(', ')}.`], data: { known: false, pieces } };
     });
 
   tool('kingdown_new_game', 'New game', 'Starts a new King Down game against the computer, with fairy pieces unless classic is true. A new request_id makes a new game; the same request_id on a retry returns the same game. The result gives your colour, the back rank, the computer\'s first move when it plays White, and the board.',

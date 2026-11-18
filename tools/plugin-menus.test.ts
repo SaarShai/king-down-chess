@@ -186,7 +186,7 @@ it('shows each card and power with whole words on each card sheet and the king s
     }
     expect(Object.keys(sheet).length).toBeGreaterThan(0);
     for (const line of Object.values(sheet)) { expect(line).toMatch(/^[A-Z].*\.$/); expect(line).not.toMatch(/captur/); }
-    await frame.locator('#kingPowers-row').click();
+    await frame.locator('#setup-toggle-kingPowers').check();
     await frame.locator('#setup-king').click();
     const power = await frame.locator('#menu-sheet .power-text').first().textContent();
     expect(power).toMatch(/: \S/);

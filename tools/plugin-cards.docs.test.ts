@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 
-it('keeps Q20 in line with the two inline card modes and the Start check', () => {
+it('keeps Q20 in line with the shared deal and the four-card minimum', () => {
   const deal = readFileSync('docs/specs/chatgpt-mvp/spec.md', 'utf8').split('\n').find(line => line.startsWith('| Q20 | The deal |'))!;
   expect(deal).toContain('Both players get the same 4 cards.');
-  expect(deal).toContain('Use all cards accepts a pool of 4 or more cards and deals a random 4.');
-  expect(deal).toContain('Pick four starts empty and deals exactly those 4.');
-  expect(deal).toContain('Use all cards locks the last 4 checked cards. Start sends no Create with fewer than 4 cards.');
+  expect(deal).toContain('Cards starts with all 21 selected.');
+  expect(deal).toContain('At 4, the editor names the cards in catalog order.');
+  expect(deal).toContain('An attempt to remove one keeps it checked and shows the minimum in the footer.');
 });

@@ -1294,7 +1294,7 @@ it.each(['Abort', 'New game'])('opens the draft heading after %s and a held game
     expect(await frame.locator('#setup-options').evaluate(e => (e as HTMLDetailsElement).open)).toBe(false);
     await frame.locator('#setup-options summary').click();
     expect(await frame.getByRole('radio', {name:'Computer',exact:true}).isChecked()).toBe(true);
-    expect(await frame.getByRole('radio', {name:'White',exact:true}).isChecked()).toBe(true);
+    expect(await frame.locator('#setup-colour').inputValue()).toBe('0');
     expect(await frame.locator('#setup-level').getAttribute('aria-valuetext')).toBe('Clever');
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
@@ -1346,9 +1346,9 @@ it.each([false, true])('keeps Abort confirmation and returns its game draft from
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     expect(await frame.getByRole('radio', { name: 'Computer', exact: true }).isChecked()).toBe(true);
     await frame.locator('#setup-options summary').click();
-    expect(await frame.getByRole('radio', { name: seat ? 'Black' : 'White', exact: true }).isChecked()).toBe(true);
+    expect(await frame.locator('#setup-colour').inputValue()).toBe(seat ? '1' : '0');
     expect(await frame.locator('#setup-level').getAttribute('aria-valuetext')).toBe('Club');
-    expect(await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).isChecked()).toBe(seat);
+    expect(await frame.locator('#setup-sorting').getByRole('radio', { name: 'Manual', exact: true }).isChecked()).toBe(seat);
     expect(await frame.getByRole('checkbox', { name: 'King powers', exact: true }).isChecked()).toBe(seat);
     expect(await frame.locator('#over[open], #board[data-toppling], #board .kd-words').count()).toBe(0);
   } finally { await page.close(); }
@@ -1474,7 +1474,7 @@ it.each(['retry', 'remount'])('keeps the saved New game choices after a lost Pla
     expect(await frame.locator('#games-start').isDisabled()).toBe(true);
     expect(await frame.getByRole('radio', { name: 'Computer', exact: true }).isChecked()).toBe(true);
     expect(await frame.locator('#setup-level').getAttribute('aria-valuetext')).toBe('Casual');
-    expect(await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).isChecked()).toBe(false);
+    expect(await frame.locator('#setup-sorting').getByRole('radio', { name: 'Manual', exact: true }).isChecked()).toBe(false);
     expect(await frame.locator('#setup-start').textContent()).not.toMatch(/Strong|Arrangement/);
     if (recovery === 'remount') await remount(page);
     // A remount of a pending with an error shows its saved words and Retry; the player taps Retry (design §5.3).
@@ -1488,7 +1488,7 @@ it.each(['retry', 'remount'])('keeps the saved New game choices after a lost Pla
     await hall(page);
     expect(await frame.getByRole('radio', { name: 'A friend', exact: true }).isChecked()).toBe(true);
     expect(await frame.locator('#setup-level').getAttribute('aria-valuetext')).toBe('Club');
-    expect(await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).isChecked()).toBe(true);
+    expect(await frame.locator('#setup-sorting').getByRole('radio', { name: 'Manual', exact: true }).isChecked()).toBe(true);
     await frame.locator('#setup-start').click();
     await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
     expect(await frame.locator('html').evaluate(async () => (await (window as any).harnessApp.client.call('kingdown_settings'))._meta.settings.last_setup.kind)).toBe('friend');
@@ -1525,7 +1525,7 @@ it.each(['kingdown_choose', 'kingdown_get'])('shows Retry when Play now times ou
     await hall(page);
     expect(await frame.getByRole('radio', { name: 'A friend', exact: true }).isChecked()).toBe(true);
     expect(await frame.locator('#setup-level').getAttribute('aria-valuetext')).toBe('Club');
-    expect(await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).isChecked()).toBe(true);
+    expect(await frame.locator('#setup-sorting').getByRole('radio', { name: 'Manual', exact: true }).isChecked()).toBe(true);
   } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
 });
 
@@ -2110,7 +2110,7 @@ it.each(['timeout', 'remount'])('retries Play now with the same command ID after
       expect(await frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
       expect(await frame.locator('#setup-start').isDisabled()).toBe(true);
       expect(await frame.locator('#setup-level').getAttribute('aria-valuetext')).toBe('Casual');
-      expect(await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).isChecked()).toBe(false);
+      expect(await frame.locator('#setup-sorting').getByRole('radio', { name: 'Manual', exact: true }).isChecked()).toBe(false);
       await frame.locator('#retry').click();
     } else await remount(page);
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
@@ -2128,7 +2128,7 @@ it.each(['timeout', 'remount'])('retries Play now with the same command ID after
     await hall(page);
     expect(await frame.getByRole('radio', { name: 'A friend', exact: true }).isChecked()).toBe(true);
     expect(await frame.locator('#setup-level').getAttribute('aria-valuetext')).toBe('Club');
-    expect(await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).isChecked()).toBe(true);
+    expect(await frame.locator('#setup-sorting').getByRole('radio', { name: 'Manual', exact: true }).isChecked()).toBe(true);
   } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
 });
 

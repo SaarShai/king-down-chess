@@ -42,7 +42,7 @@ it('keeps coins in the frame and the first name word visible at 320 px with Card
     await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     await frame.locator('#setup-options summary').click();
     await frame.locator('#setup-level').fill('2');
-    await frame.getByRole('radio', { name: 'Black', exact: true }).locator('..').click();
+    await frame.locator('#setup-colour').fill('1');
     await frame.locator('#setup-sorting').getByRole('radio', { name: 'Random', exact: true }).locator('..').click();
     await frame.getByRole('checkbox', { name: 'Cards', exact: true }).check();
     await frame.getByRole('checkbox', { name: 'King powers', exact: true }).check();

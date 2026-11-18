@@ -12,8 +12,13 @@ import type { MatchSetup } from './index';
 
 /** The deal list of spec Q20, in its order. */
 export const DEAL_CARDS: readonly CardName[] = RELEASED_CARDS.map(card => card.id);
+/** The last four cards of a choice stay on: a hand needs four. */
+export const cardLocked = (picked: readonly CardName[], card: CardName) => picked.length <= 4 && picked.includes(card);
+export const selectCard = (picked: readonly CardName[], card: CardName, on: boolean): readonly CardName[] =>
+  !on && cardLocked(picked, card) ? picked : DEAL_CARDS.filter(c => c === card ? on : picked.includes(c));
 /** The piece kinds of the "all" sheet: each kind of `POOL` once (spec Q7); `single` can reduce a two-copy kind to one. */
 export const POOL_KINDS: readonly string[] = [...new Set(POOL)];
+export const DOUBLE_KINDS = POOL_KINDS.filter(kind => POOL.split(kind).length === 3);
 
 export interface Options { fairy: boolean; pool: readonly string[]; single?: string[]; arrangement: boolean; classic: boolean; cards: boolean; cardPool: readonly CardName[]; kingPowers: boolean }
 /** The five feature switches that a random game must share with a Find (owner, D1 a). The piece and card pools may differ. */
@@ -24,7 +29,7 @@ export const DEFAULT_OPTIONS: Readonly<Options> = Object.freeze({ fairy: true, p
 /** The first ranked family is fixed before the army and cards are drawn. */
 export const RANKED_OPTIONS: Readonly<Options> = Object.freeze({ ...DEFAULT_OPTIONS, arrangement: false, cards: true, kingPowers: true });
 
-const letters = ({ pool, single }: Options): string => [...POOL].filter((l, i) => pool.includes(l) && (!single?.includes(l) || POOL.indexOf(l) === i)).join('');
+export const countedPool = ({ pool, single }: Pick<Options, 'pool' | 'single'>): string => [...POOL].filter((l, i) => pool.includes(l) && (!single?.includes(l) || POOL.indexOf(l) === i)).join('');
 
 /** Why `o` is not a legal set of options, or null (spec Q7, Q19, Q20). */
 export function validate(o: Options): string | null {
@@ -32,11 +37,11 @@ export function validate(o: Options): string | null {
   if (o.arrangement && !o.fairy) return 'Arrangement needs Fairy pieces on.';
   if (o.single?.length) {
     if (!o.fairy) return 'Single pieces need Fairy pieces on.';
-    if (new Set(o.single).size !== o.single.length || o.single.some(k => !o.pool.includes(k) || [...POOL].filter(l => l === k).length !== 2)) return 'Unknown, repeated or unavailable single piece kind.';
+    if (new Set(o.single).size !== o.single.length || o.single.some(k => !o.pool.includes(k) || !DOUBLE_KINDS.includes(k))) return 'Unknown, repeated or unavailable single piece kind.';
   }
   if (o.fairy) {
     if (new Set(o.pool).size !== o.pool.length || o.pool.some(k => !POOL_KINDS.includes(k))) return 'Unknown or repeated piece kind.';
-    if (letters(o).length < 7) return 'Keep at least 7 pieces in the pool.';
+    if (countedPool(o).length < 7) return 'Keep at least 7 pieces in the pool.';
   }
   if (new Set(o.cardPool).size !== o.cardPool.length || o.cardPool.some(c => !DEAL_CARDS.includes(c))) return 'Unknown or repeated card.';
   if (o.cards && o.cardPool.length < 4) return 'Keep at least 4 cards.';
@@ -49,7 +54,7 @@ export interface Draw { army: string; hand: CardName[] }
 /** Draws the army through `randomBackRank` (or the chess start with Classic) and deals 4 cards, the same for both sides. */
 export function draw(o: Options, rng: () => number): Draw {
   const error = validate(o); if (error) throw new Error(error);
-  const army = o.classic ? CLASSIC_CHESS : new GameRules().randomBackRank(rng, o.fairy ? letters(o) : 'QRRBBNN');
+  const army = o.classic ? CLASSIC_CHESS : new GameRules().randomBackRank(rng, o.fairy ? countedPool(o) : 'QRRBBNN');
   return { army, hand: o.cards ? shuffle([...o.cardPool], rng).slice(0, 4) : [] };
 }
 

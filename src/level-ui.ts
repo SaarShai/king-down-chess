@@ -5,6 +5,6 @@ export const LEVEL_NAMES: Record<SkillName, string> = { beginner: 'Casual', casu
 export const LEVEL_LINES: Record<SkillName, string> = { beginner: 'New to King Down? Start here.', casual: 'Makes some mistakes.', club: 'Plays well. Keep your pieces safe.', strong: 'Thinks longer. Plays stronger.' };
 export const menuLevel = (level: SkillName) => level === 'strong' ? 'club' : level;
 export const levelPosition = (level: SkillName) => MENU_LEVELS.indexOf(menuLevel(level));
-export function levelSlider(id: string) {
-  return `<div id="${id}-control" class="level-control"><label for="${id}">Level<input id="${id}" type="range" min="0" max="2" step="1" aria-describedby="level-line"></label><div class="level-stops" aria-hidden="true"><span>Casual</span><span>Clever</span><span>Club</span></div></div>`;
+export function levelSlider(id: string, title = 'Level', stops: readonly string[] = MENU_LEVELS.map(level => LEVEL_NAMES[level]), line = 'level-line') {
+  return `<div id="${id}-control" class="level-control"><label for="${id}"><span>${title}</span><input id="${id}" type="range" min="0" max="${stops.length - 1}" step="1" aria-describedby="${line}"></label><div class="level-stops" aria-hidden="true">${stops.map(stop => `<span>${stop}</span>`).join('')}</div></div>`;
 }

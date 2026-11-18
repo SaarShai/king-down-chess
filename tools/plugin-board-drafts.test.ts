@@ -454,6 +454,64 @@ it('F11: a tap skips a local move without selecting a piece', async () => {
   } finally { await page.close(); }
 });
 
+it.each([['solo', false], ['friend', false], ['friend', true]] as const)('replays the whole %s reply without a command (reduced %s)', async (kind, reduced) => {
+  const initial_fen = '4k3/p7/8/8/8/8/4P3/K7 b - - 0 1';
+  const rules: Partial<Rules> = { kings: [null, { king: 'Flame', power: 'Haste' }] };
+  const first = applyLan(fromFen(initial_fen), 'a7-a6!H', rules)!;
+  const second = applyLan(first.pos, 'a6-a5', rules)!;
+  const fen = toFen(second.pos), next = view(fen, rules, { kind, revision: 1, history: { initial_fen, actions: [first.lan, second.lan] } });
+  const page = await open(next), frame = page.frameLocator('iframe'), html = frame.locator('html'), undo = frame.locator('#undo');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await settleBoardReads(page);
+    await html.evaluate(reduced => {
+      const host = window as any, board = host.testBoard;
+      board.setPace('fast');
+      board.setReducedMotion(reduced);
+      host.replayed = [];
+      board.animateMove = (_: unknown, move: Move) => {
+        host.replayed.push([move.from, move.to]);
+        return host.holdReplay ? new Promise<void>(done => { host.finishReplay = done; }) : Promise.resolve();
+      };
+      const skip = board.skip.bind(board);
+      board.skip = () => { host.finishReplay?.(); skip(); };
+    }, reduced);
+    expect(await undo.innerText()).toBe('Replay');
+    expect(await undo.locator('use').getAttribute('href')).toBe('#i-play');
+    expect(await frame.locator('symbol').count()).toBe(26);
+    expect(await undo.getAttribute('aria-disabled')).toBe('false');
+    const entered = await undo.evaluate((button, reduced) => {
+      const board = (window as any).testBoard;
+      board.setPace('fast'); board.setReducedMotion(reduced);
+      (button as HTMLButtonElement).click();
+      return { motion: board.motion(), animating: document.getElementById('board')!.dataset.animating, calls: (window as any).replayed.length };
+    }, reduced);
+    expect(entered).toEqual({ motion: !reduced, animating: String(!reduced), calls: reduced ? 0 : 1 });
+    await frame.locator('#board[data-animating="false"]').waitFor();
+    expect(await html.evaluate(() => (window as any).replayed)).toEqual(reduced ? [] : [[48,40],[40,32]]);
+    expect((await marks(page)).last).toEqual([48,40,32]);
+    expect(await boardFen(page)).toBe(fen);
+    expect(await savedDraft(page)).toBeNull();
+    expect(await html.evaluate(() => (window as any).harnessApp.memory.view.revision)).toBe(next.revision);
+    expect(await moveCalls(page)).toEqual([]);
+    await chooseTurnMove(page, 'e2-e4', 12);
+    expect(await undo.innerText()).toBe('Undo');
+    expect(await undo.locator('use').getAttribute('href')).toBe('#i-undo');
+    await undo.click();
+    expect(await undo.innerText()).toBe('Replay');
+    await expect.poll(() => savedDraft(page)).toBeNull();
+    if (!reduced) {
+      await html.evaluate(() => { (window as any).holdReplay = true; });
+      await undo.click(); await frame.locator('#board[data-animating="true"]').waitFor();
+      await frame.locator('#board-menu').click();
+      await frame.getByRole('button', { name: 'Choose a move', exact: true }).click();
+      expect(await frame.getByRole('dialog', { name: 'Choose a move', exact: true }).isVisible()).toBe(true);
+      expect(await boardFen(page)).toBe(fen);
+      expect(await frame.locator('#board').getAttribute('data-animating')).toBe('false');
+    }
+  } finally { await page.close(); }
+});
+
 it.each(['mouse', 'touch'] as const)('A8: real %s input skips both Haste moves', async input => {
   const rules: Partial<Rules> = { kings: [null, { king: 'Flame', power: 'Haste' }] };
   const base = view('4k3/p7/8/8/8/8/4P3/K7 b - - 0 1', rules, { kind: 'friend', seat: 0, action: 'waiting' });

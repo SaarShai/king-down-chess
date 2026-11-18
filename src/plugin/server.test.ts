@@ -265,8 +265,32 @@ it('sends any rules from Create and Find to matchmaking, and says that the colou
   expect(create.description).toContain('the colour applies only to a new table');
   for (const name of ['kingdown_create','kingdown_find']) expect(tools.find(t=>t.name === name)!.inputSchema.properties!.any_rules).toMatchObject({type:'boolean'});
   await client.callTool({name:'kingdown_create',arguments:{kind:'random',options:DEFAULT_OPTIONS,any_rules:true,command_id:'c1'}});
-  await client.callTool({name:'kingdown_find',arguments:{options:DEFAULT_OPTIONS,colour:'black'}});
-  expect(find.mock.calls).toEqual([['alice',DEFAULT_OPTIONS,undefined,'c1',true,undefined],['alice',DEFAULT_OPTIONS,'black',undefined,undefined,undefined]]);
+  expect((await client.callTool({name:'kingdown_find',arguments:{options:DEFAULT_OPTIONS,colour:'black'}})).isError).not.toBe(true);
+  const options = { ...DEFAULT_OPTIONS, single: ['N'] };
+  expect((await client.callTool({name:'kingdown_find',arguments:{options,colour:'black'}})).isError).not.toBe(true);
+  expect(find.mock.calls).toEqual([
+   ['alice',DEFAULT_OPTIONS,undefined,'c1',true,undefined],
+   ['alice',DEFAULT_OPTIONS,'black',undefined,undefined,undefined],
+   ['alice',options,'black',undefined,undefined,undefined],
+  ]);
+ } finally {await client.close(); await server.close();}
+});
+
+it('keeps the single-copy list at the Create and Settings tool boundary', async () => {
+ const view = {game_id:'00000000-0000-4000-8000-000000000001',status:'playing',kind:'solo',seat:0,action:'ready',fen:'',draw_offer:null};
+ const create = vi.fn().mockResolvedValue(view), settings = vi.fn(async (_actor, input) => input);
+ const service = {toolTry:async()=>{},create,settings,profile:async()=>({handle:'ann',icon:null})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
+ const client = new Client({name:'single-copy-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const options = { ...DEFAULT_OPTIONS, single: ['N'] }, last_setup = readSetup({ options });
+  expect((await client.callTool({name:'kingdown_create',arguments:{kind:'solo',options}})).isError).not.toBe(true);
+  expect(create).toHaveBeenCalledWith('alice', { kind: 'solo', options }, undefined);
+  expect((await client.callTool({name:'kingdown_settings',arguments:{last_setup}}))._meta?.settings).toEqual({ last_setup });
+  expect(settings).toHaveBeenCalledWith('alice', { last_setup });
+  expect(await client.callTool({name:'kingdown_create',arguments:{kind:'solo',options:{...options,single:['Q']}}})).toMatchObject({isError:true,_meta:{code:'INVALID_INPUT'}});
+  expect(create).toHaveBeenCalledTimes(1);
  } finally {await client.close(); await server.close();}
 });
 

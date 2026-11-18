@@ -3,6 +3,9 @@
 #setup-body { display: contents; }
 #setup-body > .modes { margin-top: var(--space-2); }
 #setup-body > * { flex-shrink: 0; }
+#setup-options .level-control > label > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+#setup-start-status { margin: 0; color: var(--ink); font-size: var(--fs-sm); }
+#setup-start-status:empty { position: absolute; }
 [data-screen='play'] .new-game-body { container-type: inline-size; }
 @container (max-width: 260px) {
   #setup-body .modes { grid-template-columns: minmax(0, 1fr); }
@@ -75,7 +78,6 @@ label.check.pick.locked input:disabled { background-color: var(--stone-500); bor
 /* The focus ring marks the visible check, not the clear hit area. */
 #app-root #setup-card-pool label.card-use:has(input:focus) { outline: none; box-shadow: none !important; }
 .setup-card:has(input:checked) .card-face { border-color: var(--stone-700); transform: translateY(-3px); }
-#setup-card-pool input:disabled { background-color: var(--stone-500); border-color: var(--stone-700); cursor: default; }
 @container (max-width: 360px) { #setup-card-pool { max-height: 240px; } }
 /* At 200% zoom one column keeps each name whole. */
 @container (max-width: 260px) { #setup-card-pool { grid-template-columns: minmax(0, 1fr); } }
