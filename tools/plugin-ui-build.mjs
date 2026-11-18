@@ -1,13 +1,19 @@
 import { build } from 'vite';
 import { atRule, parse } from 'postcss';
 import { createHash } from 'node:crypto';
-import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
+import { readFile, readdir, writeFile, mkdir, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pluginSymbols } from './lib/plugin-symbols.mjs';
 import { buildWorker } from './plugin-runtime-build.mjs';
 const output = resolve(process.argv[2] || 'dist-plugin-ui');
 // Matches ART_ORIGIN in src/plugin/server.ts, which swaps in the server's public origin.
 const ART_ORIGIN = 'https://kingdown-art.invalid';
+// The widget loads static scripts from its resource domain. Its CSP blocks fetch.
+const wavDir = resolve('public/audio/armour');
+const waves = (await readdir(wavDir)).filter(file => file.endsWith('.wav')).sort();
+const recordings = Object.fromEntries(await Promise.all(waves.map(async file => [file.slice(0, -4), await readFile(resolve(wavDir, file), 'base64')])));
+const armourModule = `export default ${JSON.stringify(recordings)};\n`;
+const armourPath = `plugin-art/armour-${createHash('sha256').update(armourModule).digest('hex')}.mjs`;
 const shared = parse((await readFile(resolve('src/style.css'), 'utf8')) + '\n' + await readFile(resolve('src/ui/table.css'), 'utf8'));
 shared.walkRules(rule => {
   const selectors = rule.selectors.filter(selector => !/[#.](?:lesson[\w-]*|account[\w-]*|delete-account|title-lineup)\b/.test(selector));
@@ -32,7 +38,7 @@ shared.walkAtRules('media', rule => {
 const gameStyle = shared.toString().replaceAll("'./plugin/assets/", "'./assets/").replaceAll("'/fonts/", "'../../public/fonts/").replaceAll("'/ui/", "'../../public/ui/");
 // The art leaves the page: hashed files under plugin-art/, loaded by absolute URL. The board scene asks for each
 // image in CORS mode (crossOrigin 'anonymous'), so its getImageData works on art from the plugin origin.
-await build({ define: { __KINGDOWN_PAGE_ENGINE__: JSON.stringify((await buildWorker()).engine) }, configFile: false, root: resolve('src/plugin'), base: './', publicDir: false, plugins: [pluginSymbols(), { name: 'game-style-assets', enforce: 'pre', transform(code, id) {
+await build({ define: { __KINGDOWN_PAGE_ENGINE__: JSON.stringify((await buildWorker()).engine), __KINGDOWN_ARMOUR_MODULE__: JSON.stringify(`${ART_ORIGIN}/${armourPath}`) }, configFile: false, root: resolve('src/plugin'), base: './', publicDir: false, plugins: [pluginSymbols(), { name: 'game-style-assets', enforce: 'pre', transform(code, id) {
   if (!id.endsWith('.css')) return;
   if (id === resolve('src/plugin/app.css')) code = code.replace("@import '../style.css';", gameStyle).replace("@import '../ui/table.css';", '');
   // Seat hooks share the table look while the board keeps its IDs.
@@ -54,5 +60,6 @@ const payloadBytes = Buffer.byteLength(JSON.stringify({ contents: [{ uri, mimeTy
 if (/data:image\/(?!svg\+xml)/.test(html)) throw new Error('The board page inlines an image; serve it from the plugin origin');
 if (payloadBytes > 1_250_000) throw new Error(`MCP resource payload exceeds response budget: ${payloadBytes}`);
 await mkdir(output, { recursive: true });
+await writeFile(resolve(output, armourPath), armourModule);
 await writeFile(resolve(output, 'board.html'), html);
 console.log(`MCP App resource: ${resolve(output, 'board.html')} (${Buffer.byteLength(html)} bytes, payload ${payloadBytes}); art in ${resolve(output, 'plugin-art')}`);

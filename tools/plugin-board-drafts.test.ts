@@ -3,11 +3,12 @@
 import { expect, it } from 'vitest';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { FrameLocator } from 'playwright';
 import { STEP } from './lib/checks.mjs';
 import { pauseClock } from './lib/page-clock.mjs';
 import { startHarness, waitForSourceApp } from './plugin-ui-harness';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
-import { P, R, N, L, inCheck, legalMoves, makeMove, setRules, type Move, type Rules } from '../src/rules/engine';
+import { P, R, N, L, K, inCheck, legalMoves, makeMove, setRules, type Move, type Rules } from '../src/rules/engine';
 import type { View } from '../src/match/protocol';
 import { applyLan } from '../src/plugin/screens/board-model';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
@@ -22,19 +23,21 @@ it.each([[1280, 800], [390, 844]])('F-107: Main menu keeps the game and its stag
     await chooseTurnMove(page, 'e2-e4', 12);
     const draft = await savedDraft(page), fen = await boardFen(page);
     const menu = frame.locator('#board-menu'), sheet = frame.locator('#board-sheet');
+    // macOS WebKit uses Option+Tab to reach buttons.
+    const tab = process.platform === 'darwin' && process.env.PLAYABLE_BROWSER === 'webkit' ? 'Alt+Tab' : 'Tab';
     await menu.focus(); await page.keyboard.press('Enter');
     expect(await sheet.locator('.sheet-body > button').first().textContent()).toBe('Main menu');
     expect(await frame.locator('#page-back:visible, #game-table .table-back:visible').count()).toBe(0);
-    await page.keyboard.press('Tab');
+    await page.keyboard.press(tab);
     const home = sheet.getByRole('button', {name: 'Main menu', exact: true});
     expect(await home.evaluate(b => b === document.activeElement && b.matches(':focus-visible'))).toBe(true);
-    await page.keyboard.press('Tab');
+    await page.keyboard.press(tab);
     expect(await sheet.getByRole('button', {name: 'Moves', exact: true}).evaluate(b => b === document.activeElement)).toBe(true);
     await page.keyboard.press('Escape');
     expect(await menu.evaluate(b => b === document.activeElement && b.matches(':focus-visible'))).toBe(true);
     await page.keyboard.press('Enter'); await sheet.getByRole('button', {name: 'Close', exact: true}).click();
     expect(await menu.evaluate(b => b === document.activeElement)).toBe(true);
-    await menu.focus(); await page.keyboard.press('Enter'); await page.keyboard.press('Tab'); await page.keyboard.press('Enter');
+    await menu.focus(); await page.keyboard.press('Enter'); await page.keyboard.press(tab); await page.keyboard.press('Enter');
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     await sheet.waitFor({state: 'hidden'});
     expect(await savedDraft(page)).toEqual(draft);
@@ -388,6 +391,21 @@ it('F10: sounds a replay capture at contact and check after rest', async () => {
   } finally { await page.close(); }
 });
 
+// Record requests for the movement takes in F11 and N11.
+async function traceMoveSounds(frame: FrameLocator) {
+  await frame.locator('html').evaluate(() => {
+    const soundEvents: string[] = [];
+    Object.assign(window, { soundEvents });
+    const fetchSample = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      if (input === '/audio/armour/select-knight-E.wav') soundEvents.push('sound:pawnWalkA');
+      if (input === '/audio/armour/select-knight-F.wav') soundEvents.push('sound:pawnWalkB');
+      if (input === '/audio/armour/select-spirit-r10-A.wav') soundEvents.push('sound:spiritKingMove');
+      return fetchSample(input, init);
+    };
+  });
+}
+
 it.each(['tap', 'Escape', 'drag', 'Menu Escape', 'Moves Escape'] as const)('F11: %s skips the whole reply and keeps the server position', async input => {
   const rules: Partial<Rules> = { kings: [null, { king: 'Flame', power: 'Haste' }] }, fen = '4k3/p7/8/8/8/8/4P3/K7 b - - 0 1';
   setRules(rules); let pos = fromFen(fen); const actions: string[] = [], positions: string[] = [];
@@ -396,8 +414,10 @@ it.each(['tap', 'Escape', 'drag', 'Menu Escape', 'Moves Escape'] as const)('F11:
   }
   const base = view(fen, rules, { kind: 'friend', seat: 0, action: 'waiting' }), page = await open(base), frame = page.frameLocator('iframe');
   try {
+    await traceMoveSounds(frame);
     await frame.locator('html').evaluate(`(async () => {
-      const { snd } = await import('/src/render/sfx.ts'), { toFen } = await import('/src/rules/setup.ts'); window.hits = 0; snd.move = () => window.hits++;
+      const { snd, setSound } = await import('/src/render/sfx.ts'), { toFen } = await import('/src/rules/setup.ts'); setSound(true);
+      snd.move = () => window.soundEvents.push('sound:move');
       const b = window.testBoard, sync = b.sync.bind(b), timeout = window.setTimeout; window.syncs = []; window.animationCalls = 0; window.zeroTimers = 0;
       window.setTimeout = (fn, ms, ...args) => { if (ms === 0) window.zeroTimers++; return timeout(fn, ms, ...args); };
       b.sync = pos => { window.syncs.push(toFen(pos)); sync(pos); };
@@ -425,9 +445,10 @@ it.each(['tap', 'Escape', 'drag', 'Menu Escape', 'Moves Escape'] as const)('F11:
       else if (input === 'drag') b.onDragSelect(12);
       else if (input === 'tap') b.onSquareClick(12);
       await new Promise(resolve => requestAnimationFrame(resolve));
-      return { animating: board.dataset.animating, calls: (window as any).animationCalls, syncs: (window as any).syncs, hits: (window as any).hits, timers: (window as any).zeroTimers };
+      return { animating: board.dataset.animating, calls: (window as any).animationCalls, syncs: (window as any).syncs, sounds: (window as any).soundEvents, timers: (window as any).zeroTimers };
     }, input);
-    expect(result.animating).toBe('false'); expect(result.calls).toBe(1); expect(result.hits).toBe(2);
+    expect(result.animating).toBe('false'); expect(result.calls).toBe(1);
+    expect(result.sounds).toEqual(['sound:pawnWalkA', 'sound:move']);
     expect(result.syncs).toEqual([...positions, toFen(pos)]); expect(result.timers).toBeGreaterThan(timers);
     expect(await boardFen(page)).toBe(toFen(pos)); expect((await marks(page)).selected).toBeUndefined();
     // Escape during motion also ends the keyboard cursor, as it does at rest.
@@ -705,15 +726,18 @@ it.each(soundCases.flatMap(test => ['local', 'replay'].map(path => ({ ...test, p
     try {
       setRules(base.rules!); const pre = fromFen(fen);
       const move = legalMoves(pre).find(m => kind === 'capture' ? m.captures.length === 1 && m.to !== m.from
-        : kind === 'move' ? momentKind(pre, m) === null && !m.captures.length : momentKind(pre, m) === kind)!;
+        : kind === 'move' ? pre.board[m.from] === K && momentKind(pre, m) === null && !m.captures.length : momentKind(pre, m) === kind)!;
       expect(move).toBeDefined();
       const post = makeMove(pre, move), lan = toLan(pre, move), web = soundsFor(momentKind(pre, move), move);
       expect(web).toEqual({ now, hit });
+      const travel = web.now === 'move' ? 'spiritKingMove' : null, start = travel ?? web.now;
+      await traceMoveSounds(frame);
       await frame.locator('html').evaluate(`(async () => {
-        const { snd, setSound } = await import('/src/render/sfx.ts'); setSound(true); window.soundEvents = [];
+        const { snd, setSound } = await import('/src/render/sfx.ts'); setSound(true);
         for (const name of ['move', 'capture', 'shot', 'shove', 'chain', 'swap', 'check']) snd[name] = () => window.soundEvents.push('sound:' + name);
-        window.testBoard.animateMove = (pre, move, contact) => {
+        window.testBoard.animateMove = (pre, move, contact, speed, start) => {
           window.soundEvents.push('animate');
+          window.soundStart = start;
           window.soundContact = () => { window.soundEvents.push('contact'); contact(); };
           return new Promise(resolve => { window.finishSoundMove = () => { window.soundEvents.push('rest'); resolve(); }; });
         };
@@ -729,13 +753,16 @@ it.each(soundCases.flatMap(test => ['local', 'replay'].map(path => ({ ...test, p
         });
       }
       const events = () => frame.locator('html').evaluate<string[], undefined>(() => (window as any).soundEvents);
-      expect(await events()).toEqual([...(now ? [`sound:${now}`] : []), 'animate']);
+      const initial = [...(web.now && !travel ? [`sound:${web.now}`] : []), 'animate'];
+      expect(await events()).toEqual(initial);
+      await frame.locator('html').evaluate(() => (window as any).soundStart());
+      if (travel) expect(await events()).toEqual([...initial, `sound:${travel}`]);
       await frame.locator('html').evaluate(() => { (window as any).soundContact(); (window as any).soundContact(); });
-      expect((await events()).filter(event => event.startsWith('sound:'))).toEqual([now, hit].filter(Boolean).map(name => `sound:${name}`));
+      expect((await events()).filter(event => event.startsWith('sound:'))).toEqual([start, hit].filter(Boolean).map(name => `sound:${name}`));
       await frame.locator('html').evaluate(() => (window as any).finishSoundMove());
       await frame.locator('#board[data-animating="false"]').waitFor();
       const result = await events(), check = inCheck(post);
-      expect(result.filter(event => event.startsWith('sound:'))).toEqual([web.now, web.hit, check ? 'check' : null].filter(Boolean).map(name => `sound:${name}`));
+      expect(result.filter(event => event.startsWith('sound:'))).toEqual([start, web.hit, check ? 'check' : null].filter(Boolean).map(name => `sound:${name}`));
       if (hit) expect(result.indexOf(`sound:${hit}`)).toBeLessThan(result.indexOf('rest'));
       if (check) expect(result.indexOf('sound:check')).toBeGreaterThan(result.indexOf('rest'));
     } finally { await page.close(); }

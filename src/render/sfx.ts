@@ -1,5 +1,6 @@
 /** Board sounds and the approved character samples. */
 import { P, N, B, R, A, L, G, M, S, O, K, type KingName } from '../rules/engine';
+declare const __KINGDOWN_ARMOUR_MODULE__: string;
 let ctx: AudioContext | null = null;
 let enabled = true;
 let soundGeneration = 0;
@@ -71,6 +72,7 @@ export function movementSample(type: number, king?: KingName): Sample | undefine
     : type === G ? 'guardMove' : type === M ? 'maesterMove' : type === O ? 'ogreMove' : undefined;
 }
 const loaded = new Map<Sample, Promise<AudioBuffer>>();
+const armourModule = typeof __KINGDOWN_ARMOUR_MODULE__ === 'undefined' ? undefined : __KINGDOWN_ARMOUR_MODULE__;
 const LOAD_MS = 15_000, CUE_MS = 150;
 /** Reject after `ms`. The caller clears the timer. */
 const deadline = (ms: number, set: (timer: ReturnType<typeof setTimeout>) => void) =>
@@ -85,10 +87,15 @@ function loadSample(c: AudioContext, name: Sample): Promise<AudioBuffer> {
   let b = loaded.get(name);
   if (!b) {
     let timer: ReturnType<typeof setTimeout> | undefined;
-    b = Promise.race([fetch(`/audio/armour/${samples[name]}.wav`).then(r => {
-      if (!r.ok) throw new Error(`Sound: ${r.status}`);
-      return r.arrayBuffer();
-    }).then(data => c.decodeAudioData(data)), deadline(LOAD_MS, t => { timer = t; })])
+    // The widget can import static assets from its declared origin.
+    const file = samples[name];
+    const bytes = armourModule
+      ? import(/* @vite-ignore */ armourModule).then(({ default: wav }) => Uint8Array.from(atob(wav[file]), c => c.charCodeAt(0)).buffer)
+      : fetch(`/audio/armour/${file}.wav`).then(r => {
+        if (!r.ok) throw new Error(`Sound: ${r.status}`);
+        return r.arrayBuffer();
+      });
+    b = Promise.race([bytes.then(data => c.decodeAudioData(data)), deadline(LOAD_MS, t => { timer = t; })])
       .finally(() => clearTimeout(timer)).catch(error => { loaded.delete(name); throw error; });
     loaded.set(name, b);
   }
