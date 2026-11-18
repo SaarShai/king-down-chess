@@ -32,7 +32,8 @@ Copy these lines into the pull request text. Write `changed`, `no change` or `la
 
 - Rules, server behaviour and the text that a tool returns: at the publish, in the web app and the two servers.
 - A ChatGPT tool description: at the daily scan of OpenAI, or when the owner selects Rescan in the portal. The scan must pass its checks; until then, the old description stays live.
-- A new or renamed ChatGPT tool, and a change to the listing ZIP: after the review of OpenAI. The owner then publishes the new version. Add no tool and rename no tool unless the run needs it, and keep the live tools in operation during the review.
+- A new or renamed ChatGPT tool: after the review of OpenAI, with no publish step. Add no tool and rename no tool unless the run needs it, and keep the live tools in operation during the review.
+- A change to the listing ZIP: after the review of OpenAI. The owner then publishes the new version.
 - The iOS app: after App Review.
 - A Muse tool or its text after approval: Meta reviews the tools of a connector, and the project records hold no rule for a later change. Ask Meta before the first such change.
 
