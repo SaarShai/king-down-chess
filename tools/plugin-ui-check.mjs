@@ -645,7 +645,12 @@ try {
     await frame.locator('.card-grid input[value="Haste"]').click();
     assert.equal(await frame.locator('.card-grid input:checked').count(), 4, 'The last four cards stay checked');
     assert.equal(await frame.locator('#setup-start-status').innerText(), 'You must select at least 4 cards');
-    await frame.locator('.card-grid input[value="Leap"]').check(); assert(!await frame.locator('.card-grid input[value="Freeze"]').isDisabled());
+    await frame.locator('.card-grid input[value="Leap"]').check();
+    assert.equal(await frame.locator('.card-grid input:checked').count(), 5);
+    const freeze = frame.locator('.card-grid input[value="Freeze"]');
+    await freeze.click();
+    assert.equal(await frame.locator('.card-grid input:checked').count(), 4, 'A selected card can be removed when five are checked');
+    await freeze.check();
     await frame.locator('#kingPowers-heading').click(); await frame.locator('#setup-king').click();
     assert.equal(await frame.locator('.emblem.is-out[aria-disabled="true"]').count(), 3, 'Cards exclude Frost, Flame and Stratus');
     assert(await frame.locator('[data-power="Leap"]').isDisabled());

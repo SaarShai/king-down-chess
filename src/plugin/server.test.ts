@@ -265,9 +265,14 @@ it('sends any rules from Create and Find to matchmaking, and says that the colou
   expect(create.description).toContain('the colour applies only to a new table');
   for (const name of ['kingdown_create','kingdown_find']) expect(tools.find(t=>t.name === name)!.inputSchema.properties!.any_rules).toMatchObject({type:'boolean'});
   await client.callTool({name:'kingdown_create',arguments:{kind:'random',options:DEFAULT_OPTIONS,any_rules:true,command_id:'c1'}});
+  expect((await client.callTool({name:'kingdown_find',arguments:{options:DEFAULT_OPTIONS,colour:'black'}})).isError).not.toBe(true);
   const options = { ...DEFAULT_OPTIONS, single: ['N'] };
   expect((await client.callTool({name:'kingdown_find',arguments:{options,colour:'black'}})).isError).not.toBe(true);
-  expect(find.mock.calls).toEqual([['alice',DEFAULT_OPTIONS,undefined,'c1',true,undefined],['alice',options,'black',undefined,undefined,undefined]]);
+  expect(find.mock.calls).toEqual([
+   ['alice',DEFAULT_OPTIONS,undefined,'c1',true,undefined],
+   ['alice',DEFAULT_OPTIONS,'black',undefined,undefined,undefined],
+   ['alice',options,'black',undefined,undefined,undefined],
+  ]);
  } finally {await client.close(); await server.close();}
 });
 

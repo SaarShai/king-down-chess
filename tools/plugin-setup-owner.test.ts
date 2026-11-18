@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 import { chromium, type Browser } from 'playwright';
+import { expect as expectLocator } from 'playwright/test';
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -76,15 +77,20 @@ it('F-110 uses Light and Dark on the Side slider and keeps player pool art light
     const side = frame.getByRole('slider', { name: 'Side', exact: true });
     expect(await side.getAttribute('aria-valuetext')).toBe('Light');
     expect(await frame.locator('#colour-line').innerText()).toBe('White. You start.');
+    await expectLocator(side).toHaveAccessibleDescription('White. You start.');
     await side.focus(); await page.keyboard.press('End');
     expect(await side.inputValue()).toBe('1');
     expect(await side.getAttribute('aria-valuetext')).toBe('Dark');
     expect(await frame.locator('#colour-line').innerText()).toBe('Black. You go second.');
+    await expectLocator(side).toHaveAccessibleDescription('Black. You go second.');
     const figure = frame.locator('.pick-art img').first();
     expect(await figure.getAttribute('src')).toMatch(/-b\.webp$/);
-    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
-    expect(await frame.locator('#colour-line').isHidden()).toBe(true);
-    expect(await figure.getAttribute('src')).toMatch(/-w\.webp$/);
+    for (const name of ['A friend', 'Random']) {
+      await frame.locator('.modes').getByRole('radio', { name, exact: true }).locator('..').click();
+      expect(await frame.locator('#colour-line').isHidden()).toBe(true);
+      await expectLocator(side).toHaveAccessibleDescription('');
+      expect(await figure.getAttribute('src')).toMatch(/-w\.webp$/);
+    }
   } finally { await page.close(); }
 });
 it('F-111 removes the kings-off panel and keeps King powers', async () => {
@@ -335,6 +341,12 @@ it('F-117 selects all cards on enable, refuses the fourth removal and keeps focu
     expect(await live.innerText()).toBe('You must select at least 4 cards');
     await frame.locator('#setup-level').fill('0');
     expect(await live.textContent()).toBe('');
+    await fourth.focus(); await page.keyboard.press('Space');
+    expect(await live.innerText()).toBe('You must select at least 4 cards');
+    const options = frame.locator('#setup-options summary');
+    await options.click();
+    await expect.poll(() => live.textContent()).toBe('');
+    await options.click();
     await frame.locator('#setup-card-Haste').click();
     const sheet = frame.locator('#menu-sheet');
     await sheet.getByRole('checkbox').click();

@@ -68,6 +68,8 @@ function build() {
     ${section('cards', 'Cards', cardTiles())}
     ${section('kingPowers', 'King powers', '<div id="setup-your-king" class="king-pick your-king"><div class="coin-row"><button id="setup-king" class="coin" data-state="always" aria-label="Choose your king"><img alt=""></button></div><div class="grow"><h3>Your king</h3><div id="setup-king-name"></div><p id="setup-power-text" class="power-text"></p></div><span class="chev" aria-hidden="true">›</span></div><p id="setup-king-reason" class="quiet-line" role="status"></p>')}
     </details>`;
+  const options = $<HTMLDetailsElement>('setup-options');
+  options.ontoggle = () => { if (!options.open) render(); };
   $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-mode"]').forEach(input => { input.onchange = () => { draft = withMode({ ...draft!, kind: memory.kind = input.value as SetupState['kind'] }, draft!.mode); anyRules = false; render(); }; });
   $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-rating"]').forEach(input => { input.onchange = () => { draft = withMode(draft!, input.value as SetupState['mode']); anyRules = false; render(); }; });
   $<HTMLInputElement>('setup-level').oninput = event => { draft = { ...draft!, level: MENU_LEVELS[+(event.target as HTMLInputElement).value] }; render(); };
@@ -101,8 +103,9 @@ function render(cardError = '') {
   $<HTMLInputElement>('setup-colour').value = dark ? '1' : '0';
   $('setup-colour').setAttribute('aria-valuetext', dark ? sideText.dark : sideText.light);
   $('setup-colour-control').hidden = ranked;
-  $('colour-line').hidden = ranked || setup.kind !== 'solo';
-  $('colour-line').textContent = sideLine(dark ? 'dark' : 'light');
+  const colourLine = $('colour-line');
+  colourLine.hidden = ranked || setup.kind !== 'solo';
+  colourLine.textContent = colourLine.hidden ? '' : sideLine(dark ? 'dark' : 'light');
   $('setup-rating').hidden = setup.kind !== 'random' || !rankedOffered(); $('setup-rating-line').hidden = setup.kind !== 'random';
   $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-rating"]').forEach(input => { input.checked = input.value === setup.mode; });
   $('setup-ranked-rules').hidden = !ranked;
