@@ -46,7 +46,7 @@ export function offlineCacheFiles(bundle: OutputBundle, root: string, files: str
   }
   // Optional clips load only with motion; the offline board can use the plain figures.
   const publicFiles = files.filter(file => !/^assets\/(?:tap|slam)-[\w-]+\.webp$/.test(file)
-    && (graph.has(file) || solo && ['interface/stone-refined-light.webp', 'browser-support.js'].includes(file) || isCharacterRuntimeStartup(file) || /^(?:ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file))).sort();
+    && (graph.has(file) || solo && ['interface/stone-refined-light.webp', 'browser-support.js'].includes(file) || isCharacterRuntimeStartup(file) || /^(?:audio\/armour\/[\w-]+\.wav|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file))).sort();
   return { allowlist: ['./', 'index.html', ...solo ? ['next.html'] : [], ...publicFiles], precache: ['./', ...solo ? ['index.html', 'next.html'] : [], ...publicFiles] };
 }
 

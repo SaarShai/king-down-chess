@@ -1,6 +1,7 @@
 /* The build sets the content version and exact public file lists.
  * The local page uses the network first, then the cache when offline or slow.
- * Installation must cache all local files before the worker can take over.
+ * Installation must cache all game files before the worker can take over. A character sound is optional:
+ * install tries it once, and the asset handler loads and keeps a missing one later.
  */
 const VERSION = 'dev';
 const ALLOWLIST = [];
@@ -14,6 +15,8 @@ const START = new URL('./', self.registration.scope).href;
 const INDEX = new URL('index.html', START).href;
 const PUBLIC = new Set(ALLOWLIST.map(file => new URL(file, START).href));
 // The runtime files that load at startup change with a deploy: the package index, its parts and its effect modules.
+const OPTIONAL = file => file.startsWith('audio/');
+const REQUIRED = PRECACHE.filter(file => !OPTIONAL(file));
 const FRESH = new Set(PRECACHE.filter(file => file.startsWith('character-runtime/')).map(file => new URL(file, START).href));
 const PRIVATE = /^\/(?:api|mcp|authorize|auth|oauth|consent|login|logout|signin|signout|callback|internal|play|g|j|\.well-known)(?:\/|$)|^\/(?:play\.html|consent\.mjs)$/;
 const AUTH_QUERY = /^(?:code|state|error|error_code|error_description|sb_flow_id|access_token|refresh_token|id_token|token|token_hash)$/i;
@@ -46,7 +49,7 @@ async function checkOwnCache(complete = true) {
     if (publicKey(request) !== request.url) throw new Error('Forbidden application cache key');
     keys.add(request.url);
   }
-  for (const file of complete ? PRECACHE : []) {
+  for (const file of complete ? REQUIRED : []) {
     if (!keys.has(publicKey(new Request(new URL(file, START))))) throw new Error('Incomplete offline cache');
   }
 }
@@ -59,10 +62,13 @@ self.addEventListener('install', event => {
     await Promise.all(Array.from({ length: Math.min(PRECACHE_CONCURRENCY, PRECACHE.length) }, async () => {
       while (next < PRECACHE.length) {
         const file = PRECACHE[next++];
-        const request = new Request(new URL(file, START), { cache: file.startsWith('assets/') ? 'default' : 'reload' });
-        const response = await fetch(request);
-        if (!cacheable(request, response)) throw new Error('Unsafe offline response');
-        await cache.put(publicKey(request), response);
+        const save = (async () => {
+          const request = new Request(new URL(file, START), { cache: file.startsWith('assets/') ? 'default' : 'reload' });
+          const response = await fetch(request);
+          if (!cacheable(request, response)) throw new Error('Unsafe offline response');
+          await cache.put(publicKey(request), response);
+        })();
+        await (OPTIONAL(file) ? save.catch(() => {}) : save);
       }
     }));
     // A pending delete can remove the name while this cache object stays open.
