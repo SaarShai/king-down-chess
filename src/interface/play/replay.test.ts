@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { Game } from '../../game';
-import { lastReplySteps, replayController } from './replay';
+import { lastReplySteps, replayController, undoReplayState } from './replay';
 import type { Board } from '../board-api';
 import { POWERS_BALANCED } from '../../rules/rules';
 it('last reply contains the whole turn and survives resume', () => {
@@ -35,4 +35,19 @@ it('held replies keep both Haste and Rally steps and the final pass', async () =
   const frames=lastReplySteps(game);expect(frames).toHaveLength(demo.frames.length+(subject.id==='Freeze'?1:0));
   expect(frames.at(-1)!.after).toEqual(game.pos);
  }
+});
+
+it('the finish button is off before a reply, then Replay, Undo, and Replay after Undo', async () => {
+  const { DraftTurn } = await import('./turn');
+  const game = new Game('RNBQKBNR');
+  expect(undoReplayState(0, lastReplySteps(game).length)).toEqual({ replay: false, enabled: false });
+  game.play(game.legal[0]); game.play(game.legal[0]);
+  const draft = new DraftTurn(game), reply = lastReplySteps(game).length;
+  expect(undoReplayState(draft.length, reply)).toEqual({ replay: true, enabled: true });
+  draft.stage(game.legal[0]);
+  expect(undoReplayState(draft.length, reply)).toEqual({ replay: false, enabled: true });
+  draft.undo();
+  expect(undoReplayState(draft.length, reply)).toEqual({ replay: true, enabled: true });
+  expect(undoReplayState(1, reply, true).enabled).toBe(false);
+  expect(undoReplayState(0, reply, true).enabled).toBe(false);
 });

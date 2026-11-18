@@ -7,11 +7,11 @@ import type { Color } from '../../rules/engine';
 export type SideChoice = 'light' | 'dark' | 'random';
 /** The stored choice for the next game. The first value is the default. */
 export const SIDE_KEY = 'kingdown.side';
-export const SIDE_CHOICES: readonly SideChoice[] = ['light', 'dark', 'random'];
+export const SIDE_CHOICES: readonly SideChoice[] = ['light', 'dark'];
 
-/** Resolve the choice once, when a new game starts. Continue and Rematch do not draw again. */
-export const resolveSide = (choice: SideChoice, random: () => number = Math.random): Color =>
-  choice === 'dark' ? 1 : choice === 'random' ? (random() < 0.5 ? 0 : 1) : 0;
+/** Builds 4 to 6 stored Random. It now reads as Light. */
+export const resolveSide = (choice: SideChoice): Color => choice === 'dark' ? 1 : 0;
+export const sideLine = (choice: SideChoice) => resolveSide(choice) ? 'Black. You go second.' : 'White. You start.';
 
 /** The square at a screen cell of the player's view: row 0 is the top row, column 0 the left column. */
 export const squareAt = (row: number, col: number, player: Color): number => player ? row * 8 + (7 - col) : (7 - row) * 8 + col;

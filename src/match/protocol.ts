@@ -58,7 +58,7 @@ export const createSchema = z.strictObject({
   .refine(input => !(input.options && input.setup))
   .refine(input => input.kind === 'solo' || (!!input.options || input.mode === 'ranked') && !input.setup)
   .refine(input => input.mode !== 'ranked' || input.kind === 'random' && !input.setup && !input.level && (input.colour === undefined || input.colour === 'random')
-    && (!input.options || switches(input.options) === switches(RANKED_OPTIONS) && input.options.pool.length === RANKED_OPTIONS.pool.length && input.options.pool.every(kind => RANKED_OPTIONS.pool.includes(kind))
+    && (!input.options || !input.options.single?.length && switches(input.options) === switches(RANKED_OPTIONS) && input.options.pool.length === RANKED_OPTIONS.pool.length && input.options.pool.every(kind => RANKED_OPTIONS.pool.includes(kind))
       && input.options.cardPool.length === RANKED_OPTIONS.cardPool.length && input.options.cardPool.every(card => RANKED_OPTIONS.cardPool.includes(card))));
 export type Action = z.infer<typeof actionSchema>;
 export type Command = z.infer<typeof commandSchema>;

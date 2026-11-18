@@ -1,3 +1,4 @@
+import { kingDisplayName } from '../../king-label';
 import { pieceGuide } from '../../read';
 import { GameRules } from '../../game-rules';
 import { client } from '../../account-game/runtime';
@@ -38,7 +39,7 @@ function draw(tab: string) {
     const card = guideCard(name[0].toUpperCase() + name.slice(1), image(`ui/pieces/${name}-w.webp`), image(`ui/icons/${name}.svg`, 'pi'), rows); card.dataset.piece = name; target.append(card);
   }
   else if (tab === 'Kings') for (const group of groups) {
-    const card = guideCard(`${group.king} King`, image(`ui/kings/${group.king.toLowerCase()}.webp`), image('ui/icons/king.svg', 'pi'), [['Powers', group.options.map(option => `${option.label}: ${ruleLine(option.title)}`).join('<br>')]]); card.dataset.king = group.king; target.append(card);
+    const card = guideCard(`${kingDisplayName(group.king)} King`, image(`ui/kings/${group.king.toLowerCase()}.webp`), image('ui/icons/king.svg', 'pi'), [['Powers', group.options.map(option => `${option.label}: ${ruleLine(option.title)}`).join('<br>')]]); card.dataset.king = group.king; target.append(card);
   }
   else if (tab === 'Powers') for (const group of groups) for (const option of group.options) {
     const card = guideCard(option.label, `<span class="coin">${image(`ui/emblems/${group.king.toLowerCase()}.webp`)}</span>`, '', [['Rule', ruleLine(option.title)]]); card.dataset.power = option.value.split(':')[1]; target.append(card);

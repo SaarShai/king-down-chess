@@ -77,10 +77,10 @@ rule defaults, `?rules=2017` and the lab keep the rulebook as printed. Every rea
 | Frost | **Ice Wall** (2 uses) | pick a friendly piece (not king); it cannot be captured during the opponent's next turn | a free action, then your move (`markFree`) |
 | Flame | **Strike** (1 use) | move any own piece (not king) as if it were a queen; counts as a turn | pieces only (no pawns), to an empty square (`strikePawns: false`, `strikeCaptures: false`) |
 | Flame | **Haste** (1 use) | move one piece twice in a single turn | neither move captures (`hasteCaptures: false`) |
-| Stratus | **Flight** (1 use) | move any own piece (not king) to any empty square in own half; counts as a turn | as printed |
-| Stratus | **Sacrifice** (1 use) | swap any own pawn with any own piece captured earlier; counts as a turn | as printed |
-| Mud | **March** (3 uses) | any pawn may move two forward (if unblocked) | always on (`marchUses: 0`) |
-| Mud | **Leap** (3 uses) | own pieces may jump over own pawns when moving several squares | as printed |
+| Sky | **Flight** (1 use) | move any own piece (not king) to any empty square in own half; counts as a turn | as printed |
+| Sky | **Sacrifice** (1 use) | swap any own pawn with any own piece captured earlier; counts as a turn | as printed |
+| Earth | **March** (3 uses) | any pawn may move two forward (if unblocked) | always on (`marchUses: 0`) |
+| Earth | **Leap** (3 uses) | own pieces may jump over own pawns when moving several squares | as printed |
 | Spirit | **Holy Light** (always on) | king cannot be captured by enemy pawns and cannot capture pawns | the king may take pawns, and **no piece beside, in front of or behind the Holy Light king can be captured** (`holyLightTakesPawns`, `holyLightShelter`, `holyLightShelterOrtho`) |
 | Spirit | **Mercy** (always on) | king moves 1 or 2 squares in any direction, cannot capture, jumps friendly pieces | as printed, but the king may take pawns; and **no piece next to the Mercy king can be captured, except by a pawn** (`mercyAura`, `mercyAuraPawnsTake`, `mercyTakesPawns`: reading M2, owner 2026-10-03) |
 | Shadow | **Death Touch** (always on) | king captures adjacent enemies without moving | as printed, and **it also reaches two squares straight forward or back (never sideways), over an empty square** (`deathTouchReach`, `deathTouchReachForwardBack`; §6 decision 24) |
@@ -152,7 +152,7 @@ move captures (Haste's shape with two pieces). Not measured.
 3. **Beast first capture: any of the 7 non-forward adjacent squares** (per the rulebook diagram) — more options and more chain setups; straight ahead stays move-only as its one blind spot.
 4. **Draws: threefold repetition, 50-move rule and insufficient material are ON.** Needed because guards and paladins can create unwinnable endings.
 5. **Kings' powers (later): keep the rulebook's per-game use counts** (Freeze 2, Ice Wall 2, Strike 1, Haste 1, Flight 1, Sacrifice 1, March 3, Leap 3) as plain counters — the designer tuned them; only the card game's toll/action-point economy is dropped. Always-on powers stay always-on.
-6. **Armies: two armies for now** (ivory vs dark); when kings' powers arrive, the chosen king sets the army colour (Frost blue, Flame red, Stratus purple, Mud green, Spirit white, Shadow black).
+6. **Armies: two armies for now** (ivory vs dark); when kings' powers arrive, the chosen king sets the army colour (Frost blue, Flame red, Sky purple, Earth green, Spirit white, Shadow black).
 7. **Maester–king swap is subject to normal king safety** (illegal if the king would be in check).
 8. **Two measured changes to the 2017 pieces (2026-09-13).** Two self-play campaigns priced every fairy piece and
    A/B-tested the candidates (`docs/research/sim-buffed-2026-09-13.md`, `docs/research/sim-rules-2026-09-13.md`).

@@ -1,3 +1,4 @@
+import { kingDisplayName } from '../king-label';
 /** A position as short words that a voice agent can speak and a chat can show: never 64 squares read aloud. */
 import { GameRules } from '../game-rules';
 import type { PublicMatchRules } from '../match';
@@ -5,7 +6,7 @@ import type { Seat } from '../match/protocol';
 import { checkCause, describeMove } from '../move-text';
 import { cardName, cardText, POWER_NAME, powersRules, powerText, ruleLine } from '../powers-ui';
 import { pieceGuide, pieceStates, readText } from '../read';
-import { ALL_CARDS, DEFAULT_RULES, K, LETTERS, N, P, Q, R, B, colorOf, moveNumber, parseSq, sqName, typeOf, type PieceType, type PowerName, type Position } from '../rules/engine';
+import { ALL_CARDS, DEFAULT_RULES, K, KINGS, LETTERS, N, P, Q, R, B, colorOf, moveNumber, parseSq, sqName, typeOf, type PieceType, type PowerName, type Position } from '../rules/engine';
 import { board } from './position';
 
 export interface BoardWords { status: string; white: string; black: string; grid: string; legend: string }
@@ -113,6 +114,8 @@ export function explainWords(rules: PublicMatchRules | null, topic: string, at?:
     const from = [...pos.board.keys()].filter(s => pos.board[s] && colorOf(pos.board[s]) === at.viewer && typeOf(pos.board[s]) === type);
     return [rule, nowWords(context, pos, at.viewer, moves, from)].filter(Boolean).join(' ');
   }
+  const king = Object.entries(KINGS).find(([id]) => [id, kingDisplayName(id)].some(name => key(name) === key(t) || key(`${name} King`) === key(t)));
+  if (king) return `${kingDisplayName(king[0])} King: ${king[1].map(power => `${POWER_NAME[power]}: ${ruleLine(powerText(power, rules?.kings.some(Boolean) ? context.rules : powersRules()))}`).join(' ')}`;
   const power = (Object.keys(POWER_NAME) as PowerName[]).find(p => key(p) === key(t) || key(POWER_NAME[p]) === key(t));
   // As the web Guide does: a game without king powers reads a power under the rules that powers play by.
   if (power) return `${POWER_NAME[power]}: ${ruleLine(powerText(power, rules?.kings.some(Boolean) ? context.rules : powersRules()))}`;

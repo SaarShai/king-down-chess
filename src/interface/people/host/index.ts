@@ -6,7 +6,7 @@ import { AUTH_KEY, sessionKey, type AccountSession } from '../../../account/sess
 import { handleProblem, type Icon } from '../../../account/profile';
 import type { InvitationRow, View } from '../../../match/protocol';
 import { DEFAULT_OPTIONS } from '../../../match/setup';
-import { DEFAULT_OPTIONS as PANEL_OPTIONS, type GameOptions } from '../../play/new-game';
+import { DEFAULT_OPTIONS as PANEL_OPTIONS, singleKinds, type GameOptions } from '../../play/new-game';
 import { onlineClient, OnlineError } from '../../../online/client';
 import { beginAccountSignIn, consumeSignInReturn, type SignInHost as ReturnHost } from '../../../online/sign-in';
 import { apiOrigin, inApp } from '../../../platform';
@@ -28,7 +28,7 @@ export function inviteURL(token: string, origin = location.origin, app = inApp):
   return url.href;
 }
 
-export const onlineOptions = (rules: Rules, options: GameOptions = PANEL_OPTIONS) => ({ ...DEFAULT_OPTIONS, pool: [...options.pool], cardPool: [...options.cardPool], arrangement: options.arrangement === 'manual', kingPowers: rules === 'powers' || rules === 'both', cards: rules === 'cards' || rules === 'both' });
+export const onlineOptions = (rules: Rules, options: GameOptions = PANEL_OPTIONS) => ({ ...DEFAULT_OPTIONS, pool: [...options.pool], ...(singleKinds(options).length ? { single: singleKinds(options) } : {}), cardPool: [...options.cardPool], arrangement: options.arrangement === 'manual', kingPowers: rules === 'powers' || rules === 'both', cards: rules === 'cards' || rules === 'both' });
 export const draftKey = (user: string, game: string) => `kingdown.people-draft.${user}.${game}`;
 export function keepDraft(storage: Pick<Storage, 'setItem'>, user: string, state: PeopleState, gate: AccountData) {
   const key = state.view && draftKey(user, state.view.game_id);

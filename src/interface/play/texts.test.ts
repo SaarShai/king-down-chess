@@ -1,4 +1,5 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
+vi.mock('./motion', () => ({ calm: () => true, ms: () => 0, token: () => '' }));
 import { Game } from '../../game';
 import { POWERS_BALANCED } from '../../rules/rules';
 import { A, O, parseSq } from '../../rules/engine';
@@ -153,4 +154,12 @@ it('ownership, check and result text follow a Dark player; the Light default sta
   expect(resultText('checkmate', false, 1, 1).title).toBe('The computer wins');
   expect(resultText('playing', true, 1, 1)).toEqual({ title: 'The computer wins', cause: 'You resign.' });
   expect(resultText('checkmate', false, 1).title).toBe('You win');
+});
+
+it('the New game card line names the shown cards in pool order at four', async () => {
+  const { cardSummary } = await import('./home');
+  const { DEFAULT_OPTIONS } = await import('./new-game');
+  expect(cardSummary(DEFAULT_OPTIONS.cardPool)).toBe('Randomized 4 cards hand.');
+  expect(cardSummary(DEFAULT_OPTIONS.cardPool.slice(0, 5))).toBe('Randomized 4 cards hand.');
+  expect(cardSummary(['SkyLift', 'EarthQuake', 'Haste', 'IceWall'])).toBe('Your 4 cards: Ice Wall, Haste, Earth Quake and Sky Lift.');
 });

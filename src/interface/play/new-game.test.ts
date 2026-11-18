@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
-import { armyTypes, cardLocked, changeDraft, createDraft, dealArmy, kingChoices, poolLetters, poolLocked, levelKey, readPanel, restorePanel, shownKing, readOptions, rulesFor, startOf, DEFAULT_OPTIONS, type Choices } from './new-game';
+import { armyTypes, cardLocked, selectCard, selectPiece, onlinePanelOptions, singleKinds, DOUBLE_KINDS, changeDraft, createDraft, dealArmy, kingChoices, poolLetters, poolLocked, levelKey, readPanel, restorePanel, shownKing, readOptions, rulesFor, startOf, DEFAULT_OPTIONS, type Choices } from './new-game';
 import { gameType } from './saved';
+import { DEAL_CARDS } from '../../match/setup';
 import { A, G, K, M, N, O, P, R, colorOf } from '../../rules/engine';
 
 const seq = (...values: number[]) => { let i = 0; return () => values[i++ % values.length]; };
@@ -19,12 +20,12 @@ it('launch decision 26: the previewed deal is the started deal', () => {
     expect(gameType(live.rules)).toBe(setup);
     expect(live.history).toHaveLength(0);
   }
-  // Random resolves once, when the candidate is made: both outcomes, and the start does not draw again.
+  // Decision 124: a stored Random now reads as Light.
   expect(createDraft(choices({ sideChoice: 'random' }), seq(.1)).player).toBe(0);
-  expect(createDraft(choices({ sideChoice: 'random' }), seq(.9)).player).toBe(1);
+  expect(createDraft(choices({ sideChoice: 'random' }), seq(.9)).player).toBe(0);
   const random = createDraft(choices({ sideChoice: 'random' }), seq(.9));
   expect(startOf(random).backRank).toBe(random.back);
-  expect(random.player).toBe(1);
+  expect(random.player).toBe(0);
 });
 it('launch decision 26: a level or an unchanged value changes nothing; the side keeps the deal; the type keeps the army', () => {
   const draft = createDraft(choices({ setup: 'powers' }));
@@ -67,7 +68,7 @@ it('owner playtest section 2: your king, the card pool and the piece kinds', () 
   expect(poolLetters(kinds)).toBe('QRRBBNNAA');
   expect(readOptions({ pool: ['Q', 'R', 'B'] }).pool).toEqual(DEFAULT_OPTIONS.pool);
   expect(readOptions({ cardPool: ['Freeze'] }).cardPool).toEqual(DEFAULT_OPTIONS.cardPool);
-  expect(readOptions({ cardPool: DEFAULT_OPTIONS.cardPool.slice(0, 5) }).cardPool).toEqual(DEFAULT_OPTIONS.cardPool);
+  expect(readOptions({ cardPool: DEFAULT_OPTIONS.cardPool.slice(0, 5) }).cardPool).toEqual(DEFAULT_OPTIONS.cardPool.slice(0, 5));
   expect(readOptions({ king: { king: 'Nobody', power: 'Mercy' }, arrangement: 'manual' })).toMatchObject({ king: null, arrangement: 'manual' });
   expect(readOptions(null)).toEqual(DEFAULT_OPTIONS);
   // A changed king deals again; a changed piece pool deals a new army.
@@ -93,6 +94,8 @@ it('first use has playable options and Spirit with Mercy', () => {
   expect(readOptions(null)).toEqual(DEFAULT_OPTIONS);
   expect(DEFAULT_OPTIONS.king).toEqual({ king: 'Spirit', power: 'Mercy' });
   expect(DEFAULT_OPTIONS.arrangement).toBe('random');
+  expect(DEFAULT_OPTIONS.cardPool).toEqual(DEAL_CARDS);
+  expect(DEFAULT_OPTIONS.cardPool).toHaveLength(21);
   const draft = createDraft(choices({ setup: 'pieces' }));
   expect(draft.game.rules.hands).toEqual([[], []]); expect(draft.game.rules.kings).toEqual([null, null]);
 });
@@ -111,20 +114,24 @@ it('cards use a legal king and keep the preferred power for cards off', () => {
   draft = changeDraft(draft, { setup: 'both' }); expect(draft.options.king).toEqual(freeze); expect(draft.game.rules.kings[0]).toEqual(DEFAULT_OPTIONS.king);
   draft = changeDraft(draft, { setup: 'powers' }); expect(draft.game.rules.kings[0]).toEqual(freeze);
 });
-it('Pick four caps the choice and leaves selected cards free to go off', () => {
+it('cards keep at least four and allow more than four', () => {
   const four = DEFAULT_OPTIONS.cardPool.slice(0, 4);
-  expect(cardLocked(four, DEFAULT_OPTIONS.cardPool[4])).toBe(true);
-  expect(cardLocked(four, four[0])).toBe(false);
+  expect(cardLocked(four, DEFAULT_OPTIONS.cardPool[4])).toBe(false);
+  expect(cardLocked(four, four[0])).toBe(true);
   expect(cardLocked(four.slice(0, 2), DEFAULT_OPTIONS.cardPool[4])).toBe(false);
+  expect(selectCard(four, four[0], false)).toBe(four);
+  const five = selectCard(four, DEFAULT_OPTIONS.cardPool[4], true);
+  expect(five).toHaveLength(5);
+  expect(selectCard(five, four[0], false)).toHaveLength(4);
 });
 it('slider keys reach all three stops and stay at the ends', () => {
   expect(levelKey('casual', 'ArrowLeft')).toBe('casual'); expect(levelKey('casual', 'ArrowRight')).toBe('clever');
   expect(levelKey('clever', 'ArrowUp')).toBe('club'); expect(levelKey('club', 'ArrowDown')).toBe('clever');
   expect(levelKey('club', 'End')).toBe('club'); expect(levelKey('club', 'Home')).toBe('casual'); expect(levelKey('casual', 'Tab')).toBe('casual');
 });
-it('sign-in return keeps the draft and an incomplete Pick four choice', () => {
+it('sign-in return migrates an incomplete old card choice to all cards', () => {
   const memory = { ...choices({ setup: 'both', level: 'club', sideChoice: 'dark' }), options: { ...DEFAULT_OPTIONS, arrangement: 'manual' }, opponent: 'person', section: 'cards', cardMode: 'four', picked: ['Freeze', 'Haste'] };
-  expect(readPanel(JSON.parse(JSON.stringify(memory)))).toEqual(memory);
+  expect(readPanel(JSON.parse(JSON.stringify(memory)))).toEqual({ ...choices({ setup: 'both', level: 'club', sideChoice: 'dark' }), options: { ...DEFAULT_OPTIONS, arrangement: 'manual' }, opponent: 'person', section: 'cards' });
   expect(readPanel(null)).toBeNull(); expect(readPanel({ ...memory, setup: 'other' })).toBeNull();
 });
 
@@ -134,4 +141,52 @@ it('a sign-in reload keeps the exact dealt army, seats, kings and shared cards',
   const restored = restorePanel(memory);
   expect(restored.player).toBe(draft.player); expect(restored.back).toBe(draft.back); expect(restored.rules).toEqual(draft.rules); sameStart(restored.game, draft.game);
   expect(readPanel({ ...memory, deal: { ...memory.deal, back: '<bad>' } })!.deal).toBeUndefined();
+});
+
+it('the second copy selects the first, and clearing the first clears the second', () => {
+  for (const kind of DOUBLE_KINDS) {
+    let options = selectPiece({ ...DEFAULT_OPTIONS }, kind, 1, false);
+    expect(options.pool).not.toContain(kind); expect(options.seconds).not.toContain(kind);
+    options = selectPiece(options, kind, 2, true);
+    expect(options.pool).toContain(kind); expect(options.seconds).toContain(kind);
+    options = selectPiece(options, kind, 2, false);
+    expect(options.pool).toContain(kind); expect(options.seconds).not.toContain(kind);
+  }
+});
+it('the seven-piece rule counts single copies', () => {
+  const pool = ['Q', 'R', 'B', 'N', 'A', 'G', 'M'];
+  expect(poolLetters(pool, [])).toHaveLength(7);
+  for (const kind of pool) expect(poolLocked(pool, kind, [])).toBe(true);
+  expect(poolLocked(pool, 'N', ['N'], 2)).toBe(false);
+  expect(poolLocked(pool, 'N', ['N'], 1)).toBe(true);
+  expect(readOptions({ pool, seconds: [] }).seconds).toEqual([]);
+  expect(readOptions({ ...DEFAULT_OPTIONS, seconds: [] }).seconds).toEqual([]);
+  expect(readOptions(JSON.parse(JSON.stringify({ ...DEFAULT_OPTIONS, seconds: [] })))).toEqual({ ...DEFAULT_OPTIONS, seconds: [] });
+  expect(readOptions({ pool: pool.slice(1), seconds: [] }).pool).toEqual(DEFAULT_OPTIONS.pool);
+});
+it('a computer game deals exactly one knight when only its first copy is selected', () => {
+  const options = { ...DEFAULT_OPTIONS, pool: ['Q', 'R', 'B', 'N', 'A', 'G', 'M'], seconds: [] };
+  for (let i = 0; i < 20; i++) {
+    const draft = createDraft(choices({ setup: 'pieces', options }));
+    expect(draft.back.split('N')).toHaveLength(2);
+    expect(startOf(draft).backRank).toBe(draft.back);
+  }
+  expect(dealArmy(options.pool, Math.random, []).split('N')).toHaveLength(2);
+  expect(onlinePanelOptions(options)).toEqual({ pool: options.pool, seconds: [], arrangement: 'random', cardPool: DEFAULT_OPTIONS.cardPool, king: DEFAULT_OPTIONS.king });
+  expect(singleKinds(options)).toEqual(['R', 'B', 'N', 'A', 'M']);
+  expect(singleKinds({ ...options, seconds: ['R', 'B', 'A', 'M'] })).toEqual(['N']);
+  expect(singleKinds(DEFAULT_OPTIONS)).toEqual([]);
+  expect(singleKinds({ pool: options.pool })).toEqual([]);
+});
+it('build 6 options migrate the old piece pool, Random and both card modes', () => {
+  const { seconds, ...oldOptions } = DEFAULT_OPTIONS;
+  const old = { ...choices({ sideChoice: 'random' }), options: { ...oldOptions, pool: ['Q', 'R', 'B', 'N'] }, opponent: 'person', section: 'cards', cardMode: 'all', picked: DEFAULT_OPTIONS.cardPool.slice(0, 4) };
+  const all = readPanel(JSON.parse(JSON.stringify(old)))!;
+  expect(all.sideChoice).toBe('light'); expect(all.options.seconds).toEqual(['R', 'B', 'N']);
+  expect(poolLetters(all.options.pool, all.options.seconds)).toHaveLength(7);
+  expect(all.options.cardPool).toEqual(DEFAULT_OPTIONS.cardPool);
+  const four = readPanel({ ...old, cardMode: 'four' })!;
+  expect(four.options.cardPool).toEqual(old.picked);
+  expect(readPanel(JSON.parse(JSON.stringify(all)))).toEqual(all);
+  expect(readOptions({ ...oldOptions, pool: ['Q', 'R', 'B', 'N'] }).seconds).toEqual(['R', 'B', 'N']);
 });

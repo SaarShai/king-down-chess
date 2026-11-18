@@ -1,3 +1,4 @@
+import { kingDisplayName } from './king-label';
 import { GameRules } from './game-rules';
 import { MENU_LEVELS, LEVEL_NAMES, LEVEL_LINES, menuLevel, levelPosition, levelSlider } from './level-ui';
 import { POWERS_BALANCED } from './rules/rules';
@@ -144,9 +145,9 @@ export function newGameDialog(start: (s: Setup) => void, preset: () => Partial<R
   for (const c of [0, 1] as const) {
     $(`pick-${c}`).innerHTML = `<h3 id="pick-${c}-title">${SIDE[c]}'s king <span class="who"></span></h3>`
       + `<div class="emblems" role="group" aria-labelledby="pick-${c}-title">${KING_NAMES.map(k =>
-        `<button type="button" class="emblem" data-king="${k}" aria-pressed="false" title="${k} king: ${KINGS[k].map(p => POWER_NAME[p]).join(' or ')}">`
+        `<button type="button" class="emblem" data-king="${k}" aria-pressed="false" title="${kingDisplayName(k)} king: ${KINGS[k].map(p => POWER_NAME[p]).join(' or ')}">`
         + emblemArt(k, `<img src="./ui/emblems/${k.toLowerCase()}.webp" alt="" width="128" height="128" decoding="async" />`)
-        + `<span class="em-name">${k}</span></button>`).join('')}</div>`
+        + `<span class="em-name">${kingDisplayName(k)}</span></button>`).join('')}</div>`
       + `<div class="power-choice" role="group" aria-label="${SIDE[c]}'s power">`
       + '<button type="button" data-slot="0"></button><button type="button" data-slot="1"></button>'
       + `<button type="button" data-slot="none" data-power="">${powerArt(null)}<span class="pm-label">No power</span></button></div>`

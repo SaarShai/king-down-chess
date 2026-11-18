@@ -409,6 +409,19 @@ it('G1: the armed power note names the target, then the rule', async () => {
   } finally { await page.close(); }
 });
 
+it.each([
+  ['Stratus', 'Flight', 'Sky King'],
+  ['Mud', 'March', 'Earth King'],
+] as const)('names the %s king sheet with its display title', async (king, power, title) => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { kings: [{ king, power }, null] })), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('#power-w').click();
+    await frame.locator('#board-sheet[open]').waitFor();
+    expect(await frame.locator('#board-sheet h2').innerText()).toBe(title);
+  } finally { await page.close(); }
+});
+
 it('names the power coin owner when both kings have the same power', async () => {
   const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { kings: [{ king: 'Frost', power: 'Freeze' }, { king: 'Frost', power: 'Freeze' }] })), frame = page.frameLocator('iframe');
   try {

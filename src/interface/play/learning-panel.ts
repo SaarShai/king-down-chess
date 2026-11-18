@@ -1,3 +1,4 @@
+import { kingDisplayName } from '../../king-label';
 import { button, closeX } from '../ui/kit.js';
 import { colorOf, followSq, sqName, typeOf, type Color, type Position } from '../../rules/engine';
 import type { GameRules } from '../../game-rules';
@@ -73,7 +74,7 @@ export function learningPanel(subject: LearnSubject, rules: GameRules, options: 
   const top = node('div', 'learn-top'), title = node('h3', '', entry.name);
   if (options.close) top.append(closeX(`Close ${entry.name} rule`, options.close));
   // `owner`: the game names whose power it is (reading decision 22); the Guide gives none.
-  top.append(node('p', 'learn-kind', [options.owner ?? entry.kind, entry.king ? `${entry.king} King` : '', entry.uses].filter(Boolean).join(' · ')), title, node('p', 'learn-short', entry.short));
+  top.append(node('p', 'learn-kind', [options.owner ?? entry.kind, entry.king ? `${kingDisplayName(entry.king)} King` : '', entry.uses].filter(Boolean).join(' · ')), title, node('p', 'learn-short', entry.short));
   const demo = playDiagram(diagramFor(subject, options.side, rules), entry.name, options.announce ?? (() => {}));
   const rule = node('p', 'learn-rule', entry.full), limits = node('p', 'learn-limits', entry.limits), against = node('p', 'learn-against', entry.against);
   const body = node('div', 'learn-body');

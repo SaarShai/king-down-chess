@@ -114,9 +114,7 @@ async function setupPanels(page, width, height, wait = false) {
   await page.touchscreen.tap(outside.x + outside.width / 2, outside.y + outside.height / 2);
   assert.equal(await page.locator('.game-menu').count(), 0); assert.deepEqual(await row(page, wait ? 1 : 0), before);
   if (!wait) assert.equal(await cell(page, 0).getAttribute('aria-selected'), 'false', 'the outside input only closes Menu');
-  if (await page.locator('.play-game').getAttribute('data-shared-reader') === 'true' && !wait) {
-    assert.equal(await page.locator('.play-history-strip').isVisible(), false, 'Manual instructions use the shared area'); return;
-  }
+  assert.equal(await page.locator('.play-history-strip').isVisible(), true, 'Manual keeps the scroll below the board');
   await page.locator('.play-history-toggle').tap(); await page.locator('.play-scroll-panel').waitFor({ state: 'visible' });
   assert.match(await page.locator('.play-panel-body').innerText(), /No action yet/);
   await page.keyboard.press('Escape');
@@ -124,13 +122,15 @@ async function setupPanels(page, width, height, wait = false) {
 async function inviteFromPanel(page, king, cards, named = false) {
   await page.locator('.home-hero-new, .home-top-new:visible, .home-side-new:visible').first().click();
   const panel = page.locator('dialog.new-game-panel[open]');
-  await panel.getByRole('radio', { name: 'Person', exact: true }).click();
+  await panel.getByRole('radio', { name: 'Player', exact: true }).click();
   await panel.getByRole('checkbox', { name: 'With powers', exact: true }).setChecked(true);
   await panel.getByRole('checkbox', { name: 'With cards', exact: true }).setChecked(false);
-  await panel.locator('[data-section="powers"]').click(); await panel.locator(`[data-king="${king.king}"]`).click();
+  const powers = panel.locator('[data-section="powers"]');
+  if (await powers.getAttribute('aria-expanded') !== 'true') await powers.click();
+  await panel.locator(`[data-king="${king.king}"]`).click();
   await panel.getByRole('radio', { name: king.power, exact: true }).click();
   await panel.getByRole('checkbox', { name: 'With cards', exact: true }).setChecked(cards);
-  if (cards && king.power === 'Leap') assert.match(await panel.locator('[data-section="powers"]').innerText(), /Mud · March/);
+  if (cards && king.power === 'Leap') assert.match(await panel.locator('[data-section="powers"]').innerText(), /Earth · March/);
   const response = page.waitForResponse(r => new URL(r.url()).pathname === '/api/games' && r.request().method() === 'POST');
   if (named) {
     await panel.getByRole('button', { name: 'Invite by name', exact: true }).click();
@@ -169,13 +169,15 @@ try {
     await page.getByRole('button', { name: 'Menu', exact: true }).click();
     await page.getByRole('button', { name: 'Back to home', exact: true }).click();
     await page.locator('.home-hero-new, .home-top-new:visible, .home-side-new:visible').first().click();
-    assert.equal(await page.locator('.new-game-panel .panel-warning').isVisible(), true, 'a new game warns about the confirmed arrangement');
+    await page.locator('dialog.new-game-panel[open]').waitFor();
+    assert.doesNotMatch(await page.locator('dialog.new-game-panel[open]').innerText(), /This ends your game/, 'the open panel has no replacement warning text');
+    assert.equal(await page.locator('.new-game-panel .panel-warning').count(), 0, 'a new game has no replacement warning');
     await page.locator('.new-game-panel').getByRole('button', { name: 'Close', exact: true }).click();
     await page.locator('.home-game-row[data-kind="computer"]').click();
     await page.waitForSelector('.play-game[data-state="ready"]'); assert.deepEqual(await row(page), arranged);
     await page.reload(); await page.locator('.home-game-row[data-kind="computer"]').click();
     await page.waitForSelector('.play-game[data-state="ready"]'); assert.deepEqual(await row(page), arranged);
-    await firstMove(page); await ctx.close();
+    await firstMove(page); await ctx.close(); console.log(`ok solo ${width}x${height}`);
   }
   {
     const { page, context: ctx } = await context({ width: 390, height: 844 });
@@ -192,7 +194,7 @@ try {
     await page.getByRole('button', { name: 'Resign', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Resign this game?' });
     await dialog.getByRole('button', { name: 'Resign', exact: true }).click();
-    await page.waitForSelector('.play-game[data-state="result"]'); await ctx.close();
+    await page.waitForSelector('.play-game[data-state="result"]'); await ctx.close(); console.log('ok solo-dark 390x844');
   }
   const a = await context({ width: 390, height: 844 }, { king: 'Mud', power: 'Leap' });
   const b = await context({ width: 1440, height: 900 }, { king: 'Shadow', power: 'Darkness' });

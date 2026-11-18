@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { accountData } from '../../../account/data';
 import { Game } from '../../../game';
+import { M, N, R, typeOf } from '../../../rules/engine';
 import { DraftTurn } from '../../play/turn';
 import { memoryStorage } from '../fake-server';
 import { draftKey, inviteURL, keepDraft, onlineOptions, restoreDraft } from './index';
@@ -62,6 +63,26 @@ it('the four online choices carry the panel options', () => {
     { fairy: true, arrangement: false, kingPowers: false, cards: true },
     { fairy: true, arrangement: false, kingPowers: true, cards: true },
   ]);
+});
+it('decision 124 item 3: a panel game with Knight x1 and no Knight 2nd asks the server for one knight', async () => {
+  const pool = ['Q', 'R', 'B', 'N', 'A', 'G', 'M'], options = onlineOptions('pieces', { ...PANEL_OPTIONS, pool, seconds: ['R', 'B', 'A', 'M'] });
+  expect(options.single).toEqual(['N']);
+  expect(onlineOptions('pieces')).not.toHaveProperty('single');
+  expect(onlineOptions('pieces', { ...PANEL_OPTIONS, pool, seconds: undefined })).not.toHaveProperty('single');
+  const service = fixtureService();
+  try {
+    await service.handle('alice', { handle: 'alice' }); await service.handle('bob', { handle: 'bob' });
+    // Seven letters: the deal uses all of them, so each side gets exactly one knight and one rook.
+    const seven = onlineOptions('pieces', { ...PANEL_OPTIONS, pool: ['Q', 'O', 'L', 'G', 'S', 'N', 'R'], seconds: [] });
+    expect(seven.single).toEqual(['R', 'N']);
+    const view = await service.create('alice', { kind: 'friend', options: seven }), link = await service.invite('alice', view.game_id), server = fakeServer(service);
+    const player = (name: string) => peopleController({ userId: name, storage: memoryStorage(), server: peopleServer(onlineClient({ token: async () => name, fetch: server.fetch, wait: async () => {} })) });
+    const alice = player('alice'), bob = player('bob'); await bob.join({ token: link.token }); await alice.open(view.game_id);
+    const board = Array.from(alice.state().game!.pos.board), count = (type: number) => board.filter(p => p && typeOf(p) === type).length;
+    expect(count(N)).toBe(2); expect(count(R)).toBe(2); expect(count(M)).toBe(0);
+    expect((await service.create('alice', { kind: 'friend', options })).game_id).toBeTruthy();
+    await expect(service.create('alice', { kind: 'friend', options: { ...options, single: ['Q'] } })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  } finally { await service.close(); }
 });
 it('a reload restores only this account and revision of the unsent turn', async () => {
   const storage = memoryStorage(), before = state();

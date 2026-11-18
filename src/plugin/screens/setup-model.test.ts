@@ -15,6 +15,17 @@ it('reads the aborted game draft from its view, without saved settings', () => {
   expect(gameSetup({ ...view, choices: undefined, kings: [null, king] }).king).toEqual(king);
 });
 
+it('drops a single-copy list from the game view, so New game holds no hidden value (decision 127)', () => {
+  const options = { ...DEFAULT_OPTIONS, pool: ['Q','R','B','N','A','G','M'], single: ['N'] };
+  const view = { kind: 'friend', seat: 0, level: 'club', options, choices: [null, null] } as unknown as View;
+  const draft = gameSetup(view);
+  expect(draft.options).not.toHaveProperty('single');
+  expect(draft.options.pool).toEqual(['Q','R','B','N','A','G','M']);
+  expect(createArguments(draft).options).not.toHaveProperty('single');
+  expect(withPiece(draft, 'N', false).options).not.toHaveProperty('single');
+  expect(readSetup({ kind: 'friend', options }).options).not.toHaveProperty('single');
+});
+
 it('starts a new account with the approved defaults and no king pick', () => {
   expect(readSetup(null)).toEqual({
     mode: 'casual', kind: 'solo', colour: 'white', level: 'club', king: null,

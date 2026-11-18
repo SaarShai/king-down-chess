@@ -75,10 +75,10 @@ async function readerFits(page, size, active = false) {
    strip: !!document.querySelector('.play-history-strip').getBoundingClientRect().height };
  });
  assert.notEqual(data.floating, 'true', 'an armed action stays in the normal reader');
- if (size[0] < size[1]) assert(data.bounds.bottom <= data.board.top, 'the instruction stays above the board');
+ if (size[0] < size[1]) assert(data.bounds.top >= data.board.bottom, 'the instruction stays below the board');
  assert(data.text.every(r => r.top >= data.bounds.top - 2 && r.bottom <= data.bounds.bottom + 2 && r.left >= data.bounds.left - 1 && r.right <= data.bounds.right + 1), 'reader text fits its space');
  assert(data.buttons.every(r => r.width >= 44 && r.height >= 44), 'reader controls keep 44 px targets');
- if (size[0] === 360) assert.equal(data.strip, !active, 'the short reader and history share the area');
+ assert.equal(data.strip, true, 'history has its own row during each action');
 }
 async function choiceFits(size) {
  const save = { ...fixture, back: '', fen: '7k/P7/8/8/8/8/8/7K w - - 0 1', moves: ['Kh1-g1', 'Kh8-g8'] };
@@ -123,14 +123,14 @@ try{
   await targetTurn(size); await targetTurn(size, true); await choiceFits(size);
   const {page,context,errors}=await open(size);
   await shot(page,size,'cue');assert((await page.evaluate(()=>window.cueDraws))>=3,'move and card cue squares draw');
-  assert.equal(await page.locator('[data-file]').first().evaluate(el=>getComputedStyle(el,'::after').fontSize),'12px');
+  assert.equal(await page.locator('[data-file]').first().evaluate(el=>getComputedStyle(el,'::after').fontSize),'14px');
   for(const shade of ['true','false']) assert.equal(await page.locator(`.play-square[data-rank][data-dark="${shade}"]`).first().evaluate(el=>getComputedStyle(el,'::before').color),'rgb(38, 46, 44)','coordinates use clear ink on both square colours');
-  assert.equal(await page.locator('.play-history-strip').evaluate(el=>el.getBoundingClientRect().height),44);
+  assert.equal(await page.locator('.play-history-strip').evaluate(el=>el.getBoundingClientRect().height),size[1] < 760 ? 44 : 56);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollHeight>innerHeight),false);
   await panel(page,size,page.getByRole('button',{name:'Menu',exact:true}),'.play-reader[data-floating="true"]','menu','Close menu');
   await panel(page,size,page.locator('.play-rival-cards'),'.play-reader[data-floating="true"]','opponent-cards',/^Close Computer/);
   await panel(page,size,page.locator('.play-history-toggle'),'.play-scroll-panel','history','Close history');
-  await panel(page,size,page.locator('.play-effects-toggle'),'.play-scroll-panel','effects','Close effects');
+  assert.equal(await page.getByRole('button',{name:/Effects/}).count(),0,'Effects has no opener');
   await page.locator('.play-square[data-square="24"]').click();await page.waitForTimeout(220);
   assert.equal(await page.evaluate(()=>window.lastCueAt<=window.boardInputAt),true,'an empty-square input removes cue');
   await page.locator('.play-square[data-square="8"]').click();

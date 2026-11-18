@@ -179,7 +179,7 @@ export function createMuseServer({ games, actorId, publicOrigin }: { games: Muse
       return { lead: `${s.data.status_line}${last ? ` Last move: ${last}` : ''}`, lines: s.lines.slice(1), data: { found: true, ...s.data } };
     });
 
-  tool('kingdown_explain', 'Explain a rule', 'Explains a King Down piece (by name or letter), a square, a king power or a card. Without game_id, it uses your most urgent game against the computer, if any. In a game against the computer, a square names its piece, and your piece also gets the moves it can make now. An unknown topic gives the names of the pieces in play.',
+  tool('kingdown_explain', 'Explain a rule', 'Explains a King Down piece (by name or letter), a square, a king (Sky or Earth, for example), a king power or a card. Without game_id, it uses your most urgent game against the computer, if any. In a game against the computer, a square names its piece, and your piece also gets the moves it can make now. An unknown topic gives the names of the pieces in play.',
     'read', z.object({ topic: z.string().min(1).max(60).describe('A piece name or letter, a square, a king power or a card.'), game_id: gameId }), z.object({ known: z.boolean(), pieces: z.array(z.string()).optional() }), async ({ topic, game_id }) => {
       const v = await pick(game_id), solo = v?.kind === 'solo' && !!v.fen && !!v.rules ? v : null;
       const words = explainWords(v?.rules ?? null, topic, solo ? { fen: solo.fen, viewer: solo.seat, legal: solo.legal } : undefined);

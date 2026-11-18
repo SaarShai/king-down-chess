@@ -1,3 +1,4 @@
+import { kingDisplayName } from '../king-label';
 import { pieceGuide, guideTypes } from '../read';
 import { GameRules } from '../game-rules';
 import { DEFAULT_RULES } from '../rules/rules';
@@ -60,7 +61,7 @@ function fillPieceGuide(pos: Position, context: GameRules, preset?: Partial<Rule
   // else the official readings, which an older `?rules=` preset overrides (as the New game picker shows them).
   const pr: Rules = context.rules.kings[0] || context.rules.kings[1] ? context.rules : powersRules(preset);
   $('powers-list').innerHTML = (Object.entries(KINGS) as [string, readonly PowerName[]][]).map(([king, powers]) =>
-    `<li><b>${king} king</b>: ${powers.map(p => `<span data-power="${p}"><b>${POWER_NAME[p]}</b> (${usesText(p, pr)}) — ${powerText(p, pr, true)}.</span>`).join('')}</li>`).join('');
+    `<li><b>${kingDisplayName(king)} king</b>: ${powers.map(p => `<span data-power="${p}"><b>${POWER_NAME[p]}</b> (${usesText(p, pr)}) — ${powerText(p, pr, true)}.</span>`).join('')}</li>`).join('');
   // Each piece once, as its icon and how many the pool holds ("×2"); its name for a pointer and a screen reader.
   const pool = [...new Set(POOL)].map(ch => {
     const t = LETTERS.indexOf(ch) as PieceType, n = POOL.split(ch).length - 1, icon = pieceIcon(t);

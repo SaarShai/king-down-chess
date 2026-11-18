@@ -14,20 +14,21 @@
 
 /* Positions. Stack: play.css places the parts from --col, --opp, --own, --fin, --head and --board. Rail: the rail has its own top and height. */
 .play-game[data-layout] .play-board { left: var(--board-x); top: var(--board-y); }
-.play-game[data-layout='wide'] :is(.play-opp, .play-reader, .play-own, .play-turn) { left: calc(var(--board-x) + var(--board) + var(--gap)); width: var(--rail); }
+.play-game[data-layout='wide'] :is(.play-opp, .play-history-strip, .play-reader, .play-own, .play-turn) { left: calc(var(--board-x) + var(--board) + var(--gap)); width: var(--rail); }
 .play-game[data-layout='wide'] .play-opp { top: var(--rail-top); height: var(--opp); }
-.play-game[data-layout='wide'] .play-reader { top: calc(var(--rail-top) + var(--opp)); height: var(--reader); }
-.play-game[data-layout='wide'] .play-own { top: calc(var(--rail-top) + var(--opp) + var(--reader)); height: var(--own); padding-block: 0; }
+.play-game[data-layout='wide'] .play-reader { top: calc(var(--rail-top) + var(--opp) + var(--scroll)); height: var(--reader); }
+.play-game[data-layout='wide'] .play-own { top: calc(var(--rail-top) + var(--opp) + var(--scroll) + var(--reader)); height: var(--own); padding-block: 0; }
 .play-game[data-layout='wide'] .play-turn { top: calc(var(--rail-top) + var(--rail-h) - var(--fin)); height: var(--fin); }
 .play-game[data-layout] .play-reader { padding-inline: 5px; }
 .play-game[data-own-rows='0'] .play-own { display: none; }
 
 /* The identity and resources form one group. Menu keeps its own place at the edge. */
 .play-game .play-opp { gap: 8px; padding: 0; }
-.play-opponent-group { display: flex; align-items: center; gap: 6px; flex: 0 1 auto; min-width: 0; max-width: calc(100% - 52px); }
-.play-opponent-group > .profile-portrait { width: 32px; height: 40px; }
-.play-opponent-group > strong { display: flex; flex-direction: column; flex: 0 1 auto; min-width: 0; font: 650 14px/17px var(--font-reading); overflow-wrap: anywhere; }
-.play-opponent-group > strong small { font-size: 12px; line-height: 15px; font-weight: 400; }
+.play-opponent-group { display: flex; align-items: center; gap: 6px; flex: 1 1 0; min-width: 0; }
+.play-opponent-group > .profile-portrait { flex: 0 0 32px; width: 32px; height: 40px; }
+.play-opponent-group > strong { display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; font: 650 14px/17px var(--font-reading); overflow-wrap: normal; }
+.play-opponent-group > strong > * { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.play-opponent-group > strong small { font-size: 14px; line-height: 17px; font-weight: 400; }
 .play-game .play-opp .play-power { flex: 0 0 88px; height: 60px; min-width: 0; padding: 0; }
 .play-game .play-opp > .kd-button:last-child { flex: 0 0 44px; padding: 0; min-width: 44px; margin-inline-start: auto; font-size: 14px; white-space: nowrap; }
 /* One 44 px target: a card stack and a readable count of the cards left. */
@@ -103,7 +104,7 @@
 .play-b .play-bhead-text { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
 .play-game .play-b .play-bhead .play-headline { font: 650 16px/22px var(--font-reading); max-height: 22px; letter-spacing: 0; white-space: nowrap; }
 /* A choice prompt is the current action: in the compact header it takes both lines; "Your turn." waits until the choice ends (check "play" fault 2). */
-.play-game[data-state='choice'] .play-b .play-bhead .play-turn-state { display: none; }
+.play-game[data-state='choice'] .play-b .play-bhead .play-turn-state { display: block; }
 .play-game[data-state='choice'] .play-b .play-bhead .play-headline { white-space: normal; max-height: 44px; }
 .play-game .play-b .play-headline-line { font: 650 15px/20px var(--font-reading); max-height: none; letter-spacing: 0; overflow: visible; flex: none; }
 .play-game .play-b .play-bhead-tools .play-summary-toggle.kd-button { width: auto; max-width: 104px; padding: 0 6px; font-size: 14px; line-height: 16px; white-space: normal; text-align: center; }
@@ -120,7 +121,7 @@
 .play-game .play-power { position: relative; display: flex; flex-direction: column; gap: 0; justify-content: center; align-items: center; background: transparent; box-shadow: none; border: 0; border-radius: 12px; color: var(--text); white-space: normal; text-align: center; font: 650 14px/16px var(--font-reading); }
 .play-game .play-own .play-power { flex: 0 0 72px; height: 100%; min-height: 44px; padding: 0; }
 .play-game .play-power [data-button-label] { max-width: 100%; }
-.play-game .play-power small { font: 400 12px/14px var(--font-reading); white-space: nowrap; }
+.play-game .play-power small { font: 400 14px/16px var(--font-reading); white-space: nowrap; }
 .play-power-coin { position: relative; display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 50%; background: var(--power-fill); box-shadow: var(--power-depth); }
 .play-opp .play-power-coin { width: 28px; height: 28px; background: var(--rival-fill); box-shadow: var(--rival-depth); }
 .play-power-coin img { width: 85%; height: 85%; object-fit: contain; }
@@ -139,7 +140,7 @@
 .play-game .play-own .play-card::after { display: none; }
 .play-game .play-own .play-card [data-button-label] { grid-row: 1; grid-column: 1; align-self: center; text-shadow: none; color: var(--text); padding: 0 2px; }
 .play-game .play-own .play-card [data-button-label] > span { display: inline; }
-.play-game .play-own .play-card .play-card-state { grid-row: 2; grid-column: 1; align-self: end; z-index: 1; font: 650 12px/18px var(--font-reading); color: var(--text); background: var(--surface-raised); }
+.play-game .play-own .play-card .play-card-state { grid-row: 2; grid-column: 1; align-self: end; z-index: 1; font: 650 14px/18px var(--font-reading); color: var(--text); background: var(--surface-raised); }
 .play-game .play-own .play-card .play-card-state:empty { display: none; }
 .play-game[data-hand='hand'] .play-own .play-card[data-spent='true'] { transform: none; box-shadow: inset 0 0 0 1px var(--divider); }
 .play-game .play-own .play-card[data-spent='true'] img { opacity: .3; filter: grayscale(1); }
@@ -166,8 +167,8 @@
 .play-game[data-tight='true'][data-reading='result'] .play-state-line { display: none; }
 .play-game[data-tight='true'][data-reading='result'] .play-result-actions { flex-wrap: nowrap; }
 .play-game[data-tight='true'][data-reading='result'] .play-result-actions .kd-button { flex: 1 1 0; min-width: 0; min-height: 44px; padding-inline: 4px; font-size: 14px; }
-.play-game[data-layout='wide'][data-form='compact'][data-reading='result'] .play-opp { display: none; }
-.play-game[data-layout='wide'][data-form='compact'][data-reading='result'] .play-reader { top: var(--rail-top); height: calc(var(--reader) + var(--opp)); }
+/* Decision 127: a compact rail result keeps the top line; it takes the idle hand and finish rows below the scroll. */
+.play-game[data-layout='wide'][data-form='compact'][data-reading='result'] .play-reader { height: calc(var(--reader) + var(--own) + var(--fin)); background: var(--surface-page); }
 /* The Menu and the full rule take the opponent strip on a rail too, as in the stack (reading decision 21); the state line goes. */
 .play-game[data-layout='wide'][data-borrow='true'] .play-opp { display: none; }
 .play-game[data-layout='wide'][data-borrow='true'] .play-reader { top: var(--rail-top); height: calc(var(--reader) + var(--opp)); }
@@ -196,7 +197,7 @@
 .play-game .play-result { animation: kd-fade 120ms linear both; }
 :root[data-motion='fast'] .play-game .play-result { animation-duration: 60ms; }
 .play-game .play-rematch-note { flex: none; margin: 4px 0; font-size: 14px; line-height: 18px; }
-/* The result can cover the idle board; its cause and actions never need a scroll. */
+/* The result can cover the idle board; its actions never need a scroll. A cause too long for a docked box scrolls in its own box. */
 .play-game[data-reading='result'] .play-state-line { display: none; }
 .play-game[data-reading='result'] .play-reader { height: auto; z-index: 3; overflow: visible; }
 .play-game[data-reading='result'] .play-detail { flex: none; background: var(--surface-page); }
@@ -216,20 +217,48 @@
 .play-game .play-b .play-choice-summary .play-summary-toggle { width: auto; flex: none; }
 .play-b .play-primary:has(.play-choice-summary) { gap: 0; }
 
-/* Owner playtest: history and Effects keep one full touch row outside the reader. */
-.play-history-strip { position: absolute; left: var(--col); right: var(--col); top: calc(var(--board-y) - var(--head) - 44px); height: 44px; display: flex; align-items: center; gap: 4px; z-index: 2; border-block: 1px solid var(--divider); }
-.play-history-strip .kd-button { min-height: 44px; height: 44px; padding: 0 8px; border: 0; background: transparent; box-shadow: none; font: 14px/18px var(--font-reading); }
-.play-history-toggle { flex: 1; min-width: 0; justify-content: space-between; }
-.play-history-toggle [data-button-label] { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: start; }
+/* The closed paper scroll follows the board; the reader never borrows its row. */
+.play-history-strip { position: absolute; left: var(--col); right: var(--col); top: calc(var(--board-y) + var(--board)); height: var(--scroll); z-index: 2; }
+.play-history-toggle.kd-button { width: 100%; height: 100%; min-height: 44px; padding: 2px 14px; gap: 8px; justify-content: space-between; border: 0; border-radius: 0; background: var(--surface-raised); box-shadow: 0 2px 5px #17282026; font: 14px/18px var(--font-reading); }
+.play-history-strip::before, .play-history-strip::after { content: ''; position: absolute; top: -2px; bottom: -2px; width: 9px; border: 1px solid var(--divider); border-radius: 50% / 9px; background: linear-gradient(90deg, var(--surface-muted), var(--surface-raised) 55%, var(--divider)); box-shadow: 1px 2px 3px #17282026; pointer-events: none; }
+.play-history-strip::before { left: 0; }
+.play-history-strip::after { right: 0; }
+.play-history-toggle [data-button-label] { display: grid; min-width: 0; gap: 2px; text-align: start; }
+.play-history-record { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .play-history-toggle svg { flex: none; width: 20px; }
-.play-effects-toggle { flex: none; color: var(--text-muted); }
-.play-game[data-layout='portrait'] .play-reader:not([data-floating='true']) { padding-bottom: 44px; }
-.play-game[data-layout='wide'] .play-history-strip { left: calc(var(--board-x) + var(--board) + var(--gap)); right: auto; width: var(--rail); top: calc(var(--rail-top) + var(--opp)); }
-.play-game[data-layout='wide'] .play-reader:not([data-floating='true']) { top: calc(var(--rail-top) + var(--opp) + 44px); height: calc(var(--reader) - 44px); }
-.play-game .play-b[data-form='tall'] { grid-template-rows: 24px 52px minmax(0, 1fr); }
-.play-game .play-b[data-form='wide'] { grid-template-rows: 28px 96px minmax(0, 1fr); }
+.play-game[data-layout='portrait'] .play-reader:not([data-floating='true']) { top: calc(var(--board-y) + var(--board) + var(--scroll)); height: var(--reader); padding: 8px 5px 0; }
+/* The result follows the board and the scroll, as every reading does (decision 124), and takes the idle hand and finish rows.
+   The top line (opponent and Menu) stays; the card ends at the bottom of the screen. */
+.play-game[data-layout='portrait'][data-reading='result'] .play-reader:not([data-floating='true']) { height: calc(var(--reader) + var(--own) + var(--fin)); background: var(--surface-page); }
+.play-game[data-layout='portrait'][data-result-fit][data-reading='result'] .play-result-art { display: none; }
+.play-game[data-layout='portrait'][data-result-fit][data-reading='result'] .play-result-actions { flex-wrap: nowrap; }
+.play-game[data-layout='portrait'][data-result-fit][data-reading='result'] .play-result-actions .kd-button { flex: 1 1 0; min-width: 0; padding-inline: 4px; font-size: 14px; }
+/* The review of PR 372: when the compact result still runs past the docked box, the cause takes the space that is left and scrolls.
+   Each box from the reader down to the cause can shrink; the title, the rematch note and the actions keep their size. */
+:is(.play-game[data-layout='portrait'], .play-game[data-layout='wide'][data-form='compact'])[data-result-fit='scroll'][data-reading='result'] .play-reader:not([data-floating='true']) .play-detail { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
+:is(.play-game[data-layout='portrait'], .play-game[data-layout='wide'][data-form='compact'])[data-result-fit='scroll'][data-reading='result'] .play-reader:not([data-floating='true']) .play-result { flex: 0 1 auto; min-height: 0; align-items: stretch; }
+:is(.play-game[data-layout='portrait'], .play-game[data-layout='wide'][data-form='compact'])[data-result-fit='scroll'][data-reading='result'] .play-reader:not([data-floating='true']) .play-result-copy { min-height: 0; }
+:is(.play-game[data-layout='portrait'], .play-game[data-layout='wide'][data-form='compact'])[data-result-fit='scroll'][data-reading='result'] .play-reader:not([data-floating='true']) .play-result-body { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
+:is(.play-game[data-layout='portrait'], .play-game[data-layout='wide'][data-form='compact'])[data-result-fit='scroll'][data-reading='result'] .play-reader:not([data-floating='true']) .play-result-body > * { flex: none; }
+:is(.play-game[data-layout='portrait'], .play-game[data-layout='wide'][data-form='compact'])[data-result-fit='scroll'][data-reading='result'] .play-reader:not([data-floating='true']) .play-result-cause { flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  background: linear-gradient(transparent, var(--surface-page) 70%) 0 100% / 100% 22px no-repeat local, radial-gradient(farthest-side at 50% 100%, #05171d8c, transparent) 0 100% / 100% 10px no-repeat scroll; }
+.play-game[data-layout='wide'] .play-history-strip { top: calc(var(--rail-top) + var(--opp)); }
+.play-game[data-layout='wide'] .play-reader:not([data-floating='true']) { top: calc(var(--rail-top) + var(--opp) + var(--scroll)); height: var(--reader); padding: 8px 5px 0; }
+.play-game .play-b[data-form='tall'] { grid-template-rows: 24px auto minmax(0, 1fr); }
+.play-game .play-b[data-form='wide'] { grid-template-rows: 28px auto minmax(0, 1fr); }
 .play-game .play-b .play-summary { display: none; }
 .play-game .play-b .kd-x, .play-game .play-b .kd-x + .kd-button { min-width: 44px; padding: 0; }
+.play-game[data-form='compact'] .play-opp .play-power { display: grid; grid-template-columns: 28px minmax(0, 1fr); grid-template-rows: 17px 17px; column-gap: 4px; flex-basis: 108px; height: 44px; align-content: center; text-align: start; }
+.play-game[data-form='compact'] .play-opp .play-power-coin { grid-row: 1 / 3; }
+.play-game[data-form='compact'] .play-opp .play-power small { line-height: 17px; }
+.play-game[data-form='compact'] .play-opp .play-power [data-button-label] { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.play-game[data-form='compact'] .play-own { padding: 4px 6px; }
+.play-game[data-form='compact'] .play-reader:not([data-floating='true']) { padding-block: 0; }
+.play-game[data-form='compact'] .play-b { grid-template-rows: 44px minmax(0, 1fr); }
+.play-game[data-form='compact'] .play-b .play-sub { min-height: 20px; }
+.play-game[data-form='compact'] .play-b .play-art { display: none; }
+.play-game[data-form='compact'] .play-b :is(.play-step, .play-turn-state) { font-size: 14px; line-height: 18px; }
+
 
 /* Panels take their control's anchor. Only modal dialogs use a scrim. */
 .play-game[data-layout][data-reading] .play-reader[data-floating='true'], .play-scroll-panel { position: absolute; left: var(--panel-left); right: auto; top: var(--panel-top); width: var(--panel-width); height: auto; max-height: var(--panel-height); min-height: 0; padding: 12px; z-index: 8; overflow: hidden; pointer-events: auto; }
@@ -260,21 +289,36 @@
 
 .play-game[data-layout][data-reading] .play-reader[data-floating='true'] :is(.menu-head, .learn-top, .play-head, .play-bhead) { position: sticky; top: 0; z-index: 2; background: var(--surface-raised); }
 
-/* A short phone shares the reader with history. An action uses the space above the board. */
-.play-game[data-shared-reader='true'][data-reader-active='false'] .play-reader:not([data-floating='true']) .play-b { grid-template-rows: 20px; }
-.play-game[data-shared-reader='true'][data-reader-active='false'] .play-reader:not([data-floating='true']) .play-b .play-sub { display: none; }
-.play-game[data-shared-reader='true'][data-reader-active='true']:has(.play-reader[data-floating='false']):not(:has(.online-status)) .play-opponent-group { visibility: hidden; }
-.play-game[data-shared-reader='true'] .play-opp > button { position: relative; z-index: 4; }
-.play-game[data-shared-reader='true'][data-reader-active='true'] .play-bhead { padding-inline-end: 52px; }
-.play-game[data-form='compact'] .play-b:has(.play-step) .play-secondary { display: none; }
-.play-game[data-shared-reader='true'][data-reader-active='true'] .play-reader:not([data-floating='true']) { padding-top: 0; padding-bottom: 0; }
-.play-game[data-shared-reader='true'][data-reader-active='true']:not([data-state='arrange-wait']) .play-history-strip { display: none; }
-.play-game[data-shared-reader='true'][data-state='arrange-wait'] .play-reader:not([data-floating='true']) { padding-bottom: 44px; }
-.play-game[data-shared-reader='true'][data-state='choice'] .play-choices { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 
-/* Online actions keep the opponent's two subject controls in the shared header. */
-.play-game[data-shared-reader='true']:has(.online-status) .play-opponent-group { visibility: visible; position: absolute; top: 0; right: 52px; z-index: 4; height: 48px; }
-.play-game[data-shared-reader='true']:has(.online-status) .play-opponent-group > :is(.profile-portrait, strong) { display: none; }
-.play-game[data-shared-reader='true']:has(.online-status) .play-opp .play-power { flex-basis: 44px; width: 44px; height: 44px; }
-.play-game[data-shared-reader='true']:has(.online-status) .play-opp .play-power :is([data-button-label], small) { display: none; }
-.play-game[data-shared-reader='true'] .online-status p { padding-inline-end: 148px; }
+/* Online notices and their actions use the text section. The board stays fixed. */
+.play-game[data-form='compact'][data-own-rows='1']:has(.online-status) .play-reader:not([data-floating='true']) { height: calc(var(--reader) + 28px); padding-block: 0; }
+.play-game[data-form='compact'][data-own-rows='1']:has(.online-status) .play-own { top: calc(var(--usable-height) - var(--fin) - var(--own) + 28px); height: calc(var(--own) - 28px); padding-block: 0; }
+.play-game[data-layout='wide'][data-form='compact'][data-own-rows='1']:has(.online-status) .play-own { top: calc(var(--rail-top) + var(--opp) + var(--scroll) + var(--reader) + 28px); }
+.play-game .online-status { gap: 0; min-height: 0; overflow-y: auto; }
+.play-game .online-status > p { margin: 0; font: 650 14px/18px var(--font-reading); }
+
+/* Choices and Manual warnings use the hand's spare art height. The hand keeps 44 px targets. */
+.play-game[data-form='compact'][data-own-rows='1']:is([data-state='choice'], [data-state='arrange']) .play-reader:not([data-floating='true']) { height: calc(var(--reader) + 28px); }
+.play-game[data-form='compact'][data-own-rows='1']:is([data-state='choice'], [data-state='arrange']) .play-own { top: calc(var(--usable-height) - var(--fin) - var(--own) + 28px); height: calc(var(--own) - 28px); padding-block: 0; }
+.play-game[data-layout='wide'][data-form='compact'][data-own-rows='1']:is([data-state='choice'], [data-state='arrange']) .play-own { top: calc(var(--rail-top) + var(--opp) + var(--scroll) + var(--reader) + 28px); }
+.play-game[data-form='compact'] .play-b .play-choices { display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
+.play-game[data-form='compact'] .play-b .play-choices .kd-button { flex: 1 0 44px; }
+.play-game[data-form='compact'][data-state='arrange'] .play-bhead .play-headline { max-height: 44px; white-space: normal; }
+/* Decision 127: the compact second row holds a whole 20 px line at 360x640 (armed step), and an arrange notice gives the
+   header's spare height to the notice and the instruction below it. */
+.play-game .play-b[data-form='compact'] .play-lines { padding-top: 0; }
+/* The primary lines keep their height before the secondary lines take the rest; the gap between them never cuts a line. */
+.play-game .play-b[data-form='compact'] .play-primary { flex: 0 0 auto; max-height: 100%; }
+.play-game[data-form='compact'][data-state='arrange'] .play-b:has(.play-notice) { grid-template-rows: auto minmax(0, 1fr); }
+
+/* A current sentence takes the compact header before the turn label. */
+.play-game .play-b .play-bhead .play-headline-line { max-height: 44px; white-space: normal; }
+.play-game[data-form='compact'][data-own-rows='1']:is([data-state='choice'], [data-state='arrange'], :has(.online-status)) .play-own .play-power-coin { width: 22px; height: 22px; }
+.play-game[data-form='compact'][data-own-rows='1']:is([data-state='choice'], [data-state='arrange'], :has(.online-status)) .play-own .play-power small { display: none; }
+
+/* A blocked save keeps its full warning above the Load action. */
+.play-game[data-form='compact'][data-own-rows='1']:has(.play-b .play-tools > .kd-button) .play-reader:not([data-floating='true']) { height: calc(var(--reader) + 28px); }
+.play-game[data-form='compact'][data-own-rows='1']:has(.play-b .play-tools > .kd-button) .play-own { top: calc(var(--usable-height) - var(--fin) - var(--own) + 28px); height: calc(var(--own) - 28px); padding-block: 0; }
+.play-game[data-layout='wide'][data-form='compact'][data-own-rows='1']:has(.play-b .play-tools > .kd-button) .play-own { top: calc(var(--rail-top) + var(--opp) + var(--scroll) + var(--reader) + 28px); }
+.play-game[data-form='compact'][data-own-rows='1']:has(.play-b .play-tools > .kd-button) .play-own .play-power-coin { width: 22px; height: 22px; }
+.play-game[data-form='compact'][data-own-rows='1']:has(.play-b .play-tools > .kd-button) .play-own .play-power small { display: none; }

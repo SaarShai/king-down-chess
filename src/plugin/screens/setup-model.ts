@@ -11,7 +11,9 @@ export function readSetup(value: unknown): SetupState {
   if (saved.colour && ['white', 'black'].includes(saved.colour)) state.colour = saved.colour;
   if (saved.level && ['beginner', 'casual', 'club', 'strong'].includes(saved.level)) state.level = saved.level;
   if (o && ['fairy', 'arrangement', 'classic', 'cards', 'kingPowers'].every(key => typeof o[key as keyof Options] === 'boolean') && Array.isArray(o.pool) && Array.isArray(o.cardPool)) {
-    const options = { ...o, pool: o.pool.filter(k => POOL_KINDS.includes(k)), cardPool: o.cardPool.filter(c => DEAL_CARDS.includes(c)) };
+    // This editor has no control for `single` (decision 127): a game from /play/ with one Knight starts a New game here with both copies.
+    const { single: _single, ...rest } = o;
+    const options = { ...rest, pool: o.pool.filter(k => POOL_KINDS.includes(k)), cardPool: o.cardPool.filter(c => DEAL_CARDS.includes(c)) };
     if (!validate(options)) state.options = options;
   }
   const pick = saved.king;

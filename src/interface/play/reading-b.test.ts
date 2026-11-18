@@ -97,12 +97,33 @@ it('online action content takes the shared area before it renders', () => {
   expect(update).toMatch(/readerActive = String\([^;]*actions\?\.childElementCount/);
   expect(update).toContain('renderReader(actions)');
 });
-it('resting-reader rules exclude floating panels', () => {
-  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(([, selector]) => selector.includes("[data-reader-active='false']"));
-  expect(rules.length).toBeGreaterThan(0);
-  for (const [, selector] of rules) expect(selector).toContain(".play-reader:not([data-floating='true'])");
+it('the scroll stays below the board and outside the reader at rest and during an action', () => {
+  expect(main).toContain('screen.append(opponent, boardBox, historyStrip, reader, mine, controls.element');
+  expect(css).toContain('top: calc(var(--board-y) + var(--board));');
+  expect(css).toContain('top: calc(var(--board-y) + var(--board) + var(--scroll));');
+  expect(css).not.toContain('[data-shared-reader');
+  expect(css).not.toMatch(/play-history-strip \{ display: none/);
 });
-it('Manual instructions have no history reserve in the shared area; the wait keeps it', () => {
-  expect(css).toMatch(/\[data-reader-active='true'\]:not\(\[data-state='arrange-wait'\]\) \.play-history-strip \{ display: none/);
-  expect(css).not.toContain("[data-state^='arrange'] .play-reader:not([data-floating='true']) { padding-bottom: 44px");
+it('removes the Effects control and its panel opener, and keeps the effect data functions', () => {
+  expect(main).not.toMatch(/effectsButton|play-effects-toggle|toggleScroll\('effects'/);
+  expect(read('./texts.ts')).toContain('export function effectGroups');
+});
+it('the name and level have separate single-line ellipsis boxes', () => {
+  expect(main).toContain("el('span', 'play-opponent-name', oppName)");
+  expect(css).toMatch(/strong > \* \{[^}]*text-overflow: ellipsis; white-space: nowrap/);
+});
+
+it('online name updates keep the single-line name box', () => {
+  expect(main).toContain("who.querySelector('.play-opponent-name')!.textContent = oppName");
+  expect(main).not.toContain('who.replaceChildren(oppName');
+});
+
+it('a compact current sentence uses the header before the turn label', () => {
+  expect(reader).toContain("m.title && !m.named ? null : nodes.state, title");
+  expect(css).toMatch(/play-bhead \.play-headline-line \{ max-height: 44px; white-space: normal/);
+});
+
+it('a blocked-save action stays below the full-width compact warning', () => {
+  expect(reader).toContain('m.named && m.tools.length === 1');
+  expect(css).toContain(":has(.play-b .play-tools > .kd-button) .play-reader:not([data-floating='true']) { height: calc(var(--reader) + 28px);");
 });

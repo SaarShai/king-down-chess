@@ -1,3 +1,4 @@
+import { kingDisplayName } from '../../king-label';
 import { LEVEL_NAMES } from '../../level-ui';
 import { GameRules } from '../../game-rules';
 import { call, client, gameActionsBlocked, memory, navigate, routeView, queue } from '../../account-game/runtime';
@@ -102,7 +103,7 @@ function render() {
   $<HTMLImageElement>('seat-them-picture').src = art(`ui/kings/${PLAIN_KINGS[other].toLowerCase()}${other ? '-b' : ''}.webp`);
   text('seat-me-name', memory.me?.handle ?? 'You'); $('seat-me-name').title = $('seat-me-name').textContent;
   $<HTMLImageElement>('seat-me-picture').src = art(ICONS[memory.me?.icon ?? (view.seat === 0 ? 'spirit' : 'shadow')]);
-  text('seat-me-line', choice.king ? `${choice.king.king} · ${POWER_NAME[choice.king.power]}` : view.seat === 0 ? 'White · Spirit King' : 'Black · Shadow King');
+  text('seat-me-line', choice.king ? `${kingDisplayName(choice.king.king)} · ${POWER_NAME[choice.king.power]}` : view.seat === 0 ? 'White · Spirit King' : 'Black · Shadow King');
   $('strip-me').classList.toggle('is-turn', !ready); $('seat-king').hidden = !needs.king; $('seat-shuffle').hidden = !needs.order;
   readySeal(motion, $('seat-me-picture').parentElement!, ready, readyAt.get(view.seat));
   readySeal(motion, $('seat-them-picture').parentElement!, !!view.ready?.[other], readyAt.get(other));

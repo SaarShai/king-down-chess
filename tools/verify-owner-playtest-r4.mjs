@@ -18,7 +18,7 @@ async function clearBoard(page) {
   assert.equal(await page.evaluate(() => document.documentElement.scrollHeight > innerHeight), false, 'no page scroll');
   if (await page.locator('.play-game').getAttribute('data-layout') === 'portrait') {
     const detail = await page.locator('.play-detail').boundingBox(), board = await page.locator('.play-board').boundingBox();
-    assert(detail.y + detail.height <= board.y + 1, 'the reader stays above the board');
+    assert(detail.y >= board.y + board.height - 1, `the reader stays below the board: reader top ${detail.y}, board bottom ${board.y + board.height}`);
   }
 }
 async function ownStep(page, selector, cancel) {
@@ -74,7 +74,8 @@ const cases = {
   async promotion(page, context, size) {
     await online(page, context); await page.getByRole('button', { name: 'Accept draw', exact: true }).waitFor();
     await cell(page, 48).tap();
-    await cell(page, 56).tap(); await ownStep(page, '.play-target', 'Cancel action choice');
+    await cell(page, 56).tap(); await ownStep(page, '.play-b[data-form="compact"] .play-turn-state, .play-b:not([data-form="compact"]) .play-target', 'Cancel action choice');
+    if (await page.locator('.play-game').getAttribute('data-form') === 'compact') assert.match(await page.locator('.play-b[data-form="compact"] .play-turn-state').innerText(), /a8/, 'the compact promotion names a8');
     assert.equal(await page.locator('.play-choices button').count() >= 4, true, 'promotion choices show');
     assert.equal(await page.locator('.play-choices button').first().evaluate(el => el === document.activeElement), true, 'the choice receives focus');
     await shot(page, size, 'draw-promotion');
@@ -85,7 +86,8 @@ const cases = {
   },
   async actionChoice(page, context, size) {
     await online(page, context, { fen: '7k/8/8/2r5/2O5/8/8/K7 w - - 0 1' });
-    await cell(page, 26).tap(); await cell(page, 34).tap(); await ownStep(page, '.play-target', 'Cancel action choice');
+    await cell(page, 26).tap(); await cell(page, 34).tap(); await ownStep(page, '.play-b[data-form="compact"] .play-turn-state, .play-b:not([data-form="compact"]) .play-target', 'Cancel action choice');
+    if (await page.locator('.play-game').getAttribute('data-form') === 'compact') assert.match(await page.locator('.play-b[data-form="compact"] .play-turn-state').innerText(), /Rook on c5/, 'the compact choice names its target');
     assert.match(await page.locator('.play-headline').innerText(), /Capture or push/);
     await shot(page, size, 'draw-action-choice');
     await page.getByRole('button', { name: 'Cancel action choice', exact: true }).tap(); await page.getByRole('button', { name: 'Accept draw', exact: true }).waitFor();
@@ -167,7 +169,8 @@ const cases = {
       await page.getByRole('button', { name: 'Load the newer game', exact: true }).click(); await home(page);
       await manual(page, 'both'); await visibleBounds(page, '.play-headline-line, .play-arrange-rule'); await visibleBounds(page, '.play-turn button', true); await clearBoard(page); await shot(page, [390, 751], 'manual');
       await page.getByRole('button', { name: 'Ready', exact: true }).tap(); await page.locator('.play-game[data-state="arrange"]').waitFor({ state: 'detached' });
-      assert.equal(await page.locator('.play-game').getAttribute('data-shared-reader'), 'false', 'Ready restores the normal reader limit');
+      await visibleBounds(page, '.play-turn button', true);
+      await visibleBounds(page, '.play-history-strip'); await clearBoard(page);
     } finally { await other.close(); }
   },
 };
