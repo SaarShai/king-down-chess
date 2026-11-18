@@ -1,4 +1,4 @@
-import { ALWAYS_ON, DEFAULT_OPTIONS, RANKED_OPTIONS, DEAL_CARDS, POOL_KINDS, validate, type Options, type SetupAdmission } from '../../match/setup';
+import { ALWAYS_ON, DEFAULT_OPTIONS, RANKED_OPTIONS, DEAL_CARDS, DOUBLE_KINDS, POOL_KINDS, validate, type Options, type SetupAdmission } from '../../match/setup';
 import { KINGS, type CardName, type KingChoice, type KingName } from '../../rules/rules';
 import type { CreationMode, View } from '../../match/protocol';
 
@@ -11,10 +11,10 @@ export function readSetup(value: unknown): SetupState {
   if (saved.colour && ['white', 'black'].includes(saved.colour)) state.colour = saved.colour;
   if (saved.level && ['beginner', 'casual', 'club', 'strong'].includes(saved.level)) state.level = saved.level;
   if (o && ['fairy', 'arrangement', 'classic', 'cards', 'kingPowers'].every(key => typeof o[key as keyof Options] === 'boolean') && Array.isArray(o.pool) && Array.isArray(o.cardPool)) {
-    // This editor has no control for `single` (decision 127): a game from /play/ with one Knight starts a New game here with both copies.
-    const { single: _single, ...rest } = o;
+    const { single, ...rest } = o;
     const options = { ...rest, pool: o.pool.filter(k => POOL_KINDS.includes(k)), cardPool: o.cardPool.filter(c => DEAL_CARDS.includes(c)) };
-    if (!validate(options)) state.options = options;
+    if (Array.isArray(single) && single.length && !validate({ ...options, single })) state.options = { ...options, single: [...single] };
+    else if (!validate(options)) state.options = options;
   }
   const pick = saved.king;
   if (pick && Object.hasOwn(KINGS, pick.king) && KINGS[pick.king as KingName].includes(pick.power)) state.king = { king: pick.king, power: pick.power };
@@ -39,19 +39,34 @@ export function withMode(state: SetupState, mode: CreationMode): SetupState {
   const options = { ...RANKED_OPTIONS, pool: [...RANKED_OPTIONS.pool], cardPool: [...RANKED_OPTIONS.cardPool] };
   return { ...state, mode, options, colour: 'random', king: cleanKing(options, state.king, 'random') };
 }
-export const setupOptions = (o: Options): Options => ({ ...o, arrangement: o.fairy && o.arrangement, classic: !o.fairy && o.classic });
+export const setupOptions = ({ single, ...o }: Options): Options => ({
+  ...o, arrangement: o.fairy && o.arrangement, classic: !o.fairy && o.classic,
+  ...(o.fairy && single?.length ? { single } : {}),
+});
 export function withToggle(state: SetupState, key: 'fairy' | 'arrangement' | 'classic' | 'cards' | 'kingPowers', on: boolean): SetupState {
   const options = { ...state.options, [key]: on };
-  if (key === 'fairy' && on && validate({ ...setupOptions(options), cards: false })) options.pool = [...DEFAULT_OPTIONS.pool];
+  if (key === 'fairy' && on && validate({ ...setupOptions(options), cards: false })) {
+    options.pool = [...DEFAULT_OPTIONS.pool];
+    delete options.single;
+  }
   if (key === 'cards' && on && options.cardPool.length < 4) options.cardPool = [...DEFAULT_OPTIONS.cardPool];
   return { ...state, options, king: cleanKing(options, state.king, state.colour) };
 }
-export function pieceLocked(o: Options, letter: string): boolean {
-  return o.pool.includes(letter) && validate({ ...o, fairy: true, classic: false, pool: o.pool.filter(k => k !== letter) }) === 'Keep at least 7 pieces in the pool.';
+export const hasCopy = (o: Options, letter: string, second = false) => o.pool.includes(letter) && (!second || !o.single?.includes(letter));
+function editCopy(o: Options, letter: string, on: boolean, second: boolean): Options {
+  const { single = [], ...options } = o;
+  const pool = on ? [...new Set([...o.pool, letter])] : second ? o.pool : o.pool.filter(k => k !== letter);
+  const reduced = single.filter(k => k !== letter);
+  if (on && !second && DOUBLE_KINDS.includes(letter) || !on && second) reduced.push(letter);
+  return { ...options, pool, ...(reduced.length ? { single: reduced } : {}) };
 }
-export function withPiece(state: SetupState, letter: string, on: boolean): SetupState {
-  if (!POOL_KINDS.includes(letter) || on === state.options.pool.includes(letter) || !on && pieceLocked(state.options, letter)) return state;
-  return { ...state, options: { ...state.options, pool: on ? [...state.options.pool, letter] : state.options.pool.filter(k => k !== letter) } };
+export function pieceLocked(o: Options, letter: string, second = false): boolean {
+  return hasCopy(o, letter, second) && validate({ ...editCopy(o, letter, false, second), fairy: true, classic: false }) === 'Keep at least 7 pieces in the pool.';
+}
+export function withPiece(state: SetupState, letter: string, on: boolean, second = false): SetupState {
+  const o = state.options;
+  if (!(second ? DOUBLE_KINDS : POOL_KINDS).includes(letter) || on === hasCopy(o, letter, second) || !on && pieceLocked(o, letter, second)) return state;
+  return { ...state, options: editCopy(o, letter, on, second) };
 }
 export function withCard(state: SetupState, card: CardName, on: boolean, pickFour = false): SetupState {
   if (!DEAL_CARDS.includes(card) || on === state.options.cardPool.includes(card) || on && pickFour && state.options.cardPool.length >= 4) return state;

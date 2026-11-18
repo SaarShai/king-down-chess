@@ -4,6 +4,7 @@ import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startHarness } from './plugin-ui-harness';
+import { DEFAULT_OPTIONS } from '../src/match/setup';
 vi.setConfig({ testTimeout: 15000, hookTimeout: 60000 });
 let folder: string;
 let browser: Browser, harness: Awaited<ReturnType<typeof startHarness>>;
@@ -200,7 +201,7 @@ async function sections() {
   await frame.locator('#setup-options summary').click();
   return { page, frame };
 }
-it('F-116 opens kinds inline and locks a seven-piece pool', async () => {
+it('F-116 opens copies inline and locks a seven-piece pool', async () => {
   const {page, frame} = await sections();
   try {
     expect(await frame.locator('#setup-pieces, #setup-cards').count()).toBe(0);
@@ -209,11 +210,11 @@ it('F-116 opens kinds inline and locks a seven-piece pool', async () => {
     expect(await frame.locator('#fairy-body').isHidden()).toBe(true);
     await frame.locator('#setup-toggle-fairy').check();
     expect(await frame.locator('#fairy-heading').getAttribute('aria-expanded')).toBe('true');
-    expect(await frame.locator('#fairy-body .pick-list input').count()).toBe(10);
-    expect(await frame.locator('#fairy-body').innerText()).toContain('The king and the pawns are always in.');
+    expect(await frame.locator('#fairy-body .pick-list input').count()).toBe(15);
+    expect(await frame.locator('#fairy-body .pick-list input[data-second]').count()).toBe(5);
     for (const box of await frame.locator('#fairy-body .pick-list input').all()) if (await box.isChecked() && await box.isEnabled()) await box.uncheck();
     expect(await frame.locator('#fairy-body .lock-note').isVisible()).toBe(true);
-    expect(await frame.locator('#fairy-body input:checked:disabled').count()).toBeGreaterThan(0);
+    expect(await frame.locator('#fairy-body .pick-list input:checked:disabled').count()).toBe(7);
     await frame.locator('#fairy-heading').focus(); await page.keyboard.press('Enter');
     expect(await frame.locator('#fairy-body').isHidden()).toBe(true);
     await page.keyboard.press('Space');
@@ -221,6 +222,54 @@ it('F-116 opens kinds inline and locks a seven-piece pool', async () => {
     await frame.locator('#setup-toggle-fairy').uncheck();
     expect(await frame.locator('#fairy-heading').getAttribute('aria-expanded')).toBe('false');
   } finally { await page.close(); }
+});
+it.each(['solo', 'quick', 'random'] as const)('uses the seven selected copies for %s', async kind => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  const tool = async (name: string, args: object = {}, who = 'tool') =>
+    (await page.request.post(new URL('/fixture-' + who, harness.url).href, { data: { name, arguments: args } })).json();
+  const options = { ...DEFAULT_OPTIONS, pool: ['N','A','M','S','Q'], arrangement: false };
+  let gameId: string | undefined;
+  try {
+    await tool('kingdown_settings', { last_setup: { kind: 'solo', colour: 'white', level: 'club', king: null,
+      options: kind === 'quick' ? { ...options, single: ['N'] } : options } });
+    await frame.locator('#home-games:not(:disabled)').click();
+    if (kind === 'quick') await frame.locator('#hall-play').click();
+    else {
+      await frame.locator('#setup-options summary').click();
+      await frame.getByRole('checkbox', { name: 'Knight 2nd', exact: true }).uncheck();
+      expect(await frame.getByRole('checkbox', { name: 'Knight x1', exact: true }).isDisabled()).toBe(true);
+      if (kind === 'random') {
+        await frame.locator('input[name="setup-mode"][value="random"]').locator('..').click();
+        await frame.locator('#play-open').click();
+        await frame.locator('#find-opponent').click();
+      } else await frame.locator('#setup-start').click();
+    }
+    const name = kind === 'random' ? 'kingdown_find' : 'kingdown_create';
+    await expect.poll(() => sent(page, name), { timeout: 5000 }).toBe(1);
+    const args = await page.evaluate(name => (window as any).harnessCalls.find((call: any) => call.name === name).arguments, name);
+    expect(args.options.single).toEqual(['N']);
+    if (kind === 'solo') {
+      const saved = await tool('kingdown_settings');
+      expect(saved._meta.settings.last_setup.options.single).toEqual(['N']);
+    }
+    if (kind === 'random') {
+      await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
+      const joined = await tool('kingdown_find', { options }, 'friend-tool');
+      expect(joined._meta.view.options.single).toEqual(['N']);
+      gameId = joined._meta.view.game_id;
+    } else {
+      await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+      gameId = await page.evaluate(() => (window as any).harnessView.game_id);
+    }
+    const view = (await tool('kingdown_get', { game_id: gameId }))._meta.view;
+    const ranks = view.fen.split(' ')[0].split('/');
+    expect(ranks[0].match(/n/g)).toHaveLength(1);
+    expect(ranks[7].match(/N/g)).toHaveLength(1);
+  } finally {
+    if (gameId) await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id: gameId } });
+    await tool('kingdown_settings', { last_setup: { kind: 'solo', colour: 'white', level: 'club', king: null, options: DEFAULT_OPTIONS } });
+    await page.close();
+  }
 });
 it.each([['Player',true],['Random',false]] as const)('F-116 sends First rank sorting %s', async (label, value) => {
   const {page, frame} = await sections();

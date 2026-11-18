@@ -5,8 +5,8 @@
 import { Game } from '../../game';
 import { GameRules } from '../../game-rules';
 import { A, G, K, KINGS, L, M, O, P, S, colorOf, typeOf, type Color, type KingName, type PieceType, type PowerName, type Rules } from '../../rules/engine';
-import { POOL, shuffle } from '../../rules/setup';
-import { ALWAYS_ON, DEAL_CARDS, POOL_KINDS } from '../../match/setup';
+import { shuffle } from '../../rules/setup';
+import { ALWAYS_ON, DEAL_CARDS, DOUBLE_KINDS, POOL_KINDS } from '../../match/setup';
 import type { CardName, KingChoice } from '../../rules/rules';
 import { hasCards, hasPowers, rulesOf, type GameType, type Level } from './saved';
 import { resolveSide, type SideChoice } from './sides';
@@ -14,7 +14,7 @@ import { resolveSide, type SideChoice } from './sides';
 /** The stored options of the next game (main.ts). */
 export const OPTIONS_KEY = 'kingdown.game-options';
 /** The piece letters that the selected first and second copies give. */
-export const DOUBLE_KINDS = POOL_KINDS.filter(kind => POOL.split(kind).length === 3);
+export { DOUBLE_KINDS };
 export const poolLetters = (kinds: readonly string[], seconds: readonly string[] = DOUBLE_KINDS) => kinds.map(kind => kind + (seconds.includes(kind) ? kind : '')).join('');
 /** The kings and powers that a game of this type can deal: with cards, only the always-on powers (APP/src/match/setup.ts:58). */
 export const kingChoices = (setup: GameType): KingChoice[] => !hasPowers(setup) ? [] :

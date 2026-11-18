@@ -633,10 +633,11 @@ try {
     }
     await page.setViewportSize({ width: 390, height: 844 });
     await setupMount({ ...sampleSetup, options: { ...sampleSetup.options, pool: ['N','A','M','S'] } });
-    assert.equal(await frame.locator('.pick-list input:checked:disabled').count(), 4, 'Four kinds supply exactly seven pieces');
+    assert.equal(await frame.locator('.pick-list input:checked:disabled').count(), 7, 'Every selected copy is locked at seven pieces');
     await frame.getByRole('checkbox', { name: 'Queen', exact: true }).check();
     assert(!await frame.getByRole('checkbox', { name: 'Beast', exact: true }).isDisabled(), 'Adding one piece frees the one-piece lock');
-    assert(await frame.getByRole('checkbox', { name: 'Archer', exact: true }).isDisabled(), 'Eight pieces still cannot lose two archers');
+    assert(await frame.getByRole('checkbox', { name: 'Archer x1', exact: true }).isDisabled(), 'Eight pieces still cannot lose two archers');
+    assert(!await frame.getByRole('checkbox', { name: 'Archer 2nd', exact: true }).isDisabled(), 'Eight pieces can lose one archer');
     assert(await frame.locator('#cards-body').isVisible());
     const keep = ['Freeze','IceWall','Strike','Haste'];
     for (const card of sampleSetup.options.cardPool.filter(c => !keep.includes(c))) await frame.locator(`.card-grid input[value="${card}"]`).uncheck();

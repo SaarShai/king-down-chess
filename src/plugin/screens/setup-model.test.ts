@@ -15,15 +15,32 @@ it('reads the aborted game draft from its view, without saved settings', () => {
   expect(gameSetup({ ...view, choices: undefined, kings: [null, king] }).king).toEqual(king);
 });
 
-it('drops a single-copy list from the game view, so New game holds no hidden value (decision 127)', () => {
+it('keeps the single-copy list from a game, saved setup and Play now', () => {
   const options = { ...DEFAULT_OPTIONS, pool: ['Q','R','B','N','A','G','M'], single: ['N'] };
   const view = { kind: 'friend', seat: 0, level: 'club', options, choices: [null, null] } as unknown as View;
   const draft = gameSetup(view);
-  expect(draft.options).not.toHaveProperty('single');
-  expect(draft.options.pool).toEqual(['Q','R','B','N','A','G','M']);
-  expect(createArguments(draft).options).not.toHaveProperty('single');
-  expect(withPiece(draft, 'N', false).options).not.toHaveProperty('single');
-  expect(readSetup({ kind: 'friend', options }).options).not.toHaveProperty('single');
+  expect(draft.options).toEqual(options);
+  expect(createArguments(draft).options).toEqual(options);
+  expect(readSetup({ kind: 'friend', options }).options).toEqual(options);
+  expect(quickSetup({ options }).options).toEqual({ ...options, arrangement: false });
+  expect(readSetup({ options: { ...options, single: ['Q'] } }).options).not.toHaveProperty('single');
+  expect(readSetup({ options: { ...options, single: 'N' } }).options).not.toHaveProperty('single');
+  expect(createArguments(withToggle(draft, 'fairy', false)).options).not.toHaveProperty('single');
+  expect(withToggle(withToggle(draft, 'fairy', false), 'fairy', true).options).toEqual(options);
+});
+
+it('edits both copies and locks removal at seven pieces', () => {
+  const draft = readSetup({ options: { ...DEFAULT_OPTIONS, pool: ['N','A','M','S'] } });
+  expect(pieceLocked(draft.options, 'N', true)).toBe(true);
+  const eight = withPiece(draft, 'Q', true);
+  expect(withPiece(eight, 'N', false)).toBe(eight);
+  const seven = withPiece(eight, 'N', false, true);
+  expect(seven.options.single).toEqual(['N']);
+  expect(withPiece(seven, 'N', false)).toBe(seven);
+  expect(withPiece(seven, 'N', true, true).options).toEqual(eight.options);
+  const removed = withPiece(withPiece(seven, 'B', true), 'N', false);
+  expect(removed.options).toMatchObject({ pool: ['A','M','S','Q','B'], single: ['B'] });
+  expect(withPiece(removed, 'N', true, true).options).toMatchObject({ pool: ['A','M','S','Q','B','N'], single: ['B'] });
 });
 
 it('starts a new account with the approved defaults and no king pick', () => {
@@ -109,7 +126,7 @@ it('cleans card-incompatible picks and uses the actual solo seat default when th
 
 it('fixes Ranked options before saving and sending, and limits it to random players', () => {
   vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging');
-  const custom = { ...readSetup(null), kind: 'random' as const, colour: 'black' as const, king: { king: 'Mud', power: 'Leap' } as const };
+  const custom = { ...readSetup({ options: { ...DEFAULT_OPTIONS, single: ['N'] } }), kind: 'random' as const, colour: 'black' as const, king: { king: 'Mud', power: 'Leap' } as const };
   const ranked = withMode(custom, 'ranked');
   expect(ranked).toMatchObject({ mode: 'ranked', colour: 'random', options: RANKED_OPTIONS, king: { king: 'Mud', power: 'March' } });
   expect(readSetup({ ...custom, mode: 'ranked' })).toEqual(ranked);

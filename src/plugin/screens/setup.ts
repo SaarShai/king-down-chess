@@ -4,14 +4,14 @@ import type { Job, JobOptions } from '../queue';
 import { art } from '../../account-game/art';
 import { cardArt } from '../card-face';
 import { errorText } from '../../account-game/types';
-import { ALWAYS_ON, DEAL_CARDS, POOL_KINDS, validate, type Options } from '../../match/setup';
+import { ALWAYS_ON, DEAL_CARDS, DOUBLE_KINDS, POOL_KINDS, countedPool, validate, type Options } from '../../match/setup';
 import { LETTERS, NAMES } from '../../rules/engine';
 import type { SetupAdmission } from '../../match/setup';
 import { DEFAULT_RULES, POWERS_BALANCED, KINGS, type KingChoice, type KingName, type CardName, type PowerName } from '../../rules/rules';
 import { POWER_NAME, cardName, cardCost, cardText, powerText, powerTitle, powerOptions, powersRules, ruleLine } from '../../powers-ui';
 import type { View } from '../../match/protocol';
 import { locks, type Page } from '../../account-game/state';
-import { availablePowers, cleanKing, createArguments, gameSetup, pieceLocked, quickSetup, rankedOffered, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, withMode, type SetupState } from './setup-model';
+import { availablePowers, cleanKing, createArguments, gameSetup, hasCopy, pieceLocked, quickSetup, rankedOffered, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, withMode, type SetupState } from './setup-model';
 import { onStop } from './friend';
 import { RANKED_RULES, RANKED_HELP } from '../../account-game/rating-policy';
 import { MENU_LEVELS, LEVEL_NAMES, LEVEL_LINES, menuLevel, levelPosition, levelSlider } from '../../level-ui';
@@ -44,9 +44,10 @@ function section(key: 'fairy' | 'cards', title: string, body: string) {
   return `<section id="${key}-row" class="setup-section"><div class="section-head"><button id="${key}-heading" type="button" aria-expanded="false" aria-controls="${key}-body"><span class="t-ico">${icon(key)}</span><span class="grow">${title}<small id="${key}-count"></small></span><span class="chev" aria-hidden="true">›</span></button><label class="section-switch"><input id="setup-toggle-${key}" type="checkbox" aria-label="${title}"></label></div><div id="${key}-body" class="section-body" hidden>${body}</div></section>`;
 }
 function pieceList() {
-  return `<p class="quiet-line">The draw takes 7 pieces from the checked kinds. The king and the pawns are always in.</p><p class="lock-note" hidden>${icon('lock')}<span>Keep at least 7 pieces in the pool. Check another kind to free a lock.</span></p><div class="pick-list">${pieceLetters.map(letter => {
+  return `<p class="lock-note" id="setup-pool-lock" hidden>${icon('lock')}<span>Keep at least 7 pieces in the pool. Check another piece to free a lock.</span></p><div class="pick-list">${pieceLetters.flatMap(letter => {
     const n = NAMES[LETTERS.indexOf(letter)];
-    return `<label class="check pick"><span class="pick-art">${image(`ui/pieces/${n}-w.webp`)}</span><span class="grow">${image(`ui/icons/${n}.svg`, 'pi')} ${name(n)}<small>${pieceLines[letter]}</small></span><span class="lock" hidden>${icon('lock')}</span><input type="checkbox" value="${letter}" aria-label="${name(n)}"></label>`;
+    const copies = DOUBLE_KINDS.includes(letter) ? [' x1', ' 2nd'] : [''];
+    return copies.map((suffix, index) => `<label class="check pick"><span class="pick-art">${image(`ui/pieces/${n}-w.webp`)}</span><span class="grow">${image(`ui/icons/${n}.svg`, 'pi')} ${name(n)}${suffix}<small>${pieceLines[letter]}</small></span><span class="lock" hidden>${icon('lock')}</span><input type="checkbox" value="${letter}" ${index ? 'data-second' : ''} aria-label="${name(n)}${suffix}"></label>`);
   }).join('')}</div>`;
 }
 function cardTiles() {
@@ -79,7 +80,7 @@ function build() {
   $<HTMLInputElement>('setup-toggle-anyRules').onchange = event => { anyRules = (event.target as HTMLInputElement).checked; render(); };
   for (const key of ['fairy', 'cards'] as const) $(`${key}-heading`).onclick = () => { if (draft!.options[key]) { sectionOpen[key] = !sectionOpen[key]; render(); } };
   $('setup-sorting').querySelectorAll<HTMLInputElement>('input').forEach(input => { input.onchange = () => { draft = withToggle(draft!, 'arrangement', input.value === 'Player'); render(); }; });
-  $('fairy-body').querySelectorAll<HTMLInputElement>('.pick-list input').forEach(input => { input.onchange = () => { draft = withPiece(draft!, input.value, input.checked); render(); }; });
+  $('fairy-body').querySelectorAll<HTMLInputElement>('.pick-list input').forEach(input => { input.onchange = () => { draft = withPiece(draft!, input.value, input.checked, input.hasAttribute('data-second')); render(); }; });
   $('setup-card-mode').querySelectorAll<HTMLInputElement>('input').forEach(input => { input.onchange = () => {
     if (input.value === 'Pick four') { allCardPool = [...draft!.options.cardPool]; cardMode = 'four'; }
     else cardMode = 'all';
@@ -114,15 +115,19 @@ function render() {
     $(`${key}-heading`).setAttribute('aria-expanded', String(open));
     $(`${key}-heading`).setAttribute('aria-disabled', String(!o[key]));
   }
-  $('fairy-count').textContent = `${o.pool.length} kinds`;
+  $('fairy-count').textContent = `${countedPool(o).length} pieces`;
   $('cards-count').textContent = cardMode === 'four' ? `${o.cardPool.length} of 4` : `${o.cardPool.length} cards`;
   $('setup-sorting').querySelectorAll<HTMLInputElement>('input').forEach(input => { input.checked = input.value === (o.arrangement ? 'Player' : 'Random'); });
-  $('fairy-body').querySelector<HTMLElement>('.lock-note')!.hidden = !pieceLetters.some(k => pieceLocked(o, k));
+  let poolLocked = false;
   $('fairy-body').querySelectorAll<HTMLInputElement>('.pick-list input').forEach(input => {
-    const locked = pieceLocked(o, input.value), row = input.closest('label')!;
-    input.checked = o.pool.includes(input.value); input.disabled = locked;
+    const second = input.hasAttribute('data-second'), locked = pieceLocked(o, input.value, second), row = input.closest('label')!;
+    input.checked = hasCopy(o, input.value, second); input.disabled = locked;
+    if (locked) input.setAttribute('aria-describedby', 'setup-pool-lock');
+    else input.removeAttribute('aria-describedby');
+    poolLocked ||= locked;
     row.classList.toggle('locked', locked); row.querySelector<HTMLElement>('.lock')!.hidden = !locked;
   });
+  $('setup-pool-lock').hidden = !poolLocked;
   $('setup-card-mode').querySelectorAll<HTMLInputElement>('input').forEach(input => { input.checked = input.value === (cardMode === 'four' ? 'Pick four' : 'Use all cards'); });
   $('setup-card-status').textContent = o.cardPool.length < 4 ? `Pick ${4 - o.cardPool.length} more card${o.cardPool.length === 3 ? '' : 's'}.` : '';
   $('setup-card-status').hidden = o.cardPool.length >= 4;
