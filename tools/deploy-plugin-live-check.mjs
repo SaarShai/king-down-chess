@@ -95,11 +95,14 @@ async function check() {
   for (const [i, file] of art.entries()) {
     const response = liveArt[i];
     assert.equal(response.status, 200, `${file.path} status`);
-    for (const [name, value] of Object.entries(file.headers)) assert.equal(response.headers.get(name), value, `${file.path} ${name}`);
+    // The host adds a charset to a text type: compare the media type alone.
+    for (const [name, value] of Object.entries(file.headers)) assert.equal(name.toLowerCase() === 'content-type' ? response.headers.get(name)?.split(';')[0] : response.headers.get(name), value, `${file.path} ${name}`);
     assert(file.bytes.equals(Buffer.from(await response.arrayBuffer())), `${file.path} differs from the build`);
   }
 }
 
+// The last try has almost no time and fails as a request: report the last check that failed.
+let reason = 'request failed';
 for (;;) {
   try {
     await check();
@@ -107,9 +110,10 @@ for (;;) {
     console.log(`plugin-live-check: pass: ${origin}; ${served.length ? served.join('; ') : 'ChatGPT plugin parked'}${parkedPaths.length ? `; ${parkedPaths.length} parked paths answer 404 to GET and POST` : ''}`);
     break;
   } catch (error) {
+    if (error.code === 'ERR_ASSERTION') reason = error.message.split('\n')[0];
     if (Date.now() >= deadline) {
       // Do not print provider responses or embedded public configuration.
-      console.error(`plugin-live-check: FAIL: ${error.code === 'ERR_ASSERTION' ? error.message.split('\n')[0] : 'request failed'}`);
+      console.error(`plugin-live-check: FAIL: ${reason}`);
       process.exit(1);
     }
     await new Promise(done => setTimeout(done, Math.min(5000, deadline - Date.now())));
