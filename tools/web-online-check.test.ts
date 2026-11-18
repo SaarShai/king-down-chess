@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { assertInterruptedPurge, assertLocalData, assertLocalRequests, OUTSIDE_CONTROLS, outsideRequests, proxiedOptions, assertProbeOrder, buildWorkerProbe, checkAccountOff, localData, PERSISTENT_OPTIONS, recoveryOutput, restoreLocalSave, savedGameSynced, serveSite, siteRoute, WORKSHOP_SHELF } from './web-online-check.mjs';
+import { assertInterruptedPurge, assertLocalData, assertLocalRequests, OUTSIDE_CONTROLS, outsideRequests, proxiedOptions, assertProbeOrder, buildWorkerProbe, checkAccountOff, localData, PERSISTENT_OPTIONS, recoveryOutput, restoreLocalSave, savedGameSynced, serveSite, siteRoute, switchOffline, WORKSHOP_SHELF } from './web-online-check.mjs';
 import { vercelRoutes } from './plugin-server-build.mjs';
 import { ART_HEADERS } from './plugin-art-headers.mjs';
 import { loadShelf } from '../src/workshop/store';
@@ -15,6 +15,23 @@ import { readLocal, stamp } from '../src/account/sync';
 import { readWebAccountAccess } from '../src/online/account-access';
 import { createWebAccountAccess } from '../src/api/account-access';
 import type { Pool } from 'pg';
+
+it('keeps the server reachable until the page reports offline', async () => {
+  const disconnect = vi.fn();
+  const setOffline = vi.fn(async () => { expect(disconnect).not.toHaveBeenCalled(); });
+  const page = {
+    context: () => ({ setOffline }),
+    async waitForFunction(isOffline: () => boolean) {
+      expect(setOffline).toHaveBeenCalledWith(true);
+      expect(disconnect).not.toHaveBeenCalled();
+      for (const onLine of [true, false]) {
+        expect(runInNewContext(`(${isOffline})()`, { navigator: { onLine } })).toBe(!onLine);
+      }
+    },
+  };
+  await switchOffline(page, disconnect);
+  expect(disconnect).toHaveBeenCalledOnce();
+});
 
 describe('web check site routes', () => {
   const config = { routes: vercelRoutes() };

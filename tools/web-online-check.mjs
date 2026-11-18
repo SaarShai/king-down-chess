@@ -88,6 +88,12 @@ export async function restoreLocalSave(page, saved) {
 
 export const PERSISTENT_OPTIONS = { headless: true, viewport: { width: 1440, height: 900 }, hasTouch: true, reducedMotion: 'reduce' };
 
+export async function switchOffline(page, disconnectServer) {
+  await page.context().setOffline(true);
+  await page.waitForFunction(() => navigator.onLine === false);
+  disconnectServer();
+}
+
 /** An external recovery input must be a complete combined output. */
 export async function recoveryOutput(path) {
   const root = resolve(path);
@@ -676,15 +682,24 @@ export async function main() {
       });
       await active.goto(`${origin}/?title=0`); await readyBoard(active);
       await active.waitForFunction(savedGameSynced);
-      // Wait for the manifest and requested art to settle; count refusals from the start of the switch.
+      // Wait for the first art loads. The board can still start an idle animation after this wait.
       await active.waitForFunction(() => { return window.view.scene.characterWarmupSettled; });
       await active.waitForFunction(() => window.view.scene.characterFrames.length > 0);
-      const offlineAfter = events.length, offlineErrors=[], failedClips=[];
+      const offlineAfter = events.length, offlineErrors=[], failedAssets=[];
+      const offlineRequests = new WeakSet();
+      const isOfflineProbe = url => {
+        const path = new URL(url, origin);
+        return path.origin === origin && (path.pathname === '/' || path.pathname === '/sw.js' && !path.search);
+      };
       const recordOfflineError=message=>{if(message.type()==='error')offlineErrors.push(message.text());};
-      const recordFailedClip=request=>{if(/\/(tap|slam)(?:-[^/]*)?\.webp$/.test(new URL(request.url()).pathname))failedClips.push(request.url());};
+      const recordOfflineRequest = request => { if (offline) offlineRequests.add(request); };
+      const recordFailedAsset = request => {
+        if (offlineRequests.has(request) && !isOfflineProbe(request.url())) failedAssets.push(request.url());
+      };
       active.on('console',recordOfflineError);
-      active.on('requestfailed',recordFailedClip);
-      offline = true; await persistent.setOffline(true);
+      active.on('request',recordOfflineRequest);
+      active.on('requestfailed',recordFailedAsset);
+      await switchOffline(active, () => { offline = true; });
       if (output === tree && allowlist.includes('character-runtime/index.json')) {
         const index = await active.evaluate(async () => (await fetch('/character-runtime/index.json', { cache: 'reload' })).json());
         assert.ok(index.parts && typeof index.parts === 'object', 'The installed character index is available offline');
@@ -729,9 +744,10 @@ export async function main() {
       assert.equal((await lanMoves(active))[0], 'e2-e4', 'The offline AI continues the saved game');
       await inspect(active);
       const refused = events.slice(offlineAfter).filter(event => event.event === 'offline-refused').map(event => event.url);
-      assert.ok(refused.every(url => url === '/sw.js' || new URL(url, origin).pathname === '/'), `Offline play requests no asset from the server, only the network-first page and worker checks: ${JSON.stringify(refused)}`);
-      active.off('requestfailed',recordFailedClip);
-      assert.deepEqual(failedClips,[], 'Offline reload makes no failed tap or slam requests');
+      assert.ok(refused.every(isOfflineProbe), `Offline play requests no asset from the server, only the network-first page and worker checks: ${JSON.stringify(refused)}`);
+      active.off('request',recordOfflineRequest);
+      active.off('requestfailed',recordFailedAsset);
+      assert.deepEqual(failedAssets,[], 'Offline play has no failed asset requests');
       active.off('console',recordOfflineError);assert.deepEqual(offlineErrors,[], 'Offline play logs no errors');
       await persistent.setOffline(false); offline = false;
       await restoreLocalSave(active, saved);
