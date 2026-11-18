@@ -71,3 +71,21 @@ smaller and keeps the current database service and browser setup.
 - PR CI is not run here. It must confirm that the other Ubuntu sources are fast.
   A different source fault can still reach the 10-minute step limit.
 - No push, rebase, merge or deploy is made. The commit hooks run unchanged.
+
+## Use the standard Ubuntu mirrors
+
+Two runs reach the 10-minute limit while APT downloads WebKit packages from
+`us-east-2.ec2.archive.ubuntu.com`. The package list update completes in both
+runs. The timeout occurs before unpack. Both reruns fetch all 139 MB from
+`archive.ubuntu.com` in 5–7 seconds of transfer time.
+[Run 44257071745](https://github.com/SaarShai/king-down-chess/actions/runs/44257071745),
+[run 44269579913](https://github.com/SaarShai/king-down-chess/actions/runs/44269579913).
+
+Write the two standard Ubuntu mirrors before each of the eight Playwright
+installs. APT tries `archive.ubuntu.com` first and keeps `security.ubuntu.com` as
+a fallback. The workflow keeps the package and browser commands and their time
+limits. Update the workflow lint test to check the new list and its order.
+
+The 25 workflow tests, YAML parse, and syntax checks for 47 shell blocks pass.
+A temporary file check confirms that all eight steps write the two mirrors.
+GitHub Actions must confirm mirror use and install time on the runners.
