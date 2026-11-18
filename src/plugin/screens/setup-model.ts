@@ -1,6 +1,7 @@
 import { ALWAYS_ON, DEFAULT_OPTIONS, RANKED_OPTIONS, DEAL_CARDS, DOUBLE_KINDS, POOL_KINDS, validate, type Options, type SetupAdmission } from '../../match/setup';
 import { KINGS, type CardName, type KingChoice, type KingName } from '../../rules/rules';
 import type { CreationMode, View } from '../../match/protocol';
+import { selectCard } from '../../interface/play/new-game';
 
 export type SetupState = { mode: CreationMode; kind: 'solo' | 'friend' | 'random'; options: Options; colour: 'white' | 'black' | 'random'; level: 'beginner' | 'casual' | 'club' | 'strong'; king: KingChoice | null };
 export function readSetup(value: unknown): SetupState {
@@ -35,7 +36,7 @@ export function quickSetup(saved: unknown): SetupState {
 export const rankedOffered = () => import.meta.env?.VITE_KINGDOWN_STAGE === 'staging';
 /** Ranked choices are fixed before the start or a saved draft is used. */
 export function withMode(state: SetupState, mode: CreationMode): SetupState {
-  if (state.kind !== 'random' || mode !== 'ranked' || !rankedOffered()) return { ...state, mode: 'casual', colour: state.colour === 'random' ? 'white' : state.colour, king: cleanKing(state.options, state.king, state.colour) };
+  if (state.kind !== 'random' || mode !== 'ranked' || !rankedOffered()) return { ...state, mode: 'casual', colour: state.colour === 'random' ? 'white' : state.colour };
   const options = { ...RANKED_OPTIONS, pool: [...RANKED_OPTIONS.pool], cardPool: [...RANKED_OPTIONS.cardPool] };
   return { ...state, mode, options, colour: 'random', king: cleanKing(options, state.king, 'random') };
 }
@@ -49,8 +50,8 @@ export function withToggle(state: SetupState, key: 'fairy' | 'arrangement' | 'cl
     options.pool = [...DEFAULT_OPTIONS.pool];
     delete options.single;
   }
-  if (key === 'cards' && on && options.cardPool.length < 4) options.cardPool = [...DEFAULT_OPTIONS.cardPool];
-  return { ...state, options, king: cleanKing(options, state.king, state.colour) };
+  if (key === 'cards' && on && !state.options.cards) options.cardPool = DEAL_CARDS;
+  return { ...state, options };
 }
 export const hasCopy = (o: Options, letter: string, second = false) => o.pool.includes(letter) && (!second || !o.single?.includes(letter));
 function editCopy(o: Options, letter: string, on: boolean, second: boolean): Options {
@@ -68,9 +69,8 @@ export function withPiece(state: SetupState, letter: string, on: boolean, second
   if (!(second ? DOUBLE_KINDS : POOL_KINDS).includes(letter) || on === hasCopy(o, letter, second) || !on && pieceLocked(o, letter, second)) return state;
   return { ...state, options: editCopy(o, letter, on, second) };
 }
-export function withCard(state: SetupState, card: CardName, on: boolean, pickFour = false): SetupState {
-  if (!DEAL_CARDS.includes(card) || on === state.options.cardPool.includes(card) || on && pickFour && state.options.cardPool.length >= 4) return state;
-  return { ...state, options: { ...state.options, cardPool: on ? [...state.options.cardPool, card] : state.options.cardPool.filter(c => c !== card) } };
+export function withCard(state: SetupState, card: CardName, on: boolean): SetupState {
+  return { ...state, options: { ...state.options, cardPool: selectCard(state.options.cardPool, card, on) } };
 }
 export function createArguments(state: SetupState) {
   const setup = withMode(state, state.mode);
@@ -89,7 +89,7 @@ export function cleanKing(o: Options, pick: KingChoice | null, colour: SetupStat
   const [power] = availablePowers(o, pick.king);
   return power ? { king: pick.king, power } : defaultKing(colour);
 }
-export const shownKing = (state: Pick<SetupState, 'king' | 'colour'>): KingChoice => state.king ?? defaultKing(state.colour);
+export const shownKing = ({ options, king, colour }: SetupState): KingChoice => cleanKing(options, king, colour) ?? defaultKing(colour);
 export function soloChoice(view: View, pick: KingChoice | null) {
   const o = view.options;
   if (view.kind !== 'solo' || view.status !== 'setup' || !o?.kingPowers || !view.draw || view.ready?.[view.seat] || o.arrangement && !pick) return null;

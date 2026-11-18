@@ -36,8 +36,8 @@ async function newGame(frame: FrameLocator, toggles: [string, boolean][], start 
   await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
   const options = frame.locator('#setup-options');
   if (!await options.evaluate(e => (e as HTMLDetailsElement).open)) await options.locator('summary').click();
-  await frame.getByRole('radio', { name: 'White', exact: true }).locator('..').click();
-  for (const [name, on] of toggles) { if (name === 'First rank sorting') { if (await frame.locator('#setup-sorting').isVisible()) await frame.locator('#setup-sorting').getByRole('radio', {name: on ? 'Player' : 'Random', exact:true}).locator('..').click(); continue; } const box = frame.getByRole('checkbox', { name, exact: true }); if (await box.count()) await box.setChecked(on); }
+  await frame.locator('#setup-colour').fill('0');
+  for (const [name, on] of toggles) { if (name === 'First rank sorting') { if (await frame.locator('#setup-sorting').isVisible()) await frame.locator('#setup-sorting').getByRole('radio', {name: on ? 'Manual' : 'Random', exact:true}).locator('..').click(); continue; } const box = frame.getByRole('checkbox', { name, exact: true }); if (await box.count()) await box.setChecked(on); }
   if (start) await frame.locator('#setup-start').click();
 }
 const only = (on: string[]) => ['Fairy pieces', 'First rank sorting', 'Classic chess', 'King powers', 'Cards'].map(name => [name, on.includes(name)] as [string, boolean]);
@@ -439,9 +439,11 @@ it.each([false, true])('presses a spent card into grey once (reduced motion %s)'
 
 async function pickFour(frame: FrameLocator, cards: string[]) {
   await newGame(frame, only(['Cards']), false);
-  await frame.locator('[name="setup-card-mode"][value="Use all cards"]').locator('..').click();
-  await frame.locator('[name="setup-card-mode"][value="Pick four"]').locator('..').click();
-  for (const card of cards) await frame.locator(`.card-grid input[value="${card}"]`).check();
+  const toggle = frame.locator('#setup-toggle-cards');
+  await toggle.uncheck(); await toggle.check();
+  for (const box of await frame.locator('#setup-card-pool input').all()) {
+    if (!cards.includes(await box.inputValue())) await box.uncheck();
+  }
 }
 const spentStyle = (coin: Locator) => coin.evaluate(e => e.isConnected ? { opacity: getComputedStyle(e).opacity, filter: getComputedStyle(e).filter, paintOpacity: getComputedStyle(e.querySelector('.coin-paint')!).opacity, paintTransform: getComputedStyle(e.querySelector('.coin-paint')!).transform, paintFilter: getComputedStyle(e.querySelector('.coin-paint')!).filter } : null);
 it.each([false, true])('releases Freeze at its card and rests in the same spent style (reduced motion %s)', async reduced => {

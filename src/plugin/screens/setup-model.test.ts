@@ -81,21 +81,17 @@ it('keeps hidden toggles, sends only visible choices and locks the last pool ent
   state = withPiece(state, 'Q', true);
   expect(pieceLocked(state.options, 'Q')).toBe(false);
   expect(pieceLocked(state.options, 'A')).toBe(true);
-  expect(withCard(state, 'Freeze', false).options.cardPool).toEqual(['IceWall','Strike','Haste']);
+  expect(withCard(state, 'Freeze', false).options.cardPool).toEqual(['Freeze','IceWall','Strike','Haste']);
   expect(withCard(state, 'Leap', true).options.cardPool).toEqual(['Freeze','IceWall','Strike','Haste','Leap']);
   expect(createArguments(state)).not.toHaveProperty('level');
   expect(createArguments(state)).not.toHaveProperty('king');
 });
 
-it('lets a card draft go below four and stops Pick four at four', () => {
-  let state: ReturnType<typeof readSetup> = { ...readSetup(null), options: { ...DEFAULT_OPTIONS, cards: true, cardPool: [] } };
-  for (const card of ['Freeze','IceWall','Strike','Haste'] as const) state = withCard(state, card, true, true);
-  expect(withCard(state, 'Leap', true, true)).toBe(state);
-  expect(withCard(state, 'Haste', true, true)).toBe(state);
-  state = withCard(state, 'Freeze', false, true);
-  expect(state.options.cardPool).toEqual(['IceWall','Strike','Haste']);
-  expect(withCard(state, 'Leap', true, true).options.cardPool).toEqual(['IceWall','Strike','Haste','Leap']);
-  expect(withCard(state, 'Leap', true).options.cardPool).toHaveLength(4);
+it('opens the full card pool on enable and keeps at least four in catalog order', () => {
+  const four = { ...readSetup(null), options: { ...DEFAULT_OPTIONS, cards: true, cardPool: ['Flight','Haste','Strike','IceWall'] as const } };
+  expect(withCard(four, 'Haste', false).options.cardPool).toEqual(four.options.cardPool);
+  expect(withCard(four, 'Freeze', true).options.cardPool).toEqual(['Freeze','IceWall','Strike','Haste','Flight']);
+  expect(withToggle(withToggle(four, 'cards', false), 'cards', true).options.cardPool).toEqual(DEFAULT_OPTIONS.cardPool);
 });
 
 it('restores saved choices and removes old lab pieces and Rescue from the pools', () => {
@@ -112,8 +108,9 @@ it('cleans card-incompatible picks and uses the actual solo seat default when th
   expect(cleanKing(cards, { king: 'Frost', power: 'Freeze' }, 'black')).toEqual({ king: 'Shadow', power: 'Darkness' });
   expect(cleanKing(cards, null)).toBeNull();
   const remembered = readSetup({ kind: 'random', colour: 'black', level: 'club', options: cards, king: { king: 'Mud', power: 'Leap' } });
-  expect(remembered.king).toEqual({ king: 'Mud', power: 'March' });
-  expect(withToggle({ ...remembered, options: { ...cards, cards: false }, king: { king: 'Mud', power: 'Leap' } }, 'cards', true).king).toEqual({ king: 'Mud', power: 'March' });
+  expect(remembered.king).toEqual({ king: 'Mud', power: 'Leap' });
+  expect(shownKing(remembered)).toEqual({ king: 'Mud', power: 'March' });
+  expect(withToggle({ ...remembered, options: { ...cards, cards: false }, king: { king: 'Mud', power: 'Leap' } }, 'cards', true).king).toEqual({ king: 'Mud', power: 'Leap' });
   expect(shownKing({ ...remembered, colour: 'random', king: null })).toEqual({ king: 'Spirit', power: 'Mercy' });
   const view = { kind: 'solo', status: 'setup', game_id: 'game', revision: 4, seat: 1, options: { ...cards, arrangement: false }, draw: 'RNBQKBNR', choices: [null, { king: { king: 'Shadow', power: 'Darkness' }, order: 'RNBQKBNR' }] } as View;
   expect(soloChoice(view, null)).toEqual({ game_id: 'game', expected_revision: 4, king: { king: 'Shadow', power: 'Darkness' }, order: 'RNBQKBNR', ready: true });

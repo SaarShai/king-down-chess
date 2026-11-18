@@ -5,7 +5,8 @@ import { settled } from './plugin-settled.mjs';
 export async function checkCardChoices(page, frame, mount, setup, cards) {
   await mount(setup);
   const noLoops = async target => assert(await target.evaluate(e => e.getAnimations({subtree:true}).every(a => a.playState !== 'running' || a.effect.getComputedTiming().endTime !== Infinity || a.effect.target.closest('.card-picture'))), 'Only a rule picture has an infinite animation');
-  const grid=frame.locator('#setup-card-pool'), body=frame.locator('#cards-body'), sheet=frame.locator('#menu-sheet');
+  const grid=frame.locator('#setup-card-pool'), sheet=frame.locator('#menu-sheet');
+  if (await grid.isHidden()) await frame.locator('#cards-heading').click();
   const selected=()=>grid.locator('input:checked').evaluateAll(inputs=>inputs.map(i=>i.value));
   const transform = face => face.evaluate(async el => {
     await Promise.all(el.getAnimations().map(a => a.finished));
@@ -43,39 +44,22 @@ export async function checkCardChoices(page, frame, mount, setup, cards) {
     assert.equal(await sheet.count(),0,`${exit} closes the full card`);
     assert(await frame.locator('#setup-card-Haste').evaluate(e=>e===document.activeElement),`${exit} returns focus to the tile`);
   }
-  await body.getByRole('radio',{name:'Pick four',exact:true}).locator('..').click();
-  assert.equal((await selected()).length,0);
-  await frame.locator('#setup-start').click();
-  assert.equal(await frame.locator('#setup-card-status').innerText(),'Pick 4 more cards.');
-  await frame.locator('#setup-start-status',{hasText:/^Pick 4 more cards\.$/}).waitFor({state:'attached'});
-  assert(await frame.locator('[data-screen="play"]').isVisible(),'An incomplete pool does not start a game');
-  const haste=grid.locator('[data-card="Haste"] .card-face');
+  const haste=grid.locator('[data-card="Haste"] .card-face'), useHaste=grid.locator('input[value="Haste"]');
   assert.equal(await haste.evaluate(el=>getComputedStyle(el).transitionDuration),'0.14s');
-  assert.equal(await transform(haste),'none');
-  await grid.locator('input[value="Haste"]').check();
-  assert.equal(await transform(haste),'matrix(1, 0, 0, 1, 0, -3)','A checked card lifts 3 px');
-  assert.deepEqual(await grid.locator('.setup-card:not(:has(input:checked)) .card-face').evaluateAll(faces=>faces.map(f=>getComputedStyle(f).transform)),cards.slice(1).map(()=>'none'));
-  await grid.locator('input[value="Haste"]').uncheck();
+  await useHaste.uncheck();
   assert.equal(await transform(haste),'none','An unchecked card returns to its first position');
+  await useHaste.check();
+  assert.equal(await transform(haste),'matrix(1, 0, 0, 1, 0, -3)','A checked card lifts 3 px');
   const picked=['MirrorB','MorphP','Haste','Flight'];
-  for(const card of picked) await grid.locator(`input[value="${card}"]`).check();
-  assert.equal(await grid.locator('input:not(:checked):disabled').count(),cards.length-4);
-  await grid.locator('input[value="MirrorB"]').uncheck();
-  assert(!await grid.locator('input[value="Freeze"]').isDisabled());
-  await grid.locator('input[value="MirrorB"]').check();
-  assert.deepEqual(new Set(await selected()),new Set(picked));
+  for(const card of cards.filter(card=>!picked.includes(card))) await grid.locator(`input[value="${card}"]`).uncheck();
+  await useHaste.click();
+  assert.deepEqual(await selected(),cards.filter(card=>picked.includes(card)));
+  assert.equal(await frame.locator('#setup-start-status').innerText(),'You must select at least 4 cards');
+  assert.equal(await frame.locator('#cards-count').innerText(),'Your 4 cards: Haste, Flight, Mirror and Morph.');
   assert.equal(await grid.locator('[data-card="MirrorB"] b').innerText(),'Mirror');
   assert.equal(await grid.locator('[data-card="MorphP"] b').innerText(),'Morph');
   await shot(page,'cards-picked-four');
-  await body.getByRole('radio',{name:'Use all cards',exact:true}).locator('..').click();
-  assert.equal((await selected()).length,cards.length);
-  for(const card of cards.slice(4)) await grid.locator(`input[value="${card}"]`).uncheck();
-  assert.equal(await grid.locator('input:checked:disabled').count(),4,'The last four cards lock');
-  assert(await frame.locator('#setup-card-lock').isVisible());
-  for(const card of cards.slice(4,6)) await grid.locator(`input[value="${card}"]`).check();
-  await body.getByRole('radio',{name:'Pick four',exact:true}).locator('..').click();
-  await body.getByRole('radio',{name:'Use all cards',exact:true}).locator('..').click();
-  assert.deepEqual(await selected(),cards.slice(0,6),'A mode round trip keeps the all-card pool');
+  for(const card of cards.slice(0,2)) await grid.locator(`input[value="${card}"]`).check();
   await frame.locator('#setup-card-Haste').click();
   await sheet.locator('input').uncheck(); await sheet.locator('input').focus();
   const before=await sheet.elementHandle();
@@ -93,7 +77,7 @@ export async function checkCardChoices(page, frame, mount, setup, cards) {
   await frame.locator('[data-screen="play"] [data-nav="profile"]').click();
   // The Collection is parked (docs/PARKED.md): the pool is the one place that shows every card face.
   await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
-  console.log('Cards: inline grid, full card, focus, art, both modes, locks and refresh pass');
+  console.log('Cards: inline grid, full card, focus, art, the four-card minimum and refresh pass');
 }
 
 export async function measureCardCoins(frame, output) {

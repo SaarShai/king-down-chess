@@ -70,13 +70,21 @@ it('F-109 puts Settings before Profile with one line per row', async () => {
     await rows.first().click(); await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
   } finally { await page.close(); }
 });
-it('F-110 puts only White and Black below The game', async () => {
-  const page = await open(), frame = page.frameLocator('iframe');
+it('F-110 uses Light and Dark on the Side slider and keeps player pool art light', async () => {
+  const {page, frame} = await sections();
   try {
-    await frame.locator('#home-games:not(:disabled)').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-    expect(await frame.locator('#setup-game-heading').evaluate(e => e.nextElementSibling?.id)).toBe('setup-colour');
-    expect(await frame.locator('#setup-colour input').evaluateAll(inputs => inputs.map(i => (i as HTMLInputElement).value))).toEqual(['white', 'black']);
-    expect(await frame.locator('#setup-colour').textContent()).not.toContain('You play');
+    const side = frame.getByRole('slider', { name: 'Side', exact: true });
+    expect(await side.getAttribute('aria-valuetext')).toBe('Light');
+    expect(await frame.locator('#colour-line').innerText()).toBe('White. You start.');
+    await side.focus(); await page.keyboard.press('End');
+    expect(await side.inputValue()).toBe('1');
+    expect(await side.getAttribute('aria-valuetext')).toBe('Dark');
+    expect(await frame.locator('#colour-line').innerText()).toBe('Black. You go second.');
+    const figure = frame.locator('.pick-art img').first();
+    expect(await figure.getAttribute('src')).toMatch(/-b\.webp$/);
+    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
+    expect(await frame.locator('#colour-line').isHidden()).toBe(true);
+    expect(await figure.getAttribute('src')).toMatch(/-w\.webp$/);
   } finally { await page.close(); }
 });
 it('F-111 removes the kings-off panel and keeps King powers', async () => {
@@ -271,7 +279,7 @@ it.each(['solo', 'quick', 'random'] as const)('uses the seven selected copies fo
     await page.close();
   }
 });
-it.each([['Player',true],['Random',false]] as const)('F-116 sends First rank sorting %s', async (label, value) => {
+it.each([['Manual',true],['Random',false]] as const)('F-116 sends First rank sorting %s', async (label, value) => {
   const {page, frame} = await sections();
   try {
     await frame.locator('#setup-toggle-fairy').check();
@@ -308,85 +316,55 @@ it.each([1280,390,320])('F-117 shows all cards in a bounded box at %s pixels', a
     expect(await frame.locator('#cards-heading').getAttribute('aria-expanded')).toBe('false');
   } finally {await page.close();}
 });
-it('F-117 guards Create and applies both card pool limits inline', async () => {
-  const {page, frame}=await sections();
+it('F-117 selects all cards on enable, refuses the fourth removal and keeps focus', async () => {
+  const {page, frame} = await sections();
   try {
+    const cards = frame.locator('#setup-card-pool input'), live = frame.locator('#setup-start-status');
+    const count = frame.locator('#cards-count');
     await frame.locator('#setup-toggle-cards').check();
-    const cards=frame.locator('#cards-body');
-    await cards.getByRole('radio',{name:'Pick four',exact:true}).locator('..').click();
-    await cards.locator('input[type="checkbox"]').nth(0).check();
-    await cards.locator('input[type="checkbox"]').nth(1).check();
-    expect(await frame.locator('#setup-card-status').innerText()).toBe('Pick 2 more cards.');
-    await frame.locator('#cards-heading').click(); await frame.locator('#setup-options summary').click();
-    await frame.locator('#setup-start').click();
-    expect(await frame.locator('#setup-card-status').isVisible()).toBe(true);
-    expect(await sent(page,'kingdown_create')).toBe(0);
-    for(const i of [2,3]) await cards.locator('input[type="checkbox"]').nth(i).check();
-    expect(await cards.locator('input[type="checkbox"]:not(:checked):disabled').count()).toBe(17);
-    await cards.getByRole('radio',{name:'Use all cards',exact:true}).locator('..').click();
-    const boxes=cards.locator('input[type="checkbox"]');
-    for (let i=20;i>=4;i--) await boxes.nth(i).uncheck();
-    expect(await cards.locator('input[type="checkbox"]:checked:disabled').count()).toBe(4);
-    expect(await frame.locator('#setup-card-lock').isVisible()).toBe(true);
-    await boxes.nth(4).check(); expect(await boxes.nth(0).isEnabled()).toBe(true);
-    await cards.getByRole('radio',{name:'Pick four',exact:true}).locator('..').click();
-    await cards.getByRole('radio',{name:'Use all cards',exact:true}).locator('..').click();
-    expect(await cards.locator('input[type="checkbox"]:checked').count()).toBe(5);
-  } finally {await page.close();}
-});
-it('F-117 keeps Open games on New game with an incomplete Pick four pool', async () => {
-  const {page, frame}=await sections();
-  try {
-    await frame.locator('#setup-body .modes').getByRole('radio',{name:'Random',exact:true}).locator('..').click();
-    await frame.locator('#setup-toggle-cards').check();
-    const cards=frame.locator('#cards-body');
-    await cards.getByRole('radio',{name:'Pick four',exact:true}).locator('..').click();
-    for(const i of [0,1]) await cards.locator('input[type="checkbox"]').nth(i).check();
-    await frame.locator('#cards-heading').click();
-    await frame.locator('#play-open').click();
-    expect(await frame.locator('[data-screen="lobby"]').isHidden()).toBe(true);
-    expect(await frame.locator('#cards-body').isVisible()).toBe(true);
-    await expect.poll(()=>frame.locator('#setup-start-status').textContent()).toBe('Pick 2 more cards.');
-    expect(await sent(page,'kingdown_find')).toBe(0);
-  } finally {await page.close();}
-});
-it('F-117 speaks the incomplete pool on each blocked Start and keeps focus', async () => {
-  const {page, frame}=await sections();
-  try {
-    await frame.locator('#setup-toggle-cards').check();
-    const cards=frame.locator('#cards-body'), live=frame.locator('#setup-start-status');
-    await cards.getByRole('radio',{name:'Pick four',exact:true}).locator('..').click();
-    await cards.locator('input[type="checkbox"]').nth(0).check();
+    expect(await frame.locator('#fairy-body').isHidden()).toBe(true);
+    expect(await frame.locator('#setup-card-pool input:checked').count()).toBe(21);
+    expect(await count.innerText()).toBe('Randomized 4 cards hand.');
+    for (const box of (await cards.all()).slice(4).reverse()) await box.uncheck();
+    expect(await count.innerText()).toBe('Your 4 cards: Freeze, Ice Wall, Strike and Haste.');
+    const fourth = cards.nth(3);
+    await fourth.focus(); await page.keyboard.press('Space');
+    expect(await fourth.isChecked()).toBe(true);
+    expect(await fourth.evaluate(e => e === document.activeElement)).toBe(true);
     expect(await live.getAttribute('role')).toBe('status');
-    await live.evaluate(e=>{ (window as any).liveTexts=[]; new MutationObserver(()=>(window as any).liveTexts.push(e.textContent)).observe(e,{childList:true,characterData:true,subtree:true}); });
-    for (const press of [1,2]) {
-      await frame.locator('#setup-start').focus(); await page.keyboard.press('Enter');
-      await expect.poll(()=>frame.locator('html').evaluate(()=>(window as any).liveTexts.filter((t:string)=>t==='Pick 3 more cards.').length)).toBe(press);
-      expect(await frame.locator('#setup-start').evaluate(e=>e===document.activeElement)).toBe(true);
-    }
-    expect(await sent(page,'kingdown_create')).toBe(0);
-  } finally {await page.close();}
-});
-it('F-117 clears the Start status when the pool fault changes or ends', async () => {
-  const {page, frame}=await sections();
-  try {
-    await frame.locator('#setup-toggle-cards').check();
-    const cards=frame.locator('#cards-body'), boxes=cards.locator('input[type="checkbox"]'), live=frame.locator('#setup-start-status');
-    await cards.getByRole('radio',{name:'Pick four',exact:true}).locator('..').click();
-    await boxes.nth(0).check();
-    await live.evaluate(e=>{ (window as any).liveTexts=[]; new MutationObserver(()=>(window as any).liveTexts.push(e.textContent)).observe(e,{childList:true,characterData:true,subtree:true}); });
-    await frame.locator('#setup-start').click();
-    await expect.poll(()=>live.textContent()).toBe('Pick 3 more cards.');
-    for (const i of [1,2,3]) await boxes.nth(i).check();
+    expect(await live.innerText()).toBe('You must select at least 4 cards');
+    await frame.locator('#setup-level').fill('0');
     expect(await live.textContent()).toBe('');
-    await boxes.nth(3).uncheck();
-    expect(await live.textContent()).toBe('');
-    await frame.locator('#setup-start').click();
-    await expect.poll(()=>live.textContent()).toBe('Pick 1 more card.');
+    await frame.locator('#setup-card-Haste').click();
+    const sheet = frame.locator('#menu-sheet');
+    await sheet.getByRole('checkbox').click();
+    expect(await sheet.getByRole('checkbox').isChecked()).toBe(true);
+    expect(await sheet.locator('.foot-count').innerText()).toBe('You must select at least 4 cards');
+    await frame.locator('#setup-done').click();
     await frame.locator('#setup-toggle-cards').uncheck();
-    expect(await live.textContent()).toBe('');
-    // The card status speaks each pool change, so only the two blocked presses write words here.
-    expect(await frame.locator('html').evaluate(()=>(window as any).liveTexts.filter(Boolean))).toEqual(['Pick 3 more cards.','Pick 1 more card.']);
-    expect(await sent(page,'kingdown_create')).toBe(0);
-  } finally {await page.close();}
+    await frame.locator('#setup-toggle-cards').check();
+    expect(await frame.locator('#setup-card-pool input:checked').count()).toBe(21);
+  } finally { await page.close(); }
+});
+
+it('opens one section and restores the preferred king power when cards go off', async () => {
+  const {page, frame} = await sections();
+  try {
+    await frame.locator('#setup-toggle-kingPowers').check();
+    await frame.locator('#setup-king').click();
+    await frame.locator('[data-king="Frost"]').click();
+    await frame.locator('[data-power="Freeze"]').click();
+    await frame.locator('#setup-done').click();
+    expect(await frame.locator('#setup-king-name').innerText()).toBe('Frost · Freeze');
+    await frame.locator('#setup-toggle-cards').check();
+    expect(await frame.locator('#kingPowers-body').isHidden()).toBe(true);
+    await frame.locator('#kingPowers-heading').click();
+    expect(await frame.locator('#cards-body').isHidden()).toBe(true);
+    expect(await frame.locator('#setup-king-reason').innerText()).toContain('Turn cards off to restore it.');
+    await frame.locator('#setup-king').click();
+    expect(await frame.locator('[data-king="Frost"]').getAttribute('title')).toBe("With cards, this king's powers come as cards.");
+    await frame.locator('#setup-done').click();
+    await frame.locator('#setup-toggle-cards').uncheck();
+    expect(await frame.locator('#setup-king-name').innerText()).toBe('Frost · Freeze');
+  } finally { await page.close(); }
 });
