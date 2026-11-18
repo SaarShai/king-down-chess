@@ -61,9 +61,7 @@ export function levelKey(level: Level, key: string): Level {
   const at = LEVELS.indexOf(level);
   return LEVELS[key === 'Home' ? 0 : key === 'End' ? 2 : Math.max(0, Math.min(2, at + (['ArrowRight', 'ArrowUp'].includes(key) ? 1 : ['ArrowLeft', 'ArrowDown'].includes(key) ? -1 : 0)))];
 }
-export const cardLocked = (picked: readonly CardName[], card: CardName) => picked.length <= 4 && picked.includes(card);
-export const selectCard = (picked: readonly CardName[], card: CardName, on: boolean): readonly CardName[] =>
-  !on && cardLocked(picked, card) ? picked : DEAL_CARDS.filter(c => c === card ? on : picked.includes(c));
+export { cardLocked, selectCard } from '../../match/setup';
 /** A sign-in return keeps the panel choices, including its card choice. */
 export const PANEL_KEY = 'kingdown.new-game-return';
 export interface PanelMemory {

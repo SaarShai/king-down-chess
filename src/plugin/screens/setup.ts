@@ -4,7 +4,7 @@ import type { Job, JobOptions } from '../queue';
 import { art } from '../../account-game/art';
 import { cardArt } from '../card-face';
 import { errorText } from '../../account-game/types';
-import { ALWAYS_ON, DEAL_CARDS, DOUBLE_KINDS, POOL_KINDS, countedPool, validate, type Options } from '../../match/setup';
+import { ALWAYS_ON, DEAL_CARDS, DOUBLE_KINDS, POOL_KINDS, cardLocked, countedPool, validate, type Options } from '../../match/setup';
 import { LETTERS, NAMES } from '../../rules/engine';
 import type { SetupAdmission } from '../../match/setup';
 import { DEFAULT_RULES, POWERS_BALANCED, KINGS, type KingChoice, type KingName, type CardName, type PowerName } from '../../rules/rules';
@@ -15,7 +15,6 @@ import { availablePowers, cleanKing, createArguments, gameSetup, hasCopy, pieceL
 import { onStop } from './friend';
 import { RANKED_RULES, RANKED_HELP } from '../../account-game/rating-policy';
 import { MENU_LEVELS, LEVEL_NAMES, LEVEL_LINES, menuLevel, levelPosition, levelSlider } from '../../level-ui';
-import { cardLocked } from '../../interface/play/new-game';
 import { sideLine, sideText } from '../../interface/play/sides';
 import { panelText } from '../../interface/play/texts';
 import './setup.css';

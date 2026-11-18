@@ -180,7 +180,7 @@ try {
   catch (error) { await shot(page, 'web-bootstrap-failure'); console.error({ resources: failures, errors, page: await page.locator('body').innerText() }); throw error; }
   await page.locator('#setup-options summary').click();
   await page.locator('label.mode').filter({ has: page.getByRole('radio', { name: 'A friend', exact: true }) }).click();
-  await page.locator('#setup-colour label').filter({ has: page.getByRole('radio', { name: 'White', exact: true }) }).click();
+  await page.locator('#setup-colour').fill('0');
   await page.locator('#setup-sorting').getByRole('radio', {name:'Random',exact:true}).locator('..').click();
   assert(await page.locator('#setup-sorting').getByRole('radio', {name:'Random',exact:true}).isChecked());
   for (const [key, on] of [['cards', false], ['kingPowers', true]]) {

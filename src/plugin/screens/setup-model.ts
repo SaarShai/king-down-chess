@@ -1,7 +1,6 @@
-import { ALWAYS_ON, DEFAULT_OPTIONS, RANKED_OPTIONS, DEAL_CARDS, DOUBLE_KINDS, POOL_KINDS, validate, type Options, type SetupAdmission } from '../../match/setup';
+import { ALWAYS_ON, DEFAULT_OPTIONS, RANKED_OPTIONS, DEAL_CARDS, DOUBLE_KINDS, POOL_KINDS, selectCard, validate, type Options, type SetupAdmission } from '../../match/setup';
 import { KINGS, type CardName, type KingChoice, type KingName } from '../../rules/rules';
 import type { CreationMode, View } from '../../match/protocol';
-import { selectCard } from '../../interface/play/new-game';
 
 export type SetupState = { mode: CreationMode; kind: 'solo' | 'friend' | 'random'; options: Options; colour: 'white' | 'black' | 'random'; level: 'beginner' | 'casual' | 'club' | 'strong'; king: KingChoice | null };
 export function readSetup(value: unknown): SetupState {

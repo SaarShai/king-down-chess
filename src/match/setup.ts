@@ -12,6 +12,10 @@ import type { MatchSetup } from './index';
 
 /** The deal list of spec Q20, in its order. */
 export const DEAL_CARDS: readonly CardName[] = RELEASED_CARDS.map(card => card.id);
+/** The last four cards of a choice stay on: a hand needs four. */
+export const cardLocked = (picked: readonly CardName[], card: CardName) => picked.length <= 4 && picked.includes(card);
+export const selectCard = (picked: readonly CardName[], card: CardName, on: boolean): readonly CardName[] =>
+  !on && cardLocked(picked, card) ? picked : DEAL_CARDS.filter(c => c === card ? on : picked.includes(c));
 /** The piece kinds of the "all" sheet: each kind of `POOL` once (spec Q7); `single` can reduce a two-copy kind to one. */
 export const POOL_KINDS: readonly string[] = [...new Set(POOL)];
 export const DOUBLE_KINDS = POOL_KINDS.filter(kind => POOL.split(kind).length === 3);
