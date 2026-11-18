@@ -15,14 +15,15 @@ const caseNames = ['long-result','result-menu-close','result-menu-escape','resul
 const selectedCases = process.env.R2B_CASES?.split(',');
 assert(!selectedCases || selectedCases.every(name => caseNames.includes(name)), `Unknown R2B_CASES: ${selectedCases}`);
 const repairSizes = [[360,640],[390,844],[390,763],[430,932],[768,1024],[844,390],[1440,900]];
-async function stateRules(page, label) {
- const data = await page.evaluate(() => {
+// minSquare stays 44 px for every case but quake-result at a side under 352 px, where the base has the same smaller squares.
+async function stateRules(page, label, minSquare = 43.99) {
+ const data = await page.evaluate(smallBoard => {
   const visible = node => {
    for (let p=node;p;p=p.parentElement) { const c=getComputedStyle(p); if(c.display==='none'||c.visibility!=='visible'||c.opacity==='0') return false; }
    const r=node.getBoundingClientRect();return r.width>0&&r.height>0&&r.bottom>0&&r.top<innerHeight;
   };
   const game=document.querySelector('.play-game'), boxes=sel=>[...game.querySelectorAll(sel)].filter(visible).map(n=>({name:n.getAttribute('aria-label')||n.textContent,r:n.getBoundingClientRect().toJSON()}));
-  const squares=boxes('.play-square'), controls=boxes('button'), smallText=[], walker=document.createTreeWalker(game,NodeFilter.SHOW_TEXT);
+  const squares=boxes('.play-square'), controls=boxes(smallBoard?'button:not(.play-square)':'button'), smallText=[], walker=document.createTreeWalker(game,NodeFilter.SHOW_TEXT);
   while(walker.nextNode()) {
    const n=walker.currentNode,p=n.parentElement;
    if(!n.textContent.trim()||p.closest('.kd-sr,svg')||!visible(p))continue;
@@ -35,10 +36,10 @@ async function stateRules(page, label) {
    squareCount:squares.length,minSquare:Math.min(...squares.flatMap(n=>[n.r.width,n.r.height])),
    smallControls:controls.filter(n=>n.r.width<43.99||n.r.height<43.99),smallText,
    top:box('.play-opp'),board:box('.play-board'),strip:box('.play-history-strip'),reader:box('.play-reader'),result:box('.play-result'),reading:game.dataset.reading,stripVisible:!!game.querySelector('.play-history-strip')&&visible(game.querySelector('.play-history-strip'))};
- });
+ }, minSquare < 43.99);
  const faults=[];
  if(data.scroll.width>data.scroll.viewport[0]+1||data.scroll.height>data.scroll.viewport[1]+1)faults.push(`page scroll ${JSON.stringify(data.scroll)}`);
- if(data.squareCount!==64||data.minSquare<43.99)faults.push(`squares: count ${data.squareCount}, minimum ${data.minSquare} px`);
+ if(data.squareCount!==64||data.minSquare<minSquare)faults.push(`squares: count ${data.squareCount}, minimum ${data.minSquare} px (rule ${minSquare})`);
  if(data.smallControls.length)faults.push(`controls under 44 px: ${JSON.stringify(data.smallControls)}`);
  if(data.smallText.length)faults.push(`text under 14 px: ${JSON.stringify(data.smallText)}`);
  if(await page.locator('.play-game').getAttribute('data-layout')==='portrait'&&data.reader.top<data.board.bottom-1)faults.push(`reader top ${data.reader.top}, board bottom ${data.board.bottom}`);
@@ -109,14 +110,16 @@ async function resultData(page) {
   const game=document.querySelector('.play-game'),card=game.querySelector('.play-result'),reader=game.querySelector('.play-reader'),strip=game.querySelector('.play-history-strip'),fit=game.getAttribute('data-result-fit');
   const box=n=>n.getBoundingClientRect().toJSON(),figure=game.querySelector('.play-result-art');
   // The same result without a fit and with the tight fit: the page must take the first of full, tight and scroll that fits.
+  const cause=game.querySelector('.play-result-cause'),range=document.createRange();range.selectNodeContents(cause);
+  // The page state before the measure below changes the fit forms.
+  const shown={top:cause.scrollTop,first:range.getClientRects()[0]?.toJSON()??null,box:cause.getBoundingClientRect().toJSON()};
   const measure=value=>{if(value===null)game.removeAttribute('data-result-fit');else game.setAttribute('data-result-fit',value);return {card:box(card),reader:box(reader)};};
   let natural,tight;
   try {natural=measure(null);tight=measure('tight');}
   finally {measure(fit);}
-  const cause=game.querySelector('.play-result-cause'),range=document.createRange();range.selectNodeContents(cause);
   const clips=[];for(let n=cause;n;n=n.parentElement){const css=getComputedStyle(n),r=box(n);clips.push({r,x:/(hidden|clip|auto|scroll)/.test(css.overflowX),y:/(hidden|clip|auto|scroll)/.test(css.overflowY)});}
   const css=getComputedStyle(cause),title=game.querySelector('.play-result-copy h3'),note=game.querySelector('.play-rematch-note');
-  return {fit,natural,tight,floating:reader.dataset.floating??null,layout:game.dataset.layout,form:game.dataset.form,card:box(card),reader:box(reader),strip:box(strip),stripVisible:strip.checkVisibility(),figureVisible:figure.checkVisibility()&&figure.getBoundingClientRect().height>0,cause:cause.innerText,causeBox:box(cause),text:[...range.getClientRects()].map(r=>r.toJSON()),clips,actions:[...game.querySelectorAll('.play-result-actions button')].map(n=>({r:box(n),visible:n.checkVisibility()})),
+  return {shown,fit,natural,tight,floating:reader.dataset.floating??null,layout:game.dataset.layout,form:game.dataset.form,card:box(card),reader:box(reader),strip:box(strip),stripVisible:strip.checkVisibility(),figureVisible:figure.checkVisibility()&&figure.getBoundingClientRect().height>0,cause:cause.innerText,causeBox:box(cause),text:[...range.getClientRects()].map(r=>r.toJSON()),clips,actions:[...game.querySelectorAll('.play-result-actions button')].map(n=>({r:box(n),visible:n.checkVisibility()})),
    causeText:cause.textContent,causeScroll:{top:cause.scrollTop,height:cause.scrollHeight,client:cause.clientHeight,overflowY:css.overflowY,lineHeight:parseFloat(css.lineHeight)},
    fonts:[cause,title,note,...game.querySelectorAll('.play-result-actions button')].map(n=>parseFloat(getComputedStyle(n).fontSize)),
    save:JSON.parse(localStorage.getItem('kingdown.save')||'null')?.moves??null,reply:globalThis.round2Reply??null,height:innerHeight,width:innerWidth,scroll:[document.scrollingElement.scrollWidth,document.scrollingElement.scrollHeight]};
@@ -145,6 +148,8 @@ async function longResultRules(page,label,errors) {
 // The lead's review of PR 372: White has spent all four cards; after a2-a3 the computer mates with Mirror as Earth Quake on f4.
 const quakeMoves=['a2-a3','!Q:f4!Z'];
 const quakeCause='Checkmate. The opponent plays Mirror as Earth Quake on f4. The Rook on g4 moves to h4; The Knight on e4 moves to d4; The Rook on f5 moves to f6; The Queen on f3 moves to f2; The Bishop on g5 moves to h6; The Bishop on e5 moves to d6; The Pawn on e3 moves to d2.';
+// Base 49f03ae77 has the same squares at these sizes: 35 px at 320x568 and 33 px at 568x320.
+const quakeScrollSizes=['320x568','360x640','568x320'],quakeSmallSquares={'320x568':34.99,'568x320':32.99};
 const quakeSizes=[[320,568],[360,640],[390,763],[390,844],[430,932],[768,1024],[844,390],[667,375],[568,320],[1440,900]];
 async function fixReply(context,lans) {
  // The engine's mating choice varies (Haste, Freeze, or Earth Quake on e4 or f4). The engine still thinks; the page then plays this legal reply.
@@ -170,7 +175,7 @@ async function seedQuake(page) {
  await page.reload();await page.locator('.home-game-row[data-kind=computer]').click();
  await page.locator('.play-game[data-state=ready]').waitFor({timeout:45000});await page.locator('.play-home,.shell-departing').waitFor({state:'detached'});await page.locator('.play-board-host[style*="visibility: hidden"]').waitFor({state:'detached'});
 }
-async function quakeRules(page,label,errors,smallBoard) {
+async function quakeRules(page,label,errors,[width,height]) {
  const data=await resultData(page);
  check(data.stripVisible&&data.reader.top>=data.strip.bottom-0.5,`${label}: visible history before result: ${JSON.stringify(data)}`);
  check(JSON.stringify(data.save)===JSON.stringify(quakeMoves)&&Array.isArray(data.reply)&&data.reply.length===0,`${label}: the computer plays the Earth Quake mate: ${JSON.stringify({save:data.save,reply:data.reply})}`);
@@ -182,12 +187,16 @@ async function quakeRules(page,label,errors,smallBoard) {
  check(data.card.bottom<=data.height,`${label}: result bottom ${data.card.bottom} <= ${data.height}`);
  check(data.fit===expectedFit(data),`${label}: the fit is the first of full, tight and scroll that fits: ${JSON.stringify(data)}`);
  check(data.figureVisible===(data.fit===null&&data.form!=='compact'),`${label}: the full result shows its figure; compact, tight and scroll results hide it`);
- const s=data.causeScroll,inBox=r=>r.top>=data.causeBox.top-2&&r.bottom<=data.causeBox.bottom+2; // the glyph box can pass the line box: the tolerance of visibleBounds
+ const docked=data.floating!=='true'&&(data.layout==='portrait'||data.layout==='wide'&&data.form==='compact');
+ if(docked)check(data.card.bottom<=data.reader.bottom+0.5&&data.actions.every(({r})=>r.bottom<=data.reader.bottom+0.5),`${label}: the result ends in its docked reader: ${JSON.stringify({card:data.card,reader:data.reader,actions:data.actions})}`);
+ // On 6b99997dc the buttons ran past the screen at these sizes: the case must reach the scroll form there.
+ if(quakeScrollSizes.includes(`${width}x${height}`))check(data.fit==='scroll',`${label}: this size takes the scroll form: ${data.fit}`);
+ const s=data.causeScroll,inBox=(r,box=data.causeBox)=>r.top>=box.top-2&&r.bottom<=box.bottom+2; // the glyph box can pass the line box: the tolerance of visibleBounds
  if(data.fit==='scroll') {
   check(/^(auto|scroll)$/.test(s.overflowY)&&s.height>s.client+1,`${label}: the cause scrolls in its own box: ${JSON.stringify(s)}`);
   check(s.client>=2*s.lineHeight-1,`${label}: at least two cause lines show: ${JSON.stringify(s)}`);
   check(data.causeBox.top>=data.reader.top-0.5&&data.causeBox.bottom<=Math.min(data.reader.bottom,data.height)+0.5,`${label}: the cause box is in the reader: ${JSON.stringify({cause:data.causeBox,reader:data.reader})}`);
-  check(s.top===0&&inBox(data.text[0]),`${label}: the first cause line shows: ${JSON.stringify({first:data.text[0],box:data.causeBox})}`);
+  check(data.shown.top===0&&data.shown.first&&inBox(data.shown.first,data.shown.box),`${label}: the cause opens at its first line: ${JSON.stringify(data.shown)}`);
   // A person scrolls the cause: the wheel stands for a finger on the box.
   const cause=page.locator('.play-result-cause');await cause.hover();await page.mouse.wheel(0,2000);
   await page.waitForFunction(()=>{const n=document.querySelector('.play-result-cause');return n.scrollTop>=n.scrollHeight-n.clientHeight-1;});
@@ -197,13 +206,22 @@ async function quakeRules(page,label,errors,smallBoard) {
   },300)))));
   check(end.top>=end.max-1&&end.last.top>=end.box.top-2&&end.last.bottom<=end.box.bottom+2,`${label}: the last cause line shows after a scroll, and the scroll holds: ${JSON.stringify(end)}`);
   check(end.page[0]===0&&end.page[1]<=data.height,`${label}: the cause scroll moves no page: ${JSON.stringify(end.page)}`);
+  // A tap on a piece (the White king on g1) during the result shows that piece and measures the fit again; the cause keeps its scroll.
+  await page.evaluate(()=>{window.round2Fit=[];new MutationObserver(list=>window.round2Fit.push(...list.map(m=>m.target.getAttribute('data-result-fit')))).observe(document.querySelector('.play-game'),{attributes:true,attributeFilter:['data-result-fit']});});
+  // The click goes to the square cell, as in result-board-tap: the board layer covers the cells after the game.
+  await page.locator('.play-square[data-square="6"]').dispatchEvent('click');
+  const kept=await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
+   const n=document.querySelector('.play-result-cause'),range=document.createRange();range.selectNodeContents(n);
+   resolve({fits:window.round2Fit,fit:document.querySelector('.play-game').getAttribute('data-result-fit'),top:n.scrollTop,max:n.scrollHeight-n.clientHeight,box:n.getBoundingClientRect().toJSON(),last:[...range.getClientRects()].at(-1).toJSON()});
+  }))));
+  check(kept.fits.length>0&&kept.fit==='scroll'&&kept.top>=kept.max-1&&kept.last.bottom<=kept.box.bottom+2,`${label}: the cause keeps its scroll when the page measures the fit again: ${JSON.stringify(kept)}`);
   await visibleBounds(page,'.play-result-actions button',true);
  } else {
   await visibleBounds(page,'.play-result-cause');
   check(s.height<=s.client+1&&data.text.length>0&&data.text.every(r=>r.left>=0&&r.right<=data.width&&r.top>=0&&r.bottom<=data.height&&data.clips.every(c=>(!c.x||r.left>=c.r.left&&r.right<=c.r.right)&&(!c.y||r.top>=c.r.top&&r.bottom<=c.r.bottom))),`${label}: the full cause shows with no scroll: ${JSON.stringify(data)}`);
  }
- // 8 x 44 px squares need 352 px: a 320 px side has 40 px squares on the base too. Those sizes check the result rules only.
- if(!smallBoard)await stateRules(page,label);
+ // 8 x 44 px squares need 352 px: a board on a 320 px side has smaller squares on the base too. Only the square rules change there.
+ await stateRules(page,label,quakeSmallSquares[`${width}x${height}`]??43.99);
  check(!errors.length,`${label}: no page errors ${errors}`);
  return data;
 }
@@ -217,7 +235,7 @@ async function quakeCase(browser,engine,width,height) {
   await page.locator('.play-square[data-square="8"]').tap();await page.locator('.play-square[data-square="16"]').tap();
   await page.getByRole('button',{name:'End turn',exact:true}).tap();
   await page.locator('.play-result').waitFor({timeout:45000});
-  metrics.push(await quakeRules(page,label,errors,Math.min(width,height)<352));
+  metrics.push(await quakeRules(page,label,errors,[width,height]));
   await page.screenshot({path:`${out}/${label}.png`});results.push({label,pass:true,metrics});console.log(`PASS ${label}`);
  } catch(error) {
   await page.screenshot({path:`${out}/${label}-failure.png`});results.push({label,pass:false,error:error.message,metrics});console.log(`FAIL ${label}: ${error.message}`);
