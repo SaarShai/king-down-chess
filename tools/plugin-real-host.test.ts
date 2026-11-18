@@ -3,7 +3,7 @@
 // frames stay live, as in ChatGPT.
 import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Browser, Frame, Page } from 'playwright';
@@ -90,6 +90,59 @@ it('serves the widget from a sandboxed second origin with the CSP of its resourc
     // Each origin serves only its own pages.
     expect((await fetch(new URL('/board-resource', host))).status).toBe(404);
     expect((await fetch(new URL('/fixture-tool', origin), { method: 'POST', body: '{}' })).status).toBe(404);
+  } finally { await page.close(); }
+});
+
+it('plays the recorded Knight cues in the widget only with Sound on', async () => {
+  const page = await browser.newPage({ viewport: { width: 400, height: 900 }, colorScheme: 'light' });
+  const modules: string[] = [];
+  page.on('request', request => { if (/\/plugin-art\/armour-[a-f0-9]+\.mjs$/.test(request.url())) modules.push(request.url()); });
+  try {
+    await page.addInitScript(() => {
+      const audio = { decoded: 0, played: [] as number[] };
+      Object.assign(window, { testAudio: audio });
+      const lengths = new WeakMap<AudioBuffer, number>(), decode = AudioContext.prototype.decodeAudioData;
+      AudioContext.prototype.decodeAudioData = async function (bytes) {
+        const length = bytes.byteLength, buffer = await decode.call(this, bytes);
+        lengths.set(buffer, length); audio.decoded++; return buffer;
+      };
+      const start = AudioBufferSourceNode.prototype.start;
+      AudioBufferSourceNode.prototype.start = function (...args) {
+        start.apply(this, args);
+        if (this.buffer && lengths.has(this.buffer)) audio.played.push(lengths.get(this.buffer)!);
+      };
+    });
+    await page.goto(built.url);
+    const ui = page.frameLocator('iframe'), board = ui.locator('#board'), sound = ui.locator('#sound');
+    await ui.locator('#home-play:not(:disabled)').waitFor();
+    await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen', availableDisplayModes: ['inline', 'fullscreen'] }));
+    const position = new URL('/fixture-position', built.url);
+    position.searchParams.set('fen', '7k/8/8/8/8/2p5/8/KN1Q4 w - - 0 1');
+    const result = await (await page.request.post(position.href)).json();
+    await page.evaluate(result => (window as any).harnessShow(result), result);
+    await ui.locator('[data-screen="board"]:visible').waitFor();
+    await board.press('ArrowRight'); await board.press('Enter');
+    expect(modules).toEqual([]);
+
+    await ui.locator('#board-menu').click();
+    await ui.getByRole('button', { name: 'Settings', exact: true }).click();
+    expect(await sound.isChecked()).toBe(false);
+    await sound.check();
+    const frame = await frameAt(page);
+    await frame.waitForFunction(() => (window as any).testAudio.decoded === 33);
+    expect(modules).toHaveLength(1);
+    expect(new URL(modules[0]).origin).toBe(new URL(built.url).origin);
+    await ui.locator('#page-back').click();
+
+    const played = () => frame.evaluate(() => (window as any).testAudio.played as number[]);
+    const expected = await Promise.all(['select-armour-A', 'knight-leap-A', 'knight-land-A'].map(async name =>
+      (await stat(`public/audio/armour/${name}.wav`)).size));
+    // Select the queen on d1, then select the knight again on b1 and capture on c3.
+    await board.press('ArrowRight'); await board.press('ArrowRight'); await board.press('Enter');
+    await board.press('ArrowLeft'); await board.press('ArrowLeft'); await board.press('Enter');
+    await expect.poll(played).toEqual(expected.slice(0, 1));
+    await board.press('ArrowRight'); await board.press('ArrowUp'); await board.press('ArrowUp'); await board.press('Enter');
+    await expect.poll(played).toEqual(expected);
   } finally { await page.close(); }
 });
 

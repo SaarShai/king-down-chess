@@ -31,7 +31,7 @@ it('routes only the site API boundary to the one MCP function for every method',
     expect(vercelRoutes().some(route => new RegExp(route.src).test('/api'))).toBe(false);
     // Without the ChatGPT plugin (tools/chatgpt-plugin.mjs) there are no art routes; with the plugin in, one per art format.
     expect(vercelRoutes(undefined, { chatgpt: false, muse: false })).toEqual([]);
-    expect(vercelRoutes(undefined, { chatgpt: true, muse: false }).map(route => route.src)).toEqual(['webp', 'png', 'svg', 'woff2'].map(type => `^/plugin-art/[\\w-]+\\.${type}$`));
+    expect(vercelRoutes(undefined, { chatgpt: true, muse: false }).map(route => route.src)).toEqual(['webp', 'png', 'svg', 'woff2', 'mjs'].map(type => `^/plugin-art/[\\w-]+\\.${type}$`));
   } finally { rmSync(site, { recursive: true, force: true }); }
 });
 
