@@ -33,7 +33,7 @@ export interface BoardView {
   resetEffects?(): void;
   sync(pos: Position): void;
   /** `onContact` can fire more than once, or not at all. Optional playback speed: 0.5 is half speed. */
-  animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number): Promise<void>;
+  animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number, onStart?: () => void): Promise<void>;
   /** Rewind one ply; other looks may sync at once. */
   animateBack?(pre: Position, m: Move, post: Position): Promise<void>;
   prepareUndo?(pre: Position, m: Move): void;
@@ -237,7 +237,7 @@ export class PaintedView implements BoardView {
     return col === 0 || col === 7 ? (col === 0 ? 1.5 : -1.5) * (value && colorOf(value) ? -1 : 1) : -1.5;
   }
 
-  async animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number): Promise<void> {
+  async animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number, onStart?: () => void): Promise<void> {
     if (this.disposed) return;
     if (this.card) this.skip();
     if (this.pos !== pos) this.sync(pos);
@@ -255,7 +255,7 @@ export class PaintedView implements BoardView {
       const moving = keepsLiveStates(card.action.id) ? new Set([m.from, m.to]) : undefined;
       this.moveSquares = moving;
       try {
-        const completed = await this.scene.play(m, { effect: card, onContact, targetMs: this.options.plainMarks ? 900 : undefined, finishSwapOnArrival: this.options.plainMarks, speed: speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed });
+        const completed = await this.scene.play(m, { effect: card, onContact, onStart, targetMs: this.options.plainMarks ? 900 : undefined, finishSwapOnArrival: this.options.plainMarks, speed: speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed });
         if (completed && this.card === card) {
           this.stateEffects.sync(this.context, card.after, performance.now(), this.motion() && !document.hidden);
           // The card already reveals its new material; its persistent hold must not start again.
@@ -280,7 +280,7 @@ export class PaintedView implements BoardView {
     this.overlay = overlay;
     this.overlayMs = -1;
     try {
-      const arrived = await this.scene.play(m, { onContact, speed: rate, targetMs: this.options.plainMarks ? 900 : undefined, finishSwapOnArrival: this.options.plainMarks });
+      const arrived = await this.scene.play(m, { onContact, onStart, speed: rate, targetMs: this.options.plainMarks ? 900 : undefined, finishSwapOnArrival: this.options.plainMarks });
       if (arrived && overlay && this.overlay === overlay) this.startTail(overlay, rate);
       // A promotion reveals the chosen piece after the pawn arrives (ticket 86). Motion off shows it at once.
       if (arrived && m.promo && this.moveSquares === moving && this.motion() && !document.hidden && !this.symbols) {

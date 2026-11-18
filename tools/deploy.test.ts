@@ -655,7 +655,7 @@ function siteRoute(req: IncomingMessage, res: ServerResponse, path: string, file
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }).end(JSON.stringify(body));
   return true;
 }
-const contentType = (path: string) => ({ js: 'text/javascript', css: 'text/css', json: 'application/json', woff2: 'font/woff2', png: 'image/png', webp: 'image/webp', svg: 'image/svg+xml', webmanifest: 'application/manifest+json' })[path.split('.').at(-1)!] ?? 'text/html';
+const contentType = (path: string) => ({ js: 'text/javascript', css: 'text/css', json: 'application/json', woff2: 'font/woff2', png: 'image/png', webp: 'image/webp', svg: 'image/svg+xml', webmanifest: 'application/manifest+json', wav: 'audio/wav' })[path.split('.').at(-1)!] ?? 'text/html';
 
 /** A build folder with the given pages. */
 function buildFolder(files: Record<string, string>) {
@@ -841,6 +841,17 @@ describe('deploy-live-check.mjs', () => {
     const badManifest = await site(() => files, {path:'/character-runtime/manifest.json',type:'application/json',cache:'public, immutable'});
     const manifestResult = await check(buildFolder(files), badManifest.url, 0);
     expect(manifestResult.status).toBe(1); expect(manifestResult.stderr).toContain('wrong immutable cache policy');
+  });
+
+  it('checks the character sounds of the worker lists for their bytes and the audio/wav type', async () => {
+    const sound = 'audio/armour/select-armour-A.wav', base = pages();
+    const files = { ...base, [sound]: 'RIFF sound', 'sw.js': base['sw.js'].replaceAll('"manifest.webmanifest"', `"manifest.webmanifest","${sound}"`) };
+    const good = await site(() => files);
+    const pass = await check(buildFolder(files), good.url, 0);
+    expect(pass.status, pass.stderr).toBe(0); expect(good.requests.map(request => request.path)).toContain(`/${sound}`);
+    const wrong = await site(() => files, { path: `/${sound}`, type: 'audio/wave' });
+    const result = await check(buildFolder(files), wrong.url, 0);
+    expect(result.status).toBe(1); expect(result.stderr).toContain(`/${sound}: expected audio/wav, got audio/wave`);
   });
 
   it('fails within the time limit when the live terms page differs, and names only that page', async () => {

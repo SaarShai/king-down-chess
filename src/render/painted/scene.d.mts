@@ -101,7 +101,7 @@ export interface PaintedScene {
   /** speed scales duration: 2 is half playback speed; 0.5 is double. */
   /** gait: play a quiet move with this gait (a GAITS name) even when `moves` is off. */
   /** targetMs: opt-in action time before the speed factor; the default keeps the recorded timing. */
-  play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null; gait?: string | null; effect?: SceneEffect; targetMs?: number; finishSwapOnArrival?: boolean }): Promise<boolean>;
+  play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null; onStart?: (() => void) | null; gait?: string | null; effect?: SceneEffect; targetMs?: number; finishSwapOnArrival?: boolean }): Promise<boolean>;
   prepareUndo(move: SceneMove, source?: { board: ArrayLike<number> }): boolean;
   rewindUndo(): Promise<boolean>;
   cancel(): void;

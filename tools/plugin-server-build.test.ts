@@ -19,6 +19,11 @@ it('routes only the site API boundary to the one MCP function for every method',
       expect(new RegExp(rule.src).test(path), path).toBe(false);
     }
     expect(routes).toContainEqual({ src: '^/internal/.+$', dest: '/internal' });
+    // Every character sound, and only those, serves as audio/wav.
+    const sound = routes.filter(route => route.headers?.['Content-Type'] === 'audio/wav');
+    expect(sound).toEqual([{ src: '^/audio/armour/[\\w-]+\\.wav$', headers: { 'Content-Type': 'audio/wav' }, continue: true }]);
+    for (const file of readdirSync('public/audio/armour')) expect(new RegExp(sound[0].src).test(`/audio/armour/${file}`), file).toBe(true);
+    expect(new RegExp(sound[0].src).test('/audio/other/a.wav')).toBe(false);
     const art = routes.find(route => route.headers?.['Cache-Control'] === 'public, max-age=31536000, immutable' && route.src.includes('character-runtime'))!;
     expect(new RegExp(art.src).test(`/character-runtime/assets/${'a'.repeat(64)}.webp`)).toBe(true);
     for (const path of ['/character-runtime/manifest.json', '/character-runtime/assets/other.webp', `/character-runtime/assets/${'a'.repeat(64)}.png`]) expect(new RegExp(art.src).test(path)).toBe(false);

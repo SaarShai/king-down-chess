@@ -26,6 +26,8 @@ export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNE
     if (existsSync(resolve(site, '.well-known/apple-app-site-association'))) routes.push({ src: '^/\\.well-known/apple-app-site-association$', headers: { 'Content-Type': 'application/json' }, continue: true });
     routes.push({ src: '^/character-runtime/assets/[a-f0-9]{64}\\.webp$', headers: { 'Cache-Control': 'public, max-age=31536000, immutable' }, continue: true });
     routes.push({ src: '^/character-runtime/(?:index\\.json|parts/[^/]+\\.json)$', headers: { 'Cache-Control': 'no-cache' }, continue: true });
+    // The character sounds: one type, which tools/deploy-live-check.mjs expects.
+    routes.push({ src: '^/audio/armour/[\\w-]+\\.wav$', headers: { 'Content-Type': 'audio/wav' }, continue: true });
     const challenge = resolve(site, '.well-known/openai-apps-challenge');
     if (chatgpt && existsSync(challenge)) {
       const token = readFileSync(challenge, 'utf8');

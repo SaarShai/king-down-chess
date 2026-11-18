@@ -180,6 +180,14 @@ describe('released card playback uses real engine frames', () => {
 });
 
 describe('production PaintedView card invocation and scene lifecycle', () => {
+  it('starts the movement callback once when the scene begins', async () => {
+    const { view, advance } = await viewBoard();
+    const context = new GameRules(), before = context.fromFen('7k/8/8/8/8/8/8/KR6 w - - 0 1');
+    const onStart = vi.fn(); view.setRules(context); view.sync(before);
+    const running = view.animateMove(before, legal(context, before, 'Rb1-b2'), undefined, undefined, onStart);
+    expect(onStart).toHaveBeenCalledOnce(); advance(2000); await running;
+    expect(onStart).toHaveBeenCalledOnce(); view.dispose();
+  });
   it('starts another game quietly at the next ply with equal rules, then allows its live effects', async () => {
     const { view, advance } = await viewBoard(), fixture = fixtures.find(f => f.item === 'Freeze')!;
     const { context, before } = game(fixture), move = legal(context, before, fixture.actions[0]);

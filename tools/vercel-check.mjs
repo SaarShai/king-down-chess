@@ -79,6 +79,7 @@ try {
     for (const [path, text] of Object.entries(files)) assert.equal(await readFile(join(runtimeDir, path), 'utf8'), text, `The runtime part is the published manifest: ${path}`);
   }
   const immutable = config.routes.find(route => route.src === '^/character-runtime/assets/[a-f0-9]{64}\\.webp$');
+  assert.equal(config.routes.find(route => route.src === '^/audio/armour/[\\w-]+\\.wav$')?.headers?.['Content-Type'], 'audio/wav', 'The character sounds serve as audio/wav');
   assert.match(immutable?.headers?.['Cache-Control'] ?? '', /max-age=31536000.*immutable/);
   const worker = await readFile(join(tree, 'static/sw.js'), 'utf8');
   const version = /^const VERSION = '([a-f0-9]{12})';$/m.exec(worker)?.[1];
@@ -105,7 +106,7 @@ try {
     if (isCharacterRuntimeStartup(path)) assert(precache.includes(path), `Runtime startup file is offline: ${file}`);
   }
   for (const file of allowlist) {
-    assert(typeof file === 'string' && (['./', 'index.html', ...soloLaunch ? ['next.html', 'browser-support.js', 'interface/stone-refined-light.webp'] : []].includes(file) || isCharacterRuntimeStartup(file) || /^(?:assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file)), `Public build file: ${file}`);
+    assert(typeof file === 'string' && (['./', 'index.html', ...soloLaunch ? ['next.html', 'browser-support.js', 'interface/stone-refined-light.webp'] : []].includes(file) || isCharacterRuntimeStartup(file) || /^(?:assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|audio\/armour\/[\w-]+\.wav|manifest\.webmanifest)$/.test(file)), `Public build file: ${file}`);
     assert((await exists(join(tree, 'static', file === './' ? home : file)))?.isFile(), `Offline file exists: ${file}`);
   }
   const index = await readFile(join(tree, 'static/index.html'), 'utf8');

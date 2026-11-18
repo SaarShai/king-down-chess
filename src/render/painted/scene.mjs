@@ -1107,7 +1107,7 @@ function drawEncounter(a,t) {
   }
   if(a.rookFrom)planRook(a);
   if(a.targetMs)a.speed=a.pace*a.targetMs/a.duration;
-  a.preparing=false;a.start=now;
+  a.preparing=false;a.start=now;a.onStart?.();a.onStart=null;
  }
  // Castling: the rook walks round the king on a curve toward the board's middle, so neither passes through the other.
  const ROOK_ROUND=.62,ROOK_SETTLE=260;
@@ -1351,7 +1351,7 @@ function drawEncounter(a,t) {
   figureBox(value,square){const pose=poseFor(value,square);pose.bank=bodyRuntime?.rest(characterOf(value),armyOf(value))??null;const h=figureHeight(characterOf(value)),{x,y}=pose.foot;return bankShape(pose,typeOf(value))??{x,foot:y,top:y-h,l:x-h*.4,r:x+h*.4};},
   ghost(out,value,square,opacity=.4){if(ready&&value){const pose=poseFor(value,square);pose.bank=bodyRuntime?.rest(characterOf(value),armyOf(value));if(!pose.bank)pose.still=stillBody(value);drawPiece(out,value,pose,opacity);}},
   /** Animate a move on the current position. Resolves true at the final frame, false if cancelled. */
-  play(move,{speed=1,onContact=null,gait=null,effect=null,targetMs,finishSwapOnArrival=false}={}){
+  play(move,{speed=1,onContact=null,onStart=null,gait=null,effect=null,targetMs,finishSwapOnArrival=false}={}){
    if(disposed)return Promise.resolve(false);
    landed=null;lifted=null;
    if(animation)cancelAnimation(animation);
@@ -1362,7 +1362,7 @@ function drawEncounter(a,t) {
     // no longer slides the still picture at once. A retry after a failed load is not waited for.
     const available=!effect&&!!bodyRuntime&&(bodyRuntime.has(characterOf(base.value),armyOf(base.value))||bodyRuntime.stats.manifestPending);
     if(finishSwapOnArrival&&base.type==='swap'){base.finishSwapOnArrival=true;base.duration*=SWAP_BELLS.arrived;if(targetMs)targetMs*=SWAP_BELLS.arrived;}
-    const a=animation={...base,resolve,onContact,bodyUnavailable:!!bodyRuntime&&!available,targetMs,pace:speed};
+    const a=animation={...base,resolve,onContact,onStart,bodyUnavailable:!!bodyRuntime&&!available,targetMs,pace:speed};
     if(targetMs)a.speed=speed*targetMs/a.duration;
     onStatus(verb);
     if(idleOut){if(idleOut.square===move.from)pendingIdle=idleOut;idleOut=null;}
@@ -1385,7 +1385,7 @@ function drawEncounter(a,t) {
       else {a.exitBody=null;bodyRuntime.releaseIdle();startPrepared(a,prepared,performance.now());}
       wake();
      });
-    }
+    }else { a.onStart?.(); a.onStart=null; }
     wake();
    });
   },

@@ -51,7 +51,7 @@ function workerFiles(worker, name) {
 
 function typesOf(path) {
   if (path === `/${challenge}`) return ['text/plain'];
-  const types = { '.js': ['text/javascript', 'application/javascript'], '.mjs': ['text/javascript', 'application/javascript'], '.css': ['text/css'], '.html': ['text/html'], '.json': ['application/json'], '.webmanifest': ['application/manifest+json', 'application/json'], '.woff2': ['font/woff2'], '.svg': ['image/svg+xml'], '.png': ['image/png'], '.webp': ['image/webp'], '.txt': ['text/plain'], '.wasm': ['application/wasm'] };
+  const types = { '.js': ['text/javascript', 'application/javascript'], '.mjs': ['text/javascript', 'application/javascript'], '.css': ['text/css'], '.html': ['text/html'], '.json': ['application/json'], '.webmanifest': ['application/manifest+json', 'application/json'], '.woff2': ['font/woff2'], '.svg': ['image/svg+xml'], '.png': ['image/png'], '.webp': ['image/webp'], '.txt': ['text/plain'], '.wasm': ['application/wasm'], '.wav': ['audio/wav'] };
   return path === '/' ? ['text/html'] : types[extname(path)];
 }
 
