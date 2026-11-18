@@ -14,6 +14,7 @@ test('the web piece names are the engine names', () => {
 
 test('the web game has one short line for each king power and each dealt card', () => {
   expect(Object.keys(powerLines).sort()).toEqual([...new Set([...Object.keys(POWER_NAME), ...DEAL_CARDS])].sort());
+  for (const line of Object.values(powerLines)) expect(line).toBeTruthy();
 });
 
 test('the plugin tool text states the hand size and the switch count of the code', () => {
