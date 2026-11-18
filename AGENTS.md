@@ -42,6 +42,7 @@
 - The game is public at https://kingdown.dev. `tools/deploy.sh` is the only deploy path.
 - Every deploy publishes to the world: deploy only what the owner asked to put online. A DNS change needs the owner's go. Do not test the site while signed in to the owner's account.
 - [HOSTING.md](docs/HOSTING.md) holds the site, deploy, DNS and secret-file facts.
+- The game has four forms (web app, iOS app, ChatGPT plugin, Muse connector). A pull request that changes the game for players has the forms list of [FORMS.md](docs/FORMS.md) in its text.
 - iOS app: [IOS.md](docs/IOS.md) holds the build, the run and the origin rules; read it before you change `src/platform.ts`, the `/api` origin checks or `ios/`.
 
 ## Working with the owner
