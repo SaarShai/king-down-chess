@@ -65,7 +65,9 @@ describe('.github/workflows/plugin-checks.yml', () => {
       for (const step of source.split(/^      - /m).filter(step => /\bplaywright install\b/.test(step))) {
         installs++;
         expect(step).toContain(removeMirror);
-        expect(step).toContain('timeout-minutes: 10');
+        expect(step).toContain('timeout-minutes: 14');
+        // A hung install must end and try again: three tries of 240 s fit in the 14 minutes.
+        expect(step).toMatch(/for try in 1 2 3; do timeout 240 npx playwright install --with-deps (chromium|webkit) && break; \[ "\$try" = 3 \] && exit 1;/);
         expect(step).toContain('echo \'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";\' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads');
         expect(step.indexOf(removeMirror)).toBeLessThan(step.indexOf('npx playwright install'));
         expect(step.indexOf('sudo tee')).toBeLessThan(step.indexOf('npx playwright install'));

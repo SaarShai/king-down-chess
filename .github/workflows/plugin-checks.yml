@@ -80,12 +80,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run plugin:db:init-test
-      # Azure can keep sending data too slowly for APT's idle timeout.
+      # Azure can keep sending data too slowly for APT's idle timeout. The install can also hang (normal: 16 to 110 s), so
+      # each try has a 240 s limit and the step tries three times.
       - run: |
           sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
           echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
-          npx playwright install --with-deps chromium
-        timeout-minutes: 10
+          for try in 1 2 3; do timeout 240 npx playwright install --with-deps chromium && break; [ "$try" = 3 ] && exit 1; echo "browser install: try $try did not pass"; done
+        timeout-minutes: 14
       - run: npm test
         env:
           KINGDOWN_TEST_SKIP: 'tools/plugin-board{,-input,-drafts}.test.ts'
@@ -134,8 +135,8 @@ jobs:
       - run: |
           sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
           echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
-          npx playwright install --with-deps chromium
-        timeout-minutes: 10
+          for try in 1 2 3; do timeout 240 npx playwright install --with-deps chromium && break; [ "$try" = 3 ] && exit 1; echo "browser install: try $try did not pass"; done
+        timeout-minutes: 14
       - run: npm test
         env:
           KINGDOWN_TEST_FILE: tools/plugin-${{ matrix.file }}.test.ts
@@ -176,8 +177,8 @@ jobs:
       - run: |
           sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
           echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
-          npx playwright install --with-deps chromium
-        timeout-minutes: 10
+          for try in 1 2 3; do timeout 240 npx playwright install --with-deps chromium && break; [ "$try" = 3 ] && exit 1; echo "browser install: try $try did not pass"; done
+        timeout-minutes: 14
       - run: npm run check:browser plugin-oauth plugin-ui plugin-ui-http
       - if: always()
         uses: actions/upload-artifact@v4
@@ -219,8 +220,8 @@ jobs:
       - run: |
           sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
           echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
-          npx playwright install --with-deps chromium
-        timeout-minutes: 10
+          for try in 1 2 3; do timeout 240 npx playwright install --with-deps chromium && break; [ "$try" = 3 ] && exit 1; echo "browser install: try $try did not pass"; done
+        timeout-minutes: 14
       - run: npm run check:browser web-online signin-speed web-game
         env:
           PLAYABLE_BROWSER: chromium
@@ -267,8 +268,8 @@ jobs:
       - run: |
           sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
           echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
-          npx playwright install --with-deps chromium
-        timeout-minutes: 10
+          for try in 1 2 3; do timeout 240 npx playwright install --with-deps chromium && break; [ "$try" = 3 ] && exit 1; echo "browser install: try $try did not pass"; done
+        timeout-minutes: 14
       - run: npm run check:browser -- --no-gpu
         env:
           PLAYABLE_BROWSER: chromium
@@ -319,8 +320,8 @@ jobs:
       - run: |
           sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
           echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
-          npx playwright install --with-deps webkit
-        timeout-minutes: 10
+          for try in 1 2 3; do timeout 240 npx playwright install --with-deps webkit && break; [ "$try" = 3 ] && exit 1; echo "browser install: try $try did not pass"; done
+        timeout-minutes: 14
       - name: Start WebKit sampler
         run: |
           mkdir -p /tmp/kingdown-check-runs
@@ -390,8 +391,8 @@ jobs:
       - run: |
           sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
           echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
-          npx playwright install --with-deps webkit
-        timeout-minutes: 10
+          for try in 1 2 3; do timeout 240 npx playwright install --with-deps webkit && break; [ "$try" = 3 ] && exit 1; echo "browser install: try $try did not pass"; done
+        timeout-minutes: 14
       - name: Start WebKit sampler
         run: |
           mkdir -p /tmp/kingdown-check-runs
@@ -455,8 +456,8 @@ jobs:
       - run: |
           sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
           echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
-          npx playwright install --with-deps webkit
-        timeout-minutes: 10
+          for try in 1 2 3; do timeout 240 npx playwright install --with-deps webkit && break; [ "$try" = 3 ] && exit 1; echo "browser install: try $try did not pass"; done
+        timeout-minutes: 14
       - name: Start WebKit sampler
         run: |
           mkdir -p /tmp/kingdown-check-runs
