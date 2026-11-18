@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { build } from 'vite';
@@ -83,4 +83,25 @@ it('leaves the domain challenge out of a parked site tree', async () => {
 it.each(['', ' ', '\n', 'token\n', 'token\r\n', ' token', 'token ', 'two tokens', 'token\tvalue'])('refuses an empty token or white space: %j', async token => {
   const root = site(token);
   await expect(buildPluginServer(join(root, 'build'), { site: root, chatgpt: true })).rejects.toThrow('must contain only the token');
+});
+
+it('serves the Muse server challenge as plain text only when the Muse connector is in', () => {
+  const root = site();
+  const name = 'a'.repeat(64);
+  mkdirSync(join(root, '.well-known/muse-challenge'), { recursive: true });
+  writeFileSync(join(root, '.well-known/muse-challenge', name), `muse-challenge=${name}`);
+  const matching = vercelRoutes(root, { chatgpt: true, muse: true }).filter(route => new RegExp(route.src).test(`/.well-known/muse-challenge/${name}`));
+  expect(matching).toEqual([{ src: '^/\\.well-known/muse-challenge/[a-f0-9]{64}$', headers: { 'Content-Type': 'text/plain' }, continue: true }]);
+  for (const path of [`/.well-known/muse-challenge/${name}/x`, '/.well-known/muse-challenge/abc', `/xwell-known/muse-challenge/${name}`]) {
+    expect(new RegExp(matching[0].src).test(path), path).toBe(false);
+  }
+  expect(vercelRoutes(root, { chatgpt: true, muse: false }).some(route => route.src.includes('muse-challenge'))).toBe(false);
+});
+
+it('publishes the Muse server challenge of the portal', () => {
+  const dir = resolve('public/.well-known/muse-challenge');
+  for (const name of readdirSync(dir)) {
+    expect(name).toMatch(/^[a-f0-9]{64}$/);
+    expect(readFileSync(join(dir, name), 'utf8')).toBe(`muse-challenge=${name}`);
+  }
 });
