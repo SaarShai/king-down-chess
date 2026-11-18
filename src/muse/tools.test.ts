@@ -115,8 +115,17 @@ describe('Muse tools', () => {
     const unknown = await call('kingdown_explain', { topic: 'banana' });
     expect(unknown).toMatchObject({ error: false, data: { known: false } });
     expect(unknown.data.pieces).toContain('archer');
+    expect(unknown.text).toMatch(/^I do not know that King Down topic\.\nPieces in play: /);
     expect(unknown.text).not.toContain('banana');
     expect((await call('kingdown_view')).data).toEqual({ found: false });
+  });
+
+  it.each([['Sky', 'Stratus'], ['Earth', 'Mud']])('explains %s and its old name %s', async (name, oldName) => {
+    const { call } = await connect();
+    const known = await call('kingdown_explain', { topic: name });
+    expect(known.data).toEqual({ known: true });
+    expect(known.text.startsWith(`${name} King: `)).toBe(true);
+    expect(await call('kingdown_explain', { topic: oldName })).toEqual(known);
   });
 
   it('shows a game against a person with no position and no legal moves, and refuses a move in it', async () => {
