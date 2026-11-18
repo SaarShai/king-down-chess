@@ -32,6 +32,8 @@ export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNE
       if (!token || /\s/.test(token)) throw new Error('openai-apps-challenge must contain only the token, with no white space or final newline');
       routes.push({ src: '^/\\.well-known/openai-apps-challenge$', headers: { 'Content-Type': 'text/plain' }, continue: true });
     }
+    // The Muse portal checks a file that it names under .well-known/muse-challenge/; Vercel gives it no type of its own.
+    if (muse && existsSync(resolve(site, '.well-known/muse-challenge'))) routes.push({ src: '^/\\.well-known/muse-challenge/[a-f0-9]{64}$', headers: { 'Content-Type': 'text/plain' }, continue: true });
     routes.push({ src: '^/internal/.+$', dest: '/internal' });
     routes.push({ src: '^/api(?:/.*)?$', dest: '/mcp' });
     if (existsSync(resolve(site, 'solo-launch.json'))) routes.push({ src: '^/j/?$', dest: '/join.html' });
