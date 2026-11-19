@@ -421,3 +421,41 @@
 .play-game[data-hand='hand'] .play-own .play-card[aria-pressed='true'] { scale: 1.04; }
 .play-game[data-hand='hand'][data-form='wide'] .play-own .play-card[aria-pressed='true'] { scale: 1.08; }
 .play-game[data-hand='hand'][data-armed='freeze'] .play-own .play-card[aria-pressed='true'] { scale: 1; }
+
+/* Result actions replace the hand and turn controls. The board keeps its place. */
+.play-game[data-state='result'] :is(.play-own, .play-turn, .play-history-strip) { visibility: hidden; }
+.play-game[data-state='result'] .play-opp :is(.play-power, .play-rival-cards) { display: none; }
+.play-seat-ring[data-outcome='win'] { border-color: var(--brass-p, var(--brass)); box-shadow: 0 0 0 2px var(--brass-p, var(--brass)); }
+.play-seat-ring[data-outcome='loss'] { filter: saturate(.62); opacity: .72; }
+.play-game[data-layout][data-reading='result'] .play-reader:not([data-floating='true']):has(.play-result) {
+  top: calc(var(--reader-y) - 8px); padding: 0; height: calc(var(--action-y) + var(--fin) - var(--reader-y) + 8px); overflow: hidden;
+}
+.play-game[data-reading='result'] .play-detail:has(.play-result) { height: 100%; padding: 0; overflow: hidden; background: transparent; }
+.play-game .play-result { display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; height: 100%; gap: 4px; padding: 2px 0; animation: none; }
+.play-result-seat { display: flex; align-items: center; gap: 10px; min-height: 39px; border-bottom: 1px solid var(--line-2, var(--divider)); padding-bottom: 4px; }
+.play-result-seat .play-seat-ring { width: 34px; height: 34px; overflow: hidden; }
+.play-result-seat strong { font: 650 12px/1.2 var(--cinzel, var(--font-title)); text-transform: uppercase; }
+.play-game .play-result-body { display: grid; gap: 4px; text-align: center; }
+.play-game .play-result-body h3 { font: 650 clamp(24px, 6vw, 36px)/1.05 var(--cinzel, var(--font-title)); margin: 0; text-wrap: balance; }
+.play-game .play-result[data-outcome='win'] h3 { color: var(--brass-p, var(--text)); font-size: clamp(30px, 9vw, 54px); }
+.play-game .play-result-body :is(.play-result-cause, .play-result-facts) { font: 400 15px/1.1 var(--sans, var(--font-reading)); margin: 0; }
+.play-game .play-result-facts { color: var(--soft, var(--text-muted)); }
+.play-game .play-result .play-result-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; }
+.play-game .play-result-actions .kd-button { min-width: 44px; min-height: 44px; padding: 0 4px; text-align: center; }
+.play-game .play-result-actions .kd-button[data-kind='main'] { grid-column: 1 / -1; min-height: 48px; border-radius: 999px; font-family: var(--cinzel, var(--font-title)); }
+.play-game .play-result-actions .kd-button:not([data-kind='main']) { border: 0; background: transparent; box-shadow: none; }
+.play-game[data-review='true'] .play-result > :not(.play-result-actions),
+.play-game[data-review='true'] .play-result-actions > :not([aria-pressed='true']) { visibility: hidden; }
+.play-game[data-form='compact'] .play-result-seat { display: none; }
+.play-game[data-form='compact'] .play-result-body h3 { font-size: 26px; }
+.play-game[data-form='compact'] .play-result[data-outcome='win'] h3 { font-size: 35px; }
+.play-game[data-moment='win'] .play-board::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: var(--brass-1, var(--brass)); mix-blend-mode: screen; opacity: var(--result-light, 0); }
+.play-game[data-moment='loss'] .play-board { filter: saturate(var(--result-saturation, 1)) brightness(calc(1 - var(--result-light, 0))); }
+.play-game[data-layout='portrait'][data-reading='result'] .play-reader:not([data-floating='true']):has(.play-result) {
+  top: calc(var(--board-y) + var(--board) + 6px);
+  height: calc(var(--action-y) + var(--fin) - var(--board-y) - var(--board) - 6px);
+}
+.play-game[data-reading='result'] .play-result { height: 100%; }
+.play-result-name { display: grid; }
+.play-result-name small { font: 400 12px/1.1 var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); }
+.play-result-seat:has([data-outcome='win']) .play-result-name strong { color: var(--brass-p, var(--text)); }

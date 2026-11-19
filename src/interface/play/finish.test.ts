@@ -4,7 +4,7 @@ import { A, B, G, K, KINGS, L, M, N, O, P, Q, R, S, type PieceType } from '../..
 import { POWERS_BALANCED } from '../../rules/rules';
 import { RELEASED_CARDS } from '../../content/cards';
 import { diagramFor, learningEntry, type LearnSubject } from './learning';
-import { effectEndLines, opponentLines, pieces } from './texts';
+import { effectEndLines, opponentLines, pieces, resultText } from './texts';
 import { Game } from '../../game';
 import { DraftTurn } from './turn';
 import { refusalForTap } from './refusals';
@@ -95,4 +95,11 @@ it.each([0, 1] as const)('King help and its legal example use the power on side 
     if (power === 'DeathTouch') { expect(move.from).toBe(move.to); expect(move.captures).toHaveLength(1); }
     else expect(Math.max(Math.abs(move.from % 8 - move.to % 8), Math.abs((move.from >> 3) - (move.to >> 3)))).toBe(2);
   }
+});
+
+it('reads the winning side and the result cause from the final game state', () => {
+  expect(resultText('checkmate', false, 1)).toEqual({ title: 'You win', cause: 'Checkmate.' });
+  expect(resultText('checkmate', false, 1, 1)).toEqual({ title: 'The computer wins', cause: 'Checkmate.' });
+  expect(resultText('playing', true, 0)).toEqual({ title: 'The computer wins', cause: 'You resign.' });
+  expect(resultText('drawMaterial', false, 0)).toEqual({ title: 'Draw', cause: 'Insufficient material.' });
 });

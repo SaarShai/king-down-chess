@@ -17,6 +17,8 @@ export interface Save {
   gameAt?: number;
   /** Local recovery source time. Store it with the accepted game; never send it to the account. */
   recovery?: number;
+  /** Facts for the Daylight result. Old and online saves can omit them. */
+  summary?: { moves: number; captures: number; playedMs: number };
 }
 /**
  * The fields of `Save` that are settings; the rest is the saved game. account/sync.ts keeps its own copy
@@ -33,7 +35,7 @@ export interface SaveRead { save: Save | null; unreadable: boolean; raw?: string
 /** Compare only game fields; settings and JSON key order can change without changing the game. */
 export function gameJSON(s: Save | null): string {
   const game: Partial<Save> | null = s ? { ...s } : null;
-  if (game) { for (const k of SETTINGS) delete game[k]; delete game.recovery; delete game.gameAt; }
+  if (game) { for (const k of SETTINGS) delete game[k]; delete game.recovery; delete game.gameAt; delete game.summary; }
   return JSON.stringify(game, (_k, v) => v && typeof v === 'object' && !Array.isArray(v)
     ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a < b ? -1 : 1)) : v);
 }

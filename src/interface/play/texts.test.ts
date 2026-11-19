@@ -163,3 +163,8 @@ it('the New game card line names the shown cards in pool order at four', async (
   expect(cardSummary(DEFAULT_OPTIONS.cardPool.slice(0, 5))).toBe('Randomized 4 cards hand.');
   expect(cardSummary(['SkyLift', 'EarthQuake', 'Haste', 'IceWall'])).toBe('Your 4 cards: Ice Wall, Haste, Earth Quake and Sky Lift.');
 });
+
+it('announces Versus when the kings have no powers', async () => {
+  const { versusLine } = await import('./texts');
+  expect(versusLine('Spirit', '', 'Shadow', '')).toBe('Your Spirit King has no power. The computer’s Shadow King has no power.');
+});
