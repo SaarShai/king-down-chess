@@ -227,7 +227,7 @@ export function sheetMotion(panel: HTMLElement, open: boolean, close?: () => voi
   if (reducedMotion()) return;
   if (!open) {
     const box = bounds ?? panel.getBoundingClientRect(), ghost = panel.cloneNode(true) as HTMLElement;
-    ghost.hidden = false; ghost.inert = true; ghost.setAttribute('aria-hidden', 'true'); ghost.removeAttribute('id');
+    ghost.hidden = false; ghost.inert = true; ghost.setAttribute('aria-hidden', 'true'); ghost.removeAttribute('id'); delete ghost.dataset.placement;
     Object.assign(ghost.style, { position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, bottom: 'auto', right: 'auto', margin: '0', zIndex: '40', overflow: 'hidden' });
     document.body.append(ghost);
     tween(180, t => { ghost.style.transform = `translateY(${t * innerHeight}px)`; ghost.style.opacity = String(1 - t); }, { curve: ease.in2, done: () => ghost.remove() });

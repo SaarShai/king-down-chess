@@ -1,5 +1,5 @@
 import { button, setButtonState } from './kit.js';
-import { ease, onFrame, pulse, reducedMotion, shake, sound, tween, type Effect } from '../play/fx';
+import { ease, onFrame, pulse, reducedMotion, shake, sound, Spring, tween, type Effect } from '../play/fx';
 
 /** Keep one position for each action as its state changes. */
 export function turnControls(labels: { undo: string; finish: string }, actions: { undo(): void; finish(): void; refusedFinish?(): void }) {
@@ -14,19 +14,29 @@ export function turnControls(labels: { undo: string; finish: string }, actions: 
   dots.append(...Array.from({ length: 3 }, () => document.createElement('i')));
   finish.append(dots); element.append(undo, finish);
   let sheen: Effect | undefined, press: Effect | undefined, waiting: Effect | undefined;
+  const sink = new Spring(1, 620, 22);
+  const animatePress = () => {
+    if (press || reducedMotion()) return;
+    press = onFrame(dt => {
+      const scale = Math.max(.95, sink.step(dt));
+      finish.style.transform = `translateY(${40 * (1 - scale)}px) scale(${scale})`;
+      if (!finish.isConnected || sink.still) return false;
+    }, () => { press = undefined; if (reducedMotion() || sink.to === 1) finish.style.transform = ''; });
+  };
   element.addEventListener('click', event => {
     const control = (event.target as Element).closest<HTMLButtonElement>('button');
-    if (control?.getAttribute('aria-disabled') !== 'true') return;
-    sound('no'); shake(control, { amplitude: 3, ms: 200 });
-    if (control === finish) actions.refusedFinish?.();
+    if (!control) return;
+    if (control.getAttribute('aria-disabled') === 'true') {
+      sound('no'); shake(control, { amplitude: 3, ms: 200 });
+      if (control === finish) actions.refusedFinish?.();
+    } else if (control === finish && event.detail === 0) { sound('press'); pulse('light'); }
   }, true);
   finish.addEventListener('pointerdown', event => {
     if (event.button !== 0 || finish.getAttribute('aria-disabled') === 'true') return;
-    sound('press'); pulse('light'); press?.cancel();
-    if (reducedMotion()) return;
-    press = tween(120, t => { finish.style.transform = `translateY(${2 * t}px) scale(${1 - .05 * t})`; }, { curve: ease.out3 });
+    sound('press'); pulse('light');
+    sink.to = .95; animatePress();
   });
-  const release = () => { press?.cancel(); finish.style.transform = ''; };
+  const release = () => { sink.to = 1; animatePress(); };
   for (const name of ['pointerup', 'pointercancel', 'pointerleave']) finish.addEventListener(name, release);
   return { element, line, state, help, undo, finish, update(data: { state: string; help: string; undoReason: string; finishReason: string; sent?: boolean; staged?: boolean; silent?: boolean }) {
     state.textContent = data.state; help.textContent = data.help;

@@ -114,7 +114,7 @@ const prefs = () => ({ skill: SKILLS[gameLevel], coords, sound, pace: motion });
 const save = (step: boolean) => onlineActive ? void people?.saveDraft() : writer.game(snapshot(draft, resigned, player, elapsedGame()), prefs(), step);
 let selected: number | null = null, inspected: number | null = null, cursor = 12;
 let thinking = false, ended = false, generation = 0, reading: 'normal' | 'menu' | 'result' = 'normal';
-// The opening (Roll call) while it runs; the end of a computer reply while its playback runs; a start in progress.
+// End active sequences when the player leaves the game.
 let endResult: (() => void) | undefined, endReply: (() => void) | null = null, starting = 0, endVersus: (() => void) | null = null;
 let endCardFlight = () => {}, checkFrame: Effect | undefined, checkPulse: { square: number; progress: number } | null = null;
 let playedMs = 0, enteredAt: number | undefined, resultReview = false;
@@ -294,7 +294,7 @@ function receiveOnline(state: PeopleState) {
     return;
   }
   if (!board || mountingOnline) return;
-  const previousRevision = shownRevision, changed = shownRevision !== state.view.revision;
+  const previousRevision = shownRevision, changed = shownRevision !== state.view.revision, wasWaiting = thinking;
   notice = takeOnlineNotice(state);
   game = state.game; draft = state.draft ?? new DraftTurn(game); player = state.view.seat;
   thinking = !state.draft || state.phase === 'sending' || state.phase === 'checking';
@@ -308,6 +308,7 @@ function receiveOnline(state: PeopleState) {
   if (ended) { resultCause = onlineResult(state); if (!wasEnded || reading !== 'menu') reading = 'result'; if (changed) detail.dataset.mode = ''; }
   else if (reading === 'result') reading = 'normal';
   update();
+  if (changed && previousRevision >= 0 && wasWaiting && !thinking && !ended && !arrangement) passTurn(false);
   if (changed && previousRevision >= 0) announce(arrangementWaiting() ? arrangeText.wait : ended ? resultCause : state.draft ? `${replyText()} Your turn.` : state.sent ? 'Turn sent. Your opponent now plays.' : 'The game changes.');
   void onlineRecovery(state);
   automaticReady(state);
@@ -670,7 +671,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
       if (!versus) { if (from) setButtonState(from, { busy: true }); await loaded.catch(() => {}); }
       if (own !== generation) return;
       screen.style.visibility = ''; cells[cursor].focus({ preventScroll: true });
-      if (homeScreen) { await screenChange(homeScreen, screen); homeScreen.remove(); }
+      if (homeScreen) { if (!versus) await screenChange(homeScreen, screen); homeScreen.remove(); }
     } finally { if (starting === own) starting = 0; }
   } else if (!versus) cells[cursor].focus({ preventScroll: true });
   if (own !== generation) return;

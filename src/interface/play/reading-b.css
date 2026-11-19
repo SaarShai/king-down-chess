@@ -324,7 +324,7 @@
 .play-game[data-form='compact'][data-own-rows='1']:has(.play-b .play-tools > .kd-button) .play-own .play-power small { display: none; }
 
 /* Daylight fixes all vertical positions before the turn state is read. */
-.play-game[data-layout] { background: var(--paper, var(--surface-page)); }
+.play-game[data-layout] { background: var(--paper-tint, none) var(--surface-page); }
 .play-game[data-layout] .play-opp { top: var(--rail-top); height: var(--opp); border: 0; }
 .play-game[data-layout] .play-reader:not([data-floating='true']) { top: var(--reader-y); height: var(--reader); padding: 0; }
 .play-game[data-layout] .play-own { top: var(--hand-y); height: var(--own); display: flex; padding: 0; }
@@ -358,7 +358,6 @@
 .play-game .play-narrator .play-notice { color: var(--danger); }
 .play-narr-tools { display: flex; align-items: center; flex: none; }
 .play-game .play-narr-tools .kd-button { min-width: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; box-shadow: none; }
-.play-narr-tools .kd-button:first-child:not(.kd-x) > span { display: grid; place-items: center; width: 24px; height: 24px; color: var(--teal, var(--text)); border: 1px solid currentColor; border-radius: 50%; }
 
 .play-seat-ring { flex: none; box-sizing: border-box; position: relative; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--line-2, var(--divider)); border-radius: 50%; transform: scale(var(--breath, 1)); }
 .play-seat-ring > :is(.profile-portrait, .play-figure) { width: 100%; height: 100%; min-height: 0; object-fit: contain; border: 0; border-radius: 50%; }
@@ -405,7 +404,7 @@
 .play-game .play-turn .kd-button { height: 100%; border: 1px solid var(--line, var(--divider)); border-radius: 999px; }
 .play-game[data-form] .play-turn .kd-button:first-child { min-width: var(--fin); width: var(--fin); padding: 0; }
 .play-game .play-turn .kd-button[aria-disabled='true'], .play-game .play-turn [data-turn-state='wait'] { border-style: solid; background: var(--raised, var(--surface-raised)); color: var(--soft, var(--text-muted)); opacity: 1; }
-.play-game .play-turn [data-turn-state='ready'] { position: relative; overflow: hidden; background: var(--brass); }
+.play-game .play-turn [data-turn-state='ready'] { position: relative; overflow: hidden; background: var(--main-fill); }
 .play-turn [data-turn-state='ready']::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(105deg, transparent 32%, white 51%, transparent 68%) var(--sheen-x, 0%) 0 / 240% 100%; opacity: var(--sheen-opacity, 0); }
 .play-game .play-rewind { position: fixed; pointer-events: none; z-index: 5; transform: translate(-50%, -66%); object-fit: contain; }
 .play-game .kd-card-fly { position: absolute; pointer-events: none; z-index: 8; padding: 0; overflow: hidden; }
@@ -438,7 +437,7 @@
 .play-result-seat strong { font: 650 12px/1.2 var(--cinzel, var(--font-title)); text-transform: uppercase; }
 .play-game .play-result-body { display: grid; gap: 4px; text-align: center; }
 .play-game .play-result-body h3 { font: 650 clamp(24px, 6vw, 36px)/1.05 var(--cinzel, var(--font-title)); margin: 0; text-wrap: balance; }
-.play-game .play-result[data-outcome='win'] h3 { color: var(--brass-p, var(--text)); font-size: clamp(30px, 9vw, 54px); }
+.play-game .play-result[data-outcome='win'] h3 { color: color-mix(in srgb, var(--brass) 46%, var(--text)); font-size: clamp(30px, 9vw, 54px); }
 .play-game .play-result-body :is(.play-result-cause, .play-result-facts) { font: 400 15px/1.1 var(--sans, var(--font-reading)); margin: 0; }
 .play-game .play-result-facts { color: var(--soft, var(--text-muted)); }
 .play-game .play-result .play-result-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; }
