@@ -376,11 +376,11 @@
 .play-own > .play-store { margin-inline: 0 2px; }
 .play-rival-mark { width: 18px; height: 26px; background-image: url('/ui/cards/back.webp') !important; }
 
-.play-game[data-hand='hand'] { --arm-lift: 18px; --hover-lift: 14px; }
-.play-game[data-hand='hand'][data-form='wide'] { --arm-lift: 21px; }
-.play-game[data-hand='hand'][data-form='compact'] { --arm-lift: 6px; --hover-lift: 6px; --arm-scale: .04; }
+.play-game[data-hand='hand'] { --arm-lift: 18px; --hover-lift: 14px; --card-width: clamp(74px, calc(var(--own) * .67), 89px); }
+.play-game[data-hand='hand'][data-form='wide'] { --arm-lift: 21px; --card-width: 84px; }
+.play-game[data-hand='hand'][data-form='compact'] { --arm-lift: 6px; --hover-lift: 6px; --arm-scale: .04; --card-width: 60px; }
 .play-game[data-hand='hand'] .play-own .play-card {
-  grid-template-rows: minmax(0, 1fr) 28px; height: calc(var(--own) - 6px);
+  grid-template-rows: minmax(0, 1fr) 28px; height: calc(var(--own) - 6px); max-width: var(--card-width);
   margin-inline: -2px; border: 1px solid var(--line-2, var(--divider)); border-radius: 10px;
   background: var(--raised, var(--surface-raised)); box-shadow: var(--shadow, var(--raise));
   font: 700 13px/13px var(--sans, var(--font-reading)); transform-origin: center;
@@ -466,3 +466,6 @@
 .play-wait-dots[data-step='0'] i:nth-child(1), .play-wait-dots[data-step='1'] i:nth-child(2), .play-wait-dots[data-step='2'] i:nth-child(3) { opacity: 1; }
 .play-game .play-opp .play-power { flex: none; }
 .play-game .play-opp .play-power [data-button-label] { white-space: nowrap; overflow: visible; text-overflow: clip; }
+
+.play-wordmark { display: none; }
+.play-game[data-layout='wide'][data-form='wide'] .play-wordmark { display: block; position: absolute; top: 18px; left: 16px; font: 650 12px/1 var(--cinzel, var(--font-title)); text-transform: uppercase; letter-spacing: .1em; color: var(--soft, var(--text-muted)); }

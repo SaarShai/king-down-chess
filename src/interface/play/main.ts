@@ -644,6 +644,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   scrollPanel.hidden = true; scrollOpen = null;
   controls.undo.replaceChildren(icon('undo'), el('span', 'kd-sr', text.undo)); controls.undo.classList.add('kd-icon-button');
   screen.append(opponent, boardBox, historyStrip, reader, mine, controls.element, scrollPanel, resignDialog.element);
+  screen.prepend(el('span', 'play-wordmark', text.title));
   if (fromHome) { root.querySelectorAll('.play-game').forEach(node => node.remove()); screen.style.visibility = 'hidden'; root.append(screen); }
   else root.replaceChildren(screen);
   const onArtError = () => { if (host === boardHost && document.body.dataset.page === 'game') artFailed(generation); };
