@@ -50,6 +50,8 @@ export interface PlayData {
   offer(fallback: HTMLButtonElement): HTMLElement | null;
   onContinue(source: HTMLButtonElement): void;
   onChange(source: HTMLButtonElement): void;
+  onSignIn(source: HTMLButtonElement): void;
+  showSignIn: boolean;
   previews: Map<string, string>;
 }
 /** Show three quiet rows until the player asks for the rest. */
@@ -70,6 +72,11 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
   img.srcset = '/interface/daylight-hero-portrait-600.webp 600w, /interface/daylight-hero-portrait-1122.webp 1122w';
   img.sizes = '100vw'; img.alt = ''; img.decoding = 'async'; img.fetchPriority = 'high';
   picture.append(wide, img); hero.append(picture, brand); home.append(hero);
+  const signIn: HTMLButtonElement = button('Sign in', { kind: 'quiet', onPress: () => d.onSignIn(signIn) });
+  signIn.classList.add('home-sign-in');
+  signIn.setAttribute('aria-haspopup', 'dialog');
+  signIn.hidden = !d.showSignIn;
+  home.append(signIn);
   let x = 0, y = 0, drift: Effect | undefined;
   const driftTo = (toX: number, toY: number) => {
     if (reducedMotion()) return;

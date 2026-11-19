@@ -30,7 +30,7 @@ export interface SignInHost {
   random?: () => number;
   now?: () => number;
 }
-export type Purpose = { kind: 'person' } | { kind: 'join'; inviter: string | null } | { kind: 'again' };
+export type Purpose = { kind: 'account' } | { kind: 'person' } | { kind: 'join'; inviter: string | null } | { kind: 'again' };
 /** What the sheet says first when the player returns from a service: no sign-in, more than 10 minutes, a suspended account. */
 export type ReturnNote = 'retry' | 'expired' | 'suspended';
 
@@ -45,7 +45,7 @@ export function rememberedEmail(storage: SignInHost['storage'], now = Date.now()
 const remember = (storage: SignInHost['storage'], address: string, at: number) => { try { storage?.setItem(EMAIL_STEP_KEY, JSON.stringify({ address, at })); } catch { /* storage blocked: the step lasts until a reload */ } };
 const forget = (storage: SignInHost['storage']) => { try { storage?.removeItem(EMAIL_STEP_KEY); } catch { /* storage blocked */ } };
 
-const titleOf = (purpose: Purpose) => purpose.kind === 'person' ? signInText.person : purpose.kind === 'join' ? signInText.join(purpose.inviter) : signInText.again;
+const titleOf = (purpose: Purpose) => purpose.kind === 'account' ? 'Sign in' : purpose.kind === 'person' ? signInText.person : purpose.kind === 'join' ? signInText.join(purpose.inviter) : signInText.again;
 /** A third action: text on the sheet, 44 px high. */
 export function plain(label: string, onPress: () => void) { const control = button(label, { onPress }); control.classList.add('people-plain'); return control; }
 
@@ -71,11 +71,22 @@ export function signInSheet(sheet: PeopleSheet, host: SignInHost, purpose: Purpo
   privacy.href = '/privacy.html'; terms.href = '/terms.html'; privacy.target = terms.target = '_blank';
   legal.append(privacy, ' · ', terms);
   if (note) say(status, signInText[note]);
-  let timer: ReturnType<typeof setTimeout>;
-  // Open with the complete list. A late answer cannot put a sign-in way under Not now.
-  void Promise.race([host.ways(), new Promise<Way[]>((_, reject) => { timer = setTimeout(() => reject(new Error('Sign-in ways time out.')), 1500); })]).then(reported => {
+  const loading = node('p');
+  loading.setAttribute('role', 'status');
+  sheet.show({ title: titleOf(purpose), body: [loading] });
+  say(loading, signInText.loading);
+  const readWays = async () => {
+    const reported = await host.ways();
     const ways = WAYS.filter(way => reported.includes(way));
     if (!ways.length) throw new Error('No sign-in way is on.');
+    return ways;
+  };
+  // The provider request has its own deadline. Give it one more try before showing a fault.
+  void readWays().catch(error => {
+    if (!sheet.isOpen) throw error;
+    return readWays();
+  }).then(ways => {
+    if (!sheet.isOpen) return;
     list.replaceChildren(...ways.map(way => {
       const control: HTMLButtonElement = button(signInText.way(way), { onPress: () => {
         if (way === 'email') { emailStep(sheet, host, purpose, done); return; }
@@ -91,7 +102,9 @@ export function signInSheet(sheet: PeopleSheet, host: SignInHost, purpose: Purpo
       return control;
     }));
     sheet.show({ title: titleOf(purpose), body: [node('p', '', purpose.kind === 'again' ? signInText.againLine : signInText.line), status, list, plain(signInText.notNow, () => sheet.close()), small, legal] });
-  }).catch(() => serviceDown(sheet, host, () => signInSheet(sheet, host, purpose, done))).finally(() => clearTimeout(timer));
+  }).catch(() => {
+    if (sheet.isOpen) serviceDown(sheet, host, () => signInSheet(sheet, host, purpose, done, note));
+  });
 }
 
 /** S11: the ways do not load. The sheet offers the computer, another try and Cancel. */

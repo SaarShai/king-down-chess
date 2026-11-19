@@ -22,10 +22,14 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
   // A load, a reload or an address edit opens the place of the hash; the stored Guide section stays when it matches.
   const fromAddress = (): Route => { const read = addressRoute(location.hash), kept: Route | undefined = history.state?.shell; return kept?.place === read.place && (read.entry === undefined || kept.entry === read.entry) ? kept : read; };
   let route: Route = fromAddress();
-  const guideEntry = () => root.querySelector('.guide-page[data-view="entry"]:not(.shell-departing)');
+  const youScroll: number | undefined = route.place === 'you' ? history.state?.youScroll : undefined;
   const guideScrollKey = 'kingdown.guide-scroll';
   const guideAddress = () => `${location.pathname}#${route.section}/${route.entry}`;
-  const nav = navigation('Play', name => go({ place: name.toLowerCase() as Route['place'] }), { guide: true });
+  const nav = navigation('Play', name => {
+    const next = { place: name.toLowerCase() as Route['place'] };
+    if (layer && next.place === route.place) { layer(); void closeLayer(); }
+    else go(next);
+  }, { guide: true });
   nav.querySelector('a[href="#play"] > svg')?.replaceWith(daylightCrown());
   // The bar comes first in the Tab order, after a skip link to the page (runs/launch/speed/report.md fix 11).
   const skip = document.createElement('a'); skip.className = 'shell-skip'; skip.href = '#app'; skip.textContent = 'Skip to content';
@@ -69,7 +73,7 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
       page.style.transform = `translateX(${direction * 14 * (1 - k)}px)`; page.style.opacity = String(.64 + .36 * k);
     }, { curve: ease.out3, done: () => { ghost.remove(); page.style.removeProperty('transform'); page.style.removeProperty('opacity'); } });
   }
-  const show = (next: Route, draw = true) => {
+  const show = (next: Route, draw = true, scroll?: number) => {
     const before = route; route = next;
     const oldTab = nav.querySelector<HTMLElement>('[aria-current]');
     const old = root.querySelector<HTMLElement>(':scope > :not(.shell-departing)');
@@ -83,6 +87,14 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
       render(next);
       const page = root.firstElementChild as HTMLElement | null;
       if (old && page && old !== page && before.place !== 'game' && next.place !== 'game') changePage(old, page, places.indexOf(next.place) >= places.indexOf(before.place) ? 1 : -1);
+      if (page && scroll !== undefined) {
+        page.dataset.restore = 'true';
+        if (next.place === 'guide') {
+          void document.fonts.ready.then(() => requestAnimationFrame(() => {
+            if (page.isConnected) window.scrollTo(0, scroll);
+          }));
+        } else window.scrollTo(0, scroll);
+      }
       // A page that restores the view (the row that the person left) keeps its focus and its scroll.
       if (page?.dataset.restore !== 'true') { page?.querySelector<HTMLElement>('h1')?.focus({ preventScroll: true }); window.scrollTo(0, 0); }
     }
@@ -107,7 +119,8 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
     if (layer) { const close = layer; layer = null; close(); if (JSON.stringify(event.state?.shell) === JSON.stringify(route)) return; }
     // Forward to the entry of a closed layer: the place stays; the next Back leaves it.
     if (event.state?.layer && JSON.stringify(event.state.shell) === JSON.stringify(route)) { waiting = []; history.back(); return; }
-    show(event.state?.shell ?? fromAddress());
+    const next = event.state?.shell ?? fromAddress();
+    show(next, true, next.place === 'you' ? event.state?.youScroll : undefined);
   });
   // An address edit fires popstate, then hashchange: the second shows nothing new.
   window.addEventListener('hashchange', () => {
@@ -115,36 +128,45 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
     const next = fromAddress(); history.replaceState({ shell: next }, '', location.href);
     if (JSON.stringify(next) !== JSON.stringify(route)) show(next);
   });
-  // A reload can restore the browser's scroll before the Guide entry exists.
+  // About opens a separate document. Back can load this entry before the browser has a page to scroll.
   window.addEventListener('pagehide', () => {
-    if (!guideEntry()) return;
-    try { sessionStorage.setItem(guideScrollKey, JSON.stringify([guideAddress(), window.scrollY])); } catch { /* Storage can be blocked. */ }
+    if (layer) return;
+    if (route.place === 'you') history.replaceState({ shell: route, youScroll: window.scrollY }, '');
+    // Chromium can discard a history update made during pagehide on reload.
+    if (route.place === 'guide' && root.querySelector('.guide-page[data-view="entry"]:not(.shell-departing)')) {
+      try { sessionStorage.setItem(guideScrollKey, JSON.stringify([guideAddress(), window.scrollY])); } catch { /* Storage can be blocked. */ }
+    }
   });
   history.replaceState({ shell: route }, '', location.pathname + location.search + (route.place === 'play' ? '' : routeHash(route)));
   return {
     go, get route() { return route; },
     start() {
-      show(route);
-      const page = guideEntry();
+      let scroll = youScroll;
       const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
-      if (!page || navigation?.type !== 'reload') return;
-      try {
-        const [address, top] = JSON.parse(sessionStorage.getItem(guideScrollKey) ?? '[]');
-        if (address === guideAddress() && typeof top === 'number') {
-          void document.fonts.ready.then(() => requestAnimationFrame(() => {
-            if (page.isConnected) window.scrollTo(0, top);
-          }));
-        }
-      } catch { /* Storage can be blocked. */ }
+      if (route.place === 'guide' && route.entry && navigation?.type === 'reload') {
+        try {
+          const [address, top] = JSON.parse(sessionStorage.getItem(guideScrollKey) ?? '[]');
+          if (address === guideAddress() && typeof top === 'number') scroll = top;
+        } catch { /* Storage can be blocked. */ }
+      }
+      show(route, true, scroll);
     },
     /** Runs `run` now, or after a pending layer Back, in order with route changes. Open a layer only in `run`. */
     settled,
     /** Open a layer: one history entry. Browser Back calls `close`. */
-    openLayer(close: () => void) { layer = close; history.pushState({ shell: route, layer: true }, '', location.href); },
-    /** The layer closed itself: its history entry goes. Resolves when the entry is gone. */
-    closeLayer(): Promise<void> {
-      if (!layer) return Promise.resolve();
-      layer = null; return new Promise(done => { waiting = [done]; history.back(); });
+    openLayer(close: () => void, dialog?: HTMLDialogElement) {
+      if (dialog) {
+        // Only controls inside the modal can take input. Move the bar back before the close animation copies the panel.
+        dialog.prepend(nav);
+        dialog.addEventListener('kd-before-close', () => skip.after(nav), { once: true });
+      }
+      layer = close; history.pushState({ shell: route, layer: true }, '', location.href);
     },
+    closeLayer,
   };
+  /** The layer closed itself: its history entry goes. Resolves when the entry is gone. */
+  function closeLayer(): Promise<void> {
+    if (!layer) return Promise.resolve();
+    layer = null; return new Promise(done => { waiting = [done]; history.back(); });
+  }
 }
