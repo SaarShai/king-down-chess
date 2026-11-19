@@ -357,10 +357,10 @@
 
 .play-seat-ring { flex: none; box-sizing: border-box; position: relative; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--line-2, var(--divider)); border-radius: 50%; transform: scale(var(--breath, 1)); }
 .play-seat-ring > :is(.profile-portrait, .play-figure) { width: 100%; height: 100%; min-height: 0; object-fit: contain; border: 0; border-radius: 50%; }
-.play-seat-ring > .play-power-coin { width: 100%; height: 100%; }
+.play-seat-ring > .play-power-coin { width: 100%; height: 100%; background: var(--surface-raised); }
 .play-seat-ring[data-turn='true'] { border-color: var(--brass-p, var(--brass)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brass-2, var(--brass)) 25%, transparent); }
 .play-seat-ring[data-check='true'] { border-color: var(--danger); box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 32%, transparent); }
-.play-seat-ring[data-thinking='true']::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--teal, var(--text)); transform: rotate(var(--arc, 0deg)); }
+.play-seat-ring[data-thinking='true']::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--teal, var(--power-fill)); transform: rotate(var(--arc, 0deg)); }
 :root[data-motion='reduce'] .play-seat-ring::after { display: none; }
 .play-opponent-group > strong { font: 700 12px/15px var(--cinzel, var(--font-title)); }
 .play-opponent-group > strong small { font: 400 14px/16px var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); }
@@ -471,3 +471,10 @@
 .play-game[data-form='compact'] .play-opp .play-seat-ring { width: 34px; height: 34px; }
 .play-game[data-form='wide'] .play-opp .play-seat-ring { width: 44px; height: 44px; }
 .play-game .play-opp .play-power { padding-inline: 6px; }
+
+.play-game .play-turn [data-turn-state='wait'][aria-disabled='true'] {
+  position: relative; overflow: hidden; background: var(--main-fill); color: var(--main-ink);
+  font: 700 15px/1 var(--sans, var(--font-reading)); text-transform: none; letter-spacing: 0;
+}
+.play-turn [data-turn-state='wait']::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: var(--surface-raised); opacity: var(--wait-shade, 0); }
+.play-turn [data-turn-state='wait'] :is([data-button-label], .play-wait-dots) { position: relative; z-index: 1; }
