@@ -4,7 +4,7 @@ Type: task
 Status: resolved
 
 - Show help for the selected starting arrangement.
-- Use “Turn” for the current number on Home and “actions” for the total in the result.
+- Use “Turn” for the current number on Home; the result keeps “moves”.
 - Move the keyboard focus when the player selects a different power with an arrow key.
 
 ## Answer
