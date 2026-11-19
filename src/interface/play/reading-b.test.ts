@@ -82,9 +82,8 @@ describe('touch, pointer and safe areas (decision 35)', () => {
     expect(main).toMatch(/fit\.observe\(screen\)/);
     expect(main).toMatch(/gameLayout\(screen\.clientWidth, screen\.clientHeight,/);
   });
-  it('Escape cancels an armed card or power and closes a panel', () => {
+  it('Escape cancels an armed card or power', () => {
     const handler = main.slice(main.indexOf("if (event.key !== 'Escape') return;"), main.indexOf('function key(event'));
-    expect(handler).toContain("if (reading === 'rule') { event.preventDefault(); closeLearning(); return; }");
     expect(handler).toContain('draft.armed = null');
     expect(handler).toContain('cancelLine(cancelled.subject.kind)');
   });

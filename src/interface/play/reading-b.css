@@ -153,7 +153,7 @@
 .play-game[data-hand='ribbon'] .play-own .play-card img { display: none; }
 .play-game[data-hand='ribbon'] .play-own .play-power { border: 0; background: transparent; box-shadow: none; }
 @media (prefers-reduced-motion: reduce) { .play-game .play-own .play-card { transition: none; } }
-:root[data-motion='reduce'] .play-game[data-hand='hand'] .play-own .play-card[aria-pressed='true'] { transform: translateY(-5px); }
+
 
 /* Finish row (design section 2): Undo and End turn. End turn is brass after a move, quiet after a free action (d2). */
 .play-game .play-turn { padding: 4px 0; }
@@ -338,8 +338,9 @@
 }
 .play-game .play-history-strip::before, .play-game .play-history-strip::after { display: none; }
 .play-game .play-history-toggle.kd-button { background: transparent; border: 0; box-shadow: none; justify-content: flex-start; padding-inline: 0; color: var(--soft, var(--text-muted)); }
-.play-game[data-form='compact'] .play-history-toggle.kd-button { min-height: 24px; align-items: start; }
-.play-game[data-form='compact'] .play-history-toggle [data-button-label] { display: flex; gap: 8px; }
+.play-history-compact { display: none; }
+.play-game[data-form='compact'] .play-history-toggle.kd-button { display: none; }
+.play-game[data-layout='wide'][data-form='compact'] .play-history-compact { display: flex; min-width: 0; gap: 8px; font: 400 12px/24px var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); }
 .play-game .play-history-toggle svg { display: none; }
 .play-game[data-layout] .play-reader:not([data-floating='true']):has(.play-b, .online-status) {
   height: max(var(--reader), calc(var(--hand-y) - var(--reader-y) + 30px)); z-index: 2;
@@ -378,21 +379,24 @@
 
 .play-game[data-hand='hand'] { --arm-lift: 18px; --hover-lift: 14px; }
 .play-game[data-hand='hand'][data-form='wide'] { --arm-lift: 21px; }
-.play-game[data-hand='hand'][data-form='compact'] { --arm-lift: 6px; --hover-lift: 6px; }
+.play-game[data-hand='hand'][data-form='compact'] { --arm-lift: 6px; --hover-lift: 6px; --arm-scale: .04; }
 .play-game[data-hand='hand'] .play-own .play-card {
   grid-template-rows: minmax(0, 1fr) 28px; height: calc(var(--own) - 6px);
   margin-inline: -2px; border: 1px solid var(--line-2, var(--divider)); border-radius: 10px;
   background: var(--raised, var(--surface-raised)); box-shadow: var(--shadow, var(--raise));
   font: 700 13px/13px var(--sans, var(--font-reading)); transform-origin: center;
-  transform: translateY(calc(var(--fan-drop) - min(var(--hover-lift), var(--pointer-lift, 0px))))
-    perspective(600px) rotate(var(--fan-angle)) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  --arm: var(--arm-progress, var(--armed, 0));
+  transform: translateY(calc((var(--fan-drop) - min(var(--hover-lift), var(--pointer-lift, 0px))) * (1 - var(--arm)) - var(--arm-lift) * var(--arm)))
+    perspective(600px) rotate(calc(var(--fan-angle) * (1 - var(--arm)))) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  scale: calc(var(--hover-scale, 1) + var(--arm-scale, .08) * var(--arm));
 }
 .play-game[data-hand='hand'] .play-own .play-card img { grid-row: 1; object-position: center; }
 .play-game[data-hand='hand'] .play-own .play-card [data-button-label] { grid-row: 2; }
 .play-game[data-hand='hand'] .play-own .play-card .play-card-state { grid-row: 1; font: 700 12px/1.4 var(--sans, var(--font-reading)); }
 .play-game[data-hand='hand'] .play-own .play-card::after { display: block; background: linear-gradient(110deg, transparent 22%, white 50%, transparent 78%); background-position: var(--glare-x, 50%) 0; background-size: 170% 100%; opacity: var(--glare, 0); z-index: 1; pointer-events: none; }
-.play-game[data-hand='hand'] .play-own .play-card[aria-pressed='true'] { transform: translateY(calc(0px - var(--arm-lift))) rotate(0deg); outline: 2px solid var(--brass-p, var(--brass)); }
-.play-game[data-hand='hand'][data-armed='freeze'] .play-own .play-card[aria-pressed='true'] { transform: translateY(-6px); outline-color: var(--frost, var(--info)); }
+.play-game[data-hand='hand'] .play-own .play-card[aria-pressed='true'] { --armed: 1; outline: 2px solid var(--brass-p, var(--brass)); }
+.play-game[data-hand='hand'] .play-own .play-card[data-frost='true'] { --arm-lift: 6px; --arm-scale: 0; }
+.play-game[data-hand='hand'] .play-own .play-card[data-frost='true'][aria-pressed='true'] { outline-color: var(--frost, var(--info)); }
 .play-game[data-hand='hand'] .play-hand:has([aria-pressed='true']) .play-card:not([aria-pressed='true']) { opacity: .6; }
 .play-game[data-hand='hand'] .play-hand .play-card:has(~ [aria-pressed='true']) { translate: -3px; }
 .play-game[data-hand='hand'] .play-hand [aria-pressed='true'] ~ .play-card { translate: 3px; }
@@ -418,9 +422,6 @@
 .play-game .play-rival-count { right: 1px; bottom: 4px; }
 .play-game .play-turn .kd-button:first-child { border-radius: 12px; }
 .play-game .play-turn [data-turn-state='ready'][data-free='true'] { background: var(--raised, var(--surface-raised)); }
-.play-game[data-hand='hand'] .play-own .play-card[aria-pressed='true'] { scale: 1.04; }
-.play-game[data-hand='hand'][data-form='wide'] .play-own .play-card[aria-pressed='true'] { scale: 1.08; }
-.play-game[data-hand='hand'][data-armed='freeze'] .play-own .play-card[aria-pressed='true'] { scale: 1; }
 
 /* Result actions replace the hand and turn controls. The board keeps its place. */
 .play-game[data-state='result'] :is(.play-own, .play-turn, .play-history-strip) { visibility: hidden; }
@@ -459,3 +460,8 @@
 .play-result-name { display: grid; }
 .play-result-name small { font: 400 12px/1.1 var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); }
 .play-result-seat:has([data-outcome='win']) .play-result-name strong { color: var(--brass-p, var(--text)); }
+.play-game[data-hand='hand'] .play-own .play-card[data-spent='true'] { display: none; }
+.play-game .play-turn .play-wait-dots { display: none; align-items: center; gap: 4px; }
+.play-game .play-turn [data-turn-state='wait'] .play-wait-dots[data-step] { display: inline-flex; }
+.play-wait-dots i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: .3; }
+.play-wait-dots[data-step='0'] i:nth-child(1), .play-wait-dots[data-step='1'] i:nth-child(2), .play-wait-dots[data-step='2'] i:nth-child(3) { opacity: 1; }

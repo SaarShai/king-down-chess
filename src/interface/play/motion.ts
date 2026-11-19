@@ -178,6 +178,7 @@ export function trackCard(card: HTMLButtonElement, frost: boolean) {
     card.style.setProperty('--tilt-x', `${tiltX.x}deg`);
     card.style.setProperty('--tilt-y', `${tiltY.x}deg`);
     card.style.setProperty('--glare', String(.26 * lift.x / 14));
+    card.style.setProperty('--hover-scale', String(1 + .056 * lift.x / 14));
   };
   const aim = (event?: PointerEvent) => {
     if (reducedMotion()) return;
@@ -204,21 +205,35 @@ export function trackCard(card: HTMLButtonElement, frost: boolean) {
   card.addEventListener('pointerup', () => aim());
 }
 
+const armEffects = new WeakMap<HTMLElement, Effect>();
+export function armCard(card: HTMLElement, armed: boolean) {
+  armEffects.get(card)?.finish();
+  if (reducedMotion() || !card.closest('[data-hand="hand"]')) return;
+  const spring = new Spring(armed ? 0 : 1, 420, 26); spring.to = armed ? 1 : 0;
+  const draw = () => card.style.setProperty('--arm-progress', String(spring.x));
+  draw();
+  armEffects.set(card, onFrame(dt => { spring.step(dt); draw(); if (!card.isConnected || spring.still) return false; },
+    () => { card.style.removeProperty('--arm-progress'); armEffects.delete(card); }));
+}
+
 const sheetEffects = new WeakMap<HTMLElement, Effect>();
-export function sheetMotion(panel: HTMLElement, open: boolean, close?: () => void) {
+export function sheetMotion(panel: HTMLElement, open: boolean, close?: () => void, bounds?: DOMRectReadOnly) {
   sheetEffects.get(panel)?.finish();
   sound(open ? 'pass' : 'tick');
   if (open) pulse('light');
+  const shade = panel.previousElementSibling;
+  const scrim = shade instanceof HTMLElement && shade.matches('.daylight-help-shade') ? shade : undefined;
+  if (open && scrim && close) { scrim.style.pointerEvents = 'auto'; scrim.addEventListener('click', close); }
   if (reducedMotion()) return;
   if (!open) {
-    const box = panel.getBoundingClientRect(), ghost = panel.cloneNode(true) as HTMLElement;
-    ghost.inert = true; ghost.setAttribute('aria-hidden', 'true'); ghost.removeAttribute('id');
-    Object.assign(ghost.style, { position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, padding: '12px', zIndex: '40', overflow: 'hidden' });
+    const box = bounds ?? panel.getBoundingClientRect(), ghost = panel.cloneNode(true) as HTMLElement;
+    ghost.hidden = false; ghost.inert = true; ghost.setAttribute('aria-hidden', 'true'); ghost.removeAttribute('id');
+    Object.assign(ghost.style, { position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, bottom: 'auto', right: 'auto', margin: '0', zIndex: '40', overflow: 'hidden' });
     document.body.append(ghost);
     tween(180, t => { ghost.style.transform = `translateY(${t * innerHeight}px)`; ghost.style.opacity = String(1 - t); }, { curve: ease.in2, done: () => ghost.remove() });
     return;
   }
-  const handle = panel.querySelector<HTMLElement>('.learn-top, .menu-head, .play-panel-head');
+  const handle = panel.querySelector<HTMLElement>('.kd-sheet-head, .menu-head, .play-panel-head');
   if (handle && close) {
     let start: number | undefined, offset = 0;
     handle.style.touchAction = 'none';
@@ -242,12 +257,13 @@ export function sheetMotion(panel: HTMLElement, open: boolean, close?: () => voi
   const draw = () => {
     panel.style.transform = `translateY(${rise.x * panel.offsetHeight}px)`;
     panel.style.opacity = String(Math.min(1, 1 - rise.x));
+    if (scrim) scrim.style.opacity = panel.style.opacity;
   };
   draw();
   sheetEffects.set(panel, onFrame(dt => {
     rise.step(dt); draw();
     if (!panel.isConnected || rise.still) return false;
-  }, () => { panel.style.transform = panel.style.opacity = ''; sheetEffects.delete(panel); }));
+  }, () => { panel.style.transform = panel.style.opacity = ''; if (scrim) scrim.style.opacity = ''; sheetEffects.delete(panel); }));
 }
 
 /** Open or close the help and menu in the reading area (section 6: Exact). Closing slides a copy of the old content down. */
@@ -277,7 +293,7 @@ export function setInterfaceMotion(pace: string, reduce: boolean) {
 /** Lift pages hinge in opposite directions. The departing copy cannot receive input. */
 export function tabChange(old: HTMLElement, page: HTMLElement, direction: number) {
   const ghost = old.cloneNode(true) as HTMLElement;
-  ghost.classList.add('shell-departing'); ghost.inert = true; ghost.setAttribute('aria-hidden', 'true');
+  ghost.classList.add('shell-departing'); ghost.hidden = false; ghost.inert = true; ghost.setAttribute('aria-hidden', 'true');
   ghost.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
   page.before(ghost);
   const fade = calm(), angle = Math.min(1.3, S()), back = 1 + .5 * S();
@@ -317,7 +333,7 @@ document.addEventListener('kd-change', event => {
 document.addEventListener('kd-before-close', event => {
   const dialog = event.target as HTMLDialogElement, box = dialog.getBoundingClientRect();
   const ghost = document.createElement('div'), scrim = document.createElement('div');
-  ghost.className = `${dialog.className} shell-dialog-ghost`; ghost.inert = true; ghost.setAttribute('aria-hidden', 'true');
+  ghost.className = `${dialog.className} shell-dialog-ghost`; ghost.hidden = false; ghost.inert = true; ghost.setAttribute('aria-hidden', 'true');
   ghost.append(...[...dialog.children].map(node => node.cloneNode(true)));
   ghost.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
   Object.assign(ghost.style, { left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px` });

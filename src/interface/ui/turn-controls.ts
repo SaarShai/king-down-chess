@@ -1,8 +1,8 @@
 import { button, setButtonState } from './kit.js';
-import { ease, pulse, reducedMotion, shake, sound, tween, type Effect } from '../play/fx';
+import { ease, onFrame, pulse, reducedMotion, shake, sound, tween, type Effect } from '../play/fx';
 
 /** Keep one position for each action as its state changes. */
-export function turnControls(labels: { undo: string; finish: string }, actions: { undo(): void; finish(): void }) {
+export function turnControls(labels: { undo: string; finish: string }, actions: { undo(): void; finish(): void; refusedFinish?(): void }) {
   const element = document.createElement('footer'); element.className = 'play-turn';
   const line = document.createElement('div'); line.className = 'play-state-line';
   const state = document.createElement('h2'); state.className = 'play-state';
@@ -10,11 +10,15 @@ export function turnControls(labels: { undo: string; finish: string }, actions: 
   line.append(state, help);
   const undo = button(labels.undo, { onPress: actions.undo });
   const finish = button(labels.finish, { kind: 'main', onPress: actions.finish });
-  element.append(undo, finish);
-  let sheen: Effect | undefined, press: Effect | undefined;
-  for (const control of [undo, finish]) control.addEventListener('click', () => {
-    if (control.getAttribute('aria-disabled') !== 'true') return;
+  const dots = document.createElement('span'); dots.className = 'play-wait-dots'; dots.setAttribute('aria-hidden', 'true');
+  dots.append(...Array.from({ length: 3 }, () => document.createElement('i')));
+  finish.append(dots); element.append(undo, finish);
+  let sheen: Effect | undefined, press: Effect | undefined, waiting: Effect | undefined;
+  element.addEventListener('click', event => {
+    const control = (event.target as Element).closest<HTMLButtonElement>('button');
+    if (control?.getAttribute('aria-disabled') !== 'true') return;
     sound('no'); shake(control, { amplitude: 3, ms: 200 });
+    if (control === finish) actions.refusedFinish?.();
   }, true);
   finish.addEventListener('pointerdown', event => {
     if (event.button !== 0 || finish.getAttribute('aria-disabled') === 'true') return;
@@ -41,5 +45,10 @@ export function turnControls(labels: { undo: string; finish: string }, actions: 
       }
     }
     finish.dataset.turnState = mode;
+    if (mode !== 'wait') waiting?.finish();
+    else if (!waiting && !reducedMotion()) waiting = onFrame((_, now) => {
+      if (!finish.isConnected) return false;
+      dots.dataset.step = String(Math.floor(now / 280) % 3);
+    }, () => { waiting = undefined; delete dots.dataset.step; });
   } };
 }

@@ -12,3 +12,5 @@ The board location comes from the viewport. The narrator, seats, hand and action
 ## Run 6
 
 Versus uses the Calm sequence on paper. The game shows the result below the board in portrait and in the rail in landscape. The saved game records completed moves, captures and the time spent in play. The first tap during the result sequence ends it.
+
+The help lane supplies the rule sheet, refused tap text, five hints, and the promotion sheet. The game opens them at their input. Reset hints clears the first-game flag and the earlier rule hints.
