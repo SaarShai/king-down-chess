@@ -18,7 +18,7 @@ export const signInText = {
   againLine: 'Your sign-in has ended. Your turn stays on this device. Sign in to send it.',
   way: (way: Way) => way === 'apple' ? 'Sign in with Apple' : `Continue with ${WAY_NAMES[way]}`,
   opening: (way: Way) => `Opening ${WAY_NAMES[way]}…`,
-  loading: 'Checking sign-in ways…',
+  loading: 'One moment…',
   notNow: 'Not now',
   private: 'Other players never see your email.',
   privacy: 'Privacy', terms: 'Terms',

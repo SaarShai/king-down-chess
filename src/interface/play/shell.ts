@@ -22,6 +22,7 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
   // A load, a reload or an address edit opens the place of the hash; the stored Guide section stays when it matches.
   const fromAddress = (): Route => { const read = addressRoute(location.hash), kept: Route | undefined = history.state?.shell; return kept?.place === read.place && (read.entry === undefined || kept.entry === read.entry) ? kept : read; };
   let route: Route = fromAddress();
+  const youScroll: number | undefined = route.place === 'you' ? history.state?.youScroll : undefined;
   const nav = navigation('Play', name => {
     const next = { place: name.toLowerCase() as Route['place'] };
     if (layer && next.place === route.place) { layer(); void closeLayer(); }
@@ -70,7 +71,7 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
       page.style.transform = `translateX(${direction * 14 * (1 - k)}px)`; page.style.opacity = String(.64 + .36 * k);
     }, { curve: ease.out3, done: () => { ghost.remove(); page.style.removeProperty('transform'); page.style.removeProperty('opacity'); } });
   }
-  const show = (next: Route, draw = true) => {
+  const show = (next: Route, draw = true, scroll?: number) => {
     const before = route; route = next;
     const oldTab = nav.querySelector<HTMLElement>('[aria-current]');
     const old = root.querySelector<HTMLElement>(':scope > :not(.shell-departing)');
@@ -84,6 +85,7 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
       render(next);
       const page = root.firstElementChild as HTMLElement | null;
       if (old && page && old !== page && before.place !== 'game' && next.place !== 'game') changePage(old, page, places.indexOf(next.place) >= places.indexOf(before.place) ? 1 : -1);
+      if (page && scroll !== undefined) { page.dataset.restore = 'true'; window.scrollTo(0, scroll); }
       // A page that restores the view (the row that the person left) keeps its focus and its scroll.
       if (page?.dataset.restore !== 'true') { page?.querySelector<HTMLElement>('h1')?.focus({ preventScroll: true }); window.scrollTo(0, 0); }
     }
@@ -108,7 +110,8 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
     if (layer) { const close = layer; layer = null; close(); if (JSON.stringify(event.state?.shell) === JSON.stringify(route)) return; }
     // Forward to the entry of a closed layer: the place stays; the next Back leaves it.
     if (event.state?.layer && JSON.stringify(event.state.shell) === JSON.stringify(route)) { waiting = []; history.back(); return; }
-    show(event.state?.shell ?? fromAddress());
+    const next = event.state?.shell ?? fromAddress();
+    show(next, true, next.place === 'you' ? event.state?.youScroll : undefined);
   });
   // An address edit fires popstate, then hashchange: the second shows nothing new.
   window.addEventListener('hashchange', () => {
@@ -116,9 +119,13 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
     const next = fromAddress(); history.replaceState({ shell: next }, '', location.href);
     if (JSON.stringify(next) !== JSON.stringify(route)) show(next);
   });
+  // About opens a separate document. Back can load this entry before the browser has a page to scroll.
+  window.addEventListener('pagehide', () => {
+    if (route.place === 'you' && !layer) history.replaceState({ shell: route, youScroll: window.scrollY }, '');
+  });
   history.replaceState({ shell: route }, '', location.pathname + location.search + (route.place === 'play' ? '' : routeHash(route)));
   return {
-    go, start: () => show(route), get route() { return route; },
+    go, start: () => show(route, true, youScroll), get route() { return route; },
     /** Runs `run` now, or after a pending layer Back, in order with route changes. Open a layer only in `run`. */
     settled,
     /** Open a layer: one history entry. Browser Back calls `close`. */
