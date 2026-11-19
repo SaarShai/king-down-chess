@@ -100,6 +100,8 @@ export interface PaintedScene {
    */
   setDecorate(fn: ((ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row?: number) => void) | null): void;
   redraw(): void;
+  /** Draw a lettered piece at the centre of a square. */
+  drawToken(ctx: CanvasRenderingContext2D, value: number, x: number, y: number): void;
   /** Swap the board texture. Square geometry does not change. A decode failure keeps the old art and rejects. */
   setBoardArt(url: string): Promise<void>;
   /** Draw every frame for the next `ms` milliseconds (a decoration's own short animation). */
@@ -143,6 +145,8 @@ export function createScene(options: {
   lazySheets?: boolean;
   /** The first board surface. Default: the original stone image. With lazySheets, use the page's origin. */
   initialBoardArt?: string;
+  /** Draw plain squares and lettered pieces while art loads. Use with lazySheets. */
+  progressiveArt?: boolean;
   /** Called with the URL of a rest still that cannot load. Default none: the figure then waits for its sheet, as before. */
   onArtError?: (url: string) => void;
   daylight?: DaylightSceneHooks;

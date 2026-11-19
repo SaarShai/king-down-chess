@@ -13,6 +13,7 @@ import { button, closeX, icon, confirmDialog, errorState, liveRegion, setButtonS
 import { turnControls } from '../ui/turn-controls';
 import type { Board, Move, Pace, Position } from '../board-api';
 import { Game, Engine } from '../../game';
+import { inApp } from '../../platform';
 import { gameJSON, readSave } from '../../screen/save';
 import { skillPlan } from '../../ai/skill';
 import { learningEntry, firstMinute, stepLine, subjectKey, type LearnSubject } from './learning';
@@ -158,8 +159,12 @@ function symbol(code: number): string {
   const file = `/ui/icons/${nameOf(code).toLowerCase()}.svg`, svg = svgText.get(file), army = ARMY[colorOf(code)];
   return svg ? `data:image/svg+xml,${encodeURIComponent(svg.replace('<svg ', '<svg width="96" height="96" ').replace('var(--pi-disc,#bccac8)', army.disc).replace('var(--pi-ring,currentColor)', army.ring).replaceAll('var(--pi-glyph,currentColor)', army.glyph))}` : file;
 }
+function decorativeImage(img: HTMLImageElement, src: string) {
+  img.addEventListener('error', () => { img.style.visibility = 'hidden'; }, { once: true });
+  img.alt = ''; img.src = src; return img;
+}
 /** A full figure: the board's own rest still (public/ui/pieces), so one piece looks the same everywhere. */
-const figure = (file: string) => { const img = el('img', 'play-figure'); img.src = `/ui/pieces/${file}.webp`; img.alt = ''; return img; };
+const figure = (file: string) => decorativeImage(el('img', 'play-figure'), `/ui/pieces/${file}.webp`);
 const kingFile = (side: Color, rules: Pick<Rules, 'kings'> = game.context.rules) => `king-${(rules.kings[side]?.king ?? PLAIN_KINGS[side]).toLowerCase()}-${side ? 'b' : 'w'}`;
 const image = (code: number) => { const img = el('img'); img.src = symbol(code); img.alt = ''; return img; };
 const symbolImage = (code: number) => symbolImages.get(code & 31) ?? image(code);
@@ -550,9 +555,10 @@ function endEntry() { starting = 0; endVersus?.(); endVersus = null; }
 /** A new game shows Versus. Continue opens the saved board at rest. */
 async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; player: Color; playedMs?: number }, from?: HTMLButtonElement) {
   if (starting) return;
+  const progressiveArt = !inApp && !onlineActive;
   // Keep the accepted game identity through the code load. Settings alone do not need a new choice.
   const acceptedSave = readSave(), identity = acceptedSave.unreadable ? acceptedSave.raw : gameJSON(acceptedSave.save);
-  if (!boardCode) {
+  if (!boardCode && !progressiveArt) {
     // Start the first frame's images beside the board code, in the scene's image modes.
     const position = resumed?.draft.position ?? next.game.pos, rules = resumed?.game.context.rules ?? next.game.context.rules;
     const files = [skinUrl, ...[...new Set(position.board)].filter(Boolean).map(code => `/ui/pieces/${typeOf(code) === K ? kingFile(colorOf(code), rules) : `${nameOf(code).toLowerCase()}-${colorOf(code) ? 'b' : 'w'}`}.webp`)];
@@ -560,6 +566,8 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
       const link = document.createElement('link'); link.rel = 'preload'; link.as = 'image'; link.href = href;
       link.fetchPriority = 'high'; document.head.append(link); firstArt.add(href);
     }
+  }
+  if (!boardCode) {
     // The press waits for the board code; a second press, or a move to another place, ends this start.
     const place = shell.route.place;
     root.querySelector('.home-load-fault')?.remove();
@@ -630,7 +638,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   who.append(el('span', 'play-opponent-name', oppName));
   who.append(el('small', 'opponent-clock', onlineActive ? '' : text[gameLevel]));
   const face = onlineActive ? profilePortrait(oppName, oppAvatar) : el('img', 'profile-portrait');
-  if (!onlineActive && face instanceof HTMLImageElement) { face.src = computerPortrait(gameLevel); face.alt = ''; }
+  if (face instanceof HTMLImageElement) decorativeImage(face, computerPortrait(gameLevel));
   const opponentGroup = el('div', 'play-opponent-group');
   const opponentRing = el('span', 'play-seat-ring'); opponentRing.append(face);
   opponentGroup.append(opponentRing, who); opponent.append(opponentGroup);
@@ -658,6 +666,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   if (!keep) { boardHost = el('div', 'play-board-host'); boardHost.style.visibility = 'hidden'; boardHost.setAttribute('aria-hidden', 'true'); }
   const host = boardHost;
   const grid = el('div', 'play-grid'); grid.setAttribute('role', 'grid'); grid.setAttribute('aria-label', text.title); grid.setAttribute('aria-description', text.shortcuts);
+  if (progressiveArt && !keep) grid.inert = true;
   cells = Array.from({ length: 64 }, (_, square) => {
     const cell = el('button', 'play-square'); cell.type = 'button'; cell.tabIndex = square === cursor ? 0 : -1;
     cell.dataset.square = String(square); cell.dataset.dark = String(((square % 8) + (square >> 3)) % 2 === 0);
@@ -710,7 +719,8 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   else root.replaceChildren(screen);
   const onArtError = () => { if (host === boardHost && document.body.dataset.page === 'game') artFailed(generation); };
   const view = keep ?? boardCode!.mountBoard(host, tap, {
-    liveInput: true, quiet: true, plainMarks: true, daylight: true, initialBoardArt: skinUrl, onArtError,
+    liveInput: true, quiet: true, plainMarks: true, daylight: true, initialBoardArt: skinUrl, progressiveArt,
+    onArtError: progressiveArt ? undefined : onArtError,
     sceneHooks: {
       hold,
       onCaptureContact: (square: number, animated: boolean) => {
@@ -728,11 +738,16 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     if (board !== view) return;
     if (paused) view.pause(); else view.resume();
   });
-  board.flip(player === 1); board.setPosition(draft.position, game.context); applyPieceView(); layout(); update();
+  board.flip(player === 1);
+  if (progressiveArt) applyPieceView();
+  board.setPosition(draft.position, game.context);
+  if (!progressiveArt) applyPieceView();
+  layout(); update();
   fit.disconnect(); fit.observe(screen);
   if (!resumed) save(true); // the new game replaces the save: a save with no move
-  // The first draw uses the prepared surface and stills, with no second stone image to wait for.
-  const loaded = keep ? Promise.resolve() : board.ready().then(() => { if (own === generation) host.style.visibility = ''; });
+  const loaded = keep ? Promise.resolve() : board.ready().then(() => {
+    if (own === generation) { host.style.visibility = ''; if (progressiveArt) grid.inert = false; }
+  });
   // The engine worker loads when the board can draw, so it does not hold the first frame (decision 44).
   void loaded.catch(() => {}).then(() => { if (own === generation && !onlineActive) engine.prepare(game); });
   const versus = !resumed && !arrangement ? versusCard(loaded) : null;
@@ -740,7 +755,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   if (fromHome) {
     starting = own;
     try {
-      if (!versus) { if (from) setButtonState(from, { busy: true }); await loaded.catch(() => {}); }
+      if (!versus || progressiveArt) { if (from) setButtonState(from, { busy: true }); await loaded.catch(() => {}); }
       if (own !== generation) return;
       screen.style.visibility = ''; cells[cursor].focus({ preventScroll: true });
       if (homeScreen) { if (!versus) await screenChange(homeScreen, screen); homeScreen.remove(); }
@@ -755,7 +770,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     const context = arrangement ? [arrangeText.instruction, arrangement.error ?? arrangeText.legal, arrangeText.keys].join(' ') : thinking ? '' : draft.length ? stepLines().join(' ') : replySteps.length ? replyText() : fresh() ? text.firstMinute : last;
     announce([controls.state.textContent, context].filter(Boolean).join(' '));
   }
-  // The computer moves first in a Dark game, and after Continue on its turn; only when the board art is ready.
+  // The computer moves first in a Dark game, and after Continue on its turn. Wait for the first board frame.
   if (own === generation && !onlineActive && !arrangement && !fault && game.pos.turn === cpu() && game.status === 'playing') void reply();
 }
 /** The art cannot load: one safe next step, Try again. The game, its staged steps and its save stay. */
@@ -1689,7 +1704,7 @@ function addPower(side: Color, parent: HTMLElement) {
   if (!king) return;
   const uses = usesAllowed(king.power, r);
   const res: Resource = { subject: { kind: 'power', id: king.power }, side, key: uses ? POWER_TAG[king.power] ?? null : null, name: POWER_NAME[king.power], short: powerLines[king.power] ?? '', card: null, control: button(POWER_NAME[king.power], { onPress: () => pressResource(res) }) };
-  const coin = el('span', 'play-power-coin'), emblem = el('img'); emblem.src = `/ui/emblems/${king.king.toLowerCase()}.webp`; emblem.alt = '';
+  const coin = el('span', 'play-power-coin'), emblem = decorativeImage(el('img'), `/ui/emblems/${king.king.toLowerCase()}.webp`);
   const notches = el('span', 'play-power-notches'); notches.setAttribute('aria-hidden', 'true');
   for (let i = 0; i < (uses ?? 0); i++) notches.append(el('i', 'play-power-notch'));
   coin.append(emblem, notches);
@@ -1704,7 +1719,7 @@ function addCards(parent: HTMLElement) {
   r.hands[player].forEach((card, k) => {
     const key = card === 'MirrorB' ? 'mirrorb' : (Object.keys(TAG_POWER) as PowerTag[]).find(tag => TAG_POWER[tag] === card) ?? null;
     const res: Resource = { subject: { kind: 'card', id: card }, side: player, key, name: cardName(card), short: powerLines[card] ?? '', card: k, control: button(cardName(card), { onPress: () => pressResource(res) }) };
-    const art = el('img'); art.src = cardArt(player, k); art.alt = ''; res.control.prepend(art); res.control.append(el('small', 'play-card-state'));
+    res.control.prepend(decorativeImage(el('img'), cardArt(player, k))); res.control.append(el('small', 'play-card-state'));
     // Keep words intact when a two-word card name wraps at the top edge.
     const words = res.name.split(' '), label = res.control.querySelector('[data-button-label]')!;
     label.replaceChildren(...words.flatMap((word, i) => [...(i ? [' '] : []), el('span', '', word)]));

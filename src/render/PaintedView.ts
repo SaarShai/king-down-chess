@@ -139,11 +139,11 @@ export class PaintedView implements BoardView {
    * options.holdStills, options.lazySheets, options.onArtError: the scene options of the same names (scene.d.mts); with lazySheets the Darkness art also waits for the first frame.
    * All default to false; only the new interface turns them on.
    */
-  constructor(private container: HTMLElement, private options: { floor?: string | null; webInk?: boolean; allowModalAndNavigation?: boolean; liveInput?: boolean; quiet?: boolean; daylight?: boolean; sceneHooks?: DaylightSceneHooks; holdStills?: boolean; lazySheets?: boolean; plainMarks?: boolean; initialBoardArt?: string; onArtError?: (url: string) => void } = {}) {
+  constructor(private container: HTMLElement, private options: { floor?: string | null; webInk?: boolean; allowModalAndNavigation?: boolean; liveInput?: boolean; quiet?: boolean; daylight?: boolean; sceneHooks?: DaylightSceneHooks; holdStills?: boolean; lazySheets?: boolean; plainMarks?: boolean; initialBoardArt?: string; progressiveArt?: boolean; onArtError?: (url: string) => void } = {}) {
     container.classList.add('painted');
     this.canvas.width = 960; this.canvas.height = 960 + HEADROOM; // resolution 1 until the first resize
     container.appendChild(this.canvas);
-    this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM, kings: [kingDesign(this.context, 0), kingDesign(this.context, 1)], floor: options.floor, characterRuntime: typeof __KINGDOWN_CHARACTER_RUNTIME__ !== 'undefined' && __KINGDOWN_CHARACTER_RUNTIME__, holdStills: options.holdStills, lazySheets: options.lazySheets, initialBoardArt: options.initialBoardArt, onArtError: options.onArtError, daylight: options.daylight ? options.sceneHooks ?? {} : undefined });
+    this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM, kings: [kingDesign(this.context, 0), kingDesign(this.context, 1)], floor: options.floor, characterRuntime: typeof __KINGDOWN_CHARACTER_RUNTIME__ !== 'undefined' && __KINGDOWN_CHARACTER_RUNTIME__, holdStills: options.holdStills, lazySheets: options.lazySheets, initialBoardArt: options.initialBoardArt, progressiveArt: options.progressiveArt, onArtError: options.onArtError, daylight: options.daylight ? options.sceneHooks ?? {} : undefined });
     this.scene.setDecorate((ctx, scene, layer, row) => {
       this.drawMarks(ctx, scene, layer, row);
       if (this.frozen?.size && (layer === 'under' || row === 7)) drawDaylightFreeze(ctx, scene, this.frozen, layer === 'over', this.width);
@@ -156,8 +156,7 @@ export class PaintedView implements BoardView {
     document.addEventListener('visibilitychange', () => this.applyLively(), { signal });
     this.applyLively();
     if (options.quiet) this.setCoords(false);
-    // F13: no board before the stone art is decoded; the first frame shows stone and pieces together.
-    // ready() waits for that frame, so a hidden tab or off-screen frame becomes ready when it shows.
+    // Show the canvas after its first frame. A hidden tab becomes ready when it can draw.
     this.canvas.style.visibility = 'hidden';
     this.loaded = this.scene.load().catch(error => { if (!this.disposed) this.onLoadError?.(error); }).then(() => new Promise<void>(resolve => {
       if (this.disposed) { resolve(); return; }
@@ -245,7 +244,10 @@ export class PaintedView implements BoardView {
 
   setSymbols(symbols?: (piece: number) => HTMLImageElement): void {
     // A resync ends the running move; the plugin sets the same symbols after every view.
-    if (symbols === this.symbols) return;
+    if (symbols === this.symbols) {
+      if (symbols && this.options.progressiveArt) this.scene.redraw();
+      return;
+    }
     if (symbols && this.fallen?.painted) this.fallen.painted = false;
     this.symbols = symbols;
     if (this.pos) this.sync(this.pos);
@@ -580,7 +582,10 @@ export class PaintedView implements BoardView {
       this.pos.board.forEach((piece, sq) => {
         if (!piece) return;
         const cell = scene.cell(sq);
-        ctx.drawImage(this.symbols!(piece), PAD + cell.col * TILE + 14, PAD + cell.row * TILE + 14, TILE - 28, TILE - 28);
+        const image = this.symbols!(piece);
+        const x = PAD + cell.col * TILE, y = PAD + cell.row * TILE;
+        if (this.options.progressiveArt && !(image.complete && image.naturalWidth)) scene.drawToken(ctx, piece, x + TILE / 2, y + TILE / 2);
+        else ctx.drawImage(image, x + 14, y + 14, TILE - 28, TILE - 28);
       });
     }
   }

@@ -3,12 +3,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-// A stand-in browser: every 2D context call is a no-op; images "load" at once; time is ours.
+// A stand-in browser: every 2D context call is a no-op. The test controls the clock and the pawn decode.
 let now=0;const frames=[],timers=[];
-const ctx2d=new Proxy({},{get:(t,k)=>k in t?t[k]:k==='getImageData'||k==='createImageData'?(x,y,w=1,h=1)=>({data:new Uint8ClampedArray(Math.max(1,w*h)*4)}):k==='getTransform'?()=>({}):k==='measureText'?()=>({width:1}):()=>ctx2d,set:(t,k,v)=>(t[k]=v,true)});
+const ctx2d=new Proxy({canvas:{width:960,height:1024}},{get:(t,k)=>k in t?t[k]:k==='getImageData'||k==='createImageData'?(x,y,w=1,h=1)=>({data:new Uint8ClampedArray(Math.max(1,w*h)*4)}):k==='getTransform'?()=>({a:1,b:0,c:0,d:1,e:0,f:0}):k==='measureText'?()=>({width:1}):()=>ctx2d,set:(t,k,v)=>(t[k]=v,true)});
 const canvas=()=>({width:1,height:1,style:{},getContext:()=>ctx2d,addEventListener(){}});
 globalThis.document={createElement:canvas,hidden:false,addEventListener(){}};
-globalThis.Image=class{constructor(){this.naturalWidth=this.width=this.height=1152;}set src(v){this._s=v;queueMicrotask(()=>this.onload?.());}get src(){return this._s;}decode(){return Promise.resolve();}};
+globalThis.DOMMatrix=class{scale(){return this;}};
+let pawnDecode=null;
+globalThis.Image=class{
+ constructor(){this.complete=false;this.naturalWidth=this.width=this.height=1152;}
+ set src(value){this._s=value;queueMicrotask(()=>{this.complete=true;this.onload?.();});}
+ get src(){return this._s;}
+ decode(){return this.src.endsWith('/lance/pawn.webp')&&pawnDecode?pawnDecode:Promise.resolve();}
+};
 Object.defineProperty(globalThis,'performance',{value:{now:()=>now},configurable:true});
 globalThis.requestAnimationFrame=fn=>{frames.push(fn);return frames.length;};
 globalThis.cancelAnimationFrame=()=>{};
@@ -82,4 +89,26 @@ test('a disposed scene settles its move and cannot draw or restart after a late 
  scene.redraw();scene.setSelected(8);run(1000);
  assert.equal(scene.frames,before);
  assert.equal(await scene.play({from:8,to:16,captures:[]}),false);
+});
+
+test('a pending pawn decode leaves the board idle and its result wakes one frame',async()=>{
+ for(const fails of [false,true]){
+  const {promise,resolve,reject}=Promise.withResolvers();pawnDecode=promise;
+  const scene=createScene({canvas:canvas(),pieces:{P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName},kings:['plain','plain'],progressiveArt:true,daylight:{}});
+  globalThis.setTimeout=(fn,ms)=>{timers.push({fn,at:now+ms});return timers.length;};
+  try{
+   await scene.load();
+   const pos=createPosition('king');pos.board=Array(64).fill(0);pos.board[8]=pos.board[9]=P;scene.setPosition(pos);
+   if(fails){scene.setLively({idle:true,atmosphere:true,pawns:true});scene.setSelected(8);}
+   run(100);
+   await new Promise(setImmediate); // Let the other images finish.
+   const before=scene.frames;
+   run(20000);
+   assert.equal(scene.frames,before+1,'pending art does not keep drawing');
+   if(fails)reject(new Error('The pawn decode fails.'));else resolve();
+   await new Promise(setImmediate);
+   run(1000);
+   assert.equal(scene.frames,before+2,'the decode result asks for one more frame');
+  }finally{scene.dispose();pawnDecode=null;globalThis.setTimeout=realSetTimeout;}
+ }
 });

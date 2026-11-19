@@ -59,7 +59,7 @@ async function panelRace(page, context, check, action, game, { preload = false, 
   let release; const held = new Promise(done => { release = done; });
   await signedIn(context, invites, async json => { await held; invites.length = 0; return json({ game_id: game, revision: 1, status: 'setup', seat: 0, kind: 'person', action: 'wait', deadline_at: null }); }, polls);
   await page.goto(NEXT); await page.waitForSelector('.home-invite-row');
-  const newGame = () => page.locator('.home-top-new:visible, .home-side-new:visible').first(), panel = page.locator('dialog.new-game-panel');
+  const newGame = () => page.locator('.home-hero-new:visible, .home-side-new:visible').first(), panel = page.locator('dialog.new-game-panel');
   if (preload) {
     await newGame().click(); await page.waitForSelector('dialog.new-game-panel[open]');
     await panel.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
@@ -344,9 +344,10 @@ const cases = {
     // The base result layout has no height at 667x375. This case tests the retained board callback only.
     const rematch = page.locator('.play-result-actions button').first();
     if (await rematch.isVisible()) await rematch.click(); else await rematch.evaluate(n => n.click());
-    await page.waitForFunction(() => document.querySelector('.play-game')?.dataset.fault === 'art', null, { timeout: 4000 }).catch(() => {});
+    await ready(page);
     check(failed > 0, 'the rematch asks for a new still');
-    check(await page.locator('.play-fault').isVisible(), 'an art fault after Rematch shows Try again');
+    check(await page.locator('.play-board-host canvas').isVisible(), 'the board draws after a rematch art fault');
+    check(await page.locator('.play-fault').count() === 0, 'the rematch can play after a failed still');
     await shot(page, 'rematch-art');
   },
 };

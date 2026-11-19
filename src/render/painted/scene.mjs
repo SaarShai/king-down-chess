@@ -59,7 +59,7 @@ const BOARD_ART=new URL('../../../docs/2d-first-pieces/board-art/stone-board.web
  * kings: [white, black] king designs (court.KING_DESIGNS); the trial and the trailer keep the Frost King.
  * floor: the colour round the board (floorOf: FLOOR when none is named; paintFloor); null leaves the canvas clear there.
  */
-export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0,kings:initialKings=['frost','frost'],floor:floorOption,characterRuntime=false,holdStills=false,lazySheets=false,initialBoardArt,onArtError,daylight}) {
+export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0,kings:initialKings=['frost','frost'],floor:floorOption,characterRuntime=false,holdStills=false,lazySheets=false,initialBoardArt,progressiveArt=false,onArtError,daylight}) {
  const floor=floorOf(floorOption);
  const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName}=pieces;
  const ctx=canvas.getContext('2d');
@@ -93,16 +93,21 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  const corsImage=()=>Object.assign(new Image(),{crossOrigin:'anonymous'});
  // lazySheets (the new page, same origin): the stills and the board art load in the mode of the page's own pictures, so each file loads once.
  const pageImage=()=>lazySheets?new Image():corsImage();
- const art=Object.fromEntries(Object.keys(ART).filter(type=>+type!==K).map(type=>[type,corsImage()]));
+ const imageReady=image=>image?.complete&&image.naturalWidth>0;
+ function loadImage(image,url){
+  return new Promise((resolve,reject)=>{
+   image.onload=async()=>{try{if(progressiveArt)await image.decode?.();resolve(image);}catch(error){reject(error);}};
+   image.onerror=reject;image.src=url;
+  });
+ }
+ const art={};
  // King sheets load on demand: the two in play before the scene is ready, others when a side picks them.
  const kingArt={}, drawnKings=[null,null];
  let kings=[...initialKings];
  function kingImage(design){
   let entry=kingArt[design];
   if(!entry){
-   const image=corsImage();
-   entry=kingArt[design]={image:null,loaded:new Promise((resolve,reject)=>{image.onload=()=>{entry.image=image;afterBoard(()=>lyingArt(design));wake();resolve();};image.onerror=reject;})};
-   image.src=KING_FILES[design];
+   entry=kingArt[design]={image:null,loaded:loadImage(corsImage(),KING_FILES[design]).then(image=>{entry.image=image;afterBoard(()=>lyingArt(design));}).finally(()=>wake(false))};
   }
   return entry;
  }
@@ -121,23 +126,28 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
   const key=`${character}:${army}`;let entry=stillArt[key];
   if(!entry){
    const image=pageImage();
-   entry=stillArt[key]={body:null,done:false,loaded:new Promise(resolve=>{image.onload=()=>{entry.done=true;entry.body={image,pivot:meta.pivot,size:meta.size,scale:bankScale({character,boardScale:meta.boardScale,registrationHeightPx:meta.registrationHeightPx}),unitHeight:meta.registrationHeightPx,footprint:meta.footprint};wake();resolve();};image.onerror=()=>{entry.done=true;if(!disposed)onArtError?.(image.src);resolve();};})};
-   image.src=publicUrl(`/ui/pieces/${character}-${army[0]}.webp`);
+   entry=stillArt[key]={body:null,done:false,loaded:loadImage(image,publicUrl(`/ui/pieces/${character}-${army[0]}.webp`)).then(()=>{
+    entry.body={image,pivot:meta.pivot,size:meta.size,scale:bankScale({character,boardScale:meta.boardScale,registrationHeightPx:meta.registrationHeightPx}),unitHeight:meta.registrationHeightPx,footprint:meta.footprint};
+   },()=>{if(!disposed)onArtError?.(image.src);}).finally(()=>{entry.done=true;wake(false);})};
   }
   return entry;
  }
- // (Not when the loaded package has no body for it: then its legacy drawings move it, so it rests as one of them too.)
- // holdStills: a part still in transfer keeps the still (the index alone does not drop it).
- const stillBody=value=>(holdStills?bodyRuntime&&!bodyRuntime.has(characterOf(value),armyOf(value))&&bodyRuntime.lacks(characterOf(value),armyOf(value)):bodyRuntime?.stats.manifestReady&&!bodyRuntime.has(characterOf(value),armyOf(value)))?null:stillImage(value)?.body??null;
- // lazySheets: a figure whose legacy sheet has not loaded draws its still, at rest and along a move, so it never goes blank.
- const sheetless=value=>lazySheets&&!(typeOf(value)===K?kingArt[kings[colorOf(value)]]?.image:art[typeOf(value)]?.naturalWidth);
+ // Progressive play keeps the intended still at rest. Other views use the legacy pose when the package lacks a body.
+ // holdStills keeps the still while a part is in transfer.
+ const stillBody=value=>!progressiveArt&&(holdStills?bodyRuntime&&!bodyRuntime.has(characterOf(value),armyOf(value))&&bodyRuntime.lacks(characterOf(value),armyOf(value)):bodyRuntime?.stats.manifestReady&&!bodyRuntime.has(characterOf(value),armyOf(value)))?null:stillImage(value)?.body??null;
+ const sheetless=value=>!imageReady(typeOf(value)===K?kingArt[kings[colorOf(value)]]?.image:art[typeOf(value)]);
+ function canIdle(value,clip=false){
+  if(!progressiveArt||!ART[typeOf(value)])return true;
+  const still=stillImage(value);
+  return still?!!still.body:!!clip||!sheetless(value);
+ }
  // The loads still pending for the figures on the board, or null when none is.
  const warmStills=()=>{const waits=[...new Set(position.board)].filter(Boolean).map(stillImage).filter(entry=>entry&&!entry.done).map(entry=>entry.loaded);return waits.length?Promise.all(waits):null;};
  let boardArt=initialBoardArt?pageImage():corsImage();
  // Clips load after the first frame with motion on, or when a selection needs one. They never gate readiness.
  // Choose the clip at selection time, so a late sheet never starts a clip in the middle of a selection.
  const CLIP_OF={[N]:'knight',[R]:'rook'},clipArt=Object.fromEntries(Object.keys(CLIPS).map(name=>[name,corsImage()]));
- const clipReady=name=>!!clipArt[name]?.complete&&clipArt[name].naturalWidth>0;
+ const clipReady=name=>imageReady(clipArt[name]);
  function loadClips(name=null){
   if(disposed||reducedMotion||!frames||!connected())return;
   if(characterRuntime&&!bodyWarm)return;
@@ -156,7 +166,7 @@ for(const [type,name] of Object.entries(courtNames)){
 }
  const FALLBACK={anchor:{x:576,y:1018},hit:{x:576,y:640},scale:.1};
  // A Workshop design's figure for a lab type (the game's slot T, ticket 17): [white, black] images, drawable once loaded.
- const figures={},figureOf=value=>{const image=figures[typeOf(value)]?.[colorOf(value)];return image?.naturalWidth?image:null;};
+ const figures={},figureOf=value=>{const image=figures[typeOf(value)]?.[colorOf(value)];return imageReady(image)?image:null;};
  // Lab pieces without painted art: a token that slides in, no body motion.
  for(let type=1;type<16;type++){if(!specs[type])specs[type]=FALLBACK;newMotions[type]??={DURATION:900,actionAt:()=>0};}
  const idle=new Map(), work=new Map();
@@ -182,6 +192,14 @@ for(const [type,name] of Object.entries(courtNames)){
  // as it always did: the trial and the trailer draw as before.)
  const onFloor=point=>lively.atmosphere?{ground:point}:{};
  const poseFor=(value,square)=>({foot:foot(square),scale:specs[typeOf(value)].scale,facing:sideFacing(value),angle:0});
+ function drawLetter(out,value,x,y,radius){
+  const dark=colorOf(value),scale=radius/260;
+  out.save();out.translate(x,y);out.scale(scale,scale);
+  out.fillStyle=dark?'#34383a':'#efe9d8';out.strokeStyle=dark?'#c9cdc8':'#4b4a3c';out.lineWidth=24;out.beginPath();out.arc(0,0,260,0,Math.PI*2);out.fill();out.stroke();
+  out.fillStyle=out.strokeStyle;out.font='bold 300px Georgia,serif';out.textAlign='center';out.textBaseline='middle';out.fillText(pieces.LETTERS?.[typeOf(value)]??'?',0,12);
+  out.restore();
+ }
+ const drawToken=(out,value,x,y)=>drawLetter(out,value,x,y,40);
  // Pieces without painted art (lab pieces) draw as a lettered token, or as the figure that setFigure gives their type.
  function token(value) {
   const fig=figureOf(value),key=`token:${value}${fig?`:${fig.src}`:''}`;let canvas=idle.get(key);if(canvas)return canvas;
@@ -191,8 +209,7 @@ for(const [type,name] of Object.entries(courtNames)){
    if(dark){const px=c.getImageData(0,0,1152,1152),d=px.data;let sum=0,n=0;for(let i=0;i<d.length;i+=4)if(d[i+3]>200){sum+=d[i]+d[i+1]+d[i+2];n++;}
     const k=210*n/sum;if(k<1){for(let i=0;i<d.length;i+=4){d[i]*=k;d[i+1]*=k;d[i+2]*=k;}c.putImageData(px,0,0);}}
    idle.set(key,canvas);return canvas;}
-  c.fillStyle=dark?'#34383a':'#efe9d8';c.strokeStyle=dark?'#c9cdc8':'#4b4a3c';c.lineWidth=24;c.beginPath();c.arc(576,700,260,0,Math.PI*2);c.fill();c.stroke();
-  c.fillStyle=c.strokeStyle;c.font='bold 300px Georgia,serif';c.textAlign='center';c.textBaseline='middle';c.fillText(pieces.LETTERS?.[typeOf(value)]??'?',576,712);
+  drawLetter(c,value,576,700,260);
   idle.set(key,canvas);return canvas;
  }
  function world(point,pose,type) { const a=specs[type].anchor; return {x:pose.foot.x+(point.x-a.x)*pose.scale*pose.facing,y:pose.foot.y+(point.y-a.y)*pose.scale}; }
@@ -213,7 +230,7 @@ function sprite(value,angle=0,extension=0,sheet=null,rest=null) {
  const type=typeOf(value),side=colorOf(value),design=type===K?kings[side]:null,key=spriteKey(value,sheet);
  if(!ART[type])return token(value);
  const image=design?sheet??kingImage(design).image:art[type];
- if(design?!image:!image.naturalWidth)return blank; // a sheet that has not loaded never goes into the idle cache
+ if(!sheet&&!imageReady(image))return blank; // The alternate sheet is a canvas made by the king effect.
  if(design)drawnKings[side]=design;
  const staticPose=Math.abs(angle)<.00001&&Math.abs(extension)<.0001;
  if(rest&&staticPose&&type===P){
@@ -312,6 +329,13 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
   g.globalCompositeOperation='source-atop';g.fillStyle='rgba(127,183,217,.55)';g.fillRect(0,-headroom,SIZE,SIZE+headroom);g.restore();
   out.drawImage(fxCanvas,0,-headroom,SIZE,SIZE+headroom);out.restore();return;
  }
+ if(progressiveArt&&!pose.bank&&!pose.still&&ART[typeOf(value)]){
+  const still=stillImage(value);
+  if(still?.body===null||!pose.clip&&sheetless(value)){
+   if(still?.body)pose={...pose,still:still.body};
+   else{drawToken(out,value,pose.foot.x,pose.foot.y-40);out.restore();return;}
+  }
+ }
  if(pose.bank||pose.still){const b=pose.bank??pose.still,k=b.scale*pose.scale/spec.scale;if(typeOf(value)===K)drawnKings[colorOf(value)]=kings[colorOf(value)];out.translate(pose.foot.x,pose.foot.y);out.scale(k*(pose.sx??1),k*(pose.sy??1));out.rotate((pose.rotation??0)*pose.facing);out.shadowColor=colorOf(value)?'rgba(250,246,232,.85)':'rgba(28,24,16,.8)';out.shadowBlur=3*res;if(b.size)out.drawImage(b.image,-b.pivot[0],-b.pivot[1],b.size[0],b.size[1]);else out.drawImage(b.image,-b.pivot[0],-b.pivot[1]);out.restore();return;}
  out.translate(pose.foot.x,pose.foot.y);out.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));out.rotate(pose.rotation??0);
  // A clip's drawing is one atlas cell, at its clip's factor of the sprite's size.
@@ -353,20 +377,22 @@ const queued=new Map();let idleBuild=0;
 const requestBuild=()=>globalThis.requestIdleCallback?requestIdleCallback(buildQueued,{timeout:500}):setTimeout(buildQueued,0);
 function stillPrint(value,sheet,f){
  const key=spriteKey(value,sheet),print=stillPrints.get(`${key}:${f}`);if(print)return print;
+ if(!sheet&&ART[typeOf(value)]&&sheetless(value))return null;
  if(!queued.has(key)){queued.set(key,[value,sheet]);idleBuild||=requestBuild();}
  return null;
 }
 // Reads the floor's darkness and every queued outline in one go, then measures them.
 function buildQueued(){
  idleBuild=0;readFloor();readOutlines([...queued.values()]);
- const count=queued.size;
+ let measured=false;
  for(const [key,[value,sheet]] of queued){
-  // (Not drawable yet, as a king whose sheet is loading: asked for again when it is drawn.)
+  // The piece can change before this work runs.
   const outline=outlines.get(key);queued.delete(key);if(!outline)continue;
   const spec=specs[typeOf(value)];
   for(const f of [1,-1])stillPrints.set(`${key}:${f}`,shadowField(outline,spec,f)??EMPTY);
+  measured=true;
  }
- if(count)wake();
+ if(measured)wake(false);
 }
 // The alpha of still sprites not read yet, at q px per board unit: [[value, sheet]]. All of them are read back in
 // one go: each readback waits for the GPU, and one per figure would stall.
@@ -712,12 +738,16 @@ function vortex(out,foot,phase,strength) {
  if(selected!==null&&poses.has(selected))Object.assign(poses.get(selected).pose,{angle:aimAngle,facing:aimFacing});
  // The selected figure plays his clip once (if he has one), then breathes from where the clip ends. The clock
  // starts on the first frame that draws him, so a late first frame (a busy page) still shows the first drawing.
+ const selectedIdle=idling(),selectedValue=position.board[selected];
+ const legacyIdle=!lively.ambient&&selectedIdle&&!bodyRuntime?.has(characterOf(selectedValue),armyOf(selectedValue));
+ const breathing=legacyIdle&&canIdle(selectedValue);
+ const clip=legacyIdle&&CLIP_OF[typeOf(selectedValue)]===selectedClip?selectedClip:null;
  clipShown=null;
- if(!lively.ambient&&idling()&&!bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected]))){
+ if(breathing||clip&&canIdle(selectedValue,true)){
   selectedAt??=time;
-  const p=poses.get(selected).pose,name=CLIP_OF[typeOf(poses.get(selected).value)]===selectedClip?selectedClip:null,ms=time-selectedAt,index=name?frameAt(name,ms):null;
-  if(index!==null){p.clip={name,index};clipShown={name,frame:index};}
-  else{const i=idleAt(ms-(name?CLIPS[name].duration:0));Object.assign(p,{ground:p.foot,foot:{x:p.foot.x,y:p.foot.y-i.lift},sx:i.sx,sy:i.sy,shadow:i.shadow});}
+  const p=poses.get(selected).pose,ms=time-selectedAt,index=clip?frameAt(clip,ms):null;
+  if(index!==null){p.clip={name:clip,index};clipShown={name:clip,frame:index};}
+  else if(breathing){const i=idleAt(ms-(clip?CLIPS[clip].duration:0));Object.assign(p,{ground:p.foot,foot:{x:p.foot.x,y:p.foot.y-i.lift},sx:i.sx,sy:i.sy,shadow:i.shadow});}
  }
  // The tell: a fixed lift; the pool stays on the board.
  if(lifted!==null&&liftTell&&!reducedMotion&&!animation&&poses.has(lifted)){
@@ -955,7 +985,7 @@ function vortex(out,foot,phase,strength) {
  // Resting pawns (lance/idle.mjs): any pawn that is not selected, moving, struck or aiming.
  pawnsAtRest=0;pawnsActing=0;
  if(lively.pawns&&!lively.ambient&&!reducedMotion)for(const [sq,u] of poses){
-  if(typeOf(u.value)!==P||sq===selected||u.fx||u.extension||u.pose.angle||animation&&!animation.done&&animation.move.from===sq)continue;
+  if(typeOf(u.value)!==P||sq===selected||u.fx||u.extension||u.pose.angle||animation&&!animation.done&&animation.move.from===sq||!canIdle(u.value))continue;
   pawnsAtRest++;const rest=pawnIdle.idleAt(sq*2+colorOf(u.value)+1,time);
   if(rest){u.pose={...u.pose,rest};pawnsActing++;}
  }
@@ -979,7 +1009,7 @@ function vortex(out,foot,phase,strength) {
  }
  if(bodyRuntime&&animation?.rookFrom&&animation.rookLocal!=null&&poses.has(animation.move.castle.from)){const a=animation,body=bodyRuntime.action(a.rookRuntime,a.rookLocal,a.rookWalk);if(body)poses.get(a.move.castle.from).pose.bank=body;}
  // A figure at rest with no runtime frame yet: its still picture.
- if(characterRuntime)for(const [sq,u] of poses)if(!u.pose.bank&&!u.pose.clip&&!u.fx){const bare=sheetless(u.value);if(bare||!u.extension&&!u.pose.angle&&!(animation&&!animation.effect&&animation.move.from===sq)){const still=bare?stillImage(u.value)?.body:stillBody(u.value);if(still)u.pose.still=still;}}
+ if(characterRuntime)for(const [sq,u] of poses)if(!u.pose.bank&&!u.pose.clip&&!u.fx){const bare=lazySheets&&sheetless(u.value);if(bare||!u.extension&&!u.pose.angle&&!(animation&&!animation.effect&&animation.move.from===sq)){const still=bare?stillImage(u.value)?.body:stillBody(u.value);if(still)u.pose.still=still;}}
  bodyFrames=[...poses].filter(([,u])=>u.pose.bank).map(([square,u])=>({square,bank:u.pose.bank.bank,sourceSha256:u.pose.bank.sourceSha256,sourceBankSha256:u.pose.bank.sourceBankSha256,opacity:u.opacity,struck:!!u.fx?.ranged,time:u.pose.bank.time,foot:{...u.pose.foot},pivot:[...u.pose.bank.pivot],scale:u.pose.bank.scale}));
  const ordered=[...poses].sort((a,b)=>a[1].pose.foot.y-b[1].pose.foot.y);
  if(animation&&!animation.effect){const i=ordered.findIndex(([sq])=>sq===animation.move.from);ordered.push(...ordered.splice(i,1));}
@@ -1029,6 +1059,7 @@ function vortex(out,foot,phase,strength) {
  over(7);
  if(daylight?.onCaptureVictim)lastPoses=poses;
  ctx.restore();
+ return selectedIdle&&(!progressiveArt||breathing||!!poses.get(selected)?.pose.bank);
 }
 function drawEncounter(a,t) {
  closeup.panel.hidden=false;closeup.title.textContent=`${['Ivory','Charcoal'][colorOf(a.value)]} Archer · ${sqName(a.move.from)} → ${sqName(a.move.captures[0])}`;
@@ -1072,7 +1103,7 @@ function drawEncounter(a,t) {
   if(endpoint){a.start=time-(a.runtime.beforeMs+a.actionDuration)*a.speed;a.movementEndpoint=true;a.drawingMovementEndpoint=true;}
   if(a&&!a.done&&a.rewind&&time>=a.rewind.end){a.done=true;a.resolve(true);}
   else if(a&&!a.done&&!a.preparing&&!endpoint&&!a.rewind&&(time-a.start)>=a.duration*a.speed){a.done=true;a.resolve(true);}
-  render(time);
+  const selectedIdle=render(time);
   if(turnEndpoint)a.drawingTurnEndpoint=false;
   if(startpoint){a.drawingMovementStart=false;a.runtime.releaseMovementStart?.();}
   if(endpoint){a.drawingMovementEndpoint=false;a.runtime.releaseMovement?.();}
@@ -1090,7 +1121,7 @@ function drawEncounter(a,t) {
   });
   if(pausedTime!=null)return;
   if((a&&!a.done&&(!a.preparing||a.exitReady||a.rewind))||(wanted&&aimAngle!==wanted.angle)||(fallen&&fallMs(time)<DEMISE)||time<awakeUntil||poolsGliding||clipShown||idleOut)wake(false);
-  else{previousTime=0;if(lively.ambient&&lively.idle&&!reducedMotion&&position.board.some(Boolean)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),ambientIdles.size?33:250);}else if((idling()&&(daylight||bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected]))))||time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
+  else{previousTime=0;if(lively.ambient&&lively.idle&&!reducedMotion&&position.board.some(Boolean)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),ambientIdles.size?33:250);}else if((selectedIdle&&(daylight||bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected]))))||time<passiveUntil&&(selectedIdle||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
  }
  function idling(){return lively.idle&&!reducedMotion&&!animation&&selected!==null&&!!position.board[selected]&&fallen?.sq!==selected;}
  function drawLabels() {
@@ -1316,8 +1347,16 @@ function drawEncounter(a,t) {
   foot,cell,
   /** Board square under a point in canvas pixels, or null. */
   squareAt(x,y){y-=headroom;const col=Math.floor((x-PAD)/TILE),row=Math.floor((y-PAD)/TILE);if(col<0||col>7||row<0||row>7)return null;return flipped?row*8+(7-col):(7-row)*8+col;},
-  // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
-  load(){afterBoard(()=>demise.prepare());const board=new Promise((resolve,reject)=>{
+  // Resolve when the scene can draw. With progressive art, the first frame can use plain squares and tokens.
+  load(){afterBoard(()=>demise.prepare());
+   const sheets=()=>[...kings.map(design=>kingImage(design).loaded),...Object.keys(ART).filter(type=>+type!==K).map(type=>loadImage(corsImage(),ART_FILES[ART[type]]).then(image=>{art[type]=image;}))],start=()=>{if(disposed)return;ready=true;warmBodies();wake();};
+   const redraw=()=>wake(false);
+   const loadAfterFrame=()=>{boardReady();for(const sheet of sheets())void sheet.then(redraw,redraw);};
+   if(progressiveArt){
+    void api.setBoardArt(initialBoardArt??BOARD_ART).catch(redraw);
+    firstFrameLoads=loadAfterFrame;start();return Promise.resolve();
+   }
+   const board=new Promise((resolve,reject)=>{
     // One cold-play budget covers both the response and decode; only the new surface opts in.
     const timer=initialBoardArt?setTimeout(()=>finish(new Error('The board art takes too long.')),5000):null;
     let settled=false;
@@ -1326,9 +1365,8 @@ function drawEncounter(a,t) {
     boardArt.onerror=()=>finish(new Error('The board art cannot load.'));
     boardArt.src=initialBoardArt??BOARD_ART;
    }); /* decoded, so the first frame has the stone */
-   const sheets=()=>[...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))],start=()=>{if(disposed)return;ready=true;warmBodies();wake();};
    // lazySheets: the first frame needs only the stone and the rest stills; the legacy sheets (3 MB) load after that frame.
-   if(late)return board.then(()=>warmStills()).then(start).finally(()=>{firstFrameLoads=()=>{boardReady();void Promise.all(sheets().map(sheet=>sheet.then(()=>wake()))).catch(()=>{});};});
+   if(late)return board.then(()=>warmStills()).then(start).finally(()=>{firstFrameLoads=loadAfterFrame;});
    return Promise.all([board,...sheets()]).then(()=>{const stills=warmStills();return stills?stills.then(start):start();}).finally(boardReady);},
   /** New position: ends any finished or running animation. */
   setPosition(next,ice){const a=animation,m=a?.move;frozen=daylight?ice:undefined;
@@ -1409,8 +1447,9 @@ function drawEncounter(a,t) {
   get characterEffects(){return effectFrames;},
   setDecorate(fn){decorate=fn;wake();},
   redraw(){wake();},
+  drawToken,
   /** Swap the board texture; square geometry does not change. A decode failure keeps the old art and rejects. */
-  async setBoardArt(url){const next=pageImage();next.src=url;await next.decode();boardArt=next;floorMap=null;framePattern=null;wake();},
+  async setBoardArt(url){const next=pageImage();next.src=url;await next.decode();boardArt=next;floorMap=null;framePattern=null;wake(false);},
   /** Draw every frame for the next `ms` (a decoration's own short animation, such as markers appearing). */
   keepAwake(ms){awakeUntil=Math.max(awakeUntil,sceneTime()+ms);wake();},
   /** The figures on `delays` (square: ms) rise `rise` units into place in `ms` each; an empty map or reduced motion ends it. */
