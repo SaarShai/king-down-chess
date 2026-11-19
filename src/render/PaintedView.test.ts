@@ -44,6 +44,18 @@ it('passes capture targets to scene preparation on selection', async () => {
  view.dispose();
 });
 
+it('uses the selected idle on Daylight while quiet boards keep the random idle by default', async () => {
+  const { PaintedView } = await import('./PaintedView');
+  const quiet = new PaintedView(stubDom() as unknown as HTMLElement, { quiet: true });
+  expect(lively).toHaveBeenLastCalledWith(expect.objectContaining({ ambient: true, idle: true }));
+  quiet.dispose();
+  const day = new PaintedView(stubDom() as unknown as HTMLElement, { quiet: true, daylight: true });
+  expect(lively).toHaveBeenLastCalledWith(expect.objectContaining({ ambient: false, idle: true, atmosphere: false, pawns: false }));
+  day.setPace('off');
+  expect(lively).toHaveBeenLastCalledWith(expect.objectContaining({ ambient: false, idle: false }));
+  day.dispose();
+});
+
 describe('PaintedView first paint', () => {
   it('releases input, observers and scene work before a delayed artwork load finishes', async () => {
     const container = stubDom(), { PaintedView } = await import('./PaintedView');
@@ -197,6 +209,32 @@ it('replaces the old Freeze image with the shared volume and draws its front aft
     expect(calls.length).toBe(row < 3 ? 0 : 2);
   }
   expect(calls).toEqual(['ice', 'pip']);
+  view.dispose();
+});
+
+it('shows the Daylight Freeze edge and badge until the mark clears', async () => {
+  const container = stubDom(), { PaintedView } = await import('./PaintedView');
+  const { fixtures, at } = await import('../../docs/specs/effects-animation/preview/signals/fixtures');
+  const f = fixtures.freeze;
+  const view = new PaintedView(container as unknown as HTMLElement, { quiet: true, daylight: true, plainMarks: true });
+  const { scene } = view as unknown as { scene: PaintedScene };
+  const setPosition = vi.fn(), play = vi.fn();
+  Object.assign(scene, { SIZE: 960, setPosition, play, time: 0 });
+  view.setRules(f.rules);
+  view.sync(f.before);
+  const move = f.rules.legalMoves(f.before).find(m => m.power === 'freeze' && m.to === at('d5'))!;
+  await view.animateMove(f.before, move);
+  expect(play).not.toHaveBeenCalled();
+  view.sync(f.after);
+  expect(setPosition).toHaveBeenLastCalledWith(f.after, new Set([at('d5')]));
+  const draw = decorate.mock.lastCall![0], strokeRect = vi.fn(), arc = vi.fn(), drawImage = vi.fn();
+  const ctx = new Proxy({ strokeRect, arc, drawImage } as Record<string, unknown>, { get: (target, key: string) => key in target ? target[key] : () => {} });
+  draw(ctx, scene, 'under'); draw(ctx, scene, 'over', 7);
+  expect(strokeRect).toHaveBeenCalledOnce();
+  expect(arc).toHaveBeenCalledTimes(3);
+  expect(drawImage).not.toHaveBeenCalled();
+  view.sync(f.expired!);
+  expect(setPosition).toHaveBeenLastCalledWith(f.expired, new Set());
   view.dispose();
 });
 

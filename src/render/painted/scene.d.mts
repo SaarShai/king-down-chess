@@ -16,6 +16,15 @@ export interface ScenePieces {
   LETTERS?: { readonly [index: number]: string };
 }
 export interface SceneMove { from: number; to: number; captures: number[]; swap?: boolean; shove?: { from: number; to: number }; selfRemove?: boolean }
+export interface DaylightSceneHooks {
+  /** Take over the 55 ms hold. Call the board's pause() now and resume() when the shared hold ends. */
+  hold?: (ms: number) => void;
+  /** Return true to replace the game's capture sound. */
+  onCaptureContact?: (square: number, animated: boolean) => boolean | void;
+  /** At contact. Call replace when the painted pose is ready. It returns false after the action ends. */
+  onCaptureVictim?: (square: number, kind: string, army: 'white' | 'black', bodyHeight: number, rect: DOMRectReadOnly, replace: () => boolean) => void;
+  onKingImpact?: (square: number, animated: boolean) => void;
+}
 /** A card uses the scene's clock and cancellation. It supplies only the approved drawing and real positions. */
 export interface SceneEffect {
   duration: number;
@@ -30,6 +39,10 @@ export interface PaintedScene {
   /** Scene ms the running move's action takes in all, on the actionElapsed clock; null while idle or while its bank loads. */
   readonly actionTotal: number | null;
   readonly falling: boolean;
+  /** Local time in ms. A pause holds all scene effects at this time. */
+  readonly time: number;
+  pause(): void;
+  resume(): void;
   /** A gait name ('walk', 'glide', 'hop') for a quiet move with character, else the animation kind; null when nothing plays. */
   readonly playing: string | null;
   foot(square: number): { x: number; y: number };
@@ -37,7 +50,7 @@ export interface PaintedScene {
   squareAt(x: number, y: number): number | null;
   load(): Promise<void>;
   readonly position: { board: ArrayLike<number> };
-  setPosition(position: { board: ArrayLike<number> }): void;
+  setPosition(position: { board: ArrayLike<number> }, frozen?: ReadonlySet<number>): void;
   setSelected(square: number | null, destinations?: number[], captures?: number[]): void;
   /** Opt-in tell: glow and lift 3 screen pixels; lift=false keeps a still glow. Null clears it. */
   setLifted(square: number | null, lift?: boolean): void;
@@ -54,7 +67,7 @@ export interface PaintedScene {
   setCoords(on: boolean, size?: number, inset?: number): void;
   setLabels(on: boolean): void;
   setReducedMotion(on: boolean): void;
-  setFallen(square: number | null, animate?: boolean, rotation?: number, speed?: number): void;
+  setFallen(square: number | null, animate?: boolean, rotation?: number, speed?: number, onImpact?: (square: number) => void): void;
   /** Backing pixels per board unit; resizes the canvas and the effect layer. Default 1. */
   setResolution(k: number): void;
   /**
@@ -101,7 +114,7 @@ export interface PaintedScene {
   /** speed scales duration: 2 is half playback speed; 0.5 is double. */
   /** gait: play a quiet move with this gait (a GAITS name) even when `moves` is off. */
   /** targetMs: opt-in action time before the speed factor; the default keeps the recorded timing. */
-  play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null; onStart?: (() => void) | null; gait?: string | null; effect?: SceneEffect; targetMs?: number; finishSwapOnArrival?: boolean }): Promise<boolean>;
+  play(move: SceneMove, options?: { speed?: number; onContact?: ((soundHandled?: boolean) => void) | null; onStart?: (() => void) | null; gait?: string | null; effect?: SceneEffect; targetMs?: number; finishSwapOnArrival?: boolean }): Promise<boolean>;
   prepareUndo(move: SceneMove, source?: { board: ArrayLike<number> }): boolean;
   rewindUndo(): Promise<boolean>;
   cancel(): void;
@@ -127,4 +140,5 @@ export function createScene(options: {
   initialBoardArt?: string;
   /** Called with the URL of a rest still that cannot load. Default none: the figure then waits for its sheet, as before. */
   onArtError?: (url: string) => void;
+  daylight?: DaylightSceneHooks;
 }): PaintedScene;
