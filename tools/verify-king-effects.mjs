@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { titleStart } from './app-ui.mjs';
 import { assertNoErrors, env, isInside, launch, shot, trapErrors } from './lib/checks.mjs';
 
-const url = new URL(env('PLAYABLE_URL'));
+const url = new URL('/index.html', env('PLAYABLE_URL')); // the old board page: in the launch build / is the new page
 url.searchParams.set('players', 'human,human');
 url.searchParams.set('army', 'RNBQKBNR'); // the chess army: 16 pawns
 const browser = await launch();
