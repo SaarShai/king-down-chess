@@ -60,6 +60,8 @@ if (!folder || extra.length) fault('usage: node tools/deploy-live-check.mjs <bui
 for (const name of ['index.html', 'sw.js', ...legalPages]) if (!existsSync(join(folder, name))) fault(`the build has no ${name} in ${folder}`);
 const home = existsSync(join(folder, 'solo-launch.json')) ? 'next.html' : 'index.html';
 const legacy = { bytes: readFileSync(join(folder, 'index.html')), types: ['text/html'] };
+// The launch build answers /j with the page that hands the invite to the new page (tools/plugin-server-build.mjs).
+const invite = home === 'next.html' && existsSync(join(folder, 'join.html')) ? { bytes: readFileSync(join(folder, 'join.html')), types: ['text/html'] } : legacy;
 const bundle = bundleOf(readFileSync(join(folder, home), 'utf8'));
 if (!bundle) fault(`the build's index.html has no module script in ${folder}`);
 const worker = readFileSync(join(folder, 'sw.js'), 'utf8');
@@ -131,7 +133,7 @@ async function differences() {
     if (!bytes.equals(expected.bytes)) found.push(`${path === '/' ? home : path.slice(1)}${appPages.includes(path) ? ' (app page)' : ''}: the live page differs from the build (live ${bytes.length} bytes, build ${expected.bytes.length} bytes)`);
   };
   for (const path of paths) expectBytes(path, built.get(path));
-  for (const path of appPages) expectBytes(path, legacy);
+  for (const path of appPages) expectBytes(path, /^\/j\/?$/.test(path) ? invite : legacy);
   for (const path of closedPages) {
     const { error, status, location } = next();
     if (error) found.push(error);

@@ -283,7 +283,8 @@ try {
     const response = await fetch(origin + path + query, { redirect: 'manual' });
     assert.equal(response.status, 200, path + query);
     assert.equal(response.headers.get('location'), null, path + query);
-    assert.equal(await response.text(), index, `${path + query} serves only the browser entry`);
+    // The launch build answers /j with the page that hands the invite to the new page.
+    assert.equal(await response.text(), soloLaunch && /^\/j\/?$/.test(path) ? await readFile(join(tree, 'static/join.html'), 'utf8') : index, `${path + query} serves only the browser entry`);
     const head = await fetch(origin + path + query, { method: 'HEAD', redirect: 'manual' });
     assert.equal(head.status, 200, `HEAD ${path + query}`); assert.equal(await head.text(), '');
     assert.equal((await fetch(origin + path + query, { method: 'POST', redirect: 'manual' })).status, 404, `POST ${path + query}`);
