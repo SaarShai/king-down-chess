@@ -286,7 +286,7 @@ it('maps Daylight mark and knock to the approved recordings', async () => {
     playDaylightSound('knock', { piece: N });
     await vi.waitFor(() => expect(start).toHaveBeenCalledTimes(4));
     expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
-      '/audio/armour/select-bishop-v2-B.wav', '/audio/armour/select-shadow-r10-A.wav',
+      '/audio/armour/select-bishop-v2-B.wav', '/audio/armour/select-shadow-r10-C.wav',
       '/audio/armour/knight-land-A.wav', '/audio/armour/knight-land-B.wav',
     ]);
     setSound(false);
