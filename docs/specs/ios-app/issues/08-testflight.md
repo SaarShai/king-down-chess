@@ -37,6 +37,10 @@ What does the owner do once, and what does the agent run, to put a build on the 
 - Build 1.0 (3) (commit `a0956f012`, merged in PR 337 as `282f51647`) went to App Store Connect at 19:48 UTC. It is release 21's main (`2e7d21e0f`) plus the build number, so it has the split character package (PR 334: `index.json` and 34 part files).
 - Open: a game against the computer on the iPhone.
 
+## Daylight build
+
+Version 1.1, build 9, contains the Daylight design. The local signed archive and the checks on three portrait simulators are complete. The iPad setup, game and Guide screens have large empty areas. The archive stays on the build Mac.
+
 ## Done when
 
 The build installs on the owner's iPhone through TestFlight and plays a game against the computer.
