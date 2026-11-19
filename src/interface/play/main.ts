@@ -1427,7 +1427,7 @@ function renderReader(actions?: HTMLElement) {
     card.dataset.outcome = outcome;
     const facts = gameFacts(game, elapsedGame());
     body.append(el('h3', '', result.title), el('p', 'play-result-cause', result.cause),
-      el('p', 'play-result-facts', `${facts.moves} ${facts.moves === 1 ? 'move' : 'moves'} · ${facts.captures} ${facts.captures === 1 ? 'capture' : 'captures'} · ${Math.floor(facts.playedMs / 60000)} min`));
+      el('p', 'play-result-facts', `${facts.moves} ${facts.moves === 1 ? 'action' : 'actions'} · ${facts.captures} ${facts.captures === 1 ? 'capture' : 'captures'} · ${Math.floor(facts.playedMs / 60000)} min`));
     const actions = el('div', 'play-result-actions');
     const rematch = button(text.rematch, { kind: 'main', onPress: () => { void start(); } });
     const review = button('See the game', { onPress: () => {
