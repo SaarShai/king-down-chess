@@ -102,7 +102,7 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
     const copy = el('div', 'home-game-copy'); copy.append(el('strong', '', invite.name), el('span', '', invite.line));
     const actions = el('div', 'home-invite-actions');
     if (invite.kind === 'incoming') actions.append(
-      button('Accept', { kind: 'main', onPress: () => d.onAcceptInvite?.(invite.id) }),
+      button('Accept', { onPress: () => d.onAcceptInvite?.(invite.id) }),
       button('Decline', { onPress: () => d.onDeclineInvite?.(invite.id) }),
     );
     else actions.append(button('Dismiss', { onPress: () => d.onDismissInvite?.(invite.id) }));
