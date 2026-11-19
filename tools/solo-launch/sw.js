@@ -16,6 +16,7 @@ const START = new URL('./', self.registration.scope).href;
 const NEXT = new URL('next.html', START).href;
 const INDEX = new URL('index.html', START).href;
 const PUBLIC = new Set(ALLOWLIST.map(file => new URL(file, START).href));
+const isPainted = href => href.startsWith(START) && /^moments\/(?:painted\.json|painted\/(?:collapse|bow)-[a-z]+-(?:white|black)\.webp)$/.test(href.slice(START.length));
 // The runtime files that load at startup change with a deploy: the package index, its parts and its effect modules.
 const OPTIONAL = file => file.startsWith('audio/');
 const REQUIRED = PRECACHE.filter(file => !OPTIONAL(file));
@@ -31,7 +32,7 @@ function publicKey(request) {
     || request.headers.has('Authorization') || request.cache === 'no-store' || noStore(request.headers)) return null;
   url.hash = '';
   const plain = new URL(url); plain.search = '';
-  if (!PUBLIC.has(plain.href)) return null;
+  if (!PUBLIC.has(plain.href) && !isPainted(plain.href)) return null;
   if (plain.href === START || !SOLO_LAUNCH && plain.href === INDEX) return START;
   return url.search ? null : plain.href;
 }
@@ -41,7 +42,9 @@ function cacheable(request, response) {
   const url = new URL(request.url); url.hash = '';
   return publicKey(request) !== null && ![...url.searchParams.keys()].some(key => AUTH_QUERY.test(key))
     && response.ok && response.type === 'basic' && !response.redirected
-    && response.url === url.href && !noStore(response.headers);
+    && response.url === url.href && !noStore(response.headers)
+    && (!isPainted(url.href) || response.headers.get('Content-Type')?.split(';')[0].trim()
+      === (url.pathname.endsWith('.json') ? 'application/json' : 'image/webp'));
 }
 
 async function checkOwnCache(complete = true) {
