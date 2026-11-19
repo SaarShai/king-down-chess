@@ -14,7 +14,7 @@ import { figureUrl, selectedFigure } from '../workshop/figures';
 import { drawMarks, type Highlights } from './marks';
 import { boardInk, coordInk } from './board-ink';
 import { pastTap } from './tap';
-import { drawPlainMarks, emptyMarks, type PlainMarks } from './plain-marks';
+import { drawPlainMarks, emptyMarks, type PlainMarks, type PlainRing } from './plain-marks';
 
 declare const __KINGDOWN_CHARACTER_RUNTIME__: boolean;
 
@@ -59,6 +59,18 @@ const kingDesign = (context: GameRules, c: Color): KingDesign => (context.rules.
 /** Canvas pixels above the board, so tall back-rank figures are not clipped. */
 const HEADROOM = 64;
 
+type RingMotion = { ring: PlainRing; start: number; duration: number; fade?: { start: number; sweep: number } };
+const plainRingKey = (ring: PlainRing) => `${ring.square}:${ring.color}:${ring.role === 'actor'}:${ring.dash}:${ring.frost}`;
+function ringSweep({ ring, start, duration }: RingMotion, now: number): number {
+  const t = Math.max(0, Math.min(1, (now - start) / duration));
+  if (!ring.frost || t === 0 || t === 1) return 1 - (1 - t) ** 3;
+  // Freeze uses cubic-bezier(.2, .8, .2, 1). Solve the curve's time coordinate first.
+  let u = t;
+  for (let i = 0; i < 5; i++) u -= (u * (.6 + u * (u - .6)) - t) / (.6 + u * (3 * u - 1.2));
+  return u * (2.4 + u * (.4 * u - 1.8));
+}
+const PLAIN_FADE_MS = 100;
+
 /** The painted 2D look: the board trial's figures and capture animations driving the real game. */
 export class PaintedView implements BoardView {
   context = new GameRules();
@@ -96,6 +108,8 @@ export class PaintedView implements BoardView {
   private symbols?: (piece: number) => HTMLImageElement;
   private marks: Highlights = {};
   private plainMarks: PlainMarks = emptyMarks();
+  private plainRings = new Map<string, RingMotion>();
+  private plainRouteFade?: { at: number; paths: PlainMarks['paths']; steps: PlainMarks['steps'] };
   private stateEffects = new StateEffects();
   private hovered: number | null = null;
   private tap: PointerEvent | null = null;
@@ -329,7 +343,46 @@ export class PaintedView implements BoardView {
   /** The selected piece and its targets, with no mark: its idle plays and the frames of its moves load. */
   setSelected(sq: number | null, moves: number[] = [], captures: number[] = []): void { this.scene.setSelected(sq, moves, captures); }
   /** Opt-in marks on the scene's under-layer. The old page keeps its own marks. */
-  setPlainMarks(marks: PlainMarks): void { this.plainMarks = marks; this.scene.redraw(); }
+  setPlainMarks(marks: PlainMarks): void {
+    if (!this.options.plainMarks || this.disposed) return;
+    const previous = this.plainMarks;
+    this.plainMarks = marks;
+    const now = performance.now(), motion = this.motion() && !document.hidden;
+    if (!motion) {
+      this.plainRings.clear();
+      this.plainRouteFade = undefined;
+      this.scene.redraw();
+      return;
+    }
+
+    const rings = marks.rings.filter(ring => ring.role !== 'state');
+    const actor = rings.find(ring => ring.role === 'actor');
+    const oldKeys = new Set(previous.rings.map(plainRingKey));
+    const active = new Set(rings.map(plainRingKey));
+    let until = now, targets = actor ? 1 : 0;
+    for (const ring of rings) {
+      const key = plainRingKey(ring), prior = this.plainRings.get(key);
+      const duration = ring.frost ? 160 : 140;
+      const delay = ring.role === 'actor' ? 0 : targets++ * (ring.frost ? 26 : 22);
+      const start = prior?.start ?? (oldKeys.has(key) ? -Infinity : now + delay);
+      this.plainRings.set(key, { ring, start, duration });
+      until = Math.max(until, start + duration);
+    }
+    for (const ring of previous.rings) {
+      const key = plainRingKey(ring);
+      if (ring.role === 'state' || active.has(key)) continue;
+      const prior = this.plainRings.get(key) ?? { ring, start: -Infinity, duration: 140 };
+      this.plainRings.set(key, { ...prior, fade: { start: now, sweep: ringSweep(prior, now) } });
+      until = Math.max(until, now + PLAIN_FADE_MS);
+    }
+    if (rings.length) this.plainRouteFade = undefined;
+    else if (previous.paths.length || previous.steps.length) {
+      this.plainRouteFade = { at: now, paths: previous.paths, steps: previous.steps };
+      until = Math.max(until, now + PLAIN_FADE_MS);
+    }
+    if (until > now) this.scene.keepAwake(until - now + 32);
+    else this.scene.redraw();
+  }
   /** The figures on `delays` (square: ms) rise into place; an empty map ends it. */
   arrive(delays: Map<number, number>, ms?: number, rise?: number): void { this.scene.arrive(delays, ms, rise); }
 
@@ -362,6 +415,7 @@ export class PaintedView implements BoardView {
     const motion = this.motion(), shown = motion && !document.hidden, quiet = !!this.options.quiet;
     if (this.pace === 'off') this.scene.setLifted(null);
     if (!shown) { this.stateEffects.settle(); this.overlay = null; this.tail = null; }
+    if (!shown && this.options.plainMarks) { this.plainRings.clear(); this.plainRouteFade = undefined; }
     this.scene.setReducedMotion(!shown);
     this.scene.setLively({ ambient: quiet, moves: motion, atmosphere: !quiet, captures: motion, idle: motion, kings: shown && !quiet, pawns: shown && !quiet });
   }
@@ -434,7 +488,26 @@ export class PaintedView implements BoardView {
 
   private drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row?: number): void {
     const { PAD, TILE } = scene, m = this.marks;
-    if (this.options.plainMarks && layer === 'under') drawPlainMarks(ctx, scene, this.plainMarks);
+    if (this.options.plainMarks && layer === 'under') {
+      const now = performance.now(), pixel = 960 / Math.max(1, this.width);
+      const route = this.plainRouteFade;
+      const routeOpacity = route ? 1 - (now - route.at) / PLAIN_FADE_MS : 1;
+      if (routeOpacity <= 0) this.plainRouteFade = undefined;
+      const fading: (PlainRing & { sweep: number; opacity: number })[] = [];
+      for (const [key, { ring, fade }] of this.plainRings) {
+        if (!fade) continue;
+        const opacity = 1 - (now - fade.start) / PLAIN_FADE_MS;
+        if (opacity <= 0) this.plainRings.delete(key);
+        else fading.push({ ...ring, sweep: fade.sweep, opacity });
+      }
+      const rings = this.plainMarks.rings.map(ring => {
+        const animation = ring.role === 'state' ? undefined : this.plainRings.get(plainRingKey(ring));
+        return animation ? { ...ring, sweep: ringSweep(animation, now) } : ring;
+      });
+      const paths = route && routeOpacity > 0 ? route.paths : this.plainMarks.paths;
+      const steps = route && routeOpacity > 0 ? route.steps : this.plainMarks.steps;
+      drawPlainMarks(ctx, scene, { ...this.plainMarks, rings: [...fading, ...rings], paths, steps }, pixel, routeOpacity > 0 ? routeOpacity : 1);
+    }
     if (!this.options.plainMarks && layer === 'under') {
       const box = (sq: number) => { const c = scene.cell(sq); return { x: PAD + c.col * TILE, y: PAD + c.row * TILE }; };
       ctx.save();
