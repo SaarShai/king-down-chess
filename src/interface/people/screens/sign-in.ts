@@ -30,7 +30,7 @@ export interface SignInHost {
   random?: () => number;
   now?: () => number;
 }
-export type Purpose = { kind: 'person' } | { kind: 'join'; inviter: string | null } | { kind: 'again' };
+export type Purpose = { kind: 'account' } | { kind: 'person' } | { kind: 'join'; inviter: string | null } | { kind: 'again' };
 /** What the sheet says first when the player returns from a service: no sign-in, more than 10 minutes, a suspended account. */
 export type ReturnNote = 'retry' | 'expired' | 'suspended';
 
@@ -45,7 +45,7 @@ export function rememberedEmail(storage: SignInHost['storage'], now = Date.now()
 const remember = (storage: SignInHost['storage'], address: string, at: number) => { try { storage?.setItem(EMAIL_STEP_KEY, JSON.stringify({ address, at })); } catch { /* storage blocked: the step lasts until a reload */ } };
 const forget = (storage: SignInHost['storage']) => { try { storage?.removeItem(EMAIL_STEP_KEY); } catch { /* storage blocked */ } };
 
-const titleOf = (purpose: Purpose) => purpose.kind === 'person' ? signInText.person : purpose.kind === 'join' ? signInText.join(purpose.inviter) : signInText.again;
+const titleOf = (purpose: Purpose) => purpose.kind === 'account' ? 'Sign in' : purpose.kind === 'person' ? signInText.person : purpose.kind === 'join' ? signInText.join(purpose.inviter) : signInText.again;
 /** A third action: text on the sheet, 44 px high. */
 export function plain(label: string, onPress: () => void) { const control = button(label, { onPress }); control.classList.add('people-plain'); return control; }
 

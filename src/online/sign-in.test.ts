@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { beginAccountSignIn, consumeSignInReturn, type SignInHost } from './sign-in';
+import { beginAccountSignIn, consumeSignInReturn, YOU_SIGN_IN, type SignInHost } from './sign-in';
 
 const origin = 'https://kingdown.test', key = 'kingdown.account-signin', flow = 'flow_12345678', otherFlow = 'flow_87654321';
 const target = '/g/abcdef12-3456-7890-abcd-1234567890ab';
@@ -32,6 +32,27 @@ function tab(path = callback()) {
 }
 
 describe('checked account sign-in return', () => {
+  it('allows the You target only on Daylight and returns to You', async () => {
+    const t = tab(YOU_SIGN_IN); t.host.entryPath = '/next.html';
+    await beginAccountSignIn('github', YOU_SIGN_IN, t.host);
+    expect(JSON.parse(t.records.get(key)!)).toEqual(record({ target: YOU_SIGN_IN }));
+    t.host.location.href = origin + callback().replace('/play/', '/next.html');
+    t.client.finishAccountSignIn.mockResolvedValueOnce(session);
+    expect(await consumeSignInReturn(t.host)).toEqual({ status: 'signed-in', session, route: { screen: 'you' } });
+    expect(t.host.location.href).toBe(origin + YOU_SIGN_IN);
+    const old = tab('/play/');
+    await expect(beginAccountSignIn('github', YOU_SIGN_IN, old.host)).rejects.toThrow('Invalid sign-in target');
+  });
+
+  it('keeps the You target after a provider error and clears the callback', async () => {
+    const t = tab('/next.html?error=access_denied&sb_flow_id=' + flow); t.host.entryPath = '/next.html';
+    t.put(record({ target: YOU_SIGN_IN }));
+    expect(await consumeSignInReturn(t.host)).toEqual({ status: 'retry', route: { screen: 'you' } });
+    expect(t.host.location.href).toBe(origin + '/next.html');
+    expect(t.records.has(key)).toBe(false);
+    expect(t.client.finishAccountSignIn).not.toHaveBeenCalled();
+  });
+
   it('permits Apple only on the new page with the release switch and keeps the invite target', async () => {
     const t = tab('/next.html#join=ABC234'); t.host.entryPath = '/next.html';
     await expect(beginAccountSignIn('apple', '/j#ABC234', t.host)).rejects.toThrow('Invalid sign-in target');
