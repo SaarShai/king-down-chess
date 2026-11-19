@@ -95,10 +95,13 @@ it('draws all primitives on one canvas and clears it when Motion goes off', () =
     setLineDash: vi.fn(), roundRect: vi.fn(), ellipse: vi.fn(),
     createRadialGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
   };
-  const canvas = { getContext: vi.fn(() => drawing), setAttribute: vi.fn(), style: {}, width: 0, height: 0 };
+  const canvas = { parentElement: null as object | null, getContext: vi.fn(() => drawing), setAttribute: vi.fn(), style: {}, width: 0, height: 0 };
   const element = { style: { translate: '5px' }, getBoundingClientRect: () => ({ left: 7, top: 9, width: 108, height: 44 }) } as HTMLElement;
   const arrive = vi.fn();
-  vi.stubGlobal('document', { createElement: vi.fn(() => canvas), body: { append } });
+  const body = { append: vi.fn((layer: typeof canvas) => { layer.parentElement = body; append(layer); }) };
+  const modal = { append: vi.fn((layer: typeof canvas) => { layer.parentElement = modal; }) };
+  const currentModal = vi.fn(() => null as typeof modal | null);
+  vi.stubGlobal('document', { createElement: vi.fn(() => canvas), body, querySelector: currentModal });
   vi.stubGlobal('window', { innerWidth: 390, innerHeight: 844, devicePixelRatio: 2, scrollX: 0, scrollY: 0 });
   vi.stubGlobal('getComputedStyle', () => ({ borderTopLeftRadius: '50%' }));
 
@@ -116,8 +119,10 @@ it('draws all primitives on one canvas and clears it when Motion goes off', () =
   expect(element.style.translate).not.toBe('5px');
   expect(arrive).not.toHaveBeenCalled();
 
+  currentModal.mockReturnValue(modal);
   hold(55);
   advance(32);
+  expect(modal.append).toHaveBeenCalledExactlyOnceWith(canvas);
   expect(arrive).not.toHaveBeenCalled();
   advance(39);
   expect(arrive).toHaveBeenCalledOnce();

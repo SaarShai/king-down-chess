@@ -11,6 +11,9 @@ let dirty = false;
 
 function paint(): void {
   if (!canvas || !context || (!painters.size && !dirty)) return;
+  // A native dialog sits above every canvas attached to the page body.
+  const host = document.querySelector('dialog:modal') ?? document.body;
+  if (canvas.parentElement !== host) host.append(canvas);
   const ratio = Math.min(window.devicePixelRatio || 1, 2);
   const width = Math.round(window.innerWidth * ratio), height = Math.round(window.innerHeight * ratio);
   if (canvas.width !== width) canvas.width = width;
@@ -33,7 +36,6 @@ function drawFor(ms: number, draw: Draw, done?: () => void): Effect {
     canvas.className = 'daylight-fx';
     canvas.setAttribute('aria-hidden', 'true');
     canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:2147483000';
-    document.body.append(canvas);
     context = canvas.getContext('2d');
     setPaintHook(paint);
   }
