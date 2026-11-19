@@ -346,6 +346,17 @@
 .play-game .play-b .play-choices { display: flex; flex-wrap: wrap; }
 .play-game .play-b :is(.play-primary, .play-secondary) { overflow: visible; }
 
+.play-game .play-b.play-save-blocked { grid-template-rows: auto auto; align-content: start; gap: 8px; padding-top: 8px; }
+.play-save-blocked > .play-turn-state { display: none; }
+.play-game .play-b.play-save-blocked .play-headline {
+  font: 650 16px/20px var(--font-reading); letter-spacing: normal; max-height: none; white-space: normal;
+}
+.play-game .play-b.play-save-blocked .play-lines { padding-top: 0; }
+.play-game .play-b.play-save-blocked .play-tools { justify-content: flex-start; }
+.play-game[data-layout='wide']:not([data-form='compact']):has(.play-save-blocked) .play-history-strip {
+  top: calc(var(--reader-y) + var(--reader) + 36px);
+}
+
 .play-narrator { display: flex; align-items: center; gap: 6px; min-height: 52px; color: var(--ink, var(--text)); }
 .play-narr-copy { min-width: 0; flex: 1; }
 .play-game .play-narrator h2 { font: 700 17px/1.15 var(--sans, var(--font-reading)); margin: 0 0 2px; letter-spacing: normal; }

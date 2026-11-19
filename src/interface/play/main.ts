@@ -519,7 +519,7 @@ function newGameLayer(source: HTMLElement, person: boolean) {
     panel.element.remove();
     if (!source.isConnected && opener && document.body.dataset.page === 'home') [opener, ...controls].map(name => root.querySelector<HTMLElement>(`.${name}`)).find(control => control?.getClientRects().length)?.focus({ preventScroll: true });
   });
-  document.body.append(panel.element); panel.open(source); shell.openLayer(() => panel.close(), panel.element);
+  document.body.append(panel.element); panel.open(source); shell.openLayer(panel.close, panel.element, panel.back);
 }
 /**
  * The offer of a kept Dark game (launch decision 10): Open makes it the saved game, after a confirmation when it ends
@@ -1483,6 +1483,7 @@ function renderReader(actions?: HTMLElement) {
   const model = readerModel();
   const full = arrangement || choice.length || shown?.card === -1 || model.tools.length;
   const view = full ? readerView(model, form, nodes) : narratorView(model, nodes);
+  if (!onlineActive && writer.blocked && !arrangement) view.classList.add('play-save-blocked');
   detail.append(view); if (full) fitReader(view, model);
 }
 const line = (className: string, content: string) => el('p', className, gameWords(content));
