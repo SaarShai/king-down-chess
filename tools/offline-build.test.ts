@@ -111,6 +111,20 @@ it('precaches the index, the parts and the startup effect modules but no frames,
   for (const file of excluded) { expect(isCharacterRuntimePublic(file)).toBe(false); expect(allowlist).not.toContain(file); expect(precache).not.toContain(file); }
 });
 
+it('leaves the painted sheets, index and demo outside both install graphs', () => {
+  const { bundle, files } = fixture();
+  const moments = chunk('assets/moments.js', join(root, 'moments.html'));
+  bundle[moments.fileName] = moments;
+  const optional = ['moments/painted.json', 'moments/painted/collapse-pawn-white.webp', 'moments/painted/bow-frost-black.webp', 'moments.html', moments.fileName];
+  for (const solo of [false, true]) {
+    const { allowlist, precache } = offlineCacheFiles(bundle, root, [...files, ...optional], solo);
+    for (const file of optional) {
+      expect(allowlist).not.toContain(file);
+      expect(precache).not.toContain(file);
+    }
+  }
+});
+
 it('does not select an account entry just because it has the same chunk name', () => {
   const { bundle, files } = fixture();
   (bundle['assets/main.js'] as OutputChunk).facadeModuleId = '/other/src/main.ts';
