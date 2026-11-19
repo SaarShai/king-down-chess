@@ -48,18 +48,17 @@ export function boardMoments(layer: HTMLElement, view: PaintedView) {
   function target(square: number, motion: CollapseTarget['motion'], snapshot = false): CollapseTarget | undefined {
     const figure = view.momentFigure(square, snapshot);
     if (!figure) return;
-    const scale = () => layer.getBoundingClientRect().width / 960;
     const from = figure.from;
     return {
       layer, motion,
       measure() {
-        const k = scale();
+        const k = view.momentScale;
         return { x: figure.x * k, y: figure.y * k, width: 0, height: 0, bodyHeight: figure.bodyHeight * k };
       },
       from: from && {
         image: from.image,
         get rect() {
-          const k = scale(), { x, y, width, height } = from.rect;
+          const k = view.momentScale, { x, y, width, height } = from.rect;
           return { x: x * k, y: y * k, width: width * k, height: height * k };
         },
       },
@@ -79,10 +78,11 @@ export function boardMoments(layer: HTMLElement, view: PaintedView) {
     for (const capture of captures) capture.skip();
     captures.clear();
   }
+  function clearBow() { bow?.dispose(); bow = undefined; }
 
   return {
     preload,
-    resetArt() { banks = new Map(); },
+    resetArt() { banks.clear(); banks = new Map(); },
     capture(square: number, kind: string, army: Army, pace: Exclude<Pace, 'off'>, replace: () => boolean) {
       const pack = banks.get(captureKey(kind, army));
       if (!pack) return;
@@ -108,7 +108,7 @@ export function boardMoments(layer: HTMLElement, view: PaintedView) {
     },
     skipCaptures,
     skipBow() { bow?.skip(); },
-    clearBow() { bow?.dispose(); bow = undefined; },
-    dispose() { disposed = true; banks.clear(); this.clearBow(); skipCaptures(); },
+    clearBow,
+    dispose() { disposed = true; banks.clear(); clearBow(); skipCaptures(); },
   };
 }

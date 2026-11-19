@@ -252,6 +252,7 @@ export class PaintedView implements BoardView {
   }
 
   setFallen(sq: number | null, animate = true, painted = false): void {
+    painted = !!this.options.daylight && painted;
     this.fallen = sq == null || !this.pos ? null : { pos: this.pos, sq, painted };
     const impact = this.options.daylight && animate && sq != null ? this.options.sceneHooks?.onKingImpact : undefined;
     const moving = animate && this.motion() && (!this.options.daylight || !document.hidden);
@@ -366,6 +367,7 @@ export class PaintedView implements BoardView {
   pause(): void { if (this.options.daylight) this.scene.pause(); }
   resume(): void { if (this.options.daylight) this.scene.resume(); }
   get time(): number { return this.options.daylight ? this.scene.time : performance.now(); }
+  get momentScale(): number { return this.width / 960; }
   momentFigure(square: number, snapshot: boolean) { return this.scene.momentFigure(square, snapshot); }
   /** The selected piece and its targets, with no mark: its idle plays and the frames of its moves load. */
   setSelected(sq: number | null, moves: number[] = [], captures: number[] = []): void { this.scene.setSelected(sq, moves, captures); }

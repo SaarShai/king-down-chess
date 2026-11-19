@@ -21,10 +21,10 @@ function fixture() {
   const view = {
     ready: () => new Promise<void>(resolve => { ready = resolve; }),
     time: 100,
+    momentScale: .5,
     momentFigure: vi.fn(() => ({ x: 500, y: 500, bodyHeight: 84 })),
   };
-  const layer = { getBoundingClientRect: () => ({ width: 480 }) };
-  const board = boardMoments(layer as HTMLElement, view as unknown as PaintedView);
+  const board = boardMoments({} as HTMLElement, view as unknown as PaintedView);
   const player = { draw: vi.fn(), remove: vi.fn() };
   playFrames.mockReturnValue(player);
   const rules = new GameRules(), position = rules.fromFen('7k/8/8/8/8/8/1p6/KR6 w - - 0 1');
