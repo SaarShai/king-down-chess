@@ -55,6 +55,16 @@ it('sets the new-page title and share preview before script execution', () => {
   for (const text of ['<title>King Down</title>', 'property="og:title" content="King Down"', 'property="og:image"', 'name="description"', 'id="browser-support"']) expect(html).toContain(text);
 });
 
+it('uses the Daylight page colour before the styles load and in the launch manifest', () => {
+  const paper = /--paper-50: (#[0-9a-f]{6});/.exec(readFileSync('src/interface/ui/tokens.css', 'utf8'))![1];
+  for (const file of ['next.html', 'tools/solo-launch/next.html', 'people.html']) {
+    const html = readFileSync(file, 'utf8');
+    expect(html, file).toContain(`name="theme-color" content="${paper}"`);
+    expect(html, file).toContain(`html { background: ${paper}; }`);
+  }
+  expect(readFileSync('vite.config.ts', 'utf8')).toContain(`background_color: '${paper}', theme_color: '${paper}'`);
+});
+
 it('does not list parked features as current deletion data', () => {
  const page = readFileSync('tools/solo-launch/delete-data.html', 'utf8');
  expect(page).not.toMatch(/lesson progress|badges and unlocks/);

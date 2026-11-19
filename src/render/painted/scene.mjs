@@ -59,10 +59,22 @@ const BOARD_ART=new URL('../../../docs/2d-first-pieces/board-art/stone-board.web
  * kings: [white, black] king designs (court.KING_DESIGNS); the trial and the trailer keep the Frost King.
  * floor: the colour round the board (floorOf: FLOOR when none is named; paintFloor); null leaves the canvas clear there.
  */
-export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0,kings:initialKings=['frost','frost'],floor:floorOption,characterRuntime=false,holdStills=false,lazySheets=false,initialBoardArt,onArtError}) {
+export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0,kings:initialKings=['frost','frost'],floor:floorOption,characterRuntime=false,holdStills=false,lazySheets=false,initialBoardArt,onArtError,daylight}) {
  const floor=floorOf(floorOption);
  const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName}=pieces;
  const ctx=canvas.getContext('2d');
+ let pausedTime=null,clockOffset=0,contactFrame=null,contactTimer=null,lastPoses;
+ const sceneTime=(real=performance.now())=>pausedTime??real-clockOffset;
+ function pause(){pausedTime??=contactFrame??sceneTime();}
+ function resume(){
+  if(pausedTime==null)return;
+  clockOffset=performance.now()-pausedTime;pausedTime=null;wake();
+ }
+ function endContactHold(){
+  if(contactTimer==null)return;
+  clearTimeout(contactTimer);contactTimer=null;resume();
+ }
+
  const CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150};
  let bodyRuntime=null, bodyWarm=!characterRuntime, startBodyRuntime=null;
  if(characterRuntime)prefetchCharacterIndex();
@@ -149,7 +161,7 @@ for(const [type,name] of Object.entries(courtNames)){
  for(let type=1;type<16;type++){if(!specs[type])specs[type]=FALLBACK;newMotions[type]??={DURATION:900,actionAt:()=>0};}
  const idle=new Map(), work=new Map();
  let position={board:new Uint8Array(64)}, selected=null, movePrefetchKey='', lifted=null, liftTell=true, aimSquare=null, animation=null, landed=null, aimAngle=0, aimFacing=1;
- let fallen=null, res=1, frame=0, previousTime=0, ready=false, disposed=false, flipped=false, coords=true, coordSize=13, coordInset=14, labels=false, reducedMotion=false, decorate=null;
+ let fallen=null, frozen, res=1, frame=0, previousTime=0, ready=false, disposed=false, flipped=false, coords=true, coordSize=13, coordInset=14, labels=false, reducedMotion=false, decorate=null;
  let effectTime=0,bodyFrames=[],effectFrames=[],idleReady=false,lastSelectedBody=null,pendingIdle=null,idleOut=null,selectionGeneration=0;
  const smokeStreams=new Map();let smokeTime=0;
  // Opt-in liveliness (setLively): quiet-move gaits, the selected figure's idle, the board's frame and light,
@@ -291,7 +303,15 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
  // device px, before the figure's own frame)
  const fade=lively.atmosphere&&colorOf(value)&&out!==closeup?.ctx,base=fade?out.getTransform():null;
  if(lively.atmosphere){if(shadow)contactShadow(out,value,pose,opacity);}
- else{const k=clamp(1-(pose.lift??0)/TILE*.4,.6,1)*(pose.shadow??1);out.fillStyle='#343a2229';out.beginPath();out.ellipse(ground.x,ground.y-2,210*pose.scale*k,36*pose.scale*k,0,0,Math.PI*2);out.fill();}
+ else if(shadow!==null){const k=clamp(1-(pose.lift??0)/TILE*.4,.6,1)*(pose.shadow??1);out.fillStyle='#343a2229';out.beginPath();out.ellipse(ground.x,ground.y-2,210*pose.scale*k,36*pose.scale*k,0,0,Math.PI*2);out.fill();}
+ if(fx?.frozen){
+  const g=fxCanvas.getContext('2d');g.save();g.setTransform(res,0,0,res,0,headroom*res);
+  g.globalCompositeOperation='source-over';g.globalAlpha=1;
+  g.clearRect(0,-headroom,SIZE,SIZE+headroom);g.filter='saturate(.55) brightness(1.06)';
+  drawPiece(g,value,pose,1,extension,null,null);g.filter='none';
+  g.globalCompositeOperation='source-atop';g.fillStyle='rgba(127,183,217,.55)';g.fillRect(0,-headroom,SIZE,SIZE+headroom);g.restore();
+  out.drawImage(fxCanvas,0,-headroom,SIZE,SIZE+headroom);out.restore();return;
+ }
  if(pose.bank||pose.still){const b=pose.bank??pose.still,k=b.scale*pose.scale/spec.scale;if(typeOf(value)===K)drawnKings[colorOf(value)]=kings[colorOf(value)];out.translate(pose.foot.x,pose.foot.y);out.scale(k*(pose.sx??1),k*(pose.sy??1));out.rotate((pose.rotation??0)*pose.facing);out.shadowColor=colorOf(value)?'rgba(250,246,232,.85)':'rgba(28,24,16,.8)';out.shadowBlur=3*res;if(b.size)out.drawImage(b.image,-b.pivot[0],-b.pivot[1],b.size[0],b.size[1]);else out.drawImage(b.image,-b.pivot[0],-b.pivot[1]);out.restore();return;}
  out.translate(pose.foot.x,pose.foot.y);out.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));out.rotate(pose.rotation??0);
  // A clip's drawing is one atlas cell, at its clip's factor of the sprite's size.
@@ -669,12 +689,15 @@ function vortex(out,foot,phase,strength) {
   return {design,side,ms,foot:pose.foot,dir:Math.sign(pose.facing*fallen.rotation)||1,tall:124,veil:!fallen.plain,dark:(x,y)=>groundDark({x,y}),board:{x:PAD,y:PAD,size:8*TILE},
    soul:lively.kings?g=>kingFx.soul(g,{design,side,pose,rotation:fallen.rotation,ms}):null};
  }
- function render(time=performance.now()) {
+ function render(time=sceneTime()) {
  frames++;effectFrames=[];frameTime=time;poolsGliding=false;drawnBefore=fxDrawn.length;fxDrawn=[];nextSince=new Map();
- const a0=animation,elapsed=a0?clamp((time-a0.start)/a0.speed-(a0.runtime?.beforeMs??0),0,a0.actionDuration??a0.duration):0,since=a0?.shakeAt!=null?effectTimeAt(a0,elapsed)-a0.shakeAt:fallen?fallMs(time)-IMPACT:-1,shake=!reducedMotion&&since>=0&&since<240?7*(1-since/240):0;
+ const a0=animation,lastHit=a0?.hits?.at(-1),elapsed=a0?clamp((time-a0.start)/a0.speed-(a0.runtime?.beforeMs??0),0,a0.actionDuration??a0.duration):0;
+ const since=lastHit?time-lastHit.time:a0?.hits?-1:a0?.shakeAt!=null?effectTimeAt(a0,elapsed)-a0.shakeAt:fallen?fallMs(time)-IMPACT:-1;
+ const shakeMs=lastHit?220:240;
+ const shake=!reducedMotion&&since>=0&&since<shakeMs?(lastHit?2*SIZE/(canvas.getBoundingClientRect().width||SIZE):7)*(1-since/shakeMs):0;
  effectTime=a0?.effect?clamp((time-a0.start)/(a0.speed*a0.duration),0,1):0;
  const shown=a0?.effect?.position(effectTime)??position;
- ctx.save();ctx.translate(0,headroom);if(shake)ctx.translate(Math.sin(since*.09)*shake,Math.cos(since*.13)*shake*.6);
+ ctx.save();ctx.translate(0,headroom);if(shake)ctx.translate(lastHit?Math.cos(since*.09)*shake:Math.sin(since*.09)*shake, lastHit?0:Math.cos(since*.13)*shake*.6);
  boardBackground();
  if(lifted!==null&&!animation&&position.board[lifted]){
   const f=foot(lifted);ctx.save();ctx.translate(f.x,f.y-2);ctx.scale(1,.35);
@@ -703,7 +726,8 @@ function vortex(out,foot,phase,strength) {
  }
  // King Down: the beaten king topples backwards onto the board.
  let fall=null;
- if(fallen&&poses.has(fallen.sq)){const u=poses.get(fallen.sq),ms=fallMs(time);if(ms<DEMISE&&typeOf(u.value)===K)fall=demiseState(u,ms);u.pose=fallPose(u.pose,fallen.rotation,ms);if(!fallen.plain&&ms>=SWAP&&typeOf(u.value)===K){const lying=lyingArt(kings[colorOf(u.value)]);if(lying){u.pose={...u.pose,fall:null,rotation:fallen.rotation,lying};drawnKings[colorOf(u.value)]=kings[colorOf(u.value)];}}}
+ if(fallen?.painted)poses.delete(fallen.sq);
+ else if(fallen&&poses.has(fallen.sq)){const u=poses.get(fallen.sq),ms=fallMs(time);if(ms<DEMISE&&typeOf(u.value)===K)fall=demiseState(u,ms);u.pose=fallPose(u.pose,fallen.rotation,ms);if(!fallen.plain&&ms>=SWAP&&typeOf(u.value)===K){const lying=lyingArt(kings[colorOf(u.value)]);if(lying){u.pose={...u.pose,fall:null,rotation:fallen.rotation,lying};drawnKings[colorOf(u.value)]=kings[colorOf(u.value)];}}}
  let shot=null,hit=null;const effects=[];
  if(animation&&!animation.effect&&!animation.preparing){
   const a=animation,duration=a.legacyDuration??a.duration,at=a.rewind?.kind==='move'?Math.max(a.start,Math.min(a.rewind.at,a.rewind.at-(time-a.rewind.start))):time,elapsed=clamp((at-a.start)/a.speed-(a.runtime?.beforeMs??0),0,a.actionDuration??duration),t=effectTimeAt(a,elapsed),actor=poses.get(a.move.from),victim=poses.get(a.move.swap?a.move.to:a.move.shove?.from??a.move.captures[0]);
@@ -922,7 +946,11 @@ function vortex(out,foot,phase,strength) {
   if(a.rookFrom&&poses.has(a.move.castle.from))castleRook(a,poses.get(a.move.castle.from),(at-a.start)/a.speed);
   const impactTime=contactTime(a);
   if(a.type==='knight'&&t>=duration*.35&&!a.airborne){a.airborne=true;onStatus('Airborne. Clearing the intervening pieces…');}
-  if(a.type!=='move'&&a.type!=='gait'&&a.type!=='swap'&&t>=impactTime&&!a.contacted){a.contacted=true;a.onContact?.();onStatus(a.move.selfRemove?'The Paladin and his target are removed together.':a.type==='beam'?'Measured. Taking it apart…':a.type==='knight'||(a.type==='paladin'&&!victim)?'Landed. Settling into stance…':'Hit. Recovering…');}
+  if(!a.hits&&a.type!=='move'&&a.type!=='gait'&&a.type!=='swap'&&t>=impactTime&&!a.contacted){a.contacted=true;a.onContact?.();onStatus(a.move.selfRemove?'The Paladin and his target are removed together.':a.type==='beam'?'Measured. Taking it apart…':a.type==='knight'||(a.type==='paladin'&&!victim)?'Landed. Settling into stance…':'Hit. Recovering…');}
+ }
+ for(const hit of a0?.hits??[]){
+  if(hit.replace)poses.delete(hit.square);
+  if(!reducedMotion)effects.push(()=>drawDust(ctx,foot(hit.square),time-hit.time,{size:.42,n:4,ms:350}));
  }
  // Resting pawns (lance/idle.mjs): any pawn that is not selected, moving, struck or aiming.
  pawnsAtRest=0;pawnsActing=0;
@@ -983,7 +1011,7 @@ function vortex(out,foot,phase,strength) {
    const up=typeof above==='function'?above({...death,size:SIZE,headroom}):death.t>=above,d2={...death,above:up};
    drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,{death:{...d2,part:'back'}});
    late.push(()=>drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,{death:{...d2,part:'front'}}));
-  }else {let drawn=fx?.pose??unit.pose;if(fx&&drawn.fall&&kingFx.onFigure(fx.design))drawn={...drawn,fall:{...drawn.fall,overlay:(g,up)=>kingFx.front(g,{...fx,pose:up})}};drawPiece(ctx,unit.value,drawn,unit.opacity,unit.extension,unit.fx,false);if(sq===selected&&!animation&&idleReady&&drawn.bank)lastSelectedBody={square:sq,value:unit.value,body:drawn.bank,pose:{...unit.pose,foot:{...unit.pose.foot}}};}
+  }else {let drawn=fx?.pose??unit.pose;if(fx&&drawn.fall&&kingFx.onFigure(fx.design))drawn={...drawn,fall:{...drawn.fall,overlay:(g,up)=>kingFx.front(g,{...fx,pose:up})}};const ice=!drawn.fall&&!drawn.lying&&frozen?.has(sq)?{frozen:true}:null;drawPiece(ctx,unit.value,drawn,unit.opacity,unit.extension,unit.fx??ice,false);if(sq===selected&&!animation&&idleReady&&drawn.bank)lastSelectedBody={square:sq,value:unit.value,body:drawn.bank,pose:{...unit.pose,foot:{...unit.pose.foot}}};}
   if(fx&&!((fx.pose.fall||fx.pose.lying)&&kingFx.onFigure(fx.design)))kingFx.front(ctx,fx);
  }
  const smokeDt=Math.max(0,Math.min(.05,(time-smokeTime)/1000));smokeTime=time;
@@ -999,6 +1027,7 @@ function vortex(out,foot,phase,strength) {
  if(hit)impact(ctx,hit.point,hit.t,hit.scale);
  if(fall)demise.over(ctx,fall);
  over(7);
+ if(daylight?.onCaptureVictim)lastPoses=poses;
  ctx.restore();
 }
 function drawEncounter(a,t) {
@@ -1013,8 +1042,9 @@ function drawEncounter(a,t) {
  bolt(detail,world(archer.muzzle(actor.angle,colorOf(a.value)),actor,A),target,(t-180)/260,1.5);
  impact(detail,target,(t-440)/260,1.5);
 }
- function tick(time) {
+ function tick(realTime) {
   if(disposed)return;
+  const time=sceneTime(realTime);
   frame=0;const dt=previousTime?Math.min((time-previousTime)/1000,.05):1/60;previousTime=time;
   const wanted=animation?null:desiredPose();
   if(wanted){aimFacing=wanted.facing;aimAngle+=(wanted.angle-aimAngle)*(reducedMotion?1:1-Math.exp(-14*dt));if(Math.abs(wanted.angle-aimAngle)<.0001)aimAngle=wanted.angle;}
@@ -1028,7 +1058,11 @@ function drawEncounter(a,t) {
    a.exitStart??=time;
    if(time-a.exitStart>=200){const prepared=a.exitReady.prepared;a.exitReady=null;a.exitBody=null;startPrepared(a,prepared,time);bodyRuntime.releaseIdle();}
   }
-  if(a?.effect&&!a.done&&!a.contacted&&(time-a.start)>=a.duration*a.speed*.62){a.contacted=true;if(a.move.captures.length)a.onContact?.();}
+  if(daylight&&!reducedMotion&&a&&!a.done&&!a.preparing&&a.move.captures.length)captureContact(a,time);
+  if(fallen?.onImpact&&fallMs(time)>=IMPACT){
+   const {sq,onImpact}=fallen;fallen.onImpact=null;onImpact(sq);
+  }
+  if(a?.effect&&!a.hits&&!a.done&&!a.contacted&&(time-a.start)>=a.duration*a.speed*.62){a.contacted=true;if(a.move.captures.length)a.onContact?.();}
   if(animation!==a){wake();return;}
   const turnEndpoint=!a?.rewind&&a?.runtime?.movement?.kind==='move'&&a.runtime.beforeMs>0&&!a.turnEndpointDrawn&&(time-a.start)/a.speed>=a.runtime.beforeMs;
   if(turnEndpoint){a.start=time-a.runtime.beforeMs*a.speed;a.turnEndpointDrawn=true;a.drawingTurnEndpoint=true;}
@@ -1054,8 +1088,9 @@ function drawEncounter(a,t) {
     if(document.readyState&&document.readyState!=='complete')globalThis.addEventListener('load',start,{once:true});else start();
    }
   });
+  if(pausedTime!=null)return;
   if((a&&!a.done&&(!a.preparing||a.exitReady||a.rewind))||(wanted&&aimAngle!==wanted.angle)||(fallen&&fallMs(time)<DEMISE)||time<awakeUntil||poolsGliding||clipShown||idleOut)wake(false);
-  else{previousTime=0;if(lively.ambient&&lively.idle&&!reducedMotion&&position.board.some(Boolean)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),ambientIdles.size?33:250);}else if((idling()&&bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected])))||time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
+  else{previousTime=0;if(lively.ambient&&lively.idle&&!reducedMotion&&position.board.some(Boolean)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),ambientIdles.size?33:250);}else if((idling()&&(daylight||bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected]))))||time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
  }
  function idling(){return lively.idle&&!reducedMotion&&!animation&&selected!==null&&!!position.board[selected]&&fallen?.sq!==selected;}
  function drawLabels() {
@@ -1065,9 +1100,9 @@ function drawEncounter(a,t) {
    ctx.fillStyle=ctx.strokeStyle;ctx.fillText(pieces.LETTERS?.[typeOf(v)]??'',x,y+1);}
   ctx.restore();
  }
- function wake(changed=true){if(disposed)return;if(changed)passiveUntil=performance.now()+5000;if(ready&&!frame)frame=requestAnimationFrame(tick);}
+ function wake(changed=true){if(disposed)return;if(changed)passiveUntil=sceneTime()+5000;if(ready&&!frame)frame=requestAnimationFrame(tick);}
  function releasePrepared(prepared){prepared?.releaseMovementStart?.();prepared?.releaseMovement?.();prepared?.releaseFallback?.();}
- function cancelAnimation(a){a.prepareController?.abort();releasePrepared(a.runtime);releasePrepared(a.rookRuntime);releasePrepared(a.exitReady?.prepared);if(!a.done)a.resolve(false);}
+ function cancelAnimation(a){endContactHold();a.prepareController?.abort();releasePrepared(a.runtime);releasePrepared(a.rookRuntime);releasePrepared(a.exitReady?.prepared);if(!a.done)a.resolve(false);}
  // A move is over: a king's effect on the square he moved from starts again from nothing if he is there next
  // (he stayed, as with Death Touch, or came back); its fade-out during the move stays seamless.
  function endMove(keepSource=false){
@@ -1132,6 +1167,38 @@ function drawEncounter(a,t) {
   return t<a.contactTime?t/a.contactTime*hit:hit+(t-a.contactTime)/(a.actionDuration-a.contactTime)*((a.legacyDuration??a.duration)-hit);
  }
  function contactTime(a){const duration=a.legacyDuration??a.actionDuration??a.duration;return a.type==='pound'?rook.SLAMS[1]:a.type==='spin'?SPIN.contact:a.type==='blow'?a.timing.strike:a.type==='chain'?CHAIN_STEP*.36:a.type==='slash'?bishop.CONTACT_MS:a.type==='hammer'?court.SMASH.chop[1]:a.type==='pawn'?910:a.type==='ogre'?780:a.type==='knight'?duration*knight.LANDING:a.type==='paladin'?duration*CHARGE_CONTACT:a.type==='advance'?duration*.5:a.type==='beam'?court.BEAM.apart[0]:440;}
+ // Each Beast bite has its own contact frame. Other attacks have one contact for all victims.
+ function captureContact(a,time){
+  const i=a.hits.length,bite=a.bites?.[i],squares=a.type==='chain'?a.move.captures.slice(i,i+1):i?[]:a.move.captures;
+  if(!squares.length)return;
+  const at=a.effect?a.duration*.62:(a.runtime?.beforeMs??0)+(bite?bite.start+bite.turnMs+bite.contact:a.type==='chain'?(i+.36)*CHAIN_STEP:a.contactTime??contactTime(a));
+  if(time<a.start+at*a.speed)return;
+  a.start=time-at*a.speed;
+  contactFrame=time;
+  try{
+   let soundHandled=false;
+   for(const square of squares){
+    const value=position.board[square],handler=daylight.onCaptureVictim;
+    const hit={square,time,replace:false};
+    a.hits.push(hit);
+    if(value&&handler){
+     const bounds=canvas.getBoundingClientRect(),scale=bounds.width/SIZE,{col,row}=cell(square),box=api.figureBox(value,square);
+     const rect=new DOMRectReadOnly(bounds.left+(PAD+col*TILE)*scale,bounds.top+(headroom+PAD+row*TILE)*scale,TILE*scale,TILE*scale);
+     handler(square,characterOf(value)??'workshop',armyOf(value),(box.foot-box.top)*scale,rect,()=>{
+      if(animation!==a||a.done)return false;
+      hit.replace=true;wake(false);return true;
+     });
+    }
+    if(animation!==a)return;
+    soundHandled=daylight.onCaptureContact?.(square,true)===true||soundHandled;
+    if(animation!==a)return;
+   }
+   if(!a.contacted){a.contacted=true;a.onContact?.(soundHandled);onStatus('Hit. Recovering…');}
+   if(animation!==a)return;
+   if(daylight.hold)daylight.hold(55);
+   else {pause();contactTimer=setTimeout(endContactHold,55);}
+  }finally{contactFrame=null;}
+ }
  // Melee strikes: time since the blow in the clock of the painted body (or the old sprite's), and until when the victim may stay.
  const BOARD_X={minX:PAD+6,maxX:SIZE-PAD-6};
  function sinceContact(a,t,elapsed){
@@ -1172,7 +1239,7 @@ function drawEncounter(a,t) {
  }
  function plan(move,speed,gait=null) {
  const value=position.board[move.from],from=poseFor(value,move.from),to=poseFor(value,move.to),victimSquare=move.swap?move.to:move.shove?.from??move.captures[0],victim=position.board[victimSquare];
- const base={move,value,from,to,victim,start:performance.now(),speed,contacted:false};
+ const base={move,value,from,to,victim,start:sceneTime(),speed,contacted:false};
  if(move.castle&&!reducedMotion&&position.board[move.castle.from]){base.rookValue=position.board[move.castle.from];base.rookFrom=poseFor(base.rookValue,move.castle.from);base.rookTo=poseFor(base.rookValue,move.castle.to);}
  // A file capture stands where the painted attack reaches the target; the feet stay on the board.
  const aim=victim&&!move.swap&&!reducedMotion?foot(victimSquare):null,reach=aim&&aim.x===from.foot.x&&aim.y!==from.foot.y?STRAIGHT_REACH[characterOf(value)]?.[aim.y<from.foot.y?'N':'S']:undefined;
@@ -1239,8 +1306,10 @@ function drawEncounter(a,t) {
  }
  const api={
   SIZE,PAD,TILE,headroom,
+  get time(){return contactFrame??sceneTime();},
+  pause,resume,
   get animating(){return !!animation&&!animation.done;},
-  get falling(){return !!fallen&&fallMs(performance.now())<DEMISE;},
+  get falling(){return !!fallen&&fallMs(sceneTime())<DEMISE;},
   /** What is playing: a gait name for a quiet move with character, else the animation kind ('move' for the plain slide); null when idle. */
   get playing(){return animation&&!animation.done?animation.gait??animation.type:null;},
   get position(){return position;},
@@ -1262,7 +1331,7 @@ function drawEncounter(a,t) {
    if(late)return board.then(()=>warmStills()).then(start).finally(()=>{firstFrameLoads=()=>{boardReady();void Promise.all(sheets().map(sheet=>sheet.then(()=>wake()))).catch(()=>{});};});
    return Promise.all([board,...sheets()]).then(()=>{const stills=warmStills();return stills?stills.then(start):start();}).finally(boardReady);},
   /** New position: ends any finished or running animation. */
-  setPosition(next){const a=animation,m=a?.move;
+  setPosition(next,ice){const a=animation,m=a?.move;frozen=daylight?ice:undefined;
    if(a?.done&&!a.rewind&&!a.effect&&!reducedMotion&&m.from!==m.to&&!m.captures.length&&!m.swap&&!m.shove&&!m.promo&&!m.selfRemove&&!m.power&&typeOf(a.value)===K&&kings[colorOf(a.value)]==='stratus'&&next.board[m.from]===0&&next.board[m.to]===a.value)landed={animation:a,source:position,post:next,sourceEntry:kingSince.get(m.from)};
    else if(landed&&next!==landed.post)landed=null;
    const selectedValue=selected===null?null:position.board[selected],keepIdle=!animation&&idleReady&&selectedValue&&selectedValue===next.board[selected]&&LARGE_IDLE.has(characterOf(selectedValue)),keepSource=!!animation?.rewind?.doneAtSource&&animation.done&&next===position&&position.board[m.from]===animation.value;if(m&&!animation.effect&&smokeStreams.has(m.from)&&next.board[m.to]===position.board[m.from]){const smoke=smokeStreams.get(m.from);smokeStreams.delete(m.from);smokeStreams.set(m.to,smoke);}else if([...position.board].some((v,sq)=>v!==next.board[sq]))smokeStreams.clear();if(!keepIdle)endMove(keepSource);lifted=null;position=next;if(selected!==null&&selectedValue!==position.board[selected])selectedAt=null;aimAngle=0;warmBodies();warmStills();if(!keepIdle)reserveSelected(selected);wake();},
@@ -1292,7 +1361,7 @@ function drawEncounter(a,t) {
   setKings(next){if(next[0]===kings[0]&&next[1]===kings[1])return;if(landed&&next[colorOf(landed.animation.value)]!==kings[colorOf(landed.animation.value)])landed=null;if(animation?.exitBody||animation?.rewind&&next[colorOf(animation.value)]!==kings[colorOf(animation.value)])endMove();const value=selected!==null?position.board[selected]:null,selectedDesign=value?characterOf(value):null,keepIdle=!animation&&idleReady&&LARGE_IDLE.has(selectedDesign)&&next[colorOf(value)]===kings[colorOf(value)];if(!keepIdle){selectionGeneration++;pendingIdle=null;idleOut=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}kings=[...next];if(selectedDesign&&selectedDesign!==characterOf(value))selectedAt=null;for(const design of kings){const sheet=()=>kingImage(design).loaded.catch(()=>{});if(late)afterBoard(sheet);else sheet();if(lively.kings)afterBoard(()=>kingFx.has(design));}if(!keepIdle)reserveSelected(selected);wake();},
   get kings(){return [...kings];},
   /** Restart the visible ground loops together for the effects workshop. */
-  restartKingGround(){landed=null;const since=performance.now();for(const entry of kingSince.values()){entry.since=since;entry.offset=0;delete entry.resume;delete entry.lastG;}wake();},
+  restartKingGround(){landed=null;const since=sceneTime();for(const entry of kingSince.values()){entry.since=since;entry.offset=0;delete entry.resume;delete entry.lastG;}wake();},
   resetKingEffects(){landed=null;kingSince.clear();wake();},
   /** [white, black] figure URLs for a lab `type` with no painted art (a Workshop design), or null for its lettered token. */
   setFigure(type,urls){
@@ -1307,11 +1376,11 @@ function drawEncounter(a,t) {
   setLabels(on){labels=on;wake();},
   setReducedMotion(on){const was=reducedMotion;reducedMotion=on;if(on){ambientIdles.clear();idleClocks.update(0,new Map(),()=>0,false);landed=null;selectionGeneration++;pendingIdle=null;idleOut=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}if(on&&(animation?.runtime||animation?.preparing||animation?.rewind||animation?.value&&typeOf(animation.value)===K&&animation.move.captures.length))endMove();if(on)awakeUntil=0;else if(was){loadClips();reserveSelected(selected);}wake();},
   /** Lay the king on `sq` down (null: nobody); animate=false shows it already fallen. speed: as in play (.5 is twice as fast). */
-  setFallen(sq,animate=true,rotation=-1.5,speed=1){
+  setFallen(sq,animate=true,rotation=-1.5,speed=1,onImpact=null,painted=false){
    const value=sq==null?0:position.board[sq];
    // (A fall that starts before his painted figure or the dust has loaded ends as the rotated figure: no swap in the open.)
-   fallen=sq==null?null:{sq,rotation,speed,start:animate?performance.now():-Infinity,plain:animate&&!(typeOf(value)===K&&lyingArt(kings[colorOf(value)])&&demise.ready)};
-   if(animate&&sq!=null)demise.prepare();wake();
+   fallen=sq==null?null:{sq,rotation,speed,painted,onImpact:animate?onImpact:null,start:animate?sceneTime():-Infinity,plain:animate&&!painted&&!(typeOf(value)===K&&lyingArt(kings[colorOf(value)])&&demise.ready)};
+   if(animate&&sq!=null&&!painted)demise.prepare();wake();
   },
   /** Backing pixels per board unit (1 = 960 px wide), so the board stays sharp on high-density screens. */
   setResolution(k){if(k===res)return;res=k;canvas.width=fxCanvas.width=Math.round(SIZE*k);canvas.height=fxCanvas.height=Math.round((SIZE+headroom)*k);ctx.setTransform(k,0,0,k,0,0);wake();},
@@ -1332,7 +1401,7 @@ function drawEncounter(a,t) {
   get frames(){return frames;},
   /** The ready body frames the last draw used, for registration checks. */
   get characterFrames(){return bodyFrames;},
-  get actionElapsed(){const a=animation;return a&&!a.done&&!a.preparing&&!a.effect?(performance.now()-a.start)/a.speed:null;},
+  get actionElapsed(){const a=animation;return a&&!a.done&&!a.preparing&&!a.effect?(sceneTime()-a.start)/a.speed:null;},
   get actionTotal(){const a=animation;return a&&!a.done&&!a.preparing&&!a.effect?a.duration:null;},
   get characterExit(){return animation?.exitStart??null;},
   get characterWarmupSettled(){return bodyWarm&&bodyRuntime?.stats.manifestReady&&bodyRuntime.stats.framesLoaded>0&&bodyRuntime.stats.active===0&&bodyRuntime.stats.queued===0;},
@@ -1343,19 +1412,37 @@ function drawEncounter(a,t) {
   /** Swap the board texture; square geometry does not change. A decode failure keeps the old art and rejects. */
   async setBoardArt(url){const next=pageImage();next.src=url;await next.decode();boardArt=next;floorMap=null;framePattern=null;wake();},
   /** Draw every frame for the next `ms` (a decoration's own short animation, such as markers appearing). */
-  keepAwake(ms){awakeUntil=Math.max(awakeUntil,performance.now()+ms);wake();},
+  keepAwake(ms){awakeUntil=Math.max(awakeUntil,sceneTime()+ms);wake();},
   /** The figures on `delays` (square: ms) rise `rise` units into place in `ms` each; an empty map or reduced motion ends it. */
-  arrive(delays,ms=380,rise=24){arrival=delays.size&&!reducedMotion?{start:performance.now(),delays,ms,rise,end:Math.max(...delays.values())+ms}:null;if(arrival)awakeUntil=Math.max(awakeUntil,performance.now()+arrival.end+40);wake();},
+  arrive(delays,ms=380,rise=24){arrival=delays.size&&!reducedMotion?{start:sceneTime(),delays,ms,rise,end:Math.max(...delays.values())+ms}:null;if(arrival)awakeUntil=Math.max(awakeUntil,sceneTime()+arrival.end+40);wake();},
   /** A see-through copy of a figure standing on `square` (a move preview); for setDecorate. */
   /** Board-unit bounds {x,foot,top,l,r} of figure `value` standing at rest on `square`; from its height while its frames load. */
   figureBox(value,square){const pose=poseFor(value,square);pose.bank=bodyRuntime?.rest(characterOf(value),armyOf(value))??null;const h=figureHeight(characterOf(value)),{x,y}=pose.foot;return bankShape(pose,typeOf(value))??{x,foot:y,top:y-h,l:x-h*.4,r:x+h*.4};},
+  momentFigure(square,snapshot){
+   const value=position.board[square];
+   if(!daylight||!value)return;
+   const {x,y}=foot(square),unit=lastPoses?.get(square);
+   const body=bodyRuntime?.rest(characterOf(value),armyOf(value))??stillBody(value);
+   const figure={x,y:y+headroom,bodyHeight:body?body.scale*body.unitHeight:figureHeight(characterOf(value))};
+   if(snapshot&&unit?.value===value){
+    const rect={x:x-TILE,y:y+headroom-2*TILE,width:2*TILE,height:2.5*TILE};
+    const image=document.createElement('canvas');image.width=rect.width*res;image.height=rect.height*res;
+    const out=image.getContext('2d');
+    if(out){
+     out.setTransform(res,0,0,res,-rect.x*res,(headroom-rect.y)*res);
+     drawPiece(out,value,unit.pose,unit.opacity,unit.extension,frozen?.has(square)?{frozen:true}:null,null);
+     figure.from={image,rect};
+    }
+   }
+   return figure;
+  },
   ghost(out,value,square,opacity=.4){if(ready&&value){const pose=poseFor(value,square);pose.bank=bodyRuntime?.rest(characterOf(value),armyOf(value));if(!pose.bank)pose.still=stillBody(value);drawPiece(out,value,pose,opacity);}},
   /** Animate a move on the current position. Resolves true at the final frame, false if cancelled. */
   play(move,{speed=1,onContact=null,onStart=null,gait=null,effect=null,targetMs,finishSwapOnArrival=false}={}){
    if(disposed)return Promise.resolve(false);
    landed=null;lifted=null;
    if(animation)cancelAnimation(animation);
-   const {base,verb}=effect?{base:{type:'effect',move,start:performance.now(),speed,duration:effect.duration,effect},verb:'Playing card…'}:plan(move,speed,gait);
+   const {base,verb}=effect?{base:{type:'effect',move,start:sceneTime(),speed,duration:effect.duration,effect},verb:'Playing card…'}:plan(move,speed,gait);
    return new Promise(resolve=>{
     if(bodyRuntime&&!effect&&move.promo)void bodyRuntime.warm(ART[move.promo],armyOf(base.value));
     // A first manifest load still in transfer (manifestPending) is waited for inside the prepare limit: a late manifest
@@ -1363,6 +1450,7 @@ function drawEncounter(a,t) {
     const available=!effect&&!!bodyRuntime&&(bodyRuntime.has(characterOf(base.value),armyOf(base.value))||bodyRuntime.stats.manifestPending);
     if(finishSwapOnArrival&&base.type==='swap'){base.finishSwapOnArrival=true;base.duration*=SWAP_BELLS.arrived;if(targetMs)targetMs*=SWAP_BELLS.arrived;}
     const a=animation={...base,resolve,onContact,onStart,bodyUnavailable:!!bodyRuntime&&!available,targetMs,pace:speed};
+    if(daylight&&!reducedMotion&&move.captures.length)a.hits=[];
     if(targetMs)a.speed=speed*targetMs/a.duration;
     onStatus(verb);
     if(idleOut){if(idleOut.square===move.from)pendingIdle=idleOut;idleOut=null;}
@@ -1382,7 +1470,7 @@ function drawEncounter(a,t) {
       a.rookPrepared=rook;
       const first=prepared?.before[0],join=first?(first.reverse?first.bank.frames.at(-1):first.bank.frames[0]):prepared?.rest.frames[0];
       if(a.exitBody&&(!prepared||join?.url===a.exit(1)?.url))a.exitReady={prepared};
-      else {a.exitBody=null;bodyRuntime.releaseIdle();startPrepared(a,prepared,performance.now());}
+      else {a.exitBody=null;bodyRuntime.releaseIdle();startPrepared(a,prepared,sceneTime());}
       wake();
      });
     }else { a.onStart?.(); a.onStart=null; }
@@ -1406,7 +1494,7 @@ function drawEncounter(a,t) {
   },
   rewindUndo(){
    const a=animation;if(!a?.undoPending)return Promise.resolve(false);
-   a.undoPending=false;const now=performance.now();
+   a.undoPending=false;const now=sceneTime();
    if(a.preparing){
     const elapsed=a.exitStart==null?0:Math.max(0,Math.min(200,frameTime-a.exitStart));
     releasePrepared(a.exitReady?.prepared);a.exitReady=null;
@@ -1420,7 +1508,7 @@ function drawEncounter(a,t) {
   },
   cancel(){
    const a=animation,keep=!!a?.rewind&&position.board[a.move.from]===a.value&&kings[colorOf(a.value)]==='stratus',entry=keep?kingSince.get(a.move.from):null;
-   if(Number.isFinite(entry?.lastG))entry.resume={g:entry.lastG,start:performance.now()};
+   if(Number.isFinite(entry?.lastG))entry.resume={g:entry.lastG,start:sceneTime()};
    if(animation||!idleReady||selected===null){endMove(keep);reserveSelected(selected);}if(closeup)closeup.panel.hidden=true;aimAngle=0;wake();
   },
   dispose(){if(disposed)return;disposed=true;if(startBodyRuntime){globalThis.removeEventListener('pageshow',onPageShow);globalThis.removeEventListener('load',startBodyRuntime);}endMove();bodyRuntime?.dispose();smokeStreams.clear();cancelAnimationFrame(frame);frame=0;decorate=null;},

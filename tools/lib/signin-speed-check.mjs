@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { newGame, setupTable } from './daylight-home-check.mjs';
 import { env, trapErrors, assertNoErrors, shot } from './checks.mjs';
 
 export async function checkSigninSpeed({ browser, origin, accountOrigin, actors, tokens, tool, setAccountRequest }) {
@@ -12,10 +13,10 @@ export async function checkSigninSpeed({ browser, origin, accountOrigin, actors,
     options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false },
   }))._meta.view;
   const rows = [];
-  for (const entry of ['direct', 'home']) for (const mode of ['restore', 'refresh', 'sign-in']) {
+  for (const entry of ['direct', 'home', 'daylight']) for (const mode of ['restore', 'refresh', 'sign-in']) {
     const context = await browser.newContext({ viewport: { width: 1100, height: 1000 } });
     const user = { id: actors[0], aud: 'authenticated', role: 'authenticated', email: 'browser@example.invalid', app_metadata: { provider: 'github' }, user_metadata: {}, created_at: new Date().toISOString() };
-    const session = { access_token: tokens[0], refresh_token: 'local-test-refresh', token_type: 'bearer', expires_in: 600, expires_at: Math.floor(Date.now() / 1000) + (mode === 'refresh' && entry === 'direct' ? -60 : 600), user };
+    const session = { access_token: tokens[0], refresh_token: 'local-test-refresh', token_type: 'bearer', expires_in: 600, expires_at: Math.floor(Date.now() / 1000) + (mode === 'refresh' && entry !== 'home' ? -60 : 600), user };
     if (mode !== 'sign-in') await context.addInitScript(({ origin, session }) => {
       if (location.origin === origin && !localStorage.getItem('kingdown.auth')) localStorage.setItem('kingdown.auth', JSON.stringify(session));
     }, { origin, session });
@@ -78,6 +79,13 @@ export async function checkSigninSpeed({ browser, origin, accountOrigin, actors,
         requests.length = 0; start = Date.now();
         await page.locator('[data-account-play]:visible').first().click();
         await page.waitForURL(origin + '/play/');
+      } else if (entry === 'daylight') {
+        await page.goto(origin + '/next.html');
+        if (mode === 'sign-in') {
+          await newGame(page).click();
+          await setupTable(page).getByRole('button', { name: 'Opponent', exact: true }).click();
+          await setupTable(page).getByRole('button', { name: 'Invite by name', exact: true }).click();
+        }
       } else await page.goto(origin + '/play/');
       if (mode === 'sign-in') {
         const provider = page.getByRole('button', { name: 'Continue with GitHub', exact: true });
@@ -85,8 +93,14 @@ export async function checkSigninSpeed({ browser, origin, accountOrigin, actors,
         row.options_ms = Date.now() - start;
         await provider.click();
       }
-      await page.locator(`#games-list [data-game-id="${game.game_id}"]`).waitFor({ timeout: 20_000 });
-      await page.locator('[data-screen="play"]:not([hidden]) #setup-start:not(:disabled)').waitFor({ timeout: 5000 });
+      if (entry === 'daylight') {
+        await page.locator(`.play-home [data-game="${game.game_id}"]`).waitFor({ timeout: 20_000 });
+        if (mode === 'sign-in') await setupTable(page).getByRole('button', { name: 'Invite by name', exact: true }).waitFor();
+        else await newGame(page).waitFor();
+      } else {
+        await page.locator(`#games-list [data-game-id="${game.game_id}"]`).waitFor({ timeout: 20_000 });
+        await page.locator('[data-screen="play"]:not([hidden]) #setup-start:not(:disabled)').waitFor({ timeout: 5000 });
+      }
       row.elapsed_ms = Date.now() - start;
       if (entry === 'home') row.installing_on_ready = await page.evaluate(async () => !!(await navigator.serviceWorker.getRegistration('/'))?.installing);
       console.log(`signin-speed ${env('PLAYABLE_BROWSER')} ${entry} ${mode}: list ready in ${row.elapsed_ms} ms; ${JSON.stringify(requests.filter(row => row.path.startsWith('/api/')))}`);

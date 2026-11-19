@@ -4,12 +4,12 @@
  */
 import { colorOf, moveNumber, type Color } from '../../rules/engine';
 import type { Move, Position } from '../board-api';
-import { PLAIN } from '../../render/plain-marks';
-import type { DraftTurn } from './turn';
+import { lastMoveInk } from '../../render/plain-marks';
+import { targetOf, type DraftTurn } from './turn';
 import { sentence, text } from './texts';
+import { ease, reducedMotion, tween } from './fx';
 import { squareAt } from './sides';
 
-export const LAST_COLOUR = PLAIN.last;
 /** Each square that the action changes: its start and end, each capture, each push, swap, castle and entry. */
 export function lastSquares(move: Move): number[] {
   if (move.pass) return [];
@@ -20,6 +20,7 @@ export function lastSquares(move: Move): number[] {
   if (move.drop2 != null) squares.push(move.drop2);
   return [...new Set(squares)].filter(sq => sq >= 0 && sq < 64);
 }
+
 export type PreviewState = 'mine' | 'draft' | 'computer';
 export interface SavedPreview {
   position: Position; player: Color; turn: number; state: PreviewState;
@@ -47,12 +48,33 @@ export const lastSentence = (preview: SavedPreview, cards: (side: Color) => bool
 export function miniBoard(preview: SavedPreview, src: (code: number) => string): HTMLElement {
   const board = document.createElement('div'); board.className = 'mini-board';
   board.setAttribute('role', 'img'); board.setAttribute('aria-label', `${text.title}: the board of your game, from your side.`);
-  const marked = new Set(preview.last ? lastSquares(preview.last.move) : []);
+  const move = preview.last?.move, marked = new Set(move ? lastSquares(move) : []);
+  const landings = move?.pushes?.length ? move.pushes.map(push => push.to) : move ? [move.shove?.to ?? targetOf(move)] : [];
   for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) {
     const square = squareAt(row, col, preview.player), cell = document.createElement('span'), code = preview.position.board[square];
-    cell.className = `mini-cell${(row + col) % 2 ? ' mini-dark' : ''}${marked.has(square) ? ' mini-last' : ''}`; cell.dataset.square = String(square);
+    cell.className = `mini-cell${(row + col) % 2 ? ' mini-dark' : ''}`; cell.dataset.square = String(square);
+    if (marked.has(square)) {
+      cell.classList.add('mini-last');
+      cell.style.setProperty('--last-move', lastMoveInk(landings.includes(square) ? .24 : .12));
+    }
     if (code) { const img = document.createElement('img'); img.alt = ''; img.src = src(code); img.dataset.code = String(code); img.className = `mini-glyph${colorOf(code) ? ' mini-glyph-dark' : ''}`; cell.append(img); }
     board.append(cell);
   }
   return board;
+}
+
+/** Show a move once, over the final position. Leave the final position intact when motion is off. */
+export function replayMiniBoard(board: HTMLElement, preview: SavedPreview): void {
+  if (!preview.last || reducedMotion()) return;
+  const { move, before } = preview.last;
+  const cell = (square: number) => board.querySelector<HTMLElement>(`[data-square="${square}"]`);
+  for (const { from, to } of [move, ...(move.shove ? [move.shove] : []), ...(move.pushes ?? []), ...(move.castle ? [move.castle] : [])]) {
+    if (from === to || !before.board[from]) continue;
+    const source = cell(from), destination = cell(to), image = destination?.querySelector('img');
+    if (!source || !destination || !image || colorOf(before.board[from]) !== colorOf(+image.dataset.code!)) continue;
+    const a = source.getBoundingClientRect(), b = destination.getBoundingClientRect();
+    const draw = (k: number) => { image.style.transform = `translate(${(a.left - b.left) * (1 - k)}px, ${(a.top - b.top) * (1 - k)}px)`; };
+    image.style.zIndex = '1'; draw(0);
+    tween(340, draw, { curve: ease.out3, done: () => { image.style.removeProperty('transform'); image.style.removeProperty('z-index'); } });
+  }
 }

@@ -10,7 +10,7 @@ import { canon, canWriteLocal, gameTime, localAccess, KEPT_KEY, OFFERED_KEY } fr
 import { gameJSON, readSave, savedGame, storedSettings, writeSave, SAVE_KEY, type Save } from '../../screen/save';
 import { finishLinkedTurn, stagedPlies, turnEnded } from '../../turn';
 import { POWERS_BALANCED, type Rules } from '../../rules/rules';
-import { KINGS, typeOf, type Color } from '../../rules/engine';
+import { KINGS, colorOf, typeOf, type Color } from '../../rules/engine';
 import { RELEASED_CARDS } from '../../content/cards';
 import { POWER_NAME } from '../../powers-ui';
 import { toFen } from '../../rules/setup';
@@ -131,7 +131,7 @@ function playedOn(was: string, raw: string): boolean {
   try {
     const a: Save = JSON.parse(was), b: Save = JSON.parse(raw);
     const ga = savedGame(a), gb = savedGame(b);
-    const same = (s: Save, game: Game) => gameJSON({ ...s, rules: game.rules, moves: [], resigned: null, staged: undefined });
+    const same = (s: Save, game: Game) => gameJSON({ ...s, rules: game.rules, moves: [], resigned: null, staged: undefined, summary: undefined });
     // Undo can replace staged steps. Only the finalized history identifies progress in the same game.
     const final = (s: Save, game: Game) => s.moves.slice(0, s.moves.length - stagedPlies(game, s.staged));
     const prior = final(a, ga), next = final(b, gb);
@@ -164,19 +164,37 @@ export function continueLine(draft: DraftTurn, level: Level, player: Color = 0):
   return `${text[level]} ${text.computer.toLowerCase()} · ${type} · ${turn}`;
 }
 
+export function gameFacts(game: Game, playedMs: number): NonNullable<Save['summary']> {
+  let moves = 0, captures = 0;
+  for (const { pos, move } of game.history) {
+    if (!move.pass) moves++;
+    captures += move.captures.filter(square => pos.board[square] && colorOf(pos.board[square]) !== pos.turn).length;
+  }
+  return { moves, captures, playedMs: Math.floor(Math.max(0, playedMs)) };
+}
+
+export function savedPlayTime(save: Save | null): number {
+  const ms = save?.summary?.playedMs;
+  return typeof ms === 'number' && Number.isFinite(ms) && ms >= 0 ? ms : 0;
+}
+
 /** The game fields of the old page's snapshot() (screen/play.ts), in its order. The staged steps follow the handed-over plies. */
-export function snapshot(draft: DraftTurn, resigned: Color | null = null, player: Color = 0): Save {
+export function snapshot(draft: DraftTurn, resigned: Color | null = null, player: Color = 0, playedMs?: number): Save {
   const game = draft.game, staged = draft.steps.map(step => game.context.toLan(step.before, step.move));
   return {
     back: game.backRank, fen: toFen(game.history[0]?.pos ?? game.pos), moves: [...game.history.map(h => h.lan), ...staged],
     white: player ? 'ai' : 'human', black: player ? 'human' : 'ai', coords: true, link: null, daily: null, resigned,
     ...(staged.length > 0 && { staged: staged.length }),
     rules: { ...game.rules },
+    ...(playedMs !== undefined && { summary: gameFacts(game, playedMs) }),
   };
 }
 
-/** The four settings that this page owns. */
-export interface Prefs { skill: SkillName; coords: boolean; sound: boolean; pace: Pace }
+/** The settings that this page owns. Vibration is set per device. */
+export interface Prefs { skill: SkillName; coords: boolean; sound: boolean; pace: Pace; vibration?: boolean }
+const VIBRATION_KEY = 'kingdown.vibration';
+export const storedVibration = (): boolean => storedChoice(VIBRATION_KEY, ['on', 'off']) === 'on';
+export const storeVibration = (prefs: Pick<Prefs, 'vibration'>): void => storeChoice(VIBRATION_KEY, prefs.vibration === false ? 'off' : 'on');
 /** The settings fields in the old order (screen/settings.ts settingsOf). Queen, threats and labels stay as stored. */
 const settingsOf = (p: Prefs, stored: Partial<Save>): Partial<Save> => ({
   skill: p.skill, coords: p.coords, sound: p.sound,

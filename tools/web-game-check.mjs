@@ -18,6 +18,7 @@ import { recoveryOutput, serveSite } from './web-online-check.mjs';
 import { launch, shot, trapErrors, assertNoErrors, env } from './lib/checks.mjs';
 import { checkRecoveryConsumers, checkSharedMechanics } from './lib/shared-mechanics-check.mjs';
 import { checkErrorRecorder } from './lib/error-recorder-check.mjs';
+import { checkDaylightSetup } from './lib/daylight-home-check.mjs';
 import { checkSoloSync } from './lib/solo-sync-check.mjs';
 
 const unregister = register();
@@ -143,6 +144,7 @@ try {
     await checkSharedMechanics({ browser, context, root, origin, actors, pool, tool, tokens });
     assert.deepEqual(failures, [], 'No external request');
   } else {
+  await checkDaylightSetup(browser, origin);
   const page = await context.newPage(); page.setDefaultTimeout(15_000);
   await page.clock.install();
   const errors = trapErrors(page), inflight = new Map();

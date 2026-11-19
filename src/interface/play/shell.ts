@@ -1,5 +1,5 @@
-import { navigation } from '../ui/kit.js';
-import { ms, tabChange, travelMarker } from './motion';
+import { icon, navigation } from '../ui/kit.js';
+import { ease, onFrame, pulse, reducedMotion, sound, Spring, tween, type Effect } from './fx';
 export interface Route { place: 'play' | 'guide' | 'you' | 'game' | 'person' | 'join' | 'online'; section?: string; entry?: string }
 const places = ['play', 'guide', 'you'];
 /** The place of an address hash: #play, #guide or #you. Any other hash, #game included, opens Play. */
@@ -12,11 +12,18 @@ export function addressRoute(hash: string): Route {
   return { place: placeOf(hash) };
 }
 export const routeHash = (route: Route) => `#${route.place}${route.place === 'online' || route.place === 'join' ? '=' + (route.entry ?? '') : ''}`;
+export function daylightCrown(): SVGSVGElement {
+  const crown = icon('play'); crown.removeAttribute('data-icon');
+  crown.setAttribute('viewBox', '0 0 40 24');
+  crown.querySelector('path')!.setAttribute('d', 'M5 19 3 6.5l9.5 6.2L20 2.5l7.5 10.2L37 6.5 35 19zM6 22h28');
+  return crown;
+}
 export function mountShell(root: HTMLElement, render: (route: Route) => void) {
   // A load, a reload or an address edit opens the place of the hash; the stored Guide section stays when it matches.
   const fromAddress = (): Route => { const read = addressRoute(location.hash), kept: Route | undefined = history.state?.shell; return kept?.place === read.place && (read.entry === undefined || kept.entry === read.entry) ? kept : read; };
   let route: Route = fromAddress();
   const nav = navigation('Play', name => go({ place: name.toLowerCase() as Route['place'] }), { guide: true });
+  nav.querySelector('a[href="#play"] > svg')?.replaceWith(daylightCrown());
   // The bar comes first in the Tab order, after a skip link to the page (runs/launch/speed/report.md fix 11).
   const skip = document.createElement('a'); skip.className = 'shell-skip'; skip.href = '#app'; skip.textContent = 'Skip to content';
   skip.addEventListener('click', event => { event.preventDefault(); const page = root.querySelector<HTMLElement>(':scope > :not(.shell-departing)'), target = page?.querySelector<HTMLElement>('h1') ?? page; if (target) { if (!target.matches('[tabindex]')) target.tabIndex = -1; target.focus(); } });
@@ -25,12 +32,45 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
   // While a layer Back is pending, route changes and new layers wait in `waiting`, in order, until that Back lands.
   let layer: (() => void) | null = null, waiting: (() => void)[] | null = null;
   const settled = (run: () => void) => { if (waiting) waiting.push(run); else run(); };
-  let moving: ReturnType<typeof setTimeout> | undefined;
+  let pageEffect: Effect | undefined, plateEffect: Effect | undefined;
+  const plate = document.createElement('span'); plate.className = 'shell-plate'; plate.setAttribute('aria-hidden', 'true');
+  nav.prepend(plate);
+  function markTab(from: HTMLElement, to: HTMLElement) {
+    const a = (plateEffect ? plate : from).getBoundingClientRect(), b = to.getBoundingClientRect(), bar = nav.getBoundingClientRect();
+    plateEffect?.finish();
+    const spring = new Spring(0, 320, 26); spring.to = 1;
+    nav.dataset.moving = 'true';
+    const draw = (k: number) => Object.assign(plate.style, {
+      left: `${a.left - bar.left + (b.left - a.left) * k}px`,
+      top: `${b.top - bar.top}px`,
+      width: `${a.width + (b.width - a.width) * k}px`,
+      height: `${b.height}px`,
+    });
+    draw(0);
+    plateEffect = onFrame(dt => {
+      draw(spring.step(dt));
+      if (spring.still) return false;
+    }, () => { delete nav.dataset.moving; plate.removeAttribute('style'); plateEffect = undefined; });
+    if (reducedMotion()) plateEffect = undefined;
+  }
+  function changePage(old: HTMLElement, page: HTMLElement, direction: number) {
+    pageEffect?.finish();
+    if (reducedMotion()) return;
+    const ghost = old.cloneNode(true) as HTMLElement;
+    ghost.classList.add('shell-departing'); ghost.inert = true; ghost.setAttribute('aria-hidden', 'true');
+    ghost.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
+    page.before(ghost);
+    page.style.transform = `translateX(${direction * 14}px)`; page.style.opacity = '.64';
+    pageEffect = tween(220, k => {
+      ghost.style.transform = `translateX(${direction * -14 * k}px)`; ghost.style.opacity = String(1 - k);
+      page.style.transform = `translateX(${direction * 14 * (1 - k)}px)`; page.style.opacity = String(.64 + .36 * k);
+    }, { curve: ease.out3, done: () => { ghost.remove(); page.style.removeProperty('transform'); page.style.removeProperty('opacity'); } });
+  }
   const show = (next: Route, draw = true) => {
     const before = route; route = next;
     const oldTab = nav.querySelector<HTMLElement>('[aria-current]');
     const old = root.querySelector<HTMLElement>(':scope > :not(.shell-departing)');
-    if (draw && old && before.place !== 'game' && next.place !== 'game') for (const animation of old.getAnimations()) { animation.commitStyles(); animation.cancel(); }
+    if (draw) pageEffect?.finish();
     skip.hidden = nav.hidden = next.place === 'game' || next.place === 'online';
     for (const link of nav.querySelectorAll('a')) {
       if (link.hash === `#${next.place}`) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
@@ -39,11 +79,12 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
     if (draw) {
       render(next);
       const page = root.firstElementChild as HTMLElement | null;
-      if (old && page && old !== page && before.place !== 'game' && next.place !== 'game') tabChange(old, page, places.indexOf(next.place) >= places.indexOf(before.place) ? 1 : -1);
+      if (old && page && old !== page && before.place !== 'game' && next.place !== 'game') changePage(old, page, places.indexOf(next.place) >= places.indexOf(before.place) ? 1 : -1);
       // A page that restores the view (the row that the person left) keeps its focus and its scroll.
       if (page?.dataset.restore !== 'true') { page?.querySelector<HTMLElement>('h1')?.focus({ preventScroll: true }); window.scrollTo(0, 0); }
     }
-    if (oldTab && newTab && oldTab !== newTab) { travelMarker(oldTab, newTab, true); nav.dataset.moving = 'true'; clearTimeout(moving); moving = setTimeout(() => delete nav.dataset.moving, ms('--dur-tab-marker')); }
+    if (oldTab && newTab && oldTab !== newTab) { sound('pass'); pulse('light'); if (!reducedMotion()) markTab(oldTab, newTab); }
+    else if (!newTab) plateEffect?.finish();
   };
   function go(next: Route, draw = true) {
     // Close, then a late invite reply: the route changes after the pending Back lands.

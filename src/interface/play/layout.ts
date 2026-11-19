@@ -1,66 +1,46 @@
-// Stage "readingb" (launch decisions 33 and 34): the layout classes of the game screen.
-// Inputs: the viewport after the safe areas and the game type. The game state is not an input, so a select,
-// a staged step or a reply never moves the board. All values are CSS px.
+// The viewport and setup set the board position. A turn never changes it.
 export type Setup = 'pieces' | 'powers' | 'cards' | 'both';
 export type Form = 'tall' | 'compact' | 'wide';
 export interface GameLayout {
-  /** Stack: one column (opponent strip, board, scroll, reader, resources, finish row). Rail: the board at the left, the rest at the right. */
   kind: 'stack' | 'rail';
-  /** The reader type: tall phone, compact (one pinned header), or wide (larger type, two resource rows). */
   form: Form;
   W: number; H: number;
-  board: number; head: number; gap: number;
-  /** Stack: the width of the column. Rail: the width of the rail. */
-  col: number;
-  opp: number; scroll: number; reader: number; own: number; fin: number;
-  /** Rail: the top and the height of the rail. */
+  board: number; gap: number; col: number;
+  opp: number; reader: number; own: number; fin: number;
   railTop: number; railH: number;
-  /** 0: pieces only. 1: the coin and hand in one row. */
-  ownRows: 0 | 1;
-  /** The column or rail is under 352 px: the opponent controls use less width. */
-  narrow: boolean;
   boardX: number; boardY: number;
+  readerY: number; handY: number; actionY: number;
 }
-/** The space above the board for the figures of the back rank (the earlier layout's own rule). */
-export const clearance = (board: number) => Math.ceil(.03 * board) + 1;
-/** The largest board in steps of 8 px that is `limit` wide or less and fits `room` with its clearance. */
-function fit(room: number, limit: number) {
-  let board = Math.floor(Math.min(limit, room) / 8) * 8;
-  while (board > 8 && board + clearance(board) > room) board -= 8;
-  return Math.max(8, board);
-}
-/** Each form's row heights from the design: opponent strip, the reader's least height, one resource row, finish row.
- *  Decision 129: the tall reader holds a choice step (state, headline, target line, 44 px choices), so it needs 152 px. */
-const ROWS = { tall: { opp: 64, scroll: 56, reader: 152, own: 112, fin: 60 }, compact: { opp: 44, scroll: 44, reader: 64, own: 72, fin: 52 }, wide: { opp: 72, scroll: 56, reader: 0, own: 144, fin: 64 } };
-/** The full phone column leaves space for the coin and four card names at 14 px. */
-export const ONE_ROW = 352;
 
-export function gameLayout(W: number, H: number, setup: Setup): GameLayout {
-  W = Math.max(0, W); H = Math.max(0, H);
-  if (W < H * 1.2) {
-    // The short form keeps 44 px squares, two records and a pinned action below the board.
-    // Decision 127: the tall form needs 760 px and 44 px squares (or the width that limits both forms). A 390x844 iPhone
-    // in the app has a 390x763 box after its safe areas: tall rows give 41 px squares there, so it takes the compact rows.
-    const sized = (f: Form) => { const r = ROWS[f]; return fit(H - r.opp - r.scroll - r.reader - r.own - r.fin, W - 8); };
-    const form: Form = H >= 760 && sized('tall') >= Math.min(8 * 44, sized('compact')) ? 'tall' : 'compact', rows = ROWS[form];
-    const narrow = W - 8 < ONE_ROW;
-    // The board keeps its size in every game type; Pieces only gives the resource rows to the reader and keeps the board in place.
-    const board = sized(form), head = clearance(board);
-    const ownRows = setup === 'pieces' ? 0 : 1, own = ownRows * rows.own, col = Math.max(board, Math.min(W - 8, ONE_ROW));
-    return { kind: 'stack', form, W, H, board, head, gap: 0, col, opp: rows.opp, scroll: rows.scroll, own, fin: rows.fin, reader: H - rows.opp - rows.scroll - own - rows.fin - head - board,
-      railTop: 0, railH: 0, ownRows, narrow, boardX: (W - board) / 2, boardY: rows.opp + head };
+export function gameLayout(W: number, H: number, _setup: Setup): GameLayout {
+  if (W < H * 1.25) {
+    const compact = H < 760, form = compact ? 'compact' : 'tall';
+    const scale = compact ? 1 : Math.min(1.2, Math.max(1, Math.min(W / 390, H / 844)));
+    const opp = compact ? 48 : 60, reader = compact ? 60 : 76, fin = compact ? 48 : 56;
+    const own = Math.round(compact ? 90 : 110 * scale);
+    const top = compact ? 2 : 6, bottom = compact ? 6 : 16;
+    const toBoard = compact ? 17 : 20, toReader = compact ? 6 : 12;
+    const toHand = compact ? 3 : 18, toActions = compact ? 8 : 14;
+    const fixed = top + opp + toBoard + toReader + reader + toHand + own + toActions + fin + bottom;
+    const edge = compact && W <= 375 ? 8 : 16;
+    const board = Math.max(8, Math.min(W - edge, 640, H - fixed));
+    const spare = Math.max(0, H - fixed - board);
+    const railTop = top + Math.round(spare / 2), boardY = railTop + opp + toBoard;
+    const actionY = H - bottom - fin;
+    const col = Math.min(W - 24, Math.max(0, board - 16));
+    return { kind: 'stack', form, W, H, board, col, gap: 0, opp, reader, own, fin, railTop, railH: H,
+      boardX: (W - board) / 2, boardY, readerY: boardY + board + toReader + Math.floor(spare / 2),
+      handY: actionY - toActions - own, actionY };
   }
-  // Rail. The board takes the height less the margins, and leaves 320 px for the rail; the rail can give way to 280 px so that
-  // the squares stay 44 px. The board stops at 960 px and the group is centred.
-  const side = H < 600, gap = side ? 16 : 32, edge = 8;
-  const margin = side ? 2 : Math.min(37.5, Math.max(4, (H - 600) / 8));
-  const board = fit(H - 2 * margin, Math.min(960, Math.max(W - 320 - gap - edge, Math.min(8 * 44, W - 280 - gap - edge))));
-  const head = clearance(board), rail = Math.min(440, W - board - gap - edge);
-  const form: Form = side ? 'compact' : rail >= 400 && H >= 700 ? 'wide' : 'tall', narrow = rail < ONE_ROW;
-  const ownRows = setup === 'pieces' ? 0 : 1;
-  const own = ownRows * ROWS[form].own, { opp, scroll, fin } = ROWS[form];
-  // The rail has the height of the board and its clearance; it grows to the whole height when the reader needs more.
-  const railH = Math.max(head + board, Math.min(H - 2 * margin, opp + scroll + own + fin + ROWS[form === 'compact' ? 'compact' : 'tall'].reader));
-  const left = (W - (board + gap + rail)) / 2;
-  return { kind: 'rail', form, W, H, board, head, gap, col: rail, opp, scroll, own, fin, reader: railH - opp - scroll - own - fin, railTop: (H - railH) / 2, railH, ownRows, narrow, boardX: left, boardY: (H - head - board) / 2 + head };
+  const compact = H < 640;
+  const opp = compact ? 48 : 60, reader = compact ? 60 : 76, own = compact ? 90 : 124, fin = compact ? 48 : 56;
+  const gap = compact ? 22 : 56;
+  const board = Math.max(8, Math.min(704, H - (compact ? 32 : 112), W - gap - (compact ? 256 : 370)));
+  const col = Math.min(380, W - board - gap - 32);
+  const free = W - board - gap - col, boardX = compact ? free / 2 : Math.max(16, free * .773);
+  const boardY = compact ? 24 : (H - board) / 2, actionY = boardY + board - fin;
+  const handY = actionY - (compact ? 10 : 18) - own;
+  const readerY = compact ? boardY + opp + 10 : boardY + opp + 26;
+  return { kind: 'rail', form: compact ? 'compact' : 'wide', W, H, board, col, gap, opp, reader, own, fin,
+    railTop: boardY, railH: board, boardX, boardY, readerY, handY, actionY };
 }

@@ -12,9 +12,11 @@ vi.mock('../../platform', async importOriginal => ({ ...await importOriginal<typ
 const source = (name: string) => readFileSync(`src/interface/${name}`, 'utf8');
 
 it('keeps settings order and omits Motion speed from the game Menu', () => {
-  expect(SETTING_ORDER).toEqual(['pieces', 'hand', 'coords', 'sound', 'motion']);
+  expect(SETTING_ORDER).toEqual(['pieces', 'hand', 'coords', 'sound', 'vibration', 'motion']);
+  expect(menuText.vibration).toBe('Vibration');
   // Both places take their rows from the one control set; the Menu adds no row of its own.
   const menus = source('play/menus.ts');
+  expect(menus).toContain('group(menuText.soundMotion, c.sound, c.vibration, c.motion)');
   expect(menus.match(/controls\(s, /g)).toHaveLength(2);
   expect(menus).toMatch(/SETTING_ORDER\.filter\(name => name !== 'motion'\)\.map\(name => c\[name\]\)/);
 });
@@ -26,14 +28,14 @@ it('iOS need P1: the About links use the public origin', () => {
   ]);
   expect(menuText.saved).toBe('Your game stays saved.');
 });
-it('owner playtest: true level lines and "Your pieces"', () => {
+it('owner playtest: true level lines and "Your side"', () => {
   expect(homeText.levels).toEqual({
     casual: 'The easiest level. A good level for a first game.',
     clever: 'Much stronger than Friendly. It makes some mistakes.',
     club: 'The strongest level. Much stronger than Focused.',
   });
   expect(Object.values(homeText.levels).join(' ')).not.toMatch(/mistakes often/);
-  expect(homeText.side).toBe('Your pieces');
+  expect(homeText.side).toBe('Your side');
   expect(source('play/home.ts')).not.toContain('home-person');
   expect(summaryLine({ level: 'clever', setup: 'both', sideChoice: 'random' })).toBe('Focused · With powers and cards · Light');
 });
@@ -65,18 +67,15 @@ it('launch decision 45: home does not wait for the board code or the symbol file
 });
 it('keeps the hero action in the first view of a short screen after the wide hero rule', () => {
   const menus = source('play/menus.css');
-  const shortHero = menus.slice(menus.indexOf('@media (min-width: 600px) { .home-hero'));
-  expect(shortHero).toMatch(/@media \(max-height: 499px\) \{\s*\.home-hero \{ max-height: calc\(100dvh - var\(--safe-top\) - var\(--safe-bottom\) - var\(--bar-phone\) - 80px\);/);
+  expect(menus).toMatch(/@media \(min-aspect-ratio: 5\/4\)[^]*?\.home-hero\s*\{[^}]*max-height: calc\(100dvh - var\(--daylight-bar\) - 16px\)/);
 });
-it('iOS needs P2, P4 and P5, and the 56 px phone bar of decision 30', () => {
-  const components = source('ui/components.css'), menus = source('play/menus.css'), tokens = source('ui/tokens.css');
+it('iOS needs P2, P4 and P5, and the 64 px Daylight bar', () => {
+  const components = source('ui/components.css'), shell = source('play/shell.css'), tokens = source('ui/tokens.css');
   expect(components).toMatch(/html\s*\{[^}]*-webkit-text-size-adjust:\s*100%/);
   expect(components).toMatch(/-webkit-touch-callout:\s*none/);
   expect(components).toMatch(/user-select:\s*none/);
   expect(tokens).toMatch(/--safe-top:\s*env\(safe-area-inset-top/);
-  expect(tokens).toMatch(/--bar-phone:\s*56px/);
-  // The wide top bar pads by the top safe area.
-  expect(menus).toMatch(/\.shell-nav\s*\{[^}]*padding:\s*var\(--safe-top\)/);
-  // The bar's top line is part of its 56 px.
-  expect(menus).toMatch(/\.shell-nav a\s*\{[^}]*min-height:\s*calc\(var\(--bar-phone\) - 1px\)/);
+  expect(shell).toMatch(/--daylight-bar:\s*64px/);
+  expect(shell).toMatch(/\.shell-nav\s*\{[^}]*padding:\s*var\(--safe-top\)/);
+  expect(shell).toMatch(/\.shell-nav a\s*\{[^}]*min-height:\s*calc\(var\(--daylight-bar\) - 1px\)/);
 });

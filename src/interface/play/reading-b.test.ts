@@ -82,9 +82,8 @@ describe('touch, pointer and safe areas (decision 35)', () => {
     expect(main).toMatch(/fit\.observe\(screen\)/);
     expect(main).toMatch(/gameLayout\(screen\.clientWidth, screen\.clientHeight,/);
   });
-  it('Escape cancels an armed card or power and closes a panel', () => {
+  it('Escape cancels an armed card or power', () => {
     const handler = main.slice(main.indexOf("if (event.key !== 'Escape') return;"), main.indexOf('function key(event'));
-    expect(handler).toContain("if (reading === 'rule') { event.preventDefault(); closeLearning(); return; }");
     expect(handler).toContain('draft.armed = null');
     expect(handler).toContain('cancelLine(cancelled.subject.kind)');
   });
@@ -97,12 +96,10 @@ it('online action content takes the shared area before it renders', () => {
   expect(update).toMatch(/readerActive = String\([^;]*actions\?\.childElementCount/);
   expect(update).toContain('renderReader(actions)');
 });
-it('the scroll stays below the board and outside the reader at rest and during an action', () => {
-  expect(main).toContain('screen.append(opponent, boardBox, historyStrip, reader, mine, controls.element');
-  expect(css).toContain('top: calc(var(--board-y) + var(--board));');
-  expect(css).toContain('top: calc(var(--board-y) + var(--board) + var(--scroll));');
-  expect(css).not.toContain('[data-shared-reader');
-  expect(css).not.toMatch(/play-history-strip \{ display: none/);
+it('keeps the last three moves in the rail and hides the turn scroll on a phone', () => {
+  expect(main).toContain('groups.flatMap(group => group.lines).slice(0, 3)');
+  expect(css).toContain(".play-game[data-layout='portrait'] .play-history-strip { display: none; }");
+  expect(css).toContain("top: var(--reader-y); height: var(--reader);");
 });
 it('removes the Effects control and its panel opener, and keeps the effect data functions', () => {
   expect(main).not.toMatch(/effectsButton|play-effects-toggle|toggleScroll\('effects'/);

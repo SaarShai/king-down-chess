@@ -1,5 +1,7 @@
 /** Board sounds and the approved character samples. */
 import { P, N, B, R, A, L, G, M, S, O, K, type KingName } from '../rules/engine';
+import type { SoundName, SoundOptions } from '../interface/play/fx';
+
 declare const __KINGDOWN_ARMOUR_MODULE__: string;
 let ctx: AudioContext | null = null;
 let enabled = true;
@@ -59,10 +61,18 @@ const selectionSamples: Partial<Record<number, Sample>> = {
   [S]: 'beastSelect', [O]: 'ogreSelect',
 };
 const selections = new Set<SamplePlayback>();
+const selectionSample = (type: number, king?: KingName): Sample | undefined =>
+  type === K && king ? kingSamples[king].select : selectionSamples[type];
+
+function playSelection(sample: Sample, options?: SoundOptions): void {
+  const cue = playArmour(sample, false, options);
+  selections.add(cue);
+  void cue.done.then(() => selections.delete(cue));
+}
+
 export function selectPieceSound(type: number, king?: KingName): void {
-  const sound = type === K && king ? kingSamples[king].select : selectionSamples[type];
-  if (!sound) return;
-  const cue = playArmour(sound); selections.add(cue); void cue.done.then(() => selections.delete(cue));
+  const sample = selectionSample(type, king);
+  if (sample) playSelection(sample);
 }
 /** Stop the selection cues that play or still load. */
 export function stopSelection(): void { for (const cue of selections) cue.cancel(); selections.clear(); }
@@ -104,7 +114,7 @@ function loadSample(c: AudioContext, name: Sample): Promise<AudioBuffer> {
 
 export interface SamplePlayback { cancel(): void; finish(): void; done: Promise<void> }
 /** Skip a late load so a sound cannot play after its action or after Sound is switched off. */
-export function playArmour(name: Sample, loop = false): SamplePlayback {
+export function playArmour(name: Sample, loop = false, { pitch = 1, volume = 1 } = {}): SamplePlayback {
   let cancelled = false, stopping = false, finishing = false, source: AudioBufferSourceNode | undefined, gain: GainNode | undefined;
   let resolveDone!: () => void; const done = new Promise<void>(resolve => { resolveDone = resolve; });
   const cancel = () => {
@@ -128,8 +138,10 @@ export function playArmour(name: Sample, loop = false): SamplePlayback {
     if (cancelled || !enabled || generation !== soundGeneration || c.state !== 'running' || hidden()) { resolveDone(); return; }
     source = c.createBufferSource(); source.buffer = buffer; source.loop = loop && !finishing;
     const exact = name === 'rookMove' || name === 'guardSelect' || name === 'guardMove' || name === 'maesterMove' || name === 'ogreMove' || name.includes('King');
-    source.playbackRate.value = exact ? 1 : 1 + (Math.random() - .5) * .06;
-    if (loop || name === 'bishopMove') { gain = c.createGain(); gain.connect(c.destination); }
+    source.playbackRate.value = pitch * (exact ? 1 : 1 + (Math.random() - .5) * .06);
+    if (loop || name === 'bishopMove' || volume !== 1) {
+      gain = c.createGain(); gain.gain.value = volume; gain.connect(c.destination);
+    }
     source.connect(gain ?? c.destination);
     const active = source; source.onended = () => { playingSamples.delete(active); gain?.disconnect(); resolveDone(); };
     source.start(); playingSamples.add(source);
@@ -150,27 +162,28 @@ function noiseBuffer(c: BaseAudioContext): AudioBuffer {
   return b;
 }
 
-/** A gain envelope: a 4 ms attack to `peak`, then an exponential fall over `dur` seconds. */
-function envelope(c: BaseAudioContext, out: AudioNode, t: number, dur: number, peak: number): GainNode {
+/** A gain envelope with a 4 ms attack unless the recipe gives a linear attack time. */
+function envelope(c: BaseAudioContext, out: AudioNode, t: number, dur: number, peak: number, attack?: number): GainNode {
   const g = c.createGain();
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(peak, t + 0.004);
+  if (attack === undefined) g.gain.exponentialRampToValueAtTime(peak, t + 0.004);
+  else g.gain.linearRampToValueAtTime(peak, t + attack);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   g.connect(out);
   return g;
 }
 
-function tone(c: BaseAudioContext, out: AudioNode, t: number, dur: number, peak: number, from: number, to = from, type: OscillatorType = 'sine'): void {
+function tone(c: BaseAudioContext, out: AudioNode, t: number, dur: number, peak: number, from: number, to = from, type: OscillatorType = 'sine', attack?: number): void {
   const o = c.createOscillator();
   o.type = type;
   o.frequency.setValueAtTime(from, t);
   if (to !== from) o.frequency.exponentialRampToValueAtTime(to, t + dur);
-  o.connect(envelope(c, out, t, dur, peak));
+  o.connect(envelope(c, out, t, dur, peak, attack));
   o.start(t);
   o.stop(t + dur + 0.02);
 }
 
-function noise(c: BaseAudioContext, out: AudioNode, t: number, dur: number, peak: number, filter: BiquadFilterType, from: number, to = from, q = 1): void {
+function noise(c: BaseAudioContext, out: AudioNode, t: number, dur: number, peak: number, filter: BiquadFilterType, from: number, to = from, q = 1, attack?: number): void {
   const s = c.createBufferSource();
   s.buffer = noiseBuffer(c);
   const f = c.createBiquadFilter();
@@ -178,17 +191,17 @@ function noise(c: BaseAudioContext, out: AudioNode, t: number, dur: number, peak
   f.Q.value = q;
   f.frequency.setValueAtTime(from, t);
   if (to !== from) f.frequency.exponentialRampToValueAtTime(to, t + dur);
-  s.connect(f).connect(envelope(c, out, t, dur, peak));
+  s.connect(f).connect(envelope(c, out, t, dur, peak, attack));
   s.start(t);
   s.stop(t + dur + 0.02);
 }
 
-type Sound = (c: BaseAudioContext, out: AudioNode, t: number) => void;
+type Sound = (c: BaseAudioContext, out: AudioNode, t: number, pitch?: number) => void;
 
 /** Each sound draws on (context, destination, start time), so tools can render them offline. */
 export const SOUNDS: Record<'move' | 'capture' | 'check' | 'shove' | 'shot' | 'chain' | 'swap', Sound> = {
   // A piece set down on stone: a short knock and a low body.
-  move: (c, o, t) => { noise(c, o, t, 0.05, 1, 'bandpass', 1700, 1700, 2.5); tone(c, o, t, 0.07, 0.3, 210, 170); },
+  move: (c, o, t, pitch = 1) => { noise(c, o, t, 0.05, 1, 'bandpass', 1700 * pitch, 1700 * pitch, 2.5); tone(c, o, t, 0.07, 0.3, 210 * pitch, 170 * pitch); },
   // A heavier blow: low thump, dull crunch, and the knock.
   capture: (c, o, t) => { tone(c, o, t, 0.22, 0.55, 150, 55); noise(c, o, t, 0.16, 0.35, 'lowpass', 1200, 300); noise(c, o, t, 0.04, 0.3, 'bandpass', 1500, 1500, 2); },
   // One low note: a falling triangle with a quiet upper partial.
@@ -203,14 +216,104 @@ export const SOUNDS: Record<'move' | 'capture' | 'check' | 'shove' | 'shot' | 'c
   swap: (c, o, t) => { noise(c, o, t, 0.3, 1.2, 'bandpass', 400, 1800, 1.5); },
 };
 
-function play(sound: Sound): void {
+function play(sound: Sound, pitch = 1, volume = 1): void {
   const c = audio();
   if (!c) return;
   void c.resume().catch(() => {}); // A browser may keep audio locked until the next gesture.
   if (!synthOutput) { synthOutput = c.createGain(); synthOutput.connect(c.destination); }
-  sound(c, synthOutput, c.currentTime + 0.005);
+  let out = synthOutput;
+  if (volume !== 1) {
+    out = c.createGain(); out.gain.value = volume; out.connect(synthOutput);
+  }
+  sound(c, out, c.currentTime + 0.005, pitch);
 }
 
 export const snd = Object.fromEntries(
   Object.entries(SOUNDS).map(([name, sound]) => [name, () => play(sound)]),
 ) as Record<keyof typeof SOUNDS, () => void>;
+
+function bell(c: BaseAudioContext, out: AudioNode, t: number, hz: number, peak: number, decay: number): void {
+  for (const [i, [ratio, gain]] of [[1, 1], [2.76, .45], [5.4, .22], [8.93, .1]].entries()) {
+    tone(c, out, t, .002 + decay / (1 + .7 * i), peak * gain, hz * ratio, hz * ratio, 'sine', .002);
+  }
+}
+
+type DaylightSource = Sound | { standIn: Sound } | {
+  sample(options: SoundOptions): Sample | undefined;
+  fallback?: Sound;
+} | null;
+
+let landB = false;
+function landingSample({ piece }: SoundOptions): Sample | undefined {
+  if (piece !== N) return;
+  landB = !landB;
+  return landB ? 'knightLandA' : 'knightLandB';
+}
+
+/** Replace each stand-in with an approved recording when it is ready. */
+const daylightSounds: Record<SoundName, DaylightSource> = {
+  mark: { sample: ({ piece, king }) => piece === undefined ? undefined : selectionSample(piece, king) },
+  knock: { sample: landingSample, fallback: SOUNDS.move },
+  impact: SOUNDS.capture,
+  check: SOUNDS.check,
+  tick: { standIn: (c, o, t, p = 1) => {
+    noise(c, o, t, .021, .10, 'highpass', 3200, 3200, 1, .003);
+    tone(c, o, t, .034, .08, 1500 * p, 1100 * p, 'sine', .004);
+  } },
+  press: { standIn: (c, o, t, p = 1) => {
+    tone(c, o, t, .074, .34, 170 * p, 95, 'sine', .004);
+    noise(c, o, t, .033, .14, 'lowpass', 900, 900, 1, .003);
+  } },
+  ting: { standIn: (c, o, t, p = 1) => {
+    bell(c, o, t, 990 * p, .17, .55);
+    bell(c, o, t + .045, 1320 * p, .09, .4);
+    noise(c, o, t, .023, .06, 'highpass', 5000, 5000, 1, .003);
+  } },
+  clink: { standIn: (c, o, t, p = 1) => {
+    bell(c, o, t, 1650 * p, .09, .16);
+    noise(c, o, t, .015, .07, 'highpass', 4000, 4000, 1, .003);
+  } },
+  pass: { standIn: (c, o, t, p = 1) => {
+    noise(c, o, t, .26, .07, 'bandpass', 1800, 4200, 3, .06);
+    tone(c, o, t + .02, .27, .07, 660 * p, 990 * p, 'sine', .05);
+  } },
+  arrive: { standIn: (c, o, t, p = 1) => bell(c, o, t, 780 * p, .1, .35) },
+  fire: { standIn: (c, o, t) => {
+    noise(c, o, t, .56, .34, 'lowpass', 260, 1100, 1, .06);
+    for (let i = 0; i < 7; i++) {
+      const hz = 1500 + Math.random() * 2500;
+      noise(c, o, t + .08 + Math.random() * .45, .015, .16, 'bandpass', hz, hz, 4, .003);
+    }
+  } },
+  rewind: { standIn: (c, o, t, p = 1) => {
+    tone(c, o, t, .23, .12, 880 * p, 300 * p, 'triangle', .01);
+    noise(c, o, t, .22, .08, 'bandpass', 3000, 700, 2, .02);
+  } },
+  no: { standIn: (c, o, t, p = 1) => {
+    tone(c, o, t, .074, .26, 150 * p, 110, 'sine', .004);
+    tone(c, o, t + .085, .094, .24, 124 * p, 92, 'sine', .004);
+  } },
+  lift: { standIn: (c, o, t, p = 1) => {
+    noise(c, o, t, .09, .07, 'bandpass', 1400 * p, 2600 * p, 1.5, .02);
+    tone(c, o, t, .09, .05, 520 * p, 700 * p, 'sine', .01);
+  } },
+  whoosh: null,
+  wind: null,
+  ice: null,
+};
+
+export function playDaylightSound(name: SoundName, options: SoundOptions = {}): void {
+  const source = daylightSounds[name];
+  const { volume = 1, pitch = 1 } = options;
+  if (!enabled || !source || volume <= 0 || hidden()) return;
+  if (typeof source === 'function') play(source, pitch, volume);
+  else if ('standIn' in source) {
+    const variation = 2 ** ((Math.random() - .5) * 70 / 1200);
+    play(source.standIn, pitch * variation, volume * .5);
+  } else {
+    const sample = source.sample(options);
+    if (sample && name === 'mark') playSelection(sample, options);
+    else if (sample) playArmour(sample, false, options);
+    else if (source.fallback) play(source.fallback, pitch, volume);
+  }
+}

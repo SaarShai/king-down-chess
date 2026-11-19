@@ -34,8 +34,11 @@ it('a tap on a piece with no legal action names that fact (check "play" fault 12
 });
 
 it('the first-time step of a free power or card says what is possible next (reading decision 20; check "code" fault 2)', () => {
-  const free: LearnSubject[] = [{ kind: 'power', id: 'Freeze' }, { kind: 'power', id: 'IceWall' }, { kind: 'card', id: 'Firewall' }];
+  const free: LearnSubject[] = [{ kind: 'power', id: 'IceWall' }, { kind: 'card', id: 'Firewall' }];
   for (const subject of free) expect(stepLine(subject), JSON.stringify(subject)).toMatch(/ Then move a piece, or select End turn\.$/);
+  for (const kind of ['power', 'card'] as const) {
+    expect(stepLine({ kind, id: 'Freeze' })).toBe('Tap a frosted square. Move or tap End turn.');
+  }
 });
 
 it('the reading area has no dead rules or probes (check "code" fault 5)', () => {
