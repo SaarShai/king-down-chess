@@ -1500,4 +1500,7 @@ it('checks the launch root against the new page and keeps the old online page by
   const wrong = await site(() => files, { path: '/play', status: 200, type: 'text/html', body: files['next.html'] });
   const refused = await check(buildFolder(files), wrong.url, 0);
   expect(refused.status).toBe(1); expect(refused.stderr).toContain('play (app page)');
+  // A build with the invite page: /j must serve it, not the old page.
+  const invite = await check(buildFolder({ ...files, 'join.html': '<!doctype html><title>Join</title>' }), live.url, 0);
+  expect(invite.status).toBe(1); expect(invite.stderr).toContain('j (app page)');
 });
