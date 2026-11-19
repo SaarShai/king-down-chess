@@ -2,7 +2,7 @@
   "appId": "dev.kingdown.app",
   "appName": "King Down",
   "webDir": "dist",
-  "backgroundColor": "#f7f5ed",
+  "backgroundColor": "#f5f0e4",
   "ios": {
     "allowsLinkPreview": false
   }

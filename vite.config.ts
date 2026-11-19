@@ -88,7 +88,7 @@ function offlineBuild(): Plugin {
       if (launch) {
         writeFileSync(join(outDir, 'solo-launch.json'), JSON.stringify({ soloLaunch: true }) + '\n');
         const manifest = JSON.parse(readFileSync(join(outDir, 'manifest.webmanifest'), 'utf8'));
-        Object.assign(manifest, { name: 'King Down', description: 'Chess with new pieces, king powers and cards. Play on this device, or play a person online.', background_color: '#f7f5ed', theme_color: '#f7f5ed' });
+        Object.assign(manifest, { name: 'King Down', description: 'Chess with new pieces, king powers and cards. Play on this device, or play a person online.', background_color: '#f5f0e4', theme_color: '#f5f0e4' });
         writeFileSync(join(outDir, 'manifest.webmanifest'), JSON.stringify(manifest, null, 2) + '\n');
       }
       const files = walk(outDir).map(path => relative(outDir, path).split(sep).join('/')).filter(f => f !== 'sw.js' && !f.startsWith('.well-known/')).sort();

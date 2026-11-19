@@ -1,45 +1,53 @@
 /* Change the tokens here. Components use semantic tokens only. One light theme (docs/specs/interface-move). */
-@font-face { font-family: Table; src: url('/fonts/alegreya-sans-bold-latin.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: Cinzel; src: url('/fonts/cinzel-latin.woff2') format('woff2'); font-weight: 400 900; font-display: swap; }
+@font-face { font-family: 'Alegreya Sans'; src: url('/fonts/alegreya-sans-regular-latin.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Alegreya Sans'; src: url('/fonts/alegreya-sans-italic-latin.woff2') format('woff2'); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Alegreya Sans'; src: url('/fonts/alegreya-sans-bold-latin.woff2') format('woff2'); font-weight: 700; font-display: swap; }
 :root {
   /* Materials: brass is the one main action; enamel is a power. */
-  --main-fill: linear-gradient(180deg, #ffe1a0 0%, #edc575 55%, #d8a552 100%);
-  --main-ink: #322817;
-  --main-depth: inset 0 1px 0 #fff0ca, inset 0 -3px 0 #a87935, 0 4px 8px #05171d66;
-  --power-fill: linear-gradient(170deg, #c7f5ef, #9ac6cd);
-  --power-ink: #163d46;
-  --power-depth: inset 0 1px #efffef, inset 0 -3px #638e9e, 0 3px 6px #05171d73;
-  --rival-fill: linear-gradient(170deg, #ffd2bd, #e9a487);
-  --rival-ink: #3d1c10;
-  --rival-depth: inset 0 1px #fff3ea, inset 0 -3px #b86e52, 0 2px 4px #05171d73;
-  --card-edge: inset 0 0 0 1px #c1aa78, inset 0 -3px #806b45, 0 3px 6px #05171d73;
-  --paper-50: #f7f5ed;
-  --paper-0: #fffdf7;
-  --ink-900: #262e2c;
-  --sage-700: #62685e;
-  --sage-500: #798071;
-  --sage-100: #e9ece1;
-  --rust-700: #a9442e;
+  --main-fill: linear-gradient(180deg, #efd18a, #ebcb80 18%, var(--brass));
+  --main-ink: var(--ink-900);
+  --main-depth: var(--elevation-panel);
+  --main-edge: #604a2b;
+  --main-disabled-fill: linear-gradient(#efe3c4, #dcc8a0);
+  --selection-fill: color-mix(in srgb, var(--paper-50), var(--brass) 22%);
+  --selection-line: color-mix(in srgb, var(--ink-900), var(--brass) 50%);
+  --power-fill: #2f6f73;
+  --power-ink: var(--paper-0);
+  --power-depth: var(--elevation-panel);
+  --rival-fill: var(--rust-100);
+  --rival-ink: var(--ink-900);
+  --rival-depth: var(--elevation-panel);
+  --card-edge: inset 0 0 0 1px var(--border), var(--elevation-panel);
+  --paper-50: #f5f0e4;
+  --paper-0: #fbf8f0;
+  --paper-tint: radial-gradient(ellipse at top, #fffaf0 0%, transparent 65%);
+  --ink-900: #2a2622;
+  --sage-700: #6b6257;
+  --sage-500: #8b7652;
+  --sage-100: #ede8dc;
+  --rust-700: #a6402f;
   --rust-100: #f5e4da;
-  --blue-700: #235cbb;
-  --blue-100: #e5edf9;
+  --blue-700: #2e5d60;
+  --blue-100: #e2ecef;
   --white: #ffffff;
-  --red-800: #9d292e;
-  --red-100: #ffe9e7;
+  --red-800: var(--rust-700);
+  --red-100: #f5e1dc;
   --green-800: #245c3c;
   --green-100: #e1efdf;
   --unit: .25rem;
-  --font-reading: 'Avenir Next', Avenir, 'Segoe UI', sans-serif;
-  --font-title: Table, Georgia, 'Times New Roman', serif;
-  --type-small: .9375rem;
+  --font-reading: 'Alegreya Sans', 'Gill Sans', system-ui, sans-serif;
+  --font-title: Cinzel, 'Trajan Pro', 'Times New Roman', serif;
+  --type-small: .8125rem;
   --type-body: 1rem;
   --type-label: 1.125rem;
-  --type-heading: 1.75rem;
-  --type-display: clamp(2.5rem, 5vw, 4rem);
-  --leading: 1.5;
+  --type-heading: 1.5rem;
+  --type-display: clamp(1.875rem, 4vw, 2.5rem);
+  --leading: 1.4;
   --leading-title: 1.15;
   --weight-normal: 400;
-  --weight-strong: 650;
-  --tracking-title: -.025em;
+  --weight-strong: 700;
+  --tracking-title: .025em;
   --space-1: var(--unit);
   --space-2: calc(var(--unit) * 2);
   --space-3: calc(var(--unit) * 3);
@@ -48,8 +56,8 @@
   --space-8: calc(var(--unit) * 8);
   --space-12: calc(var(--unit) * 12);
   --radius-control: .75rem;
-  --radius-surface: .875rem;
-  --radius-chip: .375rem;
+  --radius-surface: 1rem;
+  --radius-chip: .5625rem;
   --radius-round: 999px;
   --line-width: 1px;
   --line-selected: 2px;
@@ -66,7 +74,7 @@
   --ease-out: cubic-bezier(.16, 1, .3, 1);
   --ease-linear: linear;
   --travel-panel: 1.5rem;
-  --elevation-panel: 0 12px 32px #17282026;
+  --elevation-panel: 0 1px 0 #2a26220f, 0 8px 18px -10px #3c280a47;
   --elevation-none: none;
   --panel-max: 30rem;
   --content-max: 80rem;
@@ -101,7 +109,7 @@
   /* The shell: the phone bar, the top bar from 900 px, and the brass of the bar marker (motion spec: gold). */
   --bar-phone: 56px;
   --bar-top: 72px;
-  --brass: #d8a552;
+  --brass: #c9973f;
   --tab-mark-width: 32px;
 }
 :root {
@@ -110,9 +118,9 @@
   --surface-raised: var(--paper-0);
   --surface-muted: var(--sage-100);
   --text: var(--ink-900);
-  --text-muted: #535b50;
-  --border: #747d70;
-  --divider: #c6cbbd;
+  --text-muted: var(--sage-700);
+  --border: var(--sage-500);
+  --divider: rgba(42, 38, 34, .14);
   --action: var(--rust-700);
   --on-action: var(--white);
   --action-soft: var(--rust-100);
@@ -122,9 +130,9 @@
   --danger-soft: var(--red-100);
   --success: var(--green-800);
   --success-soft: var(--green-100);
-  --focus-ring: var(--blue-700);
-  --art-ground: #d7e0d9;
+  --focus-ring: var(--power-fill);
+  --art-ground: #ebe2d0;
   --symbol-ground: var(--white);
-  --scrim: #151e2466;
-  --raise: inset 0 1px 0 #ffffff, inset 0 -2px 0 #c9ccbf;
+  --scrim: rgba(50, 37, 22, .24);
+  --raise: var(--elevation-panel);
 }

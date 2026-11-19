@@ -521,13 +521,14 @@ it('vercel check scans runtime image bytes for metadata', () => {
 it('adds both public pages and the interface graph only for the solo launch', () => {
   const { bundle, files } = fixture();
   const next = chunk('assets/next-page.js', join(root, 'src/interface/entry.ts'), [], ['assets/new-main.js']);
+  const fonts = ['cinzel', 'alegreya-sans-regular', 'alegreya-sans-italic', 'alegreya-sans-bold'].map(name => `fonts/${name}-latin.woff2`);
   bundle[next.fileName] = next;
   bundle['assets/new-main.js'] = chunk('assets/new-main.js', join(root, 'src/interface/play/main.ts'), [], [], ['assets/new-main.css']);
   bundle['assets/new-main.css'] = asset('assets/new-main.css');
-  files.push('next.html', next.fileName, 'assets/new-main.js', 'assets/new-main.css', 'browser-support.js', 'interface/stone-refined-light.webp');
+  files.push('next.html', next.fileName, 'assets/new-main.js', 'assets/new-main.css', 'browser-support.js', 'interface/stone-refined-light.webp', ...fonts);
   expect(offlineCacheFiles(bundle, root, files).allowlist).not.toContain('next.html');
   const { allowlist, precache } = offlineCacheFiles(bundle, root, files, true);
-  for (const file of ['index.html', 'next.html', next.fileName, 'assets/new-main.js', 'assets/new-main.css', 'browser-support.js', 'interface/stone-refined-light.webp']) {
+  for (const file of ['index.html', 'next.html', next.fileName, 'assets/new-main.js', 'assets/new-main.css', 'browser-support.js', 'interface/stone-refined-light.webp', ...fonts]) {
     expect(allowlist, file).toContain(file); expect(precache, file).toContain(file);
   }
   for (const file of ['assets/account.js', 'assets/private-runtime.js', 'auth/callback.html']) expect(allowlist).not.toContain(file);
