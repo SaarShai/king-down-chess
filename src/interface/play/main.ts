@@ -94,6 +94,8 @@ const loadBoardCode = () => { if (!skinLoad) { skinLoad = new Image(); skinLoad.
       if (!sound) return;
       if (name === 'mark' && options?.piece != null) s.selectPieceSound(options.piece, options.king);
       else if (name === 'check') s.snd.check();
+      else if (name === 'impact') s.snd.capture();
+      else if (name === 'knock') s.snd.move();
     }); }, error => { codeLoad = undefined; codeFailed = true; throw error; }); };
 // Sound unlocks on the first press after the sound code is loaded.
 const unlock = () => { if (sound && sfx) { sfx.unlockSound(); document.removeEventListener('pointerdown', unlock, true); document.removeEventListener('keydown', unlock, true); } };
@@ -648,8 +650,20 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   if (fromHome) { root.querySelectorAll('.play-game').forEach(node => node.remove()); screen.style.visibility = 'hidden'; root.append(screen); }
   else root.replaceChildren(screen);
   const onArtError = () => { if (host === boardHost && document.body.dataset.page === 'game') artFailed(generation); };
-  const boardOptions = { liveInput: true, quiet: true, plainMarks: true, daylight: true, initialBoardArt: skinUrl, onArtError,
-    sceneHooks: { onKingImpact: () => { if (endResult) { cue('knock', { pitch: .7 }); pulse('medium'); } } } };
+  const boardOptions = {
+    liveInput: true, quiet: true, plainMarks: true, daylight: true, initialBoardArt: skinUrl, onArtError,
+    sceneHooks: {
+      hold,
+      onCaptureContact: (square: number, animated: boolean) => {
+        const victim = playingAction?.before.board[square];
+        if (!victim) return false;
+        cue('impact');
+        if (animated) { shake(seatRings[colorOf(victim) === player ? 0 : 1], { amplitude: 4, ms: 260 }); pulse('medium'); }
+        return true;
+      },
+      onKingImpact: () => { if (endResult) { cue('knock', { pitch: .7 }); pulse('medium'); } },
+    },
+  };
   const view = keep ?? boardCode!.mountBoard(host, tap, boardOptions);
   board = view;
   setPauseHook(paused => {
