@@ -101,3 +101,12 @@ export function fitReader(box: HTMLElement, m: ReaderModel) {
   const primary = box.querySelector<HTMLElement>('.play-primary'), secondary = box.querySelector<HTMLElement>('.play-secondary');
   while (primary && secondary && primary.childElementCount > 1 && primary.scrollHeight > primary.clientHeight + 1) secondary.prepend(primary.lastElementChild!);
 }
+
+/** The narrator has one headline and one rule or instruction. */
+export function narratorView(m: ReaderModel, nodes: ReaderNodes): HTMLElement {
+  const title = m.title || m.state;
+  nodes.title.textContent = title;
+  const line = m.primary[0] ?? m.secondary[0];
+  const tools = div('play-narr-tools', ...m.headTools);
+  return div('play-narrator', div('play-narr-copy', headline({ ...m, isNew: false }, nodes), line), tools);
+}

@@ -1,3 +1,5 @@
+import { burst, ease, onFrame, pulse, reducedMotion, sound, Spring, tween, type Effect } from "./fx";
+
 // Interface motion: the owner's choices (runs/motion/decisions.md) with the values of runs/motion/motion-spec.md.
 // Durations and the plain curves are tokens in ui/tokens.css. The spring, heavy and back curves come from the
 // formulas of labs/motion2/lab.js:64-71 and go on :root as CSS linear() tokens, so CSS and JS share them.
@@ -49,7 +51,7 @@ const sealed = new WeakSet<HTMLElement>();
 function press(event: PointerEvent) {
   if (event.button !== 0) return;
   const el = (event.target as Element).closest<HTMLElement>('.kd-button, .kd-segment, .shell-nav a');
-  if (!el || el.getAttribute('aria-disabled') === 'true') return;
+  if (!el || el.closest('.play-turn, .play-game[data-hand=hand] .play-card') || el.getAttribute('aria-disabled') === 'true') return;
   release();
   const s = S(), weight = el.dataset.kind === 'main';
   held = { el, weight, tab: el.matches('.shell-nav a') };
@@ -152,22 +154,100 @@ export async function screenChange(from: HTMLElement, to: HTMLElement, back = fa
   }
 }
 
-/** A played card travels to its square, pops and vanishes (section 5: Spring). The card itself stays in the hand, spent. */
-export function cardFly(card: HTMLElement, host: HTMLElement, x: number, y: number, square: number): () => void {
-  if (calm()) return () => {};
-  const box = card.getBoundingClientRect(), wrap = document.createElement('div'), face = document.createElement('img'), size = square * .5;
-  wrap.className = 'kd-card-fly'; wrap.setAttribute('aria-hidden', 'true');
-  Object.assign(wrap.style, { left: `${box.left + box.width / 2 - size / 2}px`, top: `${box.top + box.height / 2 - size / 2}px`, width: `${size}px`, height: `${size}px` });
-  face.src = card.querySelector<HTMLImageElement>('img')!.src; face.alt = '';
-  wrap.append(face); host.append(wrap);
-  const animations = [
-    wrap.animate([{ transform: 'none' }, { transform: `translate(${x - box.left - box.width / 2}px, ${y - box.top - box.height / 2}px)` }], { duration: time(520), easing: linear(E.spring(.4)), fill: 'forwards' }),
-    face.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.4)' }], { duration: time(110), delay: time(300), easing: token('--ease-out3'), fill: 'forwards' }),
-    face.animate([{ transform: 'scale(1.4)', opacity: 1 }, { transform: 'scale(0)', opacity: 0 }], { duration: time(240), delay: time(410), easing: linear(t => Math.max(0, E.backIn(1.6)(t))), fill: 'forwards' }),
-  ];
-  const cancel = () => { animations.forEach(a => a.cancel()); wrap.remove(); };
-  void animations[2].finished.then(cancel, cancel);
-  return cancel;
+/** A played card goes to its target on the effect clock. */
+export function cardFly(card: HTMLElement, host: HTMLElement, x: number, y: number, _square: number, frost = false): () => void {
+  if (reducedMotion()) return () => {};
+  const box = card.getBoundingClientRect(), wrap = card.cloneNode(true) as HTMLElement;
+  const bounds = host.getBoundingClientRect();
+  wrap.classList.add('kd-card-fly'); wrap.setAttribute('aria-hidden', 'true'); wrap.inert = true;
+  Object.assign(wrap.style, { left: `${box.left - bounds.left}px`, top: `${box.top - bounds.top}px`, width: `${box.width}px`, height: `${box.height}px` });
+  host.append(wrap);
+  const dx = x - box.left - box.width / 2, dy = y - box.top - box.height / 2;
+  const flight = tween(320, t => {
+    wrap.style.transform = `translate(${dx * t}px, ${dy * t}px) rotate(${-5 * Math.sin(Math.PI * t)}deg) scale(${1 - .6 * t})`;
+    wrap.style.opacity = String(Math.min(1, (1 - t) * 2.2));
+  }, { curve: ease.EASE, done: () => { wrap.remove(); if (frost) burst('dust', { x, y }, { count: 6, ms: 380, rise: -8 }); } });
+  return () => { flight.cancel(); wrap.remove(); };
+}
+
+export function trackCard(card: HTMLButtonElement, frost: boolean) {
+  const lift = new Spring(0, 420, 26), tiltX = new Spring(0, 300, 22), tiltY = new Spring(0, 300, 22);
+  let frame: Effect | undefined;
+  const draw = () => {
+    card.style.setProperty('--pointer-lift', `${lift.x}px`);
+    card.style.setProperty('--tilt-x', `${tiltX.x}deg`);
+    card.style.setProperty('--tilt-y', `${tiltY.x}deg`);
+    card.style.setProperty('--glare', String(.26 * lift.x / 14));
+  };
+  const aim = (event?: PointerEvent) => {
+    if (reducedMotion()) return;
+    const usable = event && card.closest('[data-hand="hand"]') && card.dataset.spent !== 'true' && card.dataset.notNow !== 'true' && card.getAttribute('aria-pressed') !== 'true';
+    const rect = card.getBoundingClientRect();
+    lift.to = usable ? 14 : 0;
+    tiltX.to = usable ? -12.8 * ((event.clientY - rect.top) / rect.height - .5) : 0;
+    tiltY.to = usable ? 16 * ((event.clientX - rect.left) / rect.width - .5) : 0;
+    if (usable) card.style.setProperty('--glare-x', `${(event.clientX - rect.left) / rect.width * 100}%`);
+    frame ??= onFrame(dt => {
+      lift.step(dt); tiltX.step(dt); tiltY.step(dt); draw();
+      if (!card.isConnected || lift.still && tiltX.still && tiltY.still) return false;
+    }, () => {
+      if (reducedMotion()) { lift.snap(0); tiltX.snap(0); tiltY.snap(0); draw(); }
+      frame = undefined;
+    });
+  };
+  card.addEventListener('pointerenter', event => {
+    if (!frost && event.pointerType === 'mouse' && card.closest('[data-hand="hand"]') && card.dataset.spent !== 'true' && card.dataset.notNow !== 'true') sound('tick', { volume: .28 });
+  });
+  card.addEventListener('pointermove', aim);
+  card.addEventListener('pointerleave', () => aim());
+  card.addEventListener('pointercancel', () => aim());
+  card.addEventListener('pointerup', () => aim());
+}
+
+const sheetEffects = new WeakMap<HTMLElement, Effect>();
+export function sheetMotion(panel: HTMLElement, open: boolean, close?: () => void) {
+  sheetEffects.get(panel)?.finish();
+  sound(open ? 'pass' : 'tick');
+  if (open) pulse('light');
+  if (reducedMotion()) return;
+  if (!open) {
+    const box = panel.getBoundingClientRect(), ghost = panel.cloneNode(true) as HTMLElement;
+    ghost.inert = true; ghost.setAttribute('aria-hidden', 'true'); ghost.removeAttribute('id');
+    Object.assign(ghost.style, { position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, padding: '12px', zIndex: '40', overflow: 'hidden' });
+    document.body.append(ghost);
+    tween(180, t => { ghost.style.transform = `translateY(${t * innerHeight}px)`; ghost.style.opacity = String(1 - t); }, { curve: ease.in2, done: () => ghost.remove() });
+    return;
+  }
+  const handle = panel.querySelector<HTMLElement>('.learn-top, .menu-head, .play-panel-head');
+  if (handle && close) {
+    let start: number | undefined, offset = 0;
+    handle.style.touchAction = 'none';
+    handle.onpointerdown = event => {
+      if ((event.target as Element).closest('button')) return;
+      sheetEffects.get(panel)?.finish(); start = event.clientY; offset = 0;
+      handle.setPointerCapture(event.pointerId);
+    };
+    handle.onpointermove = event => {
+      if (start === undefined) return;
+      offset = Math.max(0, event.clientY - start); panel.style.translate = `0 ${offset}px`;
+    };
+    handle.onlostpointercapture = () => {
+      if (start === undefined) return;
+      start = undefined;
+      if (offset > 70) { panel.style.translate = ''; close(); }
+      else tween(160, t => { panel.style.translate = `0 ${offset * (1 - t)}px`; }, { curve: ease.out3, done: () => { panel.style.translate = ''; } });
+    };
+  }
+  const rise = new Spring(1, 320, 27); rise.to = 0;
+  const draw = () => {
+    panel.style.transform = `translateY(${rise.x * panel.offsetHeight}px)`;
+    panel.style.opacity = String(Math.min(1, 1 - rise.x));
+  };
+  draw();
+  sheetEffects.set(panel, onFrame(dt => {
+    rise.step(dt); draw();
+    if (!panel.isConnected || rise.still) return false;
+  }, () => { panel.style.transform = panel.style.opacity = ''; sheetEffects.delete(panel); }));
 }
 
 /** Open or close the help and menu in the reading area (section 6: Exact). Closing slides a copy of the old content down. */

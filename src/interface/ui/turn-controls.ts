@@ -1,7 +1,7 @@
 import { button, setButtonState } from './kit.js';
-import { swapText } from '../play/motion';
+import { ease, pulse, reducedMotion, shake, sound, tween, type Effect } from '../play/fx';
 
-/** Keep Undo and End turn in place during a reply and a result. The state line sits at the top of the reading area. */
+/** Keep one position for each action as its state changes. */
 export function turnControls(labels: { undo: string; finish: string }, actions: { undo(): void; finish(): void }) {
   const element = document.createElement('footer'); element.className = 'play-turn';
   const line = document.createElement('div'); line.className = 'play-state-line';
@@ -11,11 +11,35 @@ export function turnControls(labels: { undo: string; finish: string }, actions: 
   const undo = button(labels.undo, { onPress: actions.undo });
   const finish = button(labels.finish, { kind: 'main', onPress: actions.finish });
   element.append(undo, finish);
-  /** `sent`: the turn is now final, so the state swaps with Weight; other state changes swap with Exact. */
-  return { element, line, state, help, undo, finish, update(data: { state: string; help: string; undoReason: string; finishReason: string; sent?: boolean }) {
-    swapText(state, data.state, data.sent ? 'weight' : 'exact'); help.textContent = data.help;
+  let sheen: Effect | undefined, press: Effect | undefined;
+  for (const control of [undo, finish]) control.addEventListener('click', () => {
+    if (control.getAttribute('aria-disabled') !== 'true') return;
+    sound('no'); shake(control, { amplitude: 3, ms: 200 });
+  }, true);
+  finish.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || finish.getAttribute('aria-disabled') === 'true') return;
+    sound('press'); pulse('light'); press?.cancel();
+    if (reducedMotion()) return;
+    press = tween(120, t => { finish.style.transform = `translateY(${2 * t}px) scale(${1 - .05 * t})`; }, { curve: ease.out3 });
+  });
+  const release = () => { press?.cancel(); finish.style.transform = ''; };
+  for (const name of ['pointerup', 'pointercancel', 'pointerleave']) finish.addEventListener(name, release);
+  return { element, line, state, help, undo, finish, update(data: { state: string; help: string; undoReason: string; finishReason: string; sent?: boolean; staged?: boolean; silent?: boolean }) {
+    state.textContent = data.state; help.textContent = data.help;
     for (const [control, reason] of [[undo, data.undoReason], [finish, data.finishReason]] as const) {
       setButtonState(control, { reason }); control.title = reason;
     }
+    const mode = data.sent ? 'wait' : data.finishReason ? 'dormant' : 'ready';
+    if (finish.dataset.turnState !== mode || data.staged) {
+      sheen?.finish();
+      if (mode === 'ready' && data.staged && !data.silent) {
+        sound('clink');
+        sheen = tween(520, t => {
+          finish.style.setProperty('--sheen-x', `${t * 160 - 30}%`);
+          finish.style.setProperty('--sheen-opacity', String(Math.sin(Math.PI * t) * .52));
+        }, { curve: ease.io3 });
+      }
+    }
+    finish.dataset.turnState = mode;
   } };
 }
