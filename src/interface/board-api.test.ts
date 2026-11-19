@@ -310,3 +310,29 @@ it('fault 2: a skip in the board hold stops every character cue, an idle skip ke
   board.setMotion('off'); expect(mock.stop).toHaveBeenCalledTimes(2); mock.end(); await leaping;
   expect(playArmour).toHaveBeenLastCalledWith('knightLeapA'); expect(playArmour).not.toHaveBeenCalledWith('knightLandA');
 });
+
+it('leaves the fallen king on the final board when the sequence is skipped', async () => {
+  const board = mountBoard(element(), undefined, { liveInput: true });
+  board.setPosition(pos(), rules);
+  const fall = board.play({ kind: 'fall', square: 63 });
+  const syncs = mock.view.sync.mock.calls.length;
+  board.skip();
+  await fall;
+  expect(mock.view.sync).toHaveBeenCalledTimes(syncs);
+});
+
+it('announces a standing attacker after travel and never after a skip', async () => {
+  const board = mountBoard(element(), undefined, { liveInput: true });
+  board.setPosition(pos(), rules);
+  const stood = vi.fn();
+  mock.deferred = true;
+  const first = board.play({ from: 8, to: 16, captures: [] }, undefined, stood);
+  expect(stood).not.toHaveBeenCalled();
+  mock.end();
+  await first;
+  expect(stood).toHaveBeenCalledOnce();
+  const second = board.play({ from: 16, to: 24, captures: [] }, undefined, stood);
+  board.skip();
+  await second;
+  expect(stood).toHaveBeenCalledOnce();
+});

@@ -20,7 +20,7 @@ export interface Board {
   /** Cancel playback and show a complete position. Omit rules to retain the current rules. */
   setPosition(position: Position, rules?: GameRules): void;
   /** Play one engine action, check mark, or king fall. Resolve after its final board frame. */
-  play(action: BoardAction, after?: Position): Promise<Playback>;
+  play(action: BoardAction, after?: Position, onStand?: () => void): Promise<Playback>;
   /** Set a lasting mark. It draws only when the rules give the marking side Freeze or Ice Wall, or cards; return true then. */
   showEffect(effect: 'frozen' | 'protected', square: number, turns?: number): boolean;
   /** Remove the lasting mark at a square, or all marks. Restore the position's own marks. */
@@ -53,7 +53,7 @@ const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => res
 /** `onArtError`: a rest still of a figure cannot load (no default: the old fallback stays). */
 export function mountBoard(element: HTMLElement, onSquare: (square: number) => void = () => {}, options: { liveInput?: boolean; quiet?: boolean; daylight?: boolean; sceneHooks?: DaylightSceneHooks; plainMarks?: boolean; initialBoardArt?: string; armourSounds?: boolean; onArtError?: (url: string) => void } = {}): Board {
   const view = new PaintedView(element, { ...options, holdStills: true, lazySheets: true, floor: options.quiet ? null : undefined, webInk: options.quiet });
-  let rules = new GameRules(), position: Position | null = null, busy = false, skipped = false, generation = 0;
+  let rules = new GameRules(), position: Position | null = null, busy = false, falling = false, skipped = false, generation = 0;
   const { move: moveSound, stop: stopCues } = boardSounds();
   // An idle skip or position (End turn, the next move's start) keeps the natural end of the last take.
   function interrupt() { if (busy) stopCues(); }
@@ -73,7 +73,7 @@ export function mountBoard(element: HTMLElement, onSquare: (square: number) => v
   view.onLoadError = error => { loadError = error; };
   function finish() {
     interrupt(); releaseHold(); skipped = true; view.skip({ keepStates: true });
-    if (options.liveInput && busy) { generation++; busy = false; if (position) syncEffects(); applySelection(); }
+    if (options.liveInput && busy) { generation++; busy = false; if (position && !falling) syncEffects(); falling = false; applySelection(); }
   }
   view.onSquareClick = square => { if (options.liveInput && busy) finish(); if (!busy) onSquare(square); };
   view.canDrag = () => false;
@@ -95,10 +95,10 @@ export function mountBoard(element: HTMLElement, onSquare: (square: number) => v
     async ready() { await view.ready(); if (loadError) throw loadError; },
     setSkin(url) { return view.setSkin(url); },
     setPosition(next, context = rules) {
-      interrupt(); releaseHold(); generation++; view.skip(); busy = false; effects.clear(); position = structuredClone(next); rules = context;
+      interrupt(); releaseHold(); generation++; view.skip(); busy = falling = false; effects.clear(); position = structuredClone(next); rules = context;
       view.setRules(rules); view.setFallen(null, false); view.highlight({}); shownSelection = JSON.stringify([null, [], []]); view.sync(position);
     },
-    async play(action, after) {
+    async play(action, after, onStand) {
       if (!position) throw new Error('Set a position before playback.');
       if (busy) throw new Error('The board already plays an action.');
       const own = generation, before = position, start = performance.now();
@@ -107,7 +107,7 @@ export function mountBoard(element: HTMLElement, onSquare: (square: number) => v
       try {
         if ('kind' in action) {
           if (action.kind === 'check') { view.highlight({ check: action.square }); snd.check(); }
-          else view.setFallen(action.square);
+          else { falling = true; view.setFallen(action.square); }
           while (view.animating && own === generation) await frame();
         } else {
           const silent = options.daylight && action.power === 'freeze';
@@ -116,6 +116,7 @@ export function mountBoard(element: HTMLElement, onSquare: (square: number) => v
           try { if (action.drop === undefined || action.power) await view.animateMove(before, action, sound.contact, undefined, sound.start); }
           finally { sound.finish(); }
           sound.contact();
+          if (own === generation) onStand?.();
           if (options.plainMarks && !silent && !action.swap && pace !== 'off' && !reduced && !skipped && own === generation) await hold(start);
           if (own === generation) {
             position = structuredClone(after ?? rules.makeMove(before, action));
@@ -125,7 +126,7 @@ export function mountBoard(element: HTMLElement, onSquare: (square: number) => v
         const durationMs = performance.now() - start;
         await frame();
         return { durationMs, blockedMs: performance.now() - start, skipped: skipped || own !== generation };
-      } finally { if (own === generation) { busy = false; applySelection(); } }
+      } finally { if (own === generation) { busy = falling = false; applySelection(); } }
     },
     showEffect(kind, square, turns = 1) {
       if (!position?.board[square] || !Number.isInteger(turns) || turns < 1) throw new Error('A mark needs a piece and a positive turn count.');

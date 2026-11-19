@@ -150,7 +150,8 @@ export function routeLine(marks: PlainMarks): string {
   return marks.steps.length ? `Candidate Haste route. ${marks.steps.map(step => `Step ${step.number}: ${sqName(step.square)}.`).join(' ')} The second move is optional.` : '';
 }
 /** The Versus card for a screen reader: each king and its power. */
-export const versusLine = (you: string, youPower: string, rival: string, rivalPower: string) => `Your ${kingDisplayName(you)} King has ${youPower}. The computer’s ${kingDisplayName(rival)} King has ${rivalPower}.`;
+export const versusLine = (you: string, youPower: string, rival: string, rivalPower: string) =>
+  `Your ${kingDisplayName(you)} King ${youPower ? `has ${youPower}` : 'has no power'}. The computer’s ${kingDisplayName(rival)} King ${rivalPower ? `has ${rivalPower}` : 'has no power'}.`;
 
 /** The result card separates the outcome from its cause. */
 export function resultText(status: string, resigned: boolean, losingSide: number, player: Color = 0) {
