@@ -5,7 +5,13 @@ import { POWERS_BALANCED } from '../../rules/rules';
 import { A, O, parseSq } from '../../rules/engine';
 import { DraftTurn } from './turn';
 import { previewMarks } from './marks';
-import { effectLines, resultText, stateDescriptions, routeLine, sentence } from './texts';
+import { effectLines, kingLabel, resultText, stateDescriptions, routeLine, sentence } from './texts';
+
+it('uses the side name for a king when Powers are off', () => {
+  expect(kingLabel(undefined, 0)).toBe('Light King');
+  expect(kingLabel(undefined, 1)).toBe('Dark King');
+  expect(kingLabel('Stratus', 0)).toBe('Sky King');
+});
 
 it('names a power use and its active effect with the turn that ends it', () => {
   const game = new Game('RNBQKBNR', { ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] });

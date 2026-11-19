@@ -31,7 +31,7 @@ import { POWER_NAME, POWER_TAG, cardName, coinState, usesAllowed } from '../../p
 import { DraftTurn, isDirect, armKey } from './turn';
 import { Arrangement, ARRANGE_KEY, pendingArrangement } from './arrange';
 import { actorMarks, mergeMarks, previewMarks, resultMarks, stateMarks, type MarkAction } from './marks';
-import { pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, resultText } from './texts';
+import { pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, kingLabel, resultText } from './texts';
 import { readingText, checkLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
 import { armCard, calm, cardFly, disarm, screenChange, setInterfaceMotion, sheetMotion, trackCard, time } from './motion';
 import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, tween, type Effect } from './fx';
@@ -1435,7 +1435,7 @@ function renderReader(actions?: HTMLElement) {
     const seats = el('div', 'play-result-seat'), ring = el('span', 'play-seat-ring');
     ring.append(figure(kingFile(player))); ring.dataset.outcome = outcome;
     const identity = el('div', 'play-result-name');
-    identity.append(el('strong', '', `${kingDisplayName(game.context.rules.kings[player]?.king ?? PLAIN_KINGS[player])} King`), el('small', '', text.you));
+    identity.append(el('strong', '', kingLabel(game.context.rules.kings[player]?.king, player)), el('small', '', text.you));
     seats.append(ring, identity, el('span', 'play-store', String(counts[0])));
     screen.querySelector<HTMLElement>('.play-opp .play-seat-ring')!.dataset.outcome = won ? 'loss' : lost ? 'win' : 'draw';
     const card = el('section', 'play-result'), body = el('div', 'play-result-body');

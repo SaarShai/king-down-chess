@@ -17,13 +17,12 @@ import { at, burst, ease, later, onFrame, pulse, reducedMotion, sound, Spring, t
 import { cardLocked, changeDraft, DOUBLE_KINDS, kingChoices, onlinePanelOptions, poolLetters, poolLocked, restorePanel, selectCard, selectPiece, shownKing, type GameOptions, type NewGameDraft, type PanelMemory } from './new-game';
 import { hasCards, hasPowers, typeName, typeOfFlags, type GameType } from './saved';
 import { sideText } from './sides';
-import { panelText, pieces, text } from './texts';
+import { kingLabel, panelText, pieces, text } from './texts';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', content = '') => {
   const node = document.createElement(tag); node.className = className; node.textContent = content; return node;
 };
 const keyed = <T extends HTMLElement>(node: T, name: string) => { node.dataset.focus = name; return node; };
-const kingLabel = (name: KingName) => `${kingDisplayName(name)} King`;
 const emblem = (name: KingName) => {
   const img = el('img'); img.src = `/ui/emblems/${name.toLowerCase()}.webp`; img.alt = ''; return img;
 };
@@ -105,7 +104,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     const caption = el('span', 'setup-seat-edit');
     if (!own && opponent === 'computer') caption.append(portrait(draft.level));
     caption.append(own ? name : opponent === 'computer' ? text.computer : panelText.player);
-    const title = king ? kingLabel(king.king) : !own && hasPowers(draft.setup) ? panelText.randomKing : side ? 'Dark King' : 'Light King';
+    const title = !king && !own && hasPowers(draft.setup) ? panelText.randomKing : kingLabel(king?.king, side);
     const kingName = el('strong', '', title);
     kingName.id = own ? 'setup-own-king' : 'setup-opponent-king';
     power.id = own ? 'setup-own-power' : 'setup-opponent-power';
