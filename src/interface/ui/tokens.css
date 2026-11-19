@@ -29,7 +29,7 @@
   --rust-700: #a6402f;
   --rust-100: #f5e4da;
   --blue-700: #2e5d60;
-  --blue-100: #e2ecef;
+  --blue-100: color-mix(in srgb, var(--paper-0), #7fb7d9 22%);
   --white: #ffffff;
   --red-800: var(--rust-700);
   --red-100: #f5e1dc;
