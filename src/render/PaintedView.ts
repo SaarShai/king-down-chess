@@ -123,7 +123,7 @@ export class PaintedView implements BoardView {
   private mark = 1;
   private coords = true;
   private width = 960;
-  private fallen: { pos: Position; sq: number } | null = null;
+  private fallen: { pos: Position; sq: number; painted: boolean } | null = null;
   private motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
   /** The host's motion setting; null follows the system setting. */
   private reducedMotion: boolean | null = null;
@@ -239,22 +239,23 @@ export class PaintedView implements BoardView {
       this.scene.setPosition(shown, this.frozen);
     } else this.scene.setPosition(shown);
     const sq = this.fallen?.pos === pos ? this.fallen.sq : null;
-    this.scene.setFallen(sq, false, this.fallRotation(sq));
+    this.scene.setFallen(sq, false, this.fallRotation(sq), 1, undefined, this.fallen?.painted);
     this.wakeStateEffects();
   }
 
   setSymbols(symbols?: (piece: number) => HTMLImageElement): void {
     // A resync ends the running move; the plugin sets the same symbols after every view.
     if (symbols === this.symbols) return;
+    if (symbols && this.fallen?.painted) this.fallen.painted = false;
     this.symbols = symbols;
     if (this.pos) this.sync(this.pos);
   }
 
-  setFallen(sq: number | null, animate = true): void {
-    this.fallen = sq == null || !this.pos ? null : { pos: this.pos, sq };
+  setFallen(sq: number | null, animate = true, painted = false): void {
+    this.fallen = sq == null || !this.pos ? null : { pos: this.pos, sq, painted };
     const impact = this.options.daylight && animate && sq != null ? this.options.sceneHooks?.onKingImpact : undefined;
     const moving = animate && this.motion() && (!this.options.daylight || !document.hidden);
-    this.scene.setFallen(sq, moving, this.fallRotation(sq), this.pace === 'fast' ? 0.5 : 1, impact && (square => impact(square, true)));
+    this.scene.setFallen(sq, moving, this.fallRotation(sq), this.pace === 'fast' ? 0.5 : 1, impact && (square => impact(square, true)), painted);
     if (impact && sq != null && !moving) impact(sq, false);
   }
 
@@ -364,7 +365,8 @@ export class PaintedView implements BoardView {
   get animating(): boolean { return this.scene.animating || this.scene.falling; }
   pause(): void { if (this.options.daylight) this.scene.pause(); }
   resume(): void { if (this.options.daylight) this.scene.resume(); }
-  private get time(): number { return this.options.daylight ? this.scene.time : performance.now(); }
+  get time(): number { return this.options.daylight ? this.scene.time : performance.now(); }
+  momentFigure(square: number, snapshot: boolean) { return this.scene.momentFigure(square, snapshot); }
   /** The selected piece and its targets, with no mark: its idle plays and the frames of its moves load. */
   setSelected(sq: number | null, moves: number[] = [], captures: number[] = []): void { this.scene.setSelected(sq, moves, captures); }
   /** Opt-in marks on the scene's under-layer. The old page keeps its own marks. */
@@ -427,7 +429,7 @@ export class PaintedView implements BoardView {
     this.moveSquares = undefined;
     if (!options.keepStates) this.stopStateEffects();
     if (this.scene.animating && !this.undoPending) this.scene.cancel();
-    if (this.scene.falling) this.scene.setFallen(this.fallen?.sq ?? null, false, this.fallRotation(this.fallen?.sq ?? null));
+    if (this.scene.falling) this.scene.setFallen(this.fallen?.sq ?? null, false, this.fallRotation(this.fallen?.sq ?? null), 1, undefined, this.fallen?.painted);
   }
 
   /**

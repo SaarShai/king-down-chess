@@ -7,7 +7,7 @@ export const pieces = ['archer', 'beast', 'bishop', 'guard', 'knight', 'maester'
 export const kings = ['flame', 'frost', 'mud', 'shadow', 'spirit', 'stratus'] as const;
 
 type Result = 'finished' | 'not-ready' | 'cancelled';
-const load = createArtLoader();
+export const loadMoment = createArtLoader();
 const HOLD = 400, FADE = 250, DISSOLVE = 120;
 
 function frameClock(draw: (elapsed: number) => void) {
@@ -20,7 +20,7 @@ function frameClock(draw: (elapsed: number) => void) {
   return () => cancelAnimationFrame(frame);
 }
 
-function play(key: string, target: MomentTarget, collapse: boolean, from?: CollapseTarget['from']) {
+function play(key: string, target: MomentTarget, collapse: boolean, pack?: Awaited<ReturnType<typeof loadMoment>>, from?: CollapseTarget['from']) {
   let player: ReturnType<typeof playFrames>, end = 0;
   let stopClock: (() => void) | undefined;
   let resolve!: (result: Result) => void;
@@ -47,8 +47,7 @@ function play(key: string, target: MomentTarget, collapse: boolean, from?: Colla
     if (pending) target.onReady?.();
   }
 
-  if (collapse && target.motion === 'reduce') skip();
-  else void load(key).then(pack => {
+  function start(pack: Awaited<ReturnType<typeof loadMoment>>) {
     if (settled) return;
     player = playFrames(target, pack);
     if (!player) { finish('not-ready'); return; }
@@ -75,16 +74,23 @@ function play(key: string, target: MomentTarget, collapse: boolean, from?: Colla
       if (settled) stop();
       else stopClock = stop;
     }
-  }).catch(() => finish('not-ready'));
+  }
+
+  if (collapse && target.motion === 'reduce') skip();
+  else if (pack) start(pack);
+  else void loadMoment(key).then(start).catch(() => finish('not-ready'));
 
   return { finished, skip, dispose() { if (settled) remove(); else finish('cancelled'); } };
 }
 
-export function playCollapse(piece: string, army: Army, target: CollapseTarget) {
-  const dissolve = piece === 'pawn' || piece === 'bishop' || piece === 'archer';
-  return play(`collapse/${piece}/${army}`, target, true, dissolve ? target.from : undefined);
+export function dissolves(piece: string) {
+  return piece === 'pawn' || piece === 'bishop' || piece === 'archer';
 }
 
-export function playBow(king: typeof kings[number], army: Army, target: MomentTarget) {
-  return play(`bow/${king}/${army}`, target, false);
+export function playCollapse(piece: string, army: Army, target: CollapseTarget, pack?: Awaited<ReturnType<typeof loadMoment>>) {
+  return play(`collapse/${piece}/${army}`, target, true, pack, dissolves(piece) ? target.from : undefined);
+}
+
+export function playBow(king: typeof kings[number], army: Army, target: MomentTarget, pack?: Awaited<ReturnType<typeof loadMoment>>) {
+  return play(`bow/${king}/${army}`, target, false, pack);
 }
