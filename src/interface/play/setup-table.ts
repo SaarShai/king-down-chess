@@ -392,6 +392,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     const submitted = draft, own = ++actionId, current = () => dialog.open && own === actionId;
     const redraw = () => {
       if (!current()) return;
+      actionId++; busy = false; // Back ends the pending action: a late reply must not act
       choice = 'opponent'; panel.dataset.choice = choice; redrawChoice(false); panelTitle.focus();
     };
     const activeSheet: PeopleSheet = { element: dialog, get isOpen() { return current(); },
@@ -400,7 +401,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     try {
       const host = await d.people(); if (!current()) return;
       d.remember({ ...memory(), opponent: 'person' });
-      const named = () => { if (!current()) return; if (!host.me()?.handle) nameSheet(activeSheet, host, redraw); else draw(); };
+      const named = () => { if (!current()) return; if (!host.me()?.handle) nameSheet(activeSheet, host, redraw); else redraw(); };
       if (!host.me()) { signInSheet(activeSheet, host, { kind: 'person' }, named); return; }
       if (!host.me()!.handle) { nameSheet(activeSheet, host, redraw); return; }
       const invited = () => { if (!current()) throw new ObsoleteAction(); d.onInvite(submitted); };
