@@ -91,7 +91,7 @@ img { display: block; }
 [data-file]::after { content: attr(data-file); right: 1px; bottom: 1px; }
 [data-rank]::before { content: attr(data-rank); left: 1px; top: 1px; }
 .play-game[data-coords='false'] [data-file]::after, .play-game[data-coords='false'] [data-rank]::before { display: none; }
-.play-square:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: -4px; }
+.play-square:focus-visible { outline: var(--focus-width) solid var(--text); outline-offset: -4px; }
 /* The marks sit on stone: they keep the colours of the paper theme. */
 /* A choice of actions shows in the reading area: no square under it, each choice and Cancel in reach (reading decision 22). */
 .play-choices { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
