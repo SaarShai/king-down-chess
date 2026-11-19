@@ -1,7 +1,7 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { Game } from '../../game';
 import { DraftTurn } from './turn';
-import { LAST_COLOUR, lastSentence, lastSquares, savedPreview, stateText } from './mini-board';
+import { lastSentence, lastSquares, miniBoard, savedPreview, stateText } from './mini-board';
 import { readFileSync } from 'node:fs';
 import type { Move } from '../board-api';
 
@@ -37,7 +37,22 @@ it('launch decision 25: the last squares follow the actual action, and a pass is
   // No action yet: no last action and no sentence.
   const fresh = savedPreview(new DraftTurn(new Game('RNBQKBNR', { kings: [null, null], hands: [[], []] })), 0);
   expect(fresh.last).toBeNull(); expect(lastSentence(fresh, () => false)).toBe('');
-  // The "Last" colour of the marks spec, and the same colour in the page style.
-  expect(LAST_COLOUR).toBe('#f3e3b4');
-  expect(readFileSync('src/interface/play/menus.css', 'utf8')).toMatch(/\.mini-last\s*\{[^}]*#f3e3b4/);
+});
+
+it('paints the home board with the same light and strong brass as the game board', () => {
+  const game = new Game('RNBQKBNR', { kings: [null, null], hands: [[], []] });
+  game.play(move(game, 'e2', 'e4'));
+  const cells: { dataset: Record<string, string>; style: { setProperty: ReturnType<typeof vi.fn> } }[] = [];
+  vi.stubGlobal('document', { createElement: (tag: string) => ({
+    dataset: {}, classList: { add() {} }, style: { setProperty: vi.fn() },
+    append: (cell: typeof cells[number]) => { if (tag === 'div') cells.push(cell); }, setAttribute() {},
+  }) });
+  try {
+    miniBoard(savedPreview(new DraftTurn(game), 0), () => '');
+    const style = (square: string) => cells.find(cell => cell.dataset.square === String(SQ(square)))!.style;
+    expect(style('e2').setProperty).toHaveBeenCalledWith('--last-move', '#ecb0401f');
+    expect(style('e4').setProperty).toHaveBeenCalledWith('--last-move', '#ecb0403d');
+    expect(style('e3').setProperty).not.toHaveBeenCalled();
+    expect(readFileSync('src/interface/play/menus.css', 'utf8')).toMatch(/\.mini-last\s*\{[^}]*var\(--last-move\)/);
+  } finally { vi.unstubAllGlobals(); }
 });

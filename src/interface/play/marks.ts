@@ -1,6 +1,5 @@
-import { A, G, K, L, P, S, colorOf, typeOf, type Move, type Position } from '../../rules/engine';
+import { A, G, K, L, P, S, colorOf, findKing, typeOf, type Move, type Position } from '../../rules/engine';
 import type { GameRules } from '../../game-rules';
-import { checkersOf } from '../../move-text';
 import { boardStates } from '../../render/effects/states';
 import { PLAIN as C, emptyMarks, type PlainMarks, type PlainRing } from '../../render/plain-marks';
 import { targetOf } from './turn';
@@ -32,6 +31,7 @@ export function previewMarks(rules: GameRules, pos: Position, moves: readonly Mo
   for (const square of new Set(moves.map(target).filter(sq => sq !== undefined))) {
     const m = moves.find(m => target(m) === square)!;
     ring(out, pos, square, color(rules, pos, m, square), square === t ? 'focus' : 'target', square === t ? 1.25 : .9);
+    if (m.power === 'freeze') out.rings.at(-1)!.frost = true;
   }
   if (!direct && typeOf(pos.board[actor]) !== G) ring(out, pos, actor, C.actor, 'actor', 1.1);
   if (route.shove) {
@@ -57,30 +57,37 @@ export function actorMarks(pos: Position, moves: readonly Move[], focus?: number
   return out;
 }
 
-/** Past actions leave only soft squares below the figures. The final target is strongest. */
+/** Past actions leave soft brass below the figures. The final target is strongest. */
 export function resultMarks(_pos: Position, actions: readonly MarkAction[]): PlainMarks {
-  const out = emptyMarks(), squares = new Map<number, number>();
+  const out = emptyMarks(), squares = new Set<number>();
   let final: number[] = [];
   for (const { before, move: m } of actions) {
     if (m.pass) continue;
     const changed = [m.from, m.to, ...m.captures, ...(m.shove ? [m.shove.from, m.shove.to] : []), ...(m.castle ? [m.castle.from, m.castle.to] : []), ...(m.pushes ?? []).flatMap(p => [p.from, p.to])];
     if (m.power === 'firewall') before.board.forEach((code, sq) => { if (code && colorOf(code) === before.turn) changed.push(sq); });
-    for (const square of changed) squares.set(square, .12);
+    for (const square of changed) squares.add(square);
     final = m.power === 'firewall' ? changed : m.pushes?.length ? m.pushes.map(p => p.to) : [m.shove?.to ?? targetOf(m)];
   }
-  if (squares.size) out.shadows = [...squares].map(([square, opacity]) => ({ square, opacity: final.includes(square) ? .28 : opacity }));
+  if (squares.size) out.shadows = [...squares].map(square => ({ square, opacity: final.includes(square) ? .24 : .12 }));
   return out;
 }
 
 /** Current state supplies lasting marks. These end only when the engine ends the state. */
 export function stateMarks(rules: GameRules, pos: Position): PlainMarks {
   const out = emptyMarks();
-  for (const ch of rules.inCheck(pos) ? checkersOf(rules, pos) : []) { ring(out, pos, ch.king, C.enemy, 'state', 1.25); path(out, [ch.sq, ch.king], C.enemy); }
+  const king = rules.inCheck(pos) ? findKing(pos.board, pos.turn) : -1;
+  if (king >= 0) out.check = king;
   for (const state of boardStates(rules, pos)) ring(out, pos, state.sq, state.kind === 'holy-light' || state.kind === 'mercy' ? C.holy : C.ice, 'state', state.kind === 'holy-light' ? 1.1 : 1.25);
   return out;
 }
 export function mergeMarks(...marks: PlainMarks[]): PlainMarks {
   const rings = marks.flatMap(m => m.rings);
-  // The chosen piece stays white, including inside a lasting protection ring.
-  return { rings: [...rings.filter(r => r.role !== 'actor'), ...rings.filter(r => r.role === 'actor')], paths: marks.flatMap(m => m.paths), steps: marks.flatMap(m => m.steps), ...(marks.some(m => m.shadows?.length) ? { shadows: marks.flatMap(m => m.shadows ?? []) } : {}) };
+  const check = marks.find(m => m.check != null)?.check;
+  const shadows = marks.flatMap(m => m.shadows ?? []);
+  // The selected mark stays over a protection ring on the same square.
+  return {
+    rings: [...rings.filter(r => r.role !== 'actor'), ...rings.filter(r => r.role === 'actor')],
+    paths: marks.flatMap(m => m.paths), steps: marks.flatMap(m => m.steps),
+    ...(shadows.length > 0 && { shadows }), ...(check != null && { check }),
+  };
 }
