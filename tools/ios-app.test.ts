@@ -49,14 +49,19 @@ it('runs on iPhone upright and on the side, on iPad in all orientations, in the 
   expect(read('ios/App/App.xcodeproj/project.pbxproj').match(/TARGETED_DEVICE_FAMILY = [^;]+;/g)).toEqual(Array(2).fill('TARGETED_DEVICE_FAMILY = "1,2";'));
 });
 
-it('paints the launch screen and the web view in the page colour, with no link preview', () => {
+it('paints the web view in the page colour, with no link preview', () => {
   const page = /--paper-50: (#[0-9a-f]{6});/.exec(read('src/interface/ui/tokens.css'))![1];
   const config = JSON.parse(read('capacitor.config.json'));
   expect(config.backgroundColor).toBe(page);
   expect(config.ios.allowsLinkPreview).toBe(false);
+});
+
+it('keeps each native splash image a flat colour', () => {
+  // The Daylight art handoff must set all three files to the page colour.
+  const splash = '#f7f5ed';
   for (const file of ['splash-2732x2732.png', 'splash-2732x2732-1.png', 'splash-2732x2732-2.png']) {
     // A palette of one colour: each pixel of the launch image has that colour.
     const png = readFileSync(`ios/App/App/Assets.xcassets/Splash.imageset/${file}`), at = png.indexOf('PLTE');
-    expect([png.readUInt32BE(at - 4), '#' + png.subarray(at + 4, at + 7).toString('hex')], file).toEqual([3, page]);
+    expect([png.readUInt32BE(at - 4), '#' + png.subarray(at + 4, at + 7).toString('hex')], file).toEqual([3, splash]);
   }
 });

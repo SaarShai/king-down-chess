@@ -23,3 +23,10 @@ it('keeps focus contrast above the old blue on parchment and above 4.5 on dark s
   expect(contrast(token('focus-gold'), token('stone-700'))).toBeGreaterThanOrEqual(4.5);
   expect(contrast(token('focus'), token('focus-gold'))).toBeGreaterThanOrEqual(7);
 });
+
+it('keeps the Daylight focus ring visible on both paper surfaces', () => {
+  const daylight = readFileSync('src/interface/ui/tokens.css', 'utf8');
+  const fill = /--focus-ring: var\(--([\w-]+)\);/.exec(daylight)![1];
+  const colour = (name: string) => daylight.match(new RegExp(`--${name}: (#[0-9a-f]{6});`))![1];
+  for (const surface of ['paper-50', 'paper-0']) expect(contrast(colour(fill), colour(surface))).toBeGreaterThanOrEqual(3);
+});

@@ -132,7 +132,7 @@
 .play-game .play-power[data-spent='true'] .play-power-coin { box-shadow: inset 0 1px #efffef; filter: grayscale(1); opacity: .55; }
 .play-game .play-power[data-spent='true'] { color: var(--text-muted); }
 .play-game .play-power[aria-pressed='true'] { animation: none; outline: none; filter: none; background: transparent; box-shadow: none; color: var(--text); }
-.play-game .play-power[aria-pressed='true'] .play-power-coin { outline: 3px solid var(--info); outline-offset: 1px; }
+.play-game .play-power[aria-pressed='true'] .play-power-coin { outline: 3px solid var(--selection-line); outline-offset: 1px; }
 .play-hand { display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0; height: 100%; padding-inline: 4px; }
 .play-game[data-hand='hand'] .play-own .play-card { transform: translateY(var(--fan-drop)) rotate(var(--fan-angle)); }
 .play-game .play-own .play-card { position: relative; display: grid; grid-template-rows: 34px minmax(0, 1fr); flex: 1 1 0; min-width: 44px; max-width: 98px; height: 100%; min-height: 44px; padding: 0; margin-inline: -2px; gap: 0; align-items: stretch; justify-items: stretch; color: var(--text); background: var(--surface-raised); box-shadow: var(--card-edge); border: 0; border-radius: 7px; font: 650 14px/16px var(--font-reading); letter-spacing: 0; hyphens: none; overflow-wrap: normal; text-align: center; transform: translateY(var(--fan-drop)) rotate(var(--fan-angle)); transform-origin: 50% 100%; }
@@ -147,7 +147,7 @@
 .play-game .play-own .play-card[data-spent='true'] [data-button-label] { color: var(--text-muted); }
 .play-game .play-own .play-card[data-not-now='true'] img { opacity: .6; }
 .play-game[data-hand='hand'] .play-own .play-card[aria-pressed='true'] { transform: translateY(-5px); }
-.play-game .play-own .play-card[aria-pressed='true'] { z-index: 3; transform: translateY(-5px); outline: 3px solid var(--info); outline-offset: 1px; background: var(--surface-raised); color: var(--text); box-shadow: var(--card-edge); }
+.play-game .play-own .play-card[aria-pressed='true'] { z-index: 3; transform: translateY(-5px); outline: 3px solid var(--selection-line); outline-offset: 1px; background: var(--surface-raised); color: var(--text); box-shadow: var(--card-edge); }
 /* Ribbon keeps the same row and states, with flat paper controls and no art. */
 .play-game[data-hand='ribbon'] .play-own .play-card { transform: none; margin-inline: 2px; grid-template-rows: 1fr 18px; background: var(--surface-raised); box-shadow: var(--raise); border: 1px solid var(--divider); }
 .play-game[data-hand='ribbon'] .play-own .play-card img { display: none; }
