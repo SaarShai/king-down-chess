@@ -11,10 +11,14 @@ export const hintLines = {
 
 export type Hint = keyof typeof hintLines;
 
-export function startHints(first: boolean) {
-  let enabled = first && !seenThisVisit;
+export function startHints(newGame: boolean) {
+  let enabled = newGame && !seenThisVisit;
   if (enabled) {
     try { enabled = localStorage.getItem(key) !== '1'; } catch { /* Use the flag for this visit. */ }
+  }
+  if (enabled) {
+    seenThisVisit = true;
+    try { localStorage.setItem(key, '1'); } catch { /* Use the flag for this visit. */ }
   }
   const shown = new Set<Hint>();
   return {
@@ -22,8 +26,6 @@ export function startHints(first: boolean) {
     take(hint: Hint): string | null {
       if (!enabled || shown.has(hint)) return null;
       shown.add(hint);
-      seenThisVisit = true;
-      try { localStorage.setItem(key, '1'); } catch { /* Use the flag for this visit. */ }
       return hintLines[hint];
     },
   };

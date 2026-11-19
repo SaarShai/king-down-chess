@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>King Down · Daylight help test</title>
+<link rel="icon" href="data:,">
+<style>
+  @font-face { font-family: Cinzel; src: url('/fonts/cinzel-latin.woff2'); font-weight: 400 900; }
+  @font-face { font-family: Alegreya; src: url('/fonts/alegreya-sans-regular-latin.woff2'); }
+  @font-face { font-family: Alegreya; src: url('/fonts/alegreya-sans-bold-latin.woff2'); font-weight: 700; }
+  html:root {
+    --surface-page: #f5f0e4; --surface-raised: #fbf8f0; --surface-muted: #eee9dc;
+    --text: #2a2622; --text-muted: #6b6257; --divider: #dad4c8; --border: #ccc4b5;
+    --font-title: Cinzel, Georgia, serif; --font-reading: Alegreya, sans-serif;
+    --board-size: min(calc(100vw - 16px), 640px, calc(100dvh - 295px));
+    --board-x: calc((100vw - var(--board-size)) / 2);
+    --board-y: clamp(67px, calc((100dvh - 640px) * .294 + 67px), 141px);
+    --rail-left: 16px; --rail-right: 16px;
+    --narrator-y: calc(var(--board-y) + var(--board-size) + 48px);
+  }
+  .test { position: relative; min-height: 100dvh; }
+  .test > :is(header, .board, .opponent, .narrator, .history, .hand, footer) { position: absolute; }
+  header { left: 36px; top: 24px; display: none; gap: 12px; align-items: center; font-family: var(--font-title); }
+  .board {
+    display: grid; grid-template: repeat(8, 1fr) / repeat(8, 1fr);
+    left: var(--board-x); top: var(--board-y); width: var(--board-size); height: var(--board-size);
+    background: #ded2b3 url('/interface/stone-refined-light.webp') center / 100% 100%;
+    border: 1px solid #5b5546; border-radius: 4px;
+  }
+  .square { position: relative; display: block; padding: 0; margin: 0; border: 0; color: #24201a; background: transparent; }
+  .square img { position: absolute; bottom: 5%; left: 1%; width: 98%; height: 111%; object-fit: contain; pointer-events: none; }
+  .square small { position: absolute; color: inherit; font: 700 12px/1 var(--font-title); }
+  .rank { left: 2px; top: 2px; } .file { right: 2px; bottom: 1px; }
+  .square[data-mark]::before { content: ''; position: absolute; inset: 63% 10% 8%; border: 2px solid #aa7a2c; border-radius: 50%; }
+  .square[data-mark="capture"]::before { border-color: #9c413a; }
+  .opponent, .narrator, .history, .hand, footer { left: var(--rail-left); right: var(--rail-right); }
+  .opponent { top: calc(var(--board-y) - 72px); display: flex; align-items: center; gap: 8px; }
+  .opponent .foe { width: 42px; height: 42px; object-fit: cover; border-radius: 50%; }
+  .opponent b, .history b { font: 600 13px/1.2 var(--font-title); }
+  .opponent small { display: block; font-size: 12px; }
+  .opponent .power { margin-inline-start: auto; padding: 6px 12px; border: 1px solid var(--divider); border-radius: 999px; color: #2f6f73; font-size: 14px; font-weight: 700; line-height: 1.2; text-align: center; }
+  .opponent .power small { color: var(--text-muted); }
+  .narrator { z-index: 1; top: var(--narrator-y); display: flex; align-items: center; gap: 8px; }
+  .narrator > div { flex: 1; }
+  .narrator strong { font-size: 18px; }
+  .narrator p { color: var(--text-muted); font-size: 15px; }
+  .history { top: calc(var(--narrator-y) + 130px); display: none; color: var(--text-muted); }
+  .history p { border-top: 1px solid var(--divider); padding-top: 8px; }
+  .hand { bottom: 75px; display: flex; align-items: end; justify-content: end; gap: 8px; }
+  .hand > span { display: grid; align-content: center; text-align: center; justify-items: center; font-size: 12px; flex: 1; }
+  .hand .card { border: 1px solid var(--divider); padding: 3px; border-radius: 9px; background: var(--surface-raised); font-weight: 700; line-height: 1.25; }
+  .hand .card img { width: 100%; aspect-ratio: .85; max-height: clamp(32px, calc(100dvh - var(--narrator-y) - 155px), 90px); object-fit: cover; border-radius: 5px; }
+  .hand .emblem { max-width: 65px; margin-inline-end: auto; }
+  .hand .emblem img { width: 50px; height: 50px; border: 1px solid #aa7a2c; border-radius: 50%; padding: 4px; }
+  footer { display: flex; gap: 10px; bottom: 16px; }
+  footer .kd-button:last-child { flex: 1; background: #e4d9be; font-family: var(--font-title); }
+  footer .kd-button { min-block-size: 48px; }
+  .catalog { position: fixed; z-index: 10; inset: auto 0 0; padding: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+  @media (max-width: 380px) {
+    html:root { --board-size: min(calc(100vw - 8px), calc(100dvh - 208px)); --narrator-y: calc(var(--board-y) + var(--board-size) + 6px); }
+    .opponent { top: 7px; } .hand { bottom: 66px; }
+  }
+  @media (min-width: 700px) and (max-height: 860px) and (max-aspect-ratio: 5/4) {
+    html:root { --board-y: 71px; --narrator-y: calc(var(--board-y) + var(--board-size) + 6px); }
+  }
+  @media (min-aspect-ratio: 5/4) {
+    html:root {
+      --rail-width: min(380px, 33vw); --rail-right: clamp(7px, calc(7px + (100vw - 1024px) * .147), 68px);
+      --rail-left: calc(100vw - var(--rail-width) - var(--rail-right));
+      --board-size: min(704px, calc(100dvh - 170px), calc(var(--rail-left) - 80px));
+      --board-x: calc(var(--rail-left) - var(--board-size) - 56px);
+      --board-y: calc((100dvh - var(--board-size)) / 2);
+      --narrator-y: calc(var(--board-y) + 102px);
+    }
+    header, .history { display: flex; }
+    .history { flex-direction: column; }
+    .opponent { top: calc(var(--board-y) + 8px); }
+    footer { bottom: var(--board-y); }
+    footer .kd-button { min-block-size: 56px; }
+    .hand { bottom: calc(var(--board-y) + 68px); }
+  }
+  @media (min-aspect-ratio: 5/4) and (max-height: 480px) {
+    html:root {
+      --board-size: min(calc(100dvh - 32px), calc(50vw - 32px));
+      --board-x: max(8px, calc((100vw - var(--board-size) - var(--rail-width) - 22px) / 2));
+      --board-y: 24px; --rail-left: calc(var(--board-x) + var(--board-size) + 22px);
+      --rail-width: min(380px, 45vw); --rail-right: var(--board-x);
+      --narrator-y: 155px;
+    }
+    header, .history { display: none; }
+    body:has(.daylight-help-sheet[data-help-sheet='rule']) .hand { visibility: hidden; }
+    .hand { bottom: 65px; } .hand .card img { max-height: 50px; }
+    footer { bottom: 8px; } footer .kd-button { min-block-size: 48px; }
+  }
+</style>
+<main class="test">
+  <header>King Down</header>
+  <div class="opponent">
+    <img class="foe" src="/ui/kings/shadow-b.webp" alt="">
+    <div><b>Computer</b><small>Fierce</small></div>
+    <div class="power">Death Touch<small>Always on</small></div>
+  </div>
+  <div class="board" id="board" tabindex="-1" role="group" aria-label="Example board"></div>
+  <div class="narrator" data-daylight-help-narrator><div><strong id="name"></strong><p id="line"></p></div></div>
+  <div class="history" data-daylight-help-rail><b>Last moves</b><p>No moves yet.</p></div>
+  <div class="hand" aria-label="Your cards"></div>
+  <footer><button class="kd-button" id="undo" aria-label="Undo">↶</button><button class="kd-button" id="end">End turn</button></footer>
+</main>
+<div class="catalog" hidden>
+  <select aria-label="Help topic" id="topics"></select>
+  <button class="kd-button" id="open">Open rule</button>
+  <a class="kd-button" href="?at=promotion&catalog=1">Promotion position</a>
+</div>
+<script type="module" src="./preview.ts"></script>
+</html>

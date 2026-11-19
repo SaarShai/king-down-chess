@@ -135,12 +135,12 @@ describe('First-game hints', () => {
     vi.stubGlobal('localStorage', { getItem: (key: string) => data.get(key), setItem: (key: string, value: string) => data.set(key, value), removeItem: (key: string) => data.delete(key) });
     expect(startHints(false).take('piece')).toBeNull();
     const hints = startHints(true);
+    expect(data.get('daylight.hints')).toBe('1');
+    expect(startHints(true).take('piece')).toBeNull();
     for (const hint of Object.keys(hintLines) as Hint[]) {
       expect(hints.take(hint)).toBe(hintLines[hint]);
       expect(hints.take(hint)).toBeNull();
     }
-    expect(data.get('daylight.hints')).toBe('1');
-    expect(startHints(true).take('piece')).toBeNull();
     expect(resetHints()).toBe(true);
     expect(startHints(true).take('piece')).toBe(hintLines.piece);
   });
