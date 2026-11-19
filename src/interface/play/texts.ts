@@ -151,7 +151,7 @@ export function routeLine(marks: PlainMarks): string {
 }
 /** The Versus card for a screen reader: each king and its power. */
 export const versusLine = (you: string, youPower: string, rival: string, rivalPower: string) =>
-  `Your ${kingDisplayName(you)} King ${youPower ? `has ${youPower}` : 'has no power'}. The computer’s ${kingDisplayName(rival)} King ${rivalPower ? `has ${rivalPower}` : 'has no power'}.`;
+  `Your ${you} ${youPower ? `has ${youPower}` : 'has no power'}. The computer’s ${rival} ${rivalPower ? `has ${rivalPower}` : 'has no power'}.`;
 
 export const kingLabel = (name: KingName | undefined, side: Color) =>
   name ? `${kingDisplayName(name)} King` : side ? 'Dark King' : 'Light King';

@@ -172,5 +172,5 @@ it('the New game card line names the shown cards in pool order at four', async (
 
 it('announces Versus when the kings have no powers', async () => {
   const { versusLine } = await import('./texts');
-  expect(versusLine('Spirit', '', 'Shadow', '')).toBe('Your Spirit King has no power. The computer’s Shadow King has no power.');
+  expect(versusLine('Light King', '', 'Dark King', '')).toBe('Your Light King has no power. The computer’s Dark King has no power.');
 });

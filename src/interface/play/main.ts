@@ -1,4 +1,3 @@
-import { kingDisplayName } from '../../king-label';
 import '../ui/tokens.css';
 import '../ui/components.css';
 import './play.css';
@@ -793,7 +792,7 @@ function versusCard(loaded: Promise<unknown>): Promise<void> {
   const side = (s: Color) => {
     const king = game.context.rules.kings[s], box = el('div', 'vs-side'), portrait = figure(kingFile(s));
     portrait.classList.add('vs-fig');
-    box.append(portrait, el('strong', 'vs-king', `${kingDisplayName(king?.king ?? PLAIN_KINGS[s])} King`),
+    box.append(portrait, el('strong', 'vs-king', kingLabel(king?.king, s)),
       el('b', 'vs-power', king ? POWER_NAME[king.power] : 'No power'));
     box.append(el('small', 'vs-who', s !== player ? `${text.computer} · ${text[gameLevel]}` : ''));
     return box;
@@ -803,8 +802,8 @@ function versusCard(loaded: Promise<unknown>): Promise<void> {
   stage.append(you, word, rule, rival, ground); card.append(stage, skip); screen.append(card);
   card.tabIndex = -1; card.focus({ preventScroll: true });
   const [k0, k1] = [game.context.rules.kings[player], game.context.rules.kings[cpu()]];
-  announce(versusLine(k0?.king ?? PLAIN_KINGS[player], k0 ? POWER_NAME[k0.power] : '',
-    k1?.king ?? PLAIN_KINGS[cpu()], k1 ? POWER_NAME[k1.power] : ''));
+  announce(versusLine(kingLabel(k0?.king, player), k0 ? POWER_NAME[k0.power] : '',
+    kingLabel(k1?.king, cpu()), k1 ? POWER_NAME[k1.power] : ''));
   const cues: Effect[] = [];
   const schedule = (ms: number, doIt: () => void) => { cues.push(later(ms, doIt)); };
   const draw = (ms: number, step: (t: number) => void, curve = ease.EASE) => { cues.push(tween(ms, step, { curve })); };
