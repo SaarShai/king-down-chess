@@ -23,6 +23,8 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
   const fromAddress = (): Route => { const read = addressRoute(location.hash), kept: Route | undefined = history.state?.shell; return kept?.place === read.place && (read.entry === undefined || kept.entry === read.entry) ? kept : read; };
   let route: Route = fromAddress();
   const youScroll: number | undefined = route.place === 'you' ? history.state?.youScroll : undefined;
+  const guideScrollKey = 'kingdown.guide-scroll';
+  const guideAddress = () => `${location.pathname}#${route.section}/${route.entry}`;
   const nav = navigation('Play', name => {
     const next = { place: name.toLowerCase() as Route['place'] };
     if (layer && next.place === route.place) { layer(); void closeLayer(); }
@@ -85,7 +87,14 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
       render(next);
       const page = root.firstElementChild as HTMLElement | null;
       if (old && page && old !== page && before.place !== 'game' && next.place !== 'game') changePage(old, page, places.indexOf(next.place) >= places.indexOf(before.place) ? 1 : -1);
-      if (page && scroll !== undefined) { page.dataset.restore = 'true'; window.scrollTo(0, scroll); }
+      if (page && scroll !== undefined) {
+        page.dataset.restore = 'true';
+        if (next.place === 'guide') {
+          void document.fonts.ready.then(() => requestAnimationFrame(() => {
+            if (page.isConnected) window.scrollTo(0, scroll);
+          }));
+        } else window.scrollTo(0, scroll);
+      }
       // A page that restores the view (the row that the person left) keeps its focus and its scroll.
       if (page?.dataset.restore !== 'true') { page?.querySelector<HTMLElement>('h1')?.focus({ preventScroll: true }); window.scrollTo(0, 0); }
     }
@@ -121,11 +130,27 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
   });
   // About opens a separate document. Back can load this entry before the browser has a page to scroll.
   window.addEventListener('pagehide', () => {
-    if (route.place === 'you' && !layer) history.replaceState({ shell: route, youScroll: window.scrollY }, '');
+    if (layer) return;
+    if (route.place === 'you') history.replaceState({ shell: route, youScroll: window.scrollY }, '');
+    // Chromium can discard a history update made during pagehide on reload.
+    if (route.place === 'guide' && root.querySelector('.guide-page[data-view="entry"]:not(.shell-departing)')) {
+      try { sessionStorage.setItem(guideScrollKey, JSON.stringify([guideAddress(), window.scrollY])); } catch { /* Storage can be blocked. */ }
+    }
   });
   history.replaceState({ shell: route }, '', location.pathname + location.search + (route.place === 'play' ? '' : routeHash(route)));
   return {
-    go, start: () => show(route, true, youScroll), get route() { return route; },
+    go, get route() { return route; },
+    start() {
+      let scroll = youScroll;
+      const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+      if (route.place === 'guide' && route.entry && navigation?.type === 'reload') {
+        try {
+          const [address, top] = JSON.parse(sessionStorage.getItem(guideScrollKey) ?? '[]');
+          if (address === guideAddress() && typeof top === 'number') scroll = top;
+        } catch { /* Storage can be blocked. */ }
+      }
+      show(route, true, scroll);
+    },
     /** Runs `run` now, or after a pending layer Back, in order with route changes. Open a layer only in `run`. */
     settled,
     /** Open a layer: one history entry. Browser Back calls `close`. */

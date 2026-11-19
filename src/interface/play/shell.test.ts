@@ -1,6 +1,9 @@
 import { existsSync } from 'node:fs';
 import { afterEach, expect, it, vi } from 'vitest';
 import { guideEntries, guideSections } from './guide';
+import { homeText } from './home';
+import { learningEntry } from './learning';
+import { kingChoices, rulesFor } from './new-game';
 import { pieces, powerLines, resultText } from './texts';
 import { DEFAULT_RULES, POWERS_BALANCED } from '../../rules/rules';
 import { RELEASED_CARDS } from '../../content/cards';
@@ -36,8 +39,50 @@ it.each(guideEntries('Pieces'))('reads $name facts from pieceGuide', entry => {
 it('reads current power and card content with balanced rules and capture words', () => {
   const rules = new GameRules(POWERS_BALANCED).rules;
   const capture = (line: string) => line.replace(/\bTakes\b/g, 'Captures').replace(/\btakes\b/g, 'captures').replace(/\btaken\b/g, 'captured').replace(/\btake\b/g, 'capture');
-  for (const entry of guideEntries('Kings and powers')) expect(entry.full.toLowerCase()).toBe(`${capture(powerText(entry.id as PowerName, rules)).toLowerCase()}.`);
-  for (const card of RELEASED_CARDS) expect(guideEntries('Cards').find(entry => entry.id === card.id)?.full.toLowerCase()).toBe(`${capture(cardText(card.id, rules)).toLowerCase()}.`);
+  for (const entry of guideEntries('Kings and powers')) {
+    if (entry.id === 'Freeze' || entry.id === 'IceWall') continue;
+    expect(entry.full.toLowerCase()).toBe(`${capture(powerText(entry.id as PowerName, rules)).toLowerCase()}.`);
+  }
+  for (const card of RELEASED_CARDS) {
+    if (['Freeze', 'IceWall', 'Firewall'].includes(card.id)) continue;
+    expect(guideEntries('Cards').find(entry => entry.id === card.id)?.full.toLowerCase()).toBe(`${capture(cardText(card.id, rules)).toLowerCase()}.`);
+  }
+});
+it('describes the four game types that New game can deal', () => {
+  const cases = [
+    ['pieces', false, 0, 'Kings have no powers. Players have no cards.'],
+    ['powers', true, 0, 'Each king has one power. Players have no cards.'],
+    ['cards', false, 4, 'Both players get the same four cards. Kings have no powers.'],
+    ['both', true, 4, 'Each king has an always-on power. Both players get the same four cards.'],
+  ] as const;
+  for (const [type, powers, cardCount, note] of cases) {
+    const { kings, hands } = new GameRules(rulesFor(type, () => 0.5)).rules;
+    expect(kings.map(Boolean)).toEqual([powers, powers]);
+    expect(hands[0]).toHaveLength(cardCount);
+    expect(hands[1]).toEqual(hands[0]);
+    expect(homeText.types[type]).toBe(note);
+  }
+  expect(kingChoices('powers').some(king => king.power === 'Freeze')).toBe(true);
+  expect(kingChoices('both').map(king => king.power)).not.toContain('Freeze');
+  const steps = guideEntries('How a turn works');
+  expect(steps.find(entry => entry.id === 'power')?.full).toContain('It can be active or always on.');
+  expect(steps.find(entry => entry.id === 'card')?.full).toContain('With cards only, kings have no powers. With powers and cards, each king has an always-on power.');
+});
+it('gives the same optional move and safe end after a free action', () => {
+  const context = new GameRules(POWERS_BALANCED);
+  const followUp = 'After a free action, you can move a piece. If your king is safe, you can select End turn.';
+  const steps = guideEntries('How a turn works');
+  for (const id of ['power', 'card']) expect(steps.find(entry => entry.id === id)?.full).toContain(followUp);
+  expect(steps.find(entry => entry.id === 'finish')?.full).toContain('a free action that leaves your king safe');
+  for (const [section, ids] of [['Kings and powers', ['Freeze', 'IceWall']], ['Cards', ['Freeze', 'IceWall', 'Firewall']]] as const) {
+    for (const id of ids) {
+      const entry = guideEntries(section).find(item => item.id === id)!;
+      const rule = learningEntry(entry.subject!, context);
+      expect(entry.full).toBe(rule.full);
+      expect(rule.full).not.toContain('then make your move');
+      expect(rule.limits).toContain(followUp);
+    }
+  }
 });
 it('uses short lines from the copy table', () => {
   for (const section of guideSections.slice(0, 3)) for (const entry of guideEntries(section)) { expect(entry.short.length).toBeLessThanOrEqual(60); expect(entry.short).toMatch(/\.$/); }

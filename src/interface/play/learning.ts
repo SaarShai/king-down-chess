@@ -13,6 +13,16 @@ export const subjectKey = (subject: LearnSubject) => `${subject.kind}:${subject.
 export const newPieces = new Set<number>([A, S, G, M, O, L]);
 export const captureWords = (line: string) => line.replace(/\bTakes\b/g, 'Captures').replace(/\btakes\b/g, 'captures').replace(/\btaken\b/g, 'captured').replace(/\btake\b/g, 'capture').replace('Select "Stop here" to end the chain.', 'Select End turn to end the chain.');
 const complete = (line: string) => `${line[0].toUpperCase()}${line.slice(1).replace(/\.$/, '')}.`;
+export const freeActionFollowUp = 'After a free action, you can move a piece. If your king is safe, you can select End turn.';
+const isFreeMark = (id: string, context: GameRules) => context.rules.markFree && ['Freeze', 'IceWall', 'Firewall'].includes(id);
+export function effectRule(subject: Exclude<LearnSubject, { kind: 'piece' }>, context: GameRules): string {
+  const line = subject.kind === 'power' ? powerText(subject.id, context.rules) : cardText(subject.id, context.rules);
+  const copy = isFreeMark(subject.id, context) ? line
+    .replace(', then make your move, which cannot capture: the', '. If you move a piece, it cannot capture. The')
+    .replace(', then make your move: the', '. The')
+    .replace('; then make your move', '') : line;
+  return complete(captureWords(copy));
+}
 export function learningEntry(subject: LearnSubject, context: GameRules, pos?: Position, side: Color = 0, cardIndex?: number) {
   const isPiece = subject.kind === 'piece', name = isPiece ? pieces[subject.type].name : subject.kind === 'power' ? POWER_NAME[subject.id] : cardName(subject.id);
   let full: string, uses = '', king = '', short = isPiece ? pieces[subject.type].short : powerLines[subject.id]!;
@@ -34,7 +44,7 @@ export function learningEntry(subject: LearnSubject, context: GameRules, pos?: P
       full += ` Stay out of attack. ${context.rules.classicChess ? 'Castling is allowed.' : 'No castling in this game.'}`;
     }
   } else {
-    full = complete(captureWords(subject.kind === 'power' ? powerText(subject.id, context.rules) : cardText(subject.id, context.rules)));
+    full = effectRule(subject, context);
     if (subject.kind === 'power') {
       king = context.rules.kings[side]?.power === subject.id ? context.rules.kings[side]!.king : Object.entries(KINGS).find(([, powers]) => (powers as readonly string[]).includes(subject.id))![0];
       const n = usesAllowed(subject.id, context.rules);
@@ -47,7 +57,7 @@ export function learningEntry(subject: LearnSubject, context: GameRules, pos?: P
   if (isPiece && subject.type === P && context.rules.kings[side]?.power === 'March') limits += ' March also permits two steps forward from any rank if both squares are empty.';
   if (isPiece && subject.type === K && short !== pieces[K].short) limits += ` ${full}`;
   if (!isPiece && subject.id === 'March' && context.rules.kings[side]?.power === 'Darkness') limits = limits.replace('Pawns still capture on a forward diagonal.', 'With Darkness, pawns capture only straight ahead.');
-  if (!isPiece && ['Freeze', 'IceWall', 'Firewall'].includes(subject.id) && context.rules.markFree) limits += ' You can also select End turn after the free action if your king is safe.';
+  if (!isPiece && isFreeMark(subject.id, context)) limits += ` ${freeActionFollowUp}`;
   return { key: subjectKey(subject), subject, name, short: isPiece && subject.type === P && power === 'Darkness' ? 'Darkness: step forward or diagonally; capture only straight ahead. Promote on the last rank.' : short, full, limits, against, uses, king, kind: isPiece ? 'Piece' : subject.kind === 'power' ? 'King’s power' : 'Card', isNew: isPiece && newPieces.has(subject.type), art: isPiece ? `/ui/pieces/${subject.type === K ? 'king-spirit' : name.toLowerCase()}-${side ? 'b' : 'w'}.webp` : subject.kind === 'power' ? `/ui/pieces/king-${king.toLowerCase()}-${side ? 'b' : 'w'}.webp` : `/${RELEASED_CARDS.find(card => card.id === subject.id)!.art}` };
 }
 /** Pass and a free mark do not count as the first move. The computer's actions before the player's first turn do not count. */
