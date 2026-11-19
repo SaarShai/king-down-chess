@@ -306,6 +306,7 @@ function receiveOnline(state: PeopleState) {
   if (ended) { resultCause = onlineResult(state); if (!wasEnded || reading !== 'menu') reading = 'result'; if (changed) detail.dataset.mode = ''; }
   else if (reading === 'result') reading = 'normal';
   update();
+  if (changed && previousRevision >= 0 && ended && !wasEnded && state.view.result?.reason === 'checkmate') playOnlineKingResult();
   if (changed && previousRevision >= 0 && wasWaiting && !thinking && !ended && !arrangement) passTurn(false);
   if (changed && previousRevision >= 0) announce(arrangementWaiting() ? arrangeText.wait : ended ? resultCause : state.draft ? `${replyText()} Your turn.` : state.sent ? 'Turn sent. Your opponent now plays.' : 'The game changes.');
   void onlineRecovery(state);
@@ -659,7 +660,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
         if (animated) { shake(seatRings[colorOf(victim) === player ? 0 : 1], { amplitude: 4, ms: 260 }); pulse('medium'); }
         return true;
       },
-      onKingImpact: () => { if (endResult) { cue('knock', { pitch: .7 }); pulse('medium'); } },
+      onKingImpact: () => { if (endResult || onlineActive) { cue('knock', { pitch: .7, volume: .7 * .85 }); pulse('medium'); } },
     },
   });
   board = view;
@@ -1103,17 +1104,18 @@ function showResult() {
   const ground = boardBox;
   const light = (t: number) => ground.style.setProperty('--result-light', String(won ? .26 - .13 * t : .16 * t));
   const finish = (showCard: boolean) => {
-    if (!endResult) return;
+    if (endResult !== cancel) return;
     endResult = undefined;
     cues.forEach(effect => effect.cancel()); skip.remove(); view?.skip();
     light(1);
     if (!won) ground.style.setProperty('--result-saturation', '.5');
     if (showCard) show();
   };
-  endResult = () => finish(false);
+  const cancel = () => finish(false);
+  endResult = cancel;
   cue('impact'); pulse('heavy'); hold(90);
   shake(ground, { amplitude: 2.5, ms: 240 });
-  void view?.play({ kind: 'fall', square }).catch(() => {});
+  const playback = view?.play({ kind: 'fall', square });
   cues.push(later(200, () => {
     cues.push(tween(won ? 700 : 900, t => {
       light(t);
@@ -1124,8 +1126,21 @@ function showResult() {
     if (won) { cue('arrive'); cue('ting'); pulse('success'); burst('sparks', at(cells[square]), { count: 12, ms: 700 }); }
     else { cue('no', { pitch: .65 }); pulse('error'); }
   }));
+  const finished = Promise.resolve(playback).catch(() => {});
   if (reducedMotion()) finish(true);
-  else cues.push(later(1100, () => finish(true)));
+  else void finished.then(() => finish(true));
+}
+function playOnlineKingResult() {
+  const view = board;
+  if (!view) return;
+  const lifetime = new AbortController();
+  if (!reducedMotion() && pieceView !== 'symbols' && !document.hidden) {
+    screen.addEventListener('click', event => {
+      event.preventDefault(); event.stopImmediatePropagation(); view.skip();
+    }, { capture: true, once: true, signal: lifetime.signal });
+  }
+  void view.play({ kind: 'fall', square: findKing(game.pos.board, game.pos.turn) })
+    .catch(() => {}).finally(() => lifetime.abort());
 }
 
 const arrangementLocked = () => !!(onlineActive && (onlineState?.view?.ready?.[player] || onlineState?.phase !== 'setup'));

@@ -63,7 +63,7 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  const floor=floorOf(floorOption);
  const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName}=pieces;
  const ctx=canvas.getContext('2d');
- let pausedTime=null,clockOffset=0,contactFrame=null,contactTimer=null;
+ let pausedTime=null,clockOffset=0,contactFrame=null,contactTimer=null,lastPoses;
  const sceneTime=(real=performance.now())=>pausedTime??real-clockOffset;
  function pause(){pausedTime??=contactFrame??sceneTime();}
  function resume(){
@@ -726,7 +726,8 @@ function vortex(out,foot,phase,strength) {
  }
  // King Down: the beaten king topples backwards onto the board.
  let fall=null;
- if(fallen&&poses.has(fallen.sq)){const u=poses.get(fallen.sq),ms=fallMs(time);if(ms<DEMISE&&typeOf(u.value)===K)fall=demiseState(u,ms);u.pose=fallPose(u.pose,fallen.rotation,ms);if(!fallen.plain&&ms>=SWAP&&typeOf(u.value)===K){const lying=lyingArt(kings[colorOf(u.value)]);if(lying){u.pose={...u.pose,fall:null,rotation:fallen.rotation,lying};drawnKings[colorOf(u.value)]=kings[colorOf(u.value)];}}}
+ if(fallen?.painted)poses.delete(fallen.sq);
+ else if(fallen&&poses.has(fallen.sq)){const u=poses.get(fallen.sq),ms=fallMs(time);if(ms<DEMISE&&typeOf(u.value)===K)fall=demiseState(u,ms);u.pose=fallPose(u.pose,fallen.rotation,ms);if(!fallen.plain&&ms>=SWAP&&typeOf(u.value)===K){const lying=lyingArt(kings[colorOf(u.value)]);if(lying){u.pose={...u.pose,fall:null,rotation:fallen.rotation,lying};drawnKings[colorOf(u.value)]=kings[colorOf(u.value)];}}}
  let shot=null,hit=null;const effects=[];
  if(animation&&!animation.effect&&!animation.preparing){
   const a=animation,duration=a.legacyDuration??a.duration,at=a.rewind?.kind==='move'?Math.max(a.start,Math.min(a.rewind.at,a.rewind.at-(time-a.rewind.start))):time,elapsed=clamp((at-a.start)/a.speed-(a.runtime?.beforeMs??0),0,a.actionDuration??duration),t=effectTimeAt(a,elapsed),actor=poses.get(a.move.from),victim=poses.get(a.move.swap?a.move.to:a.move.shove?.from??a.move.captures[0]);
@@ -1026,6 +1027,7 @@ function vortex(out,foot,phase,strength) {
  if(hit)impact(ctx,hit.point,hit.t,hit.scale);
  if(fall)demise.over(ctx,fall);
  over(7);
+ if(daylight?.onCaptureVictim)lastPoses=poses;
  ctx.restore();
 }
 function drawEncounter(a,t) {
@@ -1304,7 +1306,7 @@ function drawEncounter(a,t) {
  }
  const api={
   SIZE,PAD,TILE,headroom,
-  get time(){return sceneTime();},
+  get time(){return contactFrame??sceneTime();},
   pause,resume,
   get animating(){return !!animation&&!animation.done;},
   get falling(){return !!fallen&&fallMs(sceneTime())<DEMISE;},
@@ -1374,11 +1376,11 @@ function drawEncounter(a,t) {
   setLabels(on){labels=on;wake();},
   setReducedMotion(on){const was=reducedMotion;reducedMotion=on;if(on){ambientIdles.clear();idleClocks.update(0,new Map(),()=>0,false);landed=null;selectionGeneration++;pendingIdle=null;idleOut=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}if(on&&(animation?.runtime||animation?.preparing||animation?.rewind||animation?.value&&typeOf(animation.value)===K&&animation.move.captures.length))endMove();if(on)awakeUntil=0;else if(was){loadClips();reserveSelected(selected);}wake();},
   /** Lay the king on `sq` down (null: nobody); animate=false shows it already fallen. speed: as in play (.5 is twice as fast). */
-  setFallen(sq,animate=true,rotation=-1.5,speed=1,onImpact=null){
+  setFallen(sq,animate=true,rotation=-1.5,speed=1,onImpact=null,painted=false){
    const value=sq==null?0:position.board[sq];
    // (A fall that starts before his painted figure or the dust has loaded ends as the rotated figure: no swap in the open.)
-   fallen=sq==null?null:{sq,rotation,speed,onImpact:animate?onImpact:null,start:animate?sceneTime():-Infinity,plain:animate&&!(typeOf(value)===K&&lyingArt(kings[colorOf(value)])&&demise.ready)};
-   if(animate&&sq!=null)demise.prepare();wake();
+   fallen=sq==null?null:{sq,rotation,speed,painted,onImpact:animate?onImpact:null,start:animate?sceneTime():-Infinity,plain:animate&&!painted&&!(typeOf(value)===K&&lyingArt(kings[colorOf(value)])&&demise.ready)};
+   if(animate&&sq!=null&&!painted)demise.prepare();wake();
   },
   /** Backing pixels per board unit (1 = 960 px wide), so the board stays sharp on high-density screens. */
   setResolution(k){if(k===res)return;res=k;canvas.width=fxCanvas.width=Math.round(SIZE*k);canvas.height=fxCanvas.height=Math.round((SIZE+headroom)*k);ctx.setTransform(k,0,0,k,0,0);wake();},
@@ -1416,6 +1418,24 @@ function drawEncounter(a,t) {
   /** A see-through copy of a figure standing on `square` (a move preview); for setDecorate. */
   /** Board-unit bounds {x,foot,top,l,r} of figure `value` standing at rest on `square`; from its height while its frames load. */
   figureBox(value,square){const pose=poseFor(value,square);pose.bank=bodyRuntime?.rest(characterOf(value),armyOf(value))??null;const h=figureHeight(characterOf(value)),{x,y}=pose.foot;return bankShape(pose,typeOf(value))??{x,foot:y,top:y-h,l:x-h*.4,r:x+h*.4};},
+  momentFigure(square,snapshot){
+   const value=position.board[square];
+   if(!daylight||!value)return;
+   const {x,y}=foot(square),unit=lastPoses?.get(square);
+   const body=bodyRuntime?.rest(characterOf(value),armyOf(value))??stillBody(value);
+   const figure={x,y:y+headroom,bodyHeight:body?body.scale*body.unitHeight:figureHeight(characterOf(value))};
+   if(snapshot&&unit?.value===value){
+    const rect={x:x-TILE,y:y+headroom-2*TILE,width:2*TILE,height:2.5*TILE};
+    const image=document.createElement('canvas');image.width=rect.width*res;image.height=rect.height*res;
+    const out=image.getContext('2d');
+    if(out){
+     out.setTransform(res,0,0,res,-rect.x*res,(headroom-rect.y)*res);
+     drawPiece(out,value,unit.pose,unit.opacity,unit.extension,frozen?.has(square)?{frozen:true}:null,null);
+     figure.from={image,rect};
+    }
+   }
+   return figure;
+  },
   ghost(out,value,square,opacity=.4){if(ready&&value){const pose=poseFor(value,square);pose.bank=bodyRuntime?.rest(characterOf(value),armyOf(value));if(!pose.bank)pose.still=stillBody(value);drawPiece(out,value,pose,opacity);}},
   /** Animate a move on the current position. Resolves true at the final frame, false if cancelled. */
   play(move,{speed=1,onContact=null,onStart=null,gait=null,effect=null,targetMs,finishSwapOnArrival=false}={}){

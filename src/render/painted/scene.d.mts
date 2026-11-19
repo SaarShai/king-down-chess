@@ -67,7 +67,7 @@ export interface PaintedScene {
   setCoords(on: boolean, size?: number, inset?: number): void;
   setLabels(on: boolean): void;
   setReducedMotion(on: boolean): void;
-  setFallen(square: number | null, animate?: boolean, rotation?: number, speed?: number, onImpact?: (square: number) => void): void;
+  setFallen(square: number | null, animate?: boolean, rotation?: number, speed?: number, onImpact?: (square: number) => void, painted?: boolean): void;
   /** Backing pixels per board unit; resizes the canvas and the effect layer. Default 1. */
   setResolution(k: number): void;
   /**
@@ -108,6 +108,11 @@ export interface PaintedScene {
   arrive(delays: Map<number, number>, ms?: number, rise?: number): void;
   /** Board-unit bounds of figure `piece` standing at rest on `square`: foot x and y, head top, left and right. */
   figureBox(piece: number, square: number): { x: number; foot: number; top: number; l: number; r: number };
+  /** The figure's registration and optional last drawn pose, in canvas units. */
+  momentFigure(square: number, snapshot: boolean): {
+    x: number; y: number; bodyHeight: number;
+    from?: { image: HTMLCanvasElement; rect: { x: number; y: number; width: number; height: number } };
+  } | undefined;
   /** A see-through copy of figure `piece` standing on `square` (a move preview), drawn into `ctx`; for setDecorate. */
   ghost(ctx: CanvasRenderingContext2D, piece: number, square: number, opacity?: number): void;
   /** onContact fires once when the strike lands (not for plain moves or swaps). */
