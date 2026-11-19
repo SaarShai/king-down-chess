@@ -17,6 +17,7 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', conte
 };
 export const homeText = {
   yourGame: 'Your game', turn: 'Turn',
+  types: { pieces: text.noPowers, powers: text.powersNote, cards: text.cardsNote, both: text.bothNote },
   startGame: 'Start game', side: 'Your side',
   // Launch decision 46: the levels stay; each line is true (runs/launch/opponent/report.md).
   levels: { casual: 'The easiest level. A good level for a first game.', clever: 'Much stronger than Friendly. It makes some mistakes.', club: 'The strongest level. Much stronger than Focused.' } as Record<Level, string>,
@@ -145,7 +146,7 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
     card.classList.add('home-welcome');
     const summary = button(summaryLine(d.next), { icon: 'next', onPress: () => d.onChange(summary) });
     summary.classList.add('home-summary');
-    card.append(newGame, summary, el('p', 'home-intro', text.intro)); start.append(card);
+    card.append(newGame, summary, el('p', 'home-intro', `${text.intro} ${homeText.types[d.next.setup]}`)); start.append(card);
   }
   if (rows.length) {
     rows.sort(gameOrder);

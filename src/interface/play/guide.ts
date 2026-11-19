@@ -2,35 +2,35 @@ import { kingDisplayName } from '../../king-label';
 import { GameRules } from '../../game-rules';
 import { A, B, G, K, KINGS, L, M, N, O, P, Q, R, S, type PieceType } from '../../rules/engine';
 import { RELEASED_CARDS } from '../../content/cards';
-import { cardText, powerText, POWER_NAME, usesAllowed } from '../../powers-ui';
+import { POWER_NAME, usesAllowed } from '../../powers-ui';
 import { rulesOf } from './saved';
 import { pieces, powerLines } from './texts';
 import { learningPanel } from './learning-panel';
-import type { LearnSubject } from './learning';
+import { effectRule, freeActionFollowUp, newPieces, type LearnSubject } from './learning';
 import { button, icon } from '../ui/kit.js';
-import { newPieces } from './learning';
 
 export const guideSections = ['Pieces', 'Kings and powers', 'Cards', 'How a turn works'] as const;
 export interface GuideEntry { id: string; name: string; short: string; full: string; art?: string; kind: string; subject?: LearnSubject }
 const context = new GameRules(rulesOf('powers', [null, null], [[], []]));
-const sentence = (line: string) => `${line[0].toUpperCase()}${line.slice(1).replace(/\.$/, '')}.`;
-// The shared sources keep their old-page words. Only this interface uses capture.
-const capture = (line: string) => line.replace(/\bTakes\b/g, 'Captures').replace(/\btakes\b/g, 'captures').replace(/\btaken\b/g, 'captured').replace(/\btake\b/g, 'capture');
 export function guideEntries(section: string): GuideEntry[] {
   if (section === 'Pieces') return ([A, S, G, M, O, L, P, N, B, R, Q, K] as PieceType[]).map(type => {
     return { id: String(type), name: pieces[type].name, short: pieces[type].short, full: pieces[type].full, art: `/ui/pieces/${type === K ? 'king-spirit' : pieces[type].name.toLowerCase()}-w.webp`, kind: 'Piece', subject: { kind: 'piece', type } };
   });
   if (section === 'Kings and powers') return Object.entries(KINGS).flatMap(([king, powers]) => powers.map(power => {
     const uses = usesAllowed(power, context.rules);
-    return { id: power, name: POWER_NAME[power], short: powerLines[power]!, full: sentence(capture(powerText(power, context.rules))), art: `/ui/pieces/king-${king.toLowerCase()}-w.webp`, subject: { kind: 'power' as const, id: power }, kind: `${kingDisplayName(king)} King · ${uses == null || uses === 0 ? 'Always on' : `${uses} ${uses === 1 ? 'use' : 'uses'} per game`}` };
+    const subject = { kind: 'power' as const, id: power };
+    return { id: power, name: POWER_NAME[power], short: powerLines[power]!, full: effectRule(subject, context), art: `/ui/pieces/king-${king.toLowerCase()}-w.webp`, subject, kind: `${kingDisplayName(king)} King · ${uses == null || uses === 0 ? 'Always on' : `${uses} ${uses === 1 ? 'use' : 'uses'} per game`}` };
   }));
-  if (section === 'Cards') return RELEASED_CARDS.map(card => ({ id: card.id, name: card.name, short: powerLines[card.id]!, full: sentence(capture(cardText(card.id, context.rules))), art: `/${card.art}`, kind: 'Card · One use', subject: { kind: 'card', id: card.id } }));
+  if (section === 'Cards') return RELEASED_CARDS.map(card => {
+    const subject = { kind: 'card' as const, id: card.id };
+    return { id: card.id, name: card.name, short: powerLines[card.id]!, full: effectRule(subject, context), art: `/${card.art}`, kind: 'Card · One use', subject };
+  });
   if (section === 'How a turn works') return [
     ['move', 'Make your move', 'Move one piece, then select End turn.', 'Select one of your pieces. Select a marked square. Your king must be safe when the turn ends. Checkmate wins.'],
-    ['power', 'Use a power', 'A free power comes before your normal move.', 'With powers, each king gets one power. Select a power to see its rule and legal targets. Freeze and Ice Wall are free actions. Make your normal move after them. Other active powers use the move. An always-on power needs no tap.'],
-    ['card', 'Play a card', 'Each card has one use.', 'With cards, both players start with the same four cards. Each king has an always-on power. Select a card, then its target. Freeze, Ice Wall and Firewall are free actions. Other cards use the move.'],
+    ['power', 'Use a power', 'An always-on power needs no tap.', `With powers only, each king has one power. It can be active or always on. Select an active power to see its rule and legal targets. Freeze and Ice Wall are free actions. ${freeActionFollowUp} Other active powers use the move.`],
+    ['card', 'Play a card', 'Each card has one use.', `Both players start with the same four cards. With cards only, kings have no powers. With powers and cards, each king has an always-on power. Select a card, then its target. Freeze, Ice Wall and Firewall are free actions. ${freeActionFollowUp} Other cards use the move.`],
     ['undo', 'Change your turn', 'Undo changes a turn before End turn.', 'Your steps are not final until you select End turn. Undo removes the last step. A Beast can capture again before the turn ends.'],
-    ['finish', 'End your turn', 'End turn makes your steps final.', 'Select End turn after a legal move. You cannot undo a final turn. The computer then plays. A game can end in checkmate, resign, stalemate, repetition, insufficient material or no progress for 100 actions.'],
+    ['finish', 'End your turn', 'End turn makes your steps final.', 'Select End turn after a legal move or a free action that leaves your king safe. You cannot undo a final turn. The computer then plays. A game can end in checkmate, resign, stalemate, repetition, insufficient material or no progress for 100 actions.'],
   ].map(([id, name, short, full]) => ({ id, name, short, full, kind: 'Turn rule' }));
   return [];
 }

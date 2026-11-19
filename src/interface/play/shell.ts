@@ -22,6 +22,9 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
   // A load, a reload or an address edit opens the place of the hash; the stored Guide section stays when it matches.
   const fromAddress = (): Route => { const read = addressRoute(location.hash), kept: Route | undefined = history.state?.shell; return kept?.place === read.place && (read.entry === undefined || kept.entry === read.entry) ? kept : read; };
   let route: Route = fromAddress();
+  const guideEntry = () => root.querySelector('.guide-page[data-view="entry"]:not(.shell-departing)');
+  const guideScrollKey = 'kingdown.guide-scroll';
+  const guideAddress = () => `${location.pathname}#${route.section}/${route.entry}`;
   const nav = navigation('Play', name => go({ place: name.toLowerCase() as Route['place'] }), { guide: true });
   nav.querySelector('a[href="#play"] > svg')?.replaceWith(daylightCrown());
   // The bar comes first in the Tab order, after a skip link to the page (runs/launch/speed/report.md fix 11).
@@ -112,9 +115,28 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
     const next = fromAddress(); history.replaceState({ shell: next }, '', location.href);
     if (JSON.stringify(next) !== JSON.stringify(route)) show(next);
   });
+  // A reload can restore the browser's scroll before the Guide entry exists.
+  window.addEventListener('pagehide', () => {
+    if (!guideEntry()) return;
+    try { sessionStorage.setItem(guideScrollKey, JSON.stringify([guideAddress(), window.scrollY])); } catch { /* Storage can be blocked. */ }
+  });
   history.replaceState({ shell: route }, '', location.pathname + location.search + (route.place === 'play' ? '' : routeHash(route)));
   return {
-    go, start: () => show(route), get route() { return route; },
+    go, get route() { return route; },
+    start() {
+      show(route);
+      const page = guideEntry();
+      const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+      if (!page || navigation?.type !== 'reload') return;
+      try {
+        const [address, top] = JSON.parse(sessionStorage.getItem(guideScrollKey) ?? '[]');
+        if (address === guideAddress() && typeof top === 'number') {
+          void document.fonts.ready.then(() => requestAnimationFrame(() => {
+            if (page.isConnected) window.scrollTo(0, top);
+          }));
+        }
+      } catch { /* Storage can be blocked. */ }
+    },
     /** Runs `run` now, or after a pending layer Back, in order with route changes. Open a layer only in `run`. */
     settled,
     /** Open a layer: one history entry. Browser Back calls `close`. */

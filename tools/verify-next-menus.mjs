@@ -237,6 +237,18 @@ const cases = {
     }), 'hover rules require a hover pointer');
     await shot(page, 'you');
   },
+  async ribbon(page, context, check) {
+    await page.goto(`${NEXT}#you`);
+    await page.locator('.ribbon-sample').waitFor();
+    for (const size of [100, 150, 200]) {
+      await page.evaluate(size => { document.documentElement.style.fontSize = `${size}%`; }, size);
+      const ribbonFits = await page.locator('.ribbon-sample').evaluate(sample => {
+        const art = sample.getBoundingClientRect(), button = sample.closest('button').getBoundingClientRect();
+        return art.left >= button.left && art.right <= button.right && art.top >= button.top && art.bottom <= button.bottom;
+      });
+      check(ribbonFits && await unbroken(page, '.ribbon-sample'), `the Ribbon sample fits with whole words at ${size}%`);
+    }
+  },
   async guide(page, context, check, size) {
     const w = Number(size.split('x')[0]);
     await page.goto(`${NEXT}#guide`); await page.waitForSelector('.guide-page'); await page.evaluate(() => document.fonts.ready);
@@ -260,6 +272,22 @@ const cases = {
     const measure = Math.max(...await lines(page, '.learn-rule, .learn-limits, .learn-against'));
     check(measure <= 70, `entry text has at most 70 characters per line (${measure})`);
     await shot(page, 'guide-entry');
+  },
+  async guide_reload(page, context, check) {
+    await page.goto(`${NEXT}#guide`);
+    await page.locator('[data-section="Pieces"]').click();
+    await page.locator('.guide-row', { hasText: 'Maester' }).click();
+    const heading = page.getByRole('heading', { name: /Maester/ });
+    await heading.waitFor();
+    const before = await page.evaluate(async () => {
+      await document.fonts.ready;
+      scrollTo(0, document.body.scrollHeight);
+      return scrollY;
+    });
+    await page.reload();
+    await heading.waitFor();
+    const restored = await page.waitForFunction(y => Math.abs(scrollY - y) <= 2, before, { timeout: 4000 }).then(() => true, () => false);
+    check(before > 0 && restored, 'the Maester entry keeps its reading position after reload');
   },
   async home_piece_close(page, context, check) {
     await page.goto(NEXT); await page.locator('.home-hero button').click();
