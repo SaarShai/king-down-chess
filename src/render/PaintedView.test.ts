@@ -211,6 +211,32 @@ it('replaces the old Freeze image with the shared volume and draws its front aft
   view.dispose();
 });
 
+it('shows the Daylight Freeze edge and badge until the mark clears', async () => {
+  const container = stubDom(), { PaintedView } = await import('./PaintedView');
+  const { fixtures, at } = await import('../../docs/specs/effects-animation/preview/signals/fixtures');
+  const f = fixtures.freeze;
+  const view = new PaintedView(container as unknown as HTMLElement, { quiet: true, daylight: true, plainMarks: true });
+  const { scene } = view as unknown as { scene: PaintedScene };
+  const setPosition = vi.fn(), play = vi.fn();
+  Object.assign(scene, { SIZE: 960, setPosition, play, time: 0 });
+  view.setRules(f.rules);
+  view.sync(f.before);
+  const move = f.rules.legalMoves(f.before).find(m => m.power === 'freeze' && m.to === at('d5'))!;
+  await view.animateMove(f.before, move);
+  expect(play).not.toHaveBeenCalled();
+  view.sync(f.after);
+  expect(setPosition).toHaveBeenLastCalledWith(f.after, new Set([at('d5')]));
+  const draw = decorate.mock.lastCall![0], strokeRect = vi.fn(), arc = vi.fn(), drawImage = vi.fn();
+  const ctx = new Proxy({ strokeRect, arc, drawImage } as Record<string, unknown>, { get: (target, key: string) => key in target ? target[key] : () => {} });
+  draw(ctx, scene, 'under'); draw(ctx, scene, 'over', 7);
+  expect(strokeRect).toHaveBeenCalledOnce();
+  expect(arc).toHaveBeenCalledTimes(3);
+  expect(drawImage).not.toHaveBeenCalled();
+  view.sync(f.expired!);
+  expect(setPosition).toHaveBeenLastCalledWith(f.expired, new Set());
+  view.dispose();
+});
+
 
 it.each([['move', 'mouse'], ['move', 'touch'], ['fall', 'mouse'], ['fall', 'touch']])('A8: ends a %s from a board %s press and consumes the whole gesture', async (kind, pointerType) => {
   const container = stubDom(), { PaintedView } = await import('./PaintedView');
