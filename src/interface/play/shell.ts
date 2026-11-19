@@ -27,7 +27,7 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
   const guideAddress = () => `${location.pathname}#${route.section}/${route.entry}`;
   const nav = navigation('Play', name => {
     const next = { place: name.toLowerCase() as Route['place'] };
-    if (layer && next.place === route.place) { layer(); void closeLayer(); }
+    if (layer && next.place === route.place) { layer.close(); void closeLayer(); }
     else go(next);
   }, { guide: true });
   nav.querySelector('a[href="#play"] > svg')?.replaceWith(daylightCrown());
@@ -37,7 +37,7 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
   nav.classList.add('shell-nav'); document.body.prepend(skip, nav);
   // A layer over the place (the New game panel) has its own history entry: Back closes it.
   // While a layer Back is pending, route changes and new layers wait in `waiting`, in order, until that Back lands.
-  let layer: (() => void) | null = null, waiting: (() => void)[] | null = null;
+  let layer: { close(): void; back?: () => boolean } | null = null, waiting: (() => void)[] | null = null;
   const settled = (run: () => void) => { if (waiting) waiting.push(run); else run(); };
   let pageEffect: Effect | undefined, plateEffect: Effect | undefined;
   const plate = document.createElement('span'); plate.className = 'shell-plate'; plate.setAttribute('aria-hidden', 'true');
@@ -106,7 +106,7 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
     if (waiting) { waiting.push(() => go(next, draw)); return; }
     if (JSON.stringify(next) === JSON.stringify(route)) return;
     // A route change (a late invite reply) closes an open layer; the new place takes the layer's history entry.
-    const open = layer; layer = null; open?.();
+    const open = layer; layer = null; open?.close();
     history[open ? 'replaceState' : 'pushState']({ shell: next }, '', routeHash(next)); show(next, draw);
   }
   window.addEventListener('popstate', event => {
@@ -116,9 +116,15 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
       if (runs.length) waiting!.push(...runs); // a run started another Back: the rest waits for it
       return;
     }
-    if (layer) { const close = layer; layer = null; close(); if (JSON.stringify(event.state?.shell) === JSON.stringify(route)) return; }
+    const samePlace = JSON.stringify(event.state?.shell) === JSON.stringify(route);
+    if (layer) {
+      // If Back only closes a view in the layer, keep the history entry for the layer.
+      if (samePlace && layer.back?.()) { history.pushState({ shell: route, layer: true }, '', location.href); return; }
+      const open = layer; layer = null; open.close();
+      if (samePlace) return;
+    }
     // Forward to the entry of a closed layer: the place stays; the next Back leaves it.
-    if (event.state?.layer && JSON.stringify(event.state.shell) === JSON.stringify(route)) { waiting = []; history.back(); return; }
+    if (event.state?.layer && samePlace) { waiting = []; history.back(); return; }
     const next = event.state?.shell ?? fromAddress();
     show(next, true, next.place === 'you' ? event.state?.youScroll : undefined);
   });
@@ -154,13 +160,13 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
     /** Runs `run` now, or after a pending layer Back, in order with route changes. Open a layer only in `run`. */
     settled,
     /** Open a layer: one history entry. Browser Back calls `close`. */
-    openLayer(close: () => void, dialog?: HTMLDialogElement) {
+    openLayer(close: () => void, dialog?: HTMLDialogElement, back?: () => boolean) {
       if (dialog) {
         // Only controls inside the modal can take input. Move the bar back before the close animation copies the panel.
         dialog.prepend(nav);
         dialog.addEventListener('kd-before-close', () => skip.after(nav), { once: true });
       }
-      layer = close; history.pushState({ shell: route, layer: true }, '', location.href);
+      layer = { close, back }; history.pushState({ shell: route, layer: true }, '', location.href);
     },
     closeLayer,
   };

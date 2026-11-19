@@ -42,7 +42,7 @@ export interface PanelData {
 }
 type Choice = 'king' | 'opponent' | 'cards' | 'more' | 'confirm' | 'people';
 
-export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogElement; open(source: HTMLElement): void; close(): void } {
+export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogElement; open(source: HTMLElement): void; close(): void; back(): boolean } {
   const dialog = el('dialog', 'kd-dialog new-game-panel'), table = el('div', 'setup-table');
   const heading = el('h2', '', text.newGame), summary = el('p', 'setup-summary');
   heading.id = 'new-game-title'; heading.tabIndex = -1;
@@ -59,7 +59,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   } });
   const saved = d.memory;
   let draft = saved ? restorePanel(saved) : d.next, opponent = saved?.opponent ?? 'computer';
-  let choice: Choice | null = null, replacement = '';
+  let choice: Choice | null = null, replacement = '', signingIn = false;
   let opener: HTMLElement | null = null, choiceSource = '', starting = false, busy = false, actionId = 0;
   let sheetEffect: Effect | undefined, sheetOffset = 0, closing = false;
   let pull: { id: number; y: number } | undefined;
@@ -208,6 +208,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     if (closing) { sheetEffect?.finish(); return; }
     sheetEffect?.cancel(); pull = undefined;
     if (choice === 'people' || choice === 'opponent') d.remember(null);
+    signingIn = false;
     closing = true; actionId++; busy = false; sound('tick');
     const done = () => {
       clearSheet(); closing = false; choice = null; overlay.hidden = true; table.inert = false;
@@ -434,13 +435,24 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
       choice = 'opponent'; panel.dataset.choice = choice; redrawChoice(false); panelTitle.focus();
     };
     const activeSheet: PeopleSheet = { element: dialog, get isOpen() { return current(); },
-      show: view => { if (current()) sheet.show(view); }, close: () => { if (current()) close(); } };
+      show: view => { if (current()) sheet.show(view); },
+      close() {
+        if (!current()) return;
+        if (signingIn) closeChoice(); else close();
+      } };
     busy = true; status.textContent = panelText.loading;
     try {
       const host = await d.people(); if (!current()) return;
       d.remember({ ...memory(), opponent: 'person' });
-      const named = () => { if (!current()) return; if (!host.me()?.handle) nameSheet(activeSheet, host, redraw); else redraw(); };
-      if (!host.me()) { signInSheet(activeSheet, host, { kind: 'person' }, named); return; }
+      if (!host.me()) {
+        signingIn = true;
+        signInSheet(activeSheet, host, { kind: 'person' }, () => {
+          if (!current()) return;
+          signingIn = false;
+          if (!host.me()?.handle) nameSheet(activeSheet, host, redraw); else redraw();
+        });
+        return;
+      }
       if (!host.me()!.handle) { nameSheet(activeSheet, host, redraw); return; }
       const invited = () => { if (!current()) throw new ObsoleteAction(); d.onInvite(submitted); };
       const scoped = { ...host, toast: (message: string) => { if (current()) host.toast(message); },
@@ -477,5 +489,10 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
       if (saved?.opponent === 'person') openChoice('opponent', table.querySelector<HTMLElement>('[data-focus="opponent"]')!);
     },
     close: () => close(false),
+    back() {
+      if (!signingIn) return false;
+      closeChoice();
+      return true;
+    },
   };
 }
