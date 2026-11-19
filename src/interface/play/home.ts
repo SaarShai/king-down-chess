@@ -6,6 +6,8 @@ import { sideText, type SideChoice } from './sides';
 import { miniBoard, savedPreview, replayMiniBoard, stateText, type SavedPreview } from './mini-board';
 import type { NewGameDraft } from './new-game';
 import { typeName, type GameType, type Level } from './saved';
+import { daylightCrown } from './shell';
+import { ease, reducedMotion, tween, type Effect } from './fx';
 import { RELEASED_CARDS } from '../../content/cards';
 import { computerPortrait, profilePortrait } from '../people/host/portrait';
 import { deadlineLine, gameOrder, type HomeInvite, type PersonGame } from '../people/host/games';
@@ -49,29 +51,44 @@ export interface PlayData {
   onChange(source: HTMLButtonElement): void;
   previews: Map<string, string>;
 }
-/** The closed list shows three rows and a half-row cue. */
-export const gamesListView = (count: number, expanded: boolean) => ({ collapsed: count > 3 && !expanded, shown: count > 3 && !expanded ? 4 : count });
+/** Show three quiet rows until the player asks for the rest. */
+export const gamesListView = (count: number, expanded: boolean) => ({ collapsed: count > 3 && !expanded, shown: expanded ? count : Math.min(3, count) });
 
 export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus(): void } {
+  const games = [...d.people].sort(gameOrder);
+  const primary = d.resume ? undefined : games.find(game => game.state === 'playing' && game.preview);
+  const hasGame = !!(d.resume || primary);
   const home = el('section', 'play-home'), hero = el('div', 'home-hero'), brand = el('header', 'home-brand');
   const title = el('h1', '', text.title); title.tabIndex = -1;
-  const crown = icon('play'); crown.removeAttribute('data-icon');
-  crown.setAttribute('viewBox', '0 0 40 24');
-  crown.querySelector('path')!.setAttribute('d', 'M5 19 3 6.5l9.5 6.2L20 2.5l7.5 10.2L37 6.5 35 19zM6 22h28');
-  brand.append(crown, title);
+  brand.append(daylightCrown(), title);
   const picture = el('picture'), wide = el('source'), img = el('img');
-  wide.media = '(min-aspect-ratio: 5/4), (min-width: 600px) and (max-height: 910px)';
+  wide.media = hasGame ? '(min-aspect-ratio: 5/4), (min-width: 600px)' : '(min-aspect-ratio: 5/4), (min-width: 600px) and (max-height: 910px)';
   wide.srcset = '/interface/daylight-hero-wide-960.webp 960w, /interface/daylight-hero-wide-1672.webp 1672w';
-  wide.sizes = '70vw';
+  wide.sizes = '(min-aspect-ratio: 5/4) 70vw, 100vw';
   img.src = '/interface/daylight-hero-portrait-600.webp';
   img.srcset = '/interface/daylight-hero-portrait-600.webp 600w, /interface/daylight-hero-portrait-1122.webp 1122w';
   img.sizes = '100vw'; img.alt = ''; img.decoding = 'async'; img.fetchPriority = 'high';
   picture.append(wide, img); hero.append(picture, brand); home.append(hero);
+  let x = 0, y = 0, drift: Effect | undefined;
+  const driftTo = (toX: number, toY: number) => {
+    if (reducedMotion()) return;
+    drift?.cancel();
+    const fromX = x, fromY = y;
+    drift = tween(180, k => {
+      x = fromX + (toX - fromX) * k; y = fromY + (toY - fromY) * k;
+      picture.style.transform = `translate(${x}px, ${y}px)`;
+    }, { done: () => { if (reducedMotion() || !toX && !toY) picture.style.removeProperty('transform'); } });
+  };
+  hero.addEventListener('pointermove', event => {
+    if (event.pointerType === 'touch' && !event.buttons) return;
+    const box = hero.getBoundingClientRect();
+    driftTo(10 * (.5 - (event.clientX - box.left) / box.width), 8 * (.5 - (event.clientY - box.top) / box.height));
+  });
+  hero.addEventListener('pointerleave', () => driftTo(0, 0));
+  hero.addEventListener('pointercancel', () => driftTo(0, 0));
 
   const start = el('div', 'home-start');
   const rows: { mine: boolean; deadline: string | null; state: PersonGame['state']; row: HTMLElement }[] = [];
-  const games = [...d.people].sort(gameOrder);
-  const primary = d.resume ? undefined : games.find(game => game.state === 'playing' && game.preview);
   for (const game of games) {
     if (game === primary) continue;
     const row = el('button', 'home-game-row'); row.type = 'button'; row.dataset.game = game.id; row.dataset.mine = String(game.mine);
@@ -96,8 +113,8 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
     rows.push({ mine: invite.kind === 'incoming', deadline: null, state: invite.kind === 'incoming' ? 'setup' : 'finished', row });
   }
   const card = el('article', 'home-card');
-  const newGame = button(d.resume || primary || rows.length ? text.newGame : text.play, { kind: d.resume || primary ? 'quiet' : 'main', onPress: () => d.onChange(newGame) });
-  newGame.classList.add(d.resume || primary || rows.length ? 'home-side-new' : 'home-hero-new');
+  const newGame = button(hasGame ? text.newGame : text.play, { kind: hasGame ? 'quiet' : 'main', onPress: () => d.onChange(newGame) });
+  newGame.classList.add(hasGame ? 'home-side-new' : 'home-hero-new');
   let main = newGame;
   if (d.resume || primary) {
     const local = d.resume, preview = local ? savedPreview(local.draft, local.player) : primary!.preview!;
@@ -111,11 +128,14 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
     status.dataset.mine = String(local ? preview.state !== 'computer' : primary!.mine);
     state.append(status, el('span', '', `Move ${preview.turn}`));
     seat.append(face, copy, state);
-    const rules = local?.draft.game.context.rules;
+    const rules = local?.draft.game.context.rules ?? primary?.view.rules;
     const board = miniBoard(preview, code => rules ? art.figure(typeOf(code), colorOf(code), rules).src : art.symbol(code));
     if (rules) board.classList.add('mini-painted');
     card.append(board, seat); start.append(card);
-    const resume = button(text.resume, { kind: 'main', onPress: () => local ? d.onContinue(resume) : d.onPersonGame(primary!.id) });
+    const resume = button(text.resume, { kind: 'main', onPress: () => {
+      expandCard(card);
+      if (local) d.onContinue(resume); else d.onPersonGame(primary!.id);
+    } });
     resume.classList.add('home-continue');
     if (local) resume.dataset.saved = 'computer';
     else resume.dataset.game = primary!.id;
@@ -123,7 +143,7 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
     rememberMove(d.previews, local ? 'computer' : primary!.id, preview, board);
   } else {
     card.classList.add('home-welcome');
-    const summary = button(summaryLine(d.next), { icon: 'next', onPress: () => d.onChange(newGame) });
+    const summary = button(summaryLine(d.next), { icon: 'next', onPress: () => d.onChange(summary) });
     summary.classList.add('home-summary');
     card.append(newGame, summary, el('p', 'home-intro', text.intro)); start.append(card);
   }
@@ -134,7 +154,7 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
     const draw = () => {
       const { collapsed, shown } = gamesListView(rows.length, state.expanded); list.dataset.collapsed = String(collapsed);
       list.replaceChildren(...rows.map(({ row }, i) => {
-        const li = el('li'); li.hidden = i >= (collapsed ? shown - 1 : shown); li.append(row); return li;
+        const li = el('li'); li.hidden = i >= shown; li.append(row); return li;
       }));
     };
     draw(); start.append(list);
@@ -162,4 +182,22 @@ function rememberMove(played: Map<string, string>, id: string, preview: SavedPre
     if (!board.isConnected || played.get(id) === key) return;
     played.set(id, key); replayMiniBoard(board, preview);
   });
+}
+
+function expandCard(card: HTMLElement): void {
+  if (reducedMotion() || document.querySelector('.home-growing-card')) return;
+  const box = card.getBoundingClientRect();
+  const copy = card.cloneNode(true) as HTMLElement;
+  copy.classList.add('home-growing-card'); copy.inert = true; copy.setAttribute('aria-hidden', 'true');
+  document.body.append(copy);
+  const draw = (k: number) => {
+    Object.assign(copy.style, {
+      left: `${box.left * (1 - k)}px`, top: `${box.top * (1 - k)}px`,
+      width: `${box.width + (innerWidth - box.width) * k}px`,
+      height: `${box.height + (innerHeight - box.height) * k}px`,
+      opacity: String(1 - k ** 3),
+    });
+  };
+  draw(0);
+  tween(260, draw, { curve: ease.EASE, done: () => copy.remove() });
 }

@@ -11,7 +11,8 @@ import { ObsoleteAction } from '../people/server';
 import { computerPortrait } from '../people/host/portrait';
 import { cardSummary, homeText, type Art } from './home';
 import { levelPill } from './level-pill';
-import { calm, ms, sheet as sheetMotion } from './motion';
+import { ms } from './motion';
+import { at, burst, ease, later, onFrame, pulse, reducedMotion, sound, Spring, tween, type Effect } from './fx';
 import { cardLocked, changeDraft, DOUBLE_KINDS, kingChoices, onlinePanelOptions, poolLetters, poolLocked, restorePanel, selectCard, selectPiece, shownKing, type GameOptions, type NewGameDraft, type PanelMemory } from './new-game';
 import { hasCards, hasPowers, typeName, typeOfFlags, type GameType } from './saved';
 import { sideText } from './sides';
@@ -60,6 +61,8 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   let draft = saved ? restorePanel(saved) : d.next, opponent = saved?.opponent ?? 'computer';
   let choice: Choice | null = null, cardError = '', replacement = '';
   let opener: HTMLElement | null = null, choiceSource = '', starting = false, busy = false, actionId = 0;
+  let sheetEffect: Effect | undefined, sheetOffset = 0, closing = false;
+  let pull: { id: number; y: number } | undefined;
   let poolOpen = !!saved && saved.section === 'pieces';
   const choosePower = (change: Partial<GameOptions>) => edit({ options: { ...draft.options, ...change } });
   const edit = (change: Parameters<typeof changeDraft>[1]) => { draft = changeDraft(draft, change); };
@@ -90,6 +93,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     const king = draft.game.context.rules.kings[side], name = own ? panelText.yourKing : panelText.opponent;
     const node = openControl(name, own ? 'king' : 'opponent', 'setup-seat');
     const figure = art.figure(K, side, draft.game.context.rules); figure.alt = '';
+    if (king) figure.src = `/ui/kings/${king.king.toLowerCase()}${side ? '-b' : ''}.webp`;
     const stage = el('span', 'setup-figure'); stage.append(figure);
     const copy = el('span', 'setup-seat-copy'), power = el('span', 'setup-seat-power');
     if (king) power.append(emblem(king.king));
@@ -125,9 +129,15 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
       if (!powers && value === 'on') choosePower({ cardPool: DEAL_CARDS });
       edit({ setup: typeOfFlags(powers ? value === 'on' : hasPowers(draft.setup), powers ? hasCards(draft.setup) : value === 'on') });
       draw();
+      if (!powers && value === 'on') {
+        if (hasPowers(draft.setup) && king.king !== shownKing(draft.setup, draft.options.king).king) stampKing(shownKing(draft.setup, draft.options.king).king);
+        dealCards();
+      }
+      if (powers && value === 'on') stampKing(shownKing(draft.setup, draft.options.king).king);
     });
     selected.querySelector('legend')!.classList.add('kd-sr');
-    box.append(picture, copy, selected);
+    const artwork = el('div', 'setup-feature-label'); artwork.append(picture, copy);
+    box.append(artwork, selected);
     return box;
   }
   function draw() {
@@ -152,13 +162,55 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     choice = next; overlay.hidden = false; table.inert = true;
     panel.dataset.choice = next; dialog.setAttribute('aria-labelledby', panelTitle.id);
     redrawChoice(false); panelTitle.focus();
-    if (!calm()) sheetMotion(panel, true);
+    sheetEffect?.cancel();
+    sound('pass'); pulse('light');
+    if (reducedMotion()) return;
+    const spring = new Spring(1, 320, 27); spring.to = 0;
+    sheetFrame(1);
+    sheetEffect = onFrame(dt => {
+      sheetFrame(spring.step(dt));
+      if (spring.still) return false;
+    }, clearSheet);
+  }
+  const wideChoice = () => matchMedia('(min-width: 900px)').matches;
+  function sheetFrame(offset: number) {
+    sheetOffset = offset;
+    panel.style.transform = `translate${wideChoice() && choice !== 'confirm' ? 'X' : 'Y'}(${offset * 100}%)`;
+    overlay.style.setProperty('--setup-dim', String(Math.min(1, Math.max(0, 1 - offset))));
+  }
+  function clearSheet() {
+    sheetOffset = 0; panel.style.removeProperty('transform'); overlay.style.removeProperty('--setup-dim');
   }
   function closeChoice() {
-    actionId++; busy = false; choice = null; cardError = ''; overlay.hidden = true; table.inert = false;
-    dialog.setAttribute('aria-labelledby', heading.id);
-    (table.querySelector<HTMLElement>(`[data-focus="${choiceSource}"]`) ?? start).focus({ preventScroll: true });
+    if (!choice) return;
+    if (closing) { sheetEffect?.finish(); return; }
+    sheetEffect?.cancel(); pull = undefined;
+    closing = true; actionId++; busy = false; sound('tick');
+    const done = () => {
+      clearSheet(); closing = false; choice = null; cardError = ''; overlay.hidden = true; table.inert = false;
+      dialog.setAttribute('aria-labelledby', heading.id);
+      (table.querySelector<HTMLElement>(`[data-focus="${choiceSource}"]`) ?? start).focus({ preventScroll: true });
+    };
+    if (reducedMotion()) { done(); return; }
+    const from = sheetOffset;
+    sheetEffect = tween(180, k => sheetFrame(from + (1 - from) * k), { curve: ease.in2, done });
   }
+  panelHead.addEventListener('pointerdown', event => {
+    if (closing || wideChoice() || event.button !== 0 || (event.target as Element).closest('button')) return;
+    sheetEffect?.finish();
+    pull = { id: event.pointerId, y: event.clientY }; panelHead.setPointerCapture(event.pointerId);
+  });
+  panelHead.addEventListener('pointermove', event => {
+    if (pull?.id === event.pointerId && !reducedMotion()) sheetFrame(Math.max(0, event.clientY - pull.y) / panel.clientHeight);
+  });
+  for (const type of ['pointerup', 'pointercancel']) panelHead.addEventListener(type, event => {
+    const { pointerId, clientY } = event as PointerEvent;
+    if (pull?.id !== pointerId) return;
+    const distance = clientY - pull.y; pull = undefined;
+    if (type === 'pointerup' && distance > 70) { closeChoice(); return; }
+    const from = sheetOffset;
+    if (from) sheetEffect = tween(160, k => sheetFrame(from * (1 - k)), { done: clearSheet });
+  });
   function redrawChoice(restore = true) {
     if (!choice) return;
     const focus = (document.activeElement as HTMLElement | null)?.dataset.focus, scroll = panelBody.scrollTop;
@@ -192,20 +244,57 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     for (const king of Object.keys(KINGS) as KingName[]) {
       const available = legal.find(k => k.king === king);
       const control = keyed(button(kingDisplayName(king), {
-        disabledReason: available ? '' : panelText.unavailable,
+        disabledReason: available ? '' : 'In cards',
         onPress: () => {
-          edit({ setup: typeOfFlags(true, hasCards(draft.setup)), options: { ...draft.options, king: available! } }); update();
+          edit({ setup: typeOfFlags(true, hasCards(draft.setup)), options: { ...draft.options, king: available! } }); update(); stampKing(king);
         },
       }), king);
       control.setAttribute('aria-pressed', String(on && chosen.king === king));
       control.classList.add('king-choice'); control.dataset.king = king;
+      if (!available) control.setAttribute('aria-describedby', 'setup-king-rule');
       const figure = el('img'); figure.src = `/ui/kings/${king.toLowerCase()}${draft.player ? '-b' : ''}.webp`; figure.alt = '';
       control.prepend(figure); grid.append(control);
     }
     const powers = choiceValues(panelText.power, legal.filter(k => k.king === chosen.king).map(k => ({ value: k.power, label: POWER_NAME[k.power] })), chosen.power, value => {
-      edit({ setup: typeOfFlags(true, hasCards(draft.setup)), options: { ...draft.options, king: { king: chosen.king, power: value as PowerName } } }); update();
+      edit({ setup: typeOfFlags(true, hasCards(draft.setup)), options: { ...draft.options, king: { king: chosen.king, power: value as PowerName } } }); update(); stampKing(chosen.king);
     });
-    box.append(grid, powers, el('p', 'panel-note', ruleLine(powerText(chosen.power, draft.game.context.rules)))); return box;
+    box.append(grid);
+    if (hasCards(draft.setup)) {
+      const note = el('p', 'panel-note', 'With cards, the powers of Frost, Flame and Sky come as cards.');
+      note.id = 'setup-king-rule'; box.append(note);
+    }
+    box.append(powers, el('p', 'panel-note', ruleLine(powerText(chosen.power, draft.game.context.rules)))); return box;
+  }
+
+  function stampKing(king: KingName) {
+    const portrait = panelBody.querySelector<HTMLImageElement>(`[data-king="${king}"] > img`);
+    const seal = match.querySelector<HTMLImageElement>('.setup-seat-power > img');
+    const strike = () => { sound('clink'); pulse('light'); if (seal) burst('dust', at(seal), { count: 4, ms: 200 }); };
+    if (reducedMotion()) { strike(); return; }
+    if (portrait) tween(220, (_, t) => {
+      const lift = Math.sin(t * Math.PI);
+      portrait.style.transform = `translateY(${-8 * lift}px) scale(${1 + .14 * lift})`;
+    }, { done: () => portrait.style.removeProperty('transform') });
+    if (seal) {
+      seal.style.transform = 'translateY(-8px) scale(1.6)';
+      tween(140, k => { seal.style.transform = `translateY(${-8 * (1 - k)}px) scale(${1.6 - .6 * k})`; },
+        { curve: ease.in2, done: () => { seal.style.removeProperty('transform'); strike(); } });
+    }
+  }
+
+  function dealCards() {
+    const cards = features.querySelectorAll<HTMLImageElement>('.setup-deck img');
+    if (reducedMotion()) { sound('pass'); return; }
+    cards.forEach((card, i) => {
+      card.style.opacity = '0'; card.style.translate = '20px -12px';
+      later(i * 70, () => {
+        if (!card.isConnected || reducedMotion()) { card.style.removeProperty('opacity'); card.style.removeProperty('translate'); return; }
+        sound('pass', { volume: .85 }); pulse('tick');
+        tween(180, k => {
+          card.style.opacity = String(k); card.style.translate = `${20 * (1 - k)}px ${-12 * (1 - k)}px`;
+        }, { done: () => { card.style.removeProperty('opacity'); card.style.removeProperty('translate'); } });
+      });
+    });
   }
 
   function cards() {
@@ -302,7 +391,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     const submitted = draft, own = ++actionId, current = () => dialog.open && own === actionId;
     const redraw = () => {
       if (!current()) return;
-      opponent = previous; choice = 'opponent'; draw(); redrawChoice(false); panelTitle.focus();
+      opponent = previous; choice = 'opponent'; panel.dataset.choice = choice; draw(); redrawChoice(false); panelTitle.focus();
     };
     const activeSheet: PeopleSheet = { element: dialog, get isOpen() { return current(); },
       show: view => { if (current()) sheet.show(view); }, close: () => { if (current()) close(); } };
@@ -325,14 +414,14 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
 
   function shut() {
     if (!dialog.open) return;
-    actionId++; d.remember(null); dialog.dispatchEvent(new CustomEvent('kd-before-close', { bubbles: true })); dialog.close();
+    sheetEffect?.cancel(); clearSheet(); actionId++; d.remember(null); dialog.dispatchEvent(new CustomEvent('kd-before-close', { bubbles: true })); dialog.close();
     if (opener?.isConnected) opener.focus();
   }
   function close(history = true) { if (!dialog.open || starting) return; shut(); if (history) d.onClose(); }
   dialog.addEventListener('cancel', event => { event.preventDefault(); if (choice) closeChoice(); else close(); });
   overlay.addEventListener('click', event => { if (event.target === overlay) closeChoice(); });
   async function begin(accepted: string) {
-    if (starting || !dialog.open) return;
+    if (starting || closing || !dialog.open) return;
     starting = true;
     const swallow = (event: Event) => { if ((event.target as Element).closest('.play-game')) return; event.preventDefault(); event.stopPropagation(); };
     document.addEventListener('click', swallow, true); setTimeout(() => document.removeEventListener('click', swallow, true), ms('--dur-sheet-in') + 300);

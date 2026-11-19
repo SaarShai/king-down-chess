@@ -37,6 +37,7 @@ import { arrowStep, cellOf, fileLabelRow, rankLabelColumn, sideText, SIDE_CHOICE
 import { changeDraft, createDraft, OPTIONS_KEY, PANEL_KEY, readPanel, readOptions, rulesFor, startOf, type NewGameDraft } from './new-game';
 import { levelName as computerName, playScreen, type Art } from './home';
 import { newGamePanel } from './setup-table';
+import { setFxMotion } from './fx';
 import { gameMenu, menuEnter, menuText, youPage, type Settings } from './menus';
 import { allowedAvatarUrl } from '../../account/public-config';
 import { computerPortrait, profilePortrait } from '../people/host/portrait';
@@ -1392,6 +1393,7 @@ function applyPieceView() { board?.setSymbols(pieceView === 'symbols' ? symbolIm
 function setMotion() {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   setInterfaceMotion(motion, reduce);
+  setFxMotion(motion, reduce);
   const pace = reduce || pieceView === 'symbols' ? 'off' : motion;
   board?.setMotion(pace);
   // Motion Off ends a running Replay: its restore shows the current draft.
@@ -1515,4 +1517,4 @@ const idle = (task: () => void) => 'requestIdleCallback' in window ? requestIdle
 idle(() => { loadBoardCode().catch(() => {}); void loadPeople().catch(() => {}); });
 setInterval(() => { if (onlineActive && onlineState) update(); }, 30_000);
 addEventListener('pagehide', () => people?.stopGame());
-void symbolsReady.then(() => { applyPieceView(); document.querySelectorAll<HTMLImageElement>('.mini-glyph[data-code]').forEach(img => { img.src = symbol(Number(img.dataset.code)); }); });
+void symbolsReady.then(() => { applyPieceView(); document.querySelectorAll<HTMLImageElement>('.mini-board:not(.mini-painted) .mini-glyph[data-code]').forEach(img => { img.src = symbol(Number(img.dataset.code)); }); });

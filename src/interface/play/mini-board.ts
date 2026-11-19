@@ -7,6 +7,7 @@ import type { Move, Position } from '../board-api';
 import { PLAIN } from '../../render/plain-marks';
 import type { DraftTurn } from './turn';
 import { sentence, text } from './texts';
+import { ease, reducedMotion, tween } from './fx';
 import { squareAt } from './sides';
 
 export const LAST_COLOUR = PLAIN.last;
@@ -59,8 +60,7 @@ export function miniBoard(preview: SavedPreview, src: (code: number) => string):
 
 /** Show a move once, over the final position. Leave the final position intact when motion is off. */
 export function replayMiniBoard(board: HTMLElement, preview: SavedPreview): void {
-  const pace = document.documentElement.dataset.motion;
-  if (!preview.last || pace === 'reduce' || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (!preview.last || reducedMotion()) return;
   const { move, before } = preview.last;
   const cell = (square: number) => board.querySelector<HTMLElement>(`[data-square="${square}"]`);
   for (const { from, to } of [move, ...(move.shove ? [move.shove] : []), ...(move.pushes ?? []), ...(move.castle ? [move.castle] : [])]) {
@@ -68,9 +68,8 @@ export function replayMiniBoard(board: HTMLElement, preview: SavedPreview): void
     const source = cell(from), destination = cell(to), image = destination?.querySelector('img');
     if (!source || !destination || !image || colorOf(before.board[from]) !== colorOf(+image.dataset.code!)) continue;
     const a = source.getBoundingClientRect(), b = destination.getBoundingClientRect();
-    image.animate([
-      { transform: `translate(${a.left - b.left}px, ${a.top - b.top}px)`, zIndex: 1 },
-      { transform: 'translate(0, 0)', zIndex: 1 },
-    ], { duration: pace === 'fast' ? 170 : 340, easing: 'ease-out' });
+    const draw = (k: number) => { image.style.transform = `translate(${(a.left - b.left) * (1 - k)}px, ${(a.top - b.top) * (1 - k)}px)`; };
+    image.style.zIndex = '1'; draw(0);
+    tween(340, draw, { curve: ease.out3, done: () => { image.style.removeProperty('transform'); image.style.removeProperty('z-index'); } });
   }
 }
