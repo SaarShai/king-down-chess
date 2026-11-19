@@ -250,7 +250,9 @@ export const readingBText = { rivalCards: 'Computer’s cards', used: 'Used', no
 export const panelText = {
   opponent: 'Opponent', player: 'Player', options: 'Game options', pieces: 'Pieces', powers: 'With powers', cards: 'With cards',
   allPieces: 'All pieces', pool: 'Piece pool', poolLock: 'Keep at least 7 pieces in the pool.',
-  arrangement: 'Starting arrangement', random: 'Random', manual: 'Manual', manualLine: 'Arrange your pieces on the board before the first move.',
+  arrangement: 'Starting arrangement', random: 'Random', manual: 'Manual',
+  randomLine: 'The pieces on the back rank start in a random order.',
+  manualLine: 'Arrange your pieces on the board before the first move.',
   yourKing: 'Your king', power: 'King power', unavailable: "With cards, this king's powers come as cards.",
   changedKing: (from: string, to: string) => `With cards, ${to} replaces ${from}. Turn cards off to restore it.`,
   cardLine: (names: readonly string[]) => names.length === 4 ? `Your 4 cards: ${names.slice(0, 3).join(', ')} and ${names[3]}.` : 'Randomized 4 cards hand.',

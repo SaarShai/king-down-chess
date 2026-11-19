@@ -118,7 +118,11 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   }
   function choiceValues(label: string, values: { value: string; label: string }[], value: string, change: (value: string) => void) {
     const group = choiceGroup(label, values, value);
-    group.addEventListener('kd-change', event => change((event as CustomEvent).detail.value));
+    group.addEventListener('kd-change', event => {
+      // The change can redraw the group. Keep the focus on the selected radio through the redraw.
+      if (group.contains(document.activeElement)) group.querySelector<HTMLElement>('[aria-checked="true"]')?.focus({ preventScroll: true });
+      change((event as CustomEvent).detail.value);
+    });
     group.querySelectorAll<HTMLElement>('[role="radio"]').forEach((radio, i) => keyed(radio, label + values[i].value));
     return group;
   }
@@ -394,7 +398,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     }
     box.append(choiceValues(panelText.arrangement, [{ value: 'random', label: panelText.random }, { value: 'manual', label: panelText.manual }], draft.options.arrangement, value => {
       setOptions({ arrangement: value === 'manual' ? 'manual' : 'random' }); update();
-    }), el('p', 'panel-note', panelText.manualLine));
+    }), el('p', 'panel-note', draft.options.arrangement === 'manual' ? panelText.manualLine : panelText.randomLine));
     if (opponent === 'computer') box.append(choiceValues(homeText.side, [{ value: 'light', label: sideText.light }, { value: 'dark', label: sideText.dark }], draft.player ? 'dark' : 'light', value => {
       edit({ sideChoice: value === 'dark' ? 'dark' : 'light' }); update();
     }));

@@ -134,7 +134,7 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
     if (local) copy.append(el('span', '', text[local.level]));
     const status = el('strong', '', local ? stateText[preview.state] : primary!.status);
     status.dataset.mine = String(local ? preview.state !== 'computer' : primary!.mine);
-    state.append(status, el('span', '', `Move ${preview.turn}`));
+    state.append(status, el('span', '', `${homeText.turn} ${preview.turn}`));
     seat.append(face, copy, state);
     const rules = local?.draft.game.context.rules ?? primary?.view.rules;
     const board = miniBoard(preview, code => rules ? art.figure(typeOf(code), colorOf(code), rules).src : art.symbol(code));
