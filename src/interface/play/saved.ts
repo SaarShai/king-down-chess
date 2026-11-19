@@ -175,8 +175,11 @@ export function snapshot(draft: DraftTurn, resigned: Color | null = null, player
   };
 }
 
-/** The four settings that this page owns. */
-export interface Prefs { skill: SkillName; coords: boolean; sound: boolean; pace: Pace }
+/** The settings that this page owns. Vibration is set per device. */
+export interface Prefs { skill: SkillName; coords: boolean; sound: boolean; pace: Pace; vibration?: boolean }
+const VIBRATION_KEY = 'kingdown.vibration';
+export const storedVibration = (): boolean => storedChoice(VIBRATION_KEY, ['on', 'off']) === 'on';
+export const storeVibration = (prefs: Pick<Prefs, 'vibration'>): void => storeChoice(VIBRATION_KEY, prefs.vibration === false ? 'off' : 'on');
 /** The settings fields in the old order (screen/settings.ts settingsOf). Queen, threats and labels stay as stored. */
 const settingsOf = (p: Prefs, stored: Partial<Save>): Partial<Save> => ({
   skill: p.skill, coords: p.coords, sound: p.sound,

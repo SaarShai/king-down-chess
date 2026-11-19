@@ -12,12 +12,12 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', conte
   const node = document.createElement(tag); node.className = className; node.textContent = content; return node;
 };
 export const menuText = {
-  saved: sideText.staysSaved, board: 'Board', soundMotion: 'Sound and motion', about: 'About',
+  saved: sideText.staysSaved, board: 'Board', soundMotion: 'Sound and motion', vibration: 'Vibration', about: 'About',
   device: 'You play on this device.', deviceLine: 'Your settings stay here.',
   links: ['Privacy', 'Terms', 'Support'] as const,
 } as const;
 /** The one order of settings in You and in the Menu. */
-export const SETTING_ORDER = ['pieces', 'hand', 'coords', 'sound', 'motion'] as const;
+export const SETTING_ORDER = ['pieces', 'hand', 'coords', 'sound', 'vibration', 'motion'] as const;
 export type Setting = typeof SETTING_ORDER[number];
 
 /** A list row: the whole row is the target. A link for a route or a page, a button for a local action. */
@@ -59,8 +59,8 @@ export const aboutLinks = () => menuText.links.map(name => ({ name, href: `${api
 const changed = (node: HTMLElement, handle: (value: string) => void) => { node.addEventListener('kd-change', event => handle((event as CustomEvent).detail.value)); return node; };
 
 export interface Settings {
-  pieceView: string; handView: string; coords: boolean; sound: boolean; motion: string;
-  setPieceView(value: string): void; setHandView(value: string): void; setCoords(on: boolean): void; setSound(on: boolean): void; setMotion(value: string): void;
+  pieceView: string; handView: string; coords: boolean; sound: boolean; vibration: boolean; motion: string;
+  setPieceView(value: string): void; setHandView(value: string): void; setCoords(on: boolean): void; setSound(on: boolean): void; setVibration(on: boolean): void; setMotion(value: string): void;
 }
 const speeds = () => ['normal', 'fast', 'off'].map(value => ({ value, label: text[value as 'normal' | 'fast' | 'off'] }));
 /** The setting controls in the one order. `pictures`: You shows Pieces and Powers and cards as picture choices. */
@@ -74,6 +74,7 @@ function controls(s: Settings, pictures: { figure: () => Node; symbol: () => Nod
   const all: Record<Setting, HTMLElement> = {
     pieces: pictures ? changed(pieces, s.setPieceView) : pieces, hand: pictures ? changed(hand, s.setHandView) : hand,
     coords: switchSetting(text.coordinates, s.coords, s.setCoords), sound: switchSetting(text.sound, s.sound, s.setSound),
+    vibration: switchSetting(menuText.vibration, s.vibration, s.setVibration),
     motion: changed(segmented(text.motion, speeds(), s.motion, true), s.setMotion),
   };
   for (const name of SETTING_ORDER) all[name].dataset.setting = name;
@@ -93,7 +94,7 @@ export function youPage(s: Settings, o: { figure: () => HTMLImageElement; symbol
   about.classList.add('about-group');
   const columns = el('div', 'you-columns'), first = el('div', 'you-column'), second = el('div', 'you-column');
   first.append(group(menuText.board, c.pieces, c.hand, c.coords));
-  second.append(group(menuText.soundMotion, c.sound, c.motion), ...o.reset, about);
+  second.append(group(menuText.soundMotion, c.sound, c.vibration, c.motion), ...o.reset, about);
   columns.append(first, second); page.append(title, note, columns);
   return page;
 }
