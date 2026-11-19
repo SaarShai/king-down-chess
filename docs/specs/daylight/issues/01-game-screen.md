@@ -1,6 +1,7 @@
 # Daylight game screen
 
-Type: task  
+Type: task
+
 Status: claimed
 
 Build the fixed game layout and turn controls in run 4. Build Versus and the result in run 6. The lane report holds the checks and the picture pairs.
