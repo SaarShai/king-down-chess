@@ -60,3 +60,11 @@ it('paints the launch screen and the web view in the page colour, with no link p
     expect([png.readUInt32BE(at - 4), '#' + png.subarray(at + 4, at + 7).toString('hex')], file).toEqual([3, page]);
   }
 });
+
+it('includes the native haptics plugin in the package and iOS project', () => {
+  const pkg = JSON.parse(read('package.json'));
+  expect(pkg.dependencies['@capacitor/haptics']).toMatch(/^\d+\.\d+\.\d+$/);
+  const spm = read('ios/App/CapApp-SPM/Package.swift');
+  expect(spm).toContain('.product(name: "CapacitorHaptics", package: "CapacitorHaptics")');
+  expect(spm).toContain('node_modules/@capacitor/haptics');
+});
