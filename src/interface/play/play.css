@@ -10,7 +10,7 @@ img { display: block; }
 .play-stage-floor { position: absolute; bottom: 0; left: 1%; width: 98%; height: 64px; background: url('/interface/stone-refined-light.webp') center/100% auto; transform: perspective(450px) rotateX(43deg); border-radius: 50% 50% 9px 9px; box-shadow: 0 8px 0 #7b7967, 0 18px 24px #061d2570; z-index: -1; }
 
 /* Game. Phone: opponent strip, board, scroll, reading area, your strip, finish row. The board never moves in a game. */
-.play-game { background: var(--surface-page); position: fixed; inset: var(--safe-top, 0px) var(--safe-right, 0px) var(--safe-bottom, 0px) var(--safe-left, 0px); --col: max(4px, calc((100% - 720px) / 2)); }
+.play-game { background: var(--paper-tint) var(--surface-page); position: fixed; inset: var(--safe-top, 0px) var(--safe-right, 0px) var(--safe-bottom, 0px) var(--safe-left, 0px); --col: max(4px, calc((100% - 720px) / 2)); }
 .play-opp, .play-reader, .play-own, .play-turn { position: absolute; min-width: 0; }
 .play-game[data-layout='portrait'] :is(.play-opp, .play-reader, .play-own, .play-turn) { left: var(--col); right: var(--col); }
 .play-game[data-layout='portrait'] .play-opp { top: 0; height: var(--opp); }
@@ -87,11 +87,11 @@ img { display: block; }
 .play-grid { position: absolute; inset: 0; width: 100%; height: 100%; }
 .play-grid { display: grid; grid-template-columns: repeat(8,1fr); grid-template-rows: repeat(8,1fr); touch-action: none; }
 .play-square { position: relative; border: 0; padding: 0; border-radius: 0; background: transparent; touch-action: none; min-width: 44px; min-height: 44px; }
-[data-file]::after, [data-rank]::before { position: absolute; z-index: 1; font: 700 14px/1 var(--font-title); color: var(--text); background: transparent; padding: 0; letter-spacing: .02em; pointer-events: none; }
+[data-file]::after, [data-rank]::before { position: absolute; z-index: 1; font: 700 12px/1 var(--font-title); color: var(--text); text-shadow: 0 0 2px var(--surface-raised), 0 0 3px var(--surface-raised); letter-spacing: .08em; pointer-events: none; }
 [data-file]::after { content: attr(data-file); right: 1px; bottom: 1px; }
 [data-rank]::before { content: attr(data-rank); left: 1px; top: 1px; }
 .play-game[data-coords='false'] [data-file]::after, .play-game[data-coords='false'] [data-rank]::before { display: none; }
-.play-square:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: -4px; }
+.play-square:focus-visible { outline: var(--focus-width) solid var(--text); outline-offset: -4px; }
 /* The marks sit on stone: they keep the colours of the paper theme. */
 /* A choice of actions shows in the reading area: no square under it, each choice and Cancel in reach (reading decision 22). */
 .play-choices { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
@@ -194,7 +194,7 @@ img { display: block; }
 .learn-board { position: relative; display: grid; grid-template-columns: repeat(5, 1fr); width: 120px; height: 120px; flex: none; overflow: hidden; background: var(--surface-raised); border: 1px solid var(--divider); }
 .learn-cell { background: #eee3c9; position: relative; }
 .learn-cell-dark { background: #c7c4ac; }
-.learn-coordinate { position: absolute; left: 1px; bottom: 0; font: 700 8px/1 var(--font-title); color: #4f4a3e; }
+.learn-coordinate { position: absolute; left: 1px; bottom: 0; font: 700 12px/1 var(--font-title); color: #4f4a3e; }
 .learn-symbol { position: absolute; width: 20%; height: 20%; object-fit: contain; background: #fffcf4; border-radius: 50%; }
 .learn-symbol.learn-dark { background: #6e6a74; }
 .learn-ring { position: absolute; width: 20%; height: 20%; border: 2px solid var(--info); border-radius: 50%; pointer-events: none; }

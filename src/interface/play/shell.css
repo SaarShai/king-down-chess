@@ -13,8 +13,8 @@ body:not([data-page='game']) #app { padding-bottom: calc(var(--bar-phone) + var(
 .device-note { padding: 18px; border: 1px solid var(--divider); border-radius: var(--radius-control); background: var(--surface-raised); }
 .shell-departing { position: fixed; top: 0; left: 0; right: 0; z-index: 0; max-height: 100dvh; overflow: hidden; background: var(--surface-page); pointer-events: none; }
 .shell-tab-marker, .shell-choice-marker { position: fixed; z-index: 35; pointer-events: none; transform-origin: top left; border-radius: 8px; }
-.shell-tab-marker { background: var(--brass); border-radius: 3px 3px 0 0; }
-.shell-choice-marker { box-shadow: inset 0 0 0 2px var(--info); background: var(--info-soft); opacity: .45; }
+.shell-tab-marker { background: var(--selection-line); border-radius: 3px 3px 0 0; }
+.shell-choice-marker { box-shadow: inset 0 0 0 2px var(--selection-line); background: var(--selection-fill); opacity: .45; }
 .shell-dialog-ghost { display: block; position: fixed; margin: 0; z-index: 101; max-height: none; animation: none; pointer-events: none; }
 .shell-dialog-scrim { position: fixed; inset: 0; z-index: 100; pointer-events: none; background: var(--scrim); }
 /* The title and cause remain in one result card, with all three actions visible. */
@@ -37,7 +37,7 @@ body:not([data-page='game']) #app { padding-bottom: calc(var(--bar-phone) + var(
 @media (max-width: 899px) { .shell-nav a { flex: 1; flex-direction: column; } }
 :root[data-motion='fast'] .play-result { animation-duration: 220ms; }
 
-#app > :is(.play-home, .shell-page):not(.shell-departing) { position: relative; z-index: 1; background: var(--surface-page); min-height: calc(100dvh - var(--bar-phone) - var(--safe-bottom)); }
+#app > :is(.play-home, .shell-page):not(.shell-departing) { position: relative; z-index: 1; background: var(--paper-tint) var(--surface-page) fixed; min-height: calc(100dvh - var(--bar-phone) - var(--safe-bottom)); }
 @media (min-width: 900px) { #app > :is(.play-home, .shell-page):not(.shell-departing) { min-height: calc(100dvh - var(--bar-top) - var(--safe-top)); } }
 :root[data-motion='reduce'] .kd-dialog { animation: kd-fade var(--dur-reduced-in) linear; }
 /* The game enters above the home page during its screen change. */
