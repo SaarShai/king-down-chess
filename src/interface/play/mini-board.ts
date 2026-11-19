@@ -7,6 +7,7 @@ import type { Move, Position } from '../board-api';
 import { lastMoveInk } from '../../render/plain-marks';
 import { targetOf, type DraftTurn } from './turn';
 import { sentence, text } from './texts';
+import { ease, reducedMotion, tween } from './fx';
 import { squareAt } from './sides';
 
 /** Each square that the action changes: its start and end, each capture, each push, swap, castle and entry. */
@@ -60,4 +61,20 @@ export function miniBoard(preview: SavedPreview, src: (code: number) => string):
     board.append(cell);
   }
   return board;
+}
+
+/** Show a move once, over the final position. Leave the final position intact when motion is off. */
+export function replayMiniBoard(board: HTMLElement, preview: SavedPreview): void {
+  if (!preview.last || reducedMotion()) return;
+  const { move, before } = preview.last;
+  const cell = (square: number) => board.querySelector<HTMLElement>(`[data-square="${square}"]`);
+  for (const { from, to } of [move, ...(move.shove ? [move.shove] : []), ...(move.pushes ?? []), ...(move.castle ? [move.castle] : [])]) {
+    if (from === to || !before.board[from]) continue;
+    const source = cell(from), destination = cell(to), image = destination?.querySelector('img');
+    if (!source || !destination || !image || colorOf(before.board[from]) !== colorOf(+image.dataset.code!)) continue;
+    const a = source.getBoundingClientRect(), b = destination.getBoundingClientRect();
+    const draw = (k: number) => { image.style.transform = `translate(${(a.left - b.left) * (1 - k)}px, ${(a.top - b.top) * (1 - k)}px)`; };
+    image.style.zIndex = '1'; draw(0);
+    tween(340, draw, { curve: ease.out3, done: () => { image.style.removeProperty('transform'); image.style.removeProperty('z-index'); } });
+  }
 }

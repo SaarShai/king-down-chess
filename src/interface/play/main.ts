@@ -32,10 +32,12 @@ import { readingText, checkLines, selectionLines, armedStep, cancelLine, freeLin
 import { calm, cardFly, disarm, ms, screenChange, seal, shake, token, unseal, setInterfaceMotion, time } from './motion';
 import { gameLayout, type Form } from './layout';
 import { finishKind, fitReader, readerNodes, readerView, resetFit, sentences, type ReaderModel } from './reader';
-import { answerOffer, beforeNewGame, GAME_KEY, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, storeChoice as store, storedChoice as stored, storedGameType, type GameType as Setup, type KeptOffer, type Level } from './saved';
+import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, storeChoice as store, storedChoice as stored, storedGameType, type GameType as Setup, type KeptOffer, type Level } from './saved';
 import { arrowStep, cellOf, fileLabelRow, rankLabelColumn, sideText, SIDE_CHOICES, SIDE_KEY, squareAt, type SideChoice } from './sides';
 import { changeDraft, createDraft, OPTIONS_KEY, PANEL_KEY, readPanel, readOptions, rulesFor, startOf, type NewGameDraft } from './new-game';
-import { levelName as computerName, newGamePanel, playScreen, type Art } from './home';
+import { levelName as computerName, playScreen, type Art } from './home';
+import { newGamePanel } from './setup-table';
+import { setFxMotion } from './fx';
 import { gameMenu, menuEnter, menuText, youPage, type Settings } from './menus';
 import { allowedAvatarUrl } from '../../account/public-config';
 import { computerPortrait, profilePortrait } from '../people/host/portrait';
@@ -173,6 +175,7 @@ const accepted = () => ({ setup, level, sideChoice, options });
 /** The result card's New game opens the New game panel on Play. */
 let panelNext = false;
 const gamesList = { expanded: false };
+const homePreviews = new Map<string, string>();
 const art: Art = {
   figure: (type, side, rules) => figure(type === K ? kingFile(side, rules) : `${pieces[type].name.toLowerCase()}-${side ? 'b' : 'w'}`),
   symbol,
@@ -334,8 +337,8 @@ function home(newArmy = false) {
   const active = document.activeElement as HTMLElement | null;
   let focused: string | undefined;
   if (!enteringHome && active && root.contains(active)) {
-    const name = ['home-person', 'home-top-new', 'home-side-new', 'all-games'].find(name => active.classList.contains(name));
-    focused = active.dataset.game ? `[data-game="${active.dataset.game}"]` : active.dataset.kind === 'computer' ? '[data-kind="computer"]' : name ? `.${name}` : undefined;
+    const name = ['home-person', 'home-side-new', 'home-hero-new', 'home-summary', 'all-games'].find(name => active.classList.contains(name));
+    focused = active.dataset.game ? `[data-game="${active.dataset.game}"]` : active.dataset.saved === 'computer' ? '[data-saved="computer"]' : name ? `.${name}` : undefined;
   }
   onlineActive = false; onlineState = undefined; people?.stopGame();
   closeLearning(false); closeGuidePanel();
@@ -354,7 +357,7 @@ function home(newArmy = false) {
   const status = saved.kind === 'blocked' || copy === 'failed' ? text.cannotSave : copy === 'full' ? text.keptFull : copy === 'copied' || copy === 'already' ? text.kept : '';
   if (enteringHome) void people?.refresh();
   const play = playScreen({
-    resume, next, gamesList, status: [status, onlineNote].filter(Boolean).join(' '),
+    resume, next, gamesList, previews: homePreviews, status: [status, onlineNote].filter(Boolean).join(' '),
     people: people?.views.filter(view => view.status !== 'aborted' || !!view.history?.actions?.length).map(personGame) ?? [],
     invites: people ? [...people.incomingInvites, ...people.inviteUpdates].map(invite => homeInvite(invite)) : [],
     onPersonGame: id => shell.go({ place: 'online', entry: id }),
@@ -370,7 +373,6 @@ function home(newArmy = false) {
     offer: fallback => { const offer = keptOffer(saved); return offer ? keptRow(offer, fallback) : null; },
     onContinue: source => resumeGame(source, memory),
     onChange: source => openNewGame(source),
-    onRule: type => shell.go({ place: 'guide', section: 'Pieces', entry: String(type) }),
   }, art);
   root.replaceChildren(play.element, ...(old ? [old] : []));
   if (enteringHome) play.focus(); else if (focused) play.element.querySelector<HTMLElement>(focused)?.focus({ preventScroll: true });
@@ -391,15 +393,18 @@ function newGameLayer(source: HTMLElement, person: boolean) {
   if (document.querySelector('dialog.new-game-panel')) return; // one panel: a second queued open does nothing
   const memory = (() => { try { return readPanel(JSON.parse(sessionStorage.getItem(PANEL_KEY) ?? 'null')); } catch { return null; } })();
   const candidate = changeDraft(next, accepted());
+  const replacement = () => inMemory() ? gameJSON(snapshot(draft, null, player)) : gameKeyOf(readStored());
   const panel = newGamePanel({
     next: candidate,
     memory: memory ?? (person ? { ...accepted(), opponent: 'person', section: null } : null),
     people: async () => (await loadPeople()).host,
     remember: value => { try { if (value) sessionStorage.setItem(PANEL_KEY, JSON.stringify(value)); else sessionStorage.removeItem(PANEL_KEY); } catch { /* The current panel still keeps its draft. */ } },
-    onStart: async draft => {
+    replacement,
+    onStart: async (draft, acceptedSave) => {
       await shell.closeLayer();
       // A late invite reply can open the online game during that wait: the local start then stops.
       if (shell.route.place !== 'play') return;
+      if (replacement() !== acceptedSave) { home(); return; }
       next = draft; beginNew(root.querySelector<HTMLButtonElement>('.play-home .kd-button[data-kind="main"]') ?? undefined);
     },
     onInvite: draft => {
@@ -411,7 +416,7 @@ function newGameLayer(source: HTMLElement, person: boolean) {
   // The panel is outside #app: a background refresh of Play (home()) redraws #app and must not remove the open panel.
   // A refresh can replace the opener: focus then returns to the same control on the new Play, or to its visible
   // New game control when the first game or invite replaces the large New game.
-  const controls = ['home-top-new', 'home-side-new', 'home-hero-new'], opener = controls.find(name => source.classList.contains(name));
+  const controls = ['home-side-new', 'home-hero-new', 'home-summary'], opener = controls.find(name => source.classList.contains(name));
   panel.element.addEventListener('close', () => {
     panel.element.remove();
     if (!source.isConnected && opener && document.body.dataset.page === 'home') [opener, ...controls].map(name => root.querySelector<HTMLElement>(`.${name}`)).find(control => control?.getClientRects().length)?.focus({ preventScroll: true });
@@ -1388,6 +1393,7 @@ function applyPieceView() { board?.setSymbols(pieceView === 'symbols' ? symbolIm
 function setMotion() {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   setInterfaceMotion(motion, reduce);
+  setFxMotion(motion, reduce);
   const pace = reduce || pieceView === 'symbols' ? 'off' : motion;
   board?.setMotion(pace);
   // Motion Off ends a running Replay: its restore shows the current draft.
@@ -1511,4 +1517,4 @@ const idle = (task: () => void) => 'requestIdleCallback' in window ? requestIdle
 idle(() => { loadBoardCode().catch(() => {}); void loadPeople().catch(() => {}); });
 setInterval(() => { if (onlineActive && onlineState) update(); }, 30_000);
 addEventListener('pagehide', () => people?.stopGame());
-void symbolsReady.then(() => { applyPieceView(); document.querySelectorAll<HTMLImageElement>('.mini-glyph[data-code]').forEach(img => { img.src = symbol(Number(img.dataset.code)); }); });
+void symbolsReady.then(() => { applyPieceView(); document.querySelectorAll<HTMLImageElement>('.mini-board:not(.mini-painted) .mini-glyph[data-code]').forEach(img => { img.src = symbol(Number(img.dataset.code)); }); });

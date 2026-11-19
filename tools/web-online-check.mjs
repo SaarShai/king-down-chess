@@ -18,6 +18,7 @@ import { build } from 'vite';
 import { createLocalJWKSet, exportJWK, generateKeyPair } from 'jose';
 import { buildPluginServer } from './plugin-server-build.mjs';
 import { CHATGPT_PLUGIN, PARKED_PATHS } from './chatgpt-plugin.mjs';
+import { checkDaylightSave } from './lib/daylight-home-check.mjs';
 import { MUSE_PATHS } from './muse-connector.mjs';
 
 export const WORKSHOP_SHELF = JSON.stringify({ v: 1, designs: [{
@@ -320,6 +321,7 @@ export async function main() {
     }
 
     browser = await launch();
+    await checkDaylightSave(browser, origin);
     browserFacts = { engine: env('PLAYABLE_BROWSER'), version: browser.version(), node: process.version, platform: process.platform, osRelease: osRelease(), arch: process.arch };
     await writeFile(join(env('PLAYABLE_OUT'), 'worker-browser.json'), JSON.stringify(browserFacts, null, 2));
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, hasTouch: true, reducedMotion: 'reduce', serviceWorkers: 'block' });

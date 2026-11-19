@@ -4,9 +4,9 @@ import { coinState } from '../../powers-ui';
 import { gamesListView } from './home';
 vi.mock('./motion', () => ({ calm: () => true, ms: () => 0, token: () => '' }));
 
-it('keeps the full list for up to three games and a fourth-row cue above that', () => {
+it('shows three quiet rows until the player expands the list', () => {
   for (const count of [0, 1, 2, 3]) expect(gamesListView(count, false)).toEqual({ collapsed: false, shown: count });
-  for (const count of [4, 6]) expect(gamesListView(count, false)).toEqual({ collapsed: true, shown: 4 });
+  for (const count of [4, 6]) expect(gamesListView(count, false)).toEqual({ collapsed: true, shown: 3 });
 });
 it('keeps an open list open when a refresh adds or removes games', () => {
   const state = { expanded: true };
