@@ -33,7 +33,7 @@ import { actorMarks, mergeMarks, previewMarks, resultMarks, stateMarks, type Mar
 import { pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, resultText } from './texts';
 import { readingText, checkLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
 import { armCard, calm, cardFly, disarm, screenChange, setInterfaceMotion, sheetMotion, trackCard, time } from './motion';
-import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, setFxMotion, setPauseHook, shake, sound as cue, Spring, startFx, streak, tween, type Effect } from './fx';
+import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, setFxMotion, setPauseHook, shake, sound as cue, Spring, startFx, streak, tween, type Effect, type SoundName, type SoundOptions } from './fx';
 import { gameLayout, type Form } from './layout';
 import { fitReader, narratorView, readerNodes, readerView, resetFit, sentences, type ReaderModel } from './reader';
 import { answerOffer, beforeNewGame, GAME_KEY, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, gameFacts, savedPlayTime, storeChoice as store, storedChoice as stored, storedGameType, type GameType as Setup, type KeptOffer, type Level } from './saved';
@@ -92,6 +92,8 @@ const loadBoardCode = () => { if (!skinLoad) { skinLoad = new Image(); skinLoad.
   .then(([b, s]) => { boardCode = b; sfx = s; s.setSound(sound); if (sound) s.preloadArmour();
     startFx((name, options) => {
       if (!sound) return;
+      const audio = s as typeof s & { playDaylightSound?: (name: SoundName, options?: SoundOptions) => void };
+      if (audio.playDaylightSound) { audio.playDaylightSound(name, options); return; }
       if (name === 'mark' && options?.piece != null) s.selectPieceSound(options.piece, options.king);
       else if (name === 'check') s.snd.check();
       else if (name === 'impact') s.snd.capture();
