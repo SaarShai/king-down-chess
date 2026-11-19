@@ -36,7 +36,7 @@ export const pieces: Record<number, { name: string; short: string; full: string 
 };
 /** Short lines of the powers and cards, by engine ID. The Vault card shows as "Hop" (cardName). */
 export const powerLines: Partial<Record<CardName, string>> = {
-  Freeze: 'Stop an enemy, not the king; it stays able to attack.', IceWall: 'Protect a piece, not the king; a push still works.',
+  Freeze: 'Stop an enemy except the king. It still attacks.', IceWall: 'Protect a piece, not the king; a push still works.',
   Strike: 'Move like a queen; no pawn, king or capture.', Haste: 'Move one piece up to twice; neither move captures.',
   Flight: 'Move to an empty square in your half; no king.', Sacrifice: 'Replace a pawn with a lost piece; no pawn, Guard or king.',
   March: 'Move a pawn two squares from any rank; the path stays clear.', Leap: 'Rook, Bishop or Queen: jump own pawns, not other pieces.',

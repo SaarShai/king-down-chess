@@ -5,6 +5,7 @@ import { fromFen, toFen } from '../rules/setup';
 import { Game } from '../game';
 import { setRules } from '../rules/engine';
 import type { PaintedScene } from './painted/scene.mjs';
+import { emptyMarks, PLAIN } from './plain-marks';
 import { SHARED_MECHANICS, assertMechanicExpected } from '../../tools/fixtures/shared-mechanics';
 
 const { reducedMotion, lively, aim, decorate, disposeScene, disconnectResize, selectScene, sceneOptions, coords } = vi.hoisted(() => ({ reducedMotion: vi.fn(), lively: vi.fn(), aim: vi.fn(), decorate: vi.fn(), disposeScene: vi.fn(), disconnectResize: vi.fn(), selectScene: vi.fn(), sceneOptions: vi.fn(), coords: vi.fn() }));
@@ -41,6 +42,18 @@ it('passes capture targets to scene preparation on selection', async () => {
  view.highlight({selected:28,moves:[29],captures:[36]});
  expect(selectScene).toHaveBeenLastCalledWith(28,[29],[36]);
  view.dispose();
+});
+
+it('uses the selected idle on Daylight while quiet boards keep the random idle by default', async () => {
+  const { PaintedView } = await import('./PaintedView');
+  const quiet = new PaintedView(stubDom() as unknown as HTMLElement, { quiet: true });
+  expect(lively).toHaveBeenLastCalledWith(expect.objectContaining({ ambient: true, idle: true }));
+  quiet.dispose();
+  const day = new PaintedView(stubDom() as unknown as HTMLElement, { quiet: true, daylight: true });
+  expect(lively).toHaveBeenLastCalledWith(expect.objectContaining({ ambient: false, idle: true, atmosphere: false, pawns: false }));
+  day.setPace('off');
+  expect(lively).toHaveBeenLastCalledWith(expect.objectContaining({ ambient: false, idle: false }));
+  day.dispose();
 });
 
 describe('PaintedView first paint', () => {
@@ -196,6 +209,32 @@ it('replaces the old Freeze image with the shared volume and draws its front aft
     expect(calls.length).toBe(row < 3 ? 0 : 2);
   }
   expect(calls).toEqual(['ice', 'pip']);
+  view.dispose();
+});
+
+it('shows the Daylight Freeze edge and badge until the mark clears', async () => {
+  const container = stubDom(), { PaintedView } = await import('./PaintedView');
+  const { fixtures, at } = await import('../../docs/specs/effects-animation/preview/signals/fixtures');
+  const f = fixtures.freeze;
+  const view = new PaintedView(container as unknown as HTMLElement, { quiet: true, daylight: true, plainMarks: true });
+  const { scene } = view as unknown as { scene: PaintedScene };
+  const setPosition = vi.fn(), play = vi.fn();
+  Object.assign(scene, { SIZE: 960, setPosition, play, time: 0 });
+  view.setRules(f.rules);
+  view.sync(f.before);
+  const move = f.rules.legalMoves(f.before).find(m => m.power === 'freeze' && m.to === at('d5'))!;
+  await view.animateMove(f.before, move);
+  expect(play).not.toHaveBeenCalled();
+  view.sync(f.after);
+  expect(setPosition).toHaveBeenLastCalledWith(f.after, new Set([at('d5')]));
+  const draw = decorate.mock.lastCall![0], strokeRect = vi.fn(), arc = vi.fn(), drawImage = vi.fn();
+  const ctx = new Proxy({ strokeRect, arc, drawImage } as Record<string, unknown>, { get: (target, key: string) => key in target ? target[key] : () => {} });
+  draw(ctx, scene, 'under'); draw(ctx, scene, 'over', 7);
+  expect(strokeRect).toHaveBeenCalledOnce();
+  expect(arc).toHaveBeenCalledTimes(3);
+  expect(drawImage).not.toHaveBeenCalled();
+  view.sync(f.expired!);
+  expect(setPosition).toHaveBeenLastCalledWith(f.expired, new Set());
   view.dispose();
 });
 
@@ -477,16 +516,72 @@ it('can keep a thaw on skip, while the old default still settles it', async () =
   view.skip(); expect(settle).toHaveBeenCalledOnce(); view.dispose();
 });
 
-it.each([false, true])('draws Plain marks only below figures, including symbols %s', async symbols => {
+it.each([false, true])('draws Painted marks only below figures, including symbols %s', async symbols => {
   const container = stubDom(), { PaintedView } = await import('./PaintedView');
   const view = new PaintedView(container as unknown as HTMLElement, { plainMarks: true });
   view.sync(fromFen('7k/7p/8/8/8/8/P7/K7 w - - 0 1'));
   if (symbols) view.setSymbols(() => ({} as HTMLImageElement));
-  view.setPlainMarks({ rings: [{ square: 8, color: '#fffaf0', role: 'actor' }], paths: [], steps: [] });
-  const calls: string[] = [], ctx = new Proxy({}, { get: (_o, key) => () => { if (key === 'ellipse' || key === 'drawImage') calls.push(String(key)); } });
+  view.setReducedMotion(true);
+  view.setPlainMarks({ ...emptyMarks(), rings: [{ square: 8, color: PLAIN.actor, role: 'actor' }] });
+  const calls: string[] = [];
+  const ctx = new Proxy({ createLinearGradient: () => ({ addColorStop() {} }) } as Record<string, unknown>,
+    { get: (obj, key: string) => obj[key] ?? (() => { if (key === 'ellipse' || key === 'drawImage') calls.push(key); }) });
   const draw = decorate.mock.lastCall![0], scene = (view as unknown as { scene: PaintedScene }).scene;
   draw(ctx, scene, 'over', 7); expect(calls).toEqual([]);
   draw(ctx, scene, 'under'); expect(calls[0]).toBe('ellipse');
   if (symbols) expect(calls.indexOf('drawImage')).toBeGreaterThan(calls.lastIndexOf('ellipse'));
   view.dispose();
+});
+
+it('sweeps the selected ring and targets in order, keeps progress on focus, and fades on clear', async () => {
+  const container = stubDom(), { PaintedView } = await import('./PaintedView');
+  const view = new PaintedView(container as unknown as HTMLElement, { plainMarks: true });
+  const scene = (view as unknown as { scene: PaintedScene }).scene;
+  const keepAwake = vi.fn();
+  Object.assign(scene, { keepAwake });
+  let now = 0;
+  const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+  const marks = emptyMarks();
+  marks.rings.push({ square: 16, color: PLAIN.move, role: 'focus' }, { square: 8, color: PLAIN.actor, role: 'actor' });
+  const fills: number[] = [], alphas: number[] = [];
+  const canvas = {
+    globalAlpha: 1,
+    fill() { fills.push(this.globalAlpha); },
+    fillRect() { this.fill(); },
+    save() { alphas.push(this.globalAlpha); },
+    restore() { this.globalAlpha = alphas.pop()!; },
+    createLinearGradient: () => ({ addColorStop() {} }),
+    ellipse: vi.fn(),
+  };
+  const ctx = new Proxy(canvas as typeof canvas & Record<string, unknown>, { get: (o, key: string) => o[key] ?? (() => {}) });
+  const draw = () => {
+    fills.length = 0;
+    canvas.ellipse.mockClear();
+    decorate.mock.lastCall![0](ctx, scene, 'under');
+    return fills.slice();
+  };
+  try {
+    view.setPlainMarks(marks);
+    expect(keepAwake.mock.lastCall![0]).toBeGreaterThanOrEqual(162);
+    expect(draw()).toEqual([]);
+    now = 22; expect(draw()).toEqual([1, 1]);
+    now = 23; expect(draw()).toEqual([1, 1, 1, 1]);
+    now = 140; draw(); expect(canvas.ellipse).toHaveBeenCalledTimes(1);
+    now = 150; view.setPlainMarks({ ...marks, rings: [{ ...marks.rings[0], role: 'target' }, marks.rings[1]] });
+    now = 162; draw(); expect(canvas.ellipse).toHaveBeenCalledTimes(2);
+    view.setPlainMarks(emptyMarks());
+    now = 212; expect(draw()).toEqual([.5, .5, .5, .5]);
+    now = 262; expect(draw()).toEqual([]);
+    view.setPlainMarks(marks);
+    view.setPace('off');
+    draw(); expect(canvas.ellipse).toHaveBeenCalledTimes(2);
+    view.setPlainMarks(emptyMarks());
+    expect(draw()).toEqual([]);
+    view.setPace('normal');
+    view.setPlainMarks({ ...emptyMarks(), rings: [16, 24].map(square => ({ square, color: PLAIN.ice, role: 'target', frost: true })) });
+    now = 288; expect(draw()).toHaveLength(1);
+    now = 289; expect(draw()).toHaveLength(2);
+    now = 422; expect(draw()[0]).toBe(1); expect(draw()[1]).toBeLessThan(1);
+    now = 448; expect(draw()).toEqual([1, 1]);
+  } finally { clock.mockRestore(); view.dispose(); }
 });

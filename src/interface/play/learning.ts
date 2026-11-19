@@ -57,7 +57,7 @@ export function firstMinute(draft: DraftTurn, player: Color = 0): boolean {
   return !(mine < 0 ? [] : h.slice(mine)).some(entry => real(entry.move)) && !draft.steps.some(h => real(h.move)) && !draft.captures.length;
 }
 const steps: Record<string, string> = {
-  Freeze: 'Tap a ringed enemy piece. Then move a piece, or select End turn.',
+  Freeze: 'Tap a frosted square. Move or tap End turn.',
   IceWall: 'Tap a ringed piece of yours. Then move a piece, or select End turn.',
   Strike: 'Tap a ringed piece of yours, then an empty square on a queen’s line. This is your move.',
   Haste: 'Tap a ringed piece, then an empty target. You can move that piece once more without a capture.',

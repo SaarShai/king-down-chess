@@ -23,7 +23,8 @@ export function boardSounds() {
   function cue(playback: SamplePlayback) { cues.add(playback); void playback.done.then(() => cues.delete(playback)); return playback; }
   return {
     stop() { round++; for (const playback of cues) playback.cancel(); cues.clear(); stopSelection(); },
-    move(before: Position, action: Move, rules: GameRules, animated: boolean, current: () => boolean, armour: boolean) {
+    move(before: Position, action: Move, rules: GameRules, animated: boolean, current: () => boolean, armour: boolean, silent = false) {
+      if (silent) return { start() {}, contact(_soundHandled?: boolean) {}, finish() {} };
       const own = round;
       const sounds = soundsFor(momentKind(before, action), action);
       const piece = before.board[action.from], type = typeOf(piece), side = colorOf(piece);
@@ -44,11 +45,11 @@ export function boardSounds() {
         start() {
           if (animated && movement && live() && !hidden()) playback = cue(movement === 'bishopMove' ? playArmour(movement) : playArmour(movement, true));
         },
-        contact() {
+        contact(soundHandled = false) {
           if (struck || !current()) return;
           struck = true;
           if (knight && own === round) cue(playArmour(`knightLand${take}`));
-          if (sounds.hit) snd[sounds.hit]();
+          if (sounds.hit && !soundHandled) snd[sounds.hit]();
         },
         // On a normal end, stop the loop and let the current take finish.
         finish() { if (live()) playback?.finish(); else playback?.cancel(); },

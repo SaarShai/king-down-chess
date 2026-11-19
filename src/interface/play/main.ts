@@ -652,7 +652,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   if (fromHome) { root.querySelectorAll('.play-game').forEach(node => node.remove()); screen.style.visibility = 'hidden'; root.append(screen); }
   else root.replaceChildren(screen);
   const onArtError = () => { if (host === boardHost && document.body.dataset.page === 'game') artFailed(generation); };
-  const boardOptions = {
+  const boardOptions: NonNullable<Parameters<NonNullable<typeof boardCode>['mountBoard']>[2]> = {
     liveInput: true, quiet: true, plainMarks: true, daylight: true, initialBoardArt: skinUrl, onArtError,
     sceneHooks: {
       hold,
@@ -670,8 +670,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   board = view;
   setPauseHook(paused => {
     if (board !== view) return;
-    if (paused && 'pause' in view && typeof view.pause === 'function') view.pause();
-    if (!paused && 'resume' in view && typeof view.resume === 'function') view.resume();
+    if (paused) view.pause(); else view.resume();
   });
   board.flip(player === 1); board.setPosition(draft.position, game.context); applyPieceView(); layout(); update();
   fit.disconnect(); fit.observe(screen);

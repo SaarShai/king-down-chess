@@ -99,7 +99,7 @@ button.army-figure[aria-expanded='true'] { background: var(--selection-fill); bo
 .mini-board { display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); width: 132px; height: 132px; flex: none; border: 2px solid #74786a; box-shadow: 0 3px 8px #262e2c19; }
 .mini-cell { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; background: #eee3c9; }
 .mini-cell.mini-dark { background: #a7ad99; }
-.mini-cell.mini-last { background: #f3e3b4; box-shadow: inset 0 0 0 2px #a98642; }
+.mini-cell.mini-last { background-image: linear-gradient(var(--last-move), var(--last-move)); }
 .mini-glyph { width: 88%; height: 88%; object-fit: contain; }
 
 /* ---------- One New game panel (owner playtest decisions 88 to 93) ---------- */

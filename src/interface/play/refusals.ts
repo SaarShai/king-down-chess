@@ -43,7 +43,7 @@ export function refusalForTap(draft: DraftTurn, source: number | null, square: n
   if (armed) {
     const active = draft.armedMoves, sample = active.find(m => source == null || m.from === source), id = sample?.power ? TAG_POWER[sample.power] : TAG_POWER[armed as keyof typeof TAG_POWER];
     const title = armed === 'mirrorb' ? 'Mirror' : id ? (id in POWER_NAME ? POWER_NAME[id as keyof typeof POWER_NAME] : cardName(id)) : 'This action';
-    if (armed === 'freeze') return typeOf(target) === K ? 'Freeze cannot stop a king. Tap a ringed enemy piece.' : 'Freeze needs an enemy piece. Tap a ringed enemy piece.';
+    if (armed === 'freeze') return typeOf(target) === K ? 'Freeze cannot stop a king. Tap a frosted square.' : 'Freeze needs an enemy piece. Tap a frosted square.';
     if (armed === 'ward') return typeOf(target) === K ? 'Ice Wall cannot protect the king. Tap a ringed piece of yours.' : 'Ice Wall needs one of your pieces. Tap a ringed piece of yours.';
     if (source == null || !active.some(m => m.from === source)) return `${title} needs a ringed actor or target. Tap a ringed square.`;
     if (['haste', 'rally', 'flight', 'strike', 'mimic', 'curse'].includes(sample?.power ?? '') && target) return `${title} needs an empty target. Tap a ringed empty square.`;
