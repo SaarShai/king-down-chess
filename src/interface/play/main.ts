@@ -1289,7 +1289,7 @@ function updateSeats() {
     ring.dataset.check = String(side === checked);
     ring.dataset.thinking = String(i === 1 && thinking && !ended && !onlineActive);
     const store = stores[i], value = next[i];
-    store.setAttribute('aria-label', `${value} captures`);
+    store.setAttribute('aria-label', `${value} ${value === 1 ? 'capture' : 'captures'}`);
     store.dataset.empty = String(!value);
     if (value > counts[i] && store.textContent !== '' && !ended) {
       const move = i === 0 ? draft.previewMove ?? draft.steps.at(-1)?.move : lastActions.at(-1)?.move;
