@@ -30,6 +30,8 @@ export interface GameOptions {
   cardPool: readonly CardName[];
   /** Your preferred king and power; null uses Spirit with Mercy. Cards use a legal power until cards go off. */
   king: KingChoice | null;
+  /** The computer's preferred king and power. No choice leaves the deal random. */
+  opponentKing?: KingChoice;
 }
 export const DEFAULT_OPTIONS: Readonly<GameOptions> = Object.freeze({ pool: POOL_KINDS, seconds: DOUBLE_KINDS, arrangement: 'random', cardPool: DEAL_CARDS, king: { king: 'Spirit', power: 'Mercy' } as const });
 /** Keep the preferred power; cards use a legal power until cards go off again. */
@@ -98,17 +100,25 @@ export function readOptions(value: unknown): GameOptions {
   const validPool = Array.isArray(v.pool) && v.pool.every(kind => POOL_KINDS.includes(kind as string)) && new Set(v.pool).size === v.pool.length && poolLetters(v.pool as string[], seconds).length >= 7;
   const pool = validPool ? v.pool as string[] : DEFAULT_OPTIONS.pool;
   const cardPool = Array.isArray(v.cardPool) && v.cardPool.every(card => DEAL_CARDS.includes(card as CardName)) && new Set(v.cardPool).size === v.cardPool.length && v.cardPool.length >= 4 ? v.cardPool as CardName[] : DEFAULT_OPTIONS.cardPool;
-  const k = (v.king === undefined ? DEFAULT_OPTIONS.king : v.king) as KingChoice | null | undefined, king = k && kingChoices('powers').some(c => c.king === k.king && c.power === k.power) ? { king: k.king, power: k.power } : null;
-  return { pool, seconds: validPool ? seconds : DEFAULT_OPTIONS.seconds, arrangement: v.arrangement === 'manual' ? 'manual' : 'random', cardPool, king };
+  const legal = kingChoices('powers');
+  const findKing = (value: unknown) => {
+    const choice = value as KingChoice | null | undefined;
+    return legal.find(c => c.king === choice?.king && c.power === choice.power);
+  };
+  const king = findKing(v.king === undefined ? DEFAULT_OPTIONS.king : v.king) ?? null;
+  const opponentKing = findKing(v.opponentKing);
+  return { pool, seconds: validPool ? seconds : DEFAULT_OPTIONS.seconds, arrangement: v.arrangement === 'manual' ? 'manual' : 'random', cardPool, king,
+    ...(opponentKing ? { opponentKing } : {}) };
 }
 
-/** The engine deals the kings and the four shared cards of a game type. Your king (seat `player`) is the chosen one when the type allows it. */
-export function rulesFor(setup: GameType, random: () => number = Math.random, options: Pick<GameOptions, 'cardPool' | 'king'> = DEFAULT_OPTIONS, player: Color = 0): Partial<Rules> {
+/** The engine deals the kings and the four shared cards. The player and computer can each have a chosen king. */
+export function rulesFor(setup: GameType, random: () => number = Math.random, options: Pick<GameOptions, 'cardPool' | 'king' | 'opponentKing'> = DEFAULT_OPTIONS, player: Color = 0): Partial<Rules> {
   if (setup === 'pieces') return rulesOf('pieces', [null, null], [[], []]);
   const kings = kingChoices(setup), pick = () => kings[Math.floor(random() * kings.length)];
   const mine = hasPowers(setup) ? shownKing(setup, options.king) : null;
   const dealt: [KingChoice | null, KingChoice | null] = hasPowers(setup) ? [pick(), pick()] : [null, null];
   if (mine) dealt[player] = mine;
+  if (mine && options.opponentKing) dealt[player ^ 1] = shownKing(setup, options.opponentKing);
   const hand = hasCards(setup) ? shuffle([...options.cardPool], random).slice(0, 4) : [];
   return rulesOf(setup, dealt, [hand, hand]);
 }
@@ -139,14 +149,17 @@ export function createDraft(choices: Choices, random: () => number = Math.random
   return { ...choices, options, player, back, rules, game: new Game(back, rules) };
 }
 /**
- * A change in the New game panel. The level keeps the same game. The side keeps the deal; a chosen king moves to the new side. The game type, the cards and the king deal the kings and cards once.
+ * A change in the New game panel. The level keeps the same game. A side change moves the chosen kings to their new sides.
+ * The game type, card pool and king choices deal the kings and cards again.
  * The piece kinds deal a new army. An unchanged value changes nothing.
  */
 export function changeDraft(draft: NewGameDraft, change: Partial<Choices>, random: () => number = Math.random): NewGameDraft {
   let next: NewGameDraft = { ...draft, ...change, options: change.options ?? draft.options };
   if (change.sideChoice !== undefined && change.sideChoice !== draft.sideChoice) next.player = resolveSide(change.sideChoice);
   const was = draft.options, now = next.options;
-  const pool = now.pool.join() !== was.pool.join() || now.seconds?.join() !== was.seconds?.join(), deal = next.setup !== draft.setup || now.cardPool.join() !== was.cardPool.join() || JSON.stringify(now.king) !== JSON.stringify(was.king) || next.player !== draft.player && !!now.king;
+  const pool = now.pool.join() !== was.pool.join() || now.seconds?.join() !== was.seconds?.join();
+  const changedKings = JSON.stringify([now.king, now.opponentKing]) !== JSON.stringify([was.king, was.opponentKing]);
+  const deal = next.setup !== draft.setup || now.cardPool.join() !== was.cardPool.join() || changedKings || next.player !== draft.player && hasPowers(next.setup);
   if (pool) next.back = dealArmy(now.pool, random, now.seconds);
   if (deal) next.rules = rulesFor(next.setup, random, now, next.player);
   if (pool || deal) next.game = new Game(next.back, next.rules);

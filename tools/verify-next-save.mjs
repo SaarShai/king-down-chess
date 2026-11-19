@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 const browser = await launch();
 const NEXT = new URL('next.html', env('PLAYABLE_URL')).href;
-const MAIN = '.play-home .kd-button[data-kind="main"]', CONTINUE = '.home-game-row[data-kind="computer"]', END = '.play-turn .kd-button[data-kind="main"]';
+const MAIN = '.play-home .kd-button[data-kind="main"]', CONTINUE = '.home-continue[data-saved="computer"]', END = '.play-turn .kd-button[data-kind="main"]';
 async function open(save, kept) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
   // Each write of the save, in order. The seed goes in before the record starts, so it is not a write of the page.
@@ -45,8 +45,8 @@ try {
   {
     // A fresh device: With powers (in the New game panel, launch decision 26), a step, Undo, a step, End turn and the reply.
     const { page, context } = await open();
-    await page.click('.home-hero button'); await page.waitForSelector('dialog.new-game-panel[open]');
-    await page.getByRole('checkbox', { name: 'With powers', exact: true }).click();
+    await page.click('.home-hero-new'); await page.waitForSelector('dialog.new-game-panel[open]');
+    await page.getByRole('switch', { name: 'Powers', exact: true }).click();
     await page.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
     assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.game-type')), 'powers', 'the last game type is stored');
     assert.deepEqual((await writes(page)).map(w => [w.moves, w.staged]), [[0, 0]], 'the new game writes a save with no move');
@@ -62,10 +62,11 @@ try {
   {
     // An old-page save at Strong with the computer to move: Continue, no Versus, the reply writes Fierce and keeps the stored settings.
     const { page, context } = await open({ back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'ai', coords: false, link: null, daily: null, resigned: null, skill: 'strong', sound: true, pace: 'fast' });
-    assert.equal(await page.locator(CONTINUE).count(), 1, 'the saved game has one Continue row');
-    assert.deepEqual(await page.locator(CONTINUE + ' .home-game-copy').evaluate(copy => [...copy.children].map(node => node.textContent)), ['Fierce computer', 'Computer to move']);
-    // The home page no longer has the old game-type and turn-number labels.
-    const mini = page.locator(CONTINUE + ' .mini-board');
+    assert.equal(await page.locator(CONTINUE).count(), 1, 'the saved game has one Continue button');
+    const card = page.locator('.home-start .home-card');
+    assert.deepEqual(await card.locator('.home-game-copy').evaluate(copy => [...copy.children].map(node => node.textContent)), ['Computer', 'Fierce']);
+    assert.equal(await card.locator('.home-state strong').innerText(), 'Computer to move');
+    const mini = card.locator('.mini-board');
     assert.equal(await mini.locator('.mini-cell').count(), 64);
     assert.equal(await mini.locator('[data-square="12"] img').count(), 0, 'e2 is empty on the home preview');
     assert.equal(await mini.locator('[data-square="28"] img').count(), 1, 'e4 has a piece on the home preview');
@@ -99,7 +100,7 @@ try {
     for (const [save, kept] of cases) {
       const { page, context } = await open(save, kept);
       assert.equal(await page.locator(CONTINUE).count(), 0, 'no Continue row');
-      assert.equal(await page.locator(MAIN).innerText(), 'New game', 'no Continue');
+      assert.equal(await page.locator(MAIN).textContent(), 'Play', 'the only action starts a new game');
       assert.ok((await page.locator('.play-home .home-note').allInnerTexts()).includes('A game from the earlier version cannot open here yet. It is kept.'), 'the kept line shows');
       const stored = await page.evaluate(() => [localStorage.getItem('kingdown.save'), localStorage.getItem('kingdown.save.kept')]);
       assert.equal(stored[1], stored[0], 'the copy holds the newest bytes');

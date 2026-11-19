@@ -262,14 +262,17 @@ const cases = {
     await shot(page, 'guide-entry');
   },
   async home_piece_close(page, context, check) {
-    await page.goto(NEXT); await page.locator('.home-hero button').click();
-    await page.getByRole('checkbox', { name: 'With cards', exact: true }).check();
-    const source = page.getByRole('button', { name: 'Ice Wall Rule', exact: true }); await source.click();
-    check(await page.locator('.card-rule').isVisible(), 'a card opens its rule in the panel');
-    const back = page.getByRole('button', { name: 'Back', exact: true });
-    const box = await back.boundingBox(); check(box.width >= 44 && box.height >= 44, 'Back is a 44 px target');
-    await back.click(); check(await source.evaluate(n => n === document.activeElement), 'Back returns focus to the card');
-    await source.click(); await page.keyboard.press('Escape'); check(await page.locator('dialog[open]').count() === 0, 'Escape closes the panel from a rule');
+    await page.goto(NEXT); await page.locator('.home-hero-new').click();
+    const preview = page.getByRole('button', { name: 'Cards', exact: true });
+    await preview.press('Enter');
+    const card = page.getByRole('button', { name: 'Ice Wall', exact: true });
+    await card.press('Space');
+    check(await card.getAttribute('aria-pressed') === 'false', 'Space removes the card from the pool');
+    const box = await card.boundingBox(); check(box.width >= 44 && box.height >= 44, 'The card is a 44 px target');
+    check(await card.evaluate(n => n === document.activeElement), 'The card keeps focus after a change');
+    await page.keyboard.press('Escape');
+    check(await preview.evaluate(n => n === document.activeElement), 'Escape returns focus to the Cards preview');
+    await page.goBack(); check(await page.locator('dialog[open]').count() === 0, 'Browser Back closes New game');
   },
   async menu(page, context, check, size) {
     await page.goto(NEXT); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);

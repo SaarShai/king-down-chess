@@ -77,6 +77,29 @@ it('owner playtest section 2: your king, the card pool and the piece kinds', () 
   const small = changeDraft(draft, { options: { ...draft.options, pool: kinds } });
   expect(small.back.split('').every(letter => letter === 'K' || kinds.includes(letter))).toBe(true);
 });
+it('starts with both king choices or deals a random opponent on either side', () => {
+  const king = { king: 'Flame', power: 'Haste' } as const;
+  const opponentKing = { king: 'Frost', power: 'IceWall' } as const;
+  const options = readOptions({ ...DEFAULT_OPTIONS, king, opponentKing });
+  expect(options.opponentKing).toEqual(opponentKing);
+  expect(readOptions({ ...options, opponentKing: { king: 'Frost', power: 'Haste' } }).opponentKing).toBeUndefined();
+  expect(onlinePanelOptions(options)).not.toHaveProperty('opponentKing');
+  for (const sideChoice of ['light', 'dark'] as const) {
+    const draft = createDraft(choices({ setup: 'powers', sideChoice }));
+    const chosen = changeDraft(draft, { options }, seq(.9));
+    const rival = draft.player ^ 1;
+    expect(startOf(chosen).rules.kings[draft.player]).toEqual(king);
+    expect(startOf(chosen).rules.kings[rival]).toEqual(opponentKing);
+    const both = changeDraft(chosen, { setup: 'both' });
+    expect(startOf(both).rules.kings[rival]).toEqual(DEFAULT_OPTIONS.king);
+    expect(startOf(changeDraft(both, { setup: 'powers' })).rules.kings[rival]).toEqual(opponentKing);
+    const random = changeDraft(chosen, { options: { ...options, opponentKing: undefined } }, seq(.9));
+    expect(random.options.opponentKing).toBeUndefined();
+    expect(startOf(random).rules.kings[rival]).toEqual(kingChoices('powers')[10]);
+    expect(startOf(random).rules.kings[draft.player]).toEqual(king);
+    expect(startOf(changeDraft(chosen, { setup: 'cards' })).rules.kings).toEqual([null, null]);
+  }
+});
 it('the army row: each type of the side one time, the king first, the pawn last', () => {
   const draft = createDraft(choices({ setup: 'pieces' }));
   for (const side of [0, 1] as const) {

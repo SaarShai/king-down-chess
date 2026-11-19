@@ -1,9 +1,10 @@
-import { button, choiceGroup, closeX, setButtonState } from '../ui/kit.js';
+import { button, choiceGroup, closeX, icon, setButtonState, switchRow } from '../ui/kit.js';
 import { K, KINGS, LETTERS, type Color, type KingName, type PowerName } from '../../rules/engine';
 import { kingDisplayName } from '../../king-label';
 import { DEAL_CARDS, POOL_KINDS } from '../../match/setup';
 import { RELEASED_CARDS } from '../../content/cards';
-import { cardText, powerText, ruleLine, POWER_NAME } from '../../powers-ui';
+import { powerText, ruleLine, POWER_NAME } from '../../powers-ui';
+import type { KingChoice } from '../../rules/rules';
 import { nameSearch, sendPersonLink, type PersonHost } from '../people/screens/person';
 import { nameSheet, signInSheet } from '../people/screens/sign-in';
 import type { PeopleSheet } from '../people/screens/sheet';
@@ -59,12 +60,12 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   } });
   const saved = d.memory;
   let draft = saved ? restorePanel(saved) : d.next, opponent = saved?.opponent ?? 'computer';
-  let choice: Choice | null = null, cardError = '', replacement = '';
+  let choice: Choice | null = null, replacement = '';
   let opener: HTMLElement | null = null, choiceSource = '', starting = false, busy = false, actionId = 0;
   let sheetEffect: Effect | undefined, sheetOffset = 0, closing = false;
   let pull: { id: number; y: number } | undefined;
   let poolOpen = !!saved && saved.section === 'pieces';
-  const choosePower = (change: Partial<GameOptions>) => edit({ options: { ...draft.options, ...change } });
+  const setOptions = (change: Partial<GameOptions>) => edit({ options: { ...draft.options, ...change } });
   const edit = (change: Parameters<typeof changeDraft>[1]) => { draft = changeDraft(draft, change); };
 
   head.append(button('Back to Play', { icon: 'back', iconOnly: true, onPress: () => close() }), heading, summary);
@@ -90,21 +91,29 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   }
 
   function seat(side: Color, own: boolean) {
-    const king = draft.game.context.rules.kings[side], name = own ? panelText.yourKing : panelText.opponent;
+    const king = own || opponent === 'computer' && draft.options.opponentKing
+      ? draft.game.context.rules.kings[own ? draft.player : draft.player ^ 1] : null;
+    const name = own ? panelText.yourKing : panelText.opponent;
     const node = openControl(name, own ? 'king' : 'opponent', 'setup-seat');
-    const figure = art.figure(K, side, draft.game.context.rules); figure.alt = '';
+    const figure = art.figure(K, side, { kings: [null, null] }); figure.alt = '';
     if (king) figure.src = `/ui/kings/${king.king.toLowerCase()}${side ? '-b' : ''}.webp`;
+    else if (!own) figure.src = `/ui/pieces/king-shadow-${side ? 'b' : 'w'}.webp`;
     const stage = el('span', 'setup-figure'); stage.append(figure);
     const copy = el('span', 'setup-seat-copy'), power = el('span', 'setup-seat-power');
     if (king) power.append(emblem(king.king));
-    power.append(king ? POWER_NAME[king.power] : 'No power');
+    power.append(king ? POWER_NAME[king.power] : hasPowers(draft.setup) && !own ? '' : 'No power');
     const caption = el('span', 'setup-seat-edit');
     if (!own && opponent === 'computer') caption.append(portrait(draft.level));
     caption.append(own ? name : opponent === 'computer' ? text.computer : panelText.player);
-    copy.append(el('strong', '', king ? kingLabel(king.king) : side ? 'Dark King' : 'Light King'), power, caption);
+    const title = king ? kingLabel(king.king) : !own && hasPowers(draft.setup) ? panelText.randomKing : side ? 'Dark King' : 'Light King';
+    const kingName = el('strong', '', title);
+    kingName.id = own ? 'setup-own-king' : 'setup-opponent-king';
+    power.id = own ? 'setup-own-power' : 'setup-opponent-power';
+    copy.append(kingName, power, caption);
     node.append(stage, copy);
     node.querySelector('[data-button-label]')!.classList.add('kd-sr');
     node.setAttribute('aria-label', name);
+    node.setAttribute('aria-describedby', `${kingName.id} ${power.id}`);
     return node;
   }
   function choiceValues(label: string, values: { value: string; label: string }[], value: string, change: (value: string) => void) {
@@ -113,32 +122,38 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     group.querySelectorAll<HTMLElement>('[role="radio"]').forEach((radio, i) => keyed(radio, label + values[i].value));
     return group;
   }
+  function setFeature(name: 'powers' | 'cards', on: boolean) {
+    const powers = name === 'powers', before = shownKing(draft.setup, draft.options.king);
+    if (!powers && on) setOptions({ cardPool: DEAL_CARDS });
+    edit({ setup: typeOfFlags(powers ? on : hasPowers(draft.setup), powers ? hasCards(draft.setup) : on) });
+    draw();
+    if (!on) return;
+    const after = shownKing(draft.setup, draft.options.king);
+    if (powers || hasPowers(draft.setup) && (before.king !== after.king || before.power !== after.power)) stampKing(after.king);
+    if (!powers) dealCards();
+  }
   function feature(name: 'powers' | 'cards', on: boolean) {
     const powers = name === 'powers', label = powers ? 'Powers' : 'Cards', box = el('section', 'setup-feature');
-    const picture = el('div', powers ? 'setup-emblem' : 'setup-deck'); picture.setAttribute('aria-hidden', 'true');
+    const picture = el('span', powers ? 'setup-emblem' : 'setup-deck'); picture.setAttribute('aria-hidden', 'true');
     const king = shownKing(draft.setup, draft.options.king);
     if (powers) picture.append(emblem(king.king));
     else {
       const cards = draft.game.context.rules.hands[draft.player];
-      picture.append(...(cards.length ? cards.map(card => RELEASED_CARDS.findIndex(c => c.id === card)) : [0, 1, 2, 3]).map(art.card));
+      picture.append(...(cards.length ? cards.slice(0, 2).map(card => RELEASED_CARDS.findIndex(c => c.id === card)) : [0, 1]).map(art.card));
     }
-    const copy = el('div', 'setup-feature-copy');
-    copy.append(el('strong', '', label), el('small', '', powers ? on ? POWER_NAME[king.power] : 'No powers' : on ? '4 shared cards' : 'No cards'));
-    const selected = choiceValues(label, [{ value: 'off', label: text.off }, { value: 'on', label: text.on }], on ? 'on' : 'off', value => {
-      if ((value === 'on') === on) return;
-      if (!powers && value === 'on') choosePower({ cardPool: DEAL_CARDS });
-      edit({ setup: typeOfFlags(powers ? value === 'on' : hasPowers(draft.setup), powers ? hasCards(draft.setup) : value === 'on') });
-      draw();
-      if (!powers && value === 'on') {
-        const actual = shownKing(draft.setup, draft.options.king);
-        if (hasPowers(draft.setup) && (king.king !== actual.king || king.power !== actual.power)) stampKing(actual.king);
-        dealCards();
-      }
-      if (powers && value === 'on') stampKing(shownKing(draft.setup, draft.options.king).king);
-    });
-    selected.querySelector('legend')!.classList.add('kd-sr');
-    const artwork = el('div', 'setup-feature-label'); artwork.append(picture, copy);
-    box.append(artwork, selected);
+    const artwork = keyed(button(label, { onPress: () => {
+      if (!powers && !on) setFeature(name, true);
+      openChoice(powers ? 'king' : 'cards', artwork);
+    } }), name);
+    artwork.classList.add('setup-feature-label');
+    artwork.setAttribute('aria-haspopup', 'dialog');
+    artwork.prepend(picture);
+    const toggle = keyed(switchRow(label, '', on), `${name}-switch`);
+    toggle.querySelector('.kd-switch-copy')!.remove();
+    toggle.removeAttribute('aria-labelledby');
+    toggle.setAttribute('aria-label', label);
+    toggle.addEventListener('kd-change', event => setFeature(name, (event as CustomEvent<{ checked: boolean }>).detail.checked));
+    box.append(artwork, toggle);
     return box;
   }
   function draw() {
@@ -149,15 +164,18 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     match.replaceChildren(seat(mine, true), el('span', 'setup-vs', 'VS'), seat((mine ^ 1) as Color, false));
     const forced = hasPowers(draft.setup) && hasCards(draft.setup) && preferred && (preferred.king !== king.king || preferred.power !== king.power);
     swap.textContent = forced ? panelText.changedKing(`${kingDisplayName(preferred.king)} · ${POWER_NAME[preferred.power]}`, `${kingDisplayName(king.king)} · ${POWER_NAME[king.power]}`) : '';
-    if (forced) { swap.id = 'setup-king-change'; match.firstElementChild!.setAttribute('aria-describedby', swap.id); }
+    if (forced) {
+      swap.id = 'setup-king-change';
+      match.firstElementChild!.setAttribute('aria-describedby', `setup-own-king setup-own-power ${swap.id}`);
+    }
     level.hidden = opponent === 'person';
     features.replaceChildren(feature('powers', hasPowers(draft.setup)), feature('cards', hasCards(draft.setup)));
-    links.replaceChildren(openControl('More options', 'more'), ...(hasCards(draft.setup) ? [openControl('Choose cards', 'cards')] : []));
+    links.replaceChildren(openControl('More options', 'more'));
     setButtonState(start, { label: opponent === 'computer' ? homeText.startGame : 'Choose how to invite' });
     if (focus) table.querySelector<HTMLElement>(`[data-focus="${CSS.escape(focus)}"]`)?.focus({ preventScroll: true });
   }
 
-  const choiceTitles: Record<Choice, string> = { king: panelText.yourKing, opponent: panelText.opponent, cards: 'Choose cards', more: 'More options', confirm: text.newTitle, people: panelText.player };
+  const choiceTitles: Record<Choice, string> = { king: panelText.yourKing, opponent: panelText.opponent, cards: 'Cards', more: 'More options', confirm: text.newTitle, people: panelText.player };
   function openChoice(next: Choice, source: HTMLElement) {
     choiceSource = source.dataset.focus ?? '';
     choice = next; overlay.hidden = false; table.inert = true;
@@ -189,7 +207,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     if (choice === 'people' || choice === 'opponent') d.remember(null);
     closing = true; actionId++; busy = false; sound('tick');
     const done = () => {
-      clearSheet(); closing = false; choice = null; cardError = ''; overlay.hidden = true; table.inert = false;
+      clearSheet(); closing = false; choice = null; overlay.hidden = true; table.inert = false;
       dialog.setAttribute('aria-labelledby', heading.id);
       (table.querySelector<HTMLElement>(`[data-focus="${choiceSource}"]`) ?? start).focus({ preventScroll: true });
     };
@@ -217,7 +235,6 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     if (!choice) return;
     const focus = (document.activeElement as HTMLElement | null)?.dataset.focus, scroll = panelBody.scrollTop;
     panelTitle.textContent = choiceTitles[choice]; back.hidden = true; back.onclick = null; status.textContent = '';
-    panelBody.classList.remove('panel-rule');
     const content = choice === 'king' ? kings() : choice === 'opponent' ? opponents() : choice === 'cards' ? cards() : choice === 'more' ? more() : confirmation();
     panelBody.replaceChildren(content);
     panelBody.scrollTop = restore ? scroll : 0;
@@ -228,49 +245,66 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   function opponents() {
     const box = el('div', 'panel-section');
     const computer = keyed(button(text.computer, { onPress: () => { opponent = 'computer'; draw(); closeChoice(); } }), 'computer');
+    computer.classList.add('opponent-computer');
     computer.setAttribute('aria-pressed', String(opponent === 'computer'));
     computer.prepend(portrait(draft.level));
     const invite = el('div', 'person-choices');
     invite.append(el('h3', '', 'Play a person'), button(panelText.byName, { icon: 'next', onPress: () => void person('name') }),
       button(panelText.send, { icon: 'next', onPress: () => void person('link') }));
-    box.append(computer, invite, status);
+    box.append(computer);
+    if (opponent === 'computer') box.append(kings(false));
+    box.append(invite, status);
     return box;
   }
 
-  function kings() {
-    const box = el('div', 'panel-section'), grid = el('div', 'king-grid'), chosen = shownKing(draft.setup, draft.options.king);
+  function kings(own = true) {
+    const box = el('div', 'panel-section'), grid = el('div', 'king-grid');
+    const preferred = own ? draft.options.king : draft.options.opponentKing;
+    const chosen = own || preferred ? shownKing(draft.setup, preferred ?? null) : null;
+    const side = opponent === 'person' ? 0 : own ? draft.player : draft.player ^ 1;
     const legal = kingChoices(hasCards(draft.setup) ? 'both' : 'powers');
     const on = hasPowers(draft.setup);
+    const pick = (king: KingChoice) => {
+      edit({ setup: typeOfFlags(true, hasCards(draft.setup)), options: { ...draft.options, [own ? 'king' : 'opponentKing']: king } });
+      update(); stampKing(king.king, own);
+    };
+    if (!own) {
+      const random = keyed(button(panelText.randomKing, { onPress: () => {
+        setOptions({ opponentKing: undefined }); update();
+      } }), 'random-king');
+      random.setAttribute('aria-pressed', String(!preferred));
+      box.append(random);
+    }
     if (!on) box.append(el('p', 'panel-note', 'Select a king to turn Powers on.'));
-    grid.setAttribute('role', 'group'); grid.setAttribute('aria-label', panelText.yourKing);
+    grid.setAttribute('role', 'group'); grid.setAttribute('aria-label', own ? panelText.yourKing : panelText.opponentKing);
     for (const king of Object.keys(KINGS) as KingName[]) {
       const available = legal.find(k => k.king === king);
       const control = keyed(button(kingDisplayName(king), {
         disabledReason: available ? '' : 'In cards',
-        onPress: () => {
-          edit({ setup: typeOfFlags(true, hasCards(draft.setup)), options: { ...draft.options, king: available! } }); update(); stampKing(king);
-        },
+        onPress: () => { if (available) pick(chosen?.king === king ? chosen : available); },
       }), king);
-      control.setAttribute('aria-pressed', String(on && chosen.king === king));
+      control.setAttribute('aria-pressed', String(on && chosen?.king === king));
       control.classList.add('king-choice'); control.dataset.king = king;
       if (!available) control.setAttribute('aria-describedby', 'setup-king-rule');
-      const figure = el('img'); figure.src = `/ui/kings/${king.toLowerCase()}${draft.player ? '-b' : ''}.webp`; figure.alt = '';
+      const figure = el('img'); figure.src = `/ui/kings/${king.toLowerCase()}${side ? '-b' : ''}.webp`; figure.alt = '';
       control.prepend(figure); grid.append(control);
     }
-    const powers = choiceValues(panelText.power, legal.filter(k => k.king === chosen.king).map(k => ({ value: k.power, label: POWER_NAME[k.power] })), chosen.power, value => {
-      edit({ setup: typeOfFlags(true, hasCards(draft.setup)), options: { ...draft.options, king: { king: chosen.king, power: value as PowerName } } }); update(); stampKing(chosen.king);
-    });
     box.append(grid);
     if (hasCards(draft.setup)) {
       const note = el('p', 'panel-note', 'With cards, the powers of Frost, Flame and Sky come as cards.');
       note.id = 'setup-king-rule'; box.append(note);
     }
-    box.append(powers, el('p', 'panel-note', ruleLine(powerText(chosen.power, draft.game.context.rules)))); return box;
+    if (chosen) {
+      const powers = choiceValues(panelText.power, legal.filter(k => k.king === chosen.king).map(k => ({ value: k.power, label: POWER_NAME[k.power] })), chosen.power,
+        value => pick({ king: chosen.king, power: value as PowerName }));
+      box.append(powers, el('p', 'panel-note', ruleLine(powerText(chosen.power, draft.game.context.rules))));
+    }
+    return box;
   }
 
-  function stampKing(king: KingName) {
+  function stampKing(king: KingName, own = true) {
     const portrait = panelBody.querySelector<HTMLImageElement>(`[data-king="${king}"] > img`);
-    const seal = match.querySelector<HTMLImageElement>('.setup-seat-power > img');
+    const seal = match.querySelector<HTMLImageElement>(`[data-focus="${own ? 'king' : 'opponent'}"] .setup-seat-power > img`);
     const strike = () => { sound('clink'); pulse('light'); if (seal) burst('dust', at(seal), { count: 4, ms: 200 }); };
     if (reducedMotion()) { strike(); return; }
     if (portrait) tween(220, (_, t) => {
@@ -302,30 +336,21 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   function cards() {
     const box = el('div', 'panel-section'), grid = el('div', 'panel-card-grid');
     box.append(el('p', 'panel-note card-count', cardSummary(draft.options.cardPool)));
-    if (cardError) {
-      const error = el('p', 'card-error', cardError); error.setAttribute('role', 'alert'); box.append(error);
-    }
-    cardError = '';
+    if (draft.options.cardPool.length === 4) box.append(el('p', 'panel-note', panelText.cardPoolLock));
     for (const [i, card] of RELEASED_CARDS.entries()) {
-      const tile = el('article', 'panel-card');
-      const face = keyed(button(`${card.name} ${text.rule}`, { onPress: () => {
-        panelTitle.textContent = card.name; back.hidden = false;
-        back.onclick = () => { redrawChoice(); panelBody.querySelector<HTMLElement>(`[data-focus="${card.id}"]`)?.focus(); };
-        panelBody.replaceChildren(art.card(i), el('p', 'card-rule', ruleLine(cardText(card.id, draft.game.context.rules))));
-        panelBody.classList.add('panel-rule'); panelBody.scrollTop = 0; panelTitle.focus();
-      } }), card.id);
-      face.classList.add('panel-card-art');
-      face.querySelector('[data-button-label]')!.classList.add('kd-sr');
-      face.append(art.card(i), el('strong', '', card.name));
       const selected = draft.options.cardPool.includes(card.id);
-      const toggle = keyed(button(panelText.use(card.name), { onPress: () => {
-        if (selected && cardLocked(draft.options.cardPool, card.id)) cardError = panelText.needFour;
-        choosePower({ cardPool: selectCard(draft.options.cardPool, card.id, !selected) }); update();
-      } }), `use-${card.id}`);
-      toggle.setAttribute('aria-pressed', String(selected));
-      toggle.setAttribute('aria-label', panelText.use(card.name));
-      setButtonState(toggle, { label: selected ? 'In pool' : 'Add' });
-      tile.append(face, toggle); grid.append(tile);
+      const tile = keyed(button(card.name, {
+        disabledReason: cardLocked(draft.options.cardPool, card.id) ? panelText.locked : '',
+        onPress: () => {
+          setOptions({ cardPool: selectCard(draft.options.cardPool, card.id, !selected) }); update();
+          if (!selected && !reducedMotion()) panelBody.querySelector(`[data-focus="${card.id}"]`)?.classList.add('card-lift');
+        },
+      }), card.id);
+      tile.classList.add('panel-card');
+      tile.setAttribute('aria-pressed', String(selected));
+      tile.setAttribute('aria-label', card.name);
+      tile.prepend(art.card(i));
+      grid.append(tile);
     }
     box.append(grid); return box;
   }
@@ -335,30 +360,40 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     const full = poolLetters(draft.options.pool, draft.options.seconds) === poolLetters(POOL_KINDS);
     box.append(choiceValues(panelText.pieces, [{ value: 'all', label: panelText.allPieces }, { value: 'pool', label: panelText.pool }], full && !poolOpen ? 'all' : 'pool', value => {
       poolOpen = value === 'pool';
-      if (!poolOpen) choosePower({ pool: POOL_KINDS, seconds: DOUBLE_KINDS });
+      if (!poolOpen) setOptions({ pool: POOL_KINDS, seconds: DOUBLE_KINDS });
       update();
     }));
     if (poolOpen || !full) {
-      const lock = el('p', 'panel-note', 'Keep at least 7 pieces in the pool.'); lock.id = 'pool-lock';
+      const lock = el('p', 'panel-note', panelText.poolLock); lock.id = 'pool-lock';
       for (const letter of POOL_KINDS) for (const copy of (DOUBLE_KINDS.includes(letter) ? [1, 2] : [1]) as (1 | 2)[]) {
         const type = LETTERS.indexOf(letter), name = pieces[type].name + (DOUBLE_KINDS.includes(letter) ? copy === 1 ? ' x1' : ' 2nd' : '');
-        const row = el('div', 'pool-row'), chosen = (copy === 1 ? draft.options.pool : draft.options.seconds ?? DOUBLE_KINDS).includes(letter);
+        const row = el('label', 'pool-row'), chosen = (copy === 1 ? draft.options.pool : draft.options.seconds ?? DOUBLE_KINDS).includes(letter);
         const locked = poolLocked(draft.options.pool, letter, draft.options.seconds, copy);
         row.dataset.letter = letter;
         const figure = art.figure(type, opponent === 'person' ? 0 : draft.player, draft.game.context.rules);
-        const toggle = keyed(button(panelText.use(name), { disabledReason: locked ? 'Locked' : '', onPress: () => {
-          edit({ options: selectPiece(draft.options, letter, copy, !chosen) }); update();
-        } }), `${letter}-${copy}`);
-        toggle.setAttribute('aria-pressed', String(chosen));
-        toggle.setAttribute('aria-label', panelText.use(name));
-        setButtonState(toggle, { label: chosen ? 'In pool' : 'Add', reason: locked ? 'Locked' : '' });
+        const toggle = keyed(el('input', 'kd-sr'), `${letter}-${copy}`);
+        toggle.type = 'checkbox'; toggle.checked = chosen; toggle.disabled = locked;
+        toggle.setAttribute('aria-label', name);
         if (locked) toggle.setAttribute('aria-describedby', lock.id);
-        row.append(figure, el('span', '', name), toggle); list.append(row);
+        const check = el('span', 'pool-check'), mark = icon('check');
+        mark.querySelector('path')!.setAttribute('pathLength', '24');
+        check.append(mark);
+        toggle.addEventListener('change', () => {
+          const on = toggle.checked;
+          const copies = copy === 2 && !draft.options.pool.includes(letter) ? [1, 2] : [copy];
+          edit({ options: selectPiece(draft.options, letter, copy, on) }); update();
+          if (on && !reducedMotion()) for (const n of copies) {
+            panelBody.querySelector(`[data-focus="${letter}-${n}"] + .pool-check`)?.classList.add('draw-check');
+          }
+        });
+        row.append(figure, el('span', 'pool-name', name));
+        if (locked) row.append(el('span', 'pool-lock', panelText.locked));
+        row.append(toggle, check); list.append(row);
       }
-      box.append(list, lock);
+      box.append(lock, list);
     }
     box.append(choiceValues(panelText.arrangement, [{ value: 'random', label: panelText.random }, { value: 'manual', label: panelText.manual }], draft.options.arrangement, value => {
-      choosePower({ arrangement: value === 'manual' ? 'manual' : 'random' }); update();
+      setOptions({ arrangement: value === 'manual' ? 'manual' : 'random' }); update();
     }), el('p', 'panel-note', panelText.manualLine));
     if (opponent === 'computer') box.append(choiceValues(homeText.side, [{ value: 'light', label: sideText.light }, { value: 'dark', label: sideText.dark }], draft.player ? 'dark' : 'light', value => {
       edit({ sideChoice: value === 'dark' ? 'dark' : 'light' }); update();
@@ -420,6 +455,9 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     if (opener?.isConnected) opener.focus();
   }
   function close(history = true) { if (!dialog.open || starting) return; shut(); if (history) d.onClose(); }
+  dialog.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && choice) { event.preventDefault(); closeChoice(); }
+  });
   dialog.addEventListener('cancel', event => { event.preventDefault(); if (choice) closeChoice(); else close(); });
   overlay.addEventListener('click', event => { if (event.target === overlay) closeChoice(); });
   async function begin(accepted: string) {
