@@ -43,20 +43,18 @@ export class Arrangement {
   }
 }
 
-/** An unfinished solo setup restarts from its saved deal. No illegal draft enters the shared game save. */
-export function savedArrangement(storage: Pick<Storage, 'getItem'>, game: Game, side: Color): { draft: Arrangement; ready: boolean } | undefined {
+export type ArrangementRecord = Pick<Arrangement, 'army' | 'side' | 'order'> & { fen: string };
+
+/** Read the draft for this deal. Older saves keep the deal in a separate marker. */
+export function savedArrangement(storage: Pick<Storage, 'getItem'>, game: Game, side: Color, record?: ArrangementRecord): { draft: Arrangement; ready: boolean } | undefined {
   if (game.history.length) return;
   try {
-    const saved = JSON.parse(storage.getItem(ARRANGE_KEY) ?? 'null');
+    const saved = record ?? JSON.parse(storage.getItem(ARRANGE_KEY) ?? 'null');
     if (saved?.side === side && saved.fen === toFen(game.pos) && typeof saved.army === 'string' && saved.army.length === 8) {
-      const draft = new Arrangement(saved.army, side);
-      if (draft.canReady && toFen(draft.position(game.pos)) === saved.fen) return { draft, ready: saved.ready === true };
+      const deal = new Arrangement(saved.army, side), order = saved.order ?? saved.army;
+      if (!deal.canReady || toFen(deal.position(game.pos)) !== saved.fen) return;
+      if (typeof order !== 'string' || [...order].sort().join('') !== [...deal.army].sort().join('')) return;
+      return { draft: new Arrangement(deal.army, side, order), ready: saved.ready === true };
     }
   } catch { /* private mode or an old marker */ }
-}
-
-/** A confirmed order resumes play; an unfinished order resumes the setup step. */
-export function pendingArrangement(storage: Pick<Storage, 'getItem'>, game: Game, side: Color): Arrangement | undefined {
-  const saved = savedArrangement(storage, game, side);
-  return saved?.ready ? undefined : saved?.draft;
 }

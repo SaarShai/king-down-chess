@@ -50,6 +50,8 @@ export const powerLines: Partial<Record<CardName, string>> = {
   Vault: 'Jump exactly one piece with a Rook, Bishop or Queen.', Curse: 'Move an enemy to an empty square; no king or last-rank pawn.',
   SkyLift: 'Swap two different own types; no pawn or king.',
 };
+export const cardLine = (card: CardName): string => card === 'March'
+  ? 'A pawn off its start rank can move two empty squares ahead.' : powerLines[card] ?? '';
 export const text = {
   yourCards: 'Your cards', cardsLeft: (n: number) => `${n} ${n === 1 ? 'card' : 'cards'} left`, unlimited: 'Unlimited', yourGames: 'Your games', showAllGames: 'Show all games',
   rematchHint: 'Select Rematch to play at the same level.', casual: 'Friendly', clever: 'Focused', club: 'Fierce', computerFailed: 'The computer cannot play. Open Menu, then Back to home.', title: 'King Down', intro: 'Chess with new pieces. Checkmate wins.', army: 'This game’s army', level: 'Computer level', play: 'Play', pieces: 'Pieces', computer: 'Computer', you: 'You', menu: 'Menu', rule: 'Rule', undo: 'Undo', replay: 'Replay', finish: 'End turn', close: 'Close',

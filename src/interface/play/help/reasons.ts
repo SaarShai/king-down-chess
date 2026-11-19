@@ -1,4 +1,4 @@
-import { G, K, S, colorOf, typeOf, type Color, type Move } from '../../../rules/engine';
+import { G, K, P, S, colorOf, piece, rank, typeOf, type Color, type Move } from '../../../rules/engine';
 import { boardStates } from '../../../render/effects/states';
 import { armKey, targetOf, type DraftTurn } from '../turn';
 
@@ -43,6 +43,9 @@ export function refusalReason(
       return reason('card-used', line);
     }
     if (checked()) return reason('in-check', tap.key === 'freeze' ? 'Freeze cannot stop a check.' : undefined);
+    if (tap.key === 'march' && !pos.board.some((code, square) => code === piece(P, player) && rank(square) !== (player ? 6 : 1))) {
+      return reason('no-moves', 'March needs a pawn off its start rank.');
+    }
     return reason('no-moves');
   }
 

@@ -7,7 +7,7 @@ import type { Game } from '../../game';
 import { GameRules } from '../../game-rules';
 import { stamp } from '../../account/sync';
 import { canon, canWriteLocal, gameTime, localAccess, KEPT_KEY, OFFERED_KEY } from '../../account/local';
-import { gameJSON, readSave, savedGame, storedSettings, writeSave, SAVE_KEY, type Save } from '../../screen/save';
+import { gameJSON, readSave, savedGame, storedSettings, writeSave, SAVE_KEY, type Save as SharedSave } from '../../screen/save';
 import { finishLinkedTurn, stagedPlies, turnEnded } from '../../turn';
 import { POWERS_BALANCED, type Rules } from '../../rules/rules';
 import { KINGS, colorOf, typeOf, type Color } from '../../rules/engine';
@@ -16,8 +16,10 @@ import { POWER_NAME } from '../../powers-ui';
 import { toFen } from '../../rules/setup';
 import type { Pace } from '../../render/PaintedView';
 import { DraftTurn } from './turn';
-import { savedArrangement } from './arrange';
+import { savedArrangement, type Arrangement, type ArrangementRecord } from './arrange';
 import { pieces, text } from './texts';
+
+type Save = SharedSave & { arrangement?: ArrangementRecord };
 
 export type Level = 'casual' | 'clever' | 'club';
 /** The four games: the base game (Pieces) with or without king powers and with or without cards (owner playtest 2026-11-15). */
@@ -62,7 +64,7 @@ export interface Stored {
   /** The readable settings fields. */
   settings: Partial<Save>;
   /** The replayed game, its staged steps and the player's side (kind resume). */
-  resume?: { game: Game; draft: DraftTurn; player: Color };
+  resume?: { game: Game; draft: DraftTurn; player: Color; arrangement?: Arrangement };
 }
 /** The player's side of a solo save: Light when the person plays White, Dark when the person plays Black; else null. */
 export const playerOf = (save: Pick<Save, 'white' | 'black'>): Color | null =>
@@ -116,11 +118,12 @@ function sortSave(save: Save, raw: string | undefined, partial: boolean): Stored
   if (partial) return kept;
   const player = playerOf(save), empty: Stored = { kind: 'empty', save, settings: save };
   const game = savedGame(save);
-  if (!save.moves.length && save.back !== '' && player !== 1 && (player === null || !savedArrangement(localStorage, game, player))) return empty;
+  const order = player === null ? undefined : savedArrangement(localStorage, game, player, save.arrangement);
+  if (!save.moves.length && save.back !== '' && player !== 1 && !order) return empty;
   const staged = stagedPlies(game, save.staged);
   if (turnEnded(game, game.history.length - staged, save.resigned ?? null)) return { kind: 'finished', save, settings: save };
   if (player === null || !opens(save, game)) return save.moves.length ? kept : empty;
-  try { return { kind: 'resume', save, settings: save, resume: { game, draft: restore(game, staged, player), player } }; } catch { return kept; }
+  try { return { kind: 'resume', save, settings: save, resume: { game, draft: restore(game, staged, player), player, arrangement: order?.ready ? undefined : order?.draft } }; } catch { return kept; }
 }
 
 /** The identity of a game that can continue ('' for none): the New game panel names the game that a start ends. */
@@ -179,12 +182,14 @@ export function savedPlayTime(save: Save | null): number {
 }
 
 /** The game fields of the old page's snapshot() (screen/play.ts), in its order. The staged steps follow the handed-over plies. */
-export function snapshot(draft: DraftTurn, resigned: Color | null = null, player: Color = 0, playedMs?: number): Save {
+export function snapshot(draft: DraftTurn, resigned: Color | null = null, player: Color = 0, playedMs?: number, arrangement?: Arrangement): Save {
   const game = draft.game, staged = draft.steps.map(step => game.context.toLan(step.before, step.move));
+  const fen = toFen(game.history[0]?.pos ?? game.pos);
   return {
-    back: game.backRank, fen: toFen(game.history[0]?.pos ?? game.pos), moves: [...game.history.map(h => h.lan), ...staged],
+    back: game.backRank, fen, moves: [...game.history.map(h => h.lan), ...staged],
     white: player ? 'ai' : 'human', black: player ? 'human' : 'ai', coords: true, link: null, daily: null, resigned,
     ...(staged.length > 0 && { staged: staged.length }),
+    ...(arrangement && { arrangement: { army: arrangement.army, side: arrangement.side, order: arrangement.order, fen } }),
     rules: { ...game.rules },
     ...(playedMs !== undefined && { summary: gameFacts(game, playedMs) }),
   };
@@ -275,7 +280,7 @@ export function beforeNewGame(writer: SaveWriter): void {
 
 /** The answer to the kept-game offer. It is kept for this page load when storage refuses it. */
 let answeredHere: { raw: string; owner: string } | null = null;
-export interface KeptOffer { raw: string; save: Save; resume: { game: Game; draft: DraftTurn; player: Color } }
+export interface KeptOffer { raw: string; save: Save; resume: NonNullable<Stored['resume']> }
 /**
  * A kept copy that this page can open now (a Dark game that an earlier version kept), offered once for each kept
  * state (launch decision 10). Open or Not now is the answer. No offer while the current save is the same game, or a

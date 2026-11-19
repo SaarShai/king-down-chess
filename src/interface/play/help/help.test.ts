@@ -6,7 +6,7 @@ import { ALWAYS_ON } from '../../../match/setup';
 import { B, BUILT, N, POWERS_BALANCED, Q, R, parseSq, type PieceType, type Rules } from '../../../rules/engine';
 import { diagramFor } from '../learning-diagrams';
 import { learningEntry, type LearnSubject } from '../learning';
-import { pieces, powerLines, text } from '../texts';
+import { cardLine, pieces, powerLines, text } from '../texts';
 import { DraftTurn } from '../turn';
 import { alwaysOnLabel, helpTopic } from './content';
 import { hintLines, resetHints, startHints, type Hint } from './hints';
@@ -22,7 +22,7 @@ describe('Daylight topics', () => {
   const rules = new GameRules();
   it.each(subjects)('uses the game line and has a legal example for %j', subject => {
     const entry = learningEntry(subject, rules);
-    const expected = subject.kind === 'piece' ? pieces[subject.type].short : powerLines[subject.id];
+    const expected = subject.kind === 'piece' ? pieces[subject.type].short : subject.kind === 'card' ? cardLine(subject.id) : powerLines[subject.id];
     expect(expected).toBeTruthy();
     expect(helpTopic(subject, rules)).toMatchObject({ name: entry.name, line: expected, detail: entry.full });
     for (const side of [0, 1] as const) expect(diagramFor(subject, side).frames.length).toBeGreaterThan(0);
@@ -57,6 +57,12 @@ describe('Refused taps', () => {
     kind: 'board', square: sq(target), source: source ? sq(source) : null,
   });
   const card = (draft: DraftTurn, index = 0, key = 'freeze') => refusalReason({ draft, player: 0 }, { kind: 'card', index, key });
+
+  it('explains why March is unavailable with a pawn on its start rank', () => {
+    const rules: Partial<Rules> = { ...POWERS_BALANCED, hands: [['March'], ['March']] };
+    expect(card(draftAt('4k3/8/8/8/8/8/P7/4K3 w - - 0 5', rules), 0, 'march')?.line).toBe('March needs a pawn off its start rank.');
+    expect(card(draftAt('4k3/8/8/8/8/P7/8/4K3 w - - 0 5', rules), 0, 'march')).toBeNull();
+  });
 
   it('checks the turn and the preview before a move', () => {
     const draft = draftAt('4k3/8/8/8/8/8/P7/4K3 w - - 0 5');

@@ -38,7 +38,8 @@ const subjects: LearnSubject[] = [
 ];
 it.each(subjects)('V1: the short rule states the main exception: $kind $id $type', subject => {
   const entry = learningEntry(subject, context);
-  expect(entry.short).toMatch(subject.kind === 'piece' ? pieceLimit[subject.type] : resourceLimit[subject.id]);
+  const limit = subject.kind === 'card' && subject.id === 'March' ? /off its start rank.*two empty squares/ : subject.kind === 'piece' ? pieceLimit[subject.type] : resourceLimit[subject.id];
+  expect(entry.short).toMatch(limit);
   expect(entry.full.length).toBeGreaterThan(20);
 });
 it.each([0, 1] as const)('V5: the Pawn words and legal example follow Darkness on side %s', side => {

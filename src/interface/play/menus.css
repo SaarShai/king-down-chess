@@ -581,8 +581,9 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .level-line { min-height: 1.1em; padding-top: 3px; text-align: center !important; color: var(--text-muted); font-size: .8125rem; }
 .level-pill[data-level='3'] .level-line { color: var(--text); font-weight: 700; }
 .setup-overlay { position: absolute; z-index: 1; inset: 0 0 var(--setup-foot); display: grid; align-items: end; background: var(--scrim); }
-/* The question covers Start game: one main control on the screen. */
+/* Keep one start control when the replacement question is open. */
 .setup-overlay:has([data-choice='confirm']) { bottom: 0; }
+.new-game-panel:has(.setup-overlay:not([hidden]) :is([data-choice='confirm'], [data-choice='people'])) .setup-foot > .kd-button { visibility: hidden; }
 .setup-overlay[hidden], .setup-table [hidden], .setup-sheet [hidden] { display: none; }
 .setup-sheet {
   display: flex;

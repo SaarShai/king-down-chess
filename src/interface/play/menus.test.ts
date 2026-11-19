@@ -69,6 +69,12 @@ it('keeps the hero action in the first view of a short screen after the wide her
   const menus = source('play/menus.css');
   expect(menus).toMatch(/@media \(min-aspect-ratio: 5\/4\)[^]*?\.home-hero\s*\{[^}]*max-height: calc\(100dvh - var\(--daylight-bar\) - 16px\)/);
 });
+it('keeps Start game outside the inactive setup controls while options are open', () => {
+  const setup = source('play/setup-table.ts');
+  expect(setup).toContain('foot.append(start); table.append(head, body, foot)');
+  expect(setup).toContain('head.inert = body.inert = true');
+  expect(setup).not.toMatch(/(?:table|foot|start)\.inert\s*=\s*true/);
+});
 it('iOS needs P2, P4 and P5, and the 64 px Daylight bar', () => {
   const components = source('ui/components.css'), shell = source('play/shell.css'), tokens = source('ui/tokens.css');
   expect(components).toMatch(/html\s*\{[^}]*-webkit-text-size-adjust:\s*100%/);
