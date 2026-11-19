@@ -1,7 +1,8 @@
 # Daylight run 2: Painted marks
 
-Type: task  
-Status: claimed
+Type: task
+
+Status: resolved
 
 ## Scope
 
@@ -14,5 +15,7 @@ Build C3, P7 and decision 137 b. Draw marks below the figures on the web board. 
 - Use the geometry of the current arrows, arcs, dashes and step numbers. The reference has no path for the staged move.
 
 ## Evidence
+
+The marks tests, plugin board tests, Freeze copy tests and both browser checks pass. Compare the game and reference at 390×844 and 1440×900.
 
 See `runs/launch/daylight/marks/marks.md` and its `shots/` folder in the launch workspace.
