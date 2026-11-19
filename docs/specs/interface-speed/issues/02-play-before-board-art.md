@@ -27,3 +27,9 @@ Keep the letters until the correct still or runtime frame can draw. Wait for a f
 In Chromium, send the Rook sheet in two parts. Check that the four letters stay when the sheet gives its width, when the sheet is complete and while the stills decode. Check that the four stills then draw. In the failed-art cases, check that the game hides the failed pictures.
 
 The stream check and the 16 delayed or failed art cases pass. The type check, 534 play tests, 282 render tests and the save browser check also pass.
+
+## Draw loop repair
+
+Queue an outline only when the sprite can draw. When the outline work finds no sprite, it does not start another frame. Lettered fallbacks stay still during the wait. The image result requests a frame.
+
+The idle test checks that a pending Pawn decode lets the scene stop. It checks that success and failure each request one more frame.

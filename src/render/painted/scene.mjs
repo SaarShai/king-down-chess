@@ -107,7 +107,7 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  function kingImage(design){
   let entry=kingArt[design];
   if(!entry){
-   entry=kingArt[design]={image:null,loaded:loadImage(corsImage(),KING_FILES[design]).then(image=>{entry.image=image;afterBoard(()=>lyingArt(design));wake();})};
+   entry=kingArt[design]={image:null,loaded:loadImage(corsImage(),KING_FILES[design]).then(image=>{entry.image=image;afterBoard(()=>lyingArt(design));}).finally(()=>wake(false))};
   }
   return entry;
  }
@@ -127,8 +127,8 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
   if(!entry){
    const image=pageImage();
    entry=stillArt[key]={body:null,done:false,loaded:loadImage(image,publicUrl(`/ui/pieces/${character}-${army[0]}.webp`)).then(()=>{
-    entry.body={image,pivot:meta.pivot,size:meta.size,scale:bankScale({character,boardScale:meta.boardScale,registrationHeightPx:meta.registrationHeightPx}),unitHeight:meta.registrationHeightPx,footprint:meta.footprint};wake();
-   },()=>{if(!disposed)onArtError?.(image.src);}).finally(()=>{entry.done=true;})};
+    entry.body={image,pivot:meta.pivot,size:meta.size,scale:bankScale({character,boardScale:meta.boardScale,registrationHeightPx:meta.registrationHeightPx}),unitHeight:meta.registrationHeightPx,footprint:meta.footprint};
+   },()=>{if(!disposed)onArtError?.(image.src);}).finally(()=>{entry.done=true;wake(false);})};
   }
   return entry;
  }
@@ -136,6 +136,11 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  // holdStills keeps the still while a part is in transfer.
  const stillBody=value=>!progressiveArt&&(holdStills?bodyRuntime&&!bodyRuntime.has(characterOf(value),armyOf(value))&&bodyRuntime.lacks(characterOf(value),armyOf(value)):bodyRuntime?.stats.manifestReady&&!bodyRuntime.has(characterOf(value),armyOf(value)))?null:stillImage(value)?.body??null;
  const sheetless=value=>!imageReady(typeOf(value)===K?kingArt[kings[colorOf(value)]]?.image:art[typeOf(value)]);
+ function canIdle(value,clip=false){
+  if(!progressiveArt||!ART[typeOf(value)])return true;
+  const still=stillImage(value);
+  return still?!!still.body:!!clip||!sheetless(value);
+ }
  // The loads still pending for the figures on the board, or null when none is.
  const warmStills=()=>{const waits=[...new Set(position.board)].filter(Boolean).map(stillImage).filter(entry=>entry&&!entry.done).map(entry=>entry.loaded);return waits.length?Promise.all(waits):null;};
  let boardArt=initialBoardArt?pageImage():corsImage();
@@ -372,20 +377,22 @@ const queued=new Map();let idleBuild=0;
 const requestBuild=()=>globalThis.requestIdleCallback?requestIdleCallback(buildQueued,{timeout:500}):setTimeout(buildQueued,0);
 function stillPrint(value,sheet,f){
  const key=spriteKey(value,sheet),print=stillPrints.get(`${key}:${f}`);if(print)return print;
+ if(!sheet&&ART[typeOf(value)]&&sheetless(value))return null;
  if(!queued.has(key)){queued.set(key,[value,sheet]);idleBuild||=requestBuild();}
  return null;
 }
 // Reads the floor's darkness and every queued outline in one go, then measures them.
 function buildQueued(){
  idleBuild=0;readFloor();readOutlines([...queued.values()]);
- const count=queued.size;
+ let measured=false;
  for(const [key,[value,sheet]] of queued){
-  // (Not drawable yet, as a king whose sheet is loading: asked for again when it is drawn.)
+  // The piece can change before this work runs.
   const outline=outlines.get(key);queued.delete(key);if(!outline)continue;
   const spec=specs[typeOf(value)];
   for(const f of [1,-1])stillPrints.set(`${key}:${f}`,shadowField(outline,spec,f)??EMPTY);
+  measured=true;
  }
- if(count)wake();
+ if(measured)wake(false);
 }
 // The alpha of still sprites not read yet, at q px per board unit: [[value, sheet]]. All of them are read back in
 // one go: each readback waits for the GPU, and one per figure would stall.
@@ -731,12 +738,16 @@ function vortex(out,foot,phase,strength) {
  if(selected!==null&&poses.has(selected))Object.assign(poses.get(selected).pose,{angle:aimAngle,facing:aimFacing});
  // The selected figure plays his clip once (if he has one), then breathes from where the clip ends. The clock
  // starts on the first frame that draws him, so a late first frame (a busy page) still shows the first drawing.
+ const selectedIdle=idling(),selectedValue=position.board[selected];
+ const legacyIdle=!lively.ambient&&selectedIdle&&!bodyRuntime?.has(characterOf(selectedValue),armyOf(selectedValue));
+ const breathing=legacyIdle&&canIdle(selectedValue);
+ const clip=legacyIdle&&CLIP_OF[typeOf(selectedValue)]===selectedClip?selectedClip:null;
  clipShown=null;
- if(!lively.ambient&&idling()&&!bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected]))){
+ if(breathing||clip&&canIdle(selectedValue,true)){
   selectedAt??=time;
-  const p=poses.get(selected).pose,name=CLIP_OF[typeOf(poses.get(selected).value)]===selectedClip?selectedClip:null,ms=time-selectedAt,index=name?frameAt(name,ms):null;
-  if(index!==null){p.clip={name,index};clipShown={name,frame:index};}
-  else{const i=idleAt(ms-(name?CLIPS[name].duration:0));Object.assign(p,{ground:p.foot,foot:{x:p.foot.x,y:p.foot.y-i.lift},sx:i.sx,sy:i.sy,shadow:i.shadow});}
+  const p=poses.get(selected).pose,ms=time-selectedAt,index=clip?frameAt(clip,ms):null;
+  if(index!==null){p.clip={name:clip,index};clipShown={name:clip,frame:index};}
+  else if(breathing){const i=idleAt(ms-(clip?CLIPS[clip].duration:0));Object.assign(p,{ground:p.foot,foot:{x:p.foot.x,y:p.foot.y-i.lift},sx:i.sx,sy:i.sy,shadow:i.shadow});}
  }
  // The tell: a fixed lift; the pool stays on the board.
  if(lifted!==null&&liftTell&&!reducedMotion&&!animation&&poses.has(lifted)){
@@ -974,7 +985,7 @@ function vortex(out,foot,phase,strength) {
  // Resting pawns (lance/idle.mjs): any pawn that is not selected, moving, struck or aiming.
  pawnsAtRest=0;pawnsActing=0;
  if(lively.pawns&&!lively.ambient&&!reducedMotion)for(const [sq,u] of poses){
-  if(typeOf(u.value)!==P||sq===selected||u.fx||u.extension||u.pose.angle||animation&&!animation.done&&animation.move.from===sq)continue;
+  if(typeOf(u.value)!==P||sq===selected||u.fx||u.extension||u.pose.angle||animation&&!animation.done&&animation.move.from===sq||!canIdle(u.value))continue;
   pawnsAtRest++;const rest=pawnIdle.idleAt(sq*2+colorOf(u.value)+1,time);
   if(rest){u.pose={...u.pose,rest};pawnsActing++;}
  }
@@ -1048,6 +1059,7 @@ function vortex(out,foot,phase,strength) {
  over(7);
  if(daylight?.onCaptureVictim)lastPoses=poses;
  ctx.restore();
+ return selectedIdle&&(!progressiveArt||breathing||!!poses.get(selected)?.pose.bank);
 }
 function drawEncounter(a,t) {
  closeup.panel.hidden=false;closeup.title.textContent=`${['Ivory','Charcoal'][colorOf(a.value)]} Archer · ${sqName(a.move.from)} → ${sqName(a.move.captures[0])}`;
@@ -1091,7 +1103,7 @@ function drawEncounter(a,t) {
   if(endpoint){a.start=time-(a.runtime.beforeMs+a.actionDuration)*a.speed;a.movementEndpoint=true;a.drawingMovementEndpoint=true;}
   if(a&&!a.done&&a.rewind&&time>=a.rewind.end){a.done=true;a.resolve(true);}
   else if(a&&!a.done&&!a.preparing&&!endpoint&&!a.rewind&&(time-a.start)>=a.duration*a.speed){a.done=true;a.resolve(true);}
-  render(time);
+  const selectedIdle=render(time);
   if(turnEndpoint)a.drawingTurnEndpoint=false;
   if(startpoint){a.drawingMovementStart=false;a.runtime.releaseMovementStart?.();}
   if(endpoint){a.drawingMovementEndpoint=false;a.runtime.releaseMovement?.();}
@@ -1109,7 +1121,7 @@ function drawEncounter(a,t) {
   });
   if(pausedTime!=null)return;
   if((a&&!a.done&&(!a.preparing||a.exitReady||a.rewind))||(wanted&&aimAngle!==wanted.angle)||(fallen&&fallMs(time)<DEMISE)||time<awakeUntil||poolsGliding||clipShown||idleOut)wake(false);
-  else{previousTime=0;if(lively.ambient&&lively.idle&&!reducedMotion&&position.board.some(Boolean)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),ambientIdles.size?33:250);}else if((idling()&&(daylight||bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected]))))||time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
+  else{previousTime=0;if(lively.ambient&&lively.idle&&!reducedMotion&&position.board.some(Boolean)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),ambientIdles.size?33:250);}else if((selectedIdle&&(daylight||bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected]))))||time<passiveUntil&&(selectedIdle||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
  }
  function idling(){return lively.idle&&!reducedMotion&&!animation&&selected!==null&&!!position.board[selected]&&fallen?.sq!==selected;}
  function drawLabels() {
@@ -1338,9 +1350,10 @@ function drawEncounter(a,t) {
   // Resolve when the scene can draw. With progressive art, the first frame can use plain squares and tokens.
   load(){afterBoard(()=>demise.prepare());
    const sheets=()=>[...kings.map(design=>kingImage(design).loaded),...Object.keys(ART).filter(type=>+type!==K).map(type=>loadImage(corsImage(),ART_FILES[ART[type]]).then(image=>{art[type]=image;}))],start=()=>{if(disposed)return;ready=true;warmBodies();wake();};
-   const loadAfterFrame=()=>{boardReady();void Promise.all(sheets().map(sheet=>sheet.then(()=>wake()))).catch(()=>{});};
+   const redraw=()=>wake(false);
+   const loadAfterFrame=()=>{boardReady();for(const sheet of sheets())void sheet.then(redraw,redraw);};
    if(progressiveArt){
-    void api.setBoardArt(initialBoardArt??BOARD_ART).catch(()=>{});
+    void api.setBoardArt(initialBoardArt??BOARD_ART).catch(redraw);
     firstFrameLoads=loadAfterFrame;start();return Promise.resolve();
    }
    const board=new Promise((resolve,reject)=>{
@@ -1436,7 +1449,7 @@ function drawEncounter(a,t) {
   redraw(){wake();},
   drawToken,
   /** Swap the board texture; square geometry does not change. A decode failure keeps the old art and rejects. */
-  async setBoardArt(url){const next=pageImage();next.src=url;await next.decode();boardArt=next;floorMap=null;framePattern=null;wake();},
+  async setBoardArt(url){const next=pageImage();next.src=url;await next.decode();boardArt=next;floorMap=null;framePattern=null;wake(false);},
   /** Draw every frame for the next `ms` (a decoration's own short animation, such as markers appearing). */
   keepAwake(ms){awakeUntil=Math.max(awakeUntil,sceneTime()+ms);wake();},
   /** The figures on `delays` (square: ms) rise `rise` units into place in `ms` each; an empty map or reduced motion ends it. */

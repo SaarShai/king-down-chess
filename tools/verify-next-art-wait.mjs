@@ -184,8 +184,10 @@ for (const [name, engine, device] of [
         if (fault === 'delay') {
           await page.waitForFunction(({ board, pieces }) => {
             const canvas = document.querySelector(board), images = canvas?.images ?? [];
-            return images.some(src => src.includes('/interface/stone-refined-light.webp')) &&
-              images.some(src => pieces === 'figures' ? src.includes('/ui/pieces/') : src.startsWith('data:image/svg+xml'));
+            const hasPiece = images.some(src => pieces === 'figures'
+              ? src.includes('/ui/pieces/') || src.includes('/character-runtime/assets/')
+              : src.startsWith('data:image/svg+xml'));
+            return hasPiece && images.some(src => src.includes('/interface/stone-refined-light.webp'));
           }, { board, pieces });
           await page.screenshot({ path: join(out, `${label}-loaded.png`) });
         } else {
