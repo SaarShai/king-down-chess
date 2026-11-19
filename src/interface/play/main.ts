@@ -1103,9 +1103,10 @@ function showResult() {
   const cues: Effect[] = [];
   const ground = boardBox;
   const light = (t: number) => ground.style.setProperty('--result-light', String(won ? .26 - .13 * t : .16 * t));
+  const hidden = new AbortController(); // a hidden page gives no frames: the result must not wait for the bow
   const finish = (showCard: boolean) => {
     if (endResult !== cancel) return;
-    endResult = undefined;
+    endResult = undefined; hidden.abort();
     cues.forEach(effect => effect.cancel()); skip.remove(); view?.skip();
     light(1);
     if (!won) ground.style.setProperty('--result-saturation', '.5');
@@ -1127,7 +1128,8 @@ function showResult() {
     else { cue('no', { pitch: .65 }); pulse('error'); }
   }));
   const finished = Promise.resolve(playback).catch(() => {});
-  if (reducedMotion()) finish(true);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) finish(true); }, { signal: hidden.signal });
+  if (reducedMotion() || document.hidden) finish(true);
   else void finished.then(() => finish(true));
 }
 function playOnlineKingResult() {

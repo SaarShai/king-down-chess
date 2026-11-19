@@ -6,7 +6,7 @@ interface MockView { options: Record<string, unknown>; onSquareClick(square: num
 const mock = vi.hoisted(() => ({ view: null as unknown as MockView, end: () => {}, start: () => {}, deferred: false, waiting: false, stop: vi.fn(), finish: vi.fn(), done: new Promise<void>(() => {}) }));
 vi.mock('../render/sfx', async importOriginal => ({ ...await importOriginal<typeof import('../render/sfx')>(), snd: Object.fromEntries(['move','capture','shot','shove','chain','swap','check'].map(k => [k, vi.fn()])), playArmour: vi.fn(() => ({ cancel: mock.stop, finish: mock.finish, done: mock.done })), stopSelection: vi.fn() }));
 vi.mock('../render/PaintedView', () => ({ PaintedView: class {
-  onSquareClick = () => {}; onSkipAnimation = () => {}; canDrag = () => false; animating = false;
+  onSquareClick = () => {}; onSkipAnimation = () => {}; canDrag = () => false; animating = false; motion = () => true;
   constructor(_element: unknown, readonly options: Record<string, unknown>) { mock.view = this as unknown as MockView; }
   setPlainMarks = vi.fn(); setSelected = vi.fn(); sync = vi.fn(); highlight = vi.fn(); setFallen = vi.fn(); setRules = vi.fn();
   setReducedMotion = vi.fn(); setPace = vi.fn(); setSymbols = vi.fn(); dispose = vi.fn(); ready = () => Promise.resolve();
