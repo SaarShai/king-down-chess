@@ -94,7 +94,7 @@ body:has(dialog:modal) > .shell-nav { visibility: hidden; }
 @media (min-width: 900px) {
   body:not([data-page='game']) #app { padding-top: calc(var(--daylight-bar) + var(--safe-top)); padding-bottom: 0; }
   .shell-nav { inset: 0 0 auto; border-top: 0; border-bottom: 1px solid var(--divider); justify-content: end; padding: var(--safe-top) max(16px, var(--safe-right)) 0 max(16px, var(--safe-left)); }
-  .shell-nav a { flex: 0 1 110px; flex-direction: row; }
+  .shell-nav a { flex: 0 1 110px; flex-direction: row; min-width: max-content; }
   .home-count { position: static; }
   .shell-departing { top: calc(var(--daylight-bar) + var(--safe-top)); }
 }

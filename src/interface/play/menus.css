@@ -667,6 +667,7 @@ body > .kd-sr { inset: 0 auto auto 0; }
 @media (min-aspect-ratio: 5/4) and (max-height: 580px) {
   .setup-body { grid-template: minmax(100px, 1fr) / minmax(0, 1fr) minmax(280px, .68fr); width: min(100%, 1160px); margin-inline: auto; }
   .setup-controls { padding-inline: clamp(2px, 1vw, 16px); }
+  .setup-feature-label.kd-button { flex-direction: column; justify-content: center; gap: 0; }
 }
 @media (max-height: 500px) {
   .kd-dialog.new-game-panel { --setup-foot: 53px; --setup-gap: 4px; }

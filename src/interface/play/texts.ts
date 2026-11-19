@@ -8,7 +8,7 @@ import type { PieceType } from '../../rules/engine';
 import type { Move, Position } from '../board-api';
 import { sqName, typeOf, colorOf, TAG_POWER, followSq, type Color, A, B, G, K, L, M, N, O, P, Q, R, S } from '../../rules/engine';
 import type { DraftTurn } from './turn';
-import type { CardName } from '../../rules/rules';
+import type { CardName, KingName } from '../../rules/rules';
 import { POWER_NAME, cardName, usesAllowed } from '../../powers-ui';
 import type { PowerName } from '../../rules/engine';
 
@@ -151,7 +151,10 @@ export function routeLine(marks: PlainMarks): string {
 }
 /** The Versus card for a screen reader: each king and its power. */
 export const versusLine = (you: string, youPower: string, rival: string, rivalPower: string) =>
-  `Your ${kingDisplayName(you)} King ${youPower ? `has ${youPower}` : 'has no power'}. The computer’s ${kingDisplayName(rival)} King ${rivalPower ? `has ${rivalPower}` : 'has no power'}.`;
+  `Your ${you} ${youPower ? `has ${youPower}` : 'has no power'}. The computer’s ${rival} ${rivalPower ? `has ${rivalPower}` : 'has no power'}.`;
+
+export const kingLabel = (name: KingName | undefined, side: Color) =>
+  name ? `${kingDisplayName(name)} King` : side ? 'Dark King' : 'Light King';
 
 /** The result card separates the outcome from its cause. */
 export function resultText(status: string, resigned: boolean, losingSide: number, player: Color = 0) {

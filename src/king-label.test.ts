@@ -5,7 +5,7 @@ import { GameRules } from './game-rules';
 import { shortMove } from './move-text';
 import { powerOptions } from './powers-ui';
 import { guideEntries, kingBlocks } from './interface/play/guide';
-import { versusLine } from './interface/play/texts';
+import { kingLabel, versusLine } from './interface/play/texts';
 import { explainWords } from './muse/board-words';
 
 vi.mock('./interface/play/motion', () => ({ calm: () => true, ms: () => 0, token: () => '' }));
@@ -27,7 +27,7 @@ it.each([['Stratus', 'Sky', 'Flight'], ['Mud', 'Earth', 'March']] as const)('kee
   const option = powerOptions().find(group => group.king === id)!;
   expect(option.group).toBe(`${label} king`);
   expect(option.options[0].value).toBe(`${id}:${power}`);
-  expect(versusLine(id, power, id, power)).toContain(`Your ${label} King`);
+  expect(versusLine(kingLabel(id, 0), power, kingLabel(id, 1), power)).toContain(`Your ${label} King`);
   // The move helper accepts a caller's piece label; a named king uses the same map.
   const context = new GameRules(), pos = context.fromFen('7k/7p/8/8/8/8/P7/K7 w - - 0 1');
   const move = context.legalMoves(pos).find(move => move.from === parseSq('a1') && move.to === parseSq('b1'))!;

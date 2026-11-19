@@ -5,7 +5,13 @@ import { POWERS_BALANCED } from '../../rules/rules';
 import { A, O, parseSq } from '../../rules/engine';
 import { DraftTurn } from './turn';
 import { previewMarks } from './marks';
-import { effectLines, resultText, stateDescriptions, routeLine, sentence } from './texts';
+import { effectLines, kingLabel, resultText, stateDescriptions, routeLine, sentence } from './texts';
+
+it('uses the side name for a king when Powers are off', () => {
+  expect(kingLabel(undefined, 0)).toBe('Light King');
+  expect(kingLabel(undefined, 1)).toBe('Dark King');
+  expect(kingLabel('Stratus', 0)).toBe('Sky King');
+});
 
 it('names a power use and its active effect with the turn that ends it', () => {
   const game = new Game('RNBQKBNR', { ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] });
@@ -166,5 +172,5 @@ it('the New game card line names the shown cards in pool order at four', async (
 
 it('announces Versus when the kings have no powers', async () => {
   const { versusLine } = await import('./texts');
-  expect(versusLine('Spirit', '', 'Shadow', '')).toBe('Your Spirit King has no power. The computer’s Shadow King has no power.');
+  expect(versusLine('Light King', '', 'Dark King', '')).toBe('Your Light King has no power. The computer’s Dark King has no power.');
 });
