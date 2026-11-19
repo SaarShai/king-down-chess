@@ -84,6 +84,7 @@ export async function checkSigninSpeed({ browser, origin, accountOrigin, actors,
         if (mode === 'sign-in') {
           await newGame(page).click();
           await setupTable(page).getByRole('button', { name: 'Opponent', exact: true }).click();
+          requests.length = 0; start = Date.now(); // as for home: the time starts at the tap that asks for the account
           await setupTable(page).getByRole('button', { name: 'Invite by name', exact: true }).click();
         }
       } else await page.goto(origin + '/play/');
