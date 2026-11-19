@@ -19,7 +19,7 @@ const pieceLimit: Record<number, RegExp> = {
   [O]: /never push a king or off the board/, [L]: /over own pieces.*non-pawn capture removes both/,
 };
 const resourceLimit: Record<string, RegExp> = {
-  Freeze: /except the king.*still attacks/, IceWall: /not the king.*push still works/,
+  Freeze: /(not|except) the king.*(able to attack|still attacks)/, IceWall: /not the king.*push still works/,
   Strike: /no pawn, king or capture/, Haste: /neither move captures/, Flight: /empty square in your half.*no king/,
   Sacrifice: /no pawn, Guard or king/, March: /any rank.*path stays clear/, Leap: /own pawns, not other pieces/,
   HolyLight: /beside the king, not on its diagonals/, Mercy: /shelter.*except by pawns/,
