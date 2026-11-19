@@ -13,6 +13,7 @@ import { button, closeX, icon, confirmDialog, errorState, liveRegion, setButtonS
 import { turnControls } from '../ui/turn-controls';
 import type { Board, Move, Pace, Position } from '../board-api';
 import { Game, Engine } from '../../game';
+import { inApp } from '../../platform';
 import { gameJSON, readSave } from '../../screen/save';
 import { skillPlan } from '../../ai/skill';
 import { learningEntry, firstMinute, stepLine, subjectKey, type LearnSubject } from './learning';
@@ -491,9 +492,10 @@ function endEntry() { starting = 0; endVersus?.(); endVersus = null; }
 /** A new game shows Versus. Continue opens the saved board at rest. */
 async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; player: Color; playedMs?: number }, from?: HTMLButtonElement) {
   if (starting) return;
+  const progressiveArt = !inApp && !onlineActive;
   // Keep the accepted game identity through the code load. Settings alone do not need a new choice.
   const acceptedSave = readSave(), identity = acceptedSave.unreadable ? acceptedSave.raw : gameJSON(acceptedSave.save);
-  if (!boardCode) {
+  if (!boardCode && !progressiveArt) {
     // Start the first frame's images beside the board code, in the scene's image modes.
     const position = resumed?.draft.position ?? next.game.pos, rules = resumed?.game.context.rules ?? next.game.context.rules;
     const files = [skinUrl, ...[...new Set(position.board)].filter(Boolean).map(code => `/ui/pieces/${typeOf(code) === K ? kingFile(colorOf(code), rules) : `${nameOf(code).toLowerCase()}-${colorOf(code) ? 'b' : 'w'}`}.webp`)];
@@ -501,6 +503,8 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
       const link = document.createElement('link'); link.rel = 'preload'; link.as = 'image'; link.href = href;
       link.fetchPriority = 'high'; document.head.append(link); firstArt.add(href);
     }
+  }
+  if (!boardCode) {
     // The press waits for the board code; a second press, or a move to another place, ends this start.
     const place = shell.route.place;
     root.querySelector('.home-load-fault')?.remove();
@@ -599,6 +603,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   if (!keep) { boardHost = el('div', 'play-board-host'); boardHost.style.visibility = 'hidden'; boardHost.setAttribute('aria-hidden', 'true'); }
   const host = boardHost;
   const grid = el('div', 'play-grid'); grid.setAttribute('role', 'grid'); grid.setAttribute('aria-label', text.title); grid.setAttribute('aria-description', text.shortcuts);
+  if (progressiveArt && !keep) grid.inert = true;
   cells = Array.from({ length: 64 }, (_, square) => {
     const cell = el('button', 'play-square'); cell.type = 'button'; cell.tabIndex = square === cursor ? 0 : -1;
     cell.dataset.square = String(square); cell.dataset.dark = String(((square % 8) + (square >> 3)) % 2 === 0);
@@ -651,7 +656,8 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   else root.replaceChildren(screen);
   const onArtError = () => { if (host === boardHost && document.body.dataset.page === 'game') artFailed(generation); };
   const view = keep ?? boardCode!.mountBoard(host, tap, {
-    liveInput: true, quiet: true, plainMarks: true, daylight: true, initialBoardArt: skinUrl, onArtError,
+    liveInput: true, quiet: true, plainMarks: true, daylight: true, initialBoardArt: skinUrl, progressiveArt,
+    onArtError: progressiveArt ? undefined : onArtError,
     sceneHooks: {
       hold,
       onCaptureContact: (square: number, animated: boolean) => {
@@ -669,11 +675,16 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     if (board !== view) return;
     if (paused) view.pause(); else view.resume();
   });
-  board.flip(player === 1); board.setPosition(draft.position, game.context); applyPieceView(); layout(); update();
+  board.flip(player === 1);
+  if (progressiveArt) applyPieceView();
+  board.setPosition(draft.position, game.context);
+  if (!progressiveArt) applyPieceView();
+  layout(); update();
   fit.disconnect(); fit.observe(screen);
   if (!resumed) save(true); // the new game replaces the save: a save with no move
-  // The first draw uses the prepared surface and stills, with no second stone image to wait for.
-  const loaded = keep ? Promise.resolve() : board.ready().then(() => { if (own === generation) host.style.visibility = ''; });
+  const loaded = keep ? Promise.resolve() : board.ready().then(() => {
+    if (own === generation) { host.style.visibility = ''; if (progressiveArt) grid.inert = false; }
+  });
   // The engine worker loads when the board can draw, so it does not hold the first frame (decision 44).
   void loaded.catch(() => {}).then(() => { if (own === generation && !onlineActive) engine.prepare(game); });
   const versus = !resumed && !arrangement ? versusCard(loaded) : null;
@@ -681,7 +692,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   if (fromHome) {
     starting = own;
     try {
-      if (!versus) { if (from) setButtonState(from, { busy: true }); await loaded.catch(() => {}); }
+      if (!versus || progressiveArt) { if (from) setButtonState(from, { busy: true }); await loaded.catch(() => {}); }
       if (own !== generation) return;
       screen.style.visibility = ''; cells[cursor].focus({ preventScroll: true });
       if (homeScreen) { if (!versus) await screenChange(homeScreen, screen); homeScreen.remove(); }
@@ -696,7 +707,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     const context = arrangement ? [arrangeText.instruction, arrangement.error ?? arrangeText.legal, arrangeText.keys].join(' ') : thinking ? '' : draft.length ? stepLines().join(' ') : replySteps.length ? replyText() : fresh() ? text.firstMinute : last;
     announce([controls.state.textContent, context].filter(Boolean).join(' '));
   }
-  // The computer moves first in a Dark game, and after Continue on its turn; only when the board art is ready.
+  // The computer moves first in a Dark game, and after Continue on its turn. Wait for the first board frame.
   if (own === generation && !onlineActive && !arrangement && !fault && game.pos.turn === cpu() && game.status === 'playing') void reply();
 }
 /** The art cannot load: one safe next step, Try again. The game, its staged steps and its save stay. */

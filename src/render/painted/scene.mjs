@@ -59,7 +59,7 @@ const BOARD_ART=new URL('../../../docs/2d-first-pieces/board-art/stone-board.web
  * kings: [white, black] king designs (court.KING_DESIGNS); the trial and the trailer keep the Frost King.
  * floor: the colour round the board (floorOf: FLOOR when none is named; paintFloor); null leaves the canvas clear there.
  */
-export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0,kings:initialKings=['frost','frost'],floor:floorOption,characterRuntime=false,holdStills=false,lazySheets=false,initialBoardArt,onArtError,daylight}) {
+export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0,kings:initialKings=['frost','frost'],floor:floorOption,characterRuntime=false,holdStills=false,lazySheets=false,initialBoardArt,progressiveArt=false,onArtError,daylight}) {
  const floor=floorOf(floorOption);
  const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName}=pieces;
  const ctx=canvas.getContext('2d');
@@ -182,6 +182,14 @@ for(const [type,name] of Object.entries(courtNames)){
  // as it always did: the trial and the trailer draw as before.)
  const onFloor=point=>lively.atmosphere?{ground:point}:{};
  const poseFor=(value,square)=>({foot:foot(square),scale:specs[typeOf(value)].scale,facing:sideFacing(value),angle:0});
+ function drawLetter(out,value,x,y,radius){
+  const dark=colorOf(value),scale=radius/260;
+  out.save();out.translate(x,y);out.scale(scale,scale);
+  out.fillStyle=dark?'#34383a':'#efe9d8';out.strokeStyle=dark?'#c9cdc8':'#4b4a3c';out.lineWidth=24;out.beginPath();out.arc(0,0,260,0,Math.PI*2);out.fill();out.stroke();
+  out.fillStyle=out.strokeStyle;out.font='bold 300px Georgia,serif';out.textAlign='center';out.textBaseline='middle';out.fillText(pieces.LETTERS?.[typeOf(value)]??'?',0,12);
+  out.restore();
+ }
+ const drawToken=(out,value,x,y)=>drawLetter(out,value,x,y,40);
  // Pieces without painted art (lab pieces) draw as a lettered token, or as the figure that setFigure gives their type.
  function token(value) {
   const fig=figureOf(value),key=`token:${value}${fig?`:${fig.src}`:''}`;let canvas=idle.get(key);if(canvas)return canvas;
@@ -191,8 +199,7 @@ for(const [type,name] of Object.entries(courtNames)){
    if(dark){const px=c.getImageData(0,0,1152,1152),d=px.data;let sum=0,n=0;for(let i=0;i<d.length;i+=4)if(d[i+3]>200){sum+=d[i]+d[i+1]+d[i+2];n++;}
     const k=210*n/sum;if(k<1){for(let i=0;i<d.length;i+=4){d[i]*=k;d[i+1]*=k;d[i+2]*=k;}c.putImageData(px,0,0);}}
    idle.set(key,canvas);return canvas;}
-  c.fillStyle=dark?'#34383a':'#efe9d8';c.strokeStyle=dark?'#c9cdc8':'#4b4a3c';c.lineWidth=24;c.beginPath();c.arc(576,700,260,0,Math.PI*2);c.fill();c.stroke();
-  c.fillStyle=c.strokeStyle;c.font='bold 300px Georgia,serif';c.textAlign='center';c.textBaseline='middle';c.fillText(pieces.LETTERS?.[typeOf(value)]??'?',576,712);
+  drawLetter(c,value,576,700,260);
   idle.set(key,canvas);return canvas;
  }
  function world(point,pose,type) { const a=specs[type].anchor; return {x:pose.foot.x+(point.x-a.x)*pose.scale*pose.facing,y:pose.foot.y+(point.y-a.y)*pose.scale}; }
@@ -313,6 +320,7 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
   out.drawImage(fxCanvas,0,-headroom,SIZE,SIZE+headroom);out.restore();return;
  }
  if(pose.bank||pose.still){const b=pose.bank??pose.still,k=b.scale*pose.scale/spec.scale;if(typeOf(value)===K)drawnKings[colorOf(value)]=kings[colorOf(value)];out.translate(pose.foot.x,pose.foot.y);out.scale(k*(pose.sx??1),k*(pose.sy??1));out.rotate((pose.rotation??0)*pose.facing);out.shadowColor=colorOf(value)?'rgba(250,246,232,.85)':'rgba(28,24,16,.8)';out.shadowBlur=3*res;if(b.size)out.drawImage(b.image,-b.pivot[0],-b.pivot[1],b.size[0],b.size[1]);else out.drawImage(b.image,-b.pivot[0],-b.pivot[1]);out.restore();return;}
+ if(progressiveArt&&!pose.clip&&ART[typeOf(value)]&&sheetless(value)){drawToken(out,value,pose.foot.x,pose.foot.y-40);out.restore();return;}
  out.translate(pose.foot.x,pose.foot.y);out.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));out.rotate(pose.rotation??0);
  // A clip's drawing is one atlas cell, at its clip's factor of the sprite's size.
  const clip=pose.clip,anchor=clip?inCell(clip.name,spec.anchor):spec.anchor;
@@ -1316,8 +1324,15 @@ function drawEncounter(a,t) {
   foot,cell,
   /** Board square under a point in canvas pixels, or null. */
   squareAt(x,y){y-=headroom;const col=Math.floor((x-PAD)/TILE),row=Math.floor((y-PAD)/TILE);if(col<0||col>7||row<0||row>7)return null;return flipped?row*8+(7-col):(7-row)*8+col;},
-  // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
-  load(){afterBoard(()=>demise.prepare());const board=new Promise((resolve,reject)=>{
+  // Resolve when the scene can draw. With progressive art, the first frame can use plain squares and tokens.
+  load(){afterBoard(()=>demise.prepare());
+   const sheets=()=>[...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))],start=()=>{if(disposed)return;ready=true;warmBodies();wake();};
+   const loadAfterFrame=()=>{boardReady();void Promise.all(sheets().map(sheet=>sheet.then(()=>wake()))).catch(()=>{});};
+   if(progressiveArt){
+    void api.setBoardArt(initialBoardArt??BOARD_ART).catch(()=>{});
+    firstFrameLoads=loadAfterFrame;start();return Promise.resolve();
+   }
+   const board=new Promise((resolve,reject)=>{
     // One cold-play budget covers both the response and decode; only the new surface opts in.
     const timer=initialBoardArt?setTimeout(()=>finish(new Error('The board art takes too long.')),5000):null;
     let settled=false;
@@ -1326,9 +1341,8 @@ function drawEncounter(a,t) {
     boardArt.onerror=()=>finish(new Error('The board art cannot load.'));
     boardArt.src=initialBoardArt??BOARD_ART;
    }); /* decoded, so the first frame has the stone */
-   const sheets=()=>[...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))],start=()=>{if(disposed)return;ready=true;warmBodies();wake();};
    // lazySheets: the first frame needs only the stone and the rest stills; the legacy sheets (3 MB) load after that frame.
-   if(late)return board.then(()=>warmStills()).then(start).finally(()=>{firstFrameLoads=()=>{boardReady();void Promise.all(sheets().map(sheet=>sheet.then(()=>wake()))).catch(()=>{});};});
+   if(late)return board.then(()=>warmStills()).then(start).finally(()=>{firstFrameLoads=loadAfterFrame;});
    return Promise.all([board,...sheets()]).then(()=>{const stills=warmStills();return stills?stills.then(start):start();}).finally(boardReady);},
   /** New position: ends any finished or running animation. */
   setPosition(next,ice){const a=animation,m=a?.move;frozen=daylight?ice:undefined;
@@ -1409,6 +1423,7 @@ function drawEncounter(a,t) {
   get characterEffects(){return effectFrames;},
   setDecorate(fn){decorate=fn;wake();},
   redraw(){wake();},
+  drawToken,
   /** Swap the board texture; square geometry does not change. A decode failure keeps the old art and rejects. */
   async setBoardArt(url){const next=pageImage();next.src=url;await next.decode();boardArt=next;floorMap=null;framePattern=null;wake();},
   /** Draw every frame for the next `ms` (a decoration's own short animation, such as markers appearing). */

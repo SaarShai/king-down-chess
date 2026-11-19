@@ -14,7 +14,7 @@ export { GameRules };
 export type BoardAction = Move | { kind: 'check' | 'fall'; square: number };
 export interface Playback { durationMs: number; blockedMs: number; skipped: boolean }
 export interface Board {
-  /** Wait for the initial board art and the first visible frame. Reject on an art error. */
+  /** Wait for the first board frame. Without progressive art, reject on an art error. */
   ready(): Promise<void>;
   /** Swap board art without changing square geometry. */
   setSkin(url: string): Promise<void>;
@@ -52,7 +52,7 @@ const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => res
 
 /** Mount one board. The callback receives a1=0 through h8=63. With liveInput, a board tap can end playback. */
 /** `onArtError`: a rest still of a figure cannot load (no default: the old fallback stays). */
-export function mountBoard(element: HTMLElement, onSquare: (square: number) => void = () => {}, options: { liveInput?: boolean; quiet?: boolean; daylight?: boolean; sceneHooks?: DaylightSceneHooks; plainMarks?: boolean; initialBoardArt?: string; armourSounds?: boolean; onArtError?: (url: string) => void } = {}): Board {
+export function mountBoard(element: HTMLElement, onSquare: (square: number) => void = () => {}, options: { liveInput?: boolean; quiet?: boolean; daylight?: boolean; sceneHooks?: DaylightSceneHooks; plainMarks?: boolean; initialBoardArt?: string; progressiveArt?: boolean; armourSounds?: boolean; onArtError?: (url: string) => void } = {}): Board {
   const sceneHooks: DaylightSceneHooks | undefined = options.daylight ? {
     ...options.sceneHooks,
     onCaptureVictim(square, kind, army, height, rect, replace) {

@@ -1,71 +1,116 @@
-// The initial surface shares one cold-play budget for its response and decode. Retry keeps the save.
+// Play on the first board frame while the art is slow or fails.
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { env, launch } from './lib/checks.mjs';
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { chromium, webkit } from 'playwright';
+import { env } from './lib/checks.mjs';
+
 const out = env('PLAYABLE_OUT');
 mkdirSync(out, { recursive: true });
-const browser = await launch();
-const rows = [];
-try {
-  for (const [width, height] of [[360,640], [390,844], [1440,900]]) for (const setup of ['pieces', 'powers']) for (const fault of ['response', 'decode', 'failure']) {
-    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', serviceWorkers: 'block' });
-    const page = await context.newPage(), errors = [];
-    page.on('pageerror', error => errors.push(error.message));
-    page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
-    let release = () => {}, held = false;
-    if (fault === 'response' || fault === 'failure') await page.route('**/interface/stone-refined-light.webp', async route => {
-      if (fault === 'failure') { await route.fulfill({ status: 200, contentType: 'image/webp', body: 'invalid test image' }); return; }
-      held = true; await new Promise(resolve => { release = resolve; }); await route.continue();
-    });
-    await context.addInitScript(({ setup, fault }) => {
-      localStorage.clear(); sessionStorage.clear(); localStorage.setItem('kingdown.solo-launch-seen', '1'); localStorage.setItem('kingdown.game-type', setup); localStorage.setItem('kingdown.pace', 'off');
-      const src = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
-      Object.defineProperty(HTMLImageElement.prototype, 'src', { ...src, set(value) {
-        if (!window.oldStillError && String(value).includes('/ui/pieces/') && this.onerror) window.oldStillError = this.onerror.bind(this);
-        src.set.call(this, value);
-      } });
-      if (fault === 'decode') {
-        const decode = HTMLImageElement.prototype.decode;
-        HTMLImageElement.prototype.decode = function () {
-          if (this.src.endsWith('/interface/stone-refined-light.webp')) return new Promise((resolve, reject) => { window.releaseDecode = () => decode.call(this).then(resolve, reject); });
-          return decode.call(this);
+const art = /\/(?:interface\/stone-refined-light\.webp|ui\/(?:pieces\/[^/]+\.webp|icons\/[^/]+\.svg)|assets\/[^/]+\.webp|docs\/2d-first-pieces\/[^?]+\.webp|character-runtime\/[^?]+)(?:\?.*)?$/;
+const board = '.play-board-host canvas';
+const state = page => page.locator(board).evaluate(canvas => {
+  const ctx = canvas.getContext('2d'), scale = canvas.width / 960;
+  const pixel = (x, y) => Array.from(ctx.getImageData(x * scale, y * scale, 1, 1).data);
+  return {
+    letters: canvas.letters ?? [], images: canvas.images ?? [],
+    light: pixel(42, 554), dark: pixel(154, 554),
+  };
+});
+
+for (const [name, engine, device] of [
+  ['phone', webkit, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }],
+  ['desktop', chromium, { viewport: { width: 1280, height: 800 } }],
+]) {
+  const browser = await engine.launch();
+  try {
+    for (const cards of ['Off', 'On']) for (const pieces of ['figures', 'symbols']) for (const fault of ['delay', 'failure']) {
+      const reducedMotion = cards === 'On' && pieces === 'figures' && fault === 'delay' ? 'no-preference' : 'reduce';
+      const context = await browser.newContext({ ...device, colorScheme: 'light', reducedMotion, serviceWorkers: 'block' });
+      const label = `${name}-cards-${cards.toLowerCase()}-${pieces}-${fault}`;
+      const page = await context.newPage(), errors = [];
+      page.on('pageerror', error => errors.push(error.message));
+      let release, released = false, timer;
+      const hold = new Promise(done => { release = () => { released = true; done(); }; });
+      let stoneRequests = 0;
+      await page.route(art, async route => {
+        if (route.request().resourceType() === 'script') return route.continue();
+        if (route.request().url().includes('/interface/stone-refined-light.webp')) stoneRequests++;
+        if (fault === 'failure') return route.abort();
+        await hold; await route.continue();
+      });
+      await page.addInitScript(pieces => {
+        localStorage.setItem('kingdown.solo-launch-seen', '1');
+        localStorage.setItem('kingdown.piece-view', pieces);
+        // Count text and images on the real board canvas for each frame.
+        const proto = CanvasRenderingContext2D.prototype;
+        const board = ctx => ctx.canvas.parentElement?.classList.contains('play-board-host');
+        const { clearRect, fillText, drawImage } = proto;
+        proto.clearRect = function (...args) {
+          if (board(this)) { this.canvas.letters = []; this.canvas.images = []; }
+          return clearRect.apply(this, args);
         };
-      }
-    }, { setup, fault });
-    try {
-      await page.goto(new URL('/next.html', env('PLAYABLE_URL')).href);
-      await page.locator('.home-hero button[data-kind="main"]').click();
-      await page.getByRole('button', { name: 'Start game', exact: true }).click();
-      await page.getByRole('button', { name: 'Try again', exact: true }).waitFor({ state: 'visible', timeout: 15000 });
-      if (fault === 'response') assert.equal(held, true, 'the surface response stays held');
-      await page.locator('.play-versus').waitFor({ state: 'detached', timeout: 5000 });
-      assert.equal(await page.locator('.play-versus').count(), 0, 'the entry cover ends');
-      const saved = await page.evaluate(() => localStorage.getItem('kingdown.save'));
-      assert.ok(saved, 'the game stays saved');
-      if (width === 360) await page.screenshot({ path: `${out}/${width}-${setup}-${fault}.png` });
-      await page.getByRole('button', { name: 'Try again', exact: true }).click();
-      await page.waitForFunction(() => {
-        const host = document.querySelector('.play-board-host');
-        return host && getComputedStyle(host).visibility === 'visible' && !document.querySelector('.play-fault') && document.querySelectorAll('.play-square').length === 64;
-      }, null, { timeout: 15000 });
-      const current = await page.evaluate(() => localStorage.getItem('kingdown.save'));
-      assert.equal(current, saved, 'retry keeps the exact save');
-      assert.equal(await page.evaluate(() => typeof window.oldStillError), 'function', 'an old still error is held');
-      await page.evaluate(() => window.oldStillError(new Event('error')));
-      if (held) release();
-      if (fault === 'decode') await page.evaluate(() => window.releaseDecode());
-      await page.waitForTimeout(150);
-      assert.equal(await page.locator('.play-fault, .play-versus').count(), 0, 'late old work cannot replace the new board');
-      // A live keyboard action proves that the old entry key handler is gone.
-      await page.locator('.play-square[data-square="12"]').focus(); await page.keyboard.press('ArrowUp');
-      assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('data-square')), '20');
-      assert.deepEqual(errors, []);
-      rows.push({ width, height, setup, fault, ok: true, errors });
-      console.log(`PASS ${width}x${height} ${setup} ${fault}`);
-    } catch (error) {
-      await page.screenshot({ path: `${out}/${width}-${setup}-${fault}-failed.png` });
-      throw error;
-    } finally { release(); await context.close(); }
-  }
-  writeFileSync(`${out}/results.json`, JSON.stringify(rows, null, 2) + '\n');
-} finally { await browser.close(); }
+        proto.fillText = function (letter, ...args) {
+          if (board(this) && /^[A-Z]$/.test(letter)) {
+            const { e: x, f: y } = this.getTransform();
+            this.canvas.letters.push({ letter, x, y });
+          }
+          return fillText.call(this, letter, ...args);
+        };
+        proto.drawImage = function (image, ...args) {
+          if (board(this) && image instanceof HTMLImageElement) this.canvas.images.push(image.src);
+          return drawImage.call(this, image, ...args);
+        };
+      }, pieces);
+      const press = locator => name === 'phone' ? locator.tap() : locator.click();
+      try {
+        await page.goto(new URL('/next.html', env('PLAYABLE_URL')).href, { waitUntil: 'domcontentloaded' });
+        await press(page.locator('.home-summary'));
+        await press(page.getByRole('group', { name: 'Cards', exact: true }).getByRole('radio', { name: cards, exact: true }));
+        timer = setTimeout(release, 5000);
+        await press(page.getByRole('button', { name: 'Start game', exact: true }));
+        await page.locator('.play-grid:not([inert])').waitFor({ state: 'visible' });
+        await page.waitForFunction(() => !document.querySelector('.new-game-panel, .play-versus'));
+        assert.ok(await page.locator(board).isVisible(), 'the canvas shows before the board takes input');
+        const first = await state(page);
+        assert.deepEqual(first.light, [233, 230, 213, 255], 'draw the light square');
+        assert.deepEqual(first.dark, [137, 151, 123, 255], 'draw the dark square');
+        assert.equal(first.letters.length, 32, 'draw every piece without art');
+        assert.ok(stoneRequests, 'the art route applies to the board surface');
+        assert.equal(released, false, 'the first frame does not wait for the five-second delay');
+        assert.match(await page.locator('.play-state').textContent(), /Your turn/);
+        assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')))).rules.hands[0].length > 0, cards === 'On');
+        await page.screenshot({ path: join(out, `${label}.png`) });
+        await press(page.getByRole('gridcell', { name: 'a2 Light Pawn' }));
+        await press(page.getByRole('gridcell', { name: 'a3 empty' }));
+        assert.match(await page.locator('.play-square[data-square="16"]').getAttribute('aria-label'), /a3 Light Pawn/);
+        if (label === 'phone-cards-on-figures-delay') {
+          await page.waitForFunction(board => {
+            const canvas = document.querySelector(board), scale = canvas.width / 960;
+            return canvas.letters.some(({ letter, x, y }) => letter === 'P' && x === 88 * scale && y === 712 * scale);
+          }, board);
+          await page.screenshot({ path: join(out, `${label}-move.png`) });
+        }
+        await press(page.getByRole('button', { name: 'End turn', exact: true }));
+        await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.length > 1);
+        if (fault === 'delay') {
+          await page.waitForFunction(({ board, pieces }) => {
+            const canvas = document.querySelector(board), images = canvas?.images ?? [];
+            return images.some(src => src.includes('/interface/stone-refined-light.webp')) &&
+              images.some(src => pieces === 'figures' ? src.includes('/ui/pieces/') : src.startsWith('data:image/svg+xml'));
+          }, { board, pieces });
+          await page.screenshot({ path: join(out, `${label}-loaded.png`) });
+        } else {
+          assert.equal(await page.locator('.play-fault').count(), 0, 'play continues after the art fails');
+          // Effects such as Freeze can draw pieces on a separate canvas.
+          assert.ok((await state(page)).letters.length > 0, 'pieces remain visible after the reply');
+        }
+        assert.deepEqual(errors, []);
+        console.log(`PASS ${label}`);
+      } catch (error) {
+        await page.screenshot({ path: join(out, `${label}-check-failed.png`) });
+        throw error;
+      } finally { clearTimeout(timer); release(); await context.close(); }
+    }
+  } finally { await browser.close(); }
+}
