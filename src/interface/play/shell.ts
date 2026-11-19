@@ -22,7 +22,11 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
   // A load, a reload or an address edit opens the place of the hash; the stored Guide section stays when it matches.
   const fromAddress = (): Route => { const read = addressRoute(location.hash), kept: Route | undefined = history.state?.shell; return kept?.place === read.place && (read.entry === undefined || kept.entry === read.entry) ? kept : read; };
   let route: Route = fromAddress();
-  const nav = navigation('Play', name => go({ place: name.toLowerCase() as Route['place'] }), { guide: true });
+  const nav = navigation('Play', name => {
+    const next = { place: name.toLowerCase() as Route['place'] };
+    if (layer && next.place === route.place) { layer(); void closeLayer(); }
+    else go(next);
+  }, { guide: true });
   nav.querySelector('a[href="#play"] > svg')?.replaceWith(daylightCrown());
   // The bar comes first in the Tab order, after a skip link to the page (runs/launch/speed/report.md fix 11).
   const skip = document.createElement('a'); skip.className = 'shell-skip'; skip.href = '#app'; skip.textContent = 'Skip to content';
@@ -118,11 +122,19 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
     /** Runs `run` now, or after a pending layer Back, in order with route changes. Open a layer only in `run`. */
     settled,
     /** Open a layer: one history entry. Browser Back calls `close`. */
-    openLayer(close: () => void) { layer = close; history.pushState({ shell: route, layer: true }, '', location.href); },
-    /** The layer closed itself: its history entry goes. Resolves when the entry is gone. */
-    closeLayer(): Promise<void> {
-      if (!layer) return Promise.resolve();
-      layer = null; return new Promise(done => { waiting = [done]; history.back(); });
+    openLayer(close: () => void, dialog?: HTMLDialogElement) {
+      if (dialog) {
+        // Only controls inside the modal can take input. Move the bar back before the close animation copies the panel.
+        dialog.prepend(nav);
+        dialog.addEventListener('kd-before-close', () => skip.after(nav), { once: true });
+      }
+      layer = close; history.pushState({ shell: route, layer: true }, '', location.href);
     },
+    closeLayer,
   };
+  /** The layer closed itself: its history entry goes. Resolves when the entry is gone. */
+  function closeLayer(): Promise<void> {
+    if (!layer) return Promise.resolve();
+    layer = null; return new Promise(done => { waiting = [done]; history.back(); });
+  }
 }
