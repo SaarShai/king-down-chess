@@ -167,12 +167,12 @@ export default defineConfig(({ command }) => {
   preview: { host: '127.0.0.1', ...(localOnline && { proxy: { '/api': { target: process.env.KINGDOWN_LOCAL_API_ORIGIN!, changeOrigin: false } } }) },
   worker: { format: 'es' },
   // Vite 8's default target, pinned: the iOS app floor (IPHONEOS_DEPLOYMENT_TARGET 16.4) depends on it. Raise both together.
-  // Two root pages: the old screens (index.html) and the new interface (next.html, docs/specs/interface-move).
+  // The old screens, the new interface and the isolated painted moments demo.
   build: { copyPublicDir: false, target: ['chrome111', 'edge111', 'firefox114', 'safari16.4', 'ios16.4'],
     rollupOptions: { output: { manualChunks(id) {
       // These shared state helpers load together on home. Keep the board and search as lazy imports.
       if (/\/src\/(?:turn|screen\/save|account\/(?:local|sync)|ai\/skill)\.ts$/.test(id)) return 'local-state';
-    } }, input: { index: fileURLToPath(new URL('./index.html', import.meta.url)), next: fileURLToPath(new URL('./next.html', import.meta.url)), ...(process.env.KINGDOWN_TEST_PAGES === '1' ? { people: fileURLToPath(new URL('./people.html', import.meta.url)) } : {}) } } },
+    } }, input: { index: fileURLToPath(new URL('./index.html', import.meta.url)), next: fileURLToPath(new URL('./next.html', import.meta.url)), moments: fileURLToPath(new URL('./moments.html', import.meta.url)), ...(process.env.KINGDOWN_TEST_PAGES === '1' ? { people: fileURLToPath(new URL('./people.html', import.meta.url)) } : {}) } } },
   css: { postcss: { plugins: [sharedSeatSelectors()] } },
   plugins: [{ name: 'interface-home-preload', apply: 'build', transformIndexHtml: { order: 'post', handler(_html, context) {
     if (context.path !== '/next.html' || !context.bundle) return;

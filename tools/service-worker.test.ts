@@ -97,6 +97,32 @@ function worker(caches = storage(), build = version, buildFiles = files, registr
   return { caches, registration, fetch, claim, skipWaiting, fire, request, message, timers, timerStarted, saved, storageAccess };
 }
 
+it.each(['../public/sw.js', './solo-launch/sw.js'])('caches painted art at use and leaves uncached banks to the fallback (%s)', async path => {
+  const w = worker(storage(), version, files, undefined, readFileSync(new URL(path, import.meta.url), 'utf8'));
+  const index = 'moments/painted.json';
+  const sheet = 'moments/painted/collapse-pawn-white.webp';
+  const missing = 'moments/painted/bow-frost-black.webp';
+  await w.fire('install').done();
+  expect(w.fetch.mock.calls.map(([request]) => request.url)).not.toContain(url(index));
+  expect(w.fetch.mock.calls.map(([request]) => request.url)).not.toContain(url(sheet));
+  w.fetch.mockImplementation(async request => response(request.url, {
+    headers: { 'Content-Type': request.url.endsWith('.json') ? 'application/json; charset=utf-8' : 'image/webp' },
+  }));
+  await w.request(index).done();
+  await w.request(sheet).done();
+  w.fetch.mockResolvedValueOnce(response(missing, { headers: { 'Content-Type': 'text/html' } }));
+  await w.request(missing).done();
+  const cache = await w.caches.open(current);
+  expect([...cache.entries.keys()].filter(key => key.includes('/moments/')).sort()).toEqual([url(index), url(sheet)].sort());
+  w.fetch.mockRejectedValue(Error('offline'));
+  await expect(w.request(index).response).resolves.toHaveProperty('ok', true);
+  await expect(w.request(sheet).response).resolves.toHaveProperty('ok', true);
+  await expect(w.request(missing).response).rejects.toThrow('offline');
+  expect(w.request(sheet + '?token=x').response).toBeUndefined();
+  expect(w.request(sheet, { headers: { Authorization: 'test' } }).response).toBeUndefined();
+  expect(w.request('moments/other.json').response).toBeUndefined();
+});
+
 it.each([
   { controlled: false, installMs: 1000, legacy: false }, { controlled: false, installMs: 12000, legacy: false },
   { controlled: true, installMs: 12000, legacy: false },
