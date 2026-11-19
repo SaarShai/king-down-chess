@@ -265,3 +265,67 @@ it('fault 5: a suspended context, a stalled file or a failed start leaves no que
     fail = false; await vi.advanceTimersByTimeAsync(0); setSound(false);
   } finally { vi.useRealTimers(); vi.unstubAllGlobals(); }
 });
+
+it('maps Daylight mark and knock to the approved recordings', async () => {
+  vi.resetModules();
+  const start = vi.fn();
+  const fetcher = vi.fn(async (_url: string) => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(0) }));
+  vi.stubGlobal('fetch', fetcher);
+  vi.stubGlobal('AudioContext', class {
+    destination = {}; state = 'running'; resume() { return Promise.resolve(); }
+    decodeAudioData() { return Promise.resolve({} as AudioBuffer); }
+    createBufferSource() { return { playbackRate: { value: 1 }, connect() {}, start, stop() {} }; }
+  });
+  try {
+    const { playDaylightSound, setSound } = await import('./sfx');
+    setSound(true);
+    playDaylightSound('mark', { piece: B });
+    playDaylightSound('mark', { piece: K, king: 'Shadow' });
+    playDaylightSound('mark', { piece: Q });
+    playDaylightSound('knock', { piece: N });
+    playDaylightSound('knock', { piece: N });
+    await vi.waitFor(() => expect(start).toHaveBeenCalledTimes(4));
+    expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
+      '/audio/armour/select-bishop-v2-B.wav', '/audio/armour/select-shadow-r10-C.wav',
+      '/audio/armour/knight-land-A.wav', '/audio/armour/knight-land-B.wav',
+    ]);
+    setSound(false);
+    playDaylightSound('mark', { piece: P });
+    expect(fetcher).toHaveBeenCalledTimes(4);
+  } finally { vi.unstubAllGlobals(); }
+});
+
+it('plays the ten stand-ins from Web Audio and keeps three unused names silent', async () => {
+  vi.resetModules();
+  const param = () => ({ value: 0, setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() });
+  const output = { gain: param(), connect() {}, disconnect: vi.fn() };
+  const start = vi.fn(), frequency = param();
+  vi.stubGlobal('AudioContext', class {
+    destination = {}; currentTime = 1; sampleRate = 8; resume() { return Promise.resolve(); }
+    createGain() { return output; }
+    createOscillator() { return { frequency, connect() {}, start, stop() {} }; }
+    createBuffer() { return { getChannelData: () => new Float32Array(8) }; }
+    createBufferSource() { return { connect: (node: AudioNode) => node, start, stop() {} }; }
+    createBiquadFilter() { return { frequency, Q: param(), connect() {} }; }
+  });
+  const random = vi.spyOn(Math, 'random').mockReturnValue(.5);
+  try {
+    const { playDaylightSound, setSound } = await import('./sfx');
+    setSound(true);
+    playDaylightSound('tick');
+    expect(frequency.setValueAtTime.mock.calls).toEqual([[3200, 1.005], [1500, 1.005]]);
+    expect(frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(1100, expect.closeTo(1.039));
+    for (const name of ['press', 'ting', 'clink', 'pass', 'arrive', 'fire', 'rewind', 'no', 'lift'] as const) {
+      start.mockClear();
+      playDaylightSound(name);
+      expect(start).toHaveBeenCalled();
+    }
+    start.mockClear();
+    for (const name of ['whoosh', 'wind', 'ice'] as const) playDaylightSound(name);
+    expect(start).not.toHaveBeenCalled();
+    setSound(false);
+    playDaylightSound('fire');
+    expect(start).not.toHaveBeenCalled();
+    expect(output.disconnect).toHaveBeenCalledOnce();
+  } finally { random.mockRestore(); vi.unstubAllGlobals(); }
+});

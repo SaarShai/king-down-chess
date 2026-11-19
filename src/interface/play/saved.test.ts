@@ -11,7 +11,7 @@ import { toFen } from '../../rules/setup';
 import { DraftTurn } from './turn';
 import { DEAL_CARDS } from '../../match/setup';
 import { ARRANGE_KEY, Arrangement, pendingArrangement } from './arrange';
-import { answerOffer, beforeNewGame, continueLine, gameKeyOf, gameType, keepCopy, KEPT_KEY, keptOffer, levelOf, OFFERED_KEY, readStored, rulesOf, SaveWriter, SKILLS, snapshot, storedChoice, storedGameType, GAME_KEY, type Prefs } from './saved';
+import { answerOffer, beforeNewGame, continueLine, gameKeyOf, gameType, keepCopy, KEPT_KEY, keptOffer, levelOf, OFFERED_KEY, readStored, rulesOf, SaveWriter, SKILLS, snapshot, storedChoice, storedGameType, storedVibration, storeVibration, GAME_KEY, type Prefs } from './saved';
 import { text } from './texts';
 import { readOptions } from './new-game';
 
@@ -27,7 +27,7 @@ beforeEach(() => {
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-const prefs: Prefs = { skill: 'beginner', coords: true, sound: false, pace: 'normal' };
+const prefs: Prefs = { skill: 'beginner', coords: true, sound: false, pace: 'normal', vibration: true };
 const PIECES = rulesOf('pieces', [null, null], [[], []]);
 const powers = (kings: Rules['kings'], hands: Rules['hands'] = [[], []]) => rulesOf(hands.some(h => h.length) ? 'both' : 'powers', kings, hands);
 const HASTE = powers([{ king: 'Flame', power: 'Haste' }, null]);
@@ -545,4 +545,15 @@ it('loads build 6 saved games and stored options with the Stratus and Mud IDs', 
     expect(readOptions(JSON.parse(store.get('kingdown.game-options')!)).king).toEqual(king);
   }
   expect(store.get(SAVE_KEY)).toBe(raw);
+});
+
+it('keeps Vibration on for old saves and stores the choice for this device', () => {
+  const oldGame = snapshot(draftOf(null));
+  expect(writeSave(oldGame)).toBe(true);
+  expect(storedVibration()).toBe(true);
+  storeVibration({ vibration: false });
+  expect(storedVibration()).toBe(false);
+  expect(saved()).toEqual(oldGame);
+  storeVibration({ vibration: true });
+  expect(storedVibration()).toBe(true);
 });

@@ -30,14 +30,14 @@ import { actorMarks, mergeMarks, previewMarks, resultMarks, stateMarks, type Mar
 import { pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, resultText } from './texts';
 import { readingText, checkLines, selectionLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
 import { calm, cardFly, disarm, ms, screenChange, seal, shake, token, unseal, setInterfaceMotion, time } from './motion';
+import { setFxMotion, setVibration as setFxVibration, startFx } from './fx';
 import { gameLayout, type Form } from './layout';
 import { finishKind, fitReader, readerNodes, readerView, resetFit, sentences, type ReaderModel } from './reader';
-import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, storeChoice as store, storedChoice as stored, storedGameType, type GameType as Setup, type KeptOffer, type Level } from './saved';
+import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, storeChoice as store, storedChoice as stored, storedGameType, storedVibration, storeVibration, type GameType as Setup, type KeptOffer, type Level } from './saved';
 import { arrowStep, cellOf, fileLabelRow, rankLabelColumn, sideText, SIDE_CHOICES, SIDE_KEY, squareAt, type SideChoice } from './sides';
 import { changeDraft, createDraft, OPTIONS_KEY, PANEL_KEY, readPanel, readOptions, rulesFor, startOf, type NewGameDraft } from './new-game';
 import { levelName as computerName, playScreen, type Art } from './home';
 import { newGamePanel } from './setup-table';
-import { setFxMotion } from './fx';
 import { gameMenu, menuEnter, menuText, youPage, type Settings } from './menus';
 import { allowedAvatarUrl } from '../../account/public-config';
 import { computerPortrait, profilePortrait } from '../people/host/portrait';
@@ -67,11 +67,12 @@ const cpu = () => (player ^ 1) as Color;
 const fresh = () => firstMinute(draft, player);
 /** A page fault with one safe next step (launch decision 12): the art, or the computer's move. */
 let fault: 'art' | 'computer' | null = null;
-// The four stored choices use the shared save fields.
+// Sound, coordinates, level and pace use the shared save fields.
 const first = readStored(), kept = first.settings;
 let level: Level = first.save || kept.skill !== undefined ? levelOf(kept.skill) : 'casual';
 let motion: Pace = kept.pace === 'normal' || kept.pace === 'fast' || kept.pace === 'off' ? kept.pace : matchMedia('(prefers-reduced-motion: reduce)').matches ? 'off' : 'normal';
 let coords = typeof kept.coords === 'boolean' ? kept.coords : true, sound = typeof kept.sound === 'boolean' ? kept.sound : false;
+let vibration = storedVibration();
 // The board code (the renderer and the sounds) loads when a game starts or continues, or in idle time after home
 // shows (launch decision 45): home does not wait for it.
 let boardCode: typeof import('../board-api') | undefined, sfx: typeof import('../../render/sfx') | undefined, codeLoad: Promise<void> | undefined;
@@ -97,7 +98,7 @@ let next: NewGameDraft = createDraft({ setup, level, sideChoice, options }), gam
 let arrangement: Arrangement | undefined, arrangementGame = '';
 let gameLevel: Level = level, resigned: Color | null = null, liveGame = false;
 const writer = new SaveWriter(line => { if (document.body.dataset.page === 'game') refuse(line); else announce(line); });
-const prefs = () => ({ skill: SKILLS[gameLevel], coords, sound, pace: motion });
+const prefs = () => ({ skill: SKILLS[gameLevel], coords, sound, vibration, pace: motion });
 /** Write the live game: its handed-over plies and its whole staged steps (decision 2). */
 const save = (step: boolean) => onlineActive ? void people?.saveDraft() : writer.game(snapshot(draft, resigned, player), prefs(), step);
 let selected: number | null = null, inspected: number | null = null, cursor = 12;
@@ -1399,6 +1400,16 @@ function setMotion() {
   // Motion Off ends a running Replay: its restore shows the current draft.
   if (pace === 'off') boardReplay.cancel();
 }
+startFx((name, options) => {
+  if (!sound) return;
+  if (sfx) { sfx.playDaylightSound(name, options); return; }
+  void import('../../render/sfx').then(audio => {
+    sfx = audio;
+    audio.setSound(sound);
+    if (sound) audio.playDaylightSound(name, options);
+  }).catch(() => {});
+});
+setFxVibration(vibration);
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', setMotion); setMotion();
 /** The layout classes of decision 34 (layout.ts). The game box is the viewport after the safe areas, so its size is W and H. */
 function layout() {
@@ -1457,11 +1468,12 @@ function drawMarks() {
 function settings(): Settings {
   const write = () => { if (!onlineActive) writer.settings(prefs(), () => snapshot(draft, resigned, player)); else { const stored = readStored(); if (stored.save) writer.settings({ ...prefs(), skill: stored.save.skill ?? SKILLS[gameLevel] }, () => stored.save!); } };
   return {
-    pieceView, handView, coords, sound, motion,
+    pieceView, handView, coords, sound, vibration, motion,
     setPieceView: value => { pieceView = value; store('kingdown.piece-view', pieceView); applyPieceView(); },
     setHandView: value => { handView = value; store('kingdown.hand', handView); if (screen) screen.dataset.hand = handView; },
     setCoords: on => { coords = on; if (screen) screen.dataset.coords = String(coords); write(); },
     setSound: on => { sound = on; sfx?.setSound(sound); if (sound) sfx?.unlockSound(); write(); },
+    setVibration: on => { vibration = on; setFxVibration(on); storeVibration(prefs()); },
     setMotion: value => { motion = value as Pace; setMotion(); write(); },
   };
 }
