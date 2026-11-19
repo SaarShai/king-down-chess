@@ -12,9 +12,11 @@ vi.mock('../../platform', async importOriginal => ({ ...await importOriginal<typ
 const source = (name: string) => readFileSync(`src/interface/${name}`, 'utf8');
 
 it('keeps settings order and omits Motion speed from the game Menu', () => {
-  expect(SETTING_ORDER).toEqual(['pieces', 'hand', 'coords', 'sound', 'motion']);
+  expect(SETTING_ORDER).toEqual(['pieces', 'hand', 'coords', 'sound', 'vibration', 'motion']);
+  expect(menuText.vibration).toBe('Vibration');
   // Both places take their rows from the one control set; the Menu adds no row of its own.
   const menus = source('play/menus.ts');
+  expect(menus).toContain('group(menuText.soundMotion, c.sound, c.vibration, c.motion)');
   expect(menus.match(/controls\(s, /g)).toHaveLength(2);
   expect(menus).toMatch(/SETTING_ORDER\.filter\(name => name !== 'motion'\)\.map\(name => c\[name\]\)/);
 });

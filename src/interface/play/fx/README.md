@@ -4,7 +4,7 @@ Import from `src/interface/play/fx`. Time is in milliseconds. Points are CSS pix
 
 | API | Use | Example |
 | --- | --- | --- |
-| `startFx(player)` | Set the sound player at page start. | `startFx(playDaylightSound)` |
+| `startFx(player)` | Set the sound player and bind shared controls at page start. | `startFx(playDaylightSound)` |
 | `setFxMotion(pace, reduce)` | Set Motion and the system preference. Off or Reduce ends active effects. | `setFxMotion('off', false)` |
 | `reducedMotion()` | Read whether effects go to their end state at once. | `if (reducedMotion()) showResult()` |
 | `onFrame(step, end?)` | Run on each clock frame. Return false to stop and run the end callback. | `onFrame((dt, now) => drawBreath(now), clearBreath)` |
@@ -12,7 +12,7 @@ Import from `src/interface/play/fx`. Time is in milliseconds. Points are CSS pix
 | `later(ms, run)` | Run a cue on the effect clock. | `later(60, () => sound('pass'))` |
 | `Effect.cancel()` | Stop an effect without applying its end state. | `cue.cancel()` |
 | `Effect.finish()` | Stop an effect and apply its end state one time. | `cue.finish()` |
-| `hold(ms)` | Stop the clock and scene for this part of a second. | `hold(55)` |
+| `hold(ms)` | Stop the clock and scene for the given time. | `hold(55)` |
 | `setPauseHook(hook?)` | Set the scene's pause and resume callback. | `setPauseHook(paused => scene.pause(paused))` |
 | `ease` | Select EASE, OVER, out3, out2, in2, in3, io3, back or lin. | `ease.out3(.5)` |
 | `new Spring(x, k, d)` | Start a spring at x. Set `to` to move it and change `v` to give it a kick. | `const lift = new Spring(0, 420, 26); lift.to = 21` |
@@ -23,7 +23,7 @@ Import from `src/interface/play/fx`. Time is in milliseconds. Points are CSS pix
 | `edgeLight(element, options?)` | Send a line of light round an element. | `edgeLight(undo, { width: 2.2, reverse: true })` |
 | `burst(kind, point, options?)` | Draw a burst of sparks or dust. | `burst('dust', at(piece, .5, .8), { count: 4 })` |
 | `shake(element, options?)` | Shake an element, then restore its position. | `shake(board, { amplitude: 2, ms: 220 })` |
-| `sound(name, options?)` | Play a sound. Set `piece` and `king` for recorded cues where available. | `sound('mark', { piece: N })` |
+| `sound(name, options?)` | Play a sound. Give the piece kind and, for a king, its name for recorded cues. | `sound('mark', { piece: N })` |
 | `pulse(kind)` | Send a named vibration pattern when the switch is on. | `pulse('light')` |
 | `setVibration(on)` | Set the Vibration switch. | `setVibration(false)` |
 

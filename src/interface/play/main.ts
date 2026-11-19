@@ -33,10 +33,10 @@ import { actorMarks, mergeMarks, previewMarks, resultMarks, stateMarks, type Mar
 import { pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, resultText } from './texts';
 import { readingText, checkLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
 import { armCard, calm, cardFly, disarm, screenChange, setInterfaceMotion, sheetMotion, trackCard, time } from './motion';
-import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, setFxMotion, setPauseHook, shake, sound as cue, Spring, startFx, streak, tween, type Effect, type SoundName, type SoundOptions } from './fx';
+import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, tween, type Effect } from './fx';
 import { gameLayout, type Form } from './layout';
 import { fitReader, narratorView, readerNodes, readerView, resetFit, sentences, type ReaderModel } from './reader';
-import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, gameFacts, savedPlayTime, storeChoice as store, storedChoice as stored, storedGameType, type GameType as Setup, type KeptOffer, type Level } from './saved';
+import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, gameFacts, savedPlayTime, storeChoice as store, storedChoice as stored, storedGameType, storedVibration, storeVibration, type GameType as Setup, type KeptOffer, type Level } from './saved';
 import { arrowStep, fileLabelRow, rankLabelColumn, sideText, SIDE_CHOICES, SIDE_KEY, squareAt, type SideChoice } from './sides';
 import { changeDraft, createDraft, OPTIONS_KEY, PANEL_KEY, readPanel, readOptions, rulesFor, startOf, type NewGameDraft } from './new-game';
 import { playScreen, type Art } from './home';
@@ -70,11 +70,12 @@ const cpu = () => (player ^ 1) as Color;
 const fresh = () => firstMinute(draft, player);
 /** A page fault with one safe next step (launch decision 12): the art, or the computer's move. */
 let fault: 'art' | 'computer' | null = null;
-// The four stored choices use the shared save fields.
+// Sound, coordinates, level and pace use the shared save fields.
 const first = readStored(), kept = first.settings;
 let level: Level = first.save || kept.skill !== undefined ? levelOf(kept.skill) : 'casual';
 let motion: Pace = kept.pace === 'normal' || kept.pace === 'fast' || kept.pace === 'off' ? kept.pace : matchMedia('(prefers-reduced-motion: reduce)').matches ? 'off' : 'normal';
 let coords = typeof kept.coords === 'boolean' ? kept.coords : true, sound = typeof kept.sound === 'boolean' ? kept.sound : false;
+let vibration = storedVibration();
 // The board code (the renderer and the sounds) loads when a game starts or continues, or in idle time after home
 // shows (launch decision 45): home does not wait for it.
 let boardCode: typeof import('../board-api') | undefined, sfx: typeof import('../../render/sfx') | undefined, codeLoad: Promise<void> | undefined;
@@ -90,16 +91,7 @@ let codeFailed = false;
 const refetchCode = () => Promise.race([Promise.all([...document.querySelectorAll<HTMLLinkElement>('link[rel=modulepreload]')].map(link => fetch(link.href, { cache: 'reload' }).catch(() => {}))), new Promise(done => setTimeout(done, 4000))]);
 const loadBoardCode = () => { if (!skinLoad) { skinLoad = new Image(); skinLoad.fetchPriority = 'high'; skinLoad.src = SKIN; } return codeLoad ??= (codeFailed ? refetchCode() : Promise.resolve())
   .then(() => Promise.all([import('../board-api'), import('../../render/sfx')]))
-  .then(([b, s]) => { boardCode = b; sfx = s; s.setSound(sound); if (sound) s.preloadArmour();
-    startFx((name, options) => {
-      if (!sound) return;
-      const audio = s as typeof s & { playDaylightSound?: (name: SoundName, options?: SoundOptions) => void };
-      if (audio.playDaylightSound) { audio.playDaylightSound(name, options); return; }
-      if (name === 'mark' && options?.piece != null) s.selectPieceSound(options.piece, options.king);
-      else if (name === 'check') s.snd.check();
-      else if (name === 'impact') s.snd.capture();
-      else if (name === 'knock') s.snd.move();
-    }); }, error => { codeLoad = undefined; codeFailed = true; throw error; }); };
+  .then(([b, s]) => { boardCode = b; sfx = s; s.setSound(sound); if (sound) s.preloadArmour(); }, error => { codeLoad = undefined; codeFailed = true; throw error; }); };
 // Sound unlocks on the first press after the sound code is loaded.
 const unlock = () => { if (sound && sfx) { sfx.unlockSound(); document.removeEventListener('pointerdown', unlock, true); document.removeEventListener('keydown', unlock, true); } };
 document.addEventListener('pointerdown', unlock, true); document.addEventListener('keydown', unlock, true);
@@ -114,7 +106,7 @@ const writer = new SaveWriter(line => {
 });
 const elapsedGame = () => playedMs + (enteredAt === undefined ? 0 : performance.now() - enteredAt);
 function stopGameTime() { playedMs = elapsedGame(); enteredAt = undefined; }
-const prefs = () => ({ skill: SKILLS[gameLevel], coords, sound, pace: motion });
+const prefs = () => ({ skill: SKILLS[gameLevel], coords, sound, vibration, pace: motion });
 /** Write the live game: its handed-over plies and its whole staged steps (decision 2). */
 const save = (step: boolean) => onlineActive ? void people?.saveDraft() : writer.game(snapshot(draft, resigned, player, elapsedGame()), prefs(), step);
 let selected: number | null = null, inspected: number | null = null, cursor = 12;
@@ -905,7 +897,7 @@ function afterStage(before: Position, move: Move) {
   // A Haste or Rage second move belongs to the same piece: keep it selected.
   selected = draft.chain ? draft.previewMove!.from : draft.open && now.haste !== undefined && now.rage !== 3 ? now.haste : null; inspected = move.selfRemove ? null : move.to;
   staged = true; silentStage = move.power === 'freeze';
-  save(true); update(); animate(before, move, draft.position);
+  save(true); void animate(before, move, draft.position); update();
   announce(`${stepLines().at(-1)} ${controls.state.textContent}`); // the state line: ready, must continue, or what is possible after a free action
 }
 /** Play one action on the board. Resolves when its playback ends (a board tap ends it at once). */
@@ -1074,6 +1066,8 @@ function finalCheckCue(pos: Position) {
   const ring = seatRings[pos.turn === player ? 0 : 1];
   ring.dataset.check = 'true';
   cue('check'); pulse('warn');
+  update();
+  riseNarrator();
   shake(ring, { amplitude: 5, ms: 340 }); burst('sparks', at(ring), { count: 8, ms: 400 });
   checkPulse = { square, progress: 0 };
   checkFrame = tween(160, t => { if (checkPulse) checkPulse.progress = t; drawMarks(); }, {
@@ -1081,6 +1075,11 @@ function finalCheckCue(pos: Position) {
   });
 }
 const focusResult = () => detail.querySelector<HTMLButtonElement>('.play-result-actions .kd-button')?.focus({ preventScroll: true });
+function riseNarrator() {
+  const text = detail.querySelector<HTMLElement>('.play-narr-copy');
+  if (!text) return;
+  tween(180, t => { text.style.transform = `translateY(${8 * (1 - t)}px)`; text.style.opacity = String(t); }, { curve: ease.EASE });
+}
 function showResult() {
   gameHelp?.close();
   ended = true; thinking = false; liveGame = false; stopGameTime();
@@ -1092,6 +1091,8 @@ function showResult() {
     reading = 'result'; update(); focusResult(); announce(`${replyText()} ${resultCause}`);
   };
   if (status !== 'checkmate') { cue('arrive'); pulse('light'); show(); return; }
+  const title = detail.querySelector('.play-narrator .play-title');
+  if (title) { title.textContent = 'Checkmate.'; riseNarrator(); }
   const square = findKing(game.pos.board, game.pos.turn);
   const view = board, skip = button('Skip result animation', { onPress: () => finish(true) });
   skip.classList.add('play-sequence-skip');
@@ -1260,7 +1261,7 @@ function passTurn(out: boolean) {
 }
 
 function updateSeats() {
-  const pos = thinking ? game.pos : draft.position, active = thinking ? cpu() : player;
+  const pos = playingAction && !checkShown ? playingAction.before : thinking ? game.pos : draft.position, active = thinking ? cpu() : player;
   const checked = !ended && game.context.inCheck(pos) ? pos.turn : null;
   const next: [number, number] = [0, 0];
   for (const { pos, move } of [...game.history, ...draft.steps.map(step => ({ pos: step.before, move: step.move }))]) {
@@ -1417,7 +1418,7 @@ function readerModel(): ReaderModel {
     secondary: [], tools: [], summary: null };
 
   const res = shown ?? armedResource(), square = inspected ?? selected, code = draft.position.board[square ?? -1];
-  const check = choice.length ? { mine: false, lines: [] as string[] } : checkLines(game.context, draft.position, player), checks = check.lines.map(t => line('play-check', t));
+  const check = choice.length || playingAction && !checkShown ? { mine: false, lines: [] as string[] } : checkLines(game.context, draft.position, player), checks = check.lines.map(t => line('play-check', t));
   const help = controls.help.textContent ?? '', notices = notice ? [line('play-notice', notice)] : [];
   const m: ReaderModel = { state: turnState(check.mine, code), title: '', named: false, headTools: [], primary: [], secondary: [], tools: [], summary: null };
   if (!onlineActive && writer.blocked) {
@@ -1685,6 +1686,16 @@ function setMotion() {
   // Motion Off ends a running Replay: its restore shows the current draft.
   if (pace === 'off') boardReplay.cancel();
 }
+startFx((name, options) => {
+  if (!sound) return;
+  if (sfx) { sfx.playDaylightSound(name, options); return; }
+  void import('../../render/sfx').then(audio => {
+    sfx = audio;
+    audio.setSound(sound);
+    if (sound) audio.playDaylightSound(name, options);
+  }).catch(() => {});
+});
+setFxVibration(vibration);
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', setMotion); setMotion();
 /** The layout classes of decision 34 (layout.ts). The game box is the viewport after the safe areas, so its size is W and H. */
 function layout() {
@@ -1736,8 +1747,8 @@ function drawMarks() {
   // Playback holds its target. The next board input clears the opponent cue.
   const marks = mergeMarks(resultMarks(pos, (playingAction ? lastActions.slice(0, -1) : lastActions).filter(action => action.before.turn === cpu())), preview, ...(ended ? [] : [stateMarks(game.context, pos)]));
   if (checkPulse) {
-    const t = checkPulse.progress, half = t < .5 ? t * 2 : (1 - t) * 2;
-    for (const ring of marks.rings) if (ring.role === 'state' && ring.square === checkPulse.square) ring.size = (ring.size ?? 1) * (1 + .06 * (1 - (1 - half) ** 3));
+    marks.check = checkPulse.square;
+    marks.checkProgress = checkPulse.progress;
   }
   board.mark(marks);
 }
@@ -1745,11 +1756,12 @@ function drawMarks() {
 function settings(): Settings {
   const write = () => { if (!onlineActive) writer.settings(prefs(), () => snapshot(draft, resigned, player, elapsedGame())); else { const stored = readStored(); if (stored.save) writer.settings({ ...prefs(), skill: stored.save.skill ?? SKILLS[gameLevel] }, () => stored.save!); } };
   return {
-    pieceView, handView, coords, sound, motion,
+    pieceView, handView, coords, sound, vibration, motion,
     setPieceView: value => { pieceView = value; store('kingdown.piece-view', pieceView); applyPieceView(); },
     setHandView: value => { handView = value; store('kingdown.hand', handView); if (screen) screen.dataset.hand = handView; },
     setCoords: on => { coords = on; if (screen) screen.dataset.coords = String(coords); write(); },
     setSound: on => { sound = on; sfx?.setSound(sound); if (sound) sfx?.unlockSound(); write(); },
+    setVibration: on => { vibration = on; setFxVibration(on); storeVibration(prefs()); },
     setMotion: value => { motion = value as Pace; setMotion(); write(); },
   };
 }

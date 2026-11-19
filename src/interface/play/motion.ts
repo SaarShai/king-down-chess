@@ -51,7 +51,8 @@ const sealed = new WeakSet<HTMLElement>();
 function press(event: PointerEvent) {
   if (event.button !== 0) return;
   const el = (event.target as Element).closest<HTMLElement>('.kd-button, .kd-segment, .shell-nav a');
-  if (!el || el.closest('.play-turn, .play-game[data-hand=hand] .play-card') || el.getAttribute('aria-disabled') === 'true') return;
+  if (!el || el.getAttribute('aria-disabled') === 'true') return;
+  if (el.closest('.play-game, .daylight-help-sheet') && !el.closest('[data-hand="ribbon"] .play-card')) return;
   release();
   const s = S(), weight = el.dataset.kind === 'main';
   held = { el, weight, tab: el.matches('.shell-nav a') };

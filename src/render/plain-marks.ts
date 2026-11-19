@@ -28,6 +28,7 @@ export interface PlainPath { squares: number[]; color: string; arc?: boolean; da
 export interface PlainMarks {
   shadows?: { square: number; opacity: number }[];
   check?: number;
+  checkProgress?: number;
   rings: PlainRing[];
   paths: PlainPath[];
   steps: { square: number; number: number }[];
@@ -73,6 +74,12 @@ export function drawPlainMarks(ctx: CanvasRenderingContext2D, scene: Pick<Painte
   }
   if (marks.check != null) {
     const [x, y] = box(marks.check);
+    ctx.save();
+    if (marks.checkProgress != null) {
+      const scale = 1 + .25 * (1 - marks.checkProgress);
+      ctx.globalAlpha *= marks.checkProgress;
+      ctx.translate(x + s / 2, y + s / 2); ctx.scale(scale, scale); ctx.translate(-x - s / 2, -y - s / 2);
+    }
     ctx.fillStyle = '#c8382a38'; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = s * .06;
     ctx.beginPath(); ctx.roundRect(x + s * .05, y + s * .05, s * .9, s * .9, s * .063); ctx.fill();
     ctx.shadowBlur = 0;
@@ -91,6 +98,7 @@ export function drawPlainMarks(ctx: CanvasRenderingContext2D, scene: Pick<Painte
         ctx.restore();
       }
     }
+    ctx.restore();
   }
   ctx.shadowBlur = 0;
 
