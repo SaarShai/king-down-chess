@@ -211,9 +211,10 @@ it('Sign-in does not work now: the computer, another try and Cancel; a suspended
   const page = await open('sign-in');
   try {
     await expect.poll(() => sheet(page).locator('.people-ways .kd-button').count()).toBe(4);
-    await fail(page, 'ways', 'network'); await press(page, 'Not now');
+    await fail(page, 'ways', 'network'); await fail(page, 'ways', 'network'); await press(page, 'Not now');
     await page.getByRole('button', { name: 'Play a person' }).click();
     await expect.poll(() => title(page).textContent()).toBe('Sign-in does not work now');
+    expect((await calls(page)).filter(call => call === 'ways')).toHaveLength(3);
     expect(await sheet(page).getByRole('button').allTextContents()).toEqual(['Close panel', 'Play the computer', 'Try again', 'Cancel']);
     await press(page, 'Try again');
     await expect.poll(() => title(page).textContent()).toBe('Sign in to play a person');
@@ -274,23 +275,21 @@ it('late recent rows and sign-in ways keep the visible action in the same place'
   }
 });
 
-it('a slow optional list times out without a late layout change; slow sign-in ways offer another try', async () => {
-  for (const [state, method] of [['person', 'recent'], ['sign-in', 'ways']]) {
-    const page = await open('');
-    try {
-      await page.evaluate(([state, method]) => {
-        const host = (window as any).peopleDemo.host, old = host[method];
-        host[method] = async () => { await new Promise(r => { (window as any).releasePeople = r; }); return old(); };
-        location.hash = state;
-      }, [state, method]);
-      await expect.poll(() => title(page).textContent(), { timeout: 4000 }).toBe(state === 'person' ? 'Play a person' : 'Sign-in does not work now');
-      await sheet(page).evaluate(element => Promise.all(element.getAnimations().map(animation => animation.finished)));
-      const before = await sheet(page).boundingBox();
-      await page.evaluate(() => (window as any).releasePeople()); await page.waitForTimeout(350);
-      expect(await sheet(page).boundingBox()).toEqual(before);
-      expect(await sheet(page).locator('.people-again .people-row, .people-ways button').count()).toBe(0);
-    } finally { await page.close(); }
-  }
+it('a slow optional list times out without a late layout change', async () => {
+  const page = await open('');
+  try {
+    await page.evaluate(() => {
+      const host = (window as any).peopleDemo.host, old = host.recent;
+      host.recent = async () => { await new Promise(r => { (window as any).releasePeople = r; }); return old(); };
+      location.hash = 'person';
+    });
+    await expect.poll(() => title(page).textContent(), { timeout: 4000 }).toBe('Play a person');
+    await sheet(page).evaluate(element => Promise.all(element.getAnimations().map(animation => animation.finished)));
+    const before = await sheet(page).boundingBox();
+    await page.evaluate(() => (window as any).releasePeople()); await page.waitForTimeout(350);
+    expect(await sheet(page).boundingBox()).toEqual(before);
+    expect(await sheet(page).locator('.people-again .people-row').count()).toBe(0);
+  } finally { await page.close(); }
 });
 
 it('the opener stays busy while rows load, so a second tap cannot open another sheet', async () => {
@@ -511,7 +510,7 @@ it('Sign in again sends the kept turn; the sign-in sheet says why the last sign-
   const again = await open('again');
   try {
     await expect.poll(() => title(again).textContent()).toBe('Sign in again');
-    expect(await sheet(again).getByText('Your sign-in has ended. Your turn stays on this device. Sign in to send it.').count()).toBe(1);
+    await sheet(again).getByText('Your sign-in has ended. Your turn stays on this device. Sign in to send it.').waitFor();
     await press(again, 'Continue with Google');
     await expect.poll(() => toasts(again)).toEqual(['Signed in. Turn sent.']);
     expect(await sheet(again).count()).toBe(0);

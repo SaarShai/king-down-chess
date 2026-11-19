@@ -9,7 +9,9 @@ import { DEFAULT_OPTIONS } from '../../../match/setup';
 import { DEFAULT_OPTIONS as PANEL_OPTIONS, singleKinds, type GameOptions } from '../../play/new-game';
 import { onlineClient, OnlineError } from '../../../online/client';
 import { beginAccountSignIn, consumeSignInReturn, YOU_SIGN_IN, type SignInHost as ReturnHost } from '../../../online/sign-in';
-import type { Provider } from '../../../account/providers';
+import { appleSignInEnabled } from '../../../account/apple';
+import { availableProviders, type Provider } from '../../../account/providers';
+import { publicAccountConfig } from '../../../account/public-config';
 import { apiOrigin, inApp } from '../../../platform';
 import { clearDeletedAccount } from '../../../account/local';
 import { peopleController, type PeopleState } from '../controller';
@@ -208,7 +210,12 @@ export function onlineHost(options: HostOptions) {
     photo: true, pictureFor: name => profilePortrait(name, user?.avatar),
     get rules() { return options.rules(); }, setRules: options.setRules,
     me: () => session ? profile ?? { handle: null, icon: null } : null,
-    ways: async () => (await (await auth()).providers()),
+    ways: async () => {
+      if (inApp || options.auth) return (await auth()).providers();
+      const { url, publishableKey } = publicAccountConfig(import.meta.env);
+      const ways = await availableProviders(url, publishableKey, { apple: appleSignInEnabled(import.meta.env) });
+      return new URLSearchParams(location.search).get('facebook') === '1' ? ways : ways.filter(way => way !== 'facebook');
+    },
     start: way => startSignIn(way, location.hash.startsWith('#join=') ? '/j#' + location.hash.slice(6) : controller?.gameId ? '/g/' + controller.gameId : '/play/friend'),
     sendCode: async email => (await auth()).sendEmailCode(email),
     verifyCode: async (email, code) => { await (await auth()).verifyEmailCode(email, code); await signIn(); void refresh(); },

@@ -22,6 +22,7 @@ async function tapTab(page, name, safeBottom = false) {
 
 async function testSite(context, providerReturn) {
   const authPaths = [];
+  const providerReplies = [];
   const json = (route, body, status = 200) => route.fulfill({ status, json: body, headers: {
     'access-control-allow-origin': url.origin,
     'access-control-allow-headers': 'authorization, apikey, x-client-info, content-type, prefer, accept-profile, content-profile, x-supabase-api-version',
@@ -31,7 +32,7 @@ async function testSite(context, providerReturn) {
     const address = new URL(route.request().url());
     return [url.origin, fake].includes(address.origin) ? route.continue() : route.abort();
   });
-  await context.route(fake + '/**', route => {
+  await context.route(fake + '/**', async route => {
     if (route.request().method() === 'OPTIONS') return json(route, {});
     const address = new URL(route.request().url()), path = address.pathname;
     authPaths.push(path);
@@ -40,7 +41,11 @@ async function testSite(context, providerReturn) {
       app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z',
     };
     const session = { access_token: 'local-check', refresh_token: 'local-check', token_type: 'bearer', expires_in: 600, expires_at: now + 600, user };
-    if (path.endsWith('/settings')) return json(route, { external: { google: true, github: true, facebook: true, email: true } });
+    if (path.endsWith('/settings')) {
+      const { status = 200, delay = 0 } = providerReplies.shift() ?? {};
+      if (delay) await new Promise(done => setTimeout(done, delay));
+      return json(route, { external: { google: true, github: true, facebook: true, email: true } }, status);
+    }
     if (path.endsWith('/authorize')) {
       const callback = new URL(address.searchParams.get('redirect_to'));
       assert.equal(callback.origin, url.origin);
@@ -67,7 +72,7 @@ async function testSite(context, providerReturn) {
     if (path === '/api/me/record') return json(route, { handle: 'tester', icon: null, record: {}, blocks: [], history: [] });
     return route.abort();
   });
-  return { authPaths, failSettings: () => { settingsStatus = 503; }, restoreSettings: () => { settingsStatus = 200; } };
+  return { authPaths, providerReplies, failSettings: () => { settingsStatus = 503; }, restoreSettings: () => { settingsStatus = 200; } };
 }
 
 for (const channel of ['webkit', 'chromium']) {
@@ -220,7 +225,7 @@ for (const channel of ['webkit', 'chromium']) {
       await capture(page, 'you-signed-out');
       await signIn(account(page)).click();
       await button(sheet(page), 'Continue with Google').waitFor();
-      await button(sheet(page), 'Continue with Facebook').waitFor();
+      assert.equal(await button(sheet(page), 'Continue with Facebook').count(), 0);
       await capture(page, 'you-sign-in');
       assert.equal(await setupTable(page).count(), 0);
       await button(sheet(page), 'Continue with email').click();
@@ -236,6 +241,51 @@ for (const channel of ['webkit', 'chromium']) {
       await sheet(page).waitFor({ state: 'detached' });
       await where(page, 'you');
     }, { reducedMotion: 'reduce' });
+
+    for (const [entry, reply] of [
+      ['Invite by name', { delay: 2200 }],
+      ['Send link', { delay: 350, status: 503 }],
+      ['Sign in', { delay: 350, status: 503 }],
+    ]) await run(`first sign-in from ${entry} waits or retries`, async (page, { authPaths, providerReplies }) => {
+      providerReplies.push(reply);
+      await page.goto(url.href);
+      const panel = entry === 'Sign in' ? sheet(page) : setupTable(page);
+      if (entry === 'Sign in') await signIn(page.locator('.play-home')).click();
+      else {
+        await newGame(page).click();
+        await button(panel, 'Opponent').click();
+        await button(panel, entry).click();
+      }
+      await panel.getByText('One moment…', { exact: true }).waitFor();
+      const fault = panel.getByRole('heading', { name: 'Sign-in does not work now', exact: true });
+      await fault.or(button(panel, 'Continue with email')).first().waitFor();
+      assert.equal(await fault.count(), 0);
+      assert.deepEqual(authPaths, Array(reply.status ? 2 : 1).fill('/auth/v1/settings'));
+    }, { reducedMotion: 'reduce' });
+
+    await run('Facebook requires ?facebook=1', async page => {
+      for (const query of ['', '?facebook=0', '?facebook=1']) {
+        await page.goto(url.href + query + '#you');
+        await signIn(account(page)).click();
+        await button(sheet(page), 'Continue with email').waitFor();
+        assert.equal(await button(sheet(page), 'Continue with Facebook').count(), Number(query === '?facebook=1'));
+      }
+    });
+
+    await run('About links keep the You scroll position on Back', async page => {
+      await page.goto(url.href + '#you');
+      for (const name of ['Privacy', 'Terms', 'Support']) {
+        await signIn(account(page)).waitFor();
+        await page.evaluate(async () => { await document.fonts.ready; window.scrollTo(0, document.documentElement.scrollHeight); });
+        const y = await page.evaluate(() => window.scrollY);
+        assert(y > 0);
+        await page.locator('.about-group').getByRole('link', { name, exact: true }).click();
+        await page.waitForURL(`**/${name.toLowerCase()}.html`);
+        await page.goBack();
+        await signIn(account(page)).waitFor();
+        assert.equal(await page.evaluate(() => window.scrollY), y, name);
+      }
+    });
 
     for (const providerReturn of ['ok', 'fail']) await run(`provider return ${providerReturn}`, async (page, { authPaths }) => {
       await page.goto(url.href + (providerReturn === 'fail' ? '#you' : ''));

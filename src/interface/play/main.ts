@@ -51,6 +51,7 @@ import { seatKingUnsaved } from '../people/seat-king';
 import { homeInvite, personGame, personTurn, personWords } from '../people/host/games';
 import { timeWords } from '../people/words';
 import { runPoll } from '../../plugin/poll';
+import { signInText } from '../people/screens/copy';
 import { blockedPlayers, deleteAccount, playerOptions, playerSafety } from '../people/screens/safety';
 import { peopleSheet } from '../people/screens/sheet';
 import { signInSheet } from '../people/screens/sign-in';
@@ -285,7 +286,7 @@ function accountSignIn(source: HTMLButtonElement) {
       showAccount();
     };
     const load = async () => {
-      sheet.show({ title: 'Sign in', body: [el('p', '', 'Checking sign-in ways…')] });
+      sheet.show({ title: 'Sign in', body: [el('p', '', signInText.loading)] });
       try {
         const host = await loadPeople();
         if (!sheet.isOpen) return;
