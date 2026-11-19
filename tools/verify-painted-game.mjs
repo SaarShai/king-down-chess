@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { confirmResign, endTurn, contextText, lanMoves, moveRow, openEndReview, openMenu, openMoves, pressMenu, resultText, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
-const url = new URL(env('PLAYABLE_URL'));
+const url = new URL('/index.html', env('PLAYABLE_URL')); // the old board page: in the launch build / is the new page
 url.searchParams.set('look', 'painted'); // also the default; the phone check below uses the bare URL
 const browser = await launch();
 /** The saved game's players, [White, Black]. */
