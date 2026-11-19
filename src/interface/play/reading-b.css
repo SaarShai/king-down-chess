@@ -464,3 +464,5 @@
 .play-game .play-turn [data-turn-state='wait'] .play-wait-dots[data-step] { display: inline-flex; }
 .play-wait-dots i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: .3; }
 .play-wait-dots[data-step='0'] i:nth-child(1), .play-wait-dots[data-step='1'] i:nth-child(2), .play-wait-dots[data-step='2'] i:nth-child(3) { opacity: 1; }
+.play-game .play-opp .play-power { flex: none; }
+.play-game .play-opp .play-power [data-button-label] { white-space: nowrap; overflow: visible; text-overflow: clip; }
