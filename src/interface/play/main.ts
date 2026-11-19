@@ -159,8 +159,12 @@ function symbol(code: number): string {
   const file = `/ui/icons/${nameOf(code).toLowerCase()}.svg`, svg = svgText.get(file), army = ARMY[colorOf(code)];
   return svg ? `data:image/svg+xml,${encodeURIComponent(svg.replace('<svg ', '<svg width="96" height="96" ').replace('var(--pi-disc,#bccac8)', army.disc).replace('var(--pi-ring,currentColor)', army.ring).replaceAll('var(--pi-glyph,currentColor)', army.glyph))}` : file;
 }
+function decorativeImage(img: HTMLImageElement, src: string) {
+  img.addEventListener('error', () => { img.style.visibility = 'hidden'; }, { once: true });
+  img.alt = ''; img.src = src; return img;
+}
 /** A full figure: the board's own rest still (public/ui/pieces), so one piece looks the same everywhere. */
-const figure = (file: string) => { const img = el('img', 'play-figure'); img.src = `/ui/pieces/${file}.webp`; img.alt = ''; return img; };
+const figure = (file: string) => decorativeImage(el('img', 'play-figure'), `/ui/pieces/${file}.webp`);
 const kingFile = (side: Color, rules: Pick<Rules, 'kings'> = game.context.rules) => `king-${(rules.kings[side]?.king ?? PLAIN_KINGS[side]).toLowerCase()}-${side ? 'b' : 'w'}`;
 const image = (code: number) => { const img = el('img'); img.src = symbol(code); img.alt = ''; return img; };
 const symbolImage = (code: number) => symbolImages.get(code & 31) ?? image(code);
@@ -634,7 +638,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   who.append(el('span', 'play-opponent-name', oppName));
   who.append(el('small', 'opponent-clock', onlineActive ? '' : text[gameLevel]));
   const face = onlineActive ? profilePortrait(oppName, oppAvatar) : el('img', 'profile-portrait');
-  if (!onlineActive && face instanceof HTMLImageElement) { face.src = computerPortrait(gameLevel); face.alt = ''; }
+  if (face instanceof HTMLImageElement) decorativeImage(face, computerPortrait(gameLevel));
   const opponentGroup = el('div', 'play-opponent-group');
   const opponentRing = el('span', 'play-seat-ring'); opponentRing.append(face);
   opponentGroup.append(opponentRing, who); opponent.append(opponentGroup);
@@ -1700,7 +1704,7 @@ function addPower(side: Color, parent: HTMLElement) {
   if (!king) return;
   const uses = usesAllowed(king.power, r);
   const res: Resource = { subject: { kind: 'power', id: king.power }, side, key: uses ? POWER_TAG[king.power] ?? null : null, name: POWER_NAME[king.power], short: powerLines[king.power] ?? '', card: null, control: button(POWER_NAME[king.power], { onPress: () => pressResource(res) }) };
-  const coin = el('span', 'play-power-coin'), emblem = el('img'); emblem.src = `/ui/emblems/${king.king.toLowerCase()}.webp`; emblem.alt = '';
+  const coin = el('span', 'play-power-coin'), emblem = decorativeImage(el('img'), `/ui/emblems/${king.king.toLowerCase()}.webp`);
   const notches = el('span', 'play-power-notches'); notches.setAttribute('aria-hidden', 'true');
   for (let i = 0; i < (uses ?? 0); i++) notches.append(el('i', 'play-power-notch'));
   coin.append(emblem, notches);
@@ -1715,7 +1719,7 @@ function addCards(parent: HTMLElement) {
   r.hands[player].forEach((card, k) => {
     const key = card === 'MirrorB' ? 'mirrorb' : (Object.keys(TAG_POWER) as PowerTag[]).find(tag => TAG_POWER[tag] === card) ?? null;
     const res: Resource = { subject: { kind: 'card', id: card }, side: player, key, name: cardName(card), short: powerLines[card] ?? '', card: k, control: button(cardName(card), { onPress: () => pressResource(res) }) };
-    const art = el('img'); art.src = cardArt(player, k); art.alt = ''; res.control.prepend(art); res.control.append(el('small', 'play-card-state'));
+    res.control.prepend(decorativeImage(el('img'), cardArt(player, k))); res.control.append(el('small', 'play-card-state'));
     // Keep words intact when a two-word card name wraps at the top edge.
     const words = res.name.split(' '), label = res.control.querySelector('[data-button-label]')!;
     label.replaceChildren(...words.flatMap((word, i) => [...(i ? [' '] : []), el('span', '', word)]));

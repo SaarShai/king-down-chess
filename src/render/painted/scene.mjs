@@ -93,16 +93,21 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  const corsImage=()=>Object.assign(new Image(),{crossOrigin:'anonymous'});
  // lazySheets (the new page, same origin): the stills and the board art load in the mode of the page's own pictures, so each file loads once.
  const pageImage=()=>lazySheets?new Image():corsImage();
- const art=Object.fromEntries(Object.keys(ART).filter(type=>+type!==K).map(type=>[type,corsImage()]));
+ const imageReady=image=>image?.complete&&image.naturalWidth>0;
+ function loadImage(image,url){
+  return new Promise((resolve,reject)=>{
+   image.onload=async()=>{try{if(progressiveArt)await image.decode?.();resolve(image);}catch(error){reject(error);}};
+   image.onerror=reject;image.src=url;
+  });
+ }
+ const art={};
  // King sheets load on demand: the two in play before the scene is ready, others when a side picks them.
  const kingArt={}, drawnKings=[null,null];
  let kings=[...initialKings];
  function kingImage(design){
   let entry=kingArt[design];
   if(!entry){
-   const image=corsImage();
-   entry=kingArt[design]={image:null,loaded:new Promise((resolve,reject)=>{image.onload=()=>{entry.image=image;afterBoard(()=>lyingArt(design));wake();resolve();};image.onerror=reject;})};
-   image.src=KING_FILES[design];
+   entry=kingArt[design]={image:null,loaded:loadImage(corsImage(),KING_FILES[design]).then(image=>{entry.image=image;afterBoard(()=>lyingArt(design));wake();})};
   }
   return entry;
  }
@@ -121,23 +126,23 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
   const key=`${character}:${army}`;let entry=stillArt[key];
   if(!entry){
    const image=pageImage();
-   entry=stillArt[key]={body:null,done:false,loaded:new Promise(resolve=>{image.onload=()=>{entry.done=true;entry.body={image,pivot:meta.pivot,size:meta.size,scale:bankScale({character,boardScale:meta.boardScale,registrationHeightPx:meta.registrationHeightPx}),unitHeight:meta.registrationHeightPx,footprint:meta.footprint};wake();resolve();};image.onerror=()=>{entry.done=true;if(!disposed)onArtError?.(image.src);resolve();};})};
-   image.src=publicUrl(`/ui/pieces/${character}-${army[0]}.webp`);
+   entry=stillArt[key]={body:null,done:false,loaded:loadImage(image,publicUrl(`/ui/pieces/${character}-${army[0]}.webp`)).then(()=>{
+    entry.body={image,pivot:meta.pivot,size:meta.size,scale:bankScale({character,boardScale:meta.boardScale,registrationHeightPx:meta.registrationHeightPx}),unitHeight:meta.registrationHeightPx,footprint:meta.footprint};wake();
+   },()=>{if(!disposed)onArtError?.(image.src);}).finally(()=>{entry.done=true;})};
   }
   return entry;
  }
- // (Not when the loaded package has no body for it: then its legacy drawings move it, so it rests as one of them too.)
- // holdStills: a part still in transfer keeps the still (the index alone does not drop it).
- const stillBody=value=>(holdStills?bodyRuntime&&!bodyRuntime.has(characterOf(value),armyOf(value))&&bodyRuntime.lacks(characterOf(value),armyOf(value)):bodyRuntime?.stats.manifestReady&&!bodyRuntime.has(characterOf(value),armyOf(value)))?null:stillImage(value)?.body??null;
- // lazySheets: a figure whose legacy sheet has not loaded draws its still, at rest and along a move, so it never goes blank.
- const sheetless=value=>lazySheets&&!(typeOf(value)===K?kingArt[kings[colorOf(value)]]?.image:art[typeOf(value)]?.naturalWidth);
+ // Progressive play keeps the intended still at rest. Other views use the legacy pose when the package lacks a body.
+ // holdStills keeps the still while a part is in transfer.
+ const stillBody=value=>!progressiveArt&&(holdStills?bodyRuntime&&!bodyRuntime.has(characterOf(value),armyOf(value))&&bodyRuntime.lacks(characterOf(value),armyOf(value)):bodyRuntime?.stats.manifestReady&&!bodyRuntime.has(characterOf(value),armyOf(value)))?null:stillImage(value)?.body??null;
+ const sheetless=value=>!imageReady(typeOf(value)===K?kingArt[kings[colorOf(value)]]?.image:art[typeOf(value)]);
  // The loads still pending for the figures on the board, or null when none is.
  const warmStills=()=>{const waits=[...new Set(position.board)].filter(Boolean).map(stillImage).filter(entry=>entry&&!entry.done).map(entry=>entry.loaded);return waits.length?Promise.all(waits):null;};
  let boardArt=initialBoardArt?pageImage():corsImage();
  // Clips load after the first frame with motion on, or when a selection needs one. They never gate readiness.
  // Choose the clip at selection time, so a late sheet never starts a clip in the middle of a selection.
  const CLIP_OF={[N]:'knight',[R]:'rook'},clipArt=Object.fromEntries(Object.keys(CLIPS).map(name=>[name,corsImage()]));
- const clipReady=name=>!!clipArt[name]?.complete&&clipArt[name].naturalWidth>0;
+ const clipReady=name=>imageReady(clipArt[name]);
  function loadClips(name=null){
   if(disposed||reducedMotion||!frames||!connected())return;
   if(characterRuntime&&!bodyWarm)return;
@@ -156,7 +161,7 @@ for(const [type,name] of Object.entries(courtNames)){
 }
  const FALLBACK={anchor:{x:576,y:1018},hit:{x:576,y:640},scale:.1};
  // A Workshop design's figure for a lab type (the game's slot T, ticket 17): [white, black] images, drawable once loaded.
- const figures={},figureOf=value=>{const image=figures[typeOf(value)]?.[colorOf(value)];return image?.naturalWidth?image:null;};
+ const figures={},figureOf=value=>{const image=figures[typeOf(value)]?.[colorOf(value)];return imageReady(image)?image:null;};
  // Lab pieces without painted art: a token that slides in, no body motion.
  for(let type=1;type<16;type++){if(!specs[type])specs[type]=FALLBACK;newMotions[type]??={DURATION:900,actionAt:()=>0};}
  const idle=new Map(), work=new Map();
@@ -220,7 +225,7 @@ function sprite(value,angle=0,extension=0,sheet=null,rest=null) {
  const type=typeOf(value),side=colorOf(value),design=type===K?kings[side]:null,key=spriteKey(value,sheet);
  if(!ART[type])return token(value);
  const image=design?sheet??kingImage(design).image:art[type];
- if(design?!image:!image.naturalWidth)return blank; // a sheet that has not loaded never goes into the idle cache
+ if(!sheet&&!imageReady(image))return blank; // The alternate sheet is a canvas made by the king effect.
  if(design)drawnKings[side]=design;
  const staticPose=Math.abs(angle)<.00001&&Math.abs(extension)<.0001;
  if(rest&&staticPose&&type===P){
@@ -319,8 +324,14 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
   g.globalCompositeOperation='source-atop';g.fillStyle='rgba(127,183,217,.55)';g.fillRect(0,-headroom,SIZE,SIZE+headroom);g.restore();
   out.drawImage(fxCanvas,0,-headroom,SIZE,SIZE+headroom);out.restore();return;
  }
+ if(progressiveArt&&!pose.bank&&!pose.still&&ART[typeOf(value)]){
+  const still=stillImage(value);
+  if(still?.body===null||!pose.clip&&sheetless(value)){
+   if(still?.body)pose={...pose,still:still.body};
+   else{drawToken(out,value,pose.foot.x,pose.foot.y-40);out.restore();return;}
+  }
+ }
  if(pose.bank||pose.still){const b=pose.bank??pose.still,k=b.scale*pose.scale/spec.scale;if(typeOf(value)===K)drawnKings[colorOf(value)]=kings[colorOf(value)];out.translate(pose.foot.x,pose.foot.y);out.scale(k*(pose.sx??1),k*(pose.sy??1));out.rotate((pose.rotation??0)*pose.facing);out.shadowColor=colorOf(value)?'rgba(250,246,232,.85)':'rgba(28,24,16,.8)';out.shadowBlur=3*res;if(b.size)out.drawImage(b.image,-b.pivot[0],-b.pivot[1],b.size[0],b.size[1]);else out.drawImage(b.image,-b.pivot[0],-b.pivot[1]);out.restore();return;}
- if(progressiveArt&&!pose.clip&&ART[typeOf(value)]&&sheetless(value)){drawToken(out,value,pose.foot.x,pose.foot.y-40);out.restore();return;}
  out.translate(pose.foot.x,pose.foot.y);out.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));out.rotate(pose.rotation??0);
  // A clip's drawing is one atlas cell, at its clip's factor of the sprite's size.
  const clip=pose.clip,anchor=clip?inCell(clip.name,spec.anchor):spec.anchor;
@@ -987,7 +998,7 @@ function vortex(out,foot,phase,strength) {
  }
  if(bodyRuntime&&animation?.rookFrom&&animation.rookLocal!=null&&poses.has(animation.move.castle.from)){const a=animation,body=bodyRuntime.action(a.rookRuntime,a.rookLocal,a.rookWalk);if(body)poses.get(a.move.castle.from).pose.bank=body;}
  // A figure at rest with no runtime frame yet: its still picture.
- if(characterRuntime)for(const [sq,u] of poses)if(!u.pose.bank&&!u.pose.clip&&!u.fx){const bare=sheetless(u.value);if(bare||!u.extension&&!u.pose.angle&&!(animation&&!animation.effect&&animation.move.from===sq)){const still=bare?stillImage(u.value)?.body:stillBody(u.value);if(still)u.pose.still=still;}}
+ if(characterRuntime)for(const [sq,u] of poses)if(!u.pose.bank&&!u.pose.clip&&!u.fx){const bare=lazySheets&&sheetless(u.value);if(bare||!u.extension&&!u.pose.angle&&!(animation&&!animation.effect&&animation.move.from===sq)){const still=bare?stillImage(u.value)?.body:stillBody(u.value);if(still)u.pose.still=still;}}
  bodyFrames=[...poses].filter(([,u])=>u.pose.bank).map(([square,u])=>({square,bank:u.pose.bank.bank,sourceSha256:u.pose.bank.sourceSha256,sourceBankSha256:u.pose.bank.sourceBankSha256,opacity:u.opacity,struck:!!u.fx?.ranged,time:u.pose.bank.time,foot:{...u.pose.foot},pivot:[...u.pose.bank.pivot],scale:u.pose.bank.scale}));
  const ordered=[...poses].sort((a,b)=>a[1].pose.foot.y-b[1].pose.foot.y);
  if(animation&&!animation.effect){const i=ordered.findIndex(([sq])=>sq===animation.move.from);ordered.push(...ordered.splice(i,1));}
@@ -1326,7 +1337,7 @@ function drawEncounter(a,t) {
   squareAt(x,y){y-=headroom;const col=Math.floor((x-PAD)/TILE),row=Math.floor((y-PAD)/TILE);if(col<0||col>7||row<0||row>7)return null;return flipped?row*8+(7-col):(7-row)*8+col;},
   // Resolve when the scene can draw. With progressive art, the first frame can use plain squares and tokens.
   load(){afterBoard(()=>demise.prepare());
-   const sheets=()=>[...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))],start=()=>{if(disposed)return;ready=true;warmBodies();wake();};
+   const sheets=()=>[...kings.map(design=>kingImage(design).loaded),...Object.keys(ART).filter(type=>+type!==K).map(type=>loadImage(corsImage(),ART_FILES[ART[type]]).then(image=>{art[type]=image;}))],start=()=>{if(disposed)return;ready=true;warmBodies();wake();};
    const loadAfterFrame=()=>{boardReady();void Promise.all(sheets().map(sheet=>sheet.then(()=>wake()))).catch(()=>{});};
    if(progressiveArt){
     void api.setBoardArt(initialBoardArt??BOARD_ART).catch(()=>{});
