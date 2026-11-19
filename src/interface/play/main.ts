@@ -1575,6 +1575,13 @@ function helpAvoid() {
   return [reader, ...screen.querySelectorAll('.play-opp, .play-own, .play-turn')].map(node => node.getBoundingClientRect());
 }
 
+// One box round the squares: a hint must not cover the squares it points at.
+function squaresBox(squares: readonly number[]) {
+  const boxes = squares.map(sq => cells[sq].getBoundingClientRect());
+  const left = Math.min(...boxes.map(b => b.left)), top = Math.min(...boxes.map(b => b.top));
+  return new DOMRect(left, top, Math.max(...boxes.map(b => b.right)) - left, Math.max(...boxes.map(b => b.bottom)) - top);
+}
+
 function updateHelpHint() {
   if (!gameHelp || !screen.isConnected) return;
   if (onlineActive || ended || thinking || arrangement || reading !== 'normal' || !enteredAt || fault) {
@@ -1587,13 +1594,12 @@ function updateHelpHint() {
   } else if (draft.canFinish) {
     gameHelp.updateHint('end', controls.finish, avoid.slice(0, 2));
   } else if (selected != null && draft.targets(selected).length) {
-    gameHelp.updateHint('ring', cells[draft.targets(selected)[0]], avoid);
+    gameHelp.updateHint('ring', squaresBox([selected, ...draft.targets(selected)]), avoid);
   } else if (game.history.length) {
     gameHelp.updateHint('card', resources.find(resource => resource.side === player && resource.card != null)?.control, avoid.filter((_, i) => i !== 2));
   } else {
-    const move = draft.legal.find(move => !move.pass && !armKey(move) && move.from % 8 === 4) ??
-      draft.legal.find(move => !move.pass && !armKey(move));
-    gameHelp.updateHint('piece', move && cells[move.from], avoid);
+    const from = [...new Set(draft.legal.filter(move => !move.pass && !armKey(move)).map(move => move.from))];
+    gameHelp.updateHint('piece', from.length ? squaresBox(from) : undefined, avoid);
   }
 }
 
