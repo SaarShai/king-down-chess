@@ -297,6 +297,7 @@ function receiveOnline(state: PeopleState) {
   game = state.game; draft = state.draft ?? new DraftTurn(game); player = state.view.seat;
   thinking = !state.draft || state.phase === 'sending' || state.phase === 'checking';
   const wasEnded = ended; ended = state.phase === 'over'; liveGame = false;
+  if ((changed || ended) && document.querySelector('[data-help-sheet="promotion"]')) gameHelp?.close();
   if (changed) {
     shownRevision = state.view.revision; selected = inspected = null; shown = null; clearChoice(); skipBoard();
     board.setPosition(draft.position, game.context); replySteps = state.received?.steps ?? lastReplySteps(game, cpu());
@@ -974,7 +975,8 @@ function undo() {
 }
 function showChoice(square: number, options: Move[]) {
   if (options.every(move => move.promo != null) && gameHelp) {
-    gameHelp.openPromotion(options, cells[square], player, move => { stage(move); moveCursor(square); }, () => { selected = inspected = null; update(); });
+    const revision = shownRevision; // a choice made after the game ends or the online turn changes must not stage
+    gameHelp.openPromotion(options, cells[square], player, move => { if (ended || shownRevision !== revision) return; stage(move); moveCursor(square); }, () => { selected = inspected = null; update(); });
     announce(text.promote); return;
   }
   choice = options; choiceSquare = square; choiceBox.replaceChildren();
@@ -1285,6 +1287,7 @@ function updateSeats() {
     next[pos.turn === player ? 0 : 1] += move.captures.filter(sq => pos.board[sq] && colorOf(pos.board[sq]) !== pos.turn).length;
   }
   if (draft.previewMove) next[0] += draft.previewMove.captures.length;
+  const before = counts; counts = next; // set first: with Motion Off the streak arrives at once
   seatRings.forEach((ring, i) => {
     const side = i === 0 ? player : cpu();
     ring.dataset.turn = String(!ended && side === active);
@@ -1293,7 +1296,7 @@ function updateSeats() {
     const store = stores[i], value = next[i];
     store.setAttribute('aria-label', `${value} ${value === 1 ? 'capture' : 'captures'}`);
     store.dataset.empty = String(!value);
-    if (value > counts[i] && store.textContent !== '' && !ended) {
+    if (value > before[i] && store.textContent !== '' && !ended) {
       const move = i === 0 ? draft.previewMove ?? draft.steps.at(-1)?.move : lastActions.at(-1)?.move;
       const target = move?.captures.at(-1);
       if (target != null) {
@@ -1305,9 +1308,8 @@ function updateSeats() {
         return;
       }
     }
-    if (value !== counts[i] || !store.textContent) store.textContent = String(value);
+    if (value !== before[i] || !store.textContent) store.textContent = String(value);
   });
-  counts = next;
   if (!seatFrame && !ended && !reducedMotion()) {
     seatFrame = onFrame((_, now) => {
       if (!screen.isConnected || ended) return false;
