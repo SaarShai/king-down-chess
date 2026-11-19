@@ -406,6 +406,16 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .home-start .kd-button[aria-busy='true'] .kd-reason { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 @media (hover: hover) { button.home-game-row:hover, .home-summary.kd-button:hover { background: var(--surface-muted); } }
 
+@media (max-width: 599px) and (orientation: portrait) {
+  /* Extend the sky into the top safe area so the painting and title move together. */
+  .home-hero {
+    background: linear-gradient(90deg, #e2a080, #f4b582, #e6a991) top / 100% calc(var(--safe-top) * 1.5) no-repeat;
+  }
+  .home-hero picture {
+    inset-block-start: var(--safe-top);
+    mask-image: linear-gradient(to bottom, transparent, #000 calc(var(--safe-top) / 2), #000 calc(100% - 52px), transparent);
+  }
+}
 @media (max-width: 599px) {
   .play-home[data-state='saved'] { --preview: clamp(116px, 21dvh, 176px); }
   .home-start:has(.home-game-list) .home-card:not(.home-welcome) { grid-template-columns: auto minmax(0, 1fr); }
