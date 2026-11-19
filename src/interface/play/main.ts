@@ -588,7 +588,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   if (fromHome) { root.querySelectorAll('.play-game').forEach(node => node.remove()); screen.style.visibility = 'hidden'; root.append(screen); }
   else root.replaceChildren(screen);
   const onArtError = () => { if (host === boardHost && document.body.dataset.page === 'game') artFailed(generation); };
-  board = keep ?? boardCode!.mountBoard(host, tap, { liveInput: true, quiet: true, plainMarks: true, initialBoardArt: skinUrl, onArtError }); board.flip(player === 1); board.setPosition(draft.position, game.context); applyPieceView(); layout(); update();
+  board = keep ?? boardCode!.mountBoard(host, tap, { liveInput: true, quiet: true, daylight: true, plainMarks: true, initialBoardArt: skinUrl, onArtError }); board.flip(player === 1); board.setPosition(draft.position, game.context); applyPieceView(); layout(); update();
   fit.disconnect(); fit.observe(screen);
   if (!resumed) save(true); // the new game replaces the save: a save with no move
   // The first draw uses the prepared surface and stills, with no second stone image to wait for.

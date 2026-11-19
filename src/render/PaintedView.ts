@@ -122,7 +122,7 @@ export class PaintedView implements BoardView {
    * options.holdStills, options.lazySheets, options.onArtError: the scene options of the same names (scene.d.mts); with lazySheets the Darkness art also waits for the first frame.
    * All default to false; only the new interface turns them on.
    */
-  constructor(private container: HTMLElement, private options: { floor?: string | null; webInk?: boolean; allowModalAndNavigation?: boolean; liveInput?: boolean; quiet?: boolean; holdStills?: boolean; lazySheets?: boolean; plainMarks?: boolean; initialBoardArt?: string; onArtError?: (url: string) => void } = {}) {
+  constructor(private container: HTMLElement, private options: { floor?: string | null; webInk?: boolean; allowModalAndNavigation?: boolean; liveInput?: boolean; quiet?: boolean; daylight?: boolean; holdStills?: boolean; lazySheets?: boolean; plainMarks?: boolean; initialBoardArt?: string; onArtError?: (url: string) => void } = {}) {
     container.classList.add('painted');
     this.canvas.width = 960; this.canvas.height = 960 + HEADROOM; // resolution 1 until the first resize
     container.appendChild(this.canvas);
@@ -363,7 +363,7 @@ export class PaintedView implements BoardView {
     if (this.pace === 'off') this.scene.setLifted(null);
     if (!shown) { this.stateEffects.settle(); this.overlay = null; this.tail = null; }
     this.scene.setReducedMotion(!shown);
-    this.scene.setLively({ ambient: quiet, moves: motion, atmosphere: !quiet, captures: motion, idle: motion, kings: shown && !quiet, pawns: shown && !quiet });
+    this.scene.setLively({ ambient: quiet && !this.options.daylight, moves: motion, atmosphere: !quiet, captures: motion, idle: motion, kings: shown && !quiet, pawns: shown && !quiet });
   }
 
   highlight(h: Highlights): void {

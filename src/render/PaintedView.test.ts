@@ -43,6 +43,18 @@ it('passes capture targets to scene preparation on selection', async () => {
  view.dispose();
 });
 
+it('uses the selected idle on Daylight while quiet boards keep the random idle by default', async () => {
+  const { PaintedView } = await import('./PaintedView');
+  const quiet = new PaintedView(stubDom() as unknown as HTMLElement, { quiet: true });
+  expect(lively).toHaveBeenLastCalledWith(expect.objectContaining({ ambient: true, idle: true }));
+  quiet.dispose();
+  const day = new PaintedView(stubDom() as unknown as HTMLElement, { quiet: true, daylight: true });
+  expect(lively).toHaveBeenLastCalledWith(expect.objectContaining({ ambient: false, idle: true, atmosphere: false, pawns: false }));
+  day.setPace('off');
+  expect(lively).toHaveBeenLastCalledWith(expect.objectContaining({ ambient: false, idle: false }));
+  day.dispose();
+});
+
 describe('PaintedView first paint', () => {
   it('releases input, observers and scene work before a delayed artwork load finishes', async () => {
     const container = stubDom(), { PaintedView } = await import('./PaintedView');
