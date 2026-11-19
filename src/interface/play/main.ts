@@ -52,7 +52,10 @@ import { seatKingUnsaved } from '../people/seat-king';
 import { homeInvite, personGame, personTurn, personWords } from '../people/host/games';
 import { timeWords } from '../people/words';
 import { runPoll } from '../../plugin/poll';
+import { signInText } from '../people/screens/copy';
 import { blockedPlayers, deleteAccount, playerOptions, playerSafety } from '../people/screens/safety';
+import { peopleSheet } from '../people/screens/sheet';
+import { signInSheet } from '../people/screens/sign-in';
 import { humanOpponent } from '../../plugin/screens/board-model';
 
 
@@ -214,6 +217,10 @@ const art: Art = {
   card: k => { const img = el('img'); img.src = `/${RELEASED_CARDS[k].art}`; img.alt = ''; return img; },
 };
 let people: OnlineHost | undefined, peopleReady: Promise<OnlineHost> | undefined, onlineActive = false, onlineState: PeopleState | undefined;
+let peopleStatus: 'checking' | 'ready' | 'failed' = 'checking', accountNote = '';
+const peopleLoadError = 'Online play cannot load. Check your connection and try again.';
+const signInRetry = 'Sign-in does not finish. Try again.';
+const showHomeSignIn = () => peopleStatus !== 'checking' && !people?.signedIn;
 let homePoll: ReturnType<typeof runPoll> | undefined;
 function gameWords(line: string) { return onlineActive ? personWords(line) : line; }
 let mountingOnline = false, shownRevision = -1, onlineNote = '';
@@ -230,19 +237,69 @@ function automaticReady(state: PeopleState) {
 }
 async function loadPeople() {
   return peopleReady ??= import('../people/host/index').then(async ({ onlineHost }) => {
-    people = onlineHost({ rules: () => setup, setRules: value => { setup = value; next = changeDraft(next, { setup }); store(GAME_KEY, setup); },
-      changed: () => { if (document.body.dataset.page === 'home' && shell.route.place === 'play') home(); if (people) showAccount(people); },
+    people ??= onlineHost({ rules: () => setup, setRules: value => { setup = value; next = changeDraft(next, { setup }); store(GAME_KEY, setup); },
+      changed: () => { if (document.body.dataset.page === 'home' && shell.route.place === 'play') home(); showAccount(); },
       home: () => { onlineActive = false; shell.go({ place: 'play' }); if (document.body.dataset.page === 'game') home(); },
       open: (id, line) => { onlineGameNotice = line ? { id, line } : undefined; shell.go({ place: 'online', entry: id }); },
       toast: message => { onlineNote = message; announce(message); const line = root.querySelector<HTMLElement>('.home-note'); if (line) line.textContent = message; else if (document.body.dataset.page === 'home') root.querySelector('.home-start')?.prepend(el('p', 'home-note', message)); },
     });
     const returned = await people.init();
-    if (returned.status === 'signed-in') {
+    peopleStatus = 'ready';
+    if (returned.status !== 'none' && returned.route?.screen === 'you') {
+      accountNote = returned.status === 'retry' ? signInRetry : '';
+      shell.go({ place: 'you' });
+      if (accountNote) announce(accountNote);
+    } else if (returned.status === 'signed-in') {
       const route = returned.route;
       shell.go(route.screen === 'join' ? { place: 'join', entry: route.key ?? '' } : route.screen === 'game' ? { place: 'online', entry: route.gameId } : { place: 'person' });
-    } else if (returned.status === 'retry') { onlineNote = 'Sign-in does not finish. Try again.'; shell.go({ place: 'person' }); }
+    } else if (returned.status === 'retry') { onlineNote = signInRetry; shell.go({ place: 'person' }); }
+    updateAccount();
     return people;
-  }).catch(error => { peopleReady = undefined; onlineNote = 'Online play cannot load. Check your connection and try again.'; announce(onlineNote); throw error; });
+  }).catch(error => {
+    peopleReady = undefined; peopleStatus = 'failed'; onlineNote = peopleLoadError;
+    if (location.hash === '#you') shell.go({ place: 'you' });
+    updateAccount();
+    announce(onlineNote);
+    throw error;
+  });
+}
+function updateAccount() {
+  const control = root.querySelector<HTMLButtonElement>('.play-home:not(.shell-departing) .home-sign-in');
+  if (control) control.hidden = !showHomeSignIn();
+  showAccount();
+}
+function accountSignIn(source: HTMLButtonElement) {
+  shell.settled(() => {
+    if (!source.isConnected || document.querySelector('.account-sign-in')) return;
+    const place = shell.route.place;
+    const sheet = peopleSheet(source, () => {
+      void shell.closeLayer();
+      if (!source.isConnected && shell.route.place === place) {
+        root.querySelector<HTMLElement>(place === 'you' ? '.you-account [aria-haspopup="dialog"]' : '.home-sign-in:not([hidden])')?.focus({ preventScroll: true });
+      }
+    });
+    sheet.element.classList.add('account-sign-in');
+    const done = () => {
+      if (!people?.signedIn) return; // A provider changes pages. An email code finishes here.
+      accountNote = '';
+      sheet.close();
+      shell.go({ place: 'you' });
+      showAccount();
+    };
+    const load = async () => {
+      sheet.show({ title: 'Sign in', body: [el('p', '', signInText.loading)] });
+      try {
+        const host = await loadPeople();
+        if (!sheet.isOpen) return;
+        if (host.signedIn) done();
+        else signInSheet(sheet, { ...host.host, start: host.startAccountSignIn }, { kind: 'account' }, done);
+      } catch {
+        if (sheet.isOpen) sheet.show({ title: 'Sign in', body: [el('p', '', peopleLoadError), button('Try again', { onPress: () => { void load(); } })] });
+      }
+    };
+    void load();
+    shell.openLayer(sheet.close);
+  });
 }
 async function personFlow(source: HTMLElement | null = null) {
   if (shell.route.place !== 'play') shell.go({ place: 'play' });
@@ -372,7 +429,7 @@ function home(newArmy = false) {
   const active = document.activeElement as HTMLElement | null;
   let focused: string | undefined;
   if (!enteringHome && active && root.contains(active)) {
-    const name = ['home-person', 'home-side-new', 'home-hero-new', 'home-summary', 'all-games'].find(name => active.classList.contains(name));
+    const name = ['home-person', 'home-side-new', 'home-hero-new', 'home-summary', 'home-sign-in', 'all-games'].find(name => active.classList.contains(name));
     focused = active.dataset.game ? `[data-game="${active.dataset.game}"]` : active.dataset.saved === 'computer' ? '[data-saved="computer"]' : name ? `.${name}` : undefined;
   }
   onlineActive = false; onlineState = undefined; people?.stopGame();
@@ -408,6 +465,8 @@ function home(newArmy = false) {
     offer: fallback => { const offer = keptOffer(saved); return offer ? keptRow(offer, fallback) : null; },
     onContinue: source => resumeGame(source, memory),
     onChange: source => openNewGame(source),
+    onSignIn: accountSignIn,
+    showSignIn: showHomeSignIn(),
   }, art);
   root.replaceChildren(play.element, ...(old ? [old] : []));
   if (enteringHome) play.focus(); else if (focused) play.element.querySelector<HTMLElement>(focused)?.focus({ preventScroll: true });
@@ -456,7 +515,7 @@ function newGameLayer(source: HTMLElement, person: boolean) {
     panel.element.remove();
     if (!source.isConnected && opener && document.body.dataset.page === 'home') [opener, ...controls].map(name => root.querySelector<HTMLElement>(`.${name}`)).find(control => control?.getClientRects().length)?.focus({ preventScroll: true });
   });
-  document.body.append(panel.element); panel.open(source); shell.openLayer(() => panel.close());
+  document.body.append(panel.element); panel.open(source); shell.openLayer(() => panel.close(), panel.element);
 }
 /**
  * The offer of a kept Dark game (launch decision 10): Open makes it the saved game, after a confirmation when it ends
@@ -1826,22 +1885,29 @@ function renderPlace(route: Route) {
     const reset = button('Reset hints', { onPress: () => { const saved = [resetHints(), resetDaylightHints()].every(Boolean); resources.forEach(r => { r.hint = undefined; }); const line = saved ? 'Hints reset.' : 'Hints reset for this visit. This device cannot store the reset.'; resetNote.textContent = line; announce(line); } });
     reset.classList.add('reset-hints'); const resetNote = el('p', 'reset-note');
     root.replaceChildren(youPage(settings(), { figure: () => figure(kingFile(0, { kings: [null, null] })), symbol: () => image(A), card: art.card, reset: [reset, resetNote] }));
-    showAccount(people);
-    void loadPeople().then(showAccount).catch(() => {});
+    showAccount();
+    void loadPeople().catch(() => {});
   }
 }
-function showAccount(host?: OnlineHost) {
+function showAccount() {
   if (shell.route.place !== 'you') return;
   root.querySelector('.you-account')?.remove();
+  const host = people;
   const section = el('section', 'you-account'), me = host?.host.me();
   section.append(el('h2', '', 'Account'));
-  if (host && me) {
+  if (host && me && peopleStatus !== 'failed') {
     const blocked: HTMLButtonElement = button('Blocked players', { onPress: () => blockedPlayers(host.safety, blocked) });
     const remove: HTMLButtonElement = button('Delete account', { kind: 'danger', onPress: () => deleteAccount(remove, host.deletion) });
-    section.append(profilePortrait(me.handle ?? host.user?.name ?? 'Player', host.user?.avatar), el('p', '', me.handle ?? 'Player'), button('Sign out', { onPress: () => { void host.signOut().catch(() => announce('Sign-out cannot finish. Try again.')); } }), blocked, remove);
+    const name = me.handle ?? host.user?.name ?? 'Player';
+    section.append(profilePortrait(name, host.user?.avatar), el('p', '', name), button('Sign out', { onPress: () => { void host.signOut().catch(() => announce('Sign-out cannot finish. Try again.')); } }), blocked, remove);
+  } else if (peopleStatus === 'checking') section.append(el('p', '', 'Checking sign-in…'));
+  else {
+    const signIn: HTMLButtonElement = button('Sign in', { onPress: () => accountSignIn(signIn) });
+    signIn.setAttribute('aria-haspopup', 'dialog');
+    const note = peopleStatus === 'failed' ? peopleLoadError : accountNote;
+    if (note) section.append(el('p', 'account-note', note));
+    section.append(signIn);
   }
-  else if (!host) section.append(el('p', '', 'Checking sign-in…'));
-  else section.append(button('Sign in to play a person', { onPress: () => { void personFlow(); } }));
   root.querySelector('.you-page > h1')?.after(section);
 }
 const shell = mountShell(root, renderPlace);

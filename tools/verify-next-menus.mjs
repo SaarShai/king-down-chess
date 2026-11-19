@@ -237,6 +237,18 @@ const cases = {
     }), 'hover rules require a hover pointer');
     await shot(page, 'you');
   },
+  async ribbon(page, context, check) {
+    await page.goto(`${NEXT}#you`);
+    await page.locator('.ribbon-sample').waitFor();
+    for (const size of [100, 150, 200]) {
+      await page.evaluate(size => { document.documentElement.style.fontSize = `${size}%`; }, size);
+      const ribbonFits = await page.locator('.ribbon-sample').evaluate(sample => {
+        const art = sample.getBoundingClientRect(), button = sample.closest('button').getBoundingClientRect();
+        return art.left >= button.left && art.right <= button.right && art.top >= button.top && art.bottom <= button.bottom;
+      });
+      check(ribbonFits && await unbroken(page, '.ribbon-sample'), `the Ribbon sample fits with whole words at ${size}%`);
+    }
+  },
   async guide(page, context, check, size) {
     const w = Number(size.split('x')[0]);
     await page.goto(`${NEXT}#guide`); await page.waitForSelector('.guide-page'); await page.evaluate(() => document.fonts.ready);
@@ -261,15 +273,34 @@ const cases = {
     check(measure <= 70, `entry text has at most 70 characters per line (${measure})`);
     await shot(page, 'guide-entry');
   },
+  async guide_reload(page, context, check) {
+    await page.goto(`${NEXT}#guide`);
+    await page.locator('[data-section="Pieces"]').click();
+    await page.locator('.guide-row', { hasText: 'Maester' }).click();
+    const heading = page.getByRole('heading', { name: /Maester/ });
+    await heading.waitFor();
+    const before = await page.evaluate(async () => {
+      await document.fonts.ready;
+      scrollTo(0, document.body.scrollHeight);
+      return scrollY;
+    });
+    await page.reload();
+    await heading.waitFor();
+    const restored = await page.waitForFunction(y => Math.abs(scrollY - y) <= 2, before, { timeout: 4000 }).then(() => true, () => false);
+    check(before > 0 && restored, 'the Maester entry keeps its reading position after reload');
+  },
   async home_piece_close(page, context, check) {
-    await page.goto(NEXT); await page.locator('.home-hero button').click();
-    await page.getByRole('checkbox', { name: 'With cards', exact: true }).check();
-    const source = page.getByRole('button', { name: 'Ice Wall Rule', exact: true }); await source.click();
-    check(await page.locator('.card-rule').isVisible(), 'a card opens its rule in the panel');
-    const back = page.getByRole('button', { name: 'Back', exact: true });
-    const box = await back.boundingBox(); check(box.width >= 44 && box.height >= 44, 'Back is a 44 px target');
-    await back.click(); check(await source.evaluate(n => n === document.activeElement), 'Back returns focus to the card');
-    await source.click(); await page.keyboard.press('Escape'); check(await page.locator('dialog[open]').count() === 0, 'Escape closes the panel from a rule');
+    await page.goto(NEXT); await page.locator('.home-hero-new').click();
+    const preview = page.getByRole('button', { name: 'Cards', exact: true });
+    await preview.press('Enter');
+    const card = page.getByRole('button', { name: 'Ice Wall', exact: true });
+    await card.press('Space');
+    check(await card.getAttribute('aria-pressed') === 'false', 'Space removes the card from the pool');
+    const box = await card.boundingBox(); check(box.width >= 44 && box.height >= 44, 'The card is a 44 px target');
+    check(await card.evaluate(n => n === document.activeElement), 'The card keeps focus after a change');
+    await page.keyboard.press('Escape');
+    check(await preview.evaluate(n => n === document.activeElement), 'Escape returns focus to the Cards preview');
+    await page.goBack(); check(await page.locator('dialog[open]').count() === 0, 'Browser Back closes New game');
   },
   async menu(page, context, check, size) {
     await page.goto(NEXT); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);

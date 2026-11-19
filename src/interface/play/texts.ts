@@ -54,7 +54,7 @@ export const text = {
   yourCards: 'Your cards', cardsLeft: (n: number) => `${n} ${n === 1 ? 'card' : 'cards'} left`, unlimited: 'Unlimited', yourGames: 'Your games', showAllGames: 'Show all games',
   rematchHint: 'Select Rematch to play at the same level.', casual: 'Friendly', clever: 'Focused', club: 'Fierce', computerFailed: 'The computer cannot play. Open Menu, then Back to home.', title: 'King Down', intro: 'Chess with new pieces. Checkmate wins.', army: 'This game’s army', level: 'Computer level', play: 'Play', pieces: 'Pieces', computer: 'Computer', you: 'You', menu: 'Menu', rule: 'Rule', undo: 'Undo', replay: 'Replay', finish: 'End turn', close: 'Close',
   setup: 'Game', withPowers: 'With powers', withCards: 'With cards', withBoth: 'With powers and cards',
-  noPowers: 'No powers · No cards', powersNote: 'Each king gets a random power.', cardsNote: 'Each king gets an always-on power. Both players get the same four cards.',
+  noPowers: 'Kings have no powers. Players have no cards.', powersNote: 'Each king has one power. Players have no cards.', cardsNote: 'Both players get the same four cards. Kings have no powers.', bothNote: 'Each king has an always-on power. Both players get the same four cards.',
   ready: 'Your turn.', first: 'Your turn. · You move first', firstMinute: 'Tap a piece to see how it moves.', draft: '', notFinal: '', check: 'Check. · Your king is attacked', thinking: 'Computer is thinking…', choose: 'Choose a piece, then a marked square.', staged: 'Your move is ready. Tap End turn, or Undo to change it.', continue: 'Capture again, or select End turn.', endChain: 'Select End turn.', mustContinue: 'Capture again to keep your king safe.', noStep: 'No step to undo.', needMove: 'Complete a legal move first.', choiceFirst: 'Choose an action, or cancel.', choosePiece: 'Choose a piece to read its rule.', wait: 'The computer is choosing its action.', sent: 'This turn is final. The computer now plays.', invalid: 'Select one of your pieces first.', final: 'The game is over.', cancel: 'Cancel', take: 'Capture', push: 'Push', promote: 'Promote to', coordinates: 'Coordinates', sound: 'Sound', on: 'On', motion: 'Motion speed', normal: 'Normal', fast: 'Fast', off: 'Off', home: 'Back to home', resign: 'Resign', resignTitle: 'Resign this game?', resignCause: 'The computer wins. Your turn is final.', rematch: 'Rematch', newGame: 'New game', result: 'Game result', win: 'You win. Checkmate.', loss: 'The computer wins. Checkmate.', resigned: 'The computer wins. You resign.', stalemate: 'Draw. No legal action and no check.', draw50: 'Draw. No progress for 100 actions.', drawRepetition: 'Draw. The same position occurs three times.', drawMaterial: 'Draw. Insufficient material.', noMoves: 'This piece has no legal action.', undone: 'Last step removed.', loading: 'Loading the board.', loadFailed: 'The board cannot load. Reload the page.', last: 'Last action', steps: 'Turn steps', shortcuts: 'Arrows move the cursor. Enter selects. Escape clears.', openBoard: 'Open board', small: 'This view is too small for the board.',
   symbolsHint: 'Hard to tell the figures apart? Open Menu and choose Symbols.',
   pieceView: 'Pieces', figures: 'Figures', symbols: 'Symbols',
@@ -249,12 +249,17 @@ export const readingBText = { rivalCards: 'Computer’s cards', used: 'Used', no
 /** The shared New game panel (owner playtest decisions 88 to 93). */
 export const panelText = {
   opponent: 'Opponent', player: 'Player', options: 'Game options', pieces: 'Pieces', powers: 'With powers', cards: 'With cards',
-  allPieces: 'All pieces', pool: 'Piece pool', poolLock: 'Keep at least 7 pieces in the pool. Add a piece to unlock a box.',
+  allPieces: 'All pieces', pool: 'Piece pool', poolLock: 'Keep at least 7 pieces in the pool.',
   arrangement: 'Starting arrangement', random: 'Random', manual: 'Manual', manualLine: 'Arrange your pieces on the board before the first move.',
   yourKing: 'Your king', power: 'King power', unavailable: "With cards, this king's powers come as cards.",
   changedKing: (from: string, to: string) => `With cards, ${to} replaces ${from}. Turn cards off to restore it.`,
   cardLine: (names: readonly string[]) => names.length === 4 ? `Your 4 cards: ${names.slice(0, 3).join(', ')} and ${names[3]}.` : 'Randomized 4 cards hand.',
-  needFour: 'You must select at least 4 cards', use: (name: string) => `Use ${name}`,
+  needFour: 'You must select at least 4 cards',
+  opponentKing: 'Opponent king', randomKing: 'Random king', locked: 'Locked',
+  cardPoolLine: (names: readonly string[]) => names.length === 4
+    ? `Both players get ${names.slice(0, 3).join(', ')} and ${names[3]}.`
+    : 'Both players get the same 4 cards from this pool.',
+  cardPoolLock: 'Add a card before you remove a locked card.',
   send: 'Send link', byName: 'Invite by name', back: 'Back', closeRule: 'Back to cards', loading: 'Opening online play…', onlineFailed: 'Online play cannot load. Try again.',
 } as const;
 /** The same board step for a solo game and each online seat (owner playtest 90). */

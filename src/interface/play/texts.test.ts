@@ -159,9 +159,9 @@ it('ownership, check and result text follow a Dark player; the Light default sta
 it('the New game card line names the shown cards in pool order at four', async () => {
   const { cardSummary } = await import('./home');
   const { DEFAULT_OPTIONS } = await import('./new-game');
-  expect(cardSummary(DEFAULT_OPTIONS.cardPool)).toBe('Randomized 4 cards hand.');
-  expect(cardSummary(DEFAULT_OPTIONS.cardPool.slice(0, 5))).toBe('Randomized 4 cards hand.');
-  expect(cardSummary(['SkyLift', 'EarthQuake', 'Haste', 'IceWall'])).toBe('Your 4 cards: Ice Wall, Haste, Earth Quake and Sky Lift.');
+  expect(cardSummary(DEFAULT_OPTIONS.cardPool)).toBe('Both players get the same 4 cards from this pool.');
+  expect(cardSummary(DEFAULT_OPTIONS.cardPool.slice(0, 5))).toBe('Both players get the same 4 cards from this pool.');
+  expect(cardSummary(['SkyLift', 'EarthQuake', 'Haste', 'IceWall'])).toBe('Both players get Ice Wall, Haste, Earth Quake and Sky Lift.');
 });
 
 it('announces Versus when the kings have no powers', async () => {

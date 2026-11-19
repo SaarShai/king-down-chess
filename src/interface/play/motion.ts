@@ -37,7 +37,7 @@ export const calm = () => root.dataset.motion === 'reduce';
 
 // One running animation for each element and channel: a new one starts from the current value (implicit first keyframe).
 const running = new WeakMap<Element, Map<string, Animation>>();
-function to(el: HTMLElement, channel: string, frame: Keyframe, duration: number, easing: string, rest = false): Animation {
+function to(el: Element, channel: string, frame: Keyframe, duration: number, easing: string, rest = false): Animation {
   const map = running.get(el) ?? new Map<string, Animation>(); running.set(el, map);
   const before = map.get(channel), now = el.animate([frame], { duration, easing, fill: 'forwards' });
   map.set(channel, now);
@@ -57,7 +57,12 @@ function press(event: PointerEvent) {
   const s = S(), weight = el.dataset.kind === 'main';
   held = { el, weight, tab: el.matches('.shell-nav a') };
   if (calm()) { to(el, 'press', { filter: 'brightness(.85)' }, ms('--dur-reduced-press'), 'linear'); return; }
-  if (held.tab) { const box = el.getBoundingClientRect(); to(el, 'press', { transform: `perspective(800px) rotateX(${-(event.clientY - box.top - box.height / 2) / box.height * 18 * s}deg) rotateY(${(event.clientX - box.left - box.width / 2) / box.width * 18 * s}deg) scale(${1 - .03 * s})` }, time(110), token('--ease-out3')); const icon = el.querySelector<HTMLElement>('.kd-icon'); if (icon) to(icon, 'press', { transform: 'rotateX(-28deg) scale(1.12)' }, time(170), token('--ease-out3')); return; }
+  if (held.tab) {
+    // The icon moves. The full tab cell stays under the pointer.
+    const icon = el.querySelector<SVGSVGElement>('.kd-icon');
+    if (icon) to(icon, 'press', { transform: 'rotateX(-28deg) scale(1.12)' }, time(170), token('--ease-out3'));
+    return;
+  }
   if (weight) {
     // The finish row reserves 4 px for its press; its 44 px input target keeps its size.
     const transform = el.closest('.play-turn') ? 'translateY(4px)' : `translateY(${5 * s}px) scale(${1 + .015 * s}, ${1 - .05 * s})`;
@@ -80,10 +85,7 @@ function release() {
   const { el, light, weight, tab } = held; held = null;
   if (calm()) { to(el, 'press', { filter: 'brightness(1)' }, ms('--dur-reduced-out'), 'linear', true); light?.remove(); return; }
   if (tab) {
-    const before = running.get(el)?.get('press');
-    const lift = el.animate([{}, { transform: `scale(${1 + .04 * S()})`, offset: .5 }, { transform: 'none' }], { duration: time(440), easing: linear(E.spring(.55)) });
-    void lift.finished.then(() => before?.cancel(), () => {});
-    const icon = el.querySelector<HTMLElement>('.kd-icon');
+    const icon = el.querySelector<SVGSVGElement>('.kd-icon');
     if (icon) to(icon, 'press', { transform: 'none' }, time(460), linear(E.spring(.5)), true);
     return;
   }

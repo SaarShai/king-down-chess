@@ -17,12 +17,13 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', conte
 };
 export const homeText = {
   yourGame: 'Your game', turn: 'Turn',
+  types: { pieces: text.noPowers, powers: text.powersNote, cards: text.cardsNote, both: text.bothNote },
   startGame: 'Start game', side: 'Your side',
   // Launch decision 46: the levels stay; each line is true (runs/launch/opponent/report.md).
   levels: { casual: 'The easiest level. A good level for a first game.', clever: 'Much stronger than Friendly. It makes some mistakes.', club: 'The strongest level. Much stronger than Focused.' } as Record<Level, string>,
 } as const;
 export { typeName };
-export const cardSummary = (pool: readonly string[]) => panelText.cardLine(RELEASED_CARDS.filter(card => pool.includes(card.id)).map(card => card.name));
+export const cardSummary = (pool: readonly string[]) => panelText.cardPoolLine(RELEASED_CARDS.filter(card => pool.includes(card.id)).map(card => card.name));
 export const levelName = (level: Level) => `${text[level]} ${text.computer.toLowerCase()}`;
 /** The setup line on Play: level, game type and side choice. */
 export const summaryLine = (c: { level: Level; setup: GameType; sideChoice: SideChoice }) => `${text[c.level]} · ${typeName[c.setup]} · ${sideText[c.sideChoice === 'dark' ? 'dark' : 'light']}`;
@@ -49,6 +50,8 @@ export interface PlayData {
   offer(fallback: HTMLButtonElement): HTMLElement | null;
   onContinue(source: HTMLButtonElement): void;
   onChange(source: HTMLButtonElement): void;
+  onSignIn(source: HTMLButtonElement): void;
+  showSignIn: boolean;
   previews: Map<string, string>;
 }
 /** Show three quiet rows until the player asks for the rest. */
@@ -69,6 +72,11 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
   img.srcset = '/interface/daylight-hero-portrait-600.webp 600w, /interface/daylight-hero-portrait-1122.webp 1122w';
   img.sizes = '100vw'; img.alt = ''; img.decoding = 'async'; img.fetchPriority = 'high';
   picture.append(wide, img); hero.append(picture, brand); home.append(hero);
+  const signIn: HTMLButtonElement = button('Sign in', { kind: 'quiet', onPress: () => d.onSignIn(signIn) });
+  signIn.classList.add('home-sign-in');
+  signIn.setAttribute('aria-haspopup', 'dialog');
+  signIn.hidden = !d.showSignIn;
+  home.append(signIn);
   let x = 0, y = 0, drift: Effect | undefined;
   const driftTo = (toX: number, toY: number) => {
     if (reducedMotion()) return;
@@ -145,7 +153,7 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
     card.classList.add('home-welcome');
     const summary = button(summaryLine(d.next), { icon: 'next', onPress: () => d.onChange(summary) });
     summary.classList.add('home-summary');
-    card.append(newGame, summary, el('p', 'home-intro', text.intro)); start.append(card);
+    card.append(newGame, summary, el('p', 'home-intro', `${text.intro} ${homeText.types[d.next.setup]}`)); start.append(card);
   }
   if (rows.length) {
     rows.sort(gameOrder);
