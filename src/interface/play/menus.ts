@@ -87,7 +87,7 @@ export function youPage(s: Settings, o: { figure: () => HTMLImageElement; symbol
   const note = el('div', 'device-note'), copy = el('p'); copy.append(el('strong', '', menuText.device), ' ', el('span', '', menuText.deviceLine));
   note.append(o.figure(), copy);
   const fan = () => { const box = el('span', 'hand-sample'); box.append(o.card(0), o.card(1), o.card(2)); return box; };
-  const ribbon = () => { const box = el('span', 'ribbon-sample'); box.append(el('span', '', 'Freeze'), el('span', '', 'Flight')); return box; };
+  const ribbon = () => { const box = el('span', 'ribbon-sample'); box.append(el('span', '', 'Burn'), el('span', '', 'Leap')); return box; };
   const c = controls(s, { figure: o.figure, symbol: o.symbol, hand: fan, ribbon });
   const group = (name: string, ...rows: HTMLElement[]) => { const box = el('section', 'settings-group'), head = el('h2', 'group-title', name); box.append(head, ...rows); return box; };
   const about = group(menuText.about, ...aboutLinks().map(link => listRow({ label: link.name, href: link.href })));
