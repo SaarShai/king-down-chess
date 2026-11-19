@@ -130,7 +130,8 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
       edit({ setup: typeOfFlags(powers ? value === 'on' : hasPowers(draft.setup), powers ? hasCards(draft.setup) : value === 'on') });
       draw();
       if (!powers && value === 'on') {
-        if (hasPowers(draft.setup) && king.king !== shownKing(draft.setup, draft.options.king).king) stampKing(shownKing(draft.setup, draft.options.king).king);
+        const actual = shownKing(draft.setup, draft.options.king);
+        if (hasPowers(draft.setup) && (king.king !== actual.king || king.power !== actual.power)) stampKing(actual.king);
         dealCards();
       }
       if (powers && value === 'on') stampKing(shownKing(draft.setup, draft.options.king).king);
@@ -185,6 +186,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     if (!choice) return;
     if (closing) { sheetEffect?.finish(); return; }
     sheetEffect?.cancel(); pull = undefined;
+    if (choice === 'people' || choice === 'opponent') d.remember(null);
     closing = true; actionId++; busy = false; sound('tick');
     const done = () => {
       clearSheet(); closing = false; choice = null; cardError = ''; overlay.hidden = true; table.inert = false;
@@ -387,18 +389,17 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   };
   async function person(action: 'name' | 'link') {
     if (busy) return;
-    const previous = opponent; opponent = 'person';
     const submitted = draft, own = ++actionId, current = () => dialog.open && own === actionId;
     const redraw = () => {
       if (!current()) return;
-      opponent = previous; choice = 'opponent'; panel.dataset.choice = choice; draw(); redrawChoice(false); panelTitle.focus();
+      choice = 'opponent'; panel.dataset.choice = choice; redrawChoice(false); panelTitle.focus();
     };
     const activeSheet: PeopleSheet = { element: dialog, get isOpen() { return current(); },
       show: view => { if (current()) sheet.show(view); }, close: () => { if (current()) close(); } };
     busy = true; status.textContent = panelText.loading;
     try {
       const host = await d.people(); if (!current()) return;
-      d.remember(memory());
+      d.remember({ ...memory(), opponent: 'person' });
       const named = () => { if (!current()) return; if (!host.me()?.handle) nameSheet(activeSheet, host, redraw); else draw(); };
       if (!host.me()) { signInSheet(activeSheet, host, { kind: 'person' }, named); return; }
       if (!host.me()!.handle) { nameSheet(activeSheet, host, redraw); return; }
