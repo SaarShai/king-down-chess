@@ -23,7 +23,7 @@ export const homeText = {
   levels: { casual: 'The easiest level. A good level for a first game.', clever: 'Much stronger than Friendly. It makes some mistakes.', club: 'The strongest level. Much stronger than Focused.' } as Record<Level, string>,
 } as const;
 export { typeName };
-export const cardSummary = (pool: readonly string[]) => panelText.cardLine(RELEASED_CARDS.filter(card => pool.includes(card.id)).map(card => card.name));
+export const cardSummary = (pool: readonly string[]) => panelText.cardPoolLine(RELEASED_CARDS.filter(card => pool.includes(card.id)).map(card => card.name));
 export const levelName = (level: Level) => `${text[level]} ${text.computer.toLowerCase()}`;
 /** The setup line on Play: level, game type and side choice. */
 export const summaryLine = (c: { level: Level; setup: GameType; sideChoice: SideChoice }) => `${text[c.level]} · ${typeName[c.setup]} · ${sideText[c.sideChoice === 'dark' ? 'dark' : 'light']}`;

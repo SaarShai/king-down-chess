@@ -34,7 +34,7 @@ try {
     }, { setup, fault });
     try {
       await page.goto(new URL('/next.html', env('PLAYABLE_URL')).href);
-      await page.locator('.home-hero button[data-kind="main"]').click();
+      await page.locator('.home-hero-new').click();
       await page.getByRole('button', { name: 'Start game', exact: true }).click();
       await page.getByRole('button', { name: 'Try again', exact: true }).waitFor({ state: 'visible', timeout: 15000 });
       if (fault === 'response') assert.equal(held, true, 'the surface response stays held');
