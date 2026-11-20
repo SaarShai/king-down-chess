@@ -172,7 +172,7 @@ export default defineConfig(({ command }) => {
     rollupOptions: { output: { manualChunks(id) {
       // These shared state helpers load together on home. Keep the board and search as lazy imports.
       if (/\/src\/(?:turn|screen\/save|account\/(?:local|sync)|ai\/skill)\.ts$/.test(id)) return 'local-state';
-    } }, input: { index: fileURLToPath(new URL('./index.html', import.meta.url)), next: fileURLToPath(new URL('./next.html', import.meta.url)), ...(process.env.KINGDOWN_TEST_PAGES === '1' ? { people: fileURLToPath(new URL('./people.html', import.meta.url)), moments: fileURLToPath(new URL('./moments.html', import.meta.url)) } : {}) } } },
+    } }, input: { index: fileURLToPath(new URL('./index.html', import.meta.url)), next: fileURLToPath(new URL('./next.html', import.meta.url)), ...(process.env.KINGDOWN_TEST_PAGES === '1' ? { people: fileURLToPath(new URL('./people.html', import.meta.url)), moments: fileURLToPath(new URL('./moments.html', import.meta.url)), 'play-scenes': fileURLToPath(new URL('./play-scenes.html', import.meta.url)) } : {}) } } },
   css: { postcss: { plugins: [sharedSeatSelectors()] } },
   plugins: [{ name: 'interface-home-preload', apply: 'build', transformIndexHtml: { order: 'post', handler(_html, context) {
     if (context.path !== '/next.html' || !context.bundle) return;
