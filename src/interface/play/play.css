@@ -123,9 +123,6 @@ img { display: block; }
 @media (max-width: 400px) { .play-card { font-size: .875rem; padding-inline: 0; hyphens: none; letter-spacing: -.03em; } .play-own .play-card[aria-pressed='true'] { outline-offset: 0; } }
 @media (max-width: 359px) { .play-card { font-size: .75rem; } }
 /* Ribbon: names only, the smallest layout. */
-.play-game[data-hand='ribbon'] .play-own :is(.play-power, .play-card), .play-game[data-hand='ribbon'] .play-own :is(.play-power, .play-card)[aria-pressed='true'] { background: var(--surface-raised); color: var(--text); box-shadow: var(--raise); border: 1px solid var(--divider); border-radius: 8px; align-items: center; font-weight: 650; }
-.play-game[data-hand='ribbon'] .play-card img, .play-game[data-hand='ribbon'] .play-card::after { display: none; }
-.play-game[data-hand='ribbon'] .play-card [data-button-label] { text-shadow: none; }
 
 /* Finish row: Undo and the brass finish action. */
 .play-turn { display: flex; align-items: center; gap: 8px; padding: 4px 4px; border-top: 1px solid var(--divider); z-index: 2; background: var(--surface-page); }
@@ -228,8 +225,6 @@ img { display: block; }
 .learn-owner { color: var(--text-muted); }
 .play-check { color: var(--danger); font-weight: 600; }
 /* A used power or card keeps a legible name; the art dims, the Ribbon slot goes quiet. */
-.play-game[data-hand='ribbon'] .play-own .play-card[data-spent='true'] { color: var(--text-muted); border-style: dashed; }
-.play-game[data-hand='ribbon'] .play-own .play-power { border-radius: 22px; }
 /* After the end the play controls are inert and quiet (decision 21). */
 .play-game[data-state='result'] :is(.play-own, .play-turn) { opacity: .4; }
 

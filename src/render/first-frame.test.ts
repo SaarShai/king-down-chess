@@ -16,8 +16,8 @@ const isLegacySheet = (src: string) => /\/2d-first-pieces\/(?:king-\w+\/king|[\w
 it('the new page starts the required surface and piece images before it waits for board code', () => {
   const main = readFileSync(new URL('../interface/play/main.ts', import.meta.url), 'utf8');
   const start = main.slice(main.indexOf('async function start('), main.indexOf('try { await loadBoardCode(); }'));
-  expect(start).toContain('resumed?.draft.position ?? next.game.pos');
-  expect(start).toContain('resumed?.game.context.rules ?? next.game.context.rules');
+  expect(start).toContain('resumed?.draft.position ?? freshDraft?.game.pos ?? game.pos');
+  expect(start).toContain('resumed?.game.context.rules ?? freshDraft?.game.context.rules ?? game.context.rules');
   expect(start).toContain('new Set(position.board)');
   expect(start).toContain("link.rel = 'preload'; link.as = 'image'; link.href = href");
   expect(start).toContain('const files = [skinUrl,');

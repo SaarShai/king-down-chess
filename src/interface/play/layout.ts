@@ -35,10 +35,10 @@ export function gameLayout(W: number, H: number, _setup: Setup): GameLayout {
   const compact = H < 640;
   const opp = compact ? 48 : 60, reader = compact ? 60 : 76, own = compact ? 90 : 124, fin = compact ? 48 : 56;
   const gap = compact ? 22 : 56;
-  const board = Math.max(8, Math.min(704, H - (compact ? 32 : 112), W - gap - (compact ? 256 : 370)));
+  const board = Math.max(8, Math.min(704, H - (compact ? 16 : 112), W - gap - (compact ? 256 : 370)));
   const col = Math.min(380, W - board - gap - 32);
-  const free = W - board - gap - col, boardX = compact ? free / 2 : Math.max(16, free * .773);
-  const boardY = compact ? 24 : (H - board) / 2, actionY = boardY + board - fin;
+  const free = W - board - gap - col, boardX = Math.max(16, Math.round(free / 2));
+  const boardY = compact ? Math.max(12, Math.floor((H - board) / 2)) : (H - board) / 2, actionY = boardY + board - fin;
   const handY = actionY - (compact ? 10 : 18) - own;
   const readerY = compact ? boardY + opp + 10 : boardY + opp + 26;
   return { kind: 'rail', form: compact ? 'compact' : 'wide', W, H, board, col, gap, opp, reader, own, fin,

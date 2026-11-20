@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { minTarget, noSidewaysScroll, trapErrors, assertNoErrors } from './checks.mjs';
 
-export const newGame = page => page.locator('.home-start').getByRole('button', { name: /^(Play|New game)$/ });
+export const newGame = page => page.locator('.play-home:not(.shell-departing) :is(.home-summary, .home-side-new)');
 export const setupTable = page => page.locator('dialog.new-game-panel[open]');
 
 export async function checkDaylightSetup(browser, origin) {
@@ -56,6 +56,8 @@ export async function checkDaylightSetup(browser, origin) {
     await minTarget(page, '.setup-sheet button:not([hidden])');
     await noSidewaysScroll(page);
     await page.goBack();
+    await setup.locator('.setup-overlay').waitFor({ state: 'hidden' });
+    await page.goBack();
     await setup.waitFor({ state: 'detached' });
     await newGame(page).waitFor();
     assertNoErrors(errors);
@@ -79,12 +81,14 @@ export async function checkDaylightSave(browser, origin) {
     await setup.getByRole('button', { name: 'Start game', exact: true }).click();
     await setup.getByRole('heading', { name: 'Start a new game?' }).waitFor();
     await page.goBack();
+    await setup.locator('.setup-overlay').waitFor({ state: 'hidden' });
+    await page.goBack();
     await page.getByRole('button', { name: 'Continue', exact: true }).waitFor();
     assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.save')), save);
     await newGame(page).click();
     await setup.getByRole('button', { name: 'Start game', exact: true }).click();
     await setup.getByRole('button', { name: 'Start a new game', exact: true }).click();
     await page.waitForFunction(() => document.querySelector('.play-game') && JSON.parse(localStorage.getItem('kingdown.save'))?.moves.length === 0);
-    assert.equal(await page.locator('.shell-nav').isVisible(), false);
+    assert.equal(await page.locator('.home-topbar').isVisible(), false);
   } finally { await page.close(); }
 }

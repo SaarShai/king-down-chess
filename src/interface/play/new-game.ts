@@ -69,6 +69,7 @@ export const PANEL_KEY = 'kingdown.new-game-return';
 export interface PanelMemory {
   setup: GameType; level: Level; sideChoice: SideChoice; options: GameOptions;
   opponent: 'computer' | 'person'; section: 'pieces' | 'powers' | 'cards' | null;
+  action?: 'link' | 'name' | null;
   deal?: Pick<NewGameDraft, 'back' | 'player' | 'rules'>;
 }
 export function readPanel(value: unknown): PanelMemory | null {
@@ -85,6 +86,7 @@ export function readPanel(value: unknown): PanelMemory | null {
     && Array.isArray(hands) && hands.length === 2 && hands.every(h => Array.isArray(h) && h.length === (hasCards(v.setup) ? 4 : 0) && new Set(h).size === h.length && h.every(c => DEAL_CARDS.includes(c))) && hands[0].join() === hands[1].join();
   return { setup: v.setup, level: v.level, sideChoice: v.sideChoice === 'dark' ? 'dark' : 'light', options, opponent: v.opponent === 'person' ? 'person' : 'computer',
     section: ['pieces', 'powers', 'cards'].includes(v.section ?? '') ? v.section : null,
+    action: v.action === 'link' || v.action === 'name' ? v.action : undefined,
     ...(validDeal && v.sideChoice !== 'random' ? { deal: { back: deal.back, player: deal.player, rules: rulesOf(v.setup, kings, hands) } } : {}) };
 }
 /** Reopen the exact preview after sign-in; the card and king checks above admit only this game's content. */

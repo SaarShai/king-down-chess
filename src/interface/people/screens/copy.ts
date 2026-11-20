@@ -35,7 +35,7 @@ export const signInText = {
   noReach: 'Could not reach the sign-in service. Check your connection and try again.',
   serviceFault: 'The sign-in service has a problem. Try again later.',
   // S3: the name.
-  nameTitle: 'You play as', nameLine: 'Other players see this name and picture. You can change them in You.',
+  nameTitle: 'You play as', nameLine: 'Other players see this name and picture.',
   checkingName: 'Checking your name…',
   playAs: (name: string) => `Play as ${name}`, change: 'Change name or picture',
   nameFailed: 'Could not save your name. Check your connection and try again.',
@@ -80,7 +80,7 @@ export function againLine(name: string, result: 'won' | 'lost' | 'drawn' | null,
 export const landingText = {
   brand: 'King Down',
   title: (inviter: string) => `${inviter} invites you to a game`, titlePlain: 'A friend invites you to a game',
-  line: 'Chess with new pieces. Checkmate wins.', time: '3 days for each move', side: (white: boolean) => `You play ${white ? 'White' : 'Black'}`,
+  line: 'Chess with new pieces. Checkmate wins.', time: '3 days for each move', side: (white: boolean) => `You play ${white ? 'Light' : 'Dark'}`,
   join: 'Join the game', notNow: 'Not now',
   ended: 'This invite has ended', endedLine: (inviter: string | null) => `Invites last 7 days. ${inviter ?? 'Your friend'} can send you a new one.`,
   own: 'This is your invite', ownLine: 'Send this link to a friend. Your friend opens it to join.', again: 'Send the link again', back: 'Back to Play',

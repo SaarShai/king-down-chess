@@ -158,6 +158,16 @@ it('sign-in return migrates an incomplete old card choice to all cards', () => {
   expect(readPanel(null)).toBeNull(); expect(readPanel({ ...memory, setup: 'other' })).toBeNull();
 });
 
+it('sign-in return keeps only valid invite actions', () => {
+  const memory = { ...choices(), opponent: 'person', section: null };
+  for (const action of ['link', 'name']) {
+    expect(readPanel(JSON.parse(JSON.stringify({ ...memory, action })))?.action).toBe(action);
+  }
+  for (const action of ['retry', '', 1, {}, null, undefined]) {
+    expect(readPanel({ ...memory, action })).toMatchObject({ opponent: 'person', action: undefined });
+  }
+});
+
 it('a sign-in reload keeps the exact dealt army, seats, kings and shared cards', () => {
   const draft = createDraft(choices());
   const memory = readPanel(JSON.parse(JSON.stringify({ ...choices(), options: draft.options, opponent: 'person', section: null, cardMode: 'all', picked: [], deal: { back: draft.back, rules: draft.rules, player: draft.player } })))!;

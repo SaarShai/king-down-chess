@@ -1,4 +1,4 @@
-import { button, choiceGroup, closeX, icon, setButtonState, switchRow } from '../ui/kit.js';
+import { button, choiceGroup, closeX, icon, switchRow } from '../ui/kit.js';
 import { K, KINGS, LETTERS, type Color, type KingName, type PowerName } from '../../rules/engine';
 import { kingDisplayName } from '../../king-label';
 import { DEAL_CARDS, POOL_KINDS } from '../../match/setup';
@@ -17,7 +17,7 @@ import { at, burst, ease, later, onFrame, pulse, reducedMotion, sound, Spring, t
 import { cardLocked, changeDraft, DOUBLE_KINDS, kingChoices, onlinePanelOptions, poolLetters, poolLocked, restorePanel, selectCard, selectPiece, shownKing, type GameOptions, type NewGameDraft, type PanelMemory } from './new-game';
 import { hasCards, hasPowers, typeName, typeOfFlags, type GameType } from './saved';
 import { sideText } from './sides';
-import { kingLabel, panelText, pieces, text } from './texts';
+import { cardLine, kingLabel, panelText, pieces, text } from './texts';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', content = '') => {
   const node = document.createElement(tag); node.className = className; node.textContent = content; return node;
@@ -33,6 +33,10 @@ const portrait = (level: NewGameDraft['level']) => {
 export interface PanelData {
   next: NewGameDraft;
   memory?: PanelMemory | null;
+  opponent?: PanelMemory['opponent'];
+  backLabel?: string;
+  /** Set only after a successful sign-in return. */
+  resumeInviteAction?: boolean;
   people(): Promise<PersonHost>;
   remember(value: PanelMemory | null): void;
   replacement(): string;
@@ -48,28 +52,47 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   heading.id = 'new-game-title'; heading.tabIndex = -1;
   dialog.setAttribute('aria-labelledby', heading.id);
   const head = el('header', 'setup-head'), body = el('div', 'setup-body'), foot = el('footer', 'setup-foot');
-  const desk = el('div', 'setup-match'), controls = el('div', 'setup-controls');
+  const mode = el('div', 'setup-mode'), desk = el('div', 'setup-match'), controls = el('div', 'setup-controls');
   const match = el('div', 'setup-figures'), features = el('div', 'setup-features'), links = el('div', 'setup-links');
   const swap = el('p', 'king-change'); swap.setAttribute('role', 'status');
   const start = button(homeText.startGame, { kind: 'main', onPress: () => {
-    if (opponent === 'person') { openChoice('opponent', start); return; }
+    if (closing) return;
     const next = d.replacement();
     if (!next) void begin(next);
     else { replacement = next; openChoice('confirm', start); }
   } });
   const saved = d.memory;
-  let draft = saved ? restorePanel(saved) : d.next, opponent = saved?.opponent ?? 'computer';
+  let draft = saved ? restorePanel(saved) : d.next, opponent = d.opponent ?? saved?.opponent ?? 'computer';
+  let resumeAction = d.resumeInviteAction && saved?.opponent === 'person' ? saved.action : undefined;
   let choice: Choice | null = null, replacement = '', signingIn = false;
   let opener: HTMLElement | null = null, choiceSource = '', starting = false, busy = false, actionId = 0;
   let sheetEffect: Effect | undefined, sheetOffset = 0, closing = false;
   let pull: { id: number; y: number } | undefined;
   let poolOpen = !!saved && saved.section === 'pieces';
   const setOptions = (change: Partial<GameOptions>) => edit({ options: { ...draft.options, ...change } });
-  const edit = (change: Parameters<typeof changeDraft>[1]) => { draft = changeDraft(draft, change); };
+  const edit = (change: Parameters<typeof changeDraft>[1]) => {
+    cancelPerson();
+    draft = changeDraft(draft, change);
+  };
+  const friendFoot = el('div', 'setup-friend-foot'), status = el('p', 'panel-status');
+  status.setAttribute('role', 'status');
+  const send = keyed(button('Send invite link', { kind: 'main', onPress: () => void person('link') }), 'invite-link');
+  const byName = keyed(button(panelText.byName, { kind: 'quiet', onPress: () => void person('name') }), 'invite-name');
+  friendFoot.append(status, send, byName);
 
-  head.append(button('Back to Play', { icon: 'back', iconOnly: true, onPress: () => close() }), heading, summary);
-  desk.append(match, swap); controls.append(features, links); body.append(desk, controls);
+  const modes = choiceGroup(panelText.opponent, [{ value: 'computer', label: text.computer }, { value: 'person', label: 'Friend' }], opponent);
+  modes.querySelector('legend')!.classList.add('kd-sr');
+  modes.addEventListener('kd-change', event => {
+    const { value } = (event as CustomEvent<{ value: typeof opponent }>).detail;
+    if (value === opponent) return;
+    cancelPerson(); opponent = value; draw();
+  });
+  mode.append(modes);
+
+  head.append(button(d.backLabel ?? 'Back to Home', { icon: 'back', iconOnly: true, onPress: () => close() }), heading, summary);
+  desk.append(match, swap); controls.append(features, links); body.append(mode, desk, controls);
   foot.append(start); table.append(head, body, foot);
+  foot.append(friendFoot);
 
   const overlay = el('div', 'setup-overlay'), panel = el('section', 'setup-sheet');
   const panelHead = el('header', 'panel-head'), panelTitle = el('h2'), panelBody = el('div', 'panel-body');
@@ -77,8 +100,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   panel.setAttribute('aria-labelledby', panelTitle.id);
   const back = button(panelText.back, { icon: 'back', iconOnly: true });
   panelHead.append(back, panelTitle, closeX(text.close, closeChoice)); panel.append(panelHead, panelBody); overlay.append(panel);
-  overlay.hidden = true; dialog.append(table, overlay);
-  const status = el('p', 'panel-status'); status.setAttribute('role', 'status');
+  overlay.hidden = true; table.append(overlay); dialog.append(table);
   const level = levelPill(draft.level, value => homeText.levels[value], value => { edit({ level: value }); draw(); });
   controls.prepend(level);
 
@@ -90,29 +112,33 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   }
 
   function seat(side: Color, own: boolean) {
+    const friend = !own && opponent === 'person';
     const king = own || opponent === 'computer' && draft.options.opponentKing
       ? draft.game.context.rules.kings[own ? draft.player : draft.player ^ 1] : null;
     const name = own ? panelText.yourKing : panelText.opponent;
-    const node = openControl(name, own ? 'king' : 'opponent', 'setup-seat');
+    const node = friend ? el('div', 'setup-seat setup-seat-static') : openControl(name, own ? 'king' : 'opponent', 'setup-seat');
     const figure = art.figure(K, side, { kings: [null, null] }); figure.alt = '';
     if (king) figure.src = `/ui/kings/${king.king.toLowerCase()}${side ? '-b' : ''}.webp`;
     else if (!own) figure.src = `/ui/pieces/king-shadow-${side ? 'b' : 'w'}.webp`;
     const stage = el('span', 'setup-figure'); stage.append(figure);
     const copy = el('span', 'setup-seat-copy'), power = el('span', 'setup-seat-power');
     if (king) power.append(emblem(king.king));
-    power.append(king ? POWER_NAME[king.power] : hasPowers(draft.setup) && !own ? '' : 'No power');
+    power.append(king ? POWER_NAME[king.power] : friend || hasPowers(draft.setup) && !own ? '' : 'No power');
     const caption = el('span', 'setup-seat-edit');
     if (!own && opponent === 'computer') caption.append(portrait(draft.level));
-    caption.append(own ? name : opponent === 'computer' ? text.computer : panelText.player);
-    const title = !king && !own && hasPowers(draft.setup) ? panelText.randomKing : kingLabel(king?.king, side);
+    caption.append(own ? name : friend ? 'A friend' : text.computer);
+    const title = !king && !own && hasPowers(draft.setup) ? (friend ? 'Friend chooses' : panelText.randomKing) : kingLabel(king?.king, side);
     const kingName = el('strong', '', title);
     kingName.id = own ? 'setup-own-king' : 'setup-opponent-king';
     power.id = own ? 'setup-own-power' : 'setup-opponent-power';
     copy.append(kingName, power, caption);
     node.append(stage, copy);
-    node.querySelector('[data-button-label]')!.classList.add('kd-sr');
-    node.setAttribute('aria-label', name);
-    node.setAttribute('aria-describedby', `${kingName.id} ${power.id}`);
+    if (!friend) {
+      caption.append(icon('next'));
+      node.querySelector('[data-button-label]')!.classList.add('kd-sr');
+      node.setAttribute('aria-label', name);
+      node.setAttribute('aria-describedby', `${kingName.id} ${power.id}`);
+    }
     return node;
   }
   function choiceValues(label: string, values: { value: string; label: string }[], value: string, change: (value: string) => void) {
@@ -161,9 +187,9 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   }
   function draw() {
     const focus = (document.activeElement as HTMLElement | null)?.dataset.focus;
-    const mine = opponent === 'person' ? 0 : draft.player;
+    const friend = opponent === 'person', mine = friend ? 0 : draft.player;
     const king = shownKing(draft.setup, draft.options.king), preferred = draft.options.king;
-    summary.textContent = [opponent === 'computer' ? text[draft.level] : panelText.player, typeName[draft.setup]].join(' · ');
+    summary.textContent = friend ? typeName[draft.setup] : `${text[draft.level]} · ${typeName[draft.setup]}`;
     match.replaceChildren(seat(mine, true), el('span', 'setup-vs', 'VS'), seat((mine ^ 1) as Color, false));
     const forced = hasPowers(draft.setup) && hasCards(draft.setup) && preferred && (preferred.king !== king.king || preferred.power !== king.power);
     swap.textContent = forced ? panelText.changedKing(`${kingDisplayName(preferred.king)} · ${POWER_NAME[preferred.power]}`, `${kingDisplayName(king.king)} · ${POWER_NAME[king.power]}`) : '';
@@ -171,19 +197,25 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
       swap.id = 'setup-king-change';
       match.firstElementChild!.setAttribute('aria-describedby', `setup-own-king setup-own-power ${swap.id}`);
     }
-    level.hidden = opponent === 'person';
+    level.hidden = start.hidden = friend;
+    friendFoot.hidden = !friend;
     features.replaceChildren(feature('powers', hasPowers(draft.setup)), feature('cards', hasCards(draft.setup)));
     links.replaceChildren(openControl('More options', 'more'));
-    setButtonState(start, { label: opponent === 'computer' ? homeText.startGame : 'Choose how to invite' });
     if (focus) table.querySelector<HTMLElement>(`[data-focus="${CSS.escape(focus)}"]`)?.focus({ preventScroll: true });
   }
 
-  const choiceTitles: Record<Choice, string> = { king: panelText.yourKing, opponent: panelText.opponent, cards: 'Cards', more: 'More options', confirm: text.newTitle, people: panelText.player };
+  const choiceTitles = { king: panelText.yourKing, opponent: panelText.opponentKing, cards: 'Cards', more: 'More options', confirm: text.newTitle };
   function openChoice(next: Choice, source: HTMLElement) {
+    cancelPerson();
     choiceSource = source.dataset.focus ?? '';
+    showChoice(next); redrawChoice(false); panelTitle.focus();
+  }
+  function showChoice(next: Choice) {
+    const opening = choice !== next;
     choice = next; overlay.hidden = false; head.inert = body.inert = true;
+    friendFoot.inert = true;
     panel.dataset.choice = next; dialog.setAttribute('aria-labelledby', panelTitle.id);
-    redrawChoice(false); panelTitle.focus();
+    if (!opening) return;
     sheetEffect?.cancel();
     sound('pass'); pulse('light');
     if (reducedMotion()) return;
@@ -207,11 +239,11 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     if (!choice) return;
     if (closing) { sheetEffect?.finish(); return; }
     sheetEffect?.cancel(); pull = undefined;
-    if (choice === 'people' || choice === 'opponent') d.remember(null);
-    signingIn = false;
-    closing = true; actionId++; busy = false; sound('tick');
+    if (choice === 'people') d.remember(null);
+    cancelPerson(); closing = true; sound('tick');
     const done = () => {
       clearSheet(); closing = false; choice = null; overlay.hidden = true; head.inert = body.inert = false;
+      friendFoot.inert = false;
       dialog.setAttribute('aria-labelledby', heading.id);
       (table.querySelector<HTMLElement>(`[data-focus="${choiceSource}"]`) ?? start).focus({ preventScroll: true });
     };
@@ -236,30 +268,15 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     if (from) sheetEffect = tween(160, k => sheetFrame(from * (1 - k)), { done: clearSheet });
   });
   function redrawChoice(restore = true) {
-    if (!choice) return;
+    if (!choice || choice === 'people') return;
     const focus = (document.activeElement as HTMLElement | null)?.dataset.focus, scroll = panelBody.scrollTop;
-    panelTitle.textContent = choiceTitles[choice]; back.hidden = true; back.onclick = null; status.textContent = '';
-    const content = choice === 'king' ? kings() : choice === 'opponent' ? opponents() : choice === 'cards' ? cards() : choice === 'more' ? more() : confirmation();
+    panelTitle.textContent = choiceTitles[choice]; back.hidden = true; back.onclick = null;
+    const content = choice === 'king' ? kings() : choice === 'opponent' ? kings(false) : choice === 'cards' ? cards() : choice === 'more' ? more() : confirmation();
     panelBody.replaceChildren(content);
     panelBody.scrollTop = restore ? scroll : 0;
     if (restore && focus) panelBody.querySelector<HTMLElement>(`[data-focus="${CSS.escape(focus)}"]`)?.focus({ preventScroll: true });
   }
   const update = () => { draw(); redrawChoice(); };
-
-  function opponents() {
-    const box = el('div', 'panel-section');
-    const computer = keyed(button(text.computer, { onPress: () => { opponent = 'computer'; draw(); closeChoice(); } }), 'computer');
-    computer.classList.add('opponent-computer');
-    computer.setAttribute('aria-pressed', String(opponent === 'computer'));
-    computer.prepend(portrait(draft.level));
-    const invite = el('div', 'person-choices');
-    invite.append(el('h3', '', 'Play a person'), button(panelText.byName, { icon: 'next', onPress: () => void person('name') }),
-      button(panelText.send, { icon: 'next', onPress: () => void person('link') }));
-    box.append(computer);
-    if (opponent === 'computer') box.append(kings(false));
-    box.append(invite, status);
-    return box;
-  }
 
   function kings(own = true) {
     const box = el('div', 'panel-section'), grid = el('div', 'king-grid');
@@ -353,7 +370,12 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
       tile.classList.add('panel-card');
       tile.setAttribute('aria-pressed', String(selected));
       tile.setAttribute('aria-label', card.name);
+      const rule = el('span', 'panel-card-rule', cardLine(card.id));
+      rule.id = `card-rule-${card.id}`;
+      const described = [tile.getAttribute('aria-describedby'), rule.id].filter(Boolean).join(' ');
+      tile.setAttribute('aria-describedby', described);
       tile.prepend(art.card(i));
+      tile.append(rule);
       grid.append(tile);
     }
     box.append(grid); return box;
@@ -417,25 +439,21 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
 
   const memory = (): PanelMemory => ({ setup: draft.setup, level: draft.level, sideChoice: draft.sideChoice, options: draft.options, opponent,
     section: poolOpen ? 'pieces' : null, deal: { back: draft.back, player: draft.player, rules: draft.rules } });
-  // The existing sign-in and name views use the same panel and history entry.
-  const sheet: PeopleSheet = {
-    element: dialog, get isOpen() { return dialog.open; }, close: () => close(),
-    show(view) {
-      choice = 'people'; panel.dataset.choice = choice;
-      panelTitle.textContent = view.title; panelBody.replaceChildren(...view.body);
-      back.hidden = false; back.onclick = view.back ?? closeChoice; panelBody.scrollTop = 0; panelTitle.focus();
-    },
-  };
+  function cancelPerson() {
+    actionId++; busy = signingIn = false; status.textContent = '';
+  }
   async function person(action: 'name' | 'link') {
     if (busy) return;
-    const submitted = draft, own = ++actionId, current = () => dialog.open && own === actionId;
-    const redraw = () => {
-      if (!current()) return;
-      actionId++; busy = false; // Back ends the pending action: a late reply must not act
-      choice = 'opponent'; panel.dataset.choice = choice; redrawChoice(false); panelTitle.focus();
-    };
-    const activeSheet: PeopleSheet = { element: dialog, get isOpen() { return current(); },
-      show: view => { if (current()) sheet.show(view); },
+    const submitted = draft, pending = memory(), own = ++actionId, current = () => dialog.open && own === actionId;
+    choiceSource = (action === 'name' ? byName : send).dataset.focus!;
+    const sheet: PeopleSheet = { element: dialog, get isOpen() { return current(); },
+      show(view) {
+        if (!current()) return;
+        status.textContent = '';
+        showChoice('people');
+        panelTitle.textContent = view.title; panelBody.replaceChildren(...view.body);
+        back.hidden = false; back.onclick = view.back ?? closeChoice; panelBody.scrollTop = 0; panelTitle.focus();
+      },
       close() {
         if (!current()) return;
         if (signingIn) closeChoice(); else close();
@@ -443,23 +461,28 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     busy = true; status.textContent = panelText.loading;
     try {
       const host = await d.people(); if (!current()) return;
-      d.remember({ ...memory(), opponent: 'person' });
-      if (!host.me()) {
-        signingIn = true;
-        signInSheet(activeSheet, host, { kind: 'person' }, () => {
-          if (!current()) return;
-          signingIn = false;
-          if (!host.me()?.handle) nameSheet(activeSheet, host, redraw); else redraw();
-        });
-        return;
-      }
-      if (!host.me()!.handle) { nameSheet(activeSheet, host, redraw); return; }
       const invited = () => { if (!current()) throw new ObsoleteAction(); d.onInvite(submitted); };
       const scoped = { ...host, toast: (message: string) => { if (current()) host.toast(message); },
         createLink: async (rules: GameType) => { const link = await host.createLink(rules, onlinePanelOptions(submitted.options)); invited(); return link; },
         invite: async (handle: string, rules: GameType) => { await host.invite(handle, rules, onlinePanelOptions(submitted.options)); invited(); } };
-      if (action === 'name') nameSearch(activeSheet, scoped, submitted.setup, redraw);
-      else await sendPersonLink(activeSheet, scoped, submitted.setup, redraw);
+      const proceed = () => {
+        if (!current()) return;
+        if (action === 'name') nameSearch(sheet, scoped, submitted.setup, closeChoice);
+        else void sendPersonLink(sheet, scoped, submitted.setup, closeChoice);
+      };
+      const named = () => {
+        if (!current()) return;
+        const me = host.me();
+        if (!me) return;
+        d.remember(pending);
+        signingIn = false;
+        if (me.handle) proceed(); else nameSheet(sheet, host, proceed);
+      };
+      if (host.me()) named();
+      else {
+        d.remember({ ...pending, opponent: 'person', action });
+        signingIn = true; signInSheet(sheet, host, { kind: 'person' }, named);
+      }
     } catch { if (current()) status.textContent = panelText.onlineFailed; }
     finally { if (current()) busy = false; }
   }
@@ -476,9 +499,12 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   dialog.addEventListener('cancel', event => { event.preventDefault(); if (choice) closeChoice(); else close(); });
   overlay.addEventListener('click', event => { if (event.target === overlay) closeChoice(); });
   async function begin(accepted: string) {
-    if (starting || closing || busy || !dialog.open) return; // busy: the person path loads; Start must not make a computer game
+    if (starting || closing || !dialog.open) return;
     starting = true;
-    const swallow = (event: Event) => { if ((event.target as Element).closest('.play-game')) return; event.preventDefault(); event.stopPropagation(); };
+    const swallow = (event: Event) => {
+      if ((event.target as Element).closest('.play-game, dialog[open]')) return;
+      event.preventDefault(); event.stopPropagation();
+    };
     document.addEventListener('click', swallow, true); setTimeout(() => document.removeEventListener('click', swallow, true), ms('--dur-sheet-in') + 300);
     try { shut(); await d.onStart(draft, accepted); } finally { starting = false; }
   }
@@ -486,11 +512,16 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     element: dialog,
     open(source) {
       opener = source; draw(); dialog.showModal(); heading.focus();
-      if (saved?.opponent === 'person') openChoice('opponent', table.querySelector<HTMLElement>('[data-focus="opponent"]')!);
+      if (resumeAction === 'link' || resumeAction === 'name') {
+        const action = resumeAction;
+        resumeAction = undefined;
+        d.remember(memory());
+        void person(action);
+      }
     },
     close: () => close(false),
     back() {
-      if (!signingIn) return false;
+      if (!choice) return false;
       closeChoice();
       return true;
     },

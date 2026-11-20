@@ -149,9 +149,6 @@
 .play-game[data-hand='hand'] .play-own .play-card[aria-pressed='true'] { transform: translateY(-5px); }
 .play-game .play-own .play-card[aria-pressed='true'] { z-index: 3; transform: translateY(-5px); outline: 3px solid var(--selection-line); outline-offset: 1px; background: var(--surface-raised); color: var(--text); box-shadow: var(--card-edge); }
 /* Ribbon keeps the same row and states, with flat paper controls and no art. */
-.play-game[data-hand='ribbon'] .play-own .play-card { transform: none; margin-inline: 2px; grid-template-rows: 1fr 18px; background: var(--surface-raised); box-shadow: var(--raise); border: 1px solid var(--divider); }
-.play-game[data-hand='ribbon'] .play-own .play-card img { display: none; }
-.play-game[data-hand='ribbon'] .play-own .play-power { border: 0; background: transparent; box-shadow: none; }
 @media (prefers-reduced-motion: reduce) { .play-game .play-own .play-card { transition: none; } }
 
 
@@ -169,17 +166,10 @@
 .play-game[data-tight='true'][data-reading='result'] .play-result-actions .kd-button { flex: 1 1 0; min-width: 0; min-height: 44px; padding-inline: 4px; font-size: 14px; }
 /* Decision 127: a compact rail result keeps the top line; it takes the idle hand and finish rows below the scroll. */
 .play-game[data-layout='wide'][data-form='compact'][data-reading='result'] .play-reader { height: calc(var(--reader) + var(--own) + var(--fin)); background: var(--surface-page); }
-/* The Menu and the full rule take the opponent strip on a rail too, as in the stack (reading decision 21); the state line goes. */
+/* The full rule takes the opponent strip on a rail as well as in the stack. */
 .play-game[data-layout='wide'][data-borrow='true'] .play-opp { display: none; }
 .play-game[data-layout='wide'][data-borrow='true'] .play-reader { top: var(--rail-top); height: calc(var(--reader) + var(--opp)); }
-.play-game[data-borrow='true']:is([data-reading='menu'], [data-reading='rule']) .play-state-line { display: none; }
-
-@media (max-height: 499px) { .play-game[data-layout='wide'][data-reading='menu'] .play-reader { height: var(--rail-h); } }
-
-/* A tall phone with insets keeps all five Menu rows in view. The board stays fixed. */
-@media (min-width: 375px) and (min-height: 800px) {
-  .play-game[data-layout='portrait'][data-reading='menu'] .play-reader { min-height: 340px; z-index: 3; }
-}
+.play-game[data-borrow='true'][data-reading='rule'] .play-state-line { display: none; }
 /* Five short choices need two rows, including Cancel, on a compact phone. */
 .play-game .play-b[data-form='compact'] .play-choices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; width: 100%; }
 .play-game .play-b[data-form='compact'] .play-choices .kd-button { min-width: 0; padding-inline: 4px; font-size: 14px; }
@@ -283,7 +273,7 @@
 :root[data-motion='off'] .play-ink-wipe { animation: none; }
 .play-portrait-idle { object-fit: contain; }
 
-.play-game[data-layout][data-reading] .play-reader[data-floating='true'] :is(.menu-head, .learn-top, .play-head, .play-bhead) { position: sticky; top: 0; z-index: 2; background: var(--surface-raised); }
+.play-game[data-layout][data-reading] .play-reader[data-floating='true'] :is(.learn-top, .play-head, .play-bhead) { position: sticky; top: 0; z-index: 2; background: var(--surface-raised); }
 
 
 /* Online notices and their actions use the text section. The board stays fixed. */
@@ -322,21 +312,18 @@
 /* Daylight fixes all vertical positions before the turn state is read. */
 .play-game[data-layout] { background: var(--paper-tint, none) var(--surface-page); }
 .play-game[data-layout] .play-opp { top: var(--rail-top); height: var(--opp); border: 0; }
-.play-game[data-layout] .play-reader:not([data-floating='true']) { top: var(--reader-y); height: var(--reader); padding: 0; }
+.play-game[data-layout]:not([data-reading='result']) .play-reader:not([data-floating='true']) { top: var(--reader-y); height: auto; min-height: var(--reader); max-height: calc(var(--hand-y) - var(--reader-y) - 8px); padding: 0; }
 .play-game[data-layout] .play-own { top: var(--hand-y); height: var(--own); display: flex; padding: 0; }
 .play-game[data-layout] .play-turn { top: var(--action-y); bottom: auto; height: var(--fin); padding: 0; gap: 8px; }
 .play-game[data-layout] .play-board { outline: 1px solid var(--ink, var(--text)); border-radius: 4px; box-shadow: var(--shadow, var(--raise)); }
 .play-game [data-file]::after, .play-game [data-rank]::before { font-size: 12px; }
-.play-game[data-layout='portrait'] .play-history-strip { display: none; }
-.play-game[data-layout='wide'] .play-history-strip { top: calc(var(--reader-y) + var(--reader) + 12px); height: 70px; }
-.play-game[data-layout='wide'][data-form='compact'] .play-history-strip {
-  left: var(--board-x); top: 0; width: var(--board); height: 24px; padding: 0;
-}
+.play-game[data-layout='portrait'] .play-history-strip, .play-game[data-layout='wide'][data-form='compact'] .play-history-strip { display: none; }
+.play-game[data-layout='wide'] .play-history-strip { top: calc(var(--reader-y) + var(--reader) + 32px); height: 70px; }
+.play-game[data-layout='wide'][data-form='wide'] .play-reader:not([data-floating='true']):not(:has(.play-result)) { max-height: calc(var(--reader) + 28px); }
 .play-game .play-history-strip::before, .play-game .play-history-strip::after { display: none; }
 .play-game .play-history-toggle.kd-button { background: transparent; border: 0; box-shadow: none; justify-content: flex-start; padding-inline: 0; color: var(--soft, var(--text-muted)); }
 .play-history-compact { display: none; }
 .play-game[data-form='compact'] .play-history-toggle.kd-button { display: none; }
-.play-game[data-layout='wide'][data-form='compact'] .play-history-compact { display: flex; min-width: 0; gap: 8px; font: 400 12px/24px var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); }
 .play-game .play-history-toggle svg { display: none; }
 .play-game[data-layout] .play-reader:not([data-floating='true']):has(.play-b, .online-status) {
   height: max(var(--reader), calc(var(--hand-y) - var(--reader-y) + 30px)); z-index: 2;
@@ -357,11 +344,12 @@
   top: calc(var(--reader-y) + var(--reader) + 36px);
 }
 
-.play-narrator { display: flex; align-items: center; gap: 6px; min-height: 52px; color: var(--ink, var(--text)); }
+.play-narrator { display: flex; align-items: flex-start; gap: 6px; min-height: 52px; color: var(--ink, var(--text)); }
 .play-narr-copy { min-width: 0; flex: 1; }
 .play-game .play-narrator h2 { font: 700 17px/1.15 var(--sans, var(--font-reading)); margin: 0 0 2px; letter-spacing: normal; }
 .play-game[data-form='wide'] .play-narrator h2 { font-size: 20px; }
-.play-game .play-narrator p { font: 400 15px/1.1 var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); margin: 0; }
+.play-game .play-narrator p { font: 400 15px/1.22 var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); margin: 0; }
+.play-game[data-reading='normal'][data-form] .play-detail:has(.play-narrator) { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .play-game .play-narrator .play-notice { color: var(--danger); }
 .play-narr-tools { display: flex; align-items: center; flex: none; }
 .play-game .play-narr-tools .kd-button { min-width: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; box-shadow: none; }
@@ -410,6 +398,11 @@
 
 .play-game .play-turn .kd-button { height: 100%; border: 1px solid var(--line, var(--divider)); border-radius: 999px; }
 .play-game[data-form] .play-turn .kd-button:first-child { min-width: var(--fin); width: var(--fin); padding: 0; }
+.play-game[data-form] .play-turn .kd-button[data-mode='replay'] { width: auto; padding-inline: 12px; gap: 6px; }
+@media (max-width: 370px) {
+  .play-game[data-form] .play-turn .kd-button[data-mode='replay'] { width: var(--fin); padding-inline: 0; }
+  .play-replay-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+}
 .play-game .play-turn .kd-button[aria-disabled='true'], .play-game .play-turn [data-turn-state='wait'] { border-style: solid; background: var(--raised, var(--surface-raised)); color: var(--soft, var(--text-muted)); opacity: 1; }
 .play-game .play-turn [data-turn-state='ready'] { position: relative; overflow: hidden; background: var(--main-fill); }
 .play-turn [data-turn-state='ready']::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(105deg, transparent 32%, white 51%, transparent 68%) var(--sheen-x, 0%) 0 / 240% 100%; opacity: var(--sheen-opacity, 0); }

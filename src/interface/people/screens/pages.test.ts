@@ -240,7 +240,7 @@ it('The link landing: signed out, Join signs in, takes the name and joins; an en
   const ended = await open('landing-ended-known');
   try {
     await expect.poll(() => ended.locator('.people-landing h2').textContent()).toBe('jo-m invites you to a game');
-    expect(await ended.locator('.people-fact').allTextContents()).toEqual(['Pieces', '3 days for each move', 'You play Black']);
+    expect(await ended.locator('.people-fact').allTextContents()).toEqual(['Pieces', '3 days for each move', 'You play Dark']);
     await ended.getByRole('button', { name: 'Join the game' }).click();
     await expect.poll(() => ended.locator('.people-landing h2').textContent()).toBe('This invite has ended');
     expect(await ended.locator('.people-landing h2').evaluate(e => e === document.activeElement)).toBe(true);

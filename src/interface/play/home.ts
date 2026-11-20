@@ -49,9 +49,14 @@ export interface PlayData {
   onDismissInvite?(id: string): void;
   offer(fallback: HTMLButtonElement): HTMLElement | null;
   onContinue(source: HTMLButtonElement): void;
+  onPlay(source: HTMLButtonElement): void;
   onChange(source: HTMLButtonElement): void;
+  onFriend(source: HTMLButtonElement): void;
+  onGuide(source: HTMLButtonElement): void;
+  onSettings(source: HTMLButtonElement): void;
   onSignIn(source: HTMLButtonElement): void;
   showSignIn: boolean;
+  account?: { signedIn: boolean; name?: string; avatar?: string | null };
   previews: Map<string, string>;
 }
 /** Show three quiet rows until the player asks for the rest. */
@@ -71,12 +76,24 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
   img.src = '/interface/daylight-hero-portrait-600.webp';
   img.srcset = '/interface/daylight-hero-portrait-600.webp 600w, /interface/daylight-hero-portrait-1122.webp 1122w';
   img.sizes = '100vw'; img.alt = ''; img.decoding = 'async'; img.fetchPriority = 'high';
-  picture.append(wide, img); hero.append(picture, brand); home.append(hero);
+  picture.append(wide, img); hero.append(picture, brand);
+  const topbar = el('nav', 'home-topbar'), end = el('div', 'home-topbar-end');
+  topbar.setAttribute('aria-label', 'Utilities');
+  const guideBtn = button('Guide', { icon: 'learn', onPress: () => d.onGuide(guideBtn) });
+  guideBtn.classList.add('home-top-btn', 'home-guide-btn');
   const signIn: HTMLButtonElement = button('Sign in', { kind: 'quiet', onPress: () => d.onSignIn(signIn) });
-  signIn.classList.add('home-sign-in');
+  signIn.classList.add('home-top-btn', 'home-sign-in');
   signIn.setAttribute('aria-haspopup', 'dialog');
   signIn.hidden = !d.showSignIn;
-  home.append(signIn);
+  const settingsBtn = button('Account & settings', { onPress: () => d.onSettings(settingsBtn) });
+  settingsBtn.classList.add('home-top-btn', 'home-settings-btn');
+  settingsBtn.setAttribute('aria-label', 'Account and settings');
+  settingsBtn.setAttribute('aria-haspopup', 'dialog');
+  const sliders = icon('more');
+  sliders.removeAttribute('data-icon');
+  sliders.querySelector('path')!.setAttribute('d', 'M4 7h5m4 0h7M11 4v6M4 17h9m4 0h3M15 14v6');
+  settingsBtn.replaceChildren(d.account?.signedIn ? profilePortrait(d.account.name ?? 'Player', d.account.avatar ?? null) : sliders);
+  end.append(signIn, settingsBtn); topbar.append(guideBtn, end); home.append(topbar, hero);
   let x = 0, y = 0, drift: Effect | undefined;
   const driftTo = (toX: number, toY: number) => {
     if (reducedMotion()) return;
@@ -121,8 +138,11 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
     rows.push({ mine: invite.kind === 'incoming', deadline: null, state: invite.kind === 'incoming' ? 'setup' : 'finished', row });
   }
   const card = el('article', 'home-card');
-  const newGame = button(hasGame ? text.newGame : text.play, { kind: hasGame ? 'quiet' : 'main', onPress: () => d.onChange(newGame) });
+  const newGame = button(hasGame ? text.newGame : text.play, { kind: hasGame ? 'quiet' : 'main', onPress: () => hasGame ? d.onChange(newGame) : d.onPlay(newGame) });
   newGame.classList.add(hasGame ? 'home-side-new' : 'home-hero-new');
+  const friendBtn = button('Play a friend', { kind: 'quiet', icon: 'next', onPress: () => d.onFriend(friendBtn) });
+  friendBtn.classList.add('home-friend-btn');
+  friendBtn.setAttribute('aria-haspopup', 'dialog');
   let main = newGame;
   if (d.resume || primary) {
     const local = d.resume, preview = local ? savedPreview(local.draft, local.player) : primary!.preview!;
@@ -153,7 +173,8 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
     card.classList.add('home-welcome');
     const summary = button(summaryLine(d.next), { icon: 'next', onPress: () => d.onChange(summary) });
     summary.classList.add('home-summary');
-    card.append(newGame, summary, el('p', 'home-intro', `${text.intro} ${homeText.types[d.next.setup]}`)); start.append(card);
+    summary.setAttribute('aria-haspopup', 'dialog');
+    card.append(newGame, summary, friendBtn, el('p', 'home-intro', text.intro)); start.append(card);
   }
   if (rows.length) {
     rows.sort(gameOrder);
@@ -165,6 +186,7 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
         const li = el('li'); li.hidden = i >= shown; li.append(row); return li;
       }));
     };
+    if (d.resume && rows.some(row => row.mine)) start.append(el('p', 'group-title', 'Waiting on you'));
     draw(); start.append(list);
     if (rows.length > 3 && !state.expanded) {
       const all = button(text.showAllGames, { icon: 'down', onPress: () => {
@@ -173,7 +195,11 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
       all.classList.add('all-games'); all.setAttribute('aria-controls', list.id); start.append(all);
     }
   }
-  if (main !== newGame) start.append(newGame);
+  if (hasGame) {
+    const secondary = el('div', 'home-secondary-actions');
+    newGame.setAttribute('aria-haspopup', 'dialog');
+    secondary.append(newGame, friendBtn); start.append(secondary);
+  }
   if (d.status) start.append(el('p', 'home-note', d.status));
   const offer = d.offer(main); if (offer) start.append(offer);
   home.dataset.state = main === newGame ? 'new' : 'saved';
