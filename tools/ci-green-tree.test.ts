@@ -94,5 +94,5 @@ it('requires the latest result of every planned runner before it records the tre
   expect(jobsMatchPlan(jobs, 'full', names)).toBe(true);
   expect(jobsMatchPlan(jobs.slice(0, -1), 'full', names)).toBe(false);
   expect(jobsMatchPlan([...jobs, { ...jobs[3], id: 8, conclusion: 'cancelled' }], 'full', names)).toBe(false);
-  expect(jobsMatchPlan([jobs[0], jobs[1], { ...jobs[2], name: 'checks /', conclusion: 'skipped' }], 'docs', [])).toBe(true);
+  expect(jobsMatchPlan([jobs[0], jobs[1], { ...jobs[2], name: 'checks / ${{ matrix.name }}', conclusion: 'skipped' }], 'docs', [])).toBe(true);
 });

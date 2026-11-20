@@ -26,6 +26,9 @@ function api(endpoint, flags = []) {
     { encoding: 'utf8', timeout: 30_000, maxBuffer: 8 * 1024 * 1024 }));
 }
 
+// GitHub can publish the unevaluated display name when it skips a whole matrix.
+export const isSkippedMatrix = name => ['checks', 'checks /', 'checks / ${{ matrix.name }}'].includes(name?.trim());
+
 export function jobsMatchPlan(jobs, mode, names) {
   const expected = new Map([['reuse', 'success'], ['verify', mode === 'reuse' ? 'skipped' : 'success']]);
   if (mode === 'docs' || mode === 'reuse') expected.set('checks', 'skipped');
@@ -33,7 +36,7 @@ export function jobsMatchPlan(jobs, mode, names) {
   const latest = new Map();
   for (const job of jobs) {
     if (job.name === 'record-tree') continue;
-    const name = ['checks', 'checks /'].includes(job.name.trim()) ? 'checks' : job.name;
+    const name = isSkippedMatrix(job.name) ? 'checks' : job.name;
     if (!latest.has(name) || latest.get(name).id < job.id) latest.set(name, job);
   }
   return latest.size === expected.size && [...expected].every(([name, conclusion]) => {

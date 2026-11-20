@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { setTimeout } from 'node:timers/promises';
+import { isSkippedMatrix } from './ci-green-tree.mjs';
 import { riskyPaths } from './lib/ci-paths.mjs';
 
 export const repo = 'SaarShai/king-down-chess';
@@ -47,12 +48,11 @@ export function ciPasses(pages, head) {
   // Check every suite on its own. The new workflow ends at record-tree. Older runs use their original job shapes.
   let ready = checks.length > 0;
   for (const suite of Map.groupBy(checks, check => check.check_suite?.id).values()) {
-    const isMatrix = check => check.name?.startsWith('checks / ') && check.name.trim() !== 'checks /';
-    const isSkippedMatrix = check => ['checks', 'checks /'].includes(check.name?.trim());
+    const isMatrix = check => check.name?.startsWith('checks / ') && !isSkippedMatrix(check.name);
     const records = suite.filter(check => check.name === 'record-tree');
-    if (records.length || suite.some(check => isMatrix(check) || isSkippedMatrix(check))) {
+    if (records.length || suite.some(check => isMatrix(check) || isSkippedMatrix(check.name))) {
       require(suite.every(check => check.status !== 'completed' || check.conclusion === 'success' ||
-        (check.conclusion === 'skipped' && (check.name === 'verify' || isSkippedMatrix(check)))), 'CI check does not pass');
+        (check.conclusion === 'skipped' && (check.name === 'verify' || isSkippedMatrix(check.name)))), 'CI check does not pass');
       if (!records.length || suite.some(check => check.status !== 'completed')) {
         ready = false;
         continue;
@@ -60,7 +60,7 @@ export function ciPasses(pages, head) {
       const plan = suite.filter(check => check.name === 'reuse' && check.conclusion === 'success');
       const verify = suite.filter(check => check.name === 'verify');
       const matrix = suite.filter(isMatrix);
-      const skippedMatrix = suite.filter(check => isSkippedMatrix(check) && check.conclusion === 'skipped');
+      const skippedMatrix = suite.filter(check => isSkippedMatrix(check.name) && check.conclusion === 'skipped');
       require(records.length === 1 && plan.length === 1 && verify.length === 1 &&
         suite.length === 3 + matrix.length + skippedMatrix.length &&
         (matrix.length > 0 ? skippedMatrix.length === 0 && verify[0].conclusion === 'success' : skippedMatrix.length === 1),

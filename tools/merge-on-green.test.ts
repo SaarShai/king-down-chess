@@ -464,9 +464,9 @@ it('waits for a short run when GitHub has only announced the verify skip', async
 
 it.each(['success', 'skipped'])('accepts a sealed short run when verify is %s', async conclusion => {
   const f = fixture();
-  const checks = ['reuse', 'verify', 'checks', 'record-tree'].map((name, id) => ({
+  const checks = ['reuse', 'verify', 'checks / ${{ matrix.name }}', 'record-tree'].map((name, id) => ({
     id, name, head_sha: head, status: 'completed',
-    conclusion: name === 'verify' ? conclusion : name === 'checks' ? 'skipped' : 'success',
+    conclusion: name === 'verify' ? conclusion : name.startsWith('checks /') ? 'skipped' : 'success',
   }));
   f.checks.splice(0, f.checks.length, ...checks);
   await expect(f.run()).resolves.toBe('merged');
