@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, it } from 'vitest';
+import pr405 from './pr-405-ci.fixture.json';
 
 const head = 'a'.repeat(40);
 const stages = ['ci', 'staging', 'staging-checks', 'merge', 'main-ci', 'engines', 'publish', 'live-check', 'log'];
@@ -17,8 +18,8 @@ const run = (command: string, args: string[], settings: NodeJS.ProcessEnv = {}) 
   });
 };
 
-function release(args: string[] = [], fail?: string) {
-  const result = run('bash', ['tools/release/release.sh', '--dry-run', ...args, '1499', head, 'dry-run fixture'], { KINGDOWN_RELEASE_FAIL_STAGE: fail });
+function release(args: string[] = [], fail?: string, note = 'dry-run fixture') {
+  const result = run('bash', ['tools/release/release.sh', '--dry-run', ...args, '1499', head, note], { KINGDOWN_RELEASE_FAIL_STAGE: fail });
   const progress = result.stdout.match(/^release: progress (.+)$/m)?.[1];
   return {
     code: result.status,
@@ -46,6 +47,53 @@ it('lists every release stage, stops on failure, then starts at the requested st
   expect(release(['--tweak']).started).toEqual(stages.filter(stage => !stage.startsWith('staging')));
 });
 
+it('passes a green pull-request run for release CI and requires an exact run for main CI', () => {
+  const bin = join(folder, 'pr-ci-bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'gh'), `#!/bin/sh
+case "$*" in
+  *"/check-runs?per_page=100") printf '%s\\n' '${JSON.stringify(pr405.pages)}' ;;
+  *"/status") printf '%s\\n' '${JSON.stringify(pr405.status)}' ;;
+  *"/actions/workflows/"*) printf '%s\\n' '${JSON.stringify(pr405.runs)}' ;;
+  *) exit 2 ;;
+esac
+`, { mode: 0o755 });
+  const sha = pr405.status.sha;
+  const wait = (mode: string[] = []) => run('bash', ['tools/release/ci-wait.sh', sha, '0', ...mode],
+    { PATH: bin + ':' + process.env.PATH });
+  const production = wait();
+  expect(production.status, production.stdout + production.stderr).toBe(1);
+
+  const plan = release();
+  const plannedWait = plan.output.split('\n').find(line => line.includes(`ci-wait.sh ${head}`));
+  expect(plannedWait).toBeDefined();
+  const pullRequest = wait(plannedWait?.endsWith(' --pr-head') ? ['--pr-head'] : []);
+  expect(pullRequest.status, pullRequest.stdout + pullRequest.stderr).toBe(0);
+  expect(plan.output).toMatch(new RegExp(`ci-pr-green\\.mjs'? ${head}`));
+  expect(plan.output).toContain('--retry-failed');
+});
+
+it('checks for a reconcile note before any CI wait when main has moved', () => {
+  const plan = release([], undefined, '  ').output;
+  const comparison = `compare/main...${head}`;
+  const preflight = plan.indexOf(comparison);
+  expect(preflight, plan).toBeGreaterThan(-1);
+  expect(preflight).toBeLessThan(plan.indexOf('release: ci start'));
+  expect(release().output).not.toContain(comparison);
+  expect(release(['--from', 'main-ci', '--force'], undefined, '').output).not.toContain(comparison);
+
+  const result = run('bash', ['-c', `
+source "$0" --dry-run --from log --force 1502 "$1" >/dev/null
+gh() { jq "$4" <<< "$COMPARE"; }
+outward() { "$@"; }
+require_reconciled_base
+`, 'tools/release/release.sh', head], {
+    COMPARE: JSON.stringify({ base_commit: { sha: 'b'.repeat(40) }, merge_base_commit: { sha: 'c'.repeat(40) } }),
+  });
+  expect(result.status).not.toBe(0);
+  expect(result.stderr).toContain('give a reconcile note');
+});
+
 it('requires a pass for each earlier stage unless --force is set', () => {
   expect(release([], 'staging').code).toBe(1);
 
@@ -66,6 +114,13 @@ it('plans one release-log entry for a failed stage', () => {
   const entries = stopped.output.split('\n').filter(line => line.includes('| PR #1499 |'));
   expect(entries).toHaveLength(1);
   expect(entries[0]).toMatch(new RegExp(`^- \\d{4}-\\d{2}-\\d{2}T[0-9:]+Z \\| PR #1499 \\| commit ${head} \\| ci failed \\(1\\)$`));
+});
+
+it('records CI as skipped when a forced restart bypasses failed CI', () => {
+  expect(release([], 'ci').code).toBe(1);
+  const forced = release(['--from', 'merge', '--force']);
+  expect(forced.code, forced.output).toBe(0);
+  expect(forced.output).toContain('| CI skipped |');
 });
 
 it('records the deploy receipt and fails publish when its commit differs', () => {

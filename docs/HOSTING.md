@@ -43,8 +43,11 @@ Set `KINGDOWN_REVIEW=lead-read` for the lead's review. The merge helper receives
 ci → staging → staging-checks → merge → main-ci → engines → publish → live-check → log
 ```
 
-- The CI gate checks the exact PR head. The staging helper deploys that commit
-  to [staging](https://kingdown-staging.vercel.app). Two signed-out checks run there.
+- The CI gate uses the merge helper's check rule for the PR head. Staging checks
+  the same head again and deploys it to [staging](https://kingdown-staging.vercel.app).
+  Two signed-out checks run there.
+- If the PR needs a merge and main has moved past the PR's merge base, give a
+  reconcile note. The command checks for the note before it starts the stages.
 - The main gate checks the PR's merge commit. It can rerun failed jobs once for that
   commit. A failed gate stops the release before publication. The release command sends no Git push.
 - The engines check reads the games in use. The publish step uses `live.sh publish`.
@@ -54,6 +57,7 @@ ci → staging → staging-checks → merge → main-ci → engines → publish 
   code. Each stage has a log in the same folder. Use `--from <stage>` with the same PR
   and head to continue after a fault. The command records each skip and requires a
   pass for each earlier stage. Use `--force` to start without those passes.
+  If the forced restart skips PR CI, the release record shows `CI skipped`.
   Start with `--from main-ci` if the merge commit has no recorded green result.
   Confirm the deployment before you restart after a publish fault.
   Use `--tweak` to skip both staging stages.
@@ -66,8 +70,8 @@ ci → staging → staging-checks → merge → main-ci → engines → publish 
   to use a different path. A pass records the merge commit, published commit,
   deployments and check results. A failure records the time, PR, commit and failed stage.
 - `release-staging` and `release-live` each use their own packages.
-  `python3 tools/release/staging.py [ref]` waits for CI. With `--ci-passed` it
-  checks CI once on the exact commit and stops unless CI is green.
+  `python3 tools/release/staging.py [ref]` waits for CI on the exact commit.
+  Use `--pr-head` to use the PR check rule. Use `--ci-passed` to check once.
   The build names `next.html` for the solo-launch home. The alias check compares
   `/` with that file, `/play/` with `index.html`, and the worker with `sw.js`.
 - For direct use, `tools/release/merge.sh <pr> <head> <reviewed head> [note]`

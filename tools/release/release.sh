@@ -74,16 +74,20 @@ require_release_pr() {
     [ "$(pr_view --json "$fields" --jq "$filter")" = "$head" ] || { echo 'release: the PR must be open at this head and target main'; return 1; }
   fi
 }
+require_reconciled_base() {
+  outward gh api "repos/$repository/compare/main...$head?per_page=1" --jq \
+    'if .base_commit.sha and .base_commit.sha == .merge_base_commit.sha then empty else error("release: the base moved since the review; give a reconcile note") end'
+}
 wait_head() {
   require_release_pr
-  outward bash "$tools/release/ci-wait.sh" "$head"
+  outward bash "$tools/release/ci-wait.sh" "$head" '' --pr-head
 }
 merge_release() {
   require_release_pr
   outward bash "$tools/release/merge.sh" "$pr" "$head" "$head" "$note"
 }
 staging_deploy() {
-  local cmd=(python3 "$tools/release/staging.py" --ci-passed "$head")
+  local cmd=(python3 "$tools/release/staging.py" --ci-passed --pr-head "$head")
   if [ "$(result ci)" != pass ]; then wait_head; fi
   if [ "$dry" = yes ]; then
     "${cmd[@]}" --dry-run
@@ -172,8 +176,9 @@ write_failure() {
   append_release_log "- $(date -u +%FT%TZ) | PR #$pr | commit $commit | $stage failed ($1)${published:+ | published commit $published}"
 }
 write_log() {
-  local commit='unrecorded' published deployed='unrecorded' staged='skipped' site='skipped' history='skipped'
+  local commit='unrecorded' published deployed='unrecorded' staged='skipped' site='skipped' history='skipped' ci='skipped'
   [ ! -f "$run/main-commit" ] || IFS= read -r commit < "$run/main-commit"
+  if [ "$force" = no ] || [ "$from" = ci ]; then ci=$(result ci); fi
   published=$(published_commit)
   if [ "$tweak" = no ]; then
     staged=unrecorded
@@ -187,7 +192,7 @@ write_log() {
     deployed=$(awk '/^deploy: step / {publish=($0 == "deploy: step publish")} publish && match($0, /https:\/\/[a-zA-Z0-9.-]+\.vercel\.app/) {d=substr($0,RSTART,RLENGTH)} END {print d ? d : "unrecorded"}' "$run/publish.log")
   fi
   append_release_log "$(printf -- '- %s | PR #%s | commit %s | published commit %s | staging %s | deploy %s | CI %s | staging alias %s | staging site %s | staging history %s | main CI %s | engines %s | publish %s | live site %s' \
-    "$(date -u +%FT%TZ)" "$pr" "$commit" "${published:-unrecorded}" "$staged" "$deployed" "$(result ci)" "$(result staging)" "$site" "$history" "$(result main-ci)" "$(result engines)" "$(result publish)" "$(check_result live-check release-site)")"
+    "$(date -u +%FT%TZ)" "$pr" "$commit" "${published:-unrecorded}" "$staged" "$deployed" "$ci" "$(result staging)" "$site" "$history" "$(result main-ci)" "$(result engines)" "$(result publish)" "$(check_result live-check release-site)")"
 }
 result() {
   awk -v name="$1" '
@@ -212,6 +217,10 @@ run_stage() {
 
 say "progress $progress"
 say "PR $pr $head from $from (tweak=$tweak, dry-run=$dry)"
+case "$from" in
+  ci|staging|staging-checks|merge)
+    if ! [[ "$note" =~ [^[:space:]] ]]; then require_reconciled_base; fi ;;
+esac
 started=no
 for name in "${stages[@]}"; do
   [ "$name" != "$from" ] || started=yes

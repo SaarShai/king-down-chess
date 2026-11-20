@@ -2,13 +2,18 @@
 # Wait for CI on a full commit. A main release can rerun failed jobs once.
 set -u
 repo=$(cd "$(dirname "$0")/../.." && pwd -P)
-sha=${1:?full sha}; minutes=${2:-45}; retry=${3:-}
-[[ "$sha" =~ ^[0-9a-f]{40}$ && "$minutes" =~ ^(0|[1-9][0-9]*)$ && ("$retry" = '' || "$retry" = --retry-failed) ]] || exit 2
+sha=${1:?full sha}; minutes=${2:-45}; mode=${3:-}
+[[ "$sha" =~ ^[0-9a-f]{40}$ && "$minutes" =~ ^(0|[1-9][0-9]*)$ ]] || exit 2
+case "$mode" in
+  ''|--retry-failed) gate="$repo/tools/ci-green.mjs" ;;
+  --pr-head) gate="$repo/tools/release/ci-pr-green.mjs" ;;
+  *) exit 2 ;;
+esac
 
 wait_ci() {
   local i rc
   for ((i = 0; i <= minutes; i++)); do
-    node "$repo/tools/ci-green.mjs" "$sha"; rc=$?
+    node "$gate" "$sha"; rc=$?
     [ "$rc" -eq 1 ] || [ "$rc" -eq 3 ] || return "$rc"
     [ "$i" -ge "$minutes" ] || sleep 60
   done
@@ -16,7 +21,7 @@ wait_ci() {
 }
 
 wait_ci; rc=$?
-[ "$rc" -eq 2 ] && [ "$retry" = --retry-failed ] || exit "$rc"
+[ "$rc" -eq 2 ] && [ "$mode" = --retry-failed ] || exit "$rc"
 
 # A failed check can finish while other jobs are active. Let the run finish first.
 github=SaarShai/king-down-chess
