@@ -7,8 +7,10 @@ root=$(cd "$(dirname "$0")/.." && pwd -P)
 cd "$root"
 PATH="$root/node_modules/.bin:$PATH"
 # The package.json "typecheck" commands, one per line; tools/machine-lease.test.ts checks that they match.
+if [ "${KINGDOWN_TEST_NO_TYPECHECK:-}" != 1 ]; then
 tsc --noEmit
 tsc --noEmit -p tsconfig.tools.json
+fi
 vitest run "$@"
 node_tests=()
 while IFS= read -r file; do

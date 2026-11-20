@@ -51,16 +51,19 @@ const argv = process.argv.slice(2);
 if (argv.some(a => a === '-h' || a === '--help')) { say(usage()); process.exit(0); }
 const gpuOnly = argv.includes('--gpu'), noGpu = argv.includes('--no-gpu');
 const args = argv.filter(a => a !== '--gpu' && a !== '--no-gpu');
+const shard = process.env.KINGDOWN_CI_BROWSER_CHECKS;
 if ((gpuOnly || noGpu) && (args.length || gpuOnly && noGpu)) { console.error(`check: --gpu and --no-gpu take no name, and only one of them\n\n${usage()}`); process.exit(2); }
-const unknown = args.filter(a => !checks.some(c => c.name === a));
+if (shard && (!noGpu || args.length)) { console.error('check: a CI shard requires --no-gpu'); process.exit(2); }
+const names = shard ? shard.split(' ') : args;
+const unknown = names.filter(a => !checks.some(c => c.name === a));
 if (unknown.length) {
   console.error(`check: unknown name: ${unknown.join(', ')}. Known names: ${checks.map(c => c.name).join(', ')}\n\n${usage()}`);
   process.exit(2);
 }
 const defaults = checks.filter(c => !c.byName);
 const left = noGpu ? defaults.filter(c => c.gpu) : [];
-const selected = args.length ? [...new Set(args)].map(a => checks.find(c => c.name === a)) : defaults.filter(c => gpuOnly ? c.gpu : !left.includes(c));
-if (left.length) say(`check: --no-gpu: left out ${left.map(c => c.name).join(', ')} (run them with --gpu on a machine with a GPU)`);
+const selected = names.length ? [...new Set(names)].map(a => checks.find(c => c.name === a)).filter(c => !noGpu || !c.gpu) : defaults.filter(c => gpuOnly ? c.gpu : !left.includes(c));
+if (left.length && !shard) say(`check: --no-gpu: left out ${left.map(c => c.name).join(', ')} (run them with --gpu on a machine with a GPU)`);
 
 // 2. The output root: never inside the checkout.
 if (isInside(root, outRoot)) {

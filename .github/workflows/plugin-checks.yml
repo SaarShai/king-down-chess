@@ -3,13 +3,17 @@ name: Validate game and private plugin
 on:
   pull_request:
   push:
-    # staging/first-game too: the staging deploy needs CI on the exact commit it publishes.
+    # The staging deploy needs CI on the exact commit it publishes.
     branches: [main, staging/first-game]
   workflow_dispatch:
+    inputs:
+      base:
+        description: Full base commit SHA for a change-plan check
+        type: string
+        required: false
 
 permissions:
   contents: read
-  # The reuse job reads this workflow's past runs.
   actions: read
 
 concurrency:
@@ -17,40 +21,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # One green run per tree. A release branch cut from a green staging head, and main after that release merges, carry
-  # the tree that CI already passed; every other job skips when a successful push run of this workflow checked the same
-  # tree. Push runs only: a pull_request run checks out the merge of the PR head and its base, but the API names the PR
-  # head, whose tree CI did not test. tools/merge-on-green.mjs accepts the skipped shape (REUSE_SHAPE there).
   reuse:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      green: ${{ steps.find.outputs.green }}
+      mode: ${{ steps.plan.outputs.mode }}
+      matrix: ${{ steps.plan.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-      - id: find
+          fetch-depth: ${{ github.event_name == 'workflow_dispatch' && !inputs.base && 1 || 0 }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - id: plan
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          tree=$(git rev-parse 'HEAD^{tree}')
-          for sha in $(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/plugin-checks.yml/runs?status=success&event=push&per_page=100" --jq '.workflow_runs[].head_sha'); do
-            if [ "$(git rev-parse --verify --quiet "$sha^{tree}" || true)" = "$tree" ]; then
-              echo "tree $tree already passed at commit $sha; the other jobs skip"
-              echo "green=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          done
-          echo "tree $tree has no green run yet"
+          CI_BASE: ${{ github.event.pull_request.base.sha || github.event.before || inputs.base }}
+        run: node tools/ci-plan.mjs workflow
 
   verify:
     runs-on: ubuntu-latest
     needs: reuse
-    if: needs.reuse.outputs.green != 'true'
-    # The full npm test takes about 15 minutes on the runner, twice main's (Saar, 2026-10-18: "Raise CI limits"). The board
-    # files run in browser-board.
-    timeout-minutes: 30
+    if: needs.reuse.outputs.mode != 'reuse'
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:17
@@ -68,425 +62,131 @@ jobs:
       PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v5
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - if: needs.reuse.outputs.mode == 'docs'
+        run: npm run test:docs
+      - if: needs.reuse.outputs.mode != 'docs'
+        run: |
+          npm run plugin:db:init-test
+          npm run plugin:build
+          npm run plugin:server:check
+          npm run plugin:smoke
+          npm run plugin:check:protocol
+          npm run build:vercel
+          npm run check:vercel
+
+  checks:
+    name: checks / ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    needs: reuse
+    if: contains(fromJSON('["full","selected"]'), needs.reuse.outputs.mode)
+    timeout-minutes: 42
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.reuse.outputs.matrix) }}
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: kingdown_test
+          POSTGRES_PASSWORD: local_test_only
+          POSTGRES_DB: kingdown_plugin_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
+      PLAYABLE_BROWSER: ${{ matrix.browser }}
+      PLAYABLE_CPU_CANVAS: ${{ matrix.browser == 'webkit' && '1' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - if: matrix.python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - run: python3 -m pip install Pillow==12.3.0
-      - uses: actions/setup-node@v4
+      - if: matrix.python
+        uses: actions/cache@v4
         with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run plugin:db:init-test
-      # Regional mirrors can keep sending data too slowly for APT's idle timeout.
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ runner.arch }}-3.13-Pillow-12.3.0
+      - if: matrix.python
+        run: python3 -m pip install Pillow==12.3.0
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ matrix.browser }}-${{ hashFiles('package-lock.json') }}
+      # Regional mirrors can take longer than APT's idle timeout.
       - run: |
           printf 'https://archive.ubuntu.com/ubuntu/\tpriority:2\nhttps://security.ubuntu.com/ubuntu/\tpriority:3\n' | sudo tee /etc/apt/apt-mirrors.txt
           echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps "$PLAYABLE_BROWSER"
         timeout-minutes: 10
-      - run: npm test
-        env:
-          KINGDOWN_TEST_SKIP: 'tools/plugin-board{,-input,-drafts}.test.ts'
-      - run: npm run plugin:build
-      - run: npm run plugin:server:check
-      - run: npm run plugin:smoke
-      - run: npm run plugin:check:protocol
-      - run: npm run build:vercel
-      - run: npm run check:vercel
-
-  # The Chromium board tests, one file to a runner. With the three files side by side in verify, they took twice the time
-  # of the one file on main, every other test file ran about 1.5 times slower, and npm test grew from 15 to 23 minutes
-  # (ticket 77, round 9).
-  browser-board:
-    runs-on: ubuntu-latest
-    needs: reuse
-    if: needs.reuse.outputs.green != 'true'
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        file: [board, board-input, board-drafts]
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: kingdown_test
-          POSTGRES_PASSWORD: local_test_only
-          POSTGRES_DB: kingdown_plugin_test
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
       - run: npm run plugin:db:init-test
-      - run: |
-          printf 'https://archive.ubuntu.com/ubuntu/\tpriority:2\nhttps://security.ubuntu.com/ubuntu/\tpriority:3\n' | sudo tee /etc/apt/apt-mirrors.txt
-          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
-          npx playwright install --with-deps chromium
-        timeout-minutes: 10
-      - run: npm test
+      - if: matrix.browser == 'webkit'
+        name: Start WebKit sampler
+        run: |
+          mkdir -p /tmp/kingdown-check-runs
+          nproc
+          free -m
+          nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log >/dev/null 2>&1 &
+      - if: matrix.tests != ''
+        run: npm test
+        timeout-minutes: 20
         env:
-          KINGDOWN_TEST_FILE: tools/plugin-${{ matrix.file }}.test.ts
-
-  # The ChatGPT plugin checks on Chromium: the consent page, the widget with fixtures and the widget over compiled HTTP.
-  # plugin-ui also checks screens the web game shares: the card detail sheet, Android hit sizes, the shell and the tablet
-  # power choice (tools/plugin-ui-check.mjs).
-  browser-ui:
-    runs-on: ubuntu-latest
-    needs: reuse
-    if: needs.reuse.outputs.green != 'true'
-    # The checks run one at a time with their limits times 2 on CI ((240 + 480 + 480) s x 2 = 40 min), plus 10 min of
-    # install and 4 of setup.
-    timeout-minutes: 55
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: kingdown_test
-          POSTGRES_PASSWORD: local_test_only
-          POSTGRES_DB: kingdown_plugin_test
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run plugin:db:init-test
-      - run: |
-          printf 'https://archive.ubuntu.com/ubuntu/\tpriority:2\nhttps://security.ubuntu.com/ubuntu/\tpriority:3\n' | sudo tee /etc/apt/apt-mirrors.txt
-          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
-          npx playwright install --with-deps chromium
-        timeout-minutes: 10
-      - run: npm run check:browser plugin-oauth plugin-ui plugin-ui-http
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ui-check-logs
-          path: /tmp/kingdown-check-runs/
-          retention-days: 7
-
-  # The web journeys on Chromium.
-  browser-web:
-    runs-on: ubuntu-latest
-    needs: reuse
-    if: needs.reuse.outputs.green != 'true'
-    # The Chromium checks run with the step limits times 2 on CI (tools/lib/checks.mjs STEP).
-    timeout-minutes: 30
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: kingdown_test
-          POSTGRES_PASSWORD: local_test_only
-          POSTGRES_DB: kingdown_plugin_test
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run plugin:db:init-test
-      - run: |
-          printf 'https://archive.ubuntu.com/ubuntu/\tpriority:2\nhttps://security.ubuntu.com/ubuntu/\tpriority:3\n' | sudo tee /etc/apt/apt-mirrors.txt
-          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
-          npx playwright install --with-deps chromium
-        timeout-minutes: 10
-      - run: npm run check:browser web-online signin-speed web-game
-        env:
-          PLAYABLE_BROWSER: chromium
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-check-logs
-          path: /tmp/kingdown-check-runs/
-          retention-days: 7
-
-  # Every default browser check (tools/lib/registry.mjs, the entries not "by name only"), with no names: a new default
-  # check runs here with no change to this file. The runner has no GPU, so --no-gpu leaves out the checks that assert
-  # frame times (gpu in the registry); tools/deploy.sh always runs those. tools/deploy.sh runs the same set only when CI did not pass on the
-  # commit; it looks for the exact step line below, so keep that step without names.
-  browser-default:
-    runs-on: ubuntu-latest
-    needs: reuse
-    if: needs.reuse.outputs.green != 'true'
-    # The first run took 19 min 40 s: 17 min for all 20 checks (two of them now run only with a GPU) and the install.
-    timeout-minutes: 40
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: kingdown_test
-          POSTGRES_PASSWORD: local_test_only
-          POSTGRES_DB: kingdown_plugin_test
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run plugin:db:init-test
-      - run: |
-          printf 'https://archive.ubuntu.com/ubuntu/\tpriority:2\nhttps://security.ubuntu.com/ubuntu/\tpriority:3\n' | sudo tee /etc/apt/apt-mirrors.txt
-          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
-          npx playwright install --with-deps chromium
-        timeout-minutes: 10
+          KINGDOWN_TEST_FILE: ${{ matrix.tests }}
+          KINGDOWN_TEST_NO_TYPECHECK: '1'
+      # deploy.sh looks for this command to confirm that CI covers the non-GPU defaults.
       - run: npm run check:browser -- --no-gpu
-        env:
-          PLAYABLE_BROWSER: chromium
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: default-check-logs
-          path: /tmp/kingdown-check-runs/
-          retention-days: 7
-
-  # The WebKit tests and the WebKit journeys run in three jobs: in one job the browser install, 13-16 minutes of tests and
-  # 18-19 minutes of plugin-ui left too little time, and a 9-minute install cancelled web-online (run 39908178007). On a
-  # slower runner the board tests alone passed the 20-minute step limit (run 39918579892), so they run in two jobs. Vitest
-  # runs one file's tests in order, one file to a worker: the second job's 101 tests in one file passed the step limit on
-  # a runner 2.5 times slower than usual (run 39923681818), so they are two files that run side by side.
-  browser-webkit:
-    runs-on: ubuntu-latest
-    needs: reuse
-    if: needs.reuse.outputs.green != 'true'
-    # WebKit runs here with the step limits times 3 (tools/lib/checks.mjs STEP).
-    timeout-minutes: 45
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: kingdown_test
-          POSTGRES_PASSWORD: local_test_only
-          POSTGRES_DB: kingdown_plugin_test
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      PLAYABLE_BROWSER: webkit
-      # No GPU here: WebKit's accelerated 2D canvas runs on software GL and took about 2.5 of the 4 CPUs (ticket 77, item 27).
-      PLAYABLE_CPU_CANVAS: '1'
-      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run plugin:db:init-test
-      - run: |
-          printf 'https://archive.ubuntu.com/ubuntu/\tpriority:2\nhttps://security.ubuntu.com/ubuntu/\tpriority:3\n' | sudo tee /etc/apt/apt-mirrors.txt
-          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
-          npx playwright install --with-deps webkit
-        timeout-minutes: 10
-      - name: Start WebKit sampler
-        run: |
-          mkdir -p /tmp/kingdown-check-runs
-          nproc
-          free -m
-          nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log >/dev/null 2>&1 &
-      # A step limit under the job limit, so a hung step still leaves time for the kernel log and the sampler upload below
-      # (the job limit cancels the whole job).
-      - run: npm test
-        timeout-minutes: 20
-        env:
-          KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size,preview-size}.test.ts'
-      - name: Save kernel log
-        if: failure() || cancelled()
-        run: sudo dmesg -T | tail -n 400 > /tmp/kingdown-check-runs/dmesg.txt || true
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: webkit-sampler
-          path: /tmp/kingdown-check-runs/webkit-sampler.log
-          retention-days: 7
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: webkit-check-logs
-          path: /tmp/kingdown-check-runs/
-          retention-days: 7
-
-  browser-webkit-board:
-    runs-on: ubuntu-latest
-    needs: reuse
-    if: needs.reuse.outputs.green != 'true'
-    # WebKit runs here with the step limits times 3 (tools/lib/checks.mjs STEP).
-    timeout-minutes: 45
-    # One board file to a runner. A CI WebKit page uses about 300% CPU; with both files side by side on one 4-CPU runner
-    # each page got about 175%, and the tests ran a median 4.6 times slower than one file alone (ticket 77, round 9).
-    strategy:
-      fail-fast: false
-      matrix:
-        file: [input, drafts]
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: kingdown_test
-          POSTGRES_PASSWORD: local_test_only
-          POSTGRES_DB: kingdown_plugin_test
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      PLAYABLE_BROWSER: webkit
-      # No GPU here: WebKit's accelerated 2D canvas runs on software GL and took about 2.5 of the 4 CPUs (ticket 77, item 27).
-      PLAYABLE_CPU_CANVAS: '1'
-      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run plugin:db:init-test
-      - run: |
-          printf 'https://archive.ubuntu.com/ubuntu/\tpriority:2\nhttps://security.ubuntu.com/ubuntu/\tpriority:3\n' | sudo tee /etc/apt/apt-mirrors.txt
-          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
-          npx playwright install --with-deps webkit
-        timeout-minutes: 10
-      - name: Start WebKit sampler
-        run: |
-          mkdir -p /tmp/kingdown-check-runs
-          nproc
-          free -m
-          nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log >/dev/null 2>&1 &
-      # A step limit under the job limit, so a hung step still leaves time for the kernel log and the sampler upload below
-      # (the job limit cancels the whole job).
-      - run: npm test
-        timeout-minutes: 20
-        env:
-          KINGDOWN_TEST_FILE: tools/plugin-board-${{ matrix.file }}.test.ts
-      - name: Save kernel log
-        if: failure() || cancelled()
-        run: sudo dmesg -T | tail -n 400 > /tmp/kingdown-check-runs/dmesg.txt || true
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: webkit-board-sampler-${{ matrix.file }}
-          path: /tmp/kingdown-check-runs/webkit-sampler.log
-          retention-days: 7
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: webkit-board-check-logs-${{ matrix.file }}
-          path: /tmp/kingdown-check-runs/
-          retention-days: 7
-
-  browser-webkit-ui:
-    runs-on: ubuntu-latest
-    needs: reuse
-    if: needs.reuse.outputs.green != 'true'
-    # The plugin widget and the web journey in WebKit, with the step limits times 3 (tools/lib/checks.mjs STEP).
-    timeout-minutes: 55
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: kingdown_test
-          POSTGRES_PASSWORD: local_test_only
-          POSTGRES_DB: kingdown_plugin_test
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      PLAYABLE_BROWSER: webkit
-      # No GPU here: WebKit's accelerated 2D canvas runs on software GL and took about 2.5 of the 4 CPUs (ticket 77, item 27).
-      PLAYABLE_CPU_CANVAS: '1'
-      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run plugin:db:init-test
-      - run: |
-          printf 'https://archive.ubuntu.com/ubuntu/\tpriority:2\nhttps://security.ubuntu.com/ubuntu/\tpriority:3\n' | sudo tee /etc/apt/apt-mirrors.txt
-          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
-          npx playwright install --with-deps webkit
-        timeout-minutes: 10
-      - name: Start WebKit sampler
-        run: |
-          mkdir -p /tmp/kingdown-check-runs
-          nproc
-          free -m
-          nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log >/dev/null 2>&1 &
-      # Step limits under the job limit, as in browser-webkit. Plugin UI passing runs take 19-21 minutes; the plugin-ui
-      # step limit stays above its 1440 s check limit (480 s x 3).
-      - run: npm run check:browser plugin-ui
-        env:
-          # The browser's own output goes to the check log, so a WebKit crash or memory kill names its reason
-          # (chatgpt-mvp ticket 53: run 39230893586 crashed with no reason; WebKit kills its page at 8192 MB).
-          DEBUG: pw:browser
+        if: matrix.checks != ''
         timeout-minutes: 26
-      # web-online takes about 170 s on the WebKit runner and signin-speed about 60 s; a 4-minute budget ended a passed
-      # run by one second (2026-11-01).
-      - run: npm run check:browser web-online signin-speed
-        timeout-minutes: 8
-      - name: Save kernel log
-        if: failure() || cancelled()
+        env:
+          KINGDOWN_CI_BROWSER_CHECKS: ${{ matrix.checks }}
+          KINGDOWN_PLUGIN_UI_PART: ${{ matrix.part }}
+          DEBUG: ${{ matrix.browser == 'webkit' && 'pw:browser' || '' }}
+      - if: matrix.browser == 'webkit' && (failure() || cancelled())
+        name: Save kernel log
         run: sudo dmesg -T | tail -n 400 > /tmp/kingdown-check-runs/dmesg.txt || true
-      - if: always()
+      - if: always() && (matrix.browser == 'webkit' || matrix.checks != '')
         uses: actions/upload-artifact@v4
         with:
-          name: webkit-ui-sampler
-          path: /tmp/kingdown-check-runs/webkit-sampler.log
-          retention-days: 7
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: webkit-ui-check-logs
+          name: check-logs-${{ strategy.job-index }}-attempt-${{ github.run_attempt }}
           path: /tmp/kingdown-check-runs/
           retention-days: 7
+
+  record-tree:
+    runs-on: ubuntu-latest
+    needs: [reuse, verify, checks]
+    if: >-
+      always() && !cancelled() && needs.reuse.result == 'success' &&
+      ((needs.reuse.outputs.mode == 'reuse' && needs.verify.result == 'skipped' && needs.checks.result == 'skipped') ||
+       (needs.reuse.outputs.mode == 'docs' && needs.verify.result == 'success' && needs.checks.result == 'skipped') ||
+       (contains(fromJSON('["full","selected"]'), needs.reuse.outputs.mode) &&
+        needs.verify.result == 'success' && needs.checks.result == 'success'))
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - id: tree
+        run: |
+          tree=$(git rev-parse 'HEAD^{tree}')
+          printf '%s\n' "$tree" > "$RUNNER_TEMP/tested-tree"
+          echo "hash=$tree" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tested-tree-${{ steps.tree.outputs.hash }}
+          path: ${{ runner.temp }}/tested-tree
+          if-no-files-found: error
+          retention-days: 30
+          overwrite: true

@@ -129,3 +129,12 @@ describe('browser check site build', () => {
     expect(result.stdout).toContain('FAIL build');
   });
 });
+
+it('runs only the checks from a CI shard and keeps the local no-GPU option', () => {
+  const { result, calls } = run(['--no-gpu'], false, { KINGDOWN_CI_BROWSER_CHECKS: 'plugin-oauth plugin-ui-http' });
+  expect(result.status, result.stderr + result.stdout).toBe(0);
+  expect(calls).toEqual([
+    { script: 'tools/plugin-browser-check.mjs', args: ['oauth'] },
+    { script: 'tools/plugin-browser-check.mjs', args: ['http'] },
+  ]);
+});
