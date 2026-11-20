@@ -1,5 +1,5 @@
 // The play screen scenes (play-scenes.html, src/interface/play/scenes.ts) at four sizes and two text scales. For each:
-// no cut or split text, no control that a different element covers, each control takes a tap (a trial click), and no
+// no cut or split text, no cut control, no control that a different element covers, each control takes a tap (a trial click), and no
 // request to /api or to a different host. The page is in a build only with KINGDOWN_TEST_PAGES=1:
 //   KINGDOWN_TEST_PAGES=1 npm run check:browser play-scenes
 // Pictures at 390x844 and 1280x800 (text scale 100%) go to PLAYABLE_OUT.
@@ -20,7 +20,7 @@ const browser = await launch();
 const faults = [], known = [];
 try {
   const index = await browser.newPage();
-  const links = (await index.goto(base.href))?.ok() ? await index.getByRole('link').evaluateAll(list => list.map(a => new URL(a.href).searchParams.get('scene'))) : [];
+  const links = (await index.goto(base.href))?.ok() ? await index.getByRole('link').evaluateAll(list => list.map(a => new URL(a.href).searchParams.get('scene')).filter(Boolean)) : [];
   await index.close();
   if (!links.length) throw new Error(`${base.href} has no scenes: build with KINGDOWN_TEST_PAGES=1`);
   for (const scene of links) for (const [width, height] of SIZES) for (const scale of SCALES) {
@@ -38,6 +38,8 @@ try {
       for (const role of ROLES) for (const control of await page.getByRole(role).all()) {
         if (!await control.isVisible() || await control.isDisabled() || await control.evaluate(outsideLayer)) continue;
         const label = `${role} "${(await control.getAttribute('aria-label') ?? await control.innerText()).trim().slice(0, 40)}"`;
+        const cut = await control.evaluate(cutBy);
+        if (cut) found.push(`${label} is cut by ${cut}`);
         try { await control.click({ trial: true, timeout: 1500 }); }
         catch (error) { found.push(`${label} takes no tap: ${/intercepts pointer events/.test(error.message) ? `${error.message.match(/<\w+[^>]*>/g)?.at(-1) ?? 'an element'} covers it` : error.message.split('\n')[0]}`); }
       }
@@ -53,6 +55,17 @@ console.log('play scenes: all cases pass');
 
 /** In the page: a control behind an open modal layer, or in inert content, is not a control of this state. */
 function outsideLayer(node) { const modal = document.querySelector('dialog:modal'); return !!node.closest('[inert]') || !!modal && !modal.contains(node); }
+
+/** In the page: the box that clips part of this control, if any (a scroll box can show all of it). */
+function cutBy(control) {
+  let box = control.getBoundingClientRect();
+  for (let node = control.parentElement; node && node !== document.body; node = node.parentElement) {
+    const style = getComputedStyle(node), edge = node.getBoundingClientRect();
+    if (/auto|scroll/.test(style.overflowX + style.overflowY)) { box = edge; continue; }
+    if (/hidden|clip/.test(style.overflowX + style.overflowY) && (box.left < edge.left - 1 || box.right > edge.right + 1 || box.top < edge.top - 1 || box.bottom > edge.bottom + 1)) return `${node.tagName.toLowerCase()}.${[...node.classList].join('.')}`;
+  }
+  return '';
+}
 
 /** In the page: text that a clipping box cuts, and words that break over two lines. A scroll box can show its text. */
 function cutText() {
