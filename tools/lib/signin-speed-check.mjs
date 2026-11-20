@@ -95,7 +95,7 @@ export async function checkSigninSpeed({ browser, origin, accountOrigin, actors,
       }
       if (entry === 'daylight') {
         await page.locator(`.play-home [data-game="${game.game_id}"]`).waitFor({ timeout: 20_000 });
-        if (mode === 'sign-in') await setupTable(page).getByRole('button', { name: 'Invite by name', exact: true }).waitFor();
+        if (mode === 'sign-in') await setupTable(page).getByRole('textbox', { name: 'Game name' }).waitFor(); // the return resumes Invite by name
         else await newGame(page).waitFor();
       } else {
         await page.locator(`#games-list [data-game-id="${game.game_id}"]`).waitFor({ timeout: 20_000 });
