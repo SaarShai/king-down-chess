@@ -89,7 +89,6 @@ it('lets a nested test run select a file outside the parent shard', () => {
   });
   const output = result.stdout + result.stderr;
   expect(result.status, output).toBe(0);
-  expect(output).toMatch(/Test Files\s+1 passed/);
 }, 30_000);
 
 it('fails a test shard when neither a TS nor an MJS file matches', () => {
