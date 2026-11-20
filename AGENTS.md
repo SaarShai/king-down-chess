@@ -11,7 +11,7 @@
 - End each commit with `Co-Authored-By: Claude Code <noreply@anthropic.com>`. Outside work adds its tool: `Co-Authored-By: Codex <noreply@openai.com>`, `Co-Authored-By: OpenCode <noreply@opencode.ai>` or `Co-Authored-By: Antigravity <noreply@google.com>`. No `Claude-Session:` line. This rule overrides a tool's attribution reminder.
 - No model name in a commit, pull request, code or doc, except the [exempt files](tools/model-names.docs.test.ts); the commit-msg hook and docs lint refuse one.
 - Never use `git commit -a` in the main checkout.
-- Code reaches main by pull request only, after an independent review. Merge when the owner asks, or an approved spec's step passes its checks and any sample has the owner's yes. Own run-tool, queue and data PRs may merge after checks. Fix confirmed faults. Record reviews in the ticket and PR.
+- Code reaches main by pull request only, after an independent review. Merge when the owner asks, or an approved spec's step passes its checks and any sample has the owner's yes. Own run-tool, queue and data PRs may merge after checks. [CHANGES.md](docs/CHANGES.md) sets the review for each class of change.
 
 ## Tests and checks
 - Run tests with `npm test` only; `npm run test:docs` runs doc lints. No bare vitest, `node --test`, or piping through tail or grep.
@@ -40,10 +40,10 @@
 
 ## Hosting
 - The game is public at https://kingdown.dev. `tools/deploy.sh` is the only deploy path.
-- Every deploy publishes to the world: deploy only what the owner asked to put online. A DNS change needs the owner's go. Do not test the site while signed in to the owner's account.
+- Every deploy is public: deploy only what the owner asked to put online, or a tweak preview, which never uses production data. A DNS change needs the owner's go. Do not test the site while signed in to the owner's account.
 - [HOSTING.md](docs/HOSTING.md) holds the site, deploy, DNS and secret-file facts.
 - The game has four forms (web app, iOS app, ChatGPT plugin, Muse connector). A pull request that changes the game for players has the forms list of [FORMS.md](docs/FORMS.md) in its text.
-- iOS app: [IOS.md](docs/IOS.md) holds the build, the run and the origin rules; read it before you change `src/platform.ts`, the `/api` origin checks or `ios/`.
+- iOS app: [IOS.md](docs/IOS.md) holds the build, run and origin rules; read it before you change `src/platform.ts`, the `/api` origin checks or `ios/`.
 
 ## Working with the owner
 - Open decisions go in one block at the end of a status message: a one-sentence rule, two or three numbers, the agent's pick, what happens on yes. Fix clear faults. Taste choices and rule changes need the owner's word, unless the approved spec delegates them.

@@ -1,6 +1,7 @@
 import { G, K, P, S, colorOf, piece, rank, typeOf, type Color, type Move } from '../../../rules/engine';
 import { boardStates } from '../../../render/effects/states';
 import { armKey, targetOf, type DraftTurn } from '../turn';
+import { text } from '../texts';
 
 const lines = {
   frozen: 'Frozen for its next turn.',
@@ -38,8 +39,8 @@ export function refusalReason(
     if (draft.armed === tap.key || draft.armable(tap.key)) return null;
     if (draft.length) {
       const playedFreeze = draft.steps.some(step => step.move.power === 'freeze');
-      const line = playedFreeze ? 'You played Freeze. Undo to play a card.'
-        : draft.steps.some(step => !step.move.power) || draft.chain ? 'You moved. Undo to play a card.' : undefined;
+      const line = playedFreeze ? `You played Freeze. ${text.undo} to play a card.`
+        : draft.steps.some(step => !step.move.power) || draft.chain ? `You moved. ${text.undo} to play a card.` : undefined;
       return reason('card-used', line);
     }
     if (checked()) return reason('in-check', tap.key === 'freeze' ? 'Freeze cannot stop a check.' : undefined);

@@ -4,7 +4,7 @@ import { A, B, G, K, KINGS, L, M, N, O, P, Q, R, S, type PieceType } from '../..
 import { RELEASED_CARDS } from '../../content/cards';
 import { POWER_NAME, usesAllowed } from '../../powers-ui';
 import { rulesOf } from './saved';
-import { cardLine, pieces, powerLines } from './texts';
+import { cardLine, pieces, powerLines, text } from './texts';
 import { learningPanel } from './learning-panel';
 import { effectRule, freeActionFollowUp, newPieces, type LearnSubject } from './learning';
 import { button, icon } from '../ui/kit.js';
@@ -26,12 +26,14 @@ export function guideEntries(section: string): GuideEntry[] {
     const subject = { kind: 'card' as const, id: card.id };
     return { id: card.id, name: card.name, short: cardLine(card.id), full: effectRule(subject, context), art: `/${card.art}`, kind: 'Card · One use', subject };
   });
+  // One Guide serves solo and online play, so it names the finish button of each.
+  const finish = `${text.finish} or ${text.send}`;
   if (section === 'How a turn works') return [
-    ['move', 'Make your move', 'Move one piece, then select End turn.', 'Select one of your pieces. Select a marked square. Your king must be safe when the turn ends. Checkmate wins.'],
-    ['power', 'Use a power', 'An always-on power needs no tap.', `With powers only, each king has one power. It can be active or always on. Select an active power to see its rule and legal targets. Freeze and Ice Wall are free actions. ${freeActionFollowUp} Other active powers use the move.`],
-    ['card', 'Play a card', 'Each card has one use.', `Both players start with the same four cards. With cards only, kings have no powers. With powers and cards, each king has an always-on power. Select a card, then its target. Freeze, Ice Wall and Firewall are free actions. ${freeActionFollowUp} Other cards use the move.`],
-    ['undo', 'Change your turn', 'Undo changes a turn before End turn.', 'Your steps are not final until you select End turn. Undo removes the last step. A Beast can capture again before the turn ends.'],
-    ['finish', 'End your turn', 'End turn makes your steps final.', 'Select End turn after a legal move or a free action that leaves your king safe. You cannot undo a final turn. The computer then plays. A game can end in checkmate, resign, stalemate, repetition, insufficient material or no progress for 100 actions.'],
+    ['move', 'Make your move', `Move one piece, then select ${finish}.`, 'Select one of your pieces. Select a marked square. Your king must be safe when the turn ends. Checkmate wins.'],
+    ['power', 'Use a power', 'An always-on power needs no tap.', `With powers only, each king has one power. It can be active or always on. Select an active power to see its rule and legal targets. Freeze and Ice Wall are free actions. ${freeActionFollowUp.replace(text.finish, finish)} Other active powers use the move.`],
+    ['card', 'Play a card', 'Each card has one use.', `Both players start with the same four cards. With cards only, kings have no powers. With powers and cards, each king has an always-on power. Select a card, then its target. Freeze, Ice Wall and Firewall are free actions. ${freeActionFollowUp.replace(text.finish, finish)} Other cards use the move.`],
+    ['undo', 'Change your turn', `${text.undo} changes a turn before ${finish}.`, `Your steps are not final until you select ${finish}. ${text.undo} removes the last step. A Beast can capture again before the turn ends.`],
+    ['finish', 'End your turn', `${finish} makes your steps final.`, `Select ${finish} after a legal move or a free action that leaves your king safe. You cannot undo a final turn. Then your opponent plays. A game can end in checkmate, resign, stalemate, repetition, insufficient material or no progress for 100 actions.`],
   ].map(([id, name, short, full]) => ({ id, name, short, full, kind: 'Turn rule' }));
   return [];
 }

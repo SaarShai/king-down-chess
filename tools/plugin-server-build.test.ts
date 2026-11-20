@@ -118,7 +118,7 @@ it('refuses a recovery rehearsal on a parked build instead of reporting a pass',
 it('checks the ChatGPT plugin over compiled HTTP and PostgreSQL in CI: the default build serves it', () => {
   expect(CHATGPT_PLUGIN).toBe(true);
   expect(MUSE_CONNECTOR).toBe(true);
-  expect(readFileSync('.github/workflows/plugin-checks.yml', 'utf8')).toContain('      - run: npm run plugin:build\n      - run: npm run plugin:server:check\n');
+  expect(readFileSync('.github/workflows/plugin-checks.yml', 'utf8')).toContain('          npm run plugin:build\n          npm run plugin:server:check\n');
   expect(JSON.parse(readFileSync('package.json', 'utf8')).scripts['plugin:build:chatgpt']).toBe('node tools/plugin-server-build.mjs plugin-server-chatgpt --chatgpt');
 });
 it('builds the legacy plugin target with the plugin surface that its release gates test', () => {

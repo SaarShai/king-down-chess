@@ -18,6 +18,12 @@ import { machineLeaseStdio } from './lib/lock.mjs';
 const mode = process.argv[2];
 assert(['oauth', 'fixture', 'http', 'privacy', 'preview', 'skylift'].includes(mode), 'Choose oauth, fixture, http, privacy, preview or skylift');
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
+if (mode === 'http' && process.env.KINGDOWN_PLUGIN_UI_PART === 'parallel') {
+  const { checkHttpParts } = await import('./ci/plugin-ui-http-parts.mjs');
+  await checkHttpParts(connectionString);
+  process.exit(0);
+}
+
 if (mode === 'oauth' || mode === 'http' || mode === 'privacy' || mode === 'skylift') {
   testDatabase(connectionString);
   // Load this branch's schema only after the runner gives this check the shared slot.

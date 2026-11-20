@@ -4,10 +4,11 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { setTimeout } from 'node:timers/promises';
+import { isSkippedMatrix } from './ci-green-tree.mjs';
+import { riskyPaths } from './lib/ci-paths.mjs';
 
 export const repo = 'SaarShai/king-down-chess';
-// plugin-checks.yml skips every job but reuse when a green push run already checked the same tree. GitHub then reports
-// one check run per job, a matrix job included, so a reused run has exactly these check-run names.
+// The previous workflow skipped every job but reuse. Keep this shape for runs that predate record-tree.
 export const REUSE_SHAPE = ['reuse', 'verify', 'browser-board', 'browser-ui', 'browser-web', 'browser-default', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui'];
 const fullSha = value => typeof value === 'string' && /^[0-9a-f]{40}$/.test(value);
 const text = value => typeof value === 'string' && value.trim().length > 0;
@@ -44,15 +45,38 @@ export function ciPasses(pages, head) {
   require(pages.every(page => page.total_count === checks.length), 'CI check-runs are incomplete; run the helper again');
   require(checks.every(check => check.head_sha === head), 'CI check head differs');
   require(checks.every(check => ['queued', 'in_progress', 'completed', 'waiting', 'requested', 'pending'].includes(check.status)), 'invalid CI check status');
-  // One commit can carry several runs (a staging push and a release PR), each its own check suite. Every suite must
-  // pass on its own: all success, or the reuse shape (reuse passed, every other job skipped, no job missing).
-  // Ready: each full suite has its check runs, all complete (a job gets its check run only when reuse completes). A
-  // full run has 12; a branch whose workflow has no browser-default job has 11.
+  // Check every suite on its own. The new workflow ends at record-tree. Older runs use their original job shapes.
   let ready = checks.length > 0;
   for (const suite of Map.groupBy(checks, check => check.check_suite?.id).values()) {
+    const isMatrix = check => check.name?.startsWith('checks / ') && !isSkippedMatrix(check.name);
+    const records = suite.filter(check => check.name === 'record-tree');
+    if (records.length || suite.some(check => isMatrix(check) || isSkippedMatrix(check.name))) {
+      require(suite.every(check => check.status !== 'completed' || check.conclusion === 'success' ||
+        (check.conclusion === 'skipped' && (check.name === 'verify' || isSkippedMatrix(check.name)))), 'CI check does not pass');
+      if (!records.length || suite.some(check => check.status !== 'completed')) {
+        ready = false;
+        continue;
+      }
+      const plan = suite.filter(check => check.name === 'reuse' && check.conclusion === 'success');
+      const verify = suite.filter(check => check.name === 'verify');
+      const matrix = suite.filter(isMatrix);
+      const skippedMatrix = suite.filter(check => isSkippedMatrix(check.name) && check.conclusion === 'skipped');
+      require(records.length === 1 && plan.length === 1 && verify.length === 1 &&
+        suite.length === 3 + matrix.length + skippedMatrix.length &&
+        (matrix.length > 0 ? skippedMatrix.length === 0 && verify[0].conclusion === 'success' : skippedMatrix.length === 1),
+      'CI check runs do not match the recorded plan');
+      continue;
+    }
     if (!suite.some(check => check.conclusion === 'skipped')) {
       require(suite.every(check => check.status !== 'completed' || check.conclusion === 'success'), 'CI check does not pass');
       ready &&= suite.length >= 11 && suite.every(check => check.status === 'completed');
+      continue;
+    }
+    if (suite.every(check => ['reuse', 'verify'].includes(check.name))) {
+      // The checks job may not have announced its skip yet.
+      require(suite.every(check => check.status !== 'completed' ||
+        check.conclusion === (check.name === 'reuse' ? 'success' : 'skipped')), 'CI check does not pass');
+      ready = false;
       continue;
     }
     require(suite.every(check => check.status === 'completed' && check.conclusion === (check.name === 'reuse' ? 'success' : 'skipped')), 'CI check does not pass');
@@ -78,15 +102,32 @@ export async function mergeOnGreen(pr, head, file, { gh = github, pause = setTim
   };
   const readPr = () => {
     const current = JSON.parse(request(['pr', 'view', String(pr), '--repo', repo,
-      '--json', 'number,state,headRefOid,baseRefOid']));
+      '--json', 'number,state,headRefOid,baseRefOid,changedFiles']));
     require(current.number === pr && current.state === 'OPEN' && current.headRefOid === head && fullSha(current.baseRefOid),
       'PR is not open at the recorded head and base');
     return current;
+  };
+  let changedPaths, inspectedBase;
+  const checkLeadRead = (record, current) => {
+    if (!record.reviews.some(review => review.id === 'lead-read')) return;
+    if (inspectedBase !== current.baseRefOid) {
+      const pages = JSON.parse(request(['api', '--paginate', '--slurp',
+        `repos/${repo}/pulls/${pr}/files?per_page=100`]));
+      require(Array.isArray(pages) && pages.every(Array.isArray), 'invalid PR file list');
+      const files = pages.flat();
+      require(files.length > 0 && files.length === current.changedFiles && files.every(file =>
+        text(file.filename) && (file.status !== 'renamed' || text(file.previous_filename))), 'incomplete PR file list');
+      changedPaths = files.flatMap(file => [file.filename, ...(file.previous_filename ? [file.previous_filename] : [])]);
+      inspectedBase = current.baseRefOid;
+    }
+    const risky = riskyPaths(changedPaths);
+    require(risky.length === 0, `lead-read requires an independent review for: ${risky.join(', ')}`);
   };
   for (;;) {
     const record = reviewRecord(file, pr, head);
     const current = readPr();
     require(current.baseRefOid === record.base, 'PR is not open at the recorded head and base');
+    checkLeadRead(record, current);
     const pages = JSON.parse(request(['api', '--paginate', '--slurp',
       `repos/${repo}/commits/${head}/check-runs?per_page=100`]));
     const ready = ciPasses(pages, head);
@@ -100,6 +141,7 @@ export async function mergeOnGreen(pr, head, file, { gh = github, pause = setTim
       // A review can start or report a finding while any GitHub request runs.
       const latest = reviewRecord(file, pr, head);
       require(latest.base === latestPr.baseRefOid, 'review record base differs before merge');
+      checkLeadRead(latest, latestPr);
       return request(['pr', 'merge', String(pr), '--repo', repo, '--merge', '--match-head-commit', head]);
     }
     await pause(Math.min(60_000, remaining()));

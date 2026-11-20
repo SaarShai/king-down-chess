@@ -43,6 +43,7 @@ When you add, move or remove an entry at the top of `docs/`, change its line her
 
 ## Release, hosting and the plugin
 
+- [CHANGES.md](CHANGES.md): Which class is my change, what review does it need, when does a finding block a release, and what may go to the preview? **Source of truth for the path of a change.**
 - [HOSTING.md](HOSTING.md): Where is the site, how does a deploy work, and where are the secret files? **Source of truth for the site, the deploy and DNS.**
 - [FORMS.md](FORMS.md): Which forms does the game have, how does a run of changes reach each one, and when does each change go live? **Source of truth for the forms list of a pull request.**
 - [IOS.md](IOS.md): How do I build, run and upload the iOS app to TestFlight, and which origin rules does its code depend on? **Source of truth for the iOS app build.**

@@ -393,13 +393,18 @@ it.each(['head', 'pages', 'status', 'api'])('refuses invalid or unreadable CI: %
 const ciGreen = fileURLToPath(new URL('./ci-green.mjs', import.meta.url));
 /** Runs tools/ci-green.mjs with a stub `gh` on PATH that answers the check-runs API with `pages` and the status API with
  *  `status`, or fails every call with no `pages`. */
-function runCiGreen(sha: string, pages?: unknown, status: unknown = { sha: head, total_count: 0, state: 'pending' }) {
+function runCiGreen(sha: string, pages?: unknown, status: unknown = { sha: head, total_count: 0, state: 'pending' }, event = 'push') {
   const dir = mkdtempSync(join(tmpdir(), 'kingdown-ci-green-'));
   dirs.push(dir);
   writeFileSync(join(dir, 'status.json'), JSON.stringify(status));
   writeFileSync(join(dir, 'pages.json'), JSON.stringify(pages ?? null));
+  const repository = { full_name: 'SaarShai/king-down-chess' };
+  writeFileSync(join(dir, 'runs.json'), JSON.stringify({ workflow_runs: [
+    { id: 100, workflow_id: 11, path: '.github/workflows/plugin-checks.yml', status: 'completed', conclusion: 'success',
+      event, head_sha: head, check_suite_id: 1, repository, head_repository: repository },
+  ] }));
   writeFileSync(join(dir, 'gh'), pages === undefined ? '#!/bin/sh\necho "gh: no network" >&2\nexit 1\n'
-    : `#!/bin/sh\ncase "$*" in *"/status") cat "${join(dir, 'status.json')}" ;; *) cat "${join(dir, 'pages.json')}" ;; esac\n`, { mode: 0o755 });
+    : `#!/bin/sh\ncase "$*" in *"/status") cat "${join(dir, 'status.json')}" ;; *"/actions/workflows/"*) cat "${join(dir, 'runs.json')}" ;; *) cat "${join(dir, 'pages.json')}" ;; esac\n`, { mode: 0o755 });
   return spawnSync(process.execPath, [ciGreen, sha], { encoding: 'utf8', env: { ...process.env, PATH: `${dir}:${process.env.PATH}` } });
 }
 
@@ -417,4 +422,63 @@ it('ci-green exits 0 for a passed commit, 1 while a suite or a status runs, 2 fo
   expect(runCiGreen(head, [{ total_count: 12, check_runs: green }])).toMatchObject({ status: 3, stderr: 'ci-green: try again: CI check-runs are incomplete; run the helper again\n' });
   expect(runCiGreen('134e2b2f')).toMatchObject({ status: 2, stderr: 'ci-green: usage: node tools/ci-green.mjs <full sha>\n' });
   expect(runCiGreen(head)).toMatchObject({ status: 3 });
+});
+
+it.each([
+  [['src/interface/play/help/help.css'], []],
+  [['src/interface/play/shell.css', 'docs/specs/ci-fast/issues/01-ci.md'], []],
+  [['src/interface/play/unknown.css'], ['src/interface/play/unknown.css']],
+  [['src/interface/play/help/help.css', 'src/interface/play/shell.ts', 'supabase/migrations/001.sql'],
+    ['src/interface/play/shell.ts', 'supabase/migrations/001.sql']],
+])('gates lead-read on the changed PR paths %j', async (paths, risky) => {
+  const value = record();
+  value.reviews[0].id = 'lead-read';
+  const f = fixture(value);
+  Object.assign(f.current, { changedFiles: paths.length });
+  const gh = f.gh.getMockImplementation()!;
+  f.gh.mockImplementation(args => args.at(-1)?.includes('/pulls/158/files?')
+    ? JSON.stringify([paths.map(filename => ({ filename, status: 'modified' }))]) : gh(args));
+  if (risky.length) await expect(f.run()).rejects.toThrow(`lead-read requires an independent review for: ${risky.join(', ')}`);
+  else await expect(f.run()).resolves.toBe('merged');
+});
+
+it('waits for the tree record after all matrix checks pass', async () => {
+  const f = fixture();
+  const jobs = ['reuse', 'verify', ...Array.from({ length: 17 }, (_, i) => `checks / shard ${i}`), 'record-tree'];
+  const full = jobs.map((name, id) => ({ id, name, head_sha: head, status: 'completed', conclusion: 'success' }));
+  const seal = full.pop()!;
+  f.checks.splice(0, f.checks.length, ...full);
+  f.pause.mockImplementationOnce(async () => { f.checks.push(seal); });
+  await expect(f.run()).resolves.toBe('merged');
+  expect(f.pause).toHaveBeenCalledTimes(1);
+});
+
+it('waits for a short run when GitHub has only announced the verify skip', async () => {
+  const f = fixture();
+  const jobs = ['reuse', 'verify', 'checks', 'record-tree'].map((name, id) => ({
+    id, name, head_sha: head, status: 'completed',
+    conclusion: ['verify', 'checks'].includes(name) ? 'skipped' : 'success',
+  }));
+  f.checks.splice(0, f.checks.length, ...jobs.slice(0, 2));
+  f.pause.mockImplementationOnce(async () => { f.checks.push(...jobs.slice(2)); });
+  await expect(f.run()).resolves.toBe('merged');
+  expect(f.pause).toHaveBeenCalledTimes(1);
+});
+
+it.each(['success', 'skipped'])('accepts a sealed short run when verify is %s', async conclusion => {
+  const f = fixture();
+  const checks = ['reuse', 'verify', 'checks / ${{ matrix.name }}', 'record-tree'].map((name, id) => ({
+    id, name, head_sha: head, status: 'completed',
+    conclusion: name === 'verify' ? conclusion : name.startsWith('checks /') ? 'skipped' : 'success',
+  }));
+  f.checks.splice(0, f.checks.length, ...checks);
+  await expect(f.run()).resolves.toBe('merged');
+});
+
+it('ci-green waits for an exact run when a PR suite is green on the same reported head', () => {
+  const checks = Array.from({ length: 11 }, (_, id) => ({
+    id, head_sha: head, status: 'completed', conclusion: 'success', check_suite: { id: 1 },
+  }));
+  expect(runCiGreen(head, [{ total_count: checks.length, check_runs: checks }], undefined, 'pull_request')).toMatchObject({ status: 1 });
+  expect(runCiGreen(head, [{ total_count: 0, check_runs: [] }])).toMatchObject({ status: 1 });
 });
