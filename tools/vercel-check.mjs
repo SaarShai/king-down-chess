@@ -45,8 +45,9 @@ try {
   if (!CHATGPT) {
     for (const path of pluginLinks) assert.equal(await exists(join(tree, `functions/${path}.func`)), undefined, `The parked tree has no ${path} function`);
     // A Muse build has the shared consent page.
-    for (const file of [join(fn, 'board.html'), ...MUSE ? [] : [join(fn, 'consent.html'), join(fn, 'consent.mjs')], join(tree, 'static/plugin-art'), join(tree, 'static/.well-known')]) assert.equal(await exists(file), undefined, `The parked tree has no ${file.slice(tree.length + 1)}`);
-    assert(!config.routes.some(route => /plugin-art|well-known/.test(route.src) && !route.src.includes('/muse/mcp')), 'The parked tree has no plugin art or challenge route');
+    for (const file of [join(fn, 'board.html'), ...MUSE ? [] : [join(fn, 'consent.html'), join(fn, 'consent.mjs')], join(tree, 'static/plugin-art'), join(tree, 'static/.well-known/openai-apps-challenge')]) assert.equal(await exists(file), undefined, `The parked tree has no ${file.slice(tree.length + 1)}`);
+    // The iOS app link file and the Muse challenge are not part of the ChatGPT plugin: a parked tree keeps them.
+    assert(!config.routes.some(route => /plugin-art|well-known/.test(route.src) && !/\/muse\/mcp|apple-app-site-association|muse-challenge/.test(route.src)), 'The parked tree has no plugin art or challenge route');
   }
   const museRoutes = config.routes.filter(route => route.dest === '/mcp' && [...MUSE_PATHS, '/authorize', '/consent.mjs'].some(path => new RegExp(route.src).test(path)));
   assert.equal(museRoutes.length, MUSE ? MUSE_PATHS.length + (CHATGPT ? 0 : 2) : 0, MUSE ? 'The tree routes the Muse paths' : 'This tree has no Muse route');
@@ -305,7 +306,7 @@ try {
   assert.deepEqual(await outbox.json(), { code: 'NOT_FOUND', message: 'Not found' });
   const unknownJob = await job('/internal/unknown', secret); assert.equal(unknownJob.status, 404);
   const pluginServed = [...CHATGPT ? ['function /.well-known/oauth-protected-resource', 'function /.well-known/oauth-protected-resource/mcp', 'function /authorize', 'function /consent.mjs', 'static /plugin-art/*'] : [], ...MUSE ? [...MUSE_PATHS, '/authorize', '/consent.mjs'].map(path => `function ${path}`) : []];
-  assert.deepEqual([...served].sort(), [...new Set([...pluginServed, 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /internal/unknown', 'function /mcp', 'function /api/games', ...closedApi.map(([, path]) => `function ${new URL(path, origin).pathname}`), 'static /', 'static /privacy.html', 'static /sw.js', ...accountPaths.map(path => `static ${path}`), ...publicPaths.map(path => `static ${path}`), ...soloLaunch ? closedPaths.map(path => `static ${path}`) : [], ...soloLaunch && !MUSE ? MUSE_PATHS.map(path => `static ${path}`) : [], ...(hasChallenge ? [`static ${challenge}`] : [])])].sort(), 'Closed/default served paths');
+  assert.deepEqual([...served].sort(), [...new Set([...pluginServed, 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /internal/unknown', 'function /mcp', 'function /api/games', ...closedApi.map(([, path]) => `function ${new URL(path, origin).pathname}`), 'static /', 'static /privacy.html', 'static /sw.js', ...accountPaths.map(path => `static ${path}`), ...publicPaths.map(path => `static ${path}`), ...soloLaunch ? closedPaths.map(path => `static ${path}`) : [], ...soloLaunch && !MUSE ? MUSE_PATHS.map(path => `static ${path}`) : [], ...soloLaunch && !CHATGPT ? ['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/.well-known/openai-apps-challenge', '/plugin-art/*'].map(path => `static ${path}`) : [], ...(hasChallenge ? [`static ${challenge}`] : [])])].sort(), 'Closed/default served paths');
 
   await app.pool.end(); app = undefined;
   savedAccountAccess = (await pool.query('select enabled from public.web_account_access where singleton=true')).rows[0]?.enabled;
