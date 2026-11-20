@@ -499,7 +499,9 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
       if (host.me()) named();
       else {
         d.remember({ ...pending, opponent: 'person', action });
-        signingIn = true; signInSheet(sheet, host, { kind: 'person' }, named);
+        signingIn = true;
+        // "Play the computer" in the sign-in recovery view: the Computer side of the switch, with Start game.
+        signInSheet(sheet, { ...host, playComputer: () => modes.querySelector<HTMLElement>('[role="radio"]')?.click() }, { kind: 'person' }, named);
       }
     } catch { if (current()) status.textContent = panelText.onlineFailed; }
     finally { if (current()) busy = false; }

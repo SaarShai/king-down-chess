@@ -337,6 +337,7 @@ function receiveOnline(state: PeopleState) {
     }
   } else { arrangement = undefined; arrangementGame = ''; }
   if (state.view?.status === 'aborted') {
+    if (gameDialog) closeGameDialog(); // an open Menu or History would cover the end page
     endEntry(); board?.dispose(); board = undefined; liveGame = false; ended = true; thinking = false;
     const page = el('section', 'people-landing'), title = el('h1', '', onlineResult(state)); title.tabIndex = -1;
     page.append(title, button(text.home, { kind: 'main', onPress: () => shell.go({ place: 'play' }) }));
