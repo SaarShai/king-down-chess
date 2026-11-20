@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
 import { gitTree, greenRecord, jobsMatchPlan } from './ci-green-tree.mjs';
-import { pathPlan } from './lib/ci-paths.mjs';
+import { localPlan, pathPlan } from './lib/ci-paths.mjs';
 
 const repository = 'owner/game';
 const workflow = { id: 18, path: '.github/workflows/plugin-checks.yml' };
@@ -47,19 +47,21 @@ it('runs all jobs when the change includes a document that a test reads', () => 
   expect(pathPlan([{ path: 'docs/MATRIX.md' }, { path: 'TASKS.md' }], true).mode).toBe('full');
 });
 
-it('checks only docs and types for a verified base and a package version bump', () => {
+it('runs the full CI plan for a package version bump', () => {
   const old = { version: '1.0.0', scripts: { test: 'bash tools/test-lock.sh' } };
   const change = { path: 'package.json', before: JSON.stringify(old), after: JSON.stringify({ ...old, version: '1.1.0' }) };
-  expect(pathPlan([change], true).mode).toBe('docs');
-  expect(pathPlan([{ ...change, after: JSON.stringify({ version: '1.1.0', scripts: {} }) }], true).mode).toBe('full');
+  expect(pathPlan([change], true).mode).toBe('full');
 });
 
-it('a screen change selects related checks and an unknown path selects all', () => {
-  const screen = pathPlan([{ path: 'src/interface/play/help/help.css' }], true);
-  expect(screen).toMatchObject({ mode: 'selected', tests: ['src/interface/play/help/**/*.test.ts'] });
-  expect(screen.checks).toContain('read-piece');
+it('runs the full CI plan for help CSS with a green base', () => {
+  expect(pathPlan([{ path: 'src/interface/play/help/help.css' }], true)).toEqual({ mode: 'full' });
   expect(pathPlan([{ path: 'src/unknown.ts' }], true)).toEqual({ mode: 'full' });
-  expect(pathPlan([{ path: 'src/interface/play/help/help.css' }], false)).toEqual({ mode: 'full' });
+});
+
+it('keeps the help CSS selection for local runs', () => {
+  expect(localPlan([{ path: 'src/interface/play/help/help.css' }])).toMatchObject({
+    mode: 'selected', tests: ['src/interface/play/help/**/*.test.ts'],
+  });
 });
 
 it('preserves legacy push reuse when GitHub returns more than a megabyte of history', () => {
@@ -92,7 +94,17 @@ it('requires the latest result of every planned runner before it records the tre
     id, name, status: 'completed', conclusion: 'success',
   }));
   expect(jobsMatchPlan(jobs, 'full', names)).toBe(true);
+  expect(jobsMatchPlan(jobs, 'selected', names)).toBe(false);
+  expect(jobsMatchPlan(jobs.slice(0, 2), 'full', [])).toBe(false);
   expect(jobsMatchPlan(jobs.slice(0, -1), 'full', names)).toBe(false);
   expect(jobsMatchPlan([...jobs, { ...jobs[3], id: 8, conclusion: 'cancelled' }], 'full', names)).toBe(false);
   expect(jobsMatchPlan([jobs[0], jobs[1], { ...jobs[2], name: 'checks / ${{ matrix.name }}', conclusion: 'skipped' }], 'docs', [])).toBe(true);
+});
+
+it('records an exact-tree reuse when verify and the matrix both skip', () => {
+  const jobs = ['reuse', 'verify', 'checks'].map((name, id) => ({
+    id, name, status: 'completed', conclusion: name === 'reuse' ? 'success' : 'skipped',
+  }));
+  expect(jobsMatchPlan(jobs, 'full', [], true)).toBe(true);
+  expect(jobsMatchPlan(jobs, 'full', [])).toBe(false);
 });

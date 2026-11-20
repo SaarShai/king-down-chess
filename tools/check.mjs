@@ -63,6 +63,7 @@ if (unknown.length) {
 const defaults = checks.filter(c => !c.byName);
 const left = noGpu ? defaults.filter(c => c.gpu) : [];
 const selected = names.length ? [...new Set(names)].map(a => checks.find(c => c.name === a)).filter(c => !noGpu || !c.gpu) : defaults.filter(c => gpuOnly ? c.gpu : !left.includes(c));
+if (shard && !selected.length) { console.error('check: a CI shard must run at least one check'); process.exit(2); }
 if (left.length && !shard) say(`check: --no-gpu: left out ${left.map(c => c.name).join(', ')} (run them with --gpu on a machine with a GPU)`);
 
 // 2. The output root: never inside the checkout.

@@ -138,3 +138,10 @@ it('runs only the checks from a CI shard and keeps the local no-GPU option', () 
     { script: 'tools/plugin-browser-check.mjs', args: ['http'] },
   ]);
 });
+
+it('fails a CI browser shard when every named check needs a GPU', () => {
+  const { result, calls } = run(['--no-gpu'], false, { KINGDOWN_CI_BROWSER_CHECKS: 'king-effects painted-game' });
+  expect(result.status, result.stderr + result.stdout).toBe(2);
+  expect(result.stderr).toContain('a CI shard must run at least one check');
+  expect(calls).toEqual([]);
+});

@@ -1,9 +1,9 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { checkShards, filePattern } from './ci-shards.mjs';
 import { findGreenTree, gitTree, jobsForRun, jobsMatchPlan } from './ci-green-tree.mjs';
-import { compareContents, pathPlan } from './lib/ci-paths.mjs';
+import { localPlan, pathPlan } from './lib/ci-paths.mjs';
 
 const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
 const commit = /^[a-f0-9]{40}$/;
@@ -12,21 +12,14 @@ const repo = process.env.GITHUB_REPOSITORY || 'SaarShai/king-down-chess';
 function changesFrom(base, target) {
   const paths = git(['diff', '--no-renames', '--name-only', '-z', base, ...(target ? [target] : []), '--']).split('\0');
   if (!target) paths.push(...git(['ls-files', '--others', '--exclude-standard', '-z']).split('\0'));
-  return [...new Set(paths.filter(Boolean))].map(path => {
-    if (!compareContents(path)) return { path };
-    try {
-      const before = git(['show', `${base}:${path}`]);
-      const after = target ? git(['show', `${target}:${path}`]) : readFileSync(path, 'utf8');
-      return { path, before, after };
-    } catch { return { path }; }
-  });
+  return [...new Set(paths.filter(Boolean))].map(path => ({ path }));
 }
 
 function select(base, target) {
   const baseTree = gitTree(base);
   if (!baseTree) return { mode: 'full' };
   const changes = changesFrom(base, target);
-  const plan = pathPlan(changes, true);
+  const plan = target ? pathPlan(changes, true) : localPlan(changes);
   return plan.mode === 'full' || !findGreenTree(baseTree, repo) ? { mode: 'full' } : plan;
 }
 
@@ -47,6 +40,7 @@ if (process.argv[2] === 'changed') {
   const base = git(['rev-parse', '--verify', 'origin/main^{commit}']).trim();
   const selection = select(base);
   const all = checkShards(), selected = checkShards({ selection });
+  if (selection.mode === 'selected') console.log('This is a selection. CI runs the full plan.');
   console.log('Run type check');
   console.log('Run document lints');
   for (const browser of ['chromium', 'webkit']) {
@@ -70,8 +64,9 @@ if (process.argv[2] === 'changed') {
   const dispatch = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch';
   if (dispatch && base && !commit.test(base)) throw new Error('base must be a full commit SHA');
   const tree = gitTree('HEAD');
-  const selection = !dispatch && findGreenTree(tree, repo) ? { mode: 'reuse' } : select(base, 'HEAD');
-  const shards = checkShards({ selection });
+  const reused = !dispatch && findGreenTree(tree, repo);
+  const { mode } = reused ? { mode: 'full' } : select(base, 'HEAD');
+  const shards = mode === 'full' && !reused ? checkShards() : [];
   const verify = shards.find(job => job.name === 'verify');
   const matrix = {
     include: shards.filter(job => job !== verify).map(job => ({
@@ -81,13 +76,13 @@ if (process.argv[2] === 'changed') {
       python: job.name.startsWith('test (') && job.name !== 'test (app)',
     })),
   };
-  console.log(`CI mode: ${selection.mode}. Shards: ${matrix.include.map(job => job.name).join(', ') || 'none'}`);
+  console.log(reused ? 'CI reuses a green tree record.' : `CI mode: ${mode}. Shards: ${matrix.include.map(job => job.name).join(', ') || 'none'}`);
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT,
-    `mode=${selection.mode}\nmatrix=${JSON.stringify(matrix)}\nverify_tests=${verify ? filePattern(verify.tests) : ''}\n`);
+    `mode=${mode}\nreused=${reused}\nmatrix=${JSON.stringify(matrix)}\nverify_tests=${verify ? filePattern(verify.tests) : ''}\n`);
 } else if (process.argv[2] === 'record') {
-  const { CI_MODE: mode, CI_MATRIX: matrix, GITHUB_RUN_ID: id, GITHUB_OUTPUT: output, RUNNER_TEMP: temp } = process.env;
+  const { CI_MODE: mode, CI_REUSED: reused, CI_MATRIX: matrix, GITHUB_RUN_ID: id, GITHUB_OUTPUT: output, RUNNER_TEMP: temp } = process.env;
   const names = JSON.parse(matrix).include.map(job => job.name);
-  if (!jobsMatchPlan(jobsForRun(repo, id), mode, names)) throw new Error('The jobs did not pass as planned');
+  if (!jobsMatchPlan(jobsForRun(repo, id), mode, names, reused === 'true')) throw new Error('The jobs did not pass as planned');
   const tree = gitTree('HEAD');
   if (!tree) throw new Error('The checkout tree is missing');
   writeFileSync(join(temp, 'tested-tree'), `${tree}\n`);

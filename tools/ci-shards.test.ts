@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { globSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { checkShards, filePattern } from './ci-shards.mjs';
@@ -63,3 +64,13 @@ it('uses the verify runner for the Chromium board drafts tests', () => {
     browser: 'chromium', tests: ['tools/plugin-board-drafts.test.ts'],
   });
 });
+
+it('fails a test shard when neither a TS nor an MJS file matches', () => {
+  const result = spawnSync('npm', ['test'], {
+    encoding: 'utf8', timeout: 20_000,
+    env: { ...process.env, KINGDOWN_TEST_FILE: '{tools/missing-shard.test.ts,src/render/painted/missing-shard.test.mjs}', KINGDOWN_TEST_NO_TYPECHECK: '1' },
+  });
+  const output = result.stdout + result.stderr;
+  expect(output).toContain('No test files found');
+  expect(result.status, output).toBe(1);
+}, 30_000);

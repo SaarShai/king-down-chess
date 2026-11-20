@@ -33,7 +33,7 @@ function balance(items, count, seconds) {
 export const filePattern = files => files.length === 1 ? files[0] : `{${files.join(',')}}`;
 
 export function checkShards({ registry = checks, selection = { mode: 'full', tests: [], checks: [] } } = {}) {
-  if (selection.mode === 'docs' || selection.mode === 'reuse') return [];
+  if (selection.mode === 'docs') return [];
   const jobs = [];
   const files = globSync(testGlobs).sort();
   const all = selection.mode === 'full';

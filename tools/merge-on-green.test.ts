@@ -425,9 +425,12 @@ it('ci-green exits 0 for a passed commit, 1 while a suite or a status runs, 2 fo
 });
 
 it.each([
-  [['src/interface/play/help/help.css'], true],
-  [['src/interface/play/help/help.css', 'src/interface/play/shell.ts', 'supabase/migrations/001.sql'], false],
-])('gates lead-read on the changed PR paths %j', async (paths, allowed) => {
+  [['src/interface/play/help/help.css'], []],
+  [['src/interface/play/shell.css', 'docs/specs/ci-fast/issues/01-ci.md'], []],
+  [['src/interface/play/unknown.css'], ['src/interface/play/unknown.css']],
+  [['src/interface/play/help/help.css', 'src/interface/play/shell.ts', 'supabase/migrations/001.sql'],
+    ['src/interface/play/shell.ts', 'supabase/migrations/001.sql']],
+])('gates lead-read on the changed PR paths %j', async (paths, risky) => {
   const value = record();
   value.reviews[0].id = 'lead-read';
   const f = fixture(value);
@@ -435,8 +438,8 @@ it.each([
   const gh = f.gh.getMockImplementation()!;
   f.gh.mockImplementation(args => args.at(-1)?.includes('/pulls/158/files?')
     ? JSON.stringify([paths.map(filename => ({ filename, status: 'modified' }))]) : gh(args));
-  if (allowed) await expect(f.run()).resolves.toBe('merged');
-  else await expect(f.run()).rejects.toThrow(/src\/interface\/play\/shell\.ts.*supabase\/migrations\/001\.sql/);
+  if (risky.length) await expect(f.run()).rejects.toThrow(`lead-read requires an independent review for: ${risky.join(', ')}`);
+  else await expect(f.run()).resolves.toBe('merged');
 });
 
 it('waits for the tree record after all matrix checks pass', async () => {
