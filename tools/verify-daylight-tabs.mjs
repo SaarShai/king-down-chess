@@ -211,7 +211,7 @@ for (const channel of ['webkit', 'chromium']) {
       if (phone) {
         await page.setViewportSize({ width: 360, height: 640 });
         assert.equal(await rule.locator('.daylight-help-rule-label').evaluate(label => label.clientWidth), 1);
-        assert.equal(await replay.locator('.play-replay-label').evaluate(label => label.clientWidth), 1);
+        await page.waitForFunction(() => document.querySelector('.play-turn [data-mode="replay"] .play-replay-label')?.clientWidth === 1);
         await page.setViewportSize(viewport);
       }
       const sameBoard = () => page.locator('.play-board-host').evaluate(board => board === window.testBoard);

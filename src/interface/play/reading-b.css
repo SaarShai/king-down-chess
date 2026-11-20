@@ -191,7 +191,7 @@
 .play-game[data-reading='result'] .play-state-line { display: none; }
 .play-game[data-reading='result'] .play-reader { height: auto; z-index: 3; overflow: visible; }
 .play-game[data-reading='result'] .play-detail { flex: none; background: var(--surface-page); }
-.play-game[data-reading='result'] :is(.play-result, .play-result-copy) { height: auto; }
+.play-game[data-reading='result'] .play-result { height: auto; }
 .play-game[data-form='compact'][data-reading='result'] .play-result-art { display: none; }
 .play-game[data-form='compact'][data-reading='result'] .play-result-actions { flex-wrap: nowrap; }
 .play-game[data-form='compact'][data-reading='result'] .play-result-actions .kd-button { flex: 1 1 0; min-width: 0; padding-inline: 4px; font-size: 14px; }
@@ -227,7 +227,6 @@
    Each box from the reader down to the cause can shrink; the title, the rematch note and the actions keep their size. */
 :is(.play-game[data-layout='portrait'], .play-game[data-layout='wide'][data-form='compact'])[data-result-fit='scroll'][data-reading='result'] .play-reader:not([data-floating='true']) .play-detail { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
 :is(.play-game[data-layout='portrait'], .play-game[data-layout='wide'][data-form='compact'])[data-result-fit='scroll'][data-reading='result'] .play-reader:not([data-floating='true']) .play-result { flex: 0 1 auto; min-height: 0; align-items: stretch; }
-:is(.play-game[data-layout='portrait'], .play-game[data-layout='wide'][data-form='compact'])[data-result-fit='scroll'][data-reading='result'] .play-reader:not([data-floating='true']) .play-result-copy { min-height: 0; }
 :is(.play-game[data-layout='portrait'], .play-game[data-layout='wide'][data-form='compact'])[data-result-fit='scroll'][data-reading='result'] .play-reader:not([data-floating='true']) .play-result-body { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
 :is(.play-game[data-layout='portrait'], .play-game[data-layout='wide'][data-form='compact'])[data-result-fit='scroll'][data-reading='result'] .play-reader:not([data-floating='true']) .play-result-body > * { flex: none; }
 :is(.play-game[data-layout='portrait'], .play-game[data-layout='wide'][data-form='compact'])[data-result-fit='scroll'][data-reading='result'] .play-reader:not([data-floating='true']) .play-result-cause { flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
@@ -363,6 +362,7 @@
 :root[data-motion='reduce'] .play-seat-ring::after { display: none; }
 .play-opponent-group > strong { font: 700 12px/15px var(--cinzel, var(--font-title)); }
 .play-opponent-group > strong small { font: 400 14px/16px var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); }
+.play-game[data-online] .play-opponent-group .opponent-clock { overflow: visible; text-overflow: clip; white-space: normal; text-wrap: balance; }
 .play-game .play-opp .play-power { flex: 0 1 auto; min-width: 44px; flex-direction: row; gap: 3px; font-size: 13px; height: 44px; padding: 0 4px; color: var(--teal, var(--text)); }
 .play-game .play-own .play-power { flex-basis: 58px; }
 .play-game .play-own .play-power [data-button-label] { font: 700 12px/1.1 var(--cinzel, var(--font-title)); }
@@ -420,7 +420,7 @@
 .play-own > .play-store { position: absolute; top: calc(50% + 13px); left: 48px; z-index: 1; }
 .play-game .play-rival-count { right: 1px; bottom: 4px; }
 .play-game .play-turn .kd-button:first-child { border-radius: 12px; }
-.play-game .play-turn [data-turn-state='ready'][data-free='true'] { background: var(--raised, var(--surface-raised)); }
+.play-game:not([data-online]) .play-turn [data-turn-state='ready'][data-free='true'] { background: var(--raised, var(--surface-raised)); }
 
 /* Result actions replace the hand and turn controls. The board keeps its place. */
 .play-game[data-state='result'] :is(.play-own, .play-turn, .play-history-strip) { visibility: hidden; }
@@ -456,6 +456,8 @@
   height: calc(var(--action-y) + var(--fin) - var(--board-y) - var(--board) - 6px);
 }
 .play-game[data-reading='result'] .play-result { height: 100%; }
+.play-game[data-online] .play-result { padding: 7px; }
+.play-game[data-online] .play-result-body { margin-block: auto; overflow-wrap: anywhere; }
 .play-result-name { display: grid; }
 .play-result-name small { font: 400 12px/1.1 var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); }
 .play-result-seat:has([data-outcome='win']) .play-result-name strong { color: var(--brass-p, var(--text)); }
@@ -476,9 +478,10 @@
 .play-game[data-form='wide'] .play-opp .play-seat-ring { width: 44px; height: 44px; }
 .play-game .play-opp .play-power { padding-inline: 6px; }
 
-.play-game .play-turn [data-turn-state='wait'][aria-disabled='true'] {
+.play-game:not([data-online]) .play-turn [data-turn-state='wait'][aria-disabled='true'] {
   position: relative; overflow: hidden; background: var(--main-fill); color: var(--main-ink);
   font: 700 15px/1 var(--sans, var(--font-reading)); text-transform: none; letter-spacing: 0;
 }
+.play-game[data-online] .play-turn [data-turn-state='wait'] { position: relative; overflow: hidden; }
 .play-turn [data-turn-state='wait']::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: var(--surface-raised); opacity: var(--wait-shade, 0); }
 .play-turn [data-turn-state='wait'] :is([data-button-label], .play-wait-dots) { position: relative; z-index: 1; }
