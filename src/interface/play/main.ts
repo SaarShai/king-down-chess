@@ -389,6 +389,7 @@ function receiveOnline(state: PeopleState) {
   game = state.game; draft = state.draft ?? new DraftTurn(game); player = state.view.seat;
   thinking = !state.draft || state.phase === 'sending' || state.phase === 'checking';
   const wasEnded = ended; ended = state.phase === 'over'; liveGame = false;
+  if (ended && !wasEnded && gameDialog?.classList.contains('game-menu-dialog')) closeGameDialog(); // its Offer draw and Resign are stale, and it covers the result
   if ((changed || ended) && document.querySelector('[data-help-sheet="promotion"]')) gameHelp?.close();
   if (changed) {
     shownRevision = state.view.revision; selected = inspected = null; shown = null; clearChoice(); skipBoard();
