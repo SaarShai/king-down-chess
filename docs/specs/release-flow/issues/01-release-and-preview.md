@@ -25,6 +25,8 @@ check results are the test interfaces.
 
 - Dry-run tests cover order, failure, restart, tweak mode, preview isolation and
   the single main CI retry.
+- The review of `c738bd889` passes with notes. Repair tests cover the one-time
+  staging CI check, restart rules, log entries, published commit and preview test pages.
 - The read-only alias proof for `7489e25cd` matches `/`, `/play/` and `/sw.js`.
 - The lead opens the PR after the CI lane lands. Independent review and the
   first real run remain operator steps.

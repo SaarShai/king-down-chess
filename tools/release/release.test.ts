@@ -40,8 +40,65 @@ it('lists every release stage, stops on failure, then starts at the requested st
 
   const resumed = release(['--from', 'staging-checks']);
   expect(resumed.started).toEqual(stages.slice(2));
+  expect(resumed.output).toContain('release: ci skip\nrelease: staging skip\n');
   expect([resumed.code, resumed.done]).toEqual([0, '0']);
+  expect(release(['--from', 'merge']).started).toEqual(stages.slice(3));
   expect(release(['--tweak']).started).toEqual(stages.filter(stage => !stage.startsWith('staging')));
+});
+
+it('requires a pass for each earlier stage unless --force is set', () => {
+  expect(release([], 'staging').code).toBe(1);
+
+  const blocked = release(['--from', 'merge']);
+  expect([blocked.code, blocked.done]).toEqual([1, '1']);
+  expect(blocked.started).toEqual([]);
+  expect(blocked.output).toContain('staging has no pass');
+
+  const forced = release(['--from', 'merge', '--force']);
+  expect([forced.code, forced.done]).toEqual([0, '0']);
+  expect(forced.started).toEqual(stages.slice(3));
+  expect(forced.output).toContain('release: ci skip\nrelease: staging skip\nrelease: staging-checks skip\n');
+  expect(release(['--from', 'merge']).code).toBe(1);
+});
+
+it('plans one release-log entry for a failed stage', () => {
+  const stopped = release([], 'ci');
+  const entries = stopped.output.split('\n').filter(line => line.includes('| PR #1499 |'));
+  expect(entries).toHaveLength(1);
+  expect(entries[0]).toMatch(new RegExp(`^- \\d{4}-\\d{2}-\\d{2}T[0-9:]+Z \\| PR #1499 \\| commit ${head} \\| ci failed \\(1\\)$`));
+});
+
+it('records the deploy receipt and fails publish when its commit differs', () => {
+  const merged = 'b'.repeat(40);
+  const published = 'c'.repeat(40);
+  const result = run('bash', ['-c', `
+source "$0" --dry-run --from log --force 1501 "$1" >/dev/null
+printf '%s\\n' "$2" > "$run/main-commit"
+printf 'deploy: published %s to kingdown; live checks pass\\n' "$2" > "$run/publish.log"
+verify_publish
+write_log
+printf 'deploy: checks passed at %s; publishing the tested build\\ndeploy: step publish\\ndeploy: step live check\\n' "$3" > "$run/publish.log"
+stage=publish
+verify_publish
+`, 'tools/release/release.sh', head, merged, published]);
+  const entries = result.stdout.split('\n').filter(line => line.includes('| PR #1501 |'));
+  expect(result.status, result.stdout + result.stderr).toBe(1);
+  expect(entries).toHaveLength(2);
+  expect(entries[0]).toContain(`| commit ${merged} | published commit ${merged} |`);
+  expect(entries[1]).toContain(`| commit ${merged} | publish failed (1) | published commit ${published}`);
+  expect(result.stdout).toContain(`publish failed (1). Expected ${merged}. Published ${published}.`);
+});
+
+it('plans one CI check for --ci-passed and a wait for regular staging', () => {
+  const once = run('python3', ['tools/release/staging.py', '--dry-run', '--ci-passed', head]);
+  expect(once.status, once.stdout + once.stderr).toBe(0);
+  expect(once.stdout.match(new RegExp(`^dry-run: node .*ci-green\\.mjs'? ${head}$`, 'gm')) ?? []).toHaveLength(1);
+  expect(once.stdout).not.toContain('ci-wait.sh');
+
+  const wait = run('python3', ['tools/release/staging.py', '--dry-run', head]);
+  expect(wait.status, wait.stdout + wait.stderr).toBe(0);
+  expect(wait.stdout).toContain('ci-wait.sh');
+  expect(wait.stdout).not.toContain('ci-green.mjs');
 });
 
 it('plans a preview build and aliases only to the preview host through the staging guard', () => {
@@ -57,6 +114,14 @@ it('plans a preview build and aliases only to the preview host through the stagi
   const order = steps.map(step => lines.findIndex(line => line.includes(step)));
   expect(order.every((pos, i) => pos >= 0 && (i === 0 || pos > order[i - 1]))).toBe(true);
   expect(lines.at(-1)).toBe('https://kingdown-preview.vercel.app');
+});
+
+it('sets test pages only for the preview build', () => {
+  const preview = run('python3', ['tools/release/staging.py', '--dry-run', '--preview', head]);
+  const staging = run('python3', ['tools/release/staging.py', '--dry-run', head], { KINGDOWN_TEST_PAGES: '1' });
+  expect(preview.stdout.split('\n').find(line => line.includes('npm run build:vercel'))).toContain('env KINGDOWN_TEST_PAGES=1');
+  expect(staging.stdout.split('\n').find(line => line.includes('npm run build:vercel'))).toContain('env -u KINGDOWN_TEST_PAGES');
+  expect(readFileSync('tools/release/live.sh', 'utf8')).toMatch(/^unset KINGDOWN_STAGE VITE_KINGDOWN_STAGE KINGDOWN_TEST_PAGES$/m);
 });
 
 it('checks the served home of a solo build and rejects a Vercel sign-in redirect', () => {

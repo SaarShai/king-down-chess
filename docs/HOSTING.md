@@ -1,6 +1,6 @@
 # Hosting
 
-The facts for the live site, its domain and the secret files. Every deploy publishes to the world: deploy only what the owner asked to put online.
+The facts for the live site, its domain and the secret files. Every deploy is public. Deploy only what the owner asked to put online, or a tweak preview, which never uses production data.
 
 ## Site
 
@@ -10,7 +10,7 @@ The facts for the live site, its domain and the secret files. Every deploy publi
 
 ## Deploy
 
-- `tools/deploy.sh` is the only deploy path. Do not run the Vercel CLI yourself.
+- `tools/deploy.sh` is the only production deploy path. Do not run the Vercel CLI yourself. The preview and staging commands of `tools/release/staging.py` use the pinned CLI to set the alias.
 - The release builds from GitHub main: the remote `origin` is `github.com/SaarShai/king-down-chess`. The script stops with a clear message when `origin` is absent.
 - Production profile (staging-first-game ticket 66): `tools/deploy.sh` serves production only, and `node tools/deploy-staging.mjs` serves staging only. Every mode refuses a shell with `KINGDOWN_STAGE` or `VITE_KINGDOWN_STAGE`. A website run needs `VITE_SUPABASE_URL` set to the production account origin (`https://utqzovjmclfyojedmwok.supabase.co`) and the production `VITE_SUPABASE_PUBLISHABLE_KEY` (a public `sb_publishable_` value); only the site build gets them. The script refuses a build with the staging manifest `staging.json`. The production server (`KINGDOWN_STAGE` unset) refuses the staging Supabase project, database and origin; a staging server refuses the production ones.
 - `tools/deploy.sh` with no flag checks a fresh `origin/main` in a temporary worktree and publishes nothing. Set `PLUGIN_TEST_DATABASE_URL` to a disposable loopback database whose name ends in `_test`. The path prepares the database, runs `npm test` and the default browser checks, then builds the combined tree with `npm run build:vercel`. When CI passed on that exact commit (`node tools/ci-green.mjs <sha>`: every check suite complete and green, and the combined commit status not failed, as merge-on-green requires), the script skips `npm test`, the web journey, the plugin protocol and plugin UI checks and the default browser checks that CI ran, because CI ran them on the same tree (the `browser-default` job runs every default browser check but the ones that assert frame times; those need a GPU, so CI runs `check:browser -- --no-gpu` and the script always runs them, with `node tools/check.mjs --gpu`; for a commit whose workflow has no such step, all default browser checks run here); the build, artifact, engine and live gates always run. No GitHub answer, a running or a failed CI means the full local run. When `wt` links the shared `node_modules`, the script replaces the link with its own `npm ci` installation, so no link path enters the bundle. It checks the engine archive and the compiled tree (`check:vercel`), then runs the web journey (`check:browser web-online`), the MCP protocol check (`plugin:check:protocol`) and `check:browser plugin-ui plugin-ui-http`. The step `production artifact` prints the sha256 of `static/index.html`, `static/sw.js` and each engine archive, and stops when an archive differs from the committed `engines/` file of the same name.
@@ -24,7 +24,7 @@ The facts for the live site, its domain and the secret files. Every deploy publi
 - Database backup and restore (release-safety ticket 01): In `plugin-deploy/`, `release-backup.sql` copies every public table in one repeatable-read snapshot, and `release-restore-games.sql` puts back the backup games, players, commands and invites in place, keeps newer games, leaves out the solo games of accounts deleted since the backup (as `delete_account` erased them) and their games that the deletion job ended (the live end stays), and refuses a backup whose games and commands disagree. Both run only by the owner's word; the ticket holds the order and the treatment of newer rows.
 - Both live checks use `DEPLOY_LIVE_TIMEOUT_MS`. The default is 180000 ms for the site check and 120000 ms for the plugin check; each tries again every 5 s until the limit. Set 900000 ms for the migration window. Run the release command detached.
 - The script takes no branch or commit. A commit that is not on `origin/main` cannot go live.
-- Keep the release record: run `set -o pipefail; tools/deploy.sh --publish 2>&1 | tee <deploy-log-path>` detached. The deploy output log holds the source commit, the byte record, each step and both live-check results. The fresh worktree is the clean tree. The release log is `LOG.md` in `../evidence/production-release/`, relative to the main app checkout. Resolve the main checkout from Git's common directory, then pass the absolute log path to a writer. Check that the file and its prior release entry exist. Append to this file. It is outside the app repository and needs no app PR.
+- Keep the release record: use `runs/launch/release-log.md` beside the main checkout. The folder `../evidence/production-release/`, relative to the main checkout, holds the direct live helper logs and the old record `LOG.md`. The deploy output log holds the source commit, the byte record, each step and both live-check results. The release driver keeps its live logs in the `live/` folder of each run.
 - The tool gate asks before a `vercel` command, a Porkbun API call or a browser visit to the live site or the Vercel dashboard.
 
 The email removal release deploys code without email jobs before migration 0015. The guarded
@@ -52,24 +52,40 @@ ci → staging → staging-checks → merge → main-ci → engines → publish 
   Keep the local test database on port 55432 ready for these checks.
 - Read the end of the printed `progress.log` path. Its `.done` file holds the exit
   code. Each stage has a log in the same folder. Use `--from <stage>` with the same PR
-  and head to continue after a fault. Start with `--from main-ci` if the merge commit
-  has no recorded green result. Confirm the deployment before you restart after a
-  publish fault. Use `--tweak` to skip both staging stages.
+  and head to continue after a fault. The command records each skip and requires a
+  pass for each earlier stage. Use `--force` to start without those passes.
+  Start with `--from main-ci` if the merge commit has no recorded green result.
+  Confirm the deployment before you restart after a publish fault.
+  Use `--tweak` to skip both staging stages.
+- After a killed run, confirm that the run and its child processes have stopped.
+  Use `rmdir` to remove the empty `release-active` folder from
+  `KINGDOWN_RELEASE_EVIDENCE`. The default folder is `../evidence/release-active`
+  relative to the main checkout.
 - `--dry-run` prints the outward commands. It keeps its progress in a separate folder.
-  A real release appends one line to `KINGDOWN_RELEASE_LOG`. The default is
-  `release-log.md` in the sibling `runs/launch/` folder of the main checkout.
-  The line records the commit, deployments and check results.
+  A real release appends its result to the release record. Set `KINGDOWN_RELEASE_LOG`
+  to use a different path. A pass records the merge commit, published commit,
+  deployments and check results. A failure records the time, PR, commit and failed stage.
 - `release-staging` and `release-live` each use their own packages.
-  `python3 tools/release/staging.py [ref]` still waits for CI when you run it directly.
+  `python3 tools/release/staging.py [ref]` waits for CI. With `--ci-passed` it
+  checks CI once on the exact commit and stops unless CI is green.
   The build names `next.html` for the solo-launch home. The alias check compares
   `/` with that file, `/play/` with `index.html`, and the worker with `sw.js`.
+- For direct use, `tools/release/merge.sh <pr> <head> <reviewed head> [note]`
+  records an independent review and merges on green.
+  `tools/release/live.sh check|engines|publish` uses a fresh `origin/main`.
+  `check` builds and checks the site. `engines` reads the engines in use.
+  `publish` waits for CI and deploys through `tools/deploy.sh`.
+  If CI does not pass in time, `tools/deploy.sh` runs the local checks.
+  The default private env path is `<main checkout>/../.secrets/kingdown-mvp.env`.
 
 For a tweak preview, run `python3 tools/release/staging.py --preview <ref>`
 from the release tools checkout. Use `--dry-run` to see the commands.
+Pass the scripted journey check and the builder's browser pass before you run
+`--preview`. The command runs neither check. See Preview in `docs/CHANGES.md` on main.
 The preview uses the linked staging worktree and its staging project.
-It checks types, builds, and runs `release-site` on the local build. The staging
-guard publishes to the preview target. The command changes only the
-[preview alias](https://kingdown-preview.vercel.app), checks it signed out,
+It checks types, builds with `KINGDOWN_TEST_PAGES=1`, and runs `release-site`
+on the local build. The staging guard publishes to the preview target.
+The command changes only the [preview alias](https://kingdown-preview.vercel.app), checks it signed out,
 and prints that address last. A Vercel sign-in redirect stops the command.
 
 The preview shows the signed-out site, Guide, setup and local solo play.

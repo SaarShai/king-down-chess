@@ -22,7 +22,7 @@ case "$mode" in check|engines|publish) ;; *) echo 'usage: tools/release/live.sh 
 . "$tools/release/profile.sh"
 [ -d "$repo/.git" ] || [ -f "$repo/.git" ] || { echo "live: $repo is not a worktree; make it with tools/wt.sh add release-live" >&2; exit 2; }
 mkdir -p "$evidence"
-unset KINGDOWN_STAGE VITE_KINGDOWN_STAGE
+unset KINGDOWN_STAGE VITE_KINGDOWN_STAGE KINGDOWN_TEST_PAGES
 export VITE_SUPABASE_URL=https://utqzovjmclfyojedmwok.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=$(node "$tools/release/publishable-key.mjs" https://kingdown.dev); export VITE_SUPABASE_PUBLISHABLE_KEY
 export PLUGIN_TEST_DATABASE_URL=${PLUGIN_TEST_DATABASE_URL:-postgresql://kingdown_test@127.0.0.1:55432/kingdown_release_test}

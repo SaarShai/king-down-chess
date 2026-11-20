@@ -3,7 +3,7 @@
 
 Usage: staging.py [--dry-run] [ref]
        staging.py --preview [--dry-run] <ref>
-The release driver uses --ci-passed after its CI stage.
+Use --ci-passed to check exact-commit CI once without a wait.
 KINGDOWN_RELEASE_WORKTREE sets the build worktree.
 KINGDOWN_RELEASE_EVIDENCE sets the parent folder for the evidence.
 """
@@ -73,7 +73,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--preview', action='store_true')
     parser.add_argument('--dry-run', action='store_true')
-    parser.add_argument('--ci-passed', action='store_true')
+    parser.add_argument('--ci-passed', action='store_true', help='check CI once and stop unless it is green')
     parser.add_argument('ref', nargs='?')
     args = parser.parse_args()
     if args.preview and (not args.ref or args.ci_passed):
@@ -82,8 +82,11 @@ def main():
     origin = PREVIEW if args.preview else STAGING
     host = urlsplit(origin).hostname
     profile = TOOLS / 'release/profile.sh'
-    build = ['bash', '-c', '. "$1"; exec npm run build:vercel', 'staging-build', str(profile)]
+    test_pages = ['KINGDOWN_TEST_PAGES=1'] if args.preview else ['-u', 'KINGDOWN_TEST_PAGES']
+    build = ['env', *test_pages, 'bash', '-c', '. "$1"; exec npm run build:vercel', 'staging-build', str(profile)]
     key_command = ['node', str(TOOLS / 'release/publishable-key.mjs'), STAGING]
+    ci = (['node', str(TOOLS / 'ci-green.mjs')] if args.ci_passed
+          else ['bash', str(TOOLS / 'release/ci-wait.sh')])
     publish = [*GUARD, '--publish']
 
     def alias(deployment):
@@ -95,8 +98,8 @@ def main():
     if args.dry_run:
         stub(['git', 'fetch', '-q', 'origin'])
         stub(['git', 'checkout', '--detach', ref])
-        if not args.preview and not args.ci_passed:
-            stub(['bash', str(TOOLS / 'release/ci-wait.sh'), ref])
+        if not args.preview:
+            stub([*ci, ref])
         stub(key_command)
         if args.preview:
             stub(['npm', 'run', 'typecheck'])
@@ -149,9 +152,9 @@ def main():
         phase('preflight')
         assert not git('status', '--porcelain'), 'The release worktree has changes'
         git('checkout', '-q', '--detach', source)
-        if not args.preview and not args.ci_passed:
+        if not args.preview:
             phase('ci')
-            run(['bash', str(TOOLS / 'release/ci-wait.sh'), source], 'ci', cwd=TOOLS)
+            run([*ci, source], 'ci', cwd=TOOLS)
         if (root / 'node_modules').is_symlink():
             (root / 'node_modules').unlink()
         if subprocess.run(['npm', 'ls', '--depth=0'], cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
