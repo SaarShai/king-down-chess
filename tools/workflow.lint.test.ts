@@ -49,7 +49,7 @@ describe('plugin-checks workflow', () => {
 
   it('keeps WebKit diagnostics and the Ubuntu install guard', () => {
     const shard = job('checks');
-    expect(shard).toContain("PLAYABLE_CPU_CANVAS: ${{ matrix.browser == 'webkit' && '1' || '' }}");
+    expect(shard).toContain("PLAYABLE_CPU_CANVAS: ${{ (matrix.browser == 'webkit' || matrix.name == 'browser-ui (http)') && '1' || '' }}");
     expect(shard).toContain("DEBUG: ${{ matrix.browser == 'webkit' && 'pw:browser' || '' }}");
     expect(shard).toContain("archive.ubuntu.com/ubuntu/\\tpriority:2");
     expect(shard).toContain('Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";');

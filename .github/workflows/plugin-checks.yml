@@ -108,7 +108,8 @@ jobs:
     env:
       PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
       PLAYABLE_BROWSER: ${{ matrix.browser }}
-      PLAYABLE_CPU_CANVAS: ${{ matrix.browser == 'webkit' && '1' || '' }}
+      # Both browsers use software rendering on the hosted runner.
+      PLAYABLE_CPU_CANVAS: ${{ (matrix.browser == 'webkit' || matrix.name == 'browser-ui (http)') && '1' || '' }}
     steps:
       - uses: actions/checkout@v4
         with:
