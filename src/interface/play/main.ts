@@ -950,6 +950,9 @@ function fitResult() {
   if (!onlineActive || reading !== 'result') return;
   const body = detail?.querySelector<HTMLElement>('.play-result-body');
   if (!body) return;
+  // A long name takes a smaller size to stay whole on one line (reading-b.css). --name is its width in em: no screen size changes it.
+  const name = body.querySelector<HTMLElement>('.play-result-winner'), width = name?.getBoundingClientRect().width;
+  if (width) body.style.setProperty('--name', String(width / parseFloat(getComputedStyle(name!).fontSize)));
   // Give the keyboard a scroll target only when the result text needs it.
   if (body.scrollHeight > body.clientHeight + 1) body.tabIndex = 0;
   else body.removeAttribute('tabindex');
@@ -1461,7 +1464,9 @@ function renderReader(actions?: HTMLElement) {
     const state = onlineState, block = el('section', 'play-result'), body = el('div', 'play-result-body'), actions = el('div', 'play-result-actions');
     const winner = state.view?.result?.winner;
     block.dataset.outcome = winner == null ? 'draw' : winner === state.view?.seat ? 'win' : 'loss';
-    body.append(el('h3', '', onlineResult(state)), el('p', 'play-result-cause', state.view?.result?.reason === 'resignation' ? 'The game ends by resignation.' : state.view?.result?.reason === 'agreement' ? 'Both players agree to a draw.' : state.view?.result?.reason === 'timeout' ? 'The move time ends.' : state.view?.result?.reason === 'checkmate' ? 'Checkmate.' : 'The game ends.'));
+    const heading = el('h3', '', onlineResult(state)), handle = state.opponent?.handle;
+    if (block.dataset.outcome === 'loss' && handle) { heading.replaceChildren(el('span', 'play-result-winner', handle), ' wins.'); void document.fonts.ready.then(fitResult); }
+    body.append(heading, el('p', 'play-result-cause', state.view?.result?.reason === 'resignation' ? 'The game ends by resignation.' : state.view?.result?.reason === 'agreement' ? 'Both players agree to a draw.' : state.view?.result?.reason === 'timeout' ? 'The move time ends.' : state.view?.result?.reason === 'checkmate' ? 'Checkmate.' : 'The game ends.'));
     if (state.rematch === 'theirs') actions.append(button('Accept rematch', { kind: 'main', onPress: () => { void people!.controller!.rematch('accept'); } }), button('Decline', { onPress: () => { void people!.controller!.rematch('decline'); } }));
     else if (state.rematch === 'accepted' && state.rematchGame) actions.append(button('Open rematch', { kind: 'main', onPress: () => shell.go({ place: 'online', entry: state.rematchGame! }) }));
     else if (state.rematch === 'mine') body.append(el('p', 'play-result-facts', 'Waiting for a rematch answer.'));

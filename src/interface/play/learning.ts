@@ -4,7 +4,7 @@ import { A, G, K, KINGS, L, M, O, P, S, type Color, type PieceType, type PowerNa
 import type { CardName } from '../../rules/rules';
 import { RELEASED_CARDS } from '../../content/cards';
 import { cardName, cardText, powerText, POWER_NAME, usesAllowed } from '../../powers-ui';
-import { cardLine, pieces, powerLines } from './texts';
+import { cardLine, pieces, powerLines, text } from './texts';
 import type { DraftTurn } from './turn';
 import { learningNotes } from './learning-content';
 export { diagramFor } from './learning-diagrams';
@@ -14,6 +14,8 @@ export const newPieces = new Set<number>([A, S, G, M, O, L]);
 export const captureWords = (line: string) => line.replace(/\bTakes\b/g, 'Captures').replace(/\btakes\b/g, 'captures').replace(/\btaken\b/g, 'captured').replace(/\btake\b/g, 'capture').replace('Select "Stop here" to end the chain.', 'Select End turn to end the chain.');
 const complete = (line: string) => `${line[0].toUpperCase()}${line.slice(1).replace(/\.$/, '')}.`;
 export const freeActionFollowUp = 'After a free action, you can move a piece. If your king is safe, you can select End turn.';
+/** One Guide serves solo and online play, so it names the finish button of each. */
+export const guideFollowUp = freeActionFollowUp.replace(text.finish, `${text.finish} or ${text.send}`);
 const isFreeMark = (id: string, context: GameRules) => context.rules.markFree && ['Freeze', 'IceWall', 'Firewall'].includes(id);
 export function effectRule(subject: Exclude<LearnSubject, { kind: 'piece' }>, context: GameRules): string {
   if (subject.kind === 'card' && subject.id === 'March') return cardLine(subject.id);
