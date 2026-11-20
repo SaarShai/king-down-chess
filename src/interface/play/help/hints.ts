@@ -1,10 +1,12 @@
+import { text } from '../texts';
+
 const key = 'daylight.hints';
 let seenThisVisit = false;
 
 export const hintLines = {
   piece: 'Tap a piece of yours.',
   ring: 'Rings show its moves. Tap a ring.',
-  end: 'End turn gives the move to Computer.',
+  end: `${text.finish} gives the move to Computer.`,
   card: 'Tap a card to read it.',
   info: 'Tap i for the full rule.',
 } as const;
