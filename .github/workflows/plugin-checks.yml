@@ -27,6 +27,7 @@ jobs:
     outputs:
       mode: ${{ steps.plan.outputs.mode }}
       matrix: ${{ steps.plan.outputs.matrix }}
+      verify_tests: ${{ steps.plan.outputs.verify_tests }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: reuse
     if: needs.reuse.outputs.mode != 'reuse'
-    timeout-minutes: 15
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:17
@@ -82,6 +83,25 @@ jobs:
           npm run plugin:check:protocol
           npm run build:vercel
           npm run check:vercel
+
+      - if: needs.reuse.outputs.verify_tests != ''
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-chromium-${{ hashFiles('package-lock.json') }}
+      - if: needs.reuse.outputs.verify_tests != ''
+        run: |
+          printf 'https://archive.ubuntu.com/ubuntu/\tpriority:2\nhttps://security.ubuntu.com/ubuntu/\tpriority:3\n' | sudo tee /etc/apt/apt-mirrors.txt
+          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
+          npx playwright install --with-deps chromium
+        timeout-minutes: 10
+      - if: needs.reuse.outputs.verify_tests != ''
+        run: npm test
+        timeout-minutes: 15
+        env:
+          KINGDOWN_TEST_FILE: ${{ needs.reuse.outputs.verify_tests }}
+          KINGDOWN_TEST_NO_TYPECHECK: '1'
+          PLAYABLE_BROWSER: chromium
 
   checks:
     name: checks / ${{ matrix.name }}

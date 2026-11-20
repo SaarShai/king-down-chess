@@ -19,7 +19,7 @@ it('assigns every test file once and keeps the five extra WebKit test files', ()
   ])));
   expect(stable(files('webkit'))).toEqual(stable(webkitFiles));
   // Reuse and record-tree are in series with the matrix and verify.
-  expect(shards.length + 1).toBeLessThanOrEqual(16);
+  expect(shards.length).toBeLessThanOrEqual(16);
   const chromiumBoardJobs = shards.filter(job => job.browser === 'chromium' &&
     job.tests.some(file => /^tools\/plugin-board(?:-input|-drafts)?\.test\.ts$/.test(file)));
   expect(chromiumBoardJobs).toHaveLength(3);
@@ -50,4 +50,16 @@ it('assigns a new default and a new WebKit check without a workflow edit', () =>
   const jobs = checkShards({ registry });
   expect(jobs.filter(job => job.checks.includes('new-default')).map(job => job.browser)).toEqual(['chromium']);
   expect(stable(jobs.filter(job => job.checks.includes('new-journey')).map(job => job.browser))).toEqual(['chromium', 'webkit']);
+});
+
+it('keeps both compiled HTTP widget parts on one Chromium runner', () => {
+  expect(checkShards().filter(job => job.checks.includes('plugin-ui-http'))).toEqual([
+    expect.objectContaining({ browser: 'chromium', part: 'parallel' }),
+  ]);
+});
+
+it('uses the verify runner for the Chromium board drafts tests', () => {
+  expect(checkShards().find(job => job.name === 'verify')).toMatchObject({
+    browser: 'chromium', tests: ['tools/plugin-board-drafts.test.ts'],
+  });
 });

@@ -71,8 +71,10 @@ if (process.argv[2] === 'changed') {
   if (dispatch && base && !commit.test(base)) throw new Error('base must be a full commit SHA');
   const tree = gitTree('HEAD');
   const selection = !dispatch && findGreenTree(tree, repo) ? { mode: 'reuse' } : select(base, 'HEAD');
+  const shards = checkShards({ selection });
+  const verify = shards.find(job => job.name === 'verify');
   const matrix = {
-    include: checkShards({ selection }).map(job => ({
+    include: shards.filter(job => job !== verify).map(job => ({
       name: job.name, browser: job.browser, part: job.part,
       tests: job.tests.length ? filePattern(job.tests) : '',
       checks: job.checks.join(' '),
@@ -81,7 +83,7 @@ if (process.argv[2] === 'changed') {
   };
   console.log(`CI mode: ${selection.mode}. Shards: ${matrix.include.map(job => job.name).join(', ') || 'none'}`);
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT,
-    `mode=${selection.mode}\nmatrix=${JSON.stringify(matrix)}\n`);
+    `mode=${selection.mode}\nmatrix=${JSON.stringify(matrix)}\nverify_tests=${verify ? filePattern(verify.tests) : ''}\n`);
 } else if (process.argv[2] === 'record') {
   const { CI_MODE: mode, CI_MATRIX: matrix, GITHUB_RUN_ID: id, GITHUB_OUTPUT: output, RUNNER_TEMP: temp } = process.env;
   const names = JSON.parse(matrix).include.map(job => job.name);

@@ -20,6 +20,8 @@ describe('plugin-checks workflow', () => {
   it('checks types and docs on the short path and requires the plan results to record a tree', () => {
     const verify = job('verify');
     expect(verify).toContain('npm run typecheck');
+    expect(verify).toContain("if: needs.reuse.outputs.verify_tests != ''\n        run: npm test");
+    expect(verify).toContain('KINGDOWN_TEST_FILE: ${{ needs.reuse.outputs.verify_tests }}');
     expect(verify).toContain("if: needs.reuse.outputs.mode != 'full'\n        run: npm run test:docs");
     expect(job('checks')).toContain("if: contains(fromJSON('[\"full\",\"selected\"]'), needs.reuse.outputs.mode)");
     expect(job('record-tree')).toContain('needs: [reuse, verify, checks]');
