@@ -187,7 +187,7 @@
 .play-game .play-result { animation: kd-fade 120ms linear both; }
 :root[data-motion='fast'] .play-game .play-result { animation-duration: 60ms; }
 .play-game .play-rematch-note { flex: none; margin: 4px 0; font-size: 14px; line-height: 18px; }
-/* The result can cover the idle board; its actions never need a scroll. A cause too long for a docked box scrolls in its own box. */
+/* The result can cover the idle board. Its actions stay in view. */
 .play-game[data-reading='result'] .play-state-line { display: none; }
 .play-game[data-reading='result'] .play-reader { height: auto; z-index: 3; overflow: visible; }
 .play-game[data-reading='result'] .play-detail { flex: none; background: var(--surface-page); }
@@ -220,17 +220,6 @@
 /* The result follows the board and the scroll, as every reading does (decision 124), and takes the idle hand and finish rows.
    The top line (opponent and Menu) stays; the card ends at the bottom of the screen. */
 .play-game[data-layout='portrait'][data-reading='result'] .play-reader:not([data-floating='true']) { height: calc(var(--reader) + var(--own) + var(--fin)); background: var(--surface-page); }
-.play-game[data-layout='portrait'][data-result-fit][data-reading='result'] .play-result-art { display: none; }
-.play-game[data-layout='portrait'][data-result-fit][data-reading='result'] .play-result-actions { flex-wrap: nowrap; }
-.play-game[data-layout='portrait'][data-result-fit][data-reading='result'] .play-result-actions .kd-button { flex: 1 1 0; min-width: 0; padding-inline: 4px; font-size: 14px; }
-/* The review of PR 372: when the compact result still runs past the docked box, the cause takes the space that is left and scrolls.
-   Each box from the reader down to the cause can shrink; the title, the rematch note and the actions keep their size. */
-:is(.play-game[data-layout='portrait'], .play-game[data-layout='wide'][data-form='compact'])[data-result-fit='scroll'][data-reading='result'] .play-reader:not([data-floating='true']) .play-detail { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
-:is(.play-game[data-layout='portrait'], .play-game[data-layout='wide'][data-form='compact'])[data-result-fit='scroll'][data-reading='result'] .play-reader:not([data-floating='true']) .play-result { flex: 0 1 auto; min-height: 0; align-items: stretch; }
-:is(.play-game[data-layout='portrait'], .play-game[data-layout='wide'][data-form='compact'])[data-result-fit='scroll'][data-reading='result'] .play-reader:not([data-floating='true']) .play-result-body { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
-:is(.play-game[data-layout='portrait'], .play-game[data-layout='wide'][data-form='compact'])[data-result-fit='scroll'][data-reading='result'] .play-reader:not([data-floating='true']) .play-result-body > * { flex: none; }
-:is(.play-game[data-layout='portrait'], .play-game[data-layout='wide'][data-form='compact'])[data-result-fit='scroll'][data-reading='result'] .play-reader:not([data-floating='true']) .play-result-cause { flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
-  background: linear-gradient(transparent, var(--surface-page) 70%) 0 100% / 100% 22px no-repeat local, radial-gradient(farthest-side at 50% 100%, #05171d8c, transparent) 0 100% / 100% 10px no-repeat scroll; }
 .play-game[data-layout='wide'] .play-history-strip { top: calc(var(--rail-top) + var(--opp)); }
 .play-game[data-layout='wide'] .play-reader:not([data-floating='true']) { top: calc(var(--rail-top) + var(--opp) + var(--scroll)); height: var(--reader); padding: 8px 5px 0; }
 .play-game .play-b[data-form='tall'] { grid-template-rows: 24px auto minmax(0, 1fr); }
@@ -457,7 +446,14 @@
 }
 .play-game[data-reading='result'] .play-result { height: 100%; }
 .play-game[data-online] .play-result { padding: 7px; }
-.play-game[data-online] .play-result-body { margin-block: auto; overflow-wrap: anywhere; }
+.play-game[data-online] .play-result-body {
+  flex: 0 1 auto; min-height: 0; margin-block: auto; overflow-wrap: anywhere;
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+}
+.play-game[data-online] .play-result-actions { flex: none; }
+@media (max-width: 340px) {
+  .play-game[data-online] .play-result[data-outcome='loss'] h3 { font-size: 20px; }
+}
 .play-result-name { display: grid; }
 .play-result-name small { font: 400 12px/1.1 var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); }
 .play-result-seat:has([data-outcome='win']) .play-result-name strong { color: var(--brass-p, var(--text)); }

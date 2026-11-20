@@ -158,3 +158,74 @@ it('hash routes name the place to open; any other hash opens Play', async () => 
   const { placeOf } = await import('./shell');
   expect(['#guide', '#you', '#play', 'guide', '', '#game', '#Guide', '#you/x'].map(placeOf)).toEqual(['guide', 'you', 'play', 'guide', 'play', 'play', 'play', 'play']);
 });
+
+async function historyShell() {
+  const events = new EventTarget();
+  const address = new URL('https://game.example.test/next.html');
+  const entries: { state: unknown; url: string }[] = [{ state: null, url: address.href }];
+  let index = 0;
+  const replaceState = vi.fn((state: unknown, _title: string, url: string) => {
+    entries[index] = { state, url: new URL(url, address).href };
+    address.href = entries[index].url;
+  });
+  const history = {
+    get state() { return entries[index].state; },
+    replaceState,
+    pushState(state: unknown, _title: string, url: string) {
+      entries.splice(++index, Infinity, { state, url: new URL(url, address).href });
+      address.href = entries[index].url;
+    },
+    go: vi.fn(), back: vi.fn(),
+  };
+  const visit = (entry: number) => {
+    index = entry;
+    address.href = entries[index].url;
+    events.dispatchEvent(Object.assign(new Event('popstate'), { state: history.state }));
+  };
+  vi.stubGlobal('window', Object.assign(events, { scrollTo: vi.fn() }));
+  vi.stubGlobal('document', {
+    documentElement: { dataset: {}, style: { setProperty() {} } },
+    body: { prepend() {} }, createElement: () => new EventTarget(),
+    addEventListener() {}, querySelector: () => null,
+  });
+  vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: () => '200ms' }));
+  vi.stubGlobal('history', history);
+  vi.stubGlobal('location', address);
+  const { mountShell } = await import('./shell');
+  const shell = mountShell({ querySelector: () => null } as unknown as HTMLElement, vi.fn());
+  return { shell, history, visit };
+}
+
+it('replaces the open view when a route arrives before Back', async () => {
+  const { shell, history, visit } = await historyShell();
+  const close = vi.fn(), more = vi.fn(), pool = vi.fn();
+  shell.openLayer(close);
+  shell.openLayerView(more);
+  shell.openLayerView(pool);
+  history.back();
+  shell.go({ place: 'online', entry: 'game' }, false);
+  expect(close).toHaveBeenCalledOnce();
+  expect(history.go).not.toHaveBeenCalled();
+  expect(history.back).toHaveBeenCalledOnce();
+  expect(history.state).toMatchObject({ shell: { place: 'online' } });
+  visit(2);
+  expect(shell.route.place).toBe('play');
+  expect(history.state).not.toHaveProperty('layer');
+  expect(more).toHaveBeenCalledOnce();
+  expect(pool).toHaveBeenCalledOnce();
+});
+
+it('releases actions only when Back reaches the base entry', async () => {
+  const { shell, history, visit } = await historyShell();
+  shell.openLayer(vi.fn());
+  shell.openLayerView(vi.fn());
+  shell.openLayerView(vi.fn());
+  const done = shell.closeLayer(), later = vi.fn();
+  shell.settled(later);
+  expect(history.go).toHaveBeenCalledWith(-3);
+  visit(2);
+  expect(later).not.toHaveBeenCalled();
+  visit(0);
+  await done;
+  expect(later).toHaveBeenCalledOnce();
+});

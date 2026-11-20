@@ -77,6 +77,14 @@ async function testSite(context, providerReturn) {
     if (path === '/api/me/settings') return json(route, { settings: {}, me: { handle: 'tester', icon: null } }, settingsStatus);
     if (path === '/api/me/games') return json(route, { games: [], invitations: [] });
     if (path === '/api/me/record') return json(route, { handle: 'tester', icon: null, record: {}, blocks: [], history: [] });
+    if (path === '/api/games' && route.request().method() === 'POST') {
+      const input = route.request().postDataJSON();
+      assert.equal(input.open_link, true);
+      return json(route, {
+        view: { game_id: '11111111-1111-4111-8111-111111111111', status: 'waiting', kind: 'friend', seat: 0, options: input.options },
+        invite: { token: 'local-proof-invite' },
+      });
+    }
     return route.abort();
   });
   return { authPaths, providerReplies, failSettings: () => { settingsStatus = 503; }, restoreSettings: () => { settingsStatus = 200; } };
@@ -345,6 +353,20 @@ for (const channel of ['webkit', 'chromium']) {
         assert.notEqual(new URL(page.url()).hash, '#person');
       }, { providerReturn, reducedMotion: 'reduce' });
     }
+    await run('friend provider return sends the pending link', async page => {
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, 'share', { value: undefined });
+        Object.defineProperty(navigator, 'clipboard', { value: { writeText: async text => { window.proofCopy = text; } } });
+      });
+      await page.goto(url.href);
+      await button(home(page), 'Play a friend').click();
+      const setup = setupTable(page);
+      await button(setup, 'Send invite link').click();
+      await button(setup, 'Continue with GitHub').click();
+      await page.waitForFunction(() => window.proofCopy?.endsWith('#join=local-proof-invite'));
+      await noDialog(page);
+      assert.equal(new URL(page.url()).hash, '#play');
+    }, { providerReturn: 'ok', reducedMotion: 'reduce' });
   } finally { await browser.close(); }
 }
 if (failures.length) throw new Error(`${failures.length} cases failed.`);

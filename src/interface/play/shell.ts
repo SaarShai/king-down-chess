@@ -29,13 +29,58 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
   document.body.prepend(skip);
   // A layer over the place has an entry for itself and one for each view it opens.
   // While a layer Back is pending, route changes and new layers wait in `waiting`, in order, until that Back lands.
-  let layer: { id: string; close(): void; back?: () => boolean; views: (() => void)[]; depth: number } | null = null;
-  let layerId = 0, waiting: (() => void)[] | null = null;
-  const settled = (run: () => void) => { if (waiting) waiting.push(run); else run(); };
+  let layer: { id: string; base: string; close(): void; back?: () => boolean; views: (() => void)[]; depth: number } | null = null;
+  let entryId = 0, waiting: { key: string; runs: (() => void)[] } | null = null;
+  const nav = window.navigation;
+  const layerRoutes = new Map<string, { key: string; browserKey: string }>();
+  let forward = false;
+  nav?.addEventListener('currententrychange', event => { forward = (nav.currentEntry?.index ?? -1) > event.from.index; });
+  const newKey = () => `${performance.timeOrigin}:${++entryId}`;
+  const viewKey = (id: string, depth: number) => `${id}/${depth}`;
+  const settled = (run: () => void) => { if (waiting) waiting.runs.push(run); else run(); };
+  const replacePlace = (next: Route, url = location.href) =>
+    history.replaceState({ shell: next, key: history.state?.key ?? newKey() }, '', url);
   const pushLayer = () => {
-    if (layer) history.pushState({ shell: route, layer: true, layerId: layer.id, layerDepth: layer.depth }, '', location.href);
+    if (layer) history.pushState({
+      shell: route, key: viewKey(layer.id, layer.depth), layer: true, layerId: layer.id,
+      layerDepth: layer.depth, layerBase: layer.base,
+    }, '', location.href);
   };
-  const stepBack = (distance: number) => distance === 1 ? history.back() : history.go(-distance);
+  function finishBack() {
+    const runs = waiting!.runs; waiting = null;
+    while (runs.length && !waiting) runs.shift()!();
+    if (runs.length) waiting!.runs.push(...runs);
+  }
+  function stepTo(key: string, offset: number, run?: () => void, skipClosed = false) {
+    const target = nav?.currentEntry && nav.entries()[nav.currentEntry.index + offset];
+    if (skipClosed && !target?.sameDocument) return false;
+    const pending = waiting = { key, runs: run ? [run] : [] };
+    if (target?.sameDocument) {
+      // A fixed destination cannot move if the browser also goes Back.
+      const traverse = () => {
+        if (waiting !== pending || history.state?.key === key) return;
+        const { committed, finished } = nav.traverseTo(target.key);
+        void finished?.catch(() => {});
+        void committed?.catch((error: DOMException) => {
+          if (waiting !== pending || history.state?.key === key) return;
+          if (error.name === 'AbortError' && nav.entries().some(entry => entry.key === target.key)) setTimeout(traverse, 0);
+          else {
+            // The destination is gone. Clear the closed entry if it is still current.
+            waiting = null;
+            if (!layer && history.state?.layer) {
+              const next = history.state.shell;
+              replacePlace(next);
+              if (JSON.stringify(next) !== JSON.stringify(route)) show(next);
+            }
+            run?.();
+          }
+        });
+      };
+      traverse();
+    } else if (offset === -1) history.back();
+    else history.go(offset);
+    return true;
+  }
   const showLayerView = (depth: number) => {
     if (!layer) return;
     layer.depth = depth;
@@ -79,52 +124,57 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
     if (draw && before.place !== next.place && places.includes(before.place) && places.includes(next.place)) { sound('pass'); pulse('light'); }
   };
   function go(next: Route, draw = true, replace = false) {
-    if (waiting) { waiting.push(() => go(next, draw, replace)); return; }
+    if (waiting) { waiting.runs.push(() => go(next, draw, replace)); return; }
     if (JSON.stringify(next) === JSON.stringify(route)) {
       if (replace) history.replaceState({ ...history.state, shell: route }, '', routeHash(route));
       return;
     }
-    if (layer?.depth) {
-      const open = layer;
-      void closeLayer(); open.close();
-      settled(() => go(next, draw, replace));
-      return;
-    }
     // A route change (a late invite reply) closes an open layer; the new place takes the layer's history entry.
     const open = layer; layer = null; open?.close();
-    history[open || replace ? 'replaceState' : 'pushState']({ shell: next }, '', routeHash(next)); show(next, draw);
+    if (open || replace) {
+      replacePlace(next, routeHash(next));
+      if (open?.views.length && nav?.currentEntry) layerRoutes.set(open.id, { key: history.state.key, browserKey: nav.currentEntry.key });
+    } else history.pushState({ shell: next, key: newKey() }, '', routeHash(next));
+    show(next, draw);
   }
   window.addEventListener('popstate', event => {
-    if (waiting) {
-      const runs = waiting; waiting = null;
-      while (runs.length && !waiting) runs.shift()!();
-      if (runs.length) waiting!.push(...runs); // a run started another Back: the rest waits for it
-      return;
-    }
-    const next = event.state?.shell ?? fromAddress();
+    const state = event.state;
+    const movedForward = forward;
+    const next = state?.shell ?? fromAddress();
     const samePlace = JSON.stringify(next) === JSON.stringify(route);
-    if (layer) {
-      if (samePlace && event.state?.layerId === layer.id) {
-        showLayerView(event.state.layerDepth);
+    if (layer && samePlace && state?.layerId === layer.id) {
+      showLayerView(state.layerDepth);
+    } else {
+      // A view without its own entry uses the layer's Back action.
+      if (layer && samePlace && state?.key === layer.base && !layer.depth && layer.back?.()) {
+        pushLayer();
         return;
       }
-      // A view without its own entry uses the layer's Back action.
-      if (samePlace && !layer.depth && layer.back?.()) { pushLayer(); return; }
-      const open = layer; layer = null; open.close();
-      if (samePlace) return;
+      const open = layer; layer = null; open?.close();
+      // Skip closed views toward the place the browser is moving to.
+      if (state?.layer && !waiting) {
+        const routed = layerRoutes.get(state.layerId);
+        const current = nav?.currentEntry;
+        if (routed && current) {
+          const target = nav.entries().find(entry => entry.key === routed.browserKey);
+          if (target && (movedForward || target.index < current.index) &&
+              stepTo(routed.key, target.index - current.index, undefined, true)) return;
+        }
+        if (state.layerBase && stepTo(state.layerBase, -1 - state.layerDepth, undefined, true)) return;
+        replacePlace(next);
+      } else if (!state?.key) replacePlace(next);
+      if (!samePlace) show(next);
     }
-    // Forward to the entry of a closed layer: the place stays; the next Back leaves it.
-    if (event.state?.layer && samePlace) { waiting = []; stepBack(1 + (event.state.layerDepth ?? 0)); return; }
-    if (!event.state?.shell) history.replaceState({ shell: next }, '', location.href);
-    if (!samePlace) show(next);
+    if (waiting && state?.key === waiting.key) finishBack();
   });
   // An address edit fires popstate, then hashchange: the second shows nothing new.
   window.addEventListener('hashchange', () => {
+    if (waiting && history.state?.layer) return;
     if (location.hash === '#game' && route.place === 'game') return;
     const next = fromAddress();
     if (JSON.stringify(next) === JSON.stringify(route)) return;
     const open = layer; layer = null; open?.close();
-    history.replaceState({ shell: next }, '', location.href);
+    replacePlace(next);
     show(next);
   });
   window.addEventListener('pagehide', () => {
@@ -134,7 +184,7 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
       try { sessionStorage.setItem(guideScrollKey, JSON.stringify([guideAddress(), window.scrollY])); } catch { /* Storage can be blocked. */ }
     }
   });
-  history.replaceState({ shell: route }, '', location.pathname + location.search + (route.place === 'play' ? '' : routeHash(route)));
+  replacePlace(route, location.pathname + location.search + (route.place === 'play' ? '' : routeHash(route)));
   return {
     go, get route() { return route; },
     start() {
@@ -152,7 +202,7 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
     settled,
     /** Open a layer. Browser Back calls `close`. */
     openLayer(close: () => void, _dialog?: HTMLDialogElement, back?: () => boolean) {
-      layer = { id: `${performance.timeOrigin}:${++layerId}`, close, back, views: [], depth: 0 }; pushLayer();
+      layer = { id: newKey(), base: history.state.key, close, back, views: [], depth: 0 }; pushLayer();
     },
     openLayerView(show: () => void) {
       const open = layer;
@@ -167,9 +217,7 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
       if (!layer?.depth) return false;
       if (waiting) return true;
       const distance = all ? layer.depth : 1;
-      waiting = [];
-      showLayerView(layer.depth - distance);
-      stepBack(distance);
+      stepTo(viewKey(layer.id, layer.depth - distance), -distance);
       return true;
     },
     closeLayer,
@@ -181,7 +229,7 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
     return new Promise(done => settled(() => {
       if (layer !== open) { done(); return; }
       layer = null;
-      waiting = [done]; stepBack(1 + open.depth);
+      stepTo(open.base, -1 - open.depth, done);
     }));
   }
 }
