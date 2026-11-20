@@ -47,20 +47,22 @@ it('lists every release stage, stops on failure, then starts at the requested st
   expect(release(['--tweak']).started).toEqual(stages.filter(stage => !stage.startsWith('staging')));
 });
 
-it('passes a green pull-request run for release CI and requires an exact run for main CI', () => {
-  const bin = join(folder, 'pr-ci-bin');
-  mkdirSync(bin);
+function replayPr405(runs = pr405.runs) {
+  const bin = mkdtempSync(join(folder, 'pr-ci-bin-'));
   writeFileSync(join(bin, 'gh'), `#!/bin/sh
 case "$*" in
   *"/check-runs?per_page=100") printf '%s\\n' '${JSON.stringify(pr405.pages)}' ;;
   *"/status") printf '%s\\n' '${JSON.stringify(pr405.status)}' ;;
-  *"/actions/workflows/"*) printf '%s\\n' '${JSON.stringify(pr405.runs)}' ;;
+  *"/actions/workflows/"*) printf '%s\\n' '${JSON.stringify(runs)}' ;;
   *) exit 2 ;;
 esac
 `, { mode: 0o755 });
-  const sha = pr405.status.sha;
-  const wait = (mode: string[] = []) => run('bash', ['tools/release/ci-wait.sh', sha, '0', ...mode],
+  return (mode: string[] = []) => run('bash', ['tools/release/ci-wait.sh', pr405.status.sha, '0', ...mode],
     { PATH: bin + ':' + process.env.PATH });
+}
+
+it('passes a green pull-request run for release CI and requires an exact run for main CI', () => {
+  const wait = replayPr405();
   const production = wait();
   expect(production.status, production.stdout + production.stderr).toBe(1);
 
@@ -71,6 +73,13 @@ esac
   expect(pullRequest.status, pullRequest.stdout + pullRequest.stderr).toBe(0);
   expect(plan.output).toMatch(new RegExp(`ci-pr-green\\.mjs'? ${head}`));
   expect(plan.output).toContain('--retry-failed');
+});
+
+it('refuses a green pull-request run from a fork', () => {
+  const [workflowRun] = pr405.runs.workflow_runs;
+  const wait = replayPr405({ workflow_runs: [{ ...workflowRun, head_repository: { full_name: 'fork/king-down-chess' } }] });
+  const fork = wait(['--pr-head']);
+  expect(fork.status, fork.stdout + fork.stderr).toBe(1);
 });
 
 it('checks for a reconcile note before any CI wait when main has moved', () => {
