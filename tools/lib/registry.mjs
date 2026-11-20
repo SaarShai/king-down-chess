@@ -124,3 +124,8 @@ export const checks = [
 // plugin-oauth-check.mjs. The commit-msg counter counts their assertion lines as it counts the
 // lines of a registered check (web redesign spec, rule 7).
 export const probeFiles = /^tools\/(?:ux-defects\/d\d+-[\w-]+|plugin-(?:ui|oauth)-check)\.mjs$/;
+
+checks.push(
+  { name: 'release-site', script: 'tools/verify-release-site.mjs', limit: 180, byName: true, external: true },
+  { name: 'release-history', script: 'tools/verify-release-history.mjs', limit: 180, byName: true, external: true },
+);

@@ -246,7 +246,7 @@ describe('wt prune', () => {
 describe('installation guard', () => {
   /** Runs tools/install-guard.test.ts against `checkout` in a separate vitest. */
   const guard = (repo: Repo, checkout: string) =>
-    repo.run(vitest, ['run', 'tools/install-guard.test.ts'], { cwd: repoRoot, env: { INSTALL_GUARD_CHECKOUT: checkout } });
+    repo.run(vitest, ['run', 'tools/install-guard.test.ts'], { cwd: repoRoot, env: { INSTALL_GUARD_CHECKOUT: checkout, KINGDOWN_TEST_FILE: 'tools/install-guard.test.ts' } }); // a shard's file filter must not hide the guard
 
   it('fails in a linked worktree with a changed lock file and names wt add <path>', () => {
     const { repo, wt, worktrees } = setup();
