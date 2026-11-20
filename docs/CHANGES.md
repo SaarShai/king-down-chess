@@ -6,7 +6,7 @@ The lead sets the class of a change when the request arrives. The first answer t
 
 | Class | What it is | Review | Path |
 | --- | --- | --- | --- |
-| A. Tweak | Text, style or layout of one screen. Easy to undo. No server, database, account, storage, browser history or rules code. | The lead reads the diff and looks at the pictures. A tweak that the lead writes gets a reader that did not write it. | The builder makes it and does a browser pass of the changed screen: each changed control, a phone size and a desktop size, pictures before and after. The scripted journey check runs. The tweak goes to the preview. The owner says yes or no. Approved tweaks go in one PR with one CI run. Publish. |
+| A. Tweak | Text, style or layout of one screen. Easy to undo. No server, database, account, storage, browser history or rules code. | The lead's read of the diff and the pictures is the independent review. A tweak that the lead writes gets a reader that did not write it. | The builder makes it and does a browser pass of the changed screen: each changed control, a phone size and a desktop size, pictures before and after. The scripted journey check runs. The tweak goes to the preview. The owner says yes or no. Approved tweaks go in one PR with one CI run. Publish. |
 | B. Feature | New behaviour in one area. | One independent review by an agent that did not build it. | A short spec. The failing test first. One playtest of the journeys that the change touches, on a frozen head. The review. One batch of repairs. One check of that batch by the same reviewer. One CI run. Publish. |
 | C. Risky | Server, database, accounts, online play, storage, browser history, a cutover. Hard to undo. | As B. A second review is permitted. | As B, and one two-account pass on staging. |
 
@@ -24,11 +24,11 @@ A change that touches class C code is class C. Its size does not change this.
 
 ## Review record
 
-Record each review in the ticket and in the PR: the kind (the lead's read, or an independent review), the head that was read, and the open findings. When the head or the base moves after the review, the record holds a reconcile note that says what changed and how it was verified.
+Record each review in the ticket and in the PR: the kind (the lead's read of a tweak, or a review by an agent that did not build the change), the head that was read, and the open findings. When the head or the base moves after the review, the record holds a reconcile note that says what changed and how it was verified.
 
 ## Preview
 
-A tweak goes to the preview address, `https://kingdown-preview.vercel.app`, before CI. Before the preview, these pass: the type check, the build, the scripted journey check and the builder's browser pass. The preview uses the staging project and the staging data. It never uses a production key or the production database, and it never moves the staging address or the live site.
+A tweak goes to the preview address, `https://kingdown-preview.vercel.app`, before CI. Before the preview, these pass: the type check, the build, the scripted journey check and the builder's browser pass. The preview uses the staging project and the staging data. It never uses a production key or the production database, and it never moves the staging address or the live site. Only the lead starts a preview. `tools/deploy.sh` publishes to production only: never use it for a preview.
 
 ## Skills for agents
 
