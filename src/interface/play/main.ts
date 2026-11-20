@@ -738,7 +738,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     onSheetOpen: sheet => sheetMotion(sheet, true, () => gameHelp?.close()),
     onSheetClose: (sheet, bounds) => sheetMotion(sheet, false, undefined, bounds),
   } }); // the choice box shows in the reading area
-  controls = turnControls(onlineActive ? { ...text, finish: 'Send' } : text, {
+  controls = turnControls(onlineActive ? { ...text, finish: text.send } : text, {
     undo: undoOrReplay,
     finish: () => { void finish(); },
     refusedFinish: () => {
@@ -1324,14 +1324,14 @@ function update() {
   const code = draft.position.board[inspected ?? selected ?? -1];
   const now = draft.now, midway = draft.open && draft.length > 0 && draft.canFinish ? now.haste !== undefined ? now.rage === 3 ? text.another : text.again : text.after : '';
   let help = fault ? '' : notice || (ended ? text.rematchHint : thinking ? text.wait : draft.armed ? '' : draft.chain ? draft.canFinish ? draft.targets(draft.previewMove!.from).length ? text.continue : text.endChain : text.mustContinue : midway === text.after ? '' : midway || (draft.length || code || fresh() || replySteps.length ? '' : text.choose));
-  if (net) help = (net.connection === 'auth' || net.phase === 'checking' || net.phase === 'sending' ? 'Your turn is not confirmed yet.' : net.phase === 'their-move' ? 'Your opponent now plays.' : help).replaceAll('End turn', 'Send');
+  if (net) help = (net.connection === 'auth' || net.phase === 'checking' || net.phase === 'sending' ? 'Your turn is not confirmed yet.' : net.phase === 'their-move' ? 'Your opponent now plays.' : help).replaceAll(text.finish, text.send);
   if (choice.length) help = notice;
   // Check names the player's own king only; a check that the player gives shows in the reading area (reading decision 22).
   const checked = !thinking && checkLines(game.context, draft.position, player).mine;
   // After a free action alone, the line says what is possible next (reading decision 20).
   const free = freeText();
   controls.finish.dataset.free = String(!!free && draft.canFinish);
-  controls.finish.querySelector('[data-button-label]')!.textContent = onlineActive ? 'Send' : thinking ? 'Waiting' : text.finish;
+  controls.finish.querySelector('[data-button-label]')!.textContent = onlineActive ? text.send : thinking ? 'Waiting' : text.finish;
   const replay = undoReplayState(draft.length, replySteps.length, thinking || ended || !!fault).replay;
   if (replay) controls.undo.dataset.mode = 'replay'; else delete controls.undo.dataset.mode;
   controls.undo.replaceChildren(icon(replay ? 'rewind' : 'undo'), el('span', replay ? 'play-replay-label' : 'kd-sr', replay ? text.replay : text.undo));
@@ -1589,7 +1589,7 @@ function readerModel(): ReaderModel {
   } else if (draft.length) {
     m.state ||= text.ready;
     Object.assign(m, { title: checks.length ? 'Check.' : freeText() || stepLines().at(-1) || 'Your turn is staged.',
-      primary: [line('play-step', help || (draft.canFinish ? onlineActive ? 'Send, or undo.' : 'End turn, or undo.' : text.mustContinue))] });
+      primary: [line('play-step', help || (draft.canFinish ? `${onlineActive ? text.send : text.finish}, or undo.` : text.mustContinue))] });
   } else if (code && !ended) {
     // The piece's own effect lines come before its general rule (reading decision 18).
     const parts = subjectModel(m, { kind: 'piece', type: typeOf(code) }, colorOf(code));
