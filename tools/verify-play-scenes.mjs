@@ -7,17 +7,21 @@ import { env, launch, shot } from './lib/checks.mjs';
 
 const SIZES = [[320, 568], [360, 640], [390, 844], [1280, 800]], SCALES = [100, 150];
 const ROLES = ['button', 'link', 'switch', 'radio', 'checkbox', 'tab', 'menuitem', 'option', 'slider', 'textbox', 'combobox'];
-// Faults that the check found on the head and that the lead decides: a pattern of the fault line and the reason.
-// A case with only known faults passes and prints them; remove the entry when the fault is repaired.
-const KNOWN = [
-  [/^text "w{20}" is cut by span\.play-opponent-name$/, 'the bar cuts a 20-letter name with an ellipsis at 320 px (design choice?)'],
-  [/^word "w{20}" breaks over two lines in h3$/, 'the online result heading breaks a 20-letter name'],
-  [/^word "Computer" breaks over two lines in span\.setup-seat-edit$/, 'New game at 320x568, text 150%: the seat text breaks and runs under the level choice'],
-];
+// Faults that the check found on the head and that the lead decides. Each mark is one case and one fault line:
+// "<scene> <size> <scale>: <line>". A case with only marked faults passes and prints them. A mark that matches no
+// fault in the run fails the check: remove the mark when the fault is repaired.
+const cases = (scenes, sizes, scales = SCALES) => scenes.flatMap(scene => sizes.flatMap(([width, height]) => scales.map(scale => `${scene} ${width}x${height} ${scale}%`)));
+const NAME = `"${'w'.repeat(20)}"`, ONLINE = ['online-loss', 'online-loss-offer'];
+const KNOWN = new Map([
+  [cases(ONLINE, [[320, 568]]), `text ${NAME} is cut by span.play-opponent-name`, 'the bar cuts a 20-letter name with an ellipsis at 320 px (design choice?)'],
+  [cases(ONLINE, SIZES), `word ${NAME} breaks over two lines in h3`, 'the online result heading breaks a 20-letter name'],
+  [cases(['new-game'], [[320, 568]], [150]), 'word "Computer" breaks over two lines in span.setup-seat-edit', 'New game at 320x568, text 150%: the seat text breaks and runs under the level choice'],
+].flatMap(([where, line, reason]) => where.map(where => [`${where}: ${line}`, reason])));
+const SENTINEL = 'kingdown-scene-sentinel';
 
 const base = new URL('play-scenes.html', env('PLAYABLE_URL'));
 const browser = await launch();
-const faults = [], known = [];
+const faults = [], known = [], used = new Set();
 try {
   const index = await browser.newPage();
   const links = (await index.goto(base.href))?.ok() ? await index.getByRole('link').evaluateAll(list => list.map(a => new URL(a.href).searchParams.get('scene')).filter(Boolean)) : [];
@@ -27,6 +31,11 @@ try {
     const where = `${scene} ${width}x${height} ${scale}%`, found = [];
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', serviceWorkers: 'block', hasTouch: width < 1000 });
     context.on('request', request => { const url = new URL(request.url()); if (url.origin !== base.origin || url.pathname.startsWith('/api/')) found.push(`request to ${url.origin}${url.pathname}`); });
+    // A second page of the origin makes a cache that the scene must leave, then reads the caches and workers again.
+    const origin = await context.newPage(), state = () => origin.evaluate(async () => JSON.stringify([await caches.keys(), (await navigator.serviceWorker.getRegistrations()).map(r => r.scope)]));
+    await origin.goto(new URL('/manifest.webmanifest', base).href);
+    await origin.evaluate(name => caches.open(name), SENTINEL);
+    const before = await state();
     const page = await context.newPage();
     page.on('pageerror', error => found.push(`page error: ${error.message}`));
     if (scale !== 100) await page.addInitScript(scale => new MutationObserver((_, watch) => { if (document.documentElement) { document.documentElement.style.fontSize = `${scale}%`; watch.disconnect(); } }).observe(document, { childList: true }), scale);
@@ -44,11 +53,15 @@ try {
         catch (error) { found.push(`${label} takes no tap: ${/intercepts pointer events/.test(error.message) ? `${error.message.match(/<\w+[^>]*>/g)?.at(-1) ?? 'an element'} covers it` : error.message.split('\n')[0]}`); }
       }
     } catch (error) { found.push(error.message.split('\n')[0]); }
+    const after = await state();
+    if (after !== before || !after.includes(SENTINEL)) found.push(`the origin's caches and service workers change: ${before} before, ${after} after`);
     await context.close();
-    const lines = [...new Set(found)], reasons = lines.map(line => KNOWN.find(([pattern]) => pattern.test(line))?.[1]);
+    const lines = [...new Set(found)], reasons = lines.map(line => KNOWN.get(`${where}: ${line}`));
+    lines.forEach((line, i) => reasons[i] && used.add(`${where}: ${line}`));
     if (lines.length) (reasons.every(Boolean) ? known : faults).push(`${where}:\n    ${lines.map((line, i) => reasons[i] ? `${line} (known: ${reasons[i]})` : line).join('\n    ')}`);
   }
 } finally { await browser.close(); }
+for (const mark of KNOWN.keys()) if (!used.has(mark)) faults.push(`known mark matches no fault: ${mark}`);
 for (const line of known) console.log(`known fault: ${line}`);
 if (faults.length) { console.error(`play scenes: ${faults.length} case(s) fail\n  ${faults.join('\n  ')}`); process.exit(1); }
 console.log('play scenes: all cases pass');

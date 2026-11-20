@@ -2,7 +2,8 @@
  * The test page of the play screen (`play-scenes.html?scene=<name>`). Each scene is a state of the play screen: the
  * page writes the scene's records into a memory store, loads the play screen, presses the scene's controls, then sets
  * `document.body.dataset.sceneReady`. The memory store stands in for `localStorage` and `sessionStorage`, so the
- * player's saved game and sign-in on this origin stay as they are. `fetch` answers `/api` from the scene data and
+ * player's saved game and sign-in on this origin stay as they are. An empty memory cache store stands in for `caches`, and
+ * the page has no `navigator.serviceWorker`, so the origin's caches and service workers stay as they are. `fetch` answers `/api` from the scene data and
  * refuses all else: the page sends no request to the game server or to a different host.
  * Add a scene: one entry in SCENES (records, steps, the selector that shows the state).
  */
@@ -34,6 +35,9 @@ const name = new URLSearchParams(location.search).get('scene') ?? '', scene = SC
 const store = memoryStorage(), tab = memoryStorage();
 Object.defineProperty(window, 'localStorage', { value: store, configurable: true });
 Object.defineProperty(window, 'sessionStorage', { value: tab, configurable: true });
+// The online client deletes old `kingdown-` caches before a send; a scene has no cache to delete.
+Object.defineProperty(window, 'caches', { value: { keys: async () => [], delete: async () => false }, configurable: true });
+Object.defineProperty(navigator, 'serviceWorker', { value: undefined, configurable: true });
 // The sign-in client tells the other tabs of this origin about a session; a scene tells them nothing.
 Object.defineProperty(window, 'BroadcastChannel', { value: undefined, configurable: true });
 const json = (body: unknown, status = 200) => new Response(status === 204 ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
