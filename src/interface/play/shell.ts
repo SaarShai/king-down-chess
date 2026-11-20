@@ -51,10 +51,22 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
     while (runs.length && !waiting) runs.shift()!();
     if (runs.length) waiting!.runs.push(...runs);
   }
+  // The browser did not arrive (a Back that it cancelled, a destination that is gone): the queue must not stay closed.
+  function giveUp(pending: typeof waiting) {
+    if (!pending || waiting !== pending) return;
+    // Clear the closed entry if it is still current.
+    if (!layer && history.state?.layer) {
+      const next = history.state.shell;
+      replacePlace(next);
+      if (JSON.stringify(next) !== JSON.stringify(route)) show(next);
+    }
+    finishBack();
+  }
   function stepTo(key: string, offset: number, run?: () => void, skipClosed = false) {
     const target = nav?.currentEntry && nav.entries()[nav.currentEntry.index + offset];
     if (skipClosed && !target?.sameDocument) return false;
     const pending = waiting = { key, runs: run ? [run] : [] };
+    setTimeout(() => giveUp(pending), 2000); // longer than a slow Back
     if (target?.sameDocument) {
       // A fixed destination cannot move if the browser also goes Back.
       const traverse = () => {
@@ -64,16 +76,7 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
         void committed?.catch((error: DOMException) => {
           if (waiting !== pending || history.state?.key === key) return;
           if (error.name === 'AbortError' && nav.entries().some(entry => entry.key === target.key)) setTimeout(traverse, 0);
-          else {
-            // The destination is gone. Clear the closed entry if it is still current.
-            waiting = null;
-            if (!layer && history.state?.layer) {
-              const next = history.state.shell;
-              replacePlace(next);
-              if (JSON.stringify(next) !== JSON.stringify(route)) show(next);
-            }
-            run?.();
-          }
+          else giveUp(pending); // the destination is gone
         });
       };
       traverse();
@@ -165,7 +168,8 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
       } else if (!state?.key) replacePlace(next);
       if (!samePlace) show(next);
     }
-    if (waiting && state?.key === waiting.key) finishBack();
+    // An entry with no key comes from an address edit: it replaces the pending Back.
+    if (waiting && (state?.key === waiting.key || !state?.key)) finishBack();
   });
   // An address edit fires popstate, then hashchange: the second shows nothing new.
   window.addEventListener('hashchange', () => {

@@ -229,3 +229,34 @@ it('releases actions only when Back reaches the base entry', async () => {
   await done;
   expect(later).toHaveBeenCalledOnce();
 });
+
+it('releases the queue when the browser cancels Back', async () => {
+  vi.useFakeTimers();
+  try {
+    const { shell, history } = await historyShell();
+    shell.openLayer(vi.fn());
+    shell.openLayerView(vi.fn());
+    const done = shell.closeLayer(), later = vi.fn();
+    shell.settled(later);
+    shell.go({ place: 'guide' }, false);
+    expect(history.go).toHaveBeenCalledWith(-2);
+    expect(later).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(2000); // no popstate: the browser cancelled the Back
+    await done;
+    expect(later).toHaveBeenCalledOnce();
+    expect(shell.route.place).toBe('guide');
+    expect(history.state).not.toHaveProperty('layer');
+  } finally { vi.useRealTimers(); }
+});
+
+it('an address edit releases a pending Back', async () => {
+  const { shell, history, visit } = await historyShell();
+  shell.openLayer(vi.fn());
+  const done = shell.closeLayer(), later = vi.fn();
+  shell.settled(later);
+  history.pushState(null, '', '#guide'); // the browser makes an entry with no state
+  visit(2);
+  await done;
+  expect(later).toHaveBeenCalledOnce();
+  expect(shell.route.place).toBe('guide');
+});
