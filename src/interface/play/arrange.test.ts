@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { Game } from '../../game';
 import { toFen } from '../../rules/setup';
 import { dealArmy } from './new-game';
-import { ARRANGE_KEY, Arrangement, pendingArrangement } from './arrange';
+import { ARRANGE_KEY, Arrangement, savedArrangement } from './arrange';
 import { PLAIN } from '../../render/plain-marks';
 
 it('picks and swaps only the own back rank, including the same piece', () => {
@@ -48,10 +48,10 @@ it.each([0, 1] as const)('changes only side %s and starts an asymmetric game thr
 it('restarts only the matching unfinished saved deal', () => {
   const game = new Game('RNBQKBNR');
   const storage = { getItem: (key: string) => key === ARRANGE_KEY ? JSON.stringify({ army: game.backRank, side: 0, fen: toFen(game.pos) }) : null };
-  expect(pendingArrangement(storage, game, 0)?.order).toBe(game.backRank);
-  expect(pendingArrangement(storage, game, 1)).toBeUndefined();
-  expect(pendingArrangement(storage, new Game('RQBNKBNR'), 0)).toBeUndefined();
-  game.play(game.legal[0]); expect(pendingArrangement(storage, game, 0)).toBeUndefined();
+  expect(savedArrangement(storage, game, 0)?.draft.order).toBe(game.backRank);
+  expect(savedArrangement(storage, game, 1)).toBeUndefined();
+  expect(savedArrangement(storage, new Game('RQBNKBNR'), 0)).toBeUndefined();
+  game.play(game.legal[0]); expect(savedArrangement(storage, game, 0)).toBeUndefined();
 });
 
 it('names both broken rules when both sets of pieces have warning marks', () => {
@@ -62,16 +62,16 @@ it('names both broken rules when both sets of pieces have warning marks', () => 
   expect(b.faults).toEqual([2, 6, 0, 4]);
 });
 
-it('a confirmed unchanged order resumes without the setup step', () => {
+it('reads the Ready flag of a confirmed unchanged legacy order', () => {
   const game = new Game('RNBQKBNR'), marker = JSON.stringify({ army: game.backRank, side: 0, fen: toFen(game.pos), ready: true });
   game.load(game.pos);
-  expect(pendingArrangement({ getItem: () => marker }, game, 0)).toBeUndefined();
-  expect(pendingArrangement({ getItem: () => null }, game, 0)).toBeUndefined();
+  expect(savedArrangement({ getItem: () => marker }, game, 0)?.ready).toBe(true);
+  expect(savedArrangement({ getItem: () => null }, game, 0)).toBeUndefined();
 });
 
 it.each([0, 1] as const)('an unfinished FEN rematch keeps Ready for side %s', side => {
   const game = new Game('RNBQKBNR'); game.load(game.pos);
   const marker = JSON.stringify({ army: 'RNBQKBNR', side, fen: toFen(game.pos) });
   expect(game.backRank).toBe('');
-  expect(pendingArrangement({ getItem: () => marker }, game, side)?.order).toBe('RNBQKBNR');
+  expect(savedArrangement({ getItem: () => marker }, game, side)?.draft.order).toBe('RNBQKBNR');
 });

@@ -4,7 +4,7 @@ import { A, G, K, KINGS, L, M, O, P, S, type Color, type PieceType, type PowerNa
 import type { CardName } from '../../rules/rules';
 import { RELEASED_CARDS } from '../../content/cards';
 import { cardName, cardText, powerText, POWER_NAME, usesAllowed } from '../../powers-ui';
-import { pieces, powerLines } from './texts';
+import { cardLine, pieces, powerLines } from './texts';
 import type { DraftTurn } from './turn';
 import { learningNotes } from './learning-content';
 export { diagramFor } from './learning-diagrams';
@@ -16,6 +16,7 @@ const complete = (line: string) => `${line[0].toUpperCase()}${line.slice(1).repl
 export const freeActionFollowUp = 'After a free action, you can move a piece. If your king is safe, you can select End turn.';
 const isFreeMark = (id: string, context: GameRules) => context.rules.markFree && ['Freeze', 'IceWall', 'Firewall'].includes(id);
 export function effectRule(subject: Exclude<LearnSubject, { kind: 'piece' }>, context: GameRules): string {
+  if (subject.kind === 'card' && subject.id === 'March') return cardLine(subject.id);
   const line = subject.kind === 'power' ? powerText(subject.id, context.rules) : cardText(subject.id, context.rules);
   const copy = isFreeMark(subject.id, context) ? line
     .replace(', then make your move, which cannot capture: the', '. If you move a piece, it cannot capture. The')
@@ -25,7 +26,7 @@ export function effectRule(subject: Exclude<LearnSubject, { kind: 'piece' }>, co
 }
 export function learningEntry(subject: LearnSubject, context: GameRules, pos?: Position, side: Color = 0, cardIndex?: number) {
   const isPiece = subject.kind === 'piece', name = isPiece ? pieces[subject.type].name : subject.kind === 'power' ? POWER_NAME[subject.id] : cardName(subject.id);
-  let full: string, uses = '', king = '', short = isPiece ? pieces[subject.type].short : powerLines[subject.id]!;
+  let full: string, uses = '', king = '', short = isPiece ? pieces[subject.type].short : subject.kind === 'card' ? cardLine(subject.id) : powerLines[subject.id]!;
   const power = context.rules.kings[side]?.power;
   if (isPiece) {
     const guide = pieceGuide(context, subject.type);

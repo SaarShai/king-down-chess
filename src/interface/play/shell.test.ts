@@ -45,7 +45,9 @@ it('reads current power and card content with balanced rules and capture words',
   }
   for (const card of RELEASED_CARDS) {
     if (['Freeze', 'IceWall', 'Firewall'].includes(card.id)) continue;
-    expect(guideEntries('Cards').find(entry => entry.id === card.id)?.full.toLowerCase()).toBe(`${capture(cardText(card.id, rules)).toLowerCase()}.`);
+    const entry = guideEntries('Cards').find(entry => entry.id === card.id)!;
+    if (card.id === 'March') expect(entry.full).toBe(entry.short);
+    else expect(entry.full.toLowerCase()).toBe(`${capture(cardText(card.id, rules)).toLowerCase()}.`);
   }
 });
 it('describes the four game types that New game can deal', () => {
@@ -112,7 +114,10 @@ it('uses short lines from the copy table', () => {
     SkyLift: 'Swap two different own types; no pawn or king.',
   };
   expect(powerLines).toEqual(approved);
-  for (const section of ['Kings and powers', 'Cards']) for (const entry of guideEntries(section)) expect(entry.short, entry.name).toBe(approved[entry.id as keyof typeof approved]);
+  for (const section of ['Kings and powers', 'Cards']) for (const entry of guideEntries(section)) {
+    const line = section === 'Cards' && entry.id === 'March' ? 'A pawn off its start rank can move two empty squares ahead.' : approved[entry.id as keyof typeof approved];
+    expect(entry.short, entry.name).toBe(line);
+  }
 });
 
 it('names End turn in the Beast rule for both Guide and Full rule', () => {

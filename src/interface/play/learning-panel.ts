@@ -78,7 +78,9 @@ export function learningPanel(subject: LearnSubject, rules: GameRules, options: 
   const demo = playDiagram(diagramFor(subject, options.side, rules), entry.name, options.announce ?? (() => {}));
   const rule = node('p', 'learn-rule', entry.full), limits = node('p', 'learn-limits', entry.limits), against = node('p', 'learn-against', entry.against);
   const body = node('div', 'learn-body');
-  body.append(demo.element, rule, node('h4', '', 'Limits'), limits, node('h4', '', 'Against it'), against);
+  body.append(demo.element);
+  if (entry.short !== entry.full) body.append(rule);
+  body.append(node('h4', '', 'Limits'), limits, node('h4', '', 'Against it'), against);
   element.append(top, body);
   return { element, dispose: demo.dispose };
 }

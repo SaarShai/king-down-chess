@@ -4,7 +4,7 @@ import { GameRules } from '../../game-rules';
 import { A, K, KINGS, P, type PieceType } from '../../rules/engine';
 import { RELEASED_CARDS } from '../../content/cards';
 import { POWERS_BALANCED } from '../../rules/rules';
-import { pieces, powerLines } from './texts';
+import { cardLine, pieces, powerLines } from './texts';
 import { guideEntries } from './guide';
 import { DraftTurn } from './turn';
 import { diagramFor, firstMinute, learningEntry, stepLine, type LearnSubject } from './learning';
@@ -26,7 +26,7 @@ it('first-minute help follows real moves and restored drafts', () => {
 it.each(subjects)('all released subjects have complete learning content: $kind $id $type', subject => {
   const entry = learningEntry(subject, context);
   expect(entry.key).toMatch(/^(piece|power|card):/);
-  expect(entry.short).toBe(subject.kind === 'piece' ? pieces[subject.type].short : powerLines[subject.id]);
+  expect(entry.short).toBe(subject.kind === 'piece' ? pieces[subject.type].short : subject.kind === 'card' ? cardLine(subject.id) : powerLines[subject.id]);
   const section = subject.kind === 'piece' ? 'Pieces' : subject.kind === 'power' ? 'Kings and powers' : 'Cards';
   expect(entry.full).toBe(guideEntries(section).find(item => item.id === String(subject.kind === 'piece' ? subject.type : subject.id))!.full);
   expect(entry.limits.length).toBeGreaterThan(15); expect(entry.against.length).toBeGreaterThan(12);

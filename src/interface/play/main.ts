@@ -28,9 +28,9 @@ import { toFen } from '../../rules/setup';
 import { RELEASED_CARDS } from '../../content/cards';
 import { POWER_NAME, POWER_TAG, cardName, coinState, usesAllowed } from '../../powers-ui';
 import { DraftTurn, isDirect, armKey } from './turn';
-import { Arrangement, ARRANGE_KEY, pendingArrangement } from './arrange';
+import { Arrangement, ARRANGE_KEY } from './arrange';
 import { actorMarks, mergeMarks, previewMarks, resultMarks, stateMarks, type MarkAction } from './marks';
-import { pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, kingLabel, resultText } from './texts';
+import { cardLine, pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, kingLabel, resultText } from './texts';
 import { readingText, checkLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
 import { armCard, calm, cardFly, disarm, screenChange, setInterfaceMotion, sheetMotion, trackCard, time } from './motion';
 import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, tween, type Effect } from './fx';
@@ -111,7 +111,7 @@ const elapsedGame = () => playedMs + (enteredAt === undefined ? 0 : performance.
 function stopGameTime() { playedMs = elapsedGame(); enteredAt = undefined; }
 const prefs = () => ({ skill: SKILLS[gameLevel], coords, sound, vibration, pace: motion });
 /** Write the live game: its handed-over plies and its whole staged steps (decision 2). */
-const save = (step: boolean) => onlineActive ? void people?.saveDraft() : writer.game(snapshot(draft, resigned, player, elapsedGame()), prefs(), step);
+const save = (step: boolean) => onlineActive ? void people?.saveDraft() : writer.game(snapshot(draft, resigned, player, elapsedGame(), arrangement), prefs(), step);
 let selected: number | null = null, inspected: number | null = null, cursor = 12;
 let thinking = false, ended = false, generation = 0, reading: 'normal' | 'menu' | 'result' = 'normal';
 // End active sequences when the player leaves the game.
@@ -490,7 +490,7 @@ function newGameLayer(source: HTMLElement, person: boolean) {
   if (document.querySelector('dialog.new-game-panel')) return; // one panel: a second queued open does nothing
   const memory = (() => { try { return readPanel(JSON.parse(sessionStorage.getItem(PANEL_KEY) ?? 'null')); } catch { return null; } })();
   const candidate = changeDraft(next, accepted());
-  const replacement = () => inMemory() ? gameJSON(snapshot(draft, null, player)) : gameKeyOf(readStored());
+  const replacement = () => inMemory() ? gameJSON(snapshot(draft, null, player, undefined, arrangement)) : gameKeyOf(readStored());
   const panel = newGamePanel({
     next: candidate,
     memory: memory ?? (person ? { ...accepted(), opponent: 'person', section: null } : null),
@@ -529,7 +529,7 @@ function keptRow(offer: KeptOffer, fallback: HTMLButtonElement): HTMLElement {
   const promote = (source: HTMLButtonElement) => {
     const now = keptOffer(readStored()); if (!now || now.raw !== offer.raw) { home(); return; }
     writer.replace(); gameLevel = levelOf(now.save.skill); player = now.resume.player; ({ game, draft } = now.resume);
-    if (writer.game(snapshot(draft, null, player), prefs(), true)) answerOffer(now.raw);
+    if (writer.game(snapshot(draft, null, player, undefined, now.resume.arrangement), prefs(), true)) answerOffer(now.raw);
     liveGame = false; void start({ ...now.resume, level: gameLevel, playedMs: savedPlayTime(now.save) }, source);
   };
   const open: HTMLButtonElement = button(sideText.open, { onPress: () => {
@@ -552,7 +552,7 @@ function resumeGame(source: HTMLButtonElement, memory: boolean) {
 const inMemory = () => liveGame && writer.lost && !writer.blocked && (game.history.length > 0 || draft.length > 0 || !!arrangement || game.backRank === '');
 function endEntry() { starting = 0; endVersus?.(); endVersus = null; }
 /** A new game shows Versus. Continue opens the saved board at rest. */
-async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; player: Color; playedMs?: number }, from?: HTMLButtonElement) {
+async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; player: Color; playedMs?: number; arrangement?: Arrangement }, from?: HTMLButtonElement) {
   if (starting) return;
   const progressiveArt = !inApp && !onlineActive;
   // Keep the accepted game identity through the code load. Settings alone do not need a new choice.
@@ -606,11 +606,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   seatFrame?.finish(); counts = [0, 0]; staged = silentStage = false;
   if (!onlineActive) {
     onlineGameNotice = undefined;
-    arrangement = resumed ? memory ? arrangement : pendingArrangement(localStorage, game, player) : options.arrangement === 'manual' ? new Arrangement(toFen(game.pos).split(' ')[0].split('/')[player ? 0 : 7].toUpperCase(), player) : undefined;
-    if (!resumed) {
-      if (arrangement) store(ARRANGE_KEY, JSON.stringify({ army: arrangement.army, side: player, fen: toFen(game.pos) }));
-      else store(ARRANGE_KEY, 'null');
-    }
+    arrangement = resumed ? memory ? arrangement : resumed.arrangement : options.arrangement === 'manual' ? new Arrangement(toFen(game.pos).split(' ')[0].split('/')[player ? 0 : 7].toUpperCase(), player) : undefined;
   }
   if (!onlineActive && !memory) playedMs = resumed?.playedMs ?? 0;
   enteredAt = undefined; resultReview = false;
@@ -743,7 +739,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   if (!progressiveArt) applyPieceView();
   layout(); update();
   fit.disconnect(); fit.observe(screen);
-  if (!resumed) save(true); // the new game replaces the save: a save with no move
+  if (!resumed && save(true)) store(ARRANGE_KEY, 'null');
   const loaded = keep ? Promise.resolve() : board.ready().then(() => {
     if (own === generation) { host.style.visibility = ''; if (progressiveArt) grid.inert = false; }
   });
@@ -905,7 +901,9 @@ function tap(square: number) {
   if (arrangement && !ended) {
     if (arrangementLocked()) return;
     gameHelp?.close(); if (reading === 'menu') reading = 'normal';
+    const order = arrangement.order;
     if (!arrangement.pick(square)) { moveCursor(player * 56); announce(arrangeText.choose); return; }
+    if (!onlineActive && arrangement.order !== order) save(true);
     board?.setPosition(arrangement.position(game.pos), game.context); update();
     announce(arrangement.error ?? (arrangement.selected === null ? arrangeText.instruction : arrangeText.selected)); return;
   }
@@ -1718,7 +1716,7 @@ function addCards(parent: HTMLElement) {
   const r = game.context.rules, hand = el('div', 'play-hand'); hand.setAttribute('role', 'group'); hand.setAttribute('aria-label', text.yourCards); parent.append(hand);
   r.hands[player].forEach((card, k) => {
     const key = card === 'MirrorB' ? 'mirrorb' : (Object.keys(TAG_POWER) as PowerTag[]).find(tag => TAG_POWER[tag] === card) ?? null;
-    const res: Resource = { subject: { kind: 'card', id: card }, side: player, key, name: cardName(card), short: powerLines[card] ?? '', card: k, control: button(cardName(card), { onPress: () => pressResource(res) }) };
+    const res: Resource = { subject: { kind: 'card', id: card }, side: player, key, name: cardName(card), short: cardLine(card), card: k, control: button(cardName(card), { onPress: () => pressResource(res) }) };
     res.control.prepend(decorativeImage(el('img'), cardArt(player, k))); res.control.append(el('small', 'play-card-state'));
     // Keep words intact when a two-word card name wraps at the top edge.
     const words = res.name.split(' '), label = res.control.querySelector('[data-button-label]')!;
@@ -1853,7 +1851,7 @@ function drawMarks() {
 }
 /** Both settings places (You and the Menu) use these handlers and the same save writer, in one order (launch decision 24). */
 function settings(): Settings {
-  const write = () => { if (!onlineActive) writer.settings(prefs(), () => snapshot(draft, resigned, player, elapsedGame())); else { const stored = readStored(); if (stored.save) writer.settings({ ...prefs(), skill: stored.save.skill ?? SKILLS[gameLevel] }, () => stored.save!); } };
+  const write = () => { if (!onlineActive) writer.settings(prefs(), () => snapshot(draft, resigned, player, elapsedGame(), arrangement)); else { const stored = readStored(); if (stored.save) writer.settings({ ...prefs(), skill: stored.save.skill ?? SKILLS[gameLevel] }, () => stored.save!); } };
   return {
     pieceView, handView, coords, sound, vibration, motion,
     setPieceView: value => { pieceView = value; store('kingdown.piece-view', pieceView); applyPieceView(); },

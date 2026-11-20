@@ -181,7 +181,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   const choiceTitles: Record<Choice, string> = { king: panelText.yourKing, opponent: panelText.opponent, cards: 'Cards', more: 'More options', confirm: text.newTitle, people: panelText.player };
   function openChoice(next: Choice, source: HTMLElement) {
     choiceSource = source.dataset.focus ?? '';
-    choice = next; overlay.hidden = false; table.inert = true;
+    choice = next; overlay.hidden = false; head.inert = body.inert = true;
     panel.dataset.choice = next; dialog.setAttribute('aria-labelledby', panelTitle.id);
     redrawChoice(false); panelTitle.focus();
     sheetEffect?.cancel();
@@ -211,7 +211,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     signingIn = false;
     closing = true; actionId++; busy = false; sound('tick');
     const done = () => {
-      clearSheet(); closing = false; choice = null; overlay.hidden = true; table.inert = false;
+      clearSheet(); closing = false; choice = null; overlay.hidden = true; head.inert = body.inert = false;
       dialog.setAttribute('aria-labelledby', heading.id);
       (table.querySelector<HTMLElement>(`[data-focus="${choiceSource}"]`) ?? start).focus({ preventScroll: true });
     };
@@ -476,7 +476,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   dialog.addEventListener('cancel', event => { event.preventDefault(); if (choice) closeChoice(); else close(); });
   overlay.addEventListener('click', event => { if (event.target === overlay) closeChoice(); });
   async function begin(accepted: string) {
-    if (starting || closing || !dialog.open) return;
+    if (starting || closing || busy || !dialog.open) return; // busy: the person path loads; Start must not make a computer game
     starting = true;
     const swallow = (event: Event) => { if ((event.target as Element).closest('.play-game')) return; event.preventDefault(); event.stopPropagation(); };
     document.addEventListener('click', swallow, true); setTimeout(() => document.removeEventListener('click', swallow, true), ms('--dur-sheet-in') + 300);

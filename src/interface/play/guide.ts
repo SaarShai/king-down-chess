@@ -4,7 +4,7 @@ import { A, B, G, K, KINGS, L, M, N, O, P, Q, R, S, type PieceType } from '../..
 import { RELEASED_CARDS } from '../../content/cards';
 import { POWER_NAME, usesAllowed } from '../../powers-ui';
 import { rulesOf } from './saved';
-import { pieces, powerLines } from './texts';
+import { cardLine, pieces, powerLines } from './texts';
 import { learningPanel } from './learning-panel';
 import { effectRule, freeActionFollowUp, newPieces, type LearnSubject } from './learning';
 import { button, icon } from '../ui/kit.js';
@@ -23,7 +23,7 @@ export function guideEntries(section: string): GuideEntry[] {
   }));
   if (section === 'Cards') return RELEASED_CARDS.map(card => {
     const subject = { kind: 'card' as const, id: card.id };
-    return { id: card.id, name: card.name, short: powerLines[card.id]!, full: effectRule(subject, context), art: `/${card.art}`, kind: 'Card · One use', subject };
+    return { id: card.id, name: card.name, short: cardLine(card.id), full: effectRule(subject, context), art: `/${card.art}`, kind: 'Card · One use', subject };
   });
   if (section === 'How a turn works') return [
     ['move', 'Make your move', 'Move one piece, then select End turn.', 'Select one of your pieces. Select a marked square. Your king must be safe when the turn ends. Checkmate wins.'],

@@ -133,7 +133,9 @@ export function createGameHelp({ board, player = 0, effects }: { board: HTMLElem
     line.textContent = entry.line;
     detail.textContent = entry.detail;
     const diagram = helpDiagram(subject, side);
-    body.append(diagram, line, detail, diagramLegend(diagram));
+    body.append(diagram, line);
+    if (entry.detail !== entry.line) body.append(detail);
+    body.append(diagramLegend(diagram));
     const badge = entry.badge || (subject.kind === 'piece' ? side === player ? 'Yours' : 'Enemy' : '');
     return openSheet(entry.name, body, source, badge);
   }
