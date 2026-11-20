@@ -476,7 +476,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   dialog.addEventListener('cancel', event => { event.preventDefault(); if (choice) closeChoice(); else close(); });
   overlay.addEventListener('click', event => { if (event.target === overlay) closeChoice(); });
   async function begin(accepted: string) {
-    if (starting || closing || !dialog.open) return;
+    if (starting || closing || busy || !dialog.open) return; // busy: the person path loads; Start must not make a computer game
     starting = true;
     const swallow = (event: Event) => { if ((event.target as Element).closest('.play-game')) return; event.preventDefault(); event.stopPropagation(); };
     document.addEventListener('click', swallow, true); setTimeout(() => document.removeEventListener('click', swallow, true), ms('--dur-sheet-in') + 300);
