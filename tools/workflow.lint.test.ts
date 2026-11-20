@@ -26,6 +26,7 @@ describe('plugin-checks workflow', () => {
     expect(job('checks')).toContain("if: contains(fromJSON('[\"full\",\"selected\"]'), needs.reuse.outputs.mode)");
     expect(job('record-tree')).toContain('needs: [reuse, verify, checks]');
     expect(job('record-tree')).toContain("needs.verify.result == 'success' && needs.checks.result == 'success'");
+    expect(job('record-tree')).toContain('sparse-checkout: tools');
     expect(job('record-tree')).toContain('node tools/ci-plan.mjs record');
     expect(job('record-tree')).toContain('name: tested-tree-${{ steps.tree.outputs.hash }}');
   });
