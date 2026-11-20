@@ -275,15 +275,18 @@ function updateAccount() {
 }
 const homeSettingsButton = () => root.querySelector<HTMLButtonElement>('.play-home:not(.shell-departing) .home-settings-btn');
 
-function accountSignIn(source: HTMLButtonElement, reopenSettingsOnDone = false) {
+function accountSignIn(source: HTMLButtonElement, returnToSettings = false) {
   shell.settled(() => {
     if (!source.isConnected || shell.route.place !== 'play' || document.querySelector('dialog[open]')) return;
     const sheet = peopleSheet(source, () => {
-      void shell.closeLayer();
-      if (!source.isConnected && shell.route.place === 'play') {
-        const fallback = (!reopenSettingsOnDone && root.querySelector<HTMLElement>('.home-sign-in:not([hidden])')) || homeSettingsButton();
-        fallback?.focus({ preventScroll: true });
-      }
+      void shell.closeLayer().then(() => {
+        if (shell.route.place !== 'play') return;
+        if (returnToSettings) openSettings(homeSettingsButton() ?? root);
+        else if (!source.isConnected) {
+          const fallback = root.querySelector<HTMLElement>('.home-sign-in:not([hidden])') ?? homeSettingsButton();
+          fallback?.focus({ preventScroll: true });
+        }
+      });
     });
     sheet.element.classList.add('account-sign-in');
     const done = () => {
@@ -291,7 +294,6 @@ function accountSignIn(source: HTMLButtonElement, reopenSettingsOnDone = false) 
       accountNote = '';
       sheet.close();
       updateAccount();
-      if (reopenSettingsOnDone) openSettings(homeSettingsButton() ?? root);
     };
     const load = async () => {
       sheet.show({ title: 'Sign in', body: [el('p', '', signInText.loading)] });
@@ -522,6 +524,8 @@ function openNewGame(source: HTMLElement, opts: { opponent?: 'computer' | 'perso
         if (shell.route.place === 'play') home();
       },
       onClose: () => { void shell.closeLayer(); },
+      openView: shell.openLayerView,
+      backView: shell.backLayerViews,
     }, art);
     // A Home refresh may replace the opener while the panel is open.
     const controls = ['home-side-new', 'home-hero-new', 'home-summary', 'home-friend-btn'];
@@ -880,7 +884,11 @@ function versusCard(loaded: Promise<unknown>): Promise<void> {
 function skipBoard() { rewind?.finish(); boardReplay.cancel(); endCardFlight(); cancelCheckPulse(); board?.skip(); playingAction = null; endReply?.(); }
 function moveCursor(square: number) { cells[cursor].tabIndex = -1; cursor = square; cells[cursor].tabIndex = 0; cells[cursor].focus({ preventScroll: true }); }
 document.addEventListener('keydown', event => {
-  if (document.body.dataset.page !== 'game' || event.defaultPrevented) return;
+  if (event.defaultPrevented) return;
+  if (event.key === 'Escape' && shell.route.place === 'guide') {
+    event.preventDefault(); closeHomeGuide(); return;
+  }
+  if (document.body.dataset.page !== 'game') return;
   const openDialog = document.querySelector<HTMLDialogElement>('dialog[open]');
   if (openDialog) {
     if (event.key === 'Escape' && !(event.target as Element).closest('dialog')) {
@@ -2031,6 +2039,11 @@ function openGameHistory() {
   showGameDialog(dialog);
 }
 
+function closeHomeGuide() {
+  shell.go({ place: 'play' });
+  root.querySelector<HTMLElement>('.home-guide-btn')?.focus({ preventScroll: true });
+}
+
 function renderPlace(route: Route) {
   homePoll?.update();
   if (route.place === 'online') { void openOnline(route.entry!); return; }
@@ -2059,7 +2072,7 @@ function renderPlace(route: Route) {
   document.body.dataset.page = route.place;
   if (route.place === 'guide') root.replaceChildren(guidePage(route.section, route.entry,
     (section, entry) => shell.go({ place: 'guide', ...(section && { section }), ...(entry && { entry }) }),
-    announce, { backLabel: 'Home', onBack: () => shell.go({ place: 'play' }) }));
+    announce, { backLabel: 'Home', onBack: closeHomeGuide }));
 }
 const shell = mountShell(root, renderPlace);
 // Home does not wait for the symbol files (launch decision 45): the small board and the Symbols view take them when they come.

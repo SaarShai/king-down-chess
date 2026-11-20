@@ -27,10 +27,21 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
   const skip = document.createElement('a'); skip.className = 'shell-skip'; skip.href = '#app'; skip.textContent = 'Skip to content';
   skip.addEventListener('click', event => { event.preventDefault(); const page = root.querySelector<HTMLElement>(':scope > :not(.shell-departing)'), target = page?.querySelector<HTMLElement>('h1') ?? page; if (target) { if (!target.matches('[tabindex]')) target.tabIndex = -1; target.focus(); } });
   document.body.prepend(skip);
-  // A layer over the place (the New game panel) has its own history entry: Back closes it.
+  // A layer over the place has an entry for itself and one for each view it opens.
   // While a layer Back is pending, route changes and new layers wait in `waiting`, in order, until that Back lands.
-  let layer: { close(): void; back?: () => boolean } | null = null, waiting: (() => void)[] | null = null;
+  let layer: { id: string; close(): void; back?: () => boolean; views: (() => void)[]; depth: number } | null = null;
+  let layerId = 0, waiting: (() => void)[] | null = null;
   const settled = (run: () => void) => { if (waiting) waiting.push(run); else run(); };
+  const pushLayer = () => {
+    if (layer) history.pushState({ shell: route, layer: true, layerId: layer.id, layerDepth: layer.depth }, '', location.href);
+  };
+  const stepBack = (distance: number) => distance === 1 ? history.back() : history.go(-distance);
+  const showLayerView = (depth: number) => {
+    if (!layer) return;
+    layer.depth = depth;
+    if (depth) layer.views[depth - 1]();
+    else layer.back?.();
+  };
   let pageEffect: Effect | undefined;
   function changePage(old: HTMLElement, page: HTMLElement, direction: number) {
     pageEffect?.finish();
@@ -73,6 +84,12 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
       if (replace) history.replaceState({ ...history.state, shell: route }, '', routeHash(route));
       return;
     }
+    if (layer?.depth) {
+      const open = layer;
+      void closeLayer(); open.close();
+      settled(() => go(next, draw, replace));
+      return;
+    }
     // A route change (a late invite reply) closes an open layer; the new place takes the layer's history entry.
     const open = layer; layer = null; open?.close();
     history[open || replace ? 'replaceState' : 'pushState']({ shell: next }, '', routeHash(next)); show(next, draw);
@@ -87,13 +104,17 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
     const next = event.state?.shell ?? fromAddress();
     const samePlace = JSON.stringify(next) === JSON.stringify(route);
     if (layer) {
-      // If Back only closes a view in the layer, keep the history entry for the layer.
-      if (samePlace && layer.back?.()) { history.pushState({ shell: route, layer: true }, '', location.href); return; }
+      if (samePlace && event.state?.layerId === layer.id) {
+        showLayerView(event.state.layerDepth);
+        return;
+      }
+      // A view without its own entry uses the layer's Back action.
+      if (samePlace && !layer.depth && layer.back?.()) { pushLayer(); return; }
       const open = layer; layer = null; open.close();
       if (samePlace) return;
     }
     // Forward to the entry of a closed layer: the place stays; the next Back leaves it.
-    if (event.state?.layer && samePlace) { waiting = []; history.back(); return; }
+    if (event.state?.layer && samePlace) { waiting = []; stepBack(1 + (event.state.layerDepth ?? 0)); return; }
     if (!event.state?.shell) history.replaceState({ shell: next }, '', location.href);
     if (!samePlace) show(next);
   });
@@ -129,15 +150,38 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
     },
     /** Runs `run` now, or after a pending layer Back, in order with route changes. Open a layer only in `run`. */
     settled,
-    /** Open a layer: one history entry. Browser Back calls `close`. */
+    /** Open a layer. Browser Back calls `close`. */
     openLayer(close: () => void, _dialog?: HTMLDialogElement, back?: () => boolean) {
-      layer = { close, back }; history.pushState({ shell: route, layer: true }, '', location.href);
+      layer = { id: `${performance.timeOrigin}:${++layerId}`, close, back, views: [], depth: 0 }; pushLayer();
+    },
+    openLayerView(show: () => void) {
+      const open = layer;
+      settled(() => {
+        if (!open || layer !== open) return;
+        open.views.splice(open.depth, Infinity, show);
+        open.depth++;
+        pushLayer(); show();
+      });
+    },
+    backLayerViews(all = false) {
+      if (!layer?.depth) return false;
+      if (waiting) return true;
+      const distance = all ? layer.depth : 1;
+      waiting = [];
+      showLayerView(layer.depth - distance);
+      stepBack(distance);
+      return true;
     },
     closeLayer,
   };
   /** The layer closed itself: its history entry goes. Resolves when the entry is gone. */
   function closeLayer(): Promise<void> {
-    if (!layer) return Promise.resolve();
-    layer = null; return new Promise(done => { waiting = [done]; history.back(); });
+    const open = layer;
+    if (!open) return Promise.resolve();
+    return new Promise(done => settled(() => {
+      if (layer !== open) { done(); return; }
+      layer = null;
+      waiting = [done]; stepBack(1 + open.depth);
+    }));
   }
 }

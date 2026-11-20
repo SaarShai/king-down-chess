@@ -43,6 +43,8 @@ export interface PanelData {
   onStart(draft: NewGameDraft, replacement: string): Promise<void>;
   onInvite(draft: NewGameDraft): void;
   onClose(): void;
+  openView(show: () => void): void;
+  backView(all?: boolean): boolean;
 }
 type Choice = 'king' | 'opponent' | 'cards' | 'more' | 'confirm' | 'people';
 
@@ -68,7 +70,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   let opener: HTMLElement | null = null, choiceSource = '', starting = false, busy = false, actionId = 0;
   let sheetEffect: Effect | undefined, sheetOffset = 0, closing = false;
   let pull: { id: number; y: number } | undefined;
-  let poolOpen = !!saved && saved.section === 'pieces';
+  let poolSelected = saved?.section === 'pieces', poolOpen = false;
   const setOptions = (change: Partial<GameOptions>) => edit({ options: { ...draft.options, ...change } });
   const edit = (change: Parameters<typeof changeDraft>[1]) => {
     cancelPerson();
@@ -206,9 +208,20 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
 
   const choiceTitles = { king: panelText.yourKing, opponent: panelText.opponentKing, cards: 'Cards', more: 'More options', confirm: text.newTitle };
   function openChoice(next: Choice, source: HTMLElement) {
+    const key = source.dataset.focus ?? '';
+    if (next === 'confirm') showSetupChoice(next, key);
+    else d.openView(() => showSetupChoice(next, key));
+  }
+  function showSetupChoice(next: Choice, source: string, showPool = false) {
+    const focusPool = next === 'more' && (showPool || poolOpen);
+    if (closing) sheetEffect?.finish();
+    if (choice === 'people') d.remember(null);
     cancelPerson();
-    choiceSource = source.dataset.focus ?? '';
-    showChoice(next); redrawChoice(false); panelTitle.focus();
+    poolOpen = showPool;
+    choiceSource = source;
+    showChoice(next); redrawChoice(false);
+    const control = focusPool ? panelBody.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]') : panelTitle;
+    control?.focus({ preventScroll: true });
   }
   function showChoice(next: Choice) {
     const opening = choice !== next;
@@ -235,13 +248,16 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     sheetOffset = 0; panel.style.removeProperty('transform'); overlay.style.removeProperty('--setup-dim');
   }
   function closeChoice() {
+    if (!d.backView(true)) hideChoice();
+  }
+  function hideChoice() {
     if (!choice) return;
     if (closing) { sheetEffect?.finish(); return; }
     sheetEffect?.cancel(); pull = undefined;
     if (choice === 'people') d.remember(null);
     cancelPerson(); closing = true; sound('tick');
     const done = () => {
-      clearSheet(); closing = false; choice = null; overlay.hidden = true; head.inert = body.inert = false;
+      clearSheet(); closing = poolOpen = false; choice = null; overlay.hidden = true; head.inert = body.inert = false;
       dialog.setAttribute('aria-labelledby', heading.id);
       (table.querySelector<HTMLElement>(`[data-focus="${choiceSource}"]`) ?? start).focus({ preventScroll: true });
     };
@@ -382,12 +398,16 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   function more() {
     const box = el('div', 'panel-section setup-more'), list = el('div', 'pool-list');
     const full = poolLetters(draft.options.pool, draft.options.seconds) === poolLetters(POOL_KINDS);
-    box.append(choiceValues(panelText.pieces, [{ value: 'all', label: panelText.allPieces }, { value: 'pool', label: panelText.pool }], full && !poolOpen ? 'all' : 'pool', value => {
-      poolOpen = value === 'pool';
-      if (!poolOpen) setOptions({ pool: POOL_KINDS, seconds: DOUBLE_KINDS });
-      update();
+    box.append(choiceValues(panelText.pieces, [{ value: 'all', label: panelText.allPieces }, { value: 'pool', label: panelText.pool }], full && !poolSelected && !poolOpen ? 'all' : 'pool', value => {
+      poolSelected = value === 'pool';
+      if (poolSelected) {
+        if (!poolOpen) d.openView(() => showSetupChoice('more', 'more', true));
+      } else {
+        setOptions({ pool: POOL_KINDS, seconds: DOUBLE_KINDS }); draw();
+        if (!poolOpen) redrawChoice(); else d.backView();
+      }
     }));
-    if (poolOpen || !full) {
+    if (poolOpen) {
       const lock = el('p', 'panel-note', panelText.poolLock); lock.id = 'pool-lock';
       for (const letter of POOL_KINDS) for (const copy of (DOUBLE_KINDS.includes(letter) ? [1, 2] : [1]) as (1 | 2)[]) {
         const type = LETTERS.indexOf(letter), name = pieces[type].name + (DOUBLE_KINDS.includes(letter) ? copy === 1 ? ' x1' : ' 2nd' : '');
@@ -436,7 +456,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   }
 
   const memory = (): PanelMemory => ({ setup: draft.setup, level: draft.level, sideChoice: draft.sideChoice, options: draft.options, opponent,
-    section: poolOpen ? 'pieces' : null, deal: { back: draft.back, player: draft.player, rules: draft.rules } });
+    section: poolSelected ? 'pieces' : null, deal: { back: draft.back, player: draft.player, rules: draft.rules } });
   function cancelPerson() {
     actionId++; busy = signingIn = false; status.textContent = '';
   }
@@ -519,8 +539,8 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     },
     close: () => close(false),
     back() {
-      if (!choice) return false;
-      closeChoice();
+      if (!choice || closing) return false;
+      hideChoice();
       return true;
     },
   };

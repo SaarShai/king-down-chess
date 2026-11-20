@@ -507,7 +507,7 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .setup-mode { width: min(100%, 320px); margin-inline: auto; }
 .setup-mode .kd-segments { display: flex; padding: 2px; border-radius: var(--radius-round); box-shadow: none; }
 .setup-mode .kd-segment {
-  min-height: 44px; border: 1px solid transparent; border-radius: var(--radius-round);
+  min-height: 44px; min-inline-size: max-content; border: 1px solid transparent; border-radius: var(--radius-round); white-space: nowrap;
   font: 650 .8125rem/1.15 var(--font-title); letter-spacing: .05em; text-transform: uppercase;
 }
 .setup-mode .kd-segment[aria-checked='true'] { background: var(--surface-raised); border-color: var(--divider); box-shadow: none; }
@@ -553,7 +553,7 @@ body > .kd-sr { inset: 0 auto auto 0; }
   background: var(--surface-raised);
 }
 .setup-feature-label.kd-button {
-  display: flex; justify-content: flex-start; gap: 5px; min-width: 0; min-height: 44px; padding: 4px;
+  display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 0 5px; min-width: 0; min-height: 44px; padding: 4px; overflow-wrap: normal;
   border: 0; background: transparent; box-shadow: none; font: 650 .8125rem/1.15 var(--font-title);
 }
 .setup-emblem img { display: block; width: 24px; height: 24px; object-fit: contain; }

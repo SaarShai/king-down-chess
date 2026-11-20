@@ -56,6 +56,9 @@ export async function checkDaylightSetup(browser, origin) {
     await minTarget(page, '.setup-sheet button:not([hidden])');
     await noSidewaysScroll(page);
     await page.goBack();
+    await setup.locator('.pool-list').waitFor({ state: 'detached' });
+    await setup.getByRole('heading', { name: 'More options', exact: true }).waitFor();
+    await page.goBack();
     await setup.locator('.setup-overlay').waitFor({ state: 'hidden' });
     await page.goBack();
     await setup.waitFor({ state: 'detached' });
