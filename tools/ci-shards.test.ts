@@ -23,6 +23,11 @@ it('assigns every test file once and keeps the five extra WebKit test files', ()
 
 it('places each baseline browser check once per browser with both fixture parts', () => {
   const chromium = checks.filter(check => !check.byName && !check.gpu).map(check => check.name);
+  expect(chromium).toEqual(expect.arrayContaining([
+    'account', 'character-clips', 'character-prepare', 'cursor-adoption', 'end', 'game-screen', 'home', 'leap-start',
+    'menu-extra', 'new-game', 'powers', 'qa', 'read-piece', 'selftest', 'special-moves', 'their-turn', 'turn',
+    'ux-defects', 'verb-marks', 'visual-design',
+  ]));
   chromium.push('plugin-oauth', 'plugin-ui:opening', 'plugin-ui:board', 'plugin-ui-http', 'web-online', 'signin-speed', 'web-game');
   const webkit = ['plugin-ui:opening', 'plugin-ui:board', 'web-online', 'signin-speed'];
   const jobs = checkShards();

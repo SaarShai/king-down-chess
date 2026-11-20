@@ -107,10 +107,10 @@ export async function mergeOnGreen(pr, head, file, { gh = github, pause = setTim
       'PR is not open at the recorded head and base');
     return current;
   };
-  let changedPaths;
+  let changedPaths, inspectedBase;
   const checkLeadRead = (record, current) => {
     if (!record.reviews.some(review => review.id === 'lead-read')) return;
-    if (!changedPaths) {
+    if (inspectedBase !== current.baseRefOid) {
       const pages = JSON.parse(request(['api', '--paginate', '--slurp',
         `repos/${repo}/pulls/${pr}/files?per_page=100`]));
       require(Array.isArray(pages) && pages.every(Array.isArray), 'invalid PR file list');
@@ -118,6 +118,7 @@ export async function mergeOnGreen(pr, head, file, { gh = github, pause = setTim
       require(files.length > 0 && files.length === current.changedFiles && files.every(file =>
         text(file.filename) && (file.status !== 'renamed' || text(file.previous_filename))), 'incomplete PR file list');
       changedPaths = files.flatMap(file => [file.filename, ...(file.previous_filename ? [file.previous_filename] : [])]);
+      inspectedBase = current.baseRefOid;
     }
     const risky = riskyPaths(changedPaths);
     require(risky.length === 0, `lead-read requires an independent review for: ${risky.join(', ')}`);

@@ -450,6 +450,18 @@ it('waits for the tree record after all matrix checks pass', async () => {
   expect(f.pause).toHaveBeenCalledTimes(1);
 });
 
+it('waits for a short run when GitHub has only announced the verify skip', async () => {
+  const f = fixture();
+  const jobs = ['reuse', 'verify', 'checks', 'record-tree'].map((name, id) => ({
+    id, name, head_sha: head, status: 'completed',
+    conclusion: ['verify', 'checks'].includes(name) ? 'skipped' : 'success',
+  }));
+  f.checks.splice(0, f.checks.length, ...jobs.slice(0, 2));
+  f.pause.mockImplementationOnce(async () => { f.checks.push(...jobs.slice(2)); });
+  await expect(f.run()).resolves.toBe('merged');
+  expect(f.pause).toHaveBeenCalledTimes(1);
+});
+
 it.each(['success', 'skipped'])('accepts a sealed short run when verify is %s', async conclusion => {
   const f = fixture();
   const checks = ['reuse', 'verify', 'checks', 'record-tree'].map((name, id) => ({

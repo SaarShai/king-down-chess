@@ -20,17 +20,19 @@ describe('plugin-checks workflow', () => {
   it('checks types and docs on the short path and requires the plan results to record a tree', () => {
     const verify = job('verify');
     expect(verify).toContain('npm run typecheck');
-    expect(verify).toContain("if: needs.reuse.outputs.mode == 'docs'\n        run: npm run test:docs");
+    expect(verify).toContain("if: needs.reuse.outputs.mode != 'full'\n        run: npm run test:docs");
     expect(job('checks')).toContain("if: contains(fromJSON('[\"full\",\"selected\"]'), needs.reuse.outputs.mode)");
     expect(job('record-tree')).toContain('needs: [reuse, verify, checks]');
     expect(job('record-tree')).toContain("needs.verify.result == 'success' && needs.checks.result == 'success'");
-    expect(job('record-tree')).toContain("git rev-parse 'HEAD^{tree}'");
+    expect(job('record-tree')).toContain('node tools/ci-plan.mjs record');
     expect(job('record-tree')).toContain('name: tested-tree-${{ steps.tree.outputs.hash }}');
   });
 
   it('runs the shard plan and keeps the deploy browser gate', () => {
     const shard = job('checks');
     expect(shard).toContain('matrix: ${{ fromJSON(needs.reuse.outputs.matrix) }}');
+    expect(shard).toContain("fetch-depth: ${{ matrix.python && '0' || '1' }}");
+    expect(job('verify')).toContain("fetch-depth: ${{ needs.reuse.outputs.mode == 'full' && '1' || '0' }}");
     expect(shard).toContain('KINGDOWN_TEST_FILE: ${{ matrix.tests }}');
     expect(shard).toContain('KINGDOWN_CI_BROWSER_CHECKS: ${{ matrix.checks }}');
     expect(shard).toContain('KINGDOWN_PLUGIN_UI_PART: ${{ matrix.part }}');

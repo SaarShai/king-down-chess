@@ -9,8 +9,9 @@ const paths = [
   { match: /^src\/interface\/(?:people\/|platform\.ts$|play\/(?:shell|history|replay|saved|main|turn)\.ts$)/, risky: true },
   { match: /^src\/interface\/play\/help\/help\.css$/, tests: ['src/interface/play/help/**/*.test.ts'],
     checks: ['read-piece', 'game-screen', 'new-game', 'powers', 'special-moves', 'ux-defects', 'visual-design', 'qa', 'web-game', 'web-online'] },
-  { match: /^src\/interface\/play\/menus\.css$/, tests: ['src/interface/play/menus.test.ts'],
+  { match: /^src\/interface\/play\/menus\.css$/, tests: ['src/interface/play/menus.test.ts', 'src/interface/play/mini-board.test.ts'],
     checks: ['menu-extra', 'home', 'new-game', 'game-screen', 'account', 'ux-defects', 'visual-design', 'qa', 'web-game', 'web-online'] },
+  { match: /^src\/(?:style\.css|interface\/play\/(?:reading-b|sides|shell|play)\.css|plugin\/screens\/(?:board|end|collection|seat|setup)\.css)$/ },
 ];
 
 function versionOnly({ path, before, after }) {

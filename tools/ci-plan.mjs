@@ -1,10 +1,11 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { appendFileSync, readFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { checkShards, filePattern } from './ci-shards.mjs';
-import { findGreenTree, gitTree } from './ci-green-tree.mjs';
+import { findGreenTree, gitTree, jobsForRun, jobsMatchPlan } from './ci-green-tree.mjs';
 import { compareContents, pathPlan } from './lib/ci-paths.mjs';
 
-const git = args => execFileSync('git', args, { encoding: 'utf8' });
+const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
 const commit = /^[a-f0-9]{40}$/;
 const repo = process.env.GITHUB_REPOSITORY || 'SaarShai/king-down-chess';
 
@@ -47,8 +48,7 @@ if (process.argv[2] === 'changed') {
   const selection = select(base);
   const all = checkShards(), selected = checkShards({ selection });
   console.log('Run type check');
-  if (selection.mode === 'docs') console.log('Run document lints');
-  else console.log('Document lints run when selected by the test plan');
+  console.log('Run document lints');
   for (const browser of ['chromium', 'webkit']) {
     report(`${browser} test files`, all.filter(job => job.browser === browser).flatMap(job => job.tests),
       selected.filter(job => job.browser === browser).flatMap(job => job.tests));
@@ -56,7 +56,7 @@ if (process.argv[2] === 'changed') {
       selected.filter(job => job.browser === browser).flatMap(job => job.checks));
   }
   run(['run', 'typecheck']);
-  if (selection.mode === 'docs') run(['run', 'test:docs']);
+  if (selection.mode !== 'full') run(['run', 'test:docs']);
   for (const browser of ['chromium', 'webkit']) {
     const jobs = selected.filter(job => job.browser === browser);
     const tests = jobs.flatMap(job => job.tests);
@@ -82,6 +82,14 @@ if (process.argv[2] === 'changed') {
   console.log(`CI mode: ${selection.mode}. Shards: ${matrix.include.map(job => job.name).join(', ') || 'none'}`);
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT,
     `mode=${selection.mode}\nmatrix=${JSON.stringify(matrix)}\n`);
+} else if (process.argv[2] === 'record') {
+  const { CI_MODE: mode, CI_MATRIX: matrix, GITHUB_RUN_ID: id, GITHUB_OUTPUT: output, RUNNER_TEMP: temp } = process.env;
+  const names = JSON.parse(matrix).include.map(job => job.name);
+  if (!jobsMatchPlan(jobsForRun(repo, id), mode, names)) throw new Error('The jobs did not pass as planned');
+  const tree = gitTree('HEAD');
+  if (!tree) throw new Error('The checkout tree is missing');
+  writeFileSync(join(temp, 'tested-tree'), `${tree}\n`);
+  appendFileSync(output, `hash=${tree}\n`);
 } else {
-  throw new Error('usage: node tools/ci-plan.mjs changed|workflow');
+  throw new Error('usage: node tools/ci-plan.mjs changed|workflow|record');
 }

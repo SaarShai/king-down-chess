@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
-import { gitTree, greenRecord } from './ci-green-tree.mjs';
+import { gitTree, greenRecord, jobsMatchPlan } from './ci-green-tree.mjs';
 import { pathPlan } from './lib/ci-paths.mjs';
 
 const repository = 'owner/game';
@@ -84,4 +84,15 @@ else console.log(${JSON.stringify(JSON.stringify(workflow))});
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+it('requires the latest result of every planned runner before it records the tree', () => {
+  const names = ['test (1)', 'browser-ui (opening)'];
+  const jobs = ['reuse', 'verify', ...names.map(name => `checks / ${name}`)].map((name, id) => ({
+    id, name, status: 'completed', conclusion: 'success',
+  }));
+  expect(jobsMatchPlan(jobs, 'full', names)).toBe(true);
+  expect(jobsMatchPlan(jobs.slice(0, -1), 'full', names)).toBe(false);
+  expect(jobsMatchPlan([...jobs, { ...jobs[3], id: 8, conclusion: 'cancelled' }], 'full', names)).toBe(false);
+  expect(jobsMatchPlan([jobs[0], jobs[1], { ...jobs[2], name: 'checks /', conclusion: 'skipped' }], 'docs', [])).toBe(true);
 });

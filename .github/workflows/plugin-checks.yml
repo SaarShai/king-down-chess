@@ -62,13 +62,16 @@ jobs:
       PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The document lints verify links to old commits.
+          fetch-depth: ${{ needs.reuse.outputs.mode == 'full' && '1' || '0' }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-      - if: needs.reuse.outputs.mode == 'docs'
+      - if: needs.reuse.outputs.mode != 'full'
         run: npm run test:docs
       - if: needs.reuse.outputs.mode != 'docs'
         run: |
@@ -108,6 +111,9 @@ jobs:
       PLAYABLE_CPU_CANVAS: ${{ matrix.browser == 'webkit' && '1' || '' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The document lints verify links to old commits.
+          fetch-depth: ${{ matrix.python && '0' || '1' }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -179,10 +185,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - id: tree
-        run: |
-          tree=$(git rev-parse 'HEAD^{tree}')
-          printf '%s\n' "$tree" > "$RUNNER_TEMP/tested-tree"
-          echo "hash=$tree" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_MODE: ${{ needs.reuse.outputs.mode }}
+          CI_MATRIX: ${{ needs.reuse.outputs.matrix }}
+        run: node tools/ci-plan.mjs record
       - uses: actions/upload-artifact@v4
         with:
           name: tested-tree-${{ steps.tree.outputs.hash }}

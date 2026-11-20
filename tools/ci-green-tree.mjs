@@ -12,7 +12,7 @@ export function gitTree(commit) {
 
 export function greenRun(run, repository, workflow) {
   return Boolean(run && Number.isSafeInteger(run.id) && run.status === 'completed' && run.conclusion === 'success'
-    && run.workflow_id === workflow.id && run.path === workflow.path && workflow.path === workflowPath
+    && Number.isSafeInteger(workflow.id) && run.workflow_id === workflow.id && run.path === workflow.path && workflow.path === workflowPath
     && run.repository?.full_name === repository && run.head_repository?.full_name === repository);
 }
 
@@ -21,7 +21,31 @@ export function greenRecord(tree, record, run, repository, workflow) {
     && record.workflow_run?.id === run?.id && greenRun(run, repository, workflow));
 }
 
-const api = endpoint => JSON.parse(execFileSync('gh', ['api', endpoint], { encoding: 'utf8', timeout: 30_000, maxBuffer: 8 * 1024 * 1024 }));
+function api(endpoint, flags = []) {
+  return JSON.parse(execFileSync('gh', ['api', ...flags, endpoint],
+    { encoding: 'utf8', timeout: 30_000, maxBuffer: 8 * 1024 * 1024 }));
+}
+
+export function jobsMatchPlan(jobs, mode, names) {
+  const expected = new Map([['reuse', 'success'], ['verify', mode === 'reuse' ? 'skipped' : 'success']]);
+  if (mode === 'docs' || mode === 'reuse') expected.set('checks', 'skipped');
+  else for (const name of names) expected.set(`checks / ${name}`, 'success');
+  const latest = new Map();
+  for (const job of jobs) {
+    if (job.name === 'record-tree') continue;
+    const name = ['checks', 'checks /'].includes(job.name.trim()) ? 'checks' : job.name;
+    if (!latest.has(name) || latest.get(name).id < job.id) latest.set(name, job);
+  }
+  return latest.size === expected.size && [...expected].every(([name, conclusion]) => {
+    const job = latest.get(name);
+    return job?.status === 'completed' && job.conclusion === conclusion;
+  });
+}
+
+export function jobsForRun(repository, id) {
+  const pages = api(`repos/${repository}/actions/runs/${id}/jobs?filter=all&per_page=100`, ['--paginate', '--slurp']);
+  return pages.flatMap(page => page.jobs);
+}
 export function findGreenTree(tree, repository) {
   if (!sha.test(tree)) return false;
   try {
@@ -38,7 +62,8 @@ export function findGreenTree(tree, repository) {
     for (const run of runs) {
       if (!greenRun(run, repository, workflow) || run.event !== 'push' || gitTree(run.head_sha) !== tree) continue;
       const { jobs } = api(`repos/${repository}/actions/runs/${run.id}/jobs?per_page=100`);
-      if (jobs.some(job => job.name === 'verify') && jobs.some(job => job.name === 'browser-default')) return true;
+      if (!jobs.some(job => job.name === 'record-tree') &&
+          jobs.some(job => job.name === 'verify') && jobs.some(job => job.name === 'browser-default')) return true;
     }
   } catch {
     console.error('ci: GitHub tree records unavailable. Run the full checks.');
