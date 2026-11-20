@@ -2,9 +2,9 @@ const docsPath = /^(?:TASKS\.md|LESSONS\.md|docs\/lessons\/[a-z-]+\.md|docs\/spe
 const leadReadCss = /^src\/(?:style\.css|interface\/play\/(?:help\/help|menus|reading-b|sides|shell|play)\.css|plugin\/screens\/(?:board|end|collection|seat|setup)\.css)$/;
 
 const localChecks = [
-  { match: /^src\/interface\/play\/help\/help\.css$/, tests: ['src/interface/play/help/**/*.test.ts'],
+  { match: /^src\/interface\/play\/help\/help\.css$/, tests: ['src/interface/play/help/**/*.test.ts', 'tools/focus-contrast.test.ts'],
     checks: ['read-piece', 'game-screen', 'new-game', 'powers', 'special-moves', 'ux-defects', 'visual-design', 'qa', 'web-game', 'web-online'] },
-  { match: /^src\/interface\/play\/menus\.css$/, tests: ['src/interface/play/menus.test.ts', 'src/interface/play/mini-board.test.ts'],
+  { match: /^src\/interface\/play\/menus\.css$/, tests: ['src/interface/play/menus.test.ts', 'src/interface/play/mini-board.test.ts', 'tools/focus-contrast.test.ts'],
     checks: ['menu-extra', 'home', 'new-game', 'game-screen', 'account', 'ux-defects', 'visual-design', 'qa', 'web-game', 'web-online'] },
 ];
 

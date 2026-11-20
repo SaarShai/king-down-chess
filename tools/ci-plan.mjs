@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { checkShards, filePattern } from './ci-shards.mjs';
 import { findGreenTree, gitTree, jobsForRun, jobsMatchPlan } from './ci-green-tree.mjs';
 import { localPlan, pathPlan } from './lib/ci-paths.mjs';
+import { checks } from './lib/registry.mjs';
 
 const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
 const commit = /^[a-f0-9]{40}$/;
@@ -39,7 +40,8 @@ function report(what, all, selected) {
 if (process.argv[2] === 'changed') {
   const base = git(['rev-parse', '--verify', 'origin/main^{commit}']).trim();
   const selection = select(base);
-  const all = checkShards(), selected = checkShards({ selection });
+  const registry = checks.filter(check => check.ci !== 'standalone');
+  const all = checkShards({ registry }), selected = checkShards({ registry, selection });
   if (selection.mode === 'selected') console.log('This is a selection. CI runs the full plan.');
   console.log('Run type check');
   console.log('Run document lints');
@@ -71,6 +73,7 @@ if (process.argv[2] === 'changed') {
   const matrix = {
     include: shards.filter(job => job !== verify).map(job => ({
       name: job.name, browser: job.browser, part: job.part,
+      browsers: job.browsers.join(' '), testPages: job.testPages,
       tests: job.tests.length ? filePattern(job.tests) : '',
       checks: job.checks.join(' '),
       python: job.name.startsWith('test (') && job.name !== 'test (app)',

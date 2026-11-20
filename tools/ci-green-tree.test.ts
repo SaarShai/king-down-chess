@@ -58,9 +58,12 @@ it('runs the full CI plan for help CSS with a green base', () => {
   expect(pathPlan([{ path: 'src/unknown.ts' }], true)).toEqual({ mode: 'full' });
 });
 
-it('keeps the help CSS selection for local runs', () => {
-  expect(localPlan([{ path: 'src/interface/play/help/help.css' }])).toMatchObject({
-    mode: 'selected', tests: ['src/interface/play/help/**/*.test.ts'],
+it.each([
+  ['help/help.css', ['src/interface/play/help/**/*.test.ts']],
+  ['menus.css', ['src/interface/play/menus.test.ts', 'src/interface/play/mini-board.test.ts']],
+])('runs the focus contrast test and the existing local tests for %s', (css, tests) => {
+  expect(localPlan([{ path: `src/interface/play/${css}` }])).toMatchObject({
+    mode: 'selected', tests: [...tests, 'tools/focus-contrast.test.ts'],
   });
 });
 

@@ -39,9 +39,9 @@ export function checkShards({ registry = checks, selection = { mode: 'full', tes
   const all = selection.mode === 'full';
   const selected = registry.filter(check => !check.gpu && (!check.byName || check.ci)
     && (all || selection.checks.includes(check.name)));
-  const add = (name, browser, tests, entries = [], part = '') => {
+  const add = (name, browser, tests, entries = [], part = '', { browsers = [browser], testPages = false } = {}) => {
     const picked = tests.filter(file => files.includes(file) && (all || selection.tests.some(pattern => matchesGlob(file, pattern))));
-    if (picked.length || entries.length) jobs.push({ name, browser, tests: picked, checks: entries.map(check => check.name), part });
+    if (picked.length || entries.length) jobs.push({ name, browser, browsers, tests: picked, checks: entries.map(check => check.name), part, testPages });
   };
   const boardFiles = ['', '-input', '-drafts'].map(suffix => `${board}${suffix}.test.ts`);
   const app = 'tools/plugin-app.test.ts';
@@ -49,8 +49,7 @@ export function checkShards({ registry = checks, selection = { mode: 'full', tes
   const ordinary = files.filter(file => file !== app && !boardFiles.includes(file));
   balance(ordinary, 2, file => testSeconds.get(file) ?? 3)
     .forEach((group, i) => add(`test (${i + 1})`, 'chromium', group));
-  add('browser-board (board)', 'chromium', [boardFiles[0]]);
-  add('verify', 'chromium', [boardFiles[2]]);
+  add('verify', 'chromium', [boardFiles[0], boardFiles[2]]);
 
   const webkit = selected.filter(check => check.webkit);
   add('browser-webkit', 'webkit', [boardFiles[0], 'tools/plugin-ios-size.test.ts', 'tools/plugin-preview-size.test.ts']);
@@ -66,6 +65,10 @@ export function checkShards({ registry = checks, selection = { mode: 'full', tes
     const name = browser === 'webkit' ? 'browser-webkit-ui' : 'browser-ui';
     fixtures.forEach((part, i) => add(`${name} (${part})`, browser,
       browser === 'chromium' && i === 0 ? [boardFiles[1]] : [], fixture, part));
+  }
+  for (const check of selected.filter(check => check.ci === 'standalone')) {
+    const browsers = check.ciBrowsers ?? [check.channel ?? 'chromium'];
+    add(check.name, browsers[0], [], [check], '', { browsers, testPages: check.ciTestPages ?? false });
   }
   return jobs;
 }

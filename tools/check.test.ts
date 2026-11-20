@@ -139,6 +139,12 @@ it('runs only the checks from a CI shard and keeps the local no-GPU option', () 
   ]);
 });
 
+it.each(['release-site', 'release-history'])('lets %s use its own local build in CI', name => {
+  const { result, calls } = run(['--no-gpu'], false, { KINGDOWN_CI_BROWSER_CHECKS: name });
+  expect(result.status, result.stderr + result.stdout).toBe(0);
+  expect(calls).toEqual([{ script: `tools/verify-${name}.mjs`, args: [] }]);
+});
+
 it('fails a CI browser shard when every named check needs a GPU', () => {
   const { result, calls } = run(['--no-gpu'], false, { KINGDOWN_CI_BROWSER_CHECKS: 'king-effects painted-game' });
   expect(result.status, result.stderr + result.stdout).toBe(2);

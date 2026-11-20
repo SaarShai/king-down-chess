@@ -10,6 +10,8 @@
 // 10 frames a second: the CI job runs all with `--no-gpu`, which leaves the check out, and `--gpu` selects only these
 // checks. tools/deploy.sh runs them with `--gpu` when CI stands for the other default checks).
 // CI runs non-GPU default checks and named checks with a ci group. webkit adds a second browser.
+// The standalone group gives each check its own job. ciBrowsers lists the browsers that its script opens.
+// ciTestPages enables the test pages for that job's build.
 // ciSeconds is the median observed duration when the time limit is a poor estimate.
 // The default checks and the self-test run when no name is given. The selftest-* entries after them are planned
 // faults that prove the runner: selftest-dirty writes a scratch file into the checkout, selftest-fail
@@ -116,7 +118,7 @@ export const checks = [
   { name: 'selftest-hang', script: 'tools/check-selftest-dirty.mjs', args: ['hang'], limit: 5, byName: true },
   { name: 'selftest-hold', script: 'tools/check-selftest-dirty.mjs', args: ['hold'], limit: 60, byName: true },
   // The play screen scenes at four sizes and two text scales; the page is in the build only with KINGDOWN_TEST_PAGES=1.
-  { name: 'play-scenes', script: 'tools/verify-play-scenes.mjs', limit: 300, channel: 'chromium', byName: true },
+  { name: 'play-scenes', ci: 'standalone', ciTestPages: true, script: 'tools/verify-play-scenes.mjs', limit: 300, channel: 'chromium', byName: true },
 ];
 
 // The probe files that a check runs as parts of itself: ux-defects (tools/verify-ux-defects.mjs) runs each
@@ -126,6 +128,6 @@ export const checks = [
 export const probeFiles = /^tools\/(?:ux-defects\/d\d+-[\w-]+|plugin-(?:ui|oauth)-check)\.mjs$/;
 
 checks.push(
-  { name: 'release-site', script: 'tools/verify-release-site.mjs', limit: 180, byName: true, external: true },
-  { name: 'release-history', script: 'tools/verify-release-history.mjs', limit: 180, byName: true, external: true },
+  { name: 'release-site', ci: 'standalone', ciBrowsers: ['chromium', 'webkit'], script: 'tools/verify-release-site.mjs', limit: 180, byName: true, external: true },
+  { name: 'release-history', ci: 'standalone', ciBrowsers: ['chromium', 'webkit'], script: 'tools/verify-release-history.mjs', limit: 180, byName: true, external: true },
 );

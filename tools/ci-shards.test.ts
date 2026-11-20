@@ -20,10 +20,10 @@ it('assigns every test file once and keeps the five extra WebKit test files', ()
   ])));
   expect(stable(files('webkit'))).toEqual(stable(webkitFiles));
   // Reuse and record-tree are in series with the matrix and verify.
-  expect(shards.length).toBeLessThanOrEqual(16);
+  expect(shards.length + 2).toBeLessThanOrEqual(20);
   const chromiumBoardJobs = shards.filter(job => job.browser === 'chromium' &&
     job.tests.some(file => /^tools\/plugin-board(?:-input|-drafts)?\.test\.ts$/.test(file)));
-  expect(chromiumBoardJobs).toHaveLength(3);
+  expect(chromiumBoardJobs).toHaveLength(2);
 });
 
 it('places each baseline browser check once per browser with both fixture parts', () => {
@@ -33,11 +33,12 @@ it('places each baseline browser check once per browser with both fixture parts'
     'menu-extra', 'new-game', 'powers', 'qa', 'read-piece', 'selftest', 'special-moves', 'their-turn', 'turn',
     'ux-defects', 'verb-marks', 'visual-design',
   ]));
-  chromium.push('plugin-oauth', 'plugin-ui:opening', 'plugin-ui:board', 'plugin-ui-http', 'web-online', 'signin-speed', 'web-game');
-  const webkit = ['plugin-ui:opening', 'plugin-ui:board', 'web-online', 'signin-speed'];
+  chromium.push('plugin-oauth', 'plugin-ui:opening', 'plugin-ui:board', 'plugin-ui-http', 'web-online', 'signin-speed', 'web-game',
+    'play-scenes', 'release-site', 'release-history');
+  const webkit = ['plugin-ui:opening', 'plugin-ui:board', 'web-online', 'signin-speed', 'release-site', 'release-history'];
   const jobs = checkShards();
   for (const [browser, expected] of [['chromium', chromium], ['webkit', webkit]] as const) {
-    const actual = jobs.filter(job => job.browser === browser).flatMap(job =>
+    const actual = jobs.filter(job => job.browsers.includes(browser)).flatMap(job =>
       job.checks.map(name => job.part && name === 'plugin-ui' ? `${name}:${job.part}` : name));
     expect(stable(actual)).toEqual(stable(expected));
   }
@@ -47,10 +48,25 @@ it('assigns a new default and a new WebKit check without a workflow edit', () =>
   const registry = [...checks,
     { name: 'new-default', limit: 60 },
     { name: 'new-journey', byName: true, ci: 'journey', webkit: true, limit: 60 },
+    { name: 'new-standalone', byName: true, ci: 'standalone', limit: 60 },
   ];
   const jobs = checkShards({ registry });
   expect(jobs.filter(job => job.checks.includes('new-default')).map(job => job.browser)).toEqual(['chromium']);
   expect(stable(jobs.filter(job => job.checks.includes('new-journey')).map(job => job.browser))).toEqual(['chromium', 'webkit']);
+  expect(jobs.filter(job => job.checks.includes('new-standalone'))).toMatchObject([
+    { name: 'new-standalone', tests: [], checks: ['new-standalone'], browsers: ['chromium'], testPages: false },
+  ]);
+});
+
+it('assigns one job to each named check and enables test pages only for scenes', () => {
+  const jobs = checkShards();
+  const newChecks = ['play-scenes', 'release-site', 'release-history'];
+  expect(jobs.filter(job => job.checks.some(name => newChecks.includes(name)))).toMatchObject([
+    { name: 'play-scenes', checks: ['play-scenes'], tests: [], browsers: ['chromium'], testPages: true },
+    { name: 'release-site', checks: ['release-site'], tests: [], browsers: ['chromium', 'webkit'], testPages: false },
+    { name: 'release-history', checks: ['release-history'], tests: [], browsers: ['chromium', 'webkit'], testPages: false },
+  ]);
+  expect(jobs.filter(job => job.testPages).map(job => job.name)).toEqual(['play-scenes']);
 });
 
 it('keeps both compiled HTTP widget parts on one Chromium runner', () => {
@@ -59,11 +75,21 @@ it('keeps both compiled HTTP widget parts on one Chromium runner', () => {
   ]);
 });
 
-it('uses the verify runner for the Chromium board drafts tests', () => {
+it('uses the verify runner for the Chromium board and drafts tests', () => {
   expect(checkShards().find(job => job.name === 'verify')).toMatchObject({
-    browser: 'chromium', tests: ['tools/plugin-board-drafts.test.ts'],
+    browser: 'chromium', tests: ['tools/plugin-board.test.ts', 'tools/plugin-board-drafts.test.ts'],
   });
 });
+
+it('lets a nested test run select a file outside the parent shard', () => {
+  const result = spawnSync('npm', ['test', 'tools/test-lock-guard.test.ts'], {
+    encoding: 'utf8', timeout: 20_000,
+    env: { ...process.env, KINGDOWN_TEST_NAME: '', KINGDOWN_TEST_NO_TYPECHECK: '1' },
+  });
+  const output = result.stdout + result.stderr;
+  expect(result.status, output).toBe(0);
+  expect(output).toMatch(/Tests\s+2 passed/);
+}, 30_000);
 
 it('fails a test shard when neither a TS nor an MJS file matches', () => {
   const result = spawnSync('npm', ['test'], {
