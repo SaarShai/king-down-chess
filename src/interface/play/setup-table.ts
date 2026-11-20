@@ -213,7 +213,6 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   function showChoice(next: Choice) {
     const opening = choice !== next;
     choice = next; overlay.hidden = false; head.inert = body.inert = true;
-    friendFoot.inert = true;
     panel.dataset.choice = next; dialog.setAttribute('aria-labelledby', panelTitle.id);
     if (!opening) return;
     sheetEffect?.cancel();
@@ -243,7 +242,6 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     cancelPerson(); closing = true; sound('tick');
     const done = () => {
       clearSheet(); closing = false; choice = null; overlay.hidden = true; head.inert = body.inert = false;
-      friendFoot.inert = false;
       dialog.setAttribute('aria-labelledby', heading.id);
       (table.querySelector<HTMLElement>(`[data-focus="${choiceSource}"]`) ?? start).focus({ preventScroll: true });
     };
