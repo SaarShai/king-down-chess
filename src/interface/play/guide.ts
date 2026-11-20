@@ -6,7 +6,7 @@ import { POWER_NAME, usesAllowed } from '../../powers-ui';
 import { rulesOf } from './saved';
 import { cardLine, pieces, powerLines, text } from './texts';
 import { learningPanel } from './learning-panel';
-import { effectRule, freeActionFollowUp, newPieces, type LearnSubject } from './learning';
+import { effectRule, guideFollowUp, newPieces, type LearnSubject } from './learning';
 import { button, icon } from '../ui/kit.js';
 
 export const guideSections = ['Pieces', 'Kings and powers', 'Cards', 'How a turn works'] as const;
@@ -30,8 +30,8 @@ export function guideEntries(section: string): GuideEntry[] {
   const finish = `${text.finish} or ${text.send}`;
   if (section === 'How a turn works') return [
     ['move', 'Make your move', `Move one piece, then select ${finish}.`, 'Select one of your pieces. Select a marked square. Your king must be safe when the turn ends. Checkmate wins.'],
-    ['power', 'Use a power', 'An always-on power needs no tap.', `With powers only, each king has one power. It can be active or always on. Select an active power to see its rule and legal targets. Freeze and Ice Wall are free actions. ${freeActionFollowUp.replace(text.finish, finish)} Other active powers use the move.`],
-    ['card', 'Play a card', 'Each card has one use.', `Both players start with the same four cards. With cards only, kings have no powers. With powers and cards, each king has an always-on power. Select a card, then its target. Freeze, Ice Wall and Firewall are free actions. ${freeActionFollowUp.replace(text.finish, finish)} Other cards use the move.`],
+    ['power', 'Use a power', 'An always-on power needs no tap.', `With powers only, each king has one power. It can be active or always on. Select an active power to see its rule and legal targets. Freeze and Ice Wall are free actions. ${guideFollowUp} Other active powers use the move.`],
+    ['card', 'Play a card', 'Each card has one use.', `Both players start with the same four cards. With cards only, kings have no powers. With powers and cards, each king has an always-on power. Select a card, then its target. Freeze, Ice Wall and Firewall are free actions. ${guideFollowUp} Other cards use the move.`],
     ['undo', 'Change your turn', `${text.undo} changes a turn before ${finish}.`, `Your steps are not final until you select ${finish}. ${text.undo} removes the last step. A Beast can capture again before the turn ends.`],
     ['finish', 'End your turn', `${finish} makes your steps final.`, `Select ${finish} after a legal move or a free action that leaves your king safe. You cannot undo a final turn. Then your opponent plays. A game can end in checkmate, resign, stalemate, repetition, insufficient material or no progress for 100 actions.`],
   ].map(([id, name, short, full]) => ({ id, name, short, full, kind: 'Turn rule' }));

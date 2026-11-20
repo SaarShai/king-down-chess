@@ -3,7 +3,7 @@ import { button, closeX } from '../ui/kit.js';
 import { colorOf, followSq, sqName, typeOf, type Color, type Position } from '../../rules/engine';
 import type { GameRules } from '../../game-rules';
 import { pieces } from './texts';
-import { diagramFor, learningEntry, type LearnSubject } from './learning';
+import { diagramFor, freeActionFollowUp, guideFollowUp, learningEntry, type LearnSubject } from './learning';
 import type { Diagram } from './learning-diagrams';
 const node = (tag: string, className = '', text = '') => { const el = document.createElement(tag); el.className = className; el.textContent = text; return el; };
 /** A local symbol board. Its cells are pictures, never game inputs. */
@@ -76,7 +76,8 @@ export function learningPanel(subject: LearnSubject, rules: GameRules, options: 
   // `owner`: the game names whose power it is (reading decision 22); the Guide gives none.
   top.append(node('p', 'learn-kind', [options.owner ?? entry.kind, entry.king ? `${kingDisplayName(entry.king)} King` : '', entry.uses].filter(Boolean).join(' · ')), title, node('p', 'learn-short', entry.short));
   const demo = playDiagram(diagramFor(subject, options.side, rules), entry.name, options.announce ?? (() => {}));
-  const rule = node('p', 'learn-rule', entry.full), limits = node('p', 'learn-limits', entry.limits), against = node('p', 'learn-against', entry.against);
+  // Only the Guide opens this panel: its free action sentence names both finish buttons, as the Rules tab does.
+  const rule = node('p', 'learn-rule', entry.full), limits = node('p', 'learn-limits', entry.limits.replace(freeActionFollowUp, guideFollowUp)), against = node('p', 'learn-against', entry.against);
   const body = node('div', 'learn-body');
   body.append(demo.element);
   if (entry.short !== entry.full) body.append(rule);

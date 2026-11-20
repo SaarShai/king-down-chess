@@ -426,6 +426,8 @@
 .play-result-seat strong { font: 650 12px/1.2 var(--cinzel, var(--font-title)); text-transform: uppercase; }
 .play-game .play-result-body { display: grid; gap: 4px; text-align: center; }
 .play-game .play-result-body h3 { font: 650 clamp(24px, 6vw, 36px)/1.05 var(--cinzel, var(--font-title)); margin: 0; text-wrap: balance; }
+.play-game .play-result-body:has(.play-result-winner) { container-type: inline-size; }
+.play-result-winner { white-space: nowrap; font-size: min(1em, 100cqi / var(--name, 1)); }
 .play-game .play-result[data-outcome='win'] h3 { color: color-mix(in srgb, var(--brass) 46%, var(--text)); font-size: clamp(30px, 9vw, 54px); }
 .play-game .play-result-body :is(.play-result-cause, .play-result-facts) { font: 400 15px/1.1 var(--sans, var(--font-reading)); margin: 0; }
 .play-game .play-result-facts { color: var(--soft, var(--text-muted)); }

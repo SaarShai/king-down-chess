@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { afterEach, expect, it, vi } from 'vitest';
 import { guideEntries, guideSections } from './guide';
 import { homeText } from './home';
-import { learningEntry } from './learning';
+import { guideFollowUp, learningEntry } from './learning';
 import { kingChoices, rulesFor } from './new-game';
 import { pieces, powerLines, resultText } from './texts';
 import { DEFAULT_RULES, POWERS_BALANCED } from '../../rules/rules';
@@ -74,7 +74,9 @@ it('gives the same optional move and safe end after a free action', () => {
   const context = new GameRules(POWERS_BALANCED);
   const followUp = 'After a free action, you can move a piece. If your king is safe, you can select End turn.';
   const steps = guideEntries('How a turn works');
-  for (const id of ['power', 'card']) expect(steps.find(entry => entry.id === id)?.full).toContain(followUp.replace('End turn', 'End turn or Send'));
+  // The Guide pages (turn steps, and the Kings and Cards pages through learningPanel) name both finish buttons.
+  expect(guideFollowUp).toBe('After a free action, you can move a piece. If your king is safe, you can select End turn or Send.');
+  for (const id of ['power', 'card']) expect(steps.find(entry => entry.id === id)?.full).toContain(guideFollowUp);
   expect(steps.find(entry => entry.id === 'finish')?.full).toContain('a free action that leaves your king safe');
   for (const [section, ids] of [['Kings and powers', ['Freeze', 'IceWall']], ['Cards', ['Freeze', 'IceWall', 'Firewall']]] as const) {
     for (const id of ids) {

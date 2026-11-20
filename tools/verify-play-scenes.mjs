@@ -14,8 +14,6 @@ const cases = (scenes, sizes, scales = SCALES) => scenes.flatMap(scene => sizes.
 const NAME = `"${'w'.repeat(20)}"`, ONLINE = ['online-loss', 'online-loss-offer'];
 const KNOWN = new Map([
   [cases(ONLINE, [[320, 568]]), `text ${NAME} is cut by span.play-opponent-name`, 'the bar cuts a 20-letter name with an ellipsis at 320 px (design choice?)'],
-  [cases(ONLINE, SIZES), `word ${NAME} breaks over two lines in h3`, 'the online result heading breaks a 20-letter name'],
-  [cases(['new-game'], [[320, 568]], [150]), 'word "Computer" breaks over two lines in span.setup-seat-edit', 'New game at 320x568, text 150%: the seat text breaks and runs under the level choice'],
 ].flatMap(([where, line, reason]) => where.map(where => [`${where}: ${line}`, reason])));
 const SENTINEL = 'kingdown-scene-sentinel';
 

@@ -161,6 +161,12 @@ for (const channel of ['webkit', 'chromium']) {
       await noDialog(page);
       await home(page).locator('.home-guide-btn').click();
       await page.waitForURL('**/next.html#guide');
+      // A free action card page names both finish buttons, as the Rules tab does.
+      await page.getByRole('tab', { name: 'Cards' }).click();
+      await page.locator('.guide-card[data-entry="Freeze"]').click();
+      const freezeLimits = await page.locator('.guide-page[data-view="entry"] .learn-limits').textContent();
+      assert(freezeLimits.includes('If your king is safe, you can select End turn or Send.') && !freezeLimits.includes('Send or Send'), freezeLimits);
+      if (phone) await button(page, 'Back to Cards').click();
       await button(page, 'Back to Home').click();
       await openSettings(page);
       await oneDialog(page, settings(page));

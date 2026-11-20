@@ -499,7 +499,7 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .setup-summary { grid-column: 2; color: var(--text-muted); font: 600 .75rem/1.3 var(--font-title); letter-spacing: .05em; }
 .setup-body {
   display: grid;
-  grid-template-rows: auto minmax(100px, 1fr) auto;
+  grid-template-rows: auto minmax(min-content, 1fr) auto;
   gap: var(--setup-gap);
   min-height: 0;
   overflow: auto;
@@ -512,7 +512,7 @@ body > .kd-sr { inset: 0 auto auto 0; }
   font: 650 .8125rem/1.15 var(--font-title); letter-spacing: .05em; text-transform: uppercase;
 }
 .setup-mode .kd-segment[aria-checked='true'] { background: var(--surface-raised); border-color: var(--divider); box-shadow: none; }
-.setup-match { display: grid; grid-template-rows: minmax(100px, 1fr) auto; min-width: 0; }
+.setup-match { display: grid; grid-template-rows: minmax(min-content, 1fr) auto; min-width: 0; }
 .setup-figures { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; width: min(100%, 590px); margin: auto auto 0; height: 100%; max-height: min(54dvh, 575px); }
 :is(.setup-seat.kd-button, .setup-seat-static) {
   display: grid;
@@ -534,7 +534,7 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .setup-seat-power, .setup-seat-edit { display: inline-flex; gap: 4px; align-items: center; justify-content: center; }
 .setup-seat-power { min-height: 17px; color: var(--info); font: 650 .75rem/1.2 var(--font-title); }
 .setup-seat-power img { width: 17px; height: 17px; object-fit: contain; }
-.setup-seat-edit { color: var(--text-muted); font-size: .875rem; }
+.setup-seat-edit { color: var(--text-muted); font-size: .875rem; overflow-wrap: normal; }
 .setup-seat-edit .profile-portrait { width: 24px; height: 24px; }
 .setup-seat-edit .kd-icon { inline-size: 14px; block-size: 14px; }
 .setup-vs { font: 600 clamp(25px, 6vw, 46px)/1 var(--font-title); }
