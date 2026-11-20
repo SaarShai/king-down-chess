@@ -22,4 +22,4 @@ NODE
 )
 if [ -n "${KINGDOWN_TEST_FILE:-}" ] && [ "${#node_tests[@]}" -gt 0 ]; then set -- --passWithNoTests "$@"; fi
 vitest run "$@"
-if [ "${#node_tests[@]}" -gt 0 ]; then node --test "${node_tests[@]}"; fi
+if [ "${#node_tests[@]}" -gt 0 ]; then KINGDOWN_TEST_FILE= node --test "${node_tests[@]}"; fi

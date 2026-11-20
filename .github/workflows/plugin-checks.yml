@@ -83,6 +83,7 @@ jobs:
           npm run plugin:smoke
           npm run plugin:check:protocol
           npm run build:vercel
+          test ! -e dist/play-scenes.html
           npm run check:vercel
 
       - if: needs.reuse.outputs.verify_tests != ''
@@ -155,13 +156,15 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ matrix.browser }}-${{ hashFiles('package-lock.json') }}
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ matrix.browsers }}-${{ hashFiles('package-lock.json') }}
       # Regional mirrors can take longer than APT's idle timeout.
       - run: |
           printf 'https://archive.ubuntu.com/ubuntu/\tpriority:2\nhttps://security.ubuntu.com/ubuntu/\tpriority:3\n' | sudo tee /etc/apt/apt-mirrors.txt
           echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
-          npx playwright install --with-deps "$PLAYABLE_BROWSER"
+          npx playwright install --with-deps $PLAYWRIGHT_BROWSERS
         timeout-minutes: 10
+        env:
+          PLAYWRIGHT_BROWSERS: ${{ matrix.browsers }}
       - run: npm run plugin:db:init-test
       - if: matrix.browser == 'webkit'
         name: Start WebKit sampler
@@ -183,6 +186,7 @@ jobs:
         env:
           KINGDOWN_CI_BROWSER_CHECKS: ${{ matrix.checks }}
           KINGDOWN_PLUGIN_UI_PART: ${{ matrix.part }}
+          KINGDOWN_TEST_PAGES: ${{ matrix.testPages && '1' || '' }}
           DEBUG: ${{ matrix.browser == 'webkit' && 'pw:browser' || '' }}
       - if: matrix.browser == 'webkit' && (failure() || cancelled())
         name: Save kernel log

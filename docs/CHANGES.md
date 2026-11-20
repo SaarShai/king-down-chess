@@ -26,6 +26,8 @@ A change that touches class C code is class C. Its size does not change this.
 
 Record each review in the ticket and in the PR: the kind (the lead's read of a tweak, or a review by an agent that did not build the change), the head that was read, and the open findings. When the head or the base moves after the review, the record holds a reconcile note that says what changed and how it was verified.
 
+Use `KINGDOWN_REVIEW=lead-read` to record the lead's read of a tweak. The merge tool refuses this review if the change includes a risky or unknown path.
+
 ## Preview
 
 A tweak goes to the preview address, `https://kingdown-preview.vercel.app`, before CI. Before the preview, these pass: the type check, the build, the scripted journey check and the builder's browser pass. The preview uses the staging project and the staging data. It never uses a production key or the production database, and it never moves the staging address or the live site. Only the lead starts a preview. `tools/deploy.sh` publishes to production only: never use it for a preview.

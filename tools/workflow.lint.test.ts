@@ -58,12 +58,20 @@ describe('plugin-checks workflow', () => {
     expect(shard).toContain("DEBUG: ${{ matrix.browser == 'webkit' && 'pw:browser' || '' }}");
     expect(shard).toContain("archive.ubuntu.com/ubuntu/\\tpriority:2");
     expect(shard).toContain('Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";');
-    expect(shard).toContain('npx playwright install --with-deps "$PLAYABLE_BROWSER"\n        timeout-minutes: 10');
+    expect(shard).toContain('npx playwright install --with-deps $PLAYWRIGHT_BROWSERS\n        timeout-minutes: 10');
+    expect(shard).toContain('PLAYWRIGHT_BROWSERS: ${{ matrix.browsers }}');
     expect(shard.indexOf('name: Save kernel log')).toBeLessThan(shard.indexOf('uses: actions/upload-artifact@v4'));
     expect(shard).toContain("if: matrix.browser == 'webkit' && (failure() || cancelled())\n        name: Save kernel log");
     expect(shard).toContain('nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log');
     expect(shard).toContain("if: always() && (matrix.browser == 'webkit' || matrix.checks != '')");
     expect(shard).toContain('retention-days: 7');
+  });
+
+  it('enables test pages only in a browser step that requests them and checks the production output', () => {
+    const browser = job('checks').split('      - run: npm run check:browser -- --no-gpu\n')[1].split('\n      - ')[0];
+    expect(browser).toContain("KINGDOWN_TEST_PAGES: ${{ matrix.testPages && '1' || '' }}");
+    expect(workflow.match(/KINGDOWN_TEST_PAGES/g)).toHaveLength(1);
+    expect(job('verify')).toContain('npm run build:vercel\n          test ! -e dist/play-scenes.html');
   });
 
   it('keeps the release and sample instructions in line with the CI and push gates', () => {
