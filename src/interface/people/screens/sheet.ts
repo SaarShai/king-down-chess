@@ -45,7 +45,7 @@ export function peopleSheet(source: HTMLElement | null = document.activeElement 
     if (dialog.open) dialog.close();
     dialog.remove();
     if (opener) setButtonState(opener, {});
-    if (source?.isConnected) source.focus();
+    if (source?.isConnected && !source.closest('[inert], [hidden]')) source.focus();
     onClose();
   }
   return {

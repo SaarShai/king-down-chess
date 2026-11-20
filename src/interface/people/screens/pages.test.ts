@@ -48,7 +48,7 @@ it('Send a link: one game for a fast second tap, busy while it is made, a copy o
     // Two taps in one task: the second comes before any answer.
     await sheet(page).getByRole('button', { name: 'Send a link', exact: true }).evaluate((main: HTMLElement) => { main.click(); main.click(); });
     await expect.poll(() => sheet(page).locator('[aria-busy="true"]').textContent()).toContain('Making your game…');
-    await expect.poll(() => toasts(page)).toEqual(['Link copied.']);
+    await expect.poll(() => toasts(page)).toEqual(['Invite link copied. Send it to your friend.']);
     expect((await calls(page)).filter(c => c.startsWith('createLink'))).toEqual(['createLink:pieces']);
     expect(await page.evaluate(() => (window as any).peopleDemo.copied)).toEqual([`${origin}/j#${'k'.repeat(43)}`]);
     expect(await sheet(page).count()).toBe(0);
@@ -83,7 +83,7 @@ it('Play again: 3 rows at most, Invite with the chosen game, and the quiet name 
     expect(await sheet(page).locator('.people-again').innerText()).toContain('You win, 2 days ago');
     await gameChoice(page, 'powers');
     await press(page, 'Invite dana-r');
-    await expect.poll(() => toasts(page)).toEqual(['Invite sent to dana-r. dana-r sees it in Play.']);
+    await expect.poll(() => toasts(page)).toEqual(['Invite sent to dana-r. dana-r sees it on Home.']);
     expect(await calls(page)).toContain('rules:powers');
     expect(await calls(page)).toContain('invite:dana-r:powers');
   } finally { await page.close(); }
@@ -240,7 +240,7 @@ it('The link landing: signed out, Join signs in, takes the name and joins; an en
   const ended = await open('landing-ended-known');
   try {
     await expect.poll(() => ended.locator('.people-landing h2').textContent()).toBe('jo-m invites you to a game');
-    expect(await ended.locator('.people-fact').allTextContents()).toEqual(['Pieces', '3 days for each move', 'You play Black']);
+    expect(await ended.locator('.people-fact').allTextContents()).toEqual(['Pieces', '3 days for each move', 'You play Dark']);
     await ended.getByRole('button', { name: 'Join the game' }).click();
     await expect.poll(() => ended.locator('.people-landing h2').textContent()).toBe('This invite has ended');
     expect(await ended.locator('.people-landing h2').evaluate(e => e === document.activeElement)).toBe(true);

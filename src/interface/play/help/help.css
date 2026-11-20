@@ -1,31 +1,35 @@
 .daylight-help-info.kd-button {
-  display: grid;
-  place-items: center;
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
+  display: inline-flex;
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: none;
+  min-width: 44px;
   min-height: 44px;
-  padding: 0;
+  padding: 0 10px;
   border: 0;
   box-shadow: none;
   background: transparent;
   color: var(--text);
 }
-.daylight-help-info[hidden] { display: none; }
-.daylight-help-info > span {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
+.daylight-help-info::before {
+  content: '';
+  position: absolute;
+  inset: 7px 0;
   border: 1px solid var(--divider);
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--surface-raised);
-  font-size: 19px;
-  font-weight: 400;
-  font-style: italic;
-  line-height: 1;
 }
-.daylight-help-info:is(:hover, :focus-visible) > span { background: var(--surface-muted); }
+.play-game .play-narr-tools .daylight-help-info.kd-button { padding-inline: 10px; }
+.daylight-help-info:is(:hover, :focus-visible)::before { background: var(--surface-muted); }
+.daylight-help-mark, .daylight-help-rule-label { position: relative; }
+.daylight-help-mark { font: italic 400 19px/1 var(--font-reading); }
+.daylight-help-rule-label { font-size: .875rem; }
+@media (max-width: 370px) {
+  .daylight-help-info::before { inset-inline: 7px; }
+  .daylight-help-rule-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+}
 
 .daylight-help-sheet.kd-sheet {
   position: fixed;

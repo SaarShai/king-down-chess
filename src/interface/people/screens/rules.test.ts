@@ -115,7 +115,7 @@ it('gives one landing state for each answer of the server', () => {
   // A game code is parked: only the link token opens a game.
   expect(landingState(inviteKey('ABCDEF'), 'jo', undefined).kind).toBe('bad');
   expect(landingState(key, null, faultOf(new OnlineError('UNAUTHENTICATED', 401, '')))).toMatchObject({ kind: 'plain', inviter: null, facts: [] });
-  expect(landingState(key, 'jo', preview('alex'))).toEqual({ kind: 'valid', inviter: 'alex', icon: 'frost', facts: ['With powers', '3 days for each move', 'You play Black'] });
+  expect(landingState(key, 'jo', preview('alex'))).toEqual({ kind: 'valid', inviter: 'alex', icon: 'frost', facts: ['With powers', '3 days for each move', 'You play Dark'] });
   expect(landingState(key, 'alex', preview('alex'))).toMatchObject({ kind: 'own', facts: [] });
   expect(landingState(key, 'jo', fault('INVITE_UNAVAILABLE', INVITE_NOTICES.expired)).kind).toBe('ended');
   expect(landingState(key, 'jo', fault('INVITE_UNAVAILABLE', INVITE_NOTICES.closed)).kind).toBe('ended');

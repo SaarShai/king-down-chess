@@ -4,24 +4,24 @@ import { REPORT_REASONS } from '../../../plugin/screens/board-model';
 import type { ReportCategory } from '../../../account/profile';
 import { apiOrigin } from '../../../platform';
 import { button, setButtonState } from '../../ui/kit.js';
-import { node, peopleSheet, say, statusLine } from './sheet';
+import { node, peopleSheet, say, statusLine, type PeopleSheet } from './sheet';
 
 const support = () => { const link = node('a', 'kd-button people-plain', 'Support'); link.href = apiOrigin + '/support.html'; link.target = '_blank'; link.rel = 'noopener'; return link; };
 
 export type SafetyClient = Pick<OnlineClient, 'report' | 'block' | 'relate' | 'record'> & {
   onAccountChange(close: () => void): () => void;
 };
-function safetySheet(api: Pick<SafetyClient, 'onAccountChange'>, source: HTMLElement) {
+function safetySheet(api: Pick<SafetyClient, 'onAccountChange'>, source: HTMLElement, onClose?: () => void) {
   let stop = () => {};
   let closed = false;
-  const sheet = peopleSheet(source, () => { closed = true; stop(); });
+  const sheet = peopleSheet(source, () => { closed = true; stop(); onClose?.(); });
   stop = api.onAccountChange(sheet.close);
   if (closed) stop();
   return sheet;
 }
 
-export function reportPlayer(api: Pick<SafetyClient, 'report' | 'onAccountChange'>, target: Target, source: HTMLElement) {
-  const sheet = safetySheet(api, source), status = statusLine(), form = node('form', 'people-form');
+export function reportPlayer(api: Pick<SafetyClient, 'report' | 'onAccountChange'>, target: Target, source: HTMLElement, onClose?: () => void) {
+  const sheet = safetySheet(api, source, onClose), status = statusLine(), form = node('form', 'people-form');
   const reason = node('select'), note = node('textarea');
   reason.required = true; reason.add(new Option('Choose a reason', ''));
   for (const [value, label] of Object.entries(REPORT_REASONS)) reason.add(new Option(label, value));
@@ -39,10 +39,11 @@ export function reportPlayer(api: Pick<SafetyClient, 'report' | 'onAccountChange
     } catch { if (sheet.isOpen) { setButtonState(send, {}); say(status, 'The report has no reply. Try again. A second try can send a second report.'); } }
   });
   sheet.show({ title: 'Report player', body: [form, button('Cancel', { onPress: sheet.close })] });
+  return sheet;
 }
 
-export function blockPlayer(api: Pick<SafetyClient, 'block' | 'relate' | 'onAccountChange'>, target: Target, source: HTMLElement, changed: () => void) {
-  const sheet = safetySheet(api, source), status = statusLine();
+export function blockPlayer(api: Pick<SafetyClient, 'block' | 'relate' | 'onAccountChange'>, target: Target, source: HTMLElement, changed: () => void, onClose?: () => void) {
+  const sheet = safetySheet(api, source, onClose), status = statusLine();
   const confirm = button('Block player', { kind: 'danger', onPress: async () => {
     if (!sheet.isOpen || confirm.getAttribute('aria-busy') === 'true') return;
     setButtonState(confirm, { busy: true }); say(status);
@@ -51,25 +52,30 @@ export function blockPlayer(api: Pick<SafetyClient, 'block' | 'relate' | 'onAcco
       else { const reply = await api.block({ ...target, blocked: true }); if (!reply.blocked) throw new Error(); }
       if (!sheet.isOpen) return;
       changed();
-      sheet.show({ title: 'Player blocked', body: [node('p', '', 'You can unblock this player in You. Any current game continues.'), button('Done', { kind: 'main', onPress: sheet.close })] });
+      sheet.show({ title: 'Player blocked', body: [node('p', '', 'You can unblock this player in Account & settings. Any current game continues.'), button('Done', { kind: 'main', onPress: sheet.close })] });
     } catch { if (sheet.isOpen) { setButtonState(confirm, {}); say(status, 'The block has no reply. Try again.'); } }
   } });
   sheet.show({ title: 'Block player?', body: [node('p', '', 'You do not match again. This player cannot join your open games. Messages are hidden. Follows end both ways. Any current game continues.'), status, confirm, button('Cancel', { onPress: sheet.close })] });
+  return sheet;
 }
 
-export function playerSafety(api: Pick<SafetyClient, 'report' | 'block' | 'relate' | 'onAccountChange'>, target: Target, changed: () => void, beforeOpen = () => {}, returnTo?: HTMLElement) {
-  const report: HTMLButtonElement = button('Report player', { onPress: () => { beforeOpen(); reportPlayer(api, target, returnTo ?? report); } });
-  const block: HTMLButtonElement = button('Block player', { onPress: () => { beforeOpen(); blockPlayer(api, target, returnTo ?? block, changed); } });
+export function playerSafety(
+  api: Pick<SafetyClient, 'report' | 'block' | 'relate' | 'onAccountChange'>, target: Target, changed: () => void,
+  beforeOpen: (open: () => void) => void = open => open(), returnTo?: HTMLElement,
+  openSheet: (open: (onClose?: () => void) => PeopleSheet) => void = open => { open(); },
+) {
+  const report: HTMLButtonElement = button('Report player', { onPress: () => beforeOpen(() => openSheet(onClose => reportPlayer(api, target, returnTo ?? report, onClose))) });
+  const block: HTMLButtonElement = button('Block player', { onPress: () => beforeOpen(() => openSheet(onClose => blockPlayer(api, target, returnTo ?? block, changed, onClose))) });
   return [report, block];
 }
 
 export function playerOptions(api: Pick<SafetyClient, 'report' | 'block' | 'relate' | 'onAccountChange'>, target: Target, source: HTMLElement, changed: () => void) {
   const sheet = safetySheet(api, source);
-  sheet.show({ title: 'Player options', body: playerSafety(api, target, changed, sheet.close, source) });
+  sheet.show({ title: 'Player options', body: playerSafety(api, target, changed, open => { sheet.close(); open(); }, source) });
 }
 
-export function blockedPlayers(api: Pick<SafetyClient, 'record' | 'block' | 'onAccountChange'>, source: HTMLElement) {
-  const sheet = safetySheet(api, source), status = statusLine(), rows = node('div', 'people-form');
+export function blockedPlayers(api: Pick<SafetyClient, 'record' | 'block' | 'onAccountChange'>, source: HTMLElement, onClose?: () => void) {
+  const sheet = safetySheet(api, source, onClose), status = statusLine(), rows = node('div', 'people-form');
   let cursor: string | null = null, count = 0;
   const more = button('Load more', { onPress: () => void read() });
   async function read() {
@@ -95,10 +101,11 @@ export function blockedPlayers(api: Pick<SafetyClient, 'record' | 'block' | 'onA
   }
   sheet.show({ title: 'Blocked players', body: [rows, status, more, button('Done', { onPress: sheet.close })] });
   void read();
+  return sheet;
 }
 
-export function deleteAccount(source: HTMLElement, api: Pick<SafetyClient, 'onAccountChange'> & { remove(): Promise<{ runAfter: string; localCleared: boolean }> }) {
-  const sheet = safetySheet(api, source), status = statusLine();
+export function deleteAccount(source: HTMLElement, api: Pick<SafetyClient, 'onAccountChange'> & { remove(): Promise<{ runAfter: string; localCleared: boolean }> }, onClose?: () => void) {
+  const sheet = safetySheet(api, source, onClose), status = statusLine();
   const confirm = button('Delete account', { kind: 'danger', onPress: async () => {
     if (!sheet.isOpen || confirm.getAttribute('aria-busy') === 'true') return;
     setButtonState(confirm, { busy: true }); say(status);
@@ -114,4 +121,5 @@ export function deleteAccount(source: HTMLElement, api: Pick<SafetyClient, 'onAc
   sheet.show({ title: 'Delete account?', body: [node('p', '', 'After 7 days, we delete your account and private data. Active games end. Sign in before deletion to cancel.'),
     node('p', '', 'Opponents keep their game history with Deleted player as your name. Reports can stay for 12 months, or longer under a legal hold.'),
     status, confirm, button('Cancel', { onPress: sheet.close })] });
+  return sheet;
 }

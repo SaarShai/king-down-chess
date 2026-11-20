@@ -1,24 +1,23 @@
 import { readFileSync } from 'node:fs';
 import { expect, it, vi } from 'vitest';
-import { aboutLinks, menuText, SETTING_ORDER } from './menus';
+import { aboutLinks, gameMenu, settingsSheet, SETTING_ORDER } from './menus';
 import { homeText, summaryLine } from './home';
 import { guideCounts, guideEntries, kingBlocks, neighbours, pieceGroups } from './guide';
 import { KINGS } from '../../rules/engine';
 
-// The node tests have no page: motion reads the page style when it loads.
-vi.mock('./motion', () => ({ calm: () => true, ms: () => 0, token: () => '' }));
 // In the app the public pages are on the site, not in the app files (iOS need P1).
 vi.mock('../../platform', async importOriginal => ({ ...await importOriginal<typeof import('../../platform')>(), apiOrigin: 'https://kingdown.test' }));
 const source = (name: string) => readFileSync(`src/interface/${name}`, 'utf8');
 
-it('keeps settings order and omits Motion speed from the game Menu', () => {
-  expect(SETTING_ORDER).toEqual(['pieces', 'hand', 'coords', 'sound', 'vibration', 'motion']);
-  expect(menuText.vibration).toBe('Vibration');
-  // Both places take their rows from the one control set; the Menu adds no row of its own.
+it('uses the same five settings in Account & settings and the game Menu', () => {
+  expect(SETTING_ORDER).toEqual(['pieces', 'coords', 'sound', 'vibration', 'motion']);
+  expect(settingsSheet).toBeTypeOf('function');
+  expect(gameMenu).toBeTypeOf('function');
   const menus = source('play/menus.ts');
-  expect(menus).toContain('group(menuText.soundMotion, c.sound, c.vibration, c.motion)');
-  expect(menus.match(/controls\(s, /g)).toHaveLength(2);
-  expect(menus).toMatch(/SETTING_ORDER\.filter\(name => name !== 'motion'\)\.map\(name => c\[name\]\)/);
+  expect(menus.match(/append\(\.\.\.controls\(s\)\)/g)).toHaveLength(2);
+  expect(menus).toContain("button('Guide', { icon: 'learn', onPress: o.onGuide })");
+  expect(menus).toContain('if (o.onHistory) exits.append(button(text.history, { onPress: o.onHistory }))');
+  expect(menus).not.toContain('handView');
 });
 it('iOS need P1: the About links use the public origin', () => {
   expect(aboutLinks()).toEqual([
@@ -26,7 +25,6 @@ it('iOS need P1: the About links use the public origin', () => {
     { name: 'Terms', href: 'https://kingdown.test/terms.html' },
     { name: 'Support', href: 'https://kingdown.test/support.html' },
   ]);
-  expect(menuText.saved).toBe('Your game stays saved.');
 });
 it('owner playtest: true level lines and "Your side"', () => {
   expect(homeText.levels).toEqual({
@@ -36,7 +34,8 @@ it('owner playtest: true level lines and "Your side"', () => {
   });
   expect(Object.values(homeText.levels).join(' ')).not.toMatch(/mistakes often/);
   expect(homeText.side).toBe('Your side');
-  expect(source('play/home.ts')).not.toContain('home-person');
+  expect(source('play/home.ts')).toContain("button('Play a friend'");
+  expect(source('play/home.ts')).toContain('secondary.append(newGame, friendBtn)');
   expect(summaryLine({ level: 'clever', setup: 'both', sideChoice: 'random' })).toBe('Focused · With powers and cards · Light');
 });
 it('launch decision 29: the Guide lists come from the content', () => {
@@ -67,7 +66,7 @@ it('launch decision 45: home does not wait for the board code or the symbol file
 });
 it('keeps the hero action in the first view of a short screen after the wide hero rule', () => {
   const menus = source('play/menus.css');
-  expect(menus).toMatch(/@media \(min-aspect-ratio: 5\/4\)[^]*?\.home-hero\s*\{[^}]*max-height: calc\(100dvh - var\(--daylight-bar\) - 16px\)/);
+  expect(menus).toMatch(/@media \(min-aspect-ratio: 5\/4\)[^]*?\.home-hero\s*\{[^}]*max-height: calc\(100dvh - 28px\)/);
 });
 it('keeps Start game outside the inactive setup controls while options are open', () => {
   const setup = source('play/setup-table.ts');
@@ -75,13 +74,12 @@ it('keeps Start game outside the inactive setup controls while options are open'
   expect(setup).toContain('head.inert = body.inert = true');
   expect(setup).not.toMatch(/(?:table|foot|start)\.inert\s*=\s*true/);
 });
-it('iOS needs P2, P4 and P5, and the 64 px Daylight bar', () => {
+it('keeps iOS safe areas and has no persistent shell bar', () => {
   const components = source('ui/components.css'), shell = source('play/shell.css'), tokens = source('ui/tokens.css');
   expect(components).toMatch(/html\s*\{[^}]*-webkit-text-size-adjust:\s*100%/);
   expect(components).toMatch(/-webkit-touch-callout:\s*none/);
   expect(components).toMatch(/user-select:\s*none/);
   expect(tokens).toMatch(/--safe-top:\s*env\(safe-area-inset-top/);
-  expect(shell).toMatch(/--daylight-bar:\s*64px/);
-  expect(shell).toMatch(/\.shell-nav\s*\{[^}]*padding:\s*var\(--safe-top\)/);
-  expect(shell).toMatch(/\.shell-nav a\s*\{[^}]*min-height:\s*calc\(var\(--daylight-bar\) - 1px\)/);
+  expect(shell + source('play/menus.css')).not.toContain('--daylight-bar');
+  expect(shell + source('play/shell.ts')).not.toContain('shell-nav');
 });

@@ -17,13 +17,12 @@ import { gameJSON, readSave } from '../../screen/save';
 import { skillPlan } from '../../ai/skill';
 import { learningEntry, firstMinute, stepLine, subjectKey, type LearnSubject } from './learning';
 import { alwaysOnLabel } from './help/content';
-import { resetHints as resetDaylightHints } from './help/hints';
 import { createGameHelp } from './help/panel';
 import { refusalReason, type Refusal } from './help/reasons';
-import { markHintSeen, readHints, resetHints } from './hints';
+import { markHintSeen, readHints } from './hints';
 import { refusalForTap } from './refusals';
 import { lastReplySteps, replayController, undoReplayState, type ReplayStep } from './replay';
-import { S, K, A, PLAIN_KINGS, colorOf, findKing, sqName, typeOf, TAG_POWER, type Color, type PowerTag, type Rules, type Status } from '../../rules/engine';
+import { S, K, PLAIN_KINGS, colorOf, findKing, sqName, typeOf, TAG_POWER, type Color, type PowerTag, type Rules, type Status } from '../../rules/engine';
 import { toFen } from '../../rules/setup';
 import { RELEASED_CARDS } from '../../content/cards';
 import { POWER_NAME, POWER_TAG, cardName, coinState, usesAllowed } from '../../powers-ui';
@@ -41,7 +40,7 @@ import { arrowStep, fileLabelRow, rankLabelColumn, sideText, SIDE_CHOICES, SIDE_
 import { changeDraft, createDraft, OPTIONS_KEY, PANEL_KEY, readPanel, readOptions, rulesFor, startOf, type NewGameDraft } from './new-game';
 import { playScreen, type Art } from './home';
 import { newGamePanel } from './setup-table';
-import { gameMenu, menuText, youPage, type Settings } from './menus';
+import { dismissSheet, gameMenu, settingsSheet, type Settings } from './menus';
 import { allowedAvatarUrl } from '../../account/public-config';
 import { computerPortrait, profilePortrait } from '../people/host/portrait';
 import type { OnlineHost } from '../people/host/index';
@@ -51,9 +50,9 @@ import { seatKingUnsaved } from '../people/seat-king';
 import { homeInvite, personGame, personTurn, personWords } from '../people/host/games';
 import { timeWords } from '../people/words';
 import { runPoll } from '../../plugin/poll';
-import { signInText } from '../people/screens/copy';
+import { personText, signInText } from '../people/screens/copy';
 import { blockedPlayers, deleteAccount, playerOptions, playerSafety } from '../people/screens/safety';
-import { peopleSheet } from '../people/screens/sheet';
+import { peopleSheet, type PeopleSheet } from '../people/screens/sheet';
 import { signInSheet } from '../people/screens/sign-in';
 import { humanOpponent } from '../../plugin/screens/board-model';
 
@@ -66,7 +65,7 @@ interface Resource { subject: LearnSubject; hint?: string; side: Color; key: str
 // The game type and options of the next game (owner playtest section 2). 'kingdown.setup' held 'cards' for powers and cards before the four types.
 let setup: Setup = storedGameType();
 let options = readOptions((() => { try { return JSON.parse(localStorage.getItem(OPTIONS_KEY) ?? 'null'); } catch { return null; } })()), resources: Resource[] = [], shown: Resource | null = null;
-let pieceView = stored('kingdown.piece-view', ['figures', 'symbols']), handView = stored('kingdown.hand', ['hand', 'ribbon']);
+let pieceView = stored('kingdown.piece-view', ['figures', 'symbols']);
 // The next game's side choice, and the side of the live game (launch decision 10). The computer plays the other side.
 let sideChoice = stored(SIDE_KEY, SIDE_CHOICES) as SideChoice, player: Color = 0;
 const cpu = () => (player ^ 1) as Color;
@@ -102,6 +101,7 @@ document.addEventListener('pointerdown', unlock, true); document.addEventListene
 // Continue can open it when it could not save.
 let next: NewGameDraft = createDraft({ setup, level, sideChoice, options }), game = next.game, draft = new DraftTurn(game), board: Board | undefined;
 let arrangement: Arrangement | undefined, arrangementGame = '';
+let playedOptions = options;
 let gameLevel: Level = level, resigned: Color | null = null, liveGame = false;
 const writer = new SaveWriter(line => {
   if (document.body.dataset.page === 'game' && screen?.isConnected) showGameMessage(line);
@@ -113,12 +113,11 @@ const prefs = () => ({ skill: SKILLS[gameLevel], coords, sound, vibration, pace:
 /** Write the live game: its handed-over plies and its whole staged steps (decision 2). */
 const save = (step: boolean) => onlineActive ? void people?.saveDraft() : writer.game(snapshot(draft, resigned, player, elapsedGame(), arrangement), prefs(), step);
 let selected: number | null = null, inspected: number | null = null, cursor = 12;
-let thinking = false, ended = false, generation = 0, reading: 'normal' | 'menu' | 'result' = 'normal';
+let thinking = false, ended = false, generation = 0, reading: 'normal' | 'result' = 'normal';
 // End active sequences when the player leaves the game.
 let endResult: (() => void) | undefined, endReply: (() => void) | null = null, starting = 0, endVersus: (() => void) | null = null;
 let endCardFlight = () => {}, checkFrame: Effect | undefined, checkPulse: { square: number; progress: number } | null = null;
 let playedMs = 0, enteredAt: number | undefined, resultReview = false;
-let selectTaps = 0, symbolsHint = false;
 let lastActions: MarkAction[] = [], playingAction: MarkAction | null = null, markFocus: number | undefined, nextMarksAt = 0;
 // The last input was a key: only keyboard focus on a square gives the candidate sentence (reading decision 22).
 let keyed = false;
@@ -126,7 +125,6 @@ document.addEventListener('keydown', () => { keyed = true; }, true); document.ad
 let replySteps: ReplayStep[] = [];
 const boardReplay = replayController();
 let gameHelp: ReturnType<typeof createGameHelp> | undefined;
-let hintsPending: boolean | undefined;
 let last = '', notice = '', resultCause = '', choice: Move[] = [], choiceSquare = -1;
 // The effect groups that the player opened, for this visit only (reading decision 18).
 
@@ -210,8 +208,6 @@ function refuse(message: string, square?: number, reason?: Refusal | null) {
 }
 /** The choices that the person accepted: the stored setup and side choice, and the level of the saved game. */
 const accepted = () => ({ setup, level, sideChoice, options });
-/** The result card's New game opens the New game panel on Play. */
-let panelNext = false;
 const gamesList = { expanded: false };
 const homePreviews = new Map<string, string>();
 const art: Art = {
@@ -227,6 +223,12 @@ const showHomeSignIn = () => peopleStatus !== 'checking' && !people?.signedIn;
 let homePoll: ReturnType<typeof runPoll> | undefined;
 function gameWords(line: string) { return onlineActive ? personWords(line) : line; }
 let mountingOnline = false, shownRevision = -1, onlineNote = '';
+const inviteLinkStatus = el('p', 'home-status');
+let inviteLinkTimer: ReturnType<typeof setTimeout> | undefined;
+function clearInviteLinkStatus() {
+  clearTimeout(inviteLinkTimer);
+  inviteLinkStatus.remove();
+}
 let onlineGameNotice: { id: string; line: string; revision?: number } | undefined;
 const automaticReadyAt = new Map<string, number>();
 function automaticReady(state: PeopleState) {
@@ -241,53 +243,80 @@ function automaticReady(state: PeopleState) {
 async function loadPeople() {
   return peopleReady ??= import('../people/host/index').then(async ({ onlineHost }) => {
     people ??= onlineHost({ rules: () => setup, setRules: value => { setup = value; next = changeDraft(next, { setup }); store(GAME_KEY, setup); },
-      changed: () => { if (document.body.dataset.page === 'home' && shell.route.place === 'play') home(); showAccount(); },
+      changed: () => {
+        if (!people?.signedIn) clearInviteLinkStatus();
+        if (document.body.dataset.page === 'home' && shell.route.place === 'play') home();
+        showAccount();
+      },
       home: () => { onlineActive = false; shell.go({ place: 'play' }); if (document.body.dataset.page === 'game') home(); },
       open: (id, line) => { onlineGameNotice = line ? { id, line } : undefined; shell.go({ place: 'online', entry: id }); },
-      toast: message => { onlineNote = message; announce(message); const line = root.querySelector<HTMLElement>('.home-note'); if (line) line.textContent = message; else if (document.body.dataset.page === 'home') root.querySelector('.home-start')?.prepend(el('p', 'home-note', message)); },
+      toast: message => {
+        announce(message);
+        if (message === personText.linkCopied) {
+          clearInviteLinkStatus();
+          inviteLinkStatus.textContent = message;
+          root.querySelector('.home-start')?.prepend(inviteLinkStatus);
+          inviteLinkTimer = setTimeout(clearInviteLinkStatus, 6000);
+          return;
+        }
+        onlineNote = message;
+        const line = root.querySelector<HTMLElement>('.home-note');
+        if (line) line.textContent = message;
+        else if (document.body.dataset.page === 'home') root.querySelector('.home-start')?.prepend(el('p', 'home-note', message));
+      },
     });
     const returned = await people.init();
     peopleStatus = 'ready';
     if (returned.status !== 'none' && returned.route?.screen === 'you') {
       accountNote = returned.status === 'retry' ? signInRetry : '';
-      shell.go({ place: 'you' });
+      shell.go({ place: 'play' }, true, true);
+      openSettings(homeSettingsButton() ?? root);
       if (accountNote) announce(accountNote);
     } else if (returned.status === 'signed-in') {
       const route = returned.route;
-      shell.go(route.screen === 'join' ? { place: 'join', entry: route.key ?? '' } : route.screen === 'game' ? { place: 'online', entry: route.gameId } : { place: 'person' });
-    } else if (returned.status === 'retry') { onlineNote = signInRetry; shell.go({ place: 'person' }); }
+      if (route.screen === 'new-friend') personFlow(null, true);
+      else if (route.screen === 'join') shell.go({ place: 'join', entry: route.key ?? '' });
+      else if (route.screen === 'game') shell.go({ place: 'online', entry: route.gameId });
+    } else if (returned.status === 'retry') {
+      onlineNote = signInRetry;
+      if (shell.route.place === 'play') home();
+      personFlow(null, false);
+    }
     updateAccount();
     return people;
   }).catch(error => {
     peopleReady = undefined; peopleStatus = 'failed'; onlineNote = peopleLoadError;
-    if (location.hash === '#you') shell.go({ place: 'you' });
     updateAccount();
     announce(onlineNote);
     throw error;
   });
 }
 function updateAccount() {
-  const control = root.querySelector<HTMLButtonElement>('.play-home:not(.shell-departing) .home-sign-in');
-  if (control) control.hidden = !showHomeSignIn();
+  const signIn = root.querySelector<HTMLButtonElement>('.play-home:not(.shell-departing) .home-sign-in');
+  if (signIn) signIn.hidden = !showHomeSignIn();
   showAccount();
 }
-function accountSignIn(source: HTMLButtonElement) {
+const homeSettingsButton = () => root.querySelector<HTMLButtonElement>('.play-home:not(.shell-departing) .home-settings-btn');
+
+function accountSignIn(source: HTMLButtonElement, returnToSettings = false) {
   shell.settled(() => {
-    if (!source.isConnected || document.querySelector('.account-sign-in')) return;
-    const place = shell.route.place;
+    if (!source.isConnected || shell.route.place !== 'play' || document.querySelector('dialog[open]')) return;
     const sheet = peopleSheet(source, () => {
-      void shell.closeLayer();
-      if (!source.isConnected && shell.route.place === place) {
-        root.querySelector<HTMLElement>(place === 'you' ? '.you-account [aria-haspopup="dialog"]' : '.home-sign-in:not([hidden])')?.focus({ preventScroll: true });
-      }
+      void shell.closeLayer().then(() => {
+        if (shell.route.place !== 'play') return;
+        if (returnToSettings) openSettings(homeSettingsButton() ?? root);
+        else if (!source.isConnected) {
+          const fallback = root.querySelector<HTMLElement>('.home-sign-in:not([hidden])') ?? homeSettingsButton();
+          fallback?.focus({ preventScroll: true });
+        }
+      });
     });
     sheet.element.classList.add('account-sign-in');
     const done = () => {
-      if (!people?.signedIn) return; // A provider changes pages. An email code finishes here.
+      if (!people?.signedIn) return;
       accountNote = '';
       sheet.close();
-      shell.go({ place: 'you' });
-      showAccount();
+      updateAccount();
     };
     const load = async () => {
       sheet.show({ title: 'Sign in', body: [el('p', '', signInText.loading)] });
@@ -304,9 +333,10 @@ function accountSignIn(source: HTMLButtonElement) {
     shell.openLayer(sheet.close);
   });
 }
-async function personFlow(source: HTMLElement | null = null) {
-  if (shell.route.place !== 'play') shell.go({ place: 'play' });
-  openNewGame(source ?? root.querySelector<HTMLElement>('.home-top-new, .home-side-new, .home-hero-new') ?? root, true);
+function personFlow(source: HTMLElement | null = null, resumeInviteAction = false) {
+  const legacy = shell.route.place === 'person' || location.hash === '#person';
+  if (shell.route.place !== 'play' || legacy) shell.go({ place: 'play' }, true, legacy);
+  openNewGame(source ?? root.querySelector<HTMLElement>('.home-friend-btn') ?? root, { opponent: 'person', resumeInviteAction });
 }
 async function openOnline(id: string) {
   if (onlineGameNotice?.id !== id) onlineGameNotice = undefined;
@@ -330,6 +360,7 @@ function receiveOnline(state: PeopleState) {
     }
   } else { arrangement = undefined; arrangementGame = ''; }
   if (state.view?.status === 'aborted') {
+    if (gameDialog) closeGameDialog(); // an open Menu or History would cover the end page
     endEntry(); board?.dispose(); board = undefined; liveGame = false; ended = true; thinking = false;
     const page = el('section', 'people-landing'), title = el('h1', '', onlineResult(state)); title.tabIndex = -1;
     page.append(title, button(text.home, { kind: 'main', onPress: () => shell.go({ place: 'play' }) }));
@@ -358,6 +389,7 @@ function receiveOnline(state: PeopleState) {
   game = state.game; draft = state.draft ?? new DraftTurn(game); player = state.view.seat;
   thinking = !state.draft || state.phase === 'sending' || state.phase === 'checking';
   const wasEnded = ended; ended = state.phase === 'over'; liveGame = false;
+  if (ended && !wasEnded && gameDialog?.classList.contains('game-menu-dialog')) closeGameDialog(); // its Offer draw and Resign are stale, and it covers the result
   if ((changed || ended) && document.querySelector('[data-help-sheet="promotion"]')) gameHelp?.close();
   if (changed) {
     shownRevision = state.view.revision; selected = inspected = null; shown = null; clearChoice(); skipBoard();
@@ -365,7 +397,7 @@ function receiveOnline(state: PeopleState) {
     const h = game.history; let i = h.length; const side = h.at(-1)?.pos.turn; while (i > 0 && h[i - 1].pos.turn === side) i--;
     lastActions = draft.length ? [...draft.steps] : turnActions(i); last = turnText(i, side !== player);
   }
-  if (ended) { resultCause = onlineResult(state); if (!wasEnded || reading !== 'menu') reading = 'result'; if (changed) detail.dataset.mode = ''; }
+  if (ended) { resultCause = onlineResult(state); reading = 'result'; if (changed) detail.dataset.mode = ''; }
   else if (reading === 'result') reading = 'normal';
   update();
   if (changed && previousRevision >= 0 && ended && !wasEnded && state.view.result?.reason === 'checkmate') playOnlineKingResult();
@@ -396,7 +428,7 @@ async function onlineRecovery(state: PeopleState) {
       const recovery = el('section', 'online-recovery'); recovery.dataset.state = 'auth';
       recovery.append(el('h2', '', 'Sign in again'), el('p', '', 'Your game stays saved.'), button('Sign in again', { kind: 'main', onPress: () => { if (onlineState) void onlineRecovery(onlineState); } }), button(text.home, { onPress: () => shell.go({ place: 'play' }) })); root.append(recovery);
     }
-    if (!document.querySelector('.people-sheet')) signInAgain(host.host, () => { void host.signIn().then(() => { if (onlineActive && shell.route.place === 'online') return host.controller ? host.controller.signedIn() : openOnline(shell.route.entry!); }); }, menuButton);
+    if (!document.querySelector('dialog[open]')) signInAgain(host.host, () => { void host.signIn().then(() => { if (onlineActive && shell.route.place === 'online') return host.controller ? host.controller.signedIn() : openOnline(shell.route.entry!); }); }, menuButton);
     return;
   }
   const kind = state.phase === 'gone' ? 'gone' : state.phase === 'account' ? 'account' : state.phase === 'failed' || state.connection === 'down' ? 'down' : null;
@@ -423,8 +455,6 @@ function onlineActions(state: PeopleState): HTMLElement {
   }
   return block;
 }
-/** A new game from Play: copy a save that cannot open, then start the shown candidate. */
-const beginNew = (source?: HTMLButtonElement) => { void start(undefined, source); };
 function home(newArmy = false) {
   if (enteredAt !== undefined && liveGame && !onlineActive) { stopGameTime(); save(false); }
   if (shell.route.place !== 'play') { if (newArmy) next = createDraft(accepted()); shell.go({ place: 'play' }); return; }
@@ -432,7 +462,7 @@ function home(newArmy = false) {
   const active = document.activeElement as HTMLElement | null;
   let focused: string | undefined;
   if (!enteringHome && active && root.contains(active)) {
-    const name = ['home-person', 'home-side-new', 'home-hero-new', 'home-summary', 'home-sign-in', 'all-games'].find(name => active.classList.contains(name));
+    const name = ['home-friend-btn', 'home-side-new', 'home-hero-new', 'home-summary', 'home-guide-btn', 'home-sign-in', 'home-settings-btn', 'all-games'].find(name => active.classList.contains(name));
     focused = active.dataset.game ? `[data-game="${active.dataset.game}"]` : active.dataset.saved === 'computer' ? '[data-saved="computer"]' : name ? `.${name}` : undefined;
   }
   onlineActive = false; onlineState = undefined; people?.stopGame();
@@ -451,6 +481,7 @@ function home(newArmy = false) {
   const copy = saved.kind === 'kept' ? keepCopy(saved.raw) : null;
   const status = saved.kind === 'blocked' || copy === 'failed' ? text.cannotSave : copy === 'full' ? text.keptFull : copy === 'copied' || copy === 'already' ? text.kept : '';
   if (enteringHome) void people?.refresh();
+  const me = people?.host.me();
   const play = playScreen({
     resume, next, gamesList, previews: homePreviews, status: [status, onlineNote].filter(Boolean).join(' '),
     people: people?.views.filter(view => view.status !== 'aborted' || !!view.history?.actions?.length).map(personGame) ?? [],
@@ -467,58 +498,75 @@ function home(newArmy = false) {
     onDismissInvite: id => { const invite = people?.inviteUpdates.find(row => row.invite_id === id); if (invite) people!.dismissInvite(invite); },
     offer: fallback => { const offer = keptOffer(saved); return offer ? keptRow(offer, fallback) : null; },
     onContinue: source => resumeGame(source, memory),
-    onChange: source => openNewGame(source),
+    onPlay: source => {
+      if (replacement()) openNewGame(source, { opponent: 'computer' });
+      else void start(undefined, source, next);
+    },
+    onChange: source => openNewGame(source, { opponent: 'computer' }),
+    onFriend: source => openNewGame(source, { opponent: 'person' }),
+    onGuide: () => shell.go({ place: 'guide' }),
+    onSettings: openSettings,
     onSignIn: accountSignIn,
     showSignIn: showHomeSignIn(),
+    account: { signedIn: !!people?.signedIn, name: me?.handle ?? people?.user?.name, avatar: people?.user?.avatar },
   }, art);
+  if (inviteLinkStatus.isConnected) play.element.querySelector('.home-start')!.prepend(inviteLinkStatus);
+  play.element.addEventListener('click', event => {
+    if ((event.target as Element).closest('button, a')) clearInviteLinkStatus();
+  }, true);
   root.replaceChildren(play.element, ...(old ? [old] : []));
   if (enteringHome) play.focus(); else if (focused) play.element.querySelector<HTMLElement>(focused)?.focus({ preventScroll: true });
   homePoll?.update();
-  const count = (resume && (resume.draft.length || resume.game.pos.turn === resume.player) ? 1 : 0) + (people?.views.filter(view => view.action === 'ready' && view.status === 'playing').length ?? 0) + (people?.incomingInvites.length ?? 0);
-  const tab = document.querySelector<HTMLElement>('.shell-nav a[href="#play"]'); tab?.querySelector('.home-count')?.remove();
-  if (count && tab) { const countMark = el('span', 'home-count', String(count)); countMark.setAttribute('aria-label', `${count} games wait for your move`); tab.append(countMark); }
-
   if (old) void screenChange(old, play.element, true).then(() => { old.remove(); oldBoard?.dispose(); }); else oldBoard?.dispose();
-  if (panelNext) { panelNext = false; openNewGame(play.element.querySelector<HTMLButtonElement>('.kd-button[data-kind="main"]') ?? play.element); }
 }
-/** The New game panel (launch decision 26). Its edits stay in the panel until Start game. */
-function openNewGame(source: HTMLElement, person = false) {
-  // Close, then New game at once: the panel opens after the pending Back. A late invite reply can leave Play meanwhile.
-  shell.settled(() => { if (shell.route.place === 'play') newGameLayer(source, person); });
-}
-function newGameLayer(source: HTMLElement, person: boolean) {
-  if (document.querySelector('dialog.new-game-panel')) return; // one panel: a second queued open does nothing
-  const memory = (() => { try { return readPanel(JSON.parse(sessionStorage.getItem(PANEL_KEY) ?? 'null')); } catch { return null; } })();
-  const candidate = changeDraft(next, accepted());
-  const replacement = () => inMemory() ? gameJSON(snapshot(draft, null, player, undefined, arrangement)) : gameKeyOf(readStored());
-  const panel = newGamePanel({
-    next: candidate,
-    memory: memory ?? (person ? { ...accepted(), opponent: 'person', section: null } : null),
-    people: async () => (await loadPeople()).host,
-    remember: value => { try { if (value) sessionStorage.setItem(PANEL_KEY, JSON.stringify(value)); else sessionStorage.removeItem(PANEL_KEY); } catch { /* The current panel still keeps its draft. */ } },
-    replacement,
-    onStart: async (draft, acceptedSave) => {
-      await shell.closeLayer();
-      // A late invite reply can open the online game during that wait: the local start then stops.
-      if (shell.route.place !== 'play') return;
-      if (replacement() !== acceptedSave) { home(); return; }
-      next = draft; beginNew(root.querySelector<HTMLButtonElement>('.play-home .kd-button[data-kind="main"]') ?? undefined);
-    },
-    onInvite: draft => {
-      next = draft; ({ setup, level, sideChoice, options } = draft);
-      store(GAME_KEY, setup); store(OPTIONS_KEY, JSON.stringify(options)); home();
-    },
-    onClose: () => { void shell.closeLayer(); },
-  }, art);
-  // The panel is outside #app: a background refresh of Play (home()) redraws #app and must not remove the open panel.
-  // A refresh can replace the opener: focus then returns to the same control on the new Play, or to its visible
-  // New game control when the first game or invite replaces the large New game.
-  const controls = ['home-side-new', 'home-hero-new', 'home-summary'], opener = controls.find(name => source.classList.contains(name));
-  panel.element.addEventListener('close', () => {
-    panel.element.remove();
-    if (!source.isConnected && opener && document.body.dataset.page === 'home') [opener, ...controls].map(name => root.querySelector<HTMLElement>(`.${name}`)).find(control => control?.getClientRects().length)?.focus({ preventScroll: true });
+const replacement = () => inMemory() ? gameJSON(snapshot(draft, null, player, undefined, arrangement)) : gameKeyOf(readStored());
+/** The choices stay in the panel until the player starts a game or sends an invite. */
+function openNewGame(source: HTMLElement, opts: { opponent?: 'computer' | 'person'; fromResult?: boolean; resumeInviteAction?: boolean } = {}) {
+  shell.settled(() => {
+    const startRoute = shell.route, startPlace = startRoute.place;
+    if (startPlace !== 'play' && !(opts.fromResult && ended && (startPlace === 'game' || startPlace === 'online'))) return;
+    if (document.querySelector('dialog[open]')) return;
+    const memory = (() => { try { return readPanel(JSON.parse(sessionStorage.getItem(PANEL_KEY) ?? 'null')); } catch { return null; } })();
+    const panel = newGamePanel({
+      next,
+      memory,
+      opponent: opts.opponent,
+      backLabel: opts.fromResult ? 'Back to result' : undefined,
+      resumeInviteAction: opts.resumeInviteAction,
+      people: async () => (await loadPeople()).host,
+      remember: value => { try { if (value) sessionStorage.setItem(PANEL_KEY, JSON.stringify(value)); else sessionStorage.removeItem(PANEL_KEY); } catch { /* The current panel still keeps its draft. */ } },
+      replacement,
+      onStart: async (draft, acceptedSave) => {
+        await shell.closeLayer();
+        if (shell.route !== startRoute) return;
+        if (replacement() !== acceptedSave) {
+          if (startPlace === 'play') home();
+          else announce('A saved game changed. Check before starting.');
+          return;
+        }
+        next = draft;
+        void start(undefined, undefined, draft);
+      },
+      onInvite: draft => {
+        next = draft; ({ setup, level, sideChoice, options } = draft);
+        store(GAME_KEY, setup); store(OPTIONS_KEY, JSON.stringify(options));
+        if (shell.route.place === 'play') home();
+      },
+      onClose: () => { void shell.closeLayer(); },
+      openView: shell.openLayerView,
+      backView: shell.backLayerViews,
+    }, art);
+    // A Home refresh may replace the opener while the panel is open.
+    const controls = ['home-side-new', 'home-hero-new', 'home-summary', 'home-friend-btn'];
+    const opener = controls.find(name => source.classList.contains(name));
+    panel.element.addEventListener('close', () => {
+      panel.element.remove();
+      if (source.isConnected || shell.route !== startRoute) return;
+      if (opts.fromResult) screen.querySelector<HTMLElement>('.play-result-new')?.focus({ preventScroll: true });
+      else if (opener) [opener, ...controls].map(name => root.querySelector<HTMLElement>(`.${name}`)).find(control => control?.getClientRects().length)?.focus({ preventScroll: true });
+    });
+    document.body.append(panel.element); panel.open(source); shell.openLayer(panel.close, panel.element, panel.back);
   });
-  document.body.append(panel.element); panel.open(source); shell.openLayer(panel.close, panel.element, panel.back);
 }
 /**
  * The offer of a kept Dark game (launch decision 10): Open makes it the saved game, after a confirmation when it ends
@@ -552,14 +600,14 @@ function resumeGame(source: HTMLButtonElement, memory: boolean) {
 const inMemory = () => liveGame && writer.lost && !writer.blocked && (game.history.length > 0 || draft.length > 0 || !!arrangement || game.backRank === '');
 function endEntry() { starting = 0; endVersus?.(); endVersus = null; }
 /** A new game shows Versus. Continue opens the saved board at rest. */
-async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; player: Color; playedMs?: number; arrangement?: Arrangement }, from?: HTMLButtonElement) {
+async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; player: Color; playedMs?: number; arrangement?: Arrangement }, from?: HTMLButtonElement, freshDraft?: NewGameDraft) {
   if (starting) return;
-  const progressiveArt = !inApp && !onlineActive;
+  const progressiveArt = !inApp && (!onlineActive || !!freshDraft);
   // Keep the accepted game identity through the code load. Settings alone do not need a new choice.
   const acceptedSave = readSave(), identity = acceptedSave.unreadable ? acceptedSave.raw : gameJSON(acceptedSave.save);
   if (!boardCode && !progressiveArt) {
     // Start the first frame's images beside the board code, in the scene's image modes.
-    const position = resumed?.draft.position ?? next.game.pos, rules = resumed?.game.context.rules ?? next.game.context.rules;
+    const position = resumed?.draft.position ?? freshDraft?.game.pos ?? game.pos, rules = resumed?.game.context.rules ?? freshDraft?.game.context.rules ?? game.context.rules;
     const files = [skinUrl, ...[...new Set(position.board)].filter(Boolean).map(code => `/ui/pieces/${typeOf(code) === K ? kingFile(colorOf(code), rules) : `${nameOf(code).toLowerCase()}-${colorOf(code) ? 'b' : 'w'}`}.webp`)];
     for (const href of files) if (!firstArt.has(href)) {
       const link = document.createElement('link'); link.rel = 'preload'; link.as = 'image'; link.href = href;
@@ -568,49 +616,57 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   }
   if (!boardCode) {
     // The press waits for the board code; a second press, or a move to another place, ends this start.
-    const place = shell.route.place;
+    const route = shell.route;
     root.querySelector('.home-load-fault')?.remove();
     if (from) setButtonState(from, { busy: true });
     try { await loadBoardCode(); } catch {
       if (from) setButtonState(from, { busy: false });
       const home = root.querySelector('.home-start');
-      if (home && shell.route.place === place) home.prepend(el('p', 'home-note home-load-fault', text.loadFailed));
+      if (home && shell.route === route) home.prepend(el('p', 'home-note home-load-fault', text.loadFailed));
       announce(text.loadFailed); return;
     }
-    if (starting || shell.route.place !== place) return;
+    if (starting || shell.route !== route) return;
   }
   if (!resumed) {
     const current = readSave();
-    if ((current.unreadable ? current.raw : gameJSON(current.save)) !== identity) { home(); return; }
+    if ((current.unreadable ? current.raw : gameJSON(current.save)) !== identity) {
+      if (shell.route.place === 'play') home();
+      else announce('A saved game changed. Check before starting.');
+      return;
+    }
     beforeNewGame(writer);
-    if (writer.blocked) { home(); return; }
+    if (writer.blocked) { if (shell.route.place === 'play') home(); return; }
+    if (onlineActive && freshDraft) { onlineActive = false; onlineState = undefined; people?.stopGame(); }
   }
   const fromHome = document.body.dataset.page !== 'game', homeScreen = root.querySelector<HTMLElement>('.play-home');
   gameHelp?.close(); closeGuidePanel();
   endResult?.(); rewind?.finish(); seatFrame?.finish(); boardReplay.cancel(); generation++; const own = generation; engine.cancel(); endEntry(); endCardFlight(); cancelCheckPulse(); endReply = null;
   // A rematch keeps the board and its loaded art: no new load, so no empty frame.
-  const keep = fromHome ? undefined : board;
+  const keep = fromHome || freshDraft ? undefined : board;
   if (!keep) { board?.dispose(); board = undefined; }
   const memory = resumed?.game === game && liveGame;
   if (resumed) { ({ game, draft } = resumed); level = gameLevel = resumed.level; setup = gameType(game.rules); player = resumed.player; }
-  else {
-    // A new game takes the shown candidate: its army, kings, cards and side (Random drew when it was made). Rematch swaps the sides.
-    if (fromHome) { ({ setup, level, sideChoice, options } = next); player = next.player; store(SIDE_KEY, sideChoice); store(OPTIONS_KEY, JSON.stringify(options)); } else player = cpu();
-    // A rematch plays the same army, or the same first position for a game from a position.
-    const source = fromHome ? next.game : game;
-    game = fromHome ? startOf(next) : new Game(source.backRank || undefined, rulesFor(setup, Math.random, options, player)); draft = new DraftTurn(game); gameLevel = level;
-    if (!source.backRank) game.load(game.context.fromFen(toFen(source.history[0]?.pos ?? source.pos)));
-    store(GAME_KEY, setup);
-    if (fromHome) next = createDraft(accepted());
+  else if (freshDraft) {
+    ({ setup, level, sideChoice, options, player } = freshDraft);
+    game = startOf(freshDraft); draft = new DraftTurn(game); gameLevel = level;
+    store(SIDE_KEY, sideChoice); store(OPTIONS_KEY, JSON.stringify(options)); store(GAME_KEY, setup);
+    next = createDraft(accepted());
+  } else {
+    const previous = game;
+    player = cpu();
+    game = new Game(previous.backRank || undefined, rulesFor(gameType(previous.rules), Math.random, playedOptions, player));
+    if (!previous.backRank) game.load(game.context.fromFen(toFen(previous.history[0]?.pos ?? previous.pos)));
+    draft = new DraftTurn(game);
   }
+  if (freshDraft || resumed && !memory) playedOptions = options;
   seatFrame?.finish(); counts = [0, 0]; staged = silentStage = false;
   if (!onlineActive) {
     onlineGameNotice = undefined;
-    arrangement = resumed ? memory ? arrangement : resumed.arrangement : options.arrangement === 'manual' ? new Arrangement(toFen(game.pos).split(' ')[0].split('/')[player ? 0 : 7].toUpperCase(), player) : undefined;
+    arrangement = resumed ? memory ? arrangement : resumed.arrangement : playedOptions.arrangement === 'manual' ? new Arrangement(toFen(game.pos).split(' ')[0].split('/')[player ? 0 : 7].toUpperCase(), player) : undefined;
   }
   if (!onlineActive && !memory) playedMs = resumed?.playedMs ?? 0;
   enteredAt = undefined; resultReview = false;
-  resources = []; shown = null; replySteps = []; resigned = null; liveGame = true; selectTaps = 0; symbolsHint = false;
+  resources = []; shown = null; replySteps = []; resigned = null; liveGame = true;
   ended = false; fault = null; thinking = arrangement ? false : onlineActive ? !onlineState?.draft : game.pos.turn === cpu() && game.status === 'playing'; cursor = arrangement ? player ? 63 : 0 : player ? 52 : 12;
   selected = inspected = null; choice = []; reading = 'normal'; last = ''; lastActions = []; playingAction = null; markFocus = undefined; nextMarksAt = 0; notice = ''; resultCause = '';
   if (resumed) {
@@ -624,7 +680,8 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   shell.go(onlineActive ? { place: 'online', entry: onlineState!.view!.game_id } : { place: 'game' }, false);
   document.body.dataset.page = 'game';
   screen = el('section', 'play-game');
-  screen.dataset.hand = handView; screen.dataset.coords = String(coords);
+  screen.toggleAttribute('data-online', onlineActive);
+  screen.dataset.hand = 'hand'; screen.dataset.coords = String(coords);
   // Opponent strip: name and level, the opponent's power with its uses, Menu.
   // The name has two lines, Computer and the level; the computer's four cards are one group (option b1).
   const oppName = onlineActive ? onlineState?.opponent?.deleted ? 'Deleted player' : onlineState?.opponent?.handle ?? 'A player' : text.computer;
@@ -638,10 +695,9 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   const opponentRing = el('span', 'play-seat-ring'); opponentRing.append(face);
   opponentGroup.append(opponentRing, who); opponent.append(opponentGroup);
   addPower(cpu(), opponentGroup); rivalGroup = cards(cpu()) ? addRivalCards(opponentGroup) : null;
-  menuButton = button(text.menu, { icon: 'more', iconOnly: true, onPress: () => {
-    gameHelp?.close(); reading = reading === 'menu' ? ended ? 'result' : 'normal' : 'menu'; update();
-    (reading === 'menu' ? detail.querySelector<HTMLButtonElement>('button') : menuButton)?.focus({ preventScroll: true });
-  } });
+  menuButton = button(text.menu, { icon: 'more', iconOnly: true, onPress: openMenuDialog });
+  menuButton.classList.add('play-menu-button');
+  menuButton.setAttribute('aria-haspopup', 'dialog');
   opponent.append(menuButton);
   // Your strip: your power and the four cards, or your king when the game has no powers.
   const mine = el('div', 'play-own'); mine.setAttribute('role', 'group'); mine.setAttribute('aria-label', text.you);
@@ -678,7 +734,6 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   // A pointer that leaves the board leaves no candidate sentence (check "play" fault 4).
   grid.addEventListener('pointerleave', event => { if (event.pointerType !== 'touch' && markFocus !== undefined) { markFocus = undefined; drawMarks(); } });
   choiceBox = el('div', 'play-choices'); boardBox.append(host, grid);
-  hintsPending = onlineActive ? undefined : !resumed;
   gameHelp = createGameHelp({ board: boardBox, player, effects: {
     onSheetOpen: sheet => sheetMotion(sheet, true, () => gameHelp?.close()),
     onSheetClose: (sheet, bounds) => sheetMotion(sheet, false, undefined, bounds),
@@ -700,7 +755,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     arrangement = undefined;
     ended = true; resigned = player; liveGame = false; stopGameTime(); if (save(true)) store(ARRANGE_KEY, 'null'); resultCause = text.resigned; reading = 'result'; update(); focusResult(); announce(`${replyText()} ${resultCause}`);
   } });
-  historyStrip = el('div', 'play-history-strip'); historyStrip.dataset.daylightHelpRail = '';
+  historyStrip = el('div', 'play-history-strip'); historyStrip.hidden = true;
   historyButton = button(text.history, { onPress: () => toggleScroll('history', historyButton) });
   historyButton.append(icon('down')); historyButton.classList.add('play-history-toggle');
   historyCompact = el('div', 'play-history-compact'); historyStrip.append(historyButton, historyCompact);
@@ -759,7 +814,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   if (own !== generation) return;
   try { await loaded; } catch { artFailed(own); }
   if (versus) await versus;
-  if (own === generation && !onlineActive && !ended) { enteredAt = performance.now(); updateHelpHint(); }
+  if (own === generation && !onlineActive && !ended) enteredAt = performance.now();
   if (own === generation && fault) focusFault();
   if (own === generation && announcement === entryAnnouncement && !notice && !fault) {
     const context = arrangement ? [arrangeText.instruction, arrangement.error ?? arrangeText.legal, arrangeText.keys].join(' ') : thinking ? '' : draft.length ? stepLines().join(' ') : replySteps.length ? replyText() : fresh() ? text.firstMinute : last;
@@ -859,11 +914,23 @@ function versusCard(loaded: Promise<unknown>): Promise<void> {
 function skipBoard() { rewind?.finish(); boardReplay.cancel(); endCardFlight(); cancelCheckPulse(); board?.skip(); playingAction = null; endReply?.(); }
 function moveCursor(square: number) { cells[cursor].tabIndex = -1; cursor = square; cells[cursor].tabIndex = 0; cells[cursor].focus({ preventScroll: true }); }
 document.addEventListener('keydown', event => {
-  if (document.body.dataset.page !== 'game' || event.defaultPrevented || (event.target as Element).closest('dialog, input, textarea, select, [contenteditable="true"]')) return;
+  if (event.defaultPrevented) return;
+  if (event.key === 'Escape' && shell.route.place === 'guide') {
+    event.preventDefault(); closeHomeGuide(); return;
+  }
+  if (document.body.dataset.page !== 'game') return;
+  const openDialog = document.querySelector<HTMLDialogElement>('dialog[open]');
+  if (openDialog) {
+    if (event.key === 'Escape' && !(event.target as Element).closest('dialog')) {
+      event.preventDefault();
+      openDialog.dispatchEvent(new Event('cancel', { cancelable: true }));
+    }
+    return;
+  }
+  if ((event.target as Element).closest('dialog, input, textarea, select, [contenteditable="true"]')) return;
   if (event.key.toLowerCase() === 'z' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); undoOrReplay(); return; }
   if (event.key !== 'Escape') return;
   if (scrollOpen || reader?.dataset.floating === 'true') { event.preventDefault(); closeFloating(); return; }
-  if (reading === 'menu') { event.preventDefault(); reading = ended ? 'result' : 'normal'; update(); menuButton.focus({ preventScroll: true }); return; }
   const target = (shown ?? armedResource())?.control ?? cells[cursor], cancelled = armedResource();
   if (arrangement) arrangement.selected = null;
   event.preventDefault(); clearChoice(); draft.armed = null; shown = null; selected = inspected = null; notice = '';
@@ -879,18 +946,13 @@ function key(event: KeyboardEvent) {
   }
 }
 function clearChoice() { choice = []; choiceBox.replaceChildren(); }
-/** Decision 127: a docked result that runs past its fixed box (a long cause) takes the compact result: no figure, one action row.
- *  If the compact result still runs past the box, the cause scrolls in its own box; the title, the note and the actions stay in view.
- *  It measures the docked reader after each render and each layout pass, so a Menu close, a resize or a rotation fits it again. */
 function fitResult() {
-  delete screen.dataset.resultFit;
-  const docked = screen.dataset.layout === 'portrait' || (screen.dataset.layout === 'wide' && screen.dataset.form === 'compact');
-  if (!onlineActive || reading !== 'result' || !docked || !reader || reader.dataset.floating === 'true') return;
-  const card = detail?.querySelector<HTMLElement>('.play-result, .play-result-copy');
-  const over = () => !!card && card.getBoundingClientRect().bottom > reader!.getBoundingClientRect().bottom;
-  if (!over()) return;
-  screen.dataset.resultFit = 'tight';
-  if (over()) screen.dataset.resultFit = 'scroll';
+  if (!onlineActive || reading !== 'result') return;
+  const body = detail?.querySelector<HTMLElement>('.play-result-body');
+  if (!body) return;
+  // Give the keyboard a scroll target only when the result text needs it.
+  if (body.scrollHeight > body.clientHeight + 1) body.tabIndex = 0;
+  else body.removeAttribute('tabindex');
 }
 function tap(square: number) {
   if (fault === 'art' || !onlineActive && writer.blocked) return; // a fault waits for recovery
@@ -900,7 +962,7 @@ function tap(square: number) {
   lastActions = []; notice = ''; onlineGameNotice = undefined;
   if (arrangement && !ended) {
     if (arrangementLocked()) return;
-    gameHelp?.close(); if (reading === 'menu') reading = 'normal';
+    gameHelp?.close();
     const order = arrangement.order;
     if (!arrangement.pick(square)) { moveCursor(player * 56); announce(arrangeText.choose); return; }
     if (!onlineActive && arrangement.order !== order) save(true);
@@ -910,7 +972,6 @@ function tap(square: number) {
   const activeResource = armedResource(); if (!activeResource) shown = null;
   gameHelp?.close();
   // Help is never modal: a board tap closes it and also acts.
-  if (reading === 'menu') reading = 'normal';
   if (ended) reading = 'result';
   if (choice.length) clearChoice();
   const pos = draft.position, code = pos.board[square], source = draft.chain ? draft.previewMove!.from : selected;
@@ -948,12 +1009,10 @@ function tap(square: number) {
       if (selected != null && !freezeArmed()) cue('mark', { piece: typeOf(code), king: game.context.rules.kings[colorOf(code)]?.king ?? PLAIN_KINGS[colorOf(code)] });
       if (selected != null && !own.length) { notice = reason?.line ?? refusalForTap(draft, draft.armed ? null : square, square); if (!freezeArmed()) cue('no'); }
     } else { selected = null; notice = reason?.line ?? (draft.armed ? text.armed : text.computerOwns); if (!freezeArmed()) cue('no'); }
-    const showSymbolsHint = fresh() && pieceView === 'figures' && ++selectTaps >= 6 && !readHints().has('view:symbols');
-    if (showSymbolsHint) { symbolsHint = true; markHintSeen('view:symbols'); }
     const short = learningEntry({ kind: 'piece', type: typeOf(code) }, game.context, pos, colorOf(code)).short;
     update();
     if (reason && notice) gameHelp?.showRefusal(reason, cells[square], helpAvoid());
-    announce(`${nameOf(code)} ${sqName(square)}. ${notice || short}${notice === text.computerOwns ? ` ${short}` : ''}${showSymbolsHint ? ` ${text.symbolsHint}` : ''}`);
+    announce(`${nameOf(code)} ${sqName(square)}. ${notice || short}${notice === text.computerOwns ? ` ${short}` : ''}`);
   } else refuseAt(refusalForTap(draft, source, square));
 }
 function stage(move: Move) {
@@ -965,7 +1024,7 @@ function stage(move: Move) {
   afterStage(before, move);
 }
 function afterStage(before: Position, move: Move) {
-  const now = draft.now; shown = null; symbolsHint = false; resources.forEach(r => { r.hint = undefined; });
+  const now = draft.now; shown = null; resources.forEach(r => { r.hint = undefined; });
   lastActions = [...draft.steps, ...(draft.previewMove ? [{ before: draft.now, move: draft.previewMove }] : [])];
   // A Haste or Rage second move belongs to the same piece: keep it selected.
   selected = draft.chain ? draft.previewMove!.from : draft.open && now.haste !== undefined && now.rage !== 3 ? now.haste : null; inspected = move.selfRemove ? null : move.to;
@@ -1274,10 +1333,11 @@ function update() {
   controls.finish.dataset.free = String(!!free && draft.canFinish);
   controls.finish.querySelector('[data-button-label]')!.textContent = onlineActive ? 'Send' : thinking ? 'Waiting' : text.finish;
   const replay = undoReplayState(draft.length, replySteps.length, thinking || ended || !!fault).replay;
-  controls.undo.replaceChildren(icon(replay ? 'rewind' : 'undo'), el('span', 'kd-sr', replay ? text.replay : text.undo));
-  controls.update({ sent: thinking && !fault, staged, silent: silentStage, state: ended ? resultCause : fault ? fault === 'art' ? sideText.artFailed : sideText.computerFailed : net && personTurn(net) || (thinking ? text.thinking : choice.length ? choicePrompt(choice) : draft.armed ? armedStep(draft.armedMoves, draft.now, selected, player) : checked ? text.check : free || (draft.length ? draft.canFinish ? text.draft : text.mustContinue : fresh() && !replySteps.length && !code && !player ? text.first : text.ready)), help,
+  if (replay) controls.undo.dataset.mode = 'replay'; else delete controls.undo.dataset.mode;
+  controls.undo.replaceChildren(icon(replay ? 'rewind' : 'undo'), el('span', replay ? 'play-replay-label' : 'kd-sr', replay ? text.replay : text.undo));
+  controls.update({ sent: !fault && (net ? net.phase === 'sending' || net.phase === 'checking' : thinking), staged, silent: silentStage, state: ended ? resultCause : fault ? fault === 'art' ? sideText.artFailed : sideText.computerFailed : net && personTurn(net) || (thinking ? text.thinking : choice.length ? choicePrompt(choice) : draft.armed ? armedStep(draft.armedMoves, draft.now, selected, player) : checked ? text.check : free || (draft.length ? draft.canFinish ? text.draft : text.mustContinue : fresh() && !replySteps.length && !code && !player ? text.first : text.ready)), help,
     undoReason: !onlineActive && writer.blocked ? writer.warning : undoReplayState(draft.length, replySteps.length, thinking || ended || !!fault).enabled ? '' : text.noStep,
-    finishReason: !onlineActive && writer.blocked ? writer.warning : ended ? text.final : fault ? fault === 'art' ? sideText.artFailed : sideText.computerFailed : net?.connection === 'auth' ? 'Sign in to send your turn.' : thinking ? net ? personTurn(net) ?? text.wait : text.wait : choice.length ? text.choiceFirst : draft.canFinish ? '' : draft.length ? text.mustContinue : text.needMove });
+    finishReason: !onlineActive && writer.blocked ? writer.warning : ended ? text.final : fault ? fault === 'art' ? sideText.artFailed : sideText.computerFailed : net?.connection === 'auth' ? 'Sign in to send your turn.' : thinking ? net ? personTurn(net) ?? text.wait : text.wait : choice.length ? text.choiceFirst : (net?.canSend ?? draft.canFinish) ? '' : draft.length ? text.mustContinue : text.needMove });
   staged = silentStage = false;
   updateSeats();
   const pos = draft.position;
@@ -1316,7 +1376,7 @@ function update() {
       }
     }
   }
-  if (handChanged && handView === 'hand') for (const { card, x } of cardPositions) {
+  if (handChanged) for (const { card, x } of cardPositions) {
     if (card.dataset.spent === 'true' || !x) continue;
     const gap = x - card.getBoundingClientRect().left;
     if (gap) tween(300, t => { card.style.translate = `${gap * (1 - t)}px`; }, { curve: ease.EASE, done: () => { card.style.translate = ''; } });
@@ -1328,12 +1388,11 @@ function update() {
     rivalGroup.control.querySelector('.play-rival-count')!.textContent = String(left);
     rivalGroup.control.setAttribute('aria-label', `${text.cardsLeft(left)}. ${gameWords(rivalLine(used))}`); rivalGroup.control.setAttribute('aria-expanded', String(shown === rivalGroup));
   }
-  // The reading area takes the opponent strip while a rule or the menu is open, on a short phone or when the rule does not fit. The board does not move.
   screen.dataset.reading = reading; screen.dataset.review = String(resultReview); screen.dataset.borrow = 'false';
   const actions = net ? onlineActions(net) : undefined;
   screen.dataset.readerActive = String(!!(selected != null || !draft.length && inspected != null || draft.armed || choice.length || notice || actions?.childElementCount));
   renderReader(actions); renderHistory(); placeFloating(); fitResult();
-  drawMarks(); updateHelpHint();
+  drawMarks();
 }
 function passTurn(out: boolean) {
   const from = out ? controls.finish : seatRings[1], to = seatRings[out ? 1 : 0];
@@ -1395,35 +1454,22 @@ function updateSeats() {
 const armedResource = () => resources.find(r => r.side === player && draft.armed && r.key === draft.armed);
 function renderReader(actions?: HTMLElement) {
   if (!detail) return;
-  if (detail.childElementCount && detail.dataset.mode === reading && (reading === 'menu' || reading === 'result')) return;
-  const was = detail.dataset.mode;
-  if (was === 'menu' && was !== reading) sheetMotion(reader, false);
+  if (detail.childElementCount && detail.dataset.mode === 'result' && reading === 'result') return;
   gameHelp?.setTopic(null);
   detail.replaceChildren(); detail.dataset.mode = reading; detail.scrollTop = 0;
-  if (reading === 'menu') {
-    // A memory-only game is not saved: the Menu then shows the save fault line.
-    const saveLine = ended ? '' : onlineActive ? 'Your sent turns stay saved online.' : writer.warning || menuText.saved;
-    const menu = gameMenu(settings(), { saveLine, onClose: () => { reading = ended ? 'result' : 'normal'; update(); menuButton.focus({ preventScroll: true }); }, onHome: () => home(true), onResign: source => { if (!ended) resignDialog.open(source); } });
-    if (onlineActive && onlineState) {
-      const actions = el('div', 'online-menu-actions');
-      if (onlineState.canOfferDraw) actions.append(button('Offer draw', { onPress: () => { void people!.controller!.offerDraw(); } }));
-      if (onlineState.abortOpen) actions.append(button('End with no result', { onPress: () => { void people!.controller!.abort(); } }));
-      if (onlineState.view && humanOpponent(onlineState.view)) actions.append(...playerSafety(people!.safety, { game_id: onlineState.view.game_id }, () => { void people?.controller?.refresh(); }));
-      menu.querySelector('.menu-settings')?.prepend(actions);
-    }
-    detail.append(menu); if (was !== 'menu') sheetMotion(reader, true, closeFloating); return;
-  }
   if (reading === 'result' && onlineActive && onlineState) {
-    const state = onlineState, block = el('div', 'play-result-copy'), actions = el('div', 'play-result-actions');
-    block.append(el('h3', '', onlineResult(state)), el('p', '', state.view?.result?.reason === 'resignation' ? 'The game ends by resignation.' : state.view?.result?.reason === 'agreement' ? 'Both players agree to a draw.' : state.view?.result?.reason === 'timeout' ? 'The move time ends.' : state.view?.result?.reason === 'checkmate' ? 'Checkmate.' : 'The game ends.'));
+    const state = onlineState, block = el('section', 'play-result'), body = el('div', 'play-result-body'), actions = el('div', 'play-result-actions');
+    const winner = state.view?.result?.winner;
+    block.dataset.outcome = winner == null ? 'draw' : winner === state.view?.seat ? 'win' : 'loss';
+    body.append(el('h3', '', onlineResult(state)), el('p', 'play-result-cause', state.view?.result?.reason === 'resignation' ? 'The game ends by resignation.' : state.view?.result?.reason === 'agreement' ? 'Both players agree to a draw.' : state.view?.result?.reason === 'timeout' ? 'The move time ends.' : state.view?.result?.reason === 'checkmate' ? 'Checkmate.' : 'The game ends.'));
     if (state.rematch === 'theirs') actions.append(button('Accept rematch', { kind: 'main', onPress: () => { void people!.controller!.rematch('accept'); } }), button('Decline', { onPress: () => { void people!.controller!.rematch('decline'); } }));
     else if (state.rematch === 'accepted' && state.rematchGame) actions.append(button('Open rematch', { kind: 'main', onPress: () => shell.go({ place: 'online', entry: state.rematchGame! }) }));
-    else if (state.rematch === 'mine') block.append(el('p', '', 'Waiting for a rematch answer.'));
+    else if (state.rematch === 'mine') body.append(el('p', 'play-result-facts', 'Waiting for a rematch answer.'));
     else if (state.rematch !== 'closed') actions.append(button('Rematch', { kind: 'main', onPress: () => { void people!.controller!.rematch('offer'); } }));
     if (state.view && humanOpponent(state.view)) {
       const options: HTMLButtonElement = button('Player options', { onPress: () => playerOptions(people!.safety, { game_id: state.view!.game_id }, options, () => { void people?.controller?.refresh(); }) }); actions.append(options);
     }
-    actions.append(button(text.home, { onPress: () => shell.go({ place: 'play' }) })); block.append(actions); detail.append(block); return;
+    actions.append(resultNewGame(), button(text.home, { onPress: () => shell.go({ place: 'play' }) })); block.append(body, actions); detail.append(block); return;
   }
   if (reading === 'result') {
     const won = game.status === 'checkmate' && game.pos.turn === cpu(), lost = resigned != null || (game.status === 'checkmate' && !won);
@@ -1433,13 +1479,13 @@ function renderReader(actions?: HTMLElement) {
     ring.append(figure(kingFile(player))); ring.dataset.outcome = outcome;
     const identity = el('div', 'play-result-name');
     identity.append(el('strong', '', kingLabel(game.context.rules.kings[player]?.king, player)), el('small', '', text.you));
-    seats.append(ring, identity, el('span', 'play-store', String(counts[0])));
+    seats.append(ring, identity);
     screen.querySelector<HTMLElement>('.play-opp .play-seat-ring')!.dataset.outcome = won ? 'loss' : lost ? 'win' : 'draw';
     const card = el('section', 'play-result'), body = el('div', 'play-result-body');
     card.dataset.outcome = outcome;
     const facts = gameFacts(game, elapsedGame());
     body.append(el('h3', '', result.title), el('p', 'play-result-cause', result.cause),
-      el('p', 'play-result-facts', `${facts.moves} ${facts.moves === 1 ? 'move' : 'moves'} · ${facts.captures} ${facts.captures === 1 ? 'capture' : 'captures'} · ${Math.floor(facts.playedMs / 60000)} min`));
+      el('p', 'play-result-facts', `${facts.moves} ${facts.moves === 1 ? 'move' : 'moves'} · ${facts.captures} ${facts.captures === 1 ? 'capture' : 'captures'} · ${Math.floor(facts.playedMs / 60000)} min · Rematch as ${player ? 'Light' : 'Dark'}`));
     const actions = el('div', 'play-result-actions');
     const rematch = button(text.rematch, { kind: 'main', onPress: () => { void start(); } });
     const review = button('See the game', { onPress: () => {
@@ -1447,7 +1493,7 @@ function renderReader(actions?: HTMLElement) {
       review.querySelector('[data-button-label]')!.textContent = resultReview ? 'Show result' : 'See the game';
       review.setAttribute('aria-pressed', String(resultReview));
     } });
-    actions.append(rematch, button(text.newGame, { onPress: () => { panelNext = true; home(true); } }),
+    actions.append(rematch, resultNewGame(),
       review, button('Home', { onPress: () => home() }));
     card.append(seats, body, actions); detail.append(card);
     const rise = () => edgeLight(rematch, { ms: 420, width: 2.4 });
@@ -1482,6 +1528,12 @@ function renderReader(actions?: HTMLElement) {
   const view = full ? readerView(model, form, nodes) : narratorView(model, nodes);
   if (!onlineActive && writer.blocked && !arrangement) view.classList.add('play-save-blocked');
   detail.append(view); if (full) fitReader(view, model);
+}
+function resultNewGame() {
+  const newGameBtn = button(text.newGame, { onPress: () => openNewGame(newGameBtn, { fromResult: true }) });
+  newGameBtn.classList.add('play-result-new');
+  newGameBtn.setAttribute('aria-haspopup', 'dialog');
+  return newGameBtn;
 }
 const line = (className: string, content: string) => el('p', className, gameWords(content));
 /** After a free action alone (a mark that does not end the turn): what is possible next (reading decision 20). */
@@ -1547,11 +1599,10 @@ function readerModel(): ReaderModel {
     // The computer chooses: the state alone. The computer acts: the sentence of the step that plays.
     const [first = '', ...rest] = sentences(acting); Object.assign(m, { title: notice || first, secondary: (notice && first ? [first, ...rest] : rest).map(t => line('play-last', t)), art: playedCard(cpu(), playingAction?.move) });
   } else {
-    // History keeps the newest action; the reader gives only the current state and a short hint.
+    const idle = selected == null && inspected == null && !draft.armed && !ended && !notice && !check.mine && !writer.warning;
     Object.assign(m, { title: notice || (check.mine ? check.lines[0] : ''),
-      primary: checks.slice(check.mine && !notice ? 1 : 0), secondary: [line('play-instruction', 'Choose a piece.')] });
+      primary: checks.slice(check.mine && !notice ? 1 : 0), secondary: [line('play-instruction', idle && last || 'Choose a piece.')] });
   }
-  if (symbolsHint && pieceView === 'figures' && !draft.length) m.primary.push(line('play-symbols-hint', text.symbolsHint));
   if (onlineActive) { m.title = gameWords(m.title); m.state = gameWords(m.state); for (const node of [...m.primary, ...m.secondary]) { const walk = document.createTreeWalker(node, NodeFilter.SHOW_TEXT); while (walk.nextNode()) walk.currentNode.textContent = gameWords(walk.currentNode.textContent ?? ''); } }
   if (writer.warning && !onlineActive) {
     m.primary.unshift(line('play-notice', writer.warning));
@@ -1562,7 +1613,6 @@ function readerModel(): ReaderModel {
 function closeFloating(focus = true) {
   const target = scrollOpen ? historyButton : floatingSource;
   scrollOpen = null; gameHelp?.close(); shown = null;
-  if (reading === 'menu') reading = ended ? 'result' : 'normal';
   update();
   if (focus && target?.isConnected) target.focus({ preventScroll: true });
 }
@@ -1575,9 +1625,26 @@ function currentHistory() {
   return historyGroups(game.history, [], (before, move) => gameWords(sentence(before, move, before.turn !== player, cards(before.turn))),
     (turn, side) => `${Math.ceil(turn / 2)} · ${side === player ? text.you : onlineActive ? 'Opponent' : text.computer}`, text.stagedTurn);
 }
+function historyRows(groups: ReturnType<typeof currentHistory>): HTMLElement[] {
+  if (!groups.length) return [line('', text.noHistory)];
+  return groups.map(group => {
+    const section = el('section', 'play-history-turn');
+    section.append(el('h4', '', group.title));
+    for (const item of group.lines) {
+      const ink = line('play-history-line', item.line);
+      ink.dataset.historyKey = item.key;
+      section.append(ink);
+    }
+    return section;
+  });
+}
 function renderHistory() {
+  const groups = currentHistory();
+  const openHistory = document.querySelector<HTMLElement>('.history-dialog .sheet-body');
+  if (openHistory) openHistory.replaceChildren(...historyRows(groups));
   if (!historyStrip) return;
-  const groups = currentHistory(), preview = groups.flatMap(group => group.lines).slice(0, 3);
+  historyStrip.hidden = !game.history.length;
+  const preview = groups.flatMap(group => group.lines).slice(0, 3);
   const records = preview.map(item => { const record = el('span', 'play-history-record', item.line); record.dataset.historyKey = item.key; return record; });
   historyButton.querySelector('[data-button-label]')!.replaceChildren(...(records.length ? records : [el('span', 'play-history-record', text.noHistory)]));
   historyCompact.replaceChildren(...records.map(record => record.cloneNode(true)));
@@ -1591,8 +1658,7 @@ function renderHistory() {
   const heading = el('h3', '', title); heading.id = 'play-scroll-title'; scrollPanel.setAttribute('aria-labelledby', heading.id);
   head.append(heading, closeX(`Close ${title.toLowerCase()}`, () => closeFloating()));
   const body = el('div', 'play-panel-body');
-  groups.forEach(group => { const section = el('section', 'play-history-turn'); section.append(el('h4', '', group.title)); group.lines.forEach(item => { const ink = line('play-history-line', item.line); ink.dataset.historyKey = item.key; section.append(ink); }); body.append(section); });
-  if (!groups.length) body.append(line('', text.noHistory));
+  body.append(...historyRows(groups));
   scrollPanel.replaceChildren(head, body);
   if (focused) scrollPanel.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
   if (was !== scrollOpen && !calm() && !matchMedia('(prefers-reduced-motion: reduce)').matches) sheetMotion(scrollPanel, true);
@@ -1600,15 +1666,14 @@ function renderHistory() {
 function placeFloating() {
   if (!reader || !screen) return;
   // A power or card panel floats only in the normal reading: the result stays in its docked place (decision 124).
-  const source = reading === 'menu' ? menuButton : reading === 'normal' && shown?.card === -1 ? shown.control : undefined;
+  const source = reading === 'normal' && shown?.card === -1 ? shown.control : undefined;
   const wasFloating = reader.dataset.floating === 'true';
   reader.dataset.floating = String(!!source);
   reader.classList.toggle('kd-paper', !!source);
   if (floatingSource && floatingSource !== source) floatingSource.setAttribute('aria-expanded', 'false');
   floatingSource = source ?? null;
   if (source) { source.setAttribute('aria-controls', reader.id); source.setAttribute('aria-expanded', 'true'); }
-  reader.setAttribute('aria-label', reading === 'menu' ? text.menu : shown?.name ?? text.last);
-  menuButton.setAttribute('aria-expanded', String(reading === 'menu'));
+  reader.setAttribute('aria-label', shown?.name ?? text.last);
   const place = (panel: HTMLElement, anchor: HTMLElement) => {
     const box = screen.getBoundingClientRect(), at = anchor.getBoundingClientRect();
     const rail = screen.dataset.layout === 'wide', left = rail ? parseFloat(screen.style.getPropertyValue('--board-x')) + parseFloat(screen.style.getPropertyValue('--board')) + parseFloat(screen.style.getPropertyValue('--gap')) : Math.max(4, at.left - box.left);
@@ -1626,6 +1691,7 @@ function outsidePanel(event: Event) {
   if (event.type === 'pointerdown') swallowedPointer = false;
   if (document.body.dataset.page !== 'game' || document.querySelector('dialog[open]')) return;
   if ((event.target as Element).closest?.('.daylight-help-sheet, .daylight-help-shade')) return;
+  if ((event.target as Element).closest?.('.play-menu-button')) return;
   const target = event.target as Node, active = scrollOpen ? scrollPanel : reader?.dataset.floating === 'true' ? reader : null;
   const control = scrollOpen ? historyButton : floatingSource;
   if (!active || active.contains(target) || control?.contains(target)) return;
@@ -1664,34 +1730,6 @@ function subjectModel(m: ReaderModel, subject: LearnSubject, side: Color, action
 
 function helpAvoid() {
   return [reader, ...screen.querySelectorAll('.play-opp, .play-own, .play-turn')].map(node => node.getBoundingClientRect());
-}
-
-// One box round the squares: a hint must not cover the squares it points at.
-function squaresBox(squares: readonly number[]) {
-  const boxes = squares.map(sq => cells[sq].getBoundingClientRect());
-  const left = Math.min(...boxes.map(b => b.left)), top = Math.min(...boxes.map(b => b.top));
-  return new DOMRect(left, top, Math.max(...boxes.map(b => b.right)) - left, Math.max(...boxes.map(b => b.bottom)) - top);
-}
-
-function updateHelpHint() {
-  if (!gameHelp || !screen.isConnected) return;
-  if (onlineActive || ended || thinking || arrangement || reading !== 'normal' || !enteredAt || fault) {
-    gameHelp.updateHint(null); return;
-  }
-  if (hintsPending !== undefined) { gameHelp.startHints(hintsPending); hintsPending = undefined; }
-  const avoid = helpAvoid();
-  if (shown || draft.armed) {
-    gameHelp.updateHint('info', gameHelp.infoButton, avoid.slice(1));
-  } else if (draft.canFinish) {
-    gameHelp.updateHint('end', controls.finish, avoid.slice(0, 2));
-  } else if (selected != null && draft.targets(selected).length) {
-    gameHelp.updateHint('ring', squaresBox([selected, ...draft.targets(selected)]), avoid);
-  } else if (game.history.length) {
-    gameHelp.updateHint('card', resources.find(resource => resource.side === player && resource.card != null)?.control, avoid.filter((_, i) => i !== 2));
-  } else {
-    const from = [...new Set(draft.legal.filter(move => !move.pass && !armKey(move)).map(move => move.from))];
-    gameHelp.updateHint('piece', from.length ? squaresBox(from) : undefined, avoid);
-  }
 }
 
 const replyText = () => [...replySteps.flatMap(step => effectEndLines(game.context, step.before, step.move, step.after, player)), ...replySteps.map(step => sentence(step.before, step.move, true, cards(cpu()))).filter(Boolean)].join(' ');
@@ -1758,7 +1796,7 @@ function pressResource(res: Resource) {
     draft.arm(res.key); notice = '';
     if (res.key !== 'freeze') {
       cue('lift'); cue('clink'); pulse('light');
-      if (res.card != null && handView === 'hand') later(90, () => { if (res.control.isConnected && draft.armed === res.key) edgeLight(res.control, { ms: 300, width: 2.4 }); });
+      if (res.card != null) later(90, () => { if (res.control.isConnected && draft.armed === res.key) edgeLight(res.control, { ms: 300, width: 2.4 }); });
     } resources.forEach(r => { r.hint = undefined; });
     const key = subjectKey(res.subject); if (!readHints().has(key)) res.hint = stepLine(res.subject);
   }
@@ -1849,27 +1887,199 @@ function drawMarks() {
   }
   board.mark(marks);
 }
-/** Both settings places (You and the Menu) use these handlers and the same save writer, in one order (launch decision 24). */
+/** Account settings and the game menu share the same save writer. */
 function settings(): Settings {
-  const write = () => { if (!onlineActive) writer.settings(prefs(), () => snapshot(draft, resigned, player, elapsedGame(), arrangement)); else { const stored = readStored(); if (stored.save) writer.settings({ ...prefs(), skill: stored.save.skill ?? SKILLS[gameLevel] }, () => stored.save!); } };
+  const write = () => {
+    if (!onlineActive && shell.route.place === 'game') writer.settings(prefs(), () => snapshot(draft, resigned, player, elapsedGame(), arrangement));
+    else writer.settings({ ...prefs(), skill: readSave().save?.skill ?? SKILLS[level] }, () => snapshot(new DraftTurn(next.game), null, 0));
+  };
   return {
-    pieceView, handView, coords, sound, vibration, motion,
+    pieceView, coords, sound, vibration, motion,
     setPieceView: value => { pieceView = value; store('kingdown.piece-view', pieceView); applyPieceView(); },
-    setHandView: value => { handView = value; store('kingdown.hand', handView); if (screen) screen.dataset.hand = handView; },
     setCoords: on => { coords = on; if (screen) screen.dataset.coords = String(coords); write(); },
     setSound: on => { sound = on; sfx?.setSound(sound); if (sound) sfx?.unlockSound(); write(); },
     setVibration: on => { vibration = on; setFxVibration(on); storeVibration(prefs()); },
     setMotion: value => { motion = value as Pace; setMotion(); write(); },
   };
 }
+
+function openPeopleLayer(open: (onClose: () => void) => PeopleSheet) {
+  if (document.querySelector('dialog[open]')) return;
+  const sheet = open(() => { void shell.closeLayer(); });
+  if (sheet.isOpen) shell.openLayer(sheet.close);
+}
+
+let settingsDialog: HTMLDialogElement | undefined, settingsOpener: HTMLElement | undefined;
+function openSettings(source: HTMLElement) {
+  shell.settled(() => {
+    if (shell.route.place !== 'play' || settingsDialog || document.querySelector('dialog[open]')) return;
+    settingsOpener = source;
+    const dialog = settingsSheet(settings(), { account: buildAccountSection(), onClose: closeSettings });
+    settingsDialog = dialog;
+    document.body.append(dialog);
+    dialog.showModal();
+    dialog.querySelector('h2')!.focus({ preventScroll: true });
+    shell.openLayer(() => shutSettings(false));
+    if (peopleStatus === 'checking') void loadPeople().catch(() => {});
+  });
+}
+function shutSettings(history: boolean) {
+  if (!settingsDialog) return;
+  settingsDialog.close();
+  settingsDialog.remove();
+  settingsDialog = undefined;
+  const source = settingsOpener?.isConnected ? settingsOpener : homeSettingsButton();
+  settingsOpener = undefined;
+  source?.focus({ preventScroll: true });
+  if (history) void shell.closeLayer();
+}
+function closeSettings() { shutSettings(true); }
+function fromSettings(open: (source: HTMLButtonElement) => void) {
+  closeSettings();
+  shell.settled(() => {
+    const source = homeSettingsButton();
+    if (shell.route.place === 'play' && source) open(source);
+  });
+}
+
+function buildAccountSection() {
+  const host = people;
+  const section = el('section', 'settings-account'), me = host?.host.me();
+  section.append(el('h3', '', 'Account'));
+  if (host && me && peopleStatus !== 'failed') {
+    const name = me.handle ?? host.user?.name ?? 'Player';
+    section.append(profilePortrait(name, host.user?.avatar), el('p', '', name),
+      button('Sign out', { onPress: () => { void host.signOut().catch(() => announce('Sign-out cannot finish. Try again.')); } }),
+      button('Blocked players', { onPress: () => fromSettings(source => openPeopleLayer(onClose => blockedPlayers(host.safety, source, onClose))) }),
+      button('Delete account', { kind: 'danger', onPress: () => fromSettings(source => openPeopleLayer(onClose => deleteAccount(source, host.deletion, onClose))) }));
+  } else if (peopleStatus === 'checking') section.append(el('p', '', 'Checking sign-in…'));
+  else {
+    const signIn = button('Sign in', { onPress: () => fromSettings(source => accountSignIn(source, true)) });
+    signIn.setAttribute('aria-haspopup', 'dialog');
+    const note = peopleStatus === 'failed' ? peopleLoadError : accountNote;
+    if (note) section.append(el('p', 'account-note', note));
+    section.append(signIn);
+  }
+  return section;
+}
+function showAccount() {
+  const account = settingsDialog?.querySelector('.settings-account');
+  if (!account) return;
+  const next = buildAccountSection();
+  if (!account.isEqualNode(next)) account.replaceChildren(...next.childNodes);
+}
+
+let gameDialog: HTMLDialogElement | undefined;
+function showGameDialog(dialog: HTMLDialogElement, back?: () => boolean) {
+  gameDialog = dialog;
+  document.body.append(dialog);
+  dismissSheet(dialog, closeGameDialog);
+  dialog.showModal();
+  dialog.querySelector<HTMLElement>('[tabindex="-1"]')?.focus({ preventScroll: true });
+  shell.openLayer(() => shutGameDialog(false), undefined, back);
+}
+function shutGameDialog(history: boolean) {
+  const dialog = gameDialog;
+  if (!dialog) return;
+  gameDialog = undefined;
+  dialog.close();
+  dialog.remove();
+  if (dialog.classList.contains('guide-dialog')) { closeGuidePanel(); update(); }
+  menuButton.focus({ preventScroll: true });
+  if (history) void shell.closeLayer();
+}
+function closeGameDialog() { shutGameDialog(true); }
+function closeMenu(next?: () => void) {
+  const route = shell.route, current = screen;
+  closeGameDialog();
+  if (next) shell.settled(() => {
+    if (shell.route === route && screen === current && screen.isConnected) next();
+  });
+}
+function openMenuDialog() {
+  gameHelp?.close();
+  closeFloating(false);
+  shell.settled(() => {
+    if (!screen.isConnected || document.querySelector('dialog[open]')) return;
+    const dialog = el('dialog', 'kd-dialog sheet-dialog game-menu-dialog');
+    dialog.setAttribute('aria-labelledby', 'game-menu-title');
+    const actions = el('div', 'online-menu-actions');
+    const state = onlineActive ? people?.controller?.state() ?? onlineState : undefined;
+    if (state) {
+      if (state.canOfferDraw) actions.append(button('Offer draw', { onPress: () => { void people!.controller!.offerDraw(); closeMenu(); } }));
+      if (state.abortOpen) actions.append(button('End with no result', { onPress: () => { void people!.controller!.abort(); closeMenu(); } }));
+      if (people && state.view && humanOpponent(state.view)) actions.append(...playerSafety(people.safety, { game_id: state.view.game_id },
+        () => { void people?.controller?.refresh(); }, closeMenu, menuButton, openPeopleLayer));
+    }
+    dialog.append(gameMenu(settings(), {
+      saveLine: !ended && !onlineActive ? writer.warning : '',
+      onClose: () => closeMenu(),
+      onHome: () => closeMenu(() => home(true)),
+      onGuide: () => closeMenu(openGameGuide),
+      onHistory: game.history.length ? () => closeMenu(openGameHistory) : undefined,
+      onResign: () => closeMenu(openResign),
+      showResign: !ended,
+      onlineActions: actions,
+    }));
+    showGameDialog(dialog);
+  });
+}
+function openResign() {
+  if (ended || document.querySelector('dialog[open]')) return;
+  const dialog = resignDialog.element;
+  const closed = () => { void shell.closeLayer(); };
+  dialog.addEventListener('kd-before-close', closed, { once: true });
+  resignDialog.open(menuButton);
+  shell.openLayer(() => {
+    dialog.removeEventListener('kd-before-close', closed);
+    dialog.close();
+  });
+}
+function openGameGuide() {
+  if (document.querySelector('dialog[open]')) return;
+  const dialog = el('dialog', 'kd-dialog guide-dialog');
+  dialog.setAttribute('aria-label', 'Guide');
+  let guideSection: string | undefined, guideEntry: string | undefined;
+  function show(section?: string, entry?: string) {
+    guideSection = section; guideEntry = entry;
+    dialog.replaceChildren(guidePage(guideSection, guideEntry, show, announce, { backLabel: 'Game', onBack: closeGameDialog }));
+    dialog.scrollTop = 0;
+  }
+  function backGuide() {
+    if (!guideEntry || guideSection === 'How a turn works' || matchMedia('(min-width: 900px)').matches) return false;
+    show(guideSection);
+    return true;
+  }
+  show();
+  showGameDialog(dialog, backGuide);
+}
+function openGameHistory() {
+  if (document.querySelector('dialog[open]')) return;
+  const dialog = el('dialog', 'kd-dialog sheet-dialog history-dialog');
+  const head = el('header', 'sheet-head'), title = el('h3', '', text.history);
+  title.id = 'game-history-title'; title.tabIndex = -1;
+  dialog.setAttribute('aria-labelledby', title.id);
+  head.append(title, closeX('Close history', closeGameDialog));
+  const body = el('div', 'sheet-body');
+  body.append(...historyRows(currentHistory()));
+  dialog.append(head, body);
+  showGameDialog(dialog);
+}
+
+function closeHomeGuide() {
+  shell.go({ place: 'play' });
+  root.querySelector<HTMLElement>('.home-guide-btn')?.focus({ preventScroll: true });
+}
+
 function renderPlace(route: Route) {
   homePoll?.update();
+  if (route.place !== 'play') clearInviteLinkStatus();
   if (route.place === 'online') { void openOnline(route.entry!); return; }
   if (route.place === 'join') {
     onlineActive = false; people?.stopGame();
     void loadPeople().then(async host => { const { landingPage } = await import('../people/screens/landing'); if (shell.route.place === 'join') { document.body.dataset.page = 'join'; root.replaceChildren(landingPage(host.host, route.entry ?? '')); } }).catch(() => shell.go({ place: 'play' })); return;
   }
-  if (route.place === 'person') { home(); void personFlow(); return; }
+  if (route.place === 'person') { personFlow(); return; }
   if (onlineActive) { onlineActive = false; onlineState = undefined; people?.stopGame(); liveGame = false; }
   if (enteredAt !== undefined && liveGame && !onlineActive) { stopGameTime(); save(false); }
   gameHelp?.close(); closeGuidePanel();
@@ -1880,37 +2090,17 @@ function renderPlace(route: Route) {
     shell.go({ place: 'play' }); return;
   }
   if (route.place === 'play') { home(); return; }
+  if (route.place === 'you') {
+    shell.go({ place: 'play' }, false, true);
+    home();
+    openSettings(homeSettingsButton() ?? root);
+    return;
+  }
   endResult?.(); rewind?.finish(); seatFrame?.finish(); boardReplay.cancel(); generation++; engine.cancel(); endEntry(); endCardFlight(); cancelCheckPulse(); board?.dispose(); board = undefined; endReply = null;
   document.body.dataset.page = route.place;
-  if (route.place === 'guide') root.replaceChildren(guidePage(route.section, route.entry, (section, entry) => shell.go({ place: 'guide', ...(section && { section }), ...(entry && { entry }) }), announce));
-  else {
-    const reset = button('Reset hints', { onPress: () => { const saved = [resetHints(), resetDaylightHints()].every(Boolean); resources.forEach(r => { r.hint = undefined; }); const line = saved ? 'Hints reset.' : 'Hints reset for this visit. This device cannot store the reset.'; resetNote.textContent = line; announce(line); } });
-    reset.classList.add('reset-hints'); const resetNote = el('p', 'reset-note');
-    root.replaceChildren(youPage(settings(), { figure: () => figure(kingFile(0, { kings: [null, null] })), symbol: () => image(A), card: art.card, reset: [reset, resetNote] }));
-    showAccount();
-    void loadPeople().catch(() => {});
-  }
-}
-function showAccount() {
-  if (shell.route.place !== 'you') return;
-  root.querySelector('.you-account')?.remove();
-  const host = people;
-  const section = el('section', 'you-account'), me = host?.host.me();
-  section.append(el('h2', '', 'Account'));
-  if (host && me && peopleStatus !== 'failed') {
-    const blocked: HTMLButtonElement = button('Blocked players', { onPress: () => blockedPlayers(host.safety, blocked) });
-    const remove: HTMLButtonElement = button('Delete account', { kind: 'danger', onPress: () => deleteAccount(remove, host.deletion) });
-    const name = me.handle ?? host.user?.name ?? 'Player';
-    section.append(profilePortrait(name, host.user?.avatar), el('p', '', name), button('Sign out', { onPress: () => { void host.signOut().catch(() => announce('Sign-out cannot finish. Try again.')); } }), blocked, remove);
-  } else if (peopleStatus === 'checking') section.append(el('p', '', 'Checking sign-in…'));
-  else {
-    const signIn: HTMLButtonElement = button('Sign in', { onPress: () => accountSignIn(signIn) });
-    signIn.setAttribute('aria-haspopup', 'dialog');
-    const note = peopleStatus === 'failed' ? peopleLoadError : accountNote;
-    if (note) section.append(el('p', 'account-note', note));
-    section.append(signIn);
-  }
-  root.querySelector('.you-page > h1')?.after(section);
+  if (route.place === 'guide') root.replaceChildren(guidePage(route.section, route.entry,
+    (section, entry) => shell.go({ place: 'guide', ...(section && { section }), ...(entry && { entry }) }),
+    announce, { backLabel: 'Home', onBack: closeHomeGuide }));
 }
 const shell = mountShell(root, renderPlace);
 // Home does not wait for the symbol files (launch decision 45): the small board and the Symbols view take them when they come.

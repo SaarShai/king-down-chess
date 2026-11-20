@@ -1,79 +1,11 @@
-:root { --daylight-bar: 64px; }
-body:not([data-page='game']) #app { padding-bottom: calc(var(--daylight-bar) + var(--safe-bottom)); perspective: 800px; }
-.shell-nav {
-  position: fixed;
-  inset: auto 0 0;
-  z-index: 30;
-  align-items: stretch;
-  gap: 4px;
-  padding: 0 max(6px, var(--safe-right)) var(--safe-bottom) max(6px, var(--safe-left));
-}
-.shell-nav a {
-  position: relative;
-  flex: 1;
-  min-height: calc(var(--daylight-bar) - 1px);
-  padding: 4px 10px 8px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  color: var(--text-muted);
-  font: 650 .75rem/1.15 var(--font-title);
-  letter-spacing: .06em;
-  text-transform: uppercase;
-}
-.shell-nav .kd-icon { width: 21px; height: 21px; }
-.shell-nav a[aria-current='page']::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: var(--tab-mark-width);
-  height: 3px;
-  border-radius: 3px 3px 0 0;
-  background: var(--brass);
-  transform: translateX(-50%);
-}
-.shell-nav[data-moving] a[aria-current='page']::after { opacity: 0; }
-.home-count {
-  position: absolute;
-  top: 5px;
-  left: calc(50% + 9px);
-  display: grid;
-  place-items: center;
-  min-width: 18px;
-  height: 18px;
-  padding-inline: 4px;
-  border-radius: var(--radius-round);
-  color: var(--surface-page);
-  background: var(--text);
-  font: 700 .75rem/1 var(--font-reading);
-}
-.shell-nav[hidden] { display: none; }
-body:has(dialog:modal) > .shell-nav { visibility: hidden; }
-.kd-dialog.new-game-panel:has(> .shell-nav) { overflow: visible; }
-.shell-nav a { transform-style: preserve-3d; }
-.home-sign-in.kd-button {
-  position: absolute;
-  inset: calc(var(--space-1) + var(--safe-top)) max(var(--space-2), var(--safe-right)) auto auto;
-  min-block-size: var(--target-min);
-  padding: var(--space-1) var(--space-2);
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
-  color: var(--info);
-  text-decoration: underline;
-  text-underline-offset: .2em;
-}
 .account-note { flex-basis: 100%; }
-.shell-page { max-width: 720px; margin: auto; padding: calc(24px + var(--safe-top)) calc(20px + var(--safe-right)) 36px calc(20px + var(--safe-left)); background: var(--surface-page); }
+.shell-page { max-width: 720px; margin: auto; padding: calc(24px + var(--safe-top)) calc(20px + var(--safe-right)) calc(36px + var(--safe-bottom)) calc(20px + var(--safe-left)); background: var(--surface-page); }
 .shell-page h1 { font-size: 1.75rem; margin-bottom: 24px; }
 .shell-page h1:focus { outline: none; }
 .shell-page h2 { margin: 28px 0 16px; font-size: 1.5rem; }
 .shell-page .kd-header { margin-bottom: 18px; }
 .shell-page .kd-header h2 { font-size: 1.125rem; margin: 0; }
 .shell-page p { max-width: 65ch; line-height: 1.6; }
-.device-note { padding: 18px; border: 1px solid var(--divider); border-radius: var(--radius-control); background: var(--surface-raised); }
 .shell-departing { position: fixed; top: 0; left: 0; right: 0; z-index: 0; max-height: 100dvh; overflow: hidden; background: var(--surface-page); pointer-events: none; }
 .shell-tab-marker, .shell-choice-marker { position: fixed; z-index: 35; pointer-events: none; transform-origin: top left; border-radius: 8px; }
 .shell-tab-marker { background: var(--selection-line); border-radius: 3px 3px 0 0; }
@@ -83,48 +15,10 @@ body:has(dialog:modal) > .shell-nav { visibility: hidden; }
 /* The title and cause remain in one result card, with all three actions visible. */
 .play-game[data-reading='result'] .play-state-line { display: none; }
 .play-result { align-items: start; }
-.play-result-copy { gap: 6px; }
-.play-result-copy h3, .play-result-copy p { width: 100%; }
-.play-result-copy h3 { font-family: var(--font-title); font-size: 1.5rem; }
-.play-result-copy > .kd-button:last-child { flex-basis: 100%; background: transparent; border: 0; box-shadow: none; text-decoration: none; }
 .play-game[data-short='true'] .play-result { gap: 8px; }
-.play-game[data-short='true'] .play-result-copy h3 { font-size: 1.25rem; }
-.play-game[data-short='true'] .play-result-copy p { font-size: .875rem; line-height: 1.25; }
-.play-game[data-short='true'] .play-result-copy .kd-button { padding: 4px 8px; }
-@media (min-width: 900px) {
-  body:not([data-page='game']) #app { padding-top: calc(var(--daylight-bar) + var(--safe-top)); padding-bottom: 0; }
-  .shell-nav { inset: 0 0 auto; border-top: 0; border-bottom: 1px solid var(--divider); justify-content: end; padding: var(--safe-top) max(16px, var(--safe-right)) 0 max(16px, var(--safe-left)); }
-  .shell-nav a { flex: 0 1 110px; flex-direction: row; min-width: max-content; }
-  .home-count { position: static; }
-  .shell-departing { top: calc(var(--daylight-bar) + var(--safe-top)); }
-}
-@media (max-width: 899px) {
-  .shell-nav { gap: 0; padding: 0; }
-  .shell-nav a {
-    flex: 1;
-    flex-direction: column;
-    min-height: calc(var(--daylight-bar) - 1px + var(--safe-bottom));
-    padding-bottom: calc(8px + var(--safe-bottom));
-  }
-  .shell-nav a:first-of-type { padding-left: max(10px, var(--safe-left)); }
-  .shell-nav a:last-of-type { padding-right: max(10px, var(--safe-right)); }
-  .shell-nav a[aria-current='page']::after { bottom: var(--safe-bottom); }
-  .shell-nav a[aria-current='page']::before { bottom: calc(4px + var(--safe-bottom)); }
-}
 :root[data-motion='fast'] .play-result { animation-duration: 220ms; }
 
-#app > :is(.play-home, .shell-page):not(.shell-departing) { position: relative; z-index: 1; background: var(--paper-tint) var(--surface-page) fixed; min-height: calc(100dvh - var(--daylight-bar) - var(--safe-bottom)); }
-@media (min-width: 900px) { #app > :is(.play-home, .shell-page):not(.shell-departing) { min-height: calc(100dvh - var(--daylight-bar) - var(--safe-top)); } }
+#app > :is(.play-home, .shell-page):not(.shell-departing) { position: relative; z-index: 1; background: var(--paper-tint) var(--surface-page) fixed; min-height: 100dvh; }
 :root[data-motion='reduce'] .kd-dialog { animation: kd-fade var(--dur-reduced-in) linear; }
 /* The game enters above the home page during its screen change. */
 .play-game { z-index: 2; }
-
-.shell-nav { isolation: isolate; }
-.shell-plate { display: none; position: absolute; z-index: -1; pointer-events: none; border-radius: var(--radius-control); }
-.shell-nav a[aria-current='page']::before { background: color-mix(in srgb, var(--brass) 17%, transparent); }
-.shell-nav[data-moving] a[aria-current='page']::before { opacity: 0; }
-.shell-nav[data-moving] .shell-plate {
-  display: block;
-  background: color-mix(in srgb, var(--brass) 17%, transparent);
-  box-shadow: inset 0 -3px var(--brass);
-}

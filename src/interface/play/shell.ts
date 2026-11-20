@@ -1,5 +1,5 @@
-import { icon, navigation } from '../ui/kit.js';
-import { ease, onFrame, pulse, reducedMotion, sound, Spring, tween, type Effect } from './fx';
+import { icon } from '../ui/kit.js';
+import { ease, pulse, reducedMotion, sound, tween, type Effect } from './fx';
 export interface Route { place: 'play' | 'guide' | 'you' | 'game' | 'person' | 'join' | 'online'; section?: string; entry?: string }
 const places = ['play', 'guide', 'you'];
 /** The place of an address hash: #play, #guide or #you. Any other hash, #game included, opens Play. */
@@ -22,44 +22,75 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
   // A load, a reload or an address edit opens the place of the hash; the stored Guide section stays when it matches.
   const fromAddress = (): Route => { const read = addressRoute(location.hash), kept: Route | undefined = history.state?.shell; return kept?.place === read.place && (read.entry === undefined || kept.entry === read.entry) ? kept : read; };
   let route: Route = fromAddress();
-  const youScroll: number | undefined = route.place === 'you' ? history.state?.youScroll : undefined;
   const guideScrollKey = 'kingdown.guide-scroll';
   const guideAddress = () => `${location.pathname}#${route.section}/${route.entry}`;
-  const nav = navigation('Play', name => {
-    const next = { place: name.toLowerCase() as Route['place'] };
-    if (layer && next.place === route.place) { layer.close(); void closeLayer(); }
-    else go(next);
-  }, { guide: true });
-  nav.querySelector('a[href="#play"] > svg')?.replaceWith(daylightCrown());
-  // The bar comes first in the Tab order, after a skip link to the page (runs/launch/speed/report.md fix 11).
   const skip = document.createElement('a'); skip.className = 'shell-skip'; skip.href = '#app'; skip.textContent = 'Skip to content';
   skip.addEventListener('click', event => { event.preventDefault(); const page = root.querySelector<HTMLElement>(':scope > :not(.shell-departing)'), target = page?.querySelector<HTMLElement>('h1') ?? page; if (target) { if (!target.matches('[tabindex]')) target.tabIndex = -1; target.focus(); } });
-  nav.classList.add('shell-nav'); document.body.prepend(skip, nav);
-  // A layer over the place (the New game panel) has its own history entry: Back closes it.
+  document.body.prepend(skip);
+  // A layer over the place has an entry for itself and one for each view it opens.
   // While a layer Back is pending, route changes and new layers wait in `waiting`, in order, until that Back lands.
-  let layer: { close(): void; back?: () => boolean } | null = null, waiting: (() => void)[] | null = null;
-  const settled = (run: () => void) => { if (waiting) waiting.push(run); else run(); };
-  let pageEffect: Effect | undefined, plateEffect: Effect | undefined;
-  const plate = document.createElement('span'); plate.className = 'shell-plate'; plate.setAttribute('aria-hidden', 'true');
-  nav.prepend(plate);
-  function markTab(from: HTMLElement, to: HTMLElement) {
-    const a = (plateEffect ? plate : from).getBoundingClientRect(), b = to.getBoundingClientRect(), bar = nav.getBoundingClientRect();
-    plateEffect?.finish();
-    const spring = new Spring(0, 320, 26); spring.to = 1;
-    nav.dataset.moving = 'true';
-    const draw = (k: number) => Object.assign(plate.style, {
-      left: `${a.left - bar.left + (b.left - a.left) * k}px`,
-      top: `${b.top - bar.top}px`,
-      width: `${a.width + (b.width - a.width) * k}px`,
-      height: `${b.height}px`,
-    });
-    draw(0);
-    plateEffect = onFrame(dt => {
-      draw(spring.step(dt));
-      if (spring.still) return false;
-    }, () => { delete nav.dataset.moving; plate.removeAttribute('style'); plateEffect = undefined; });
-    if (reducedMotion()) plateEffect = undefined;
+  let layer: { id: string; base: string; close(): void; back?: () => boolean; views: (() => void)[]; depth: number } | null = null;
+  let entryId = 0, waiting: { key: string; runs: (() => void)[] } | null = null;
+  const nav = window.navigation;
+  const layerRoutes = new Map<string, { key: string; browserKey: string }>();
+  let forward = false;
+  nav?.addEventListener('currententrychange', event => { forward = (nav.currentEntry?.index ?? -1) > event.from.index; });
+  const newKey = () => `${performance.timeOrigin}:${++entryId}`;
+  const viewKey = (id: string, depth: number) => `${id}/${depth}`;
+  const settled = (run: () => void) => { if (waiting) waiting.runs.push(run); else run(); };
+  const replacePlace = (next: Route, url = location.href) =>
+    history.replaceState({ shell: next, key: history.state?.key ?? newKey() }, '', url);
+  const pushLayer = () => {
+    if (layer) history.pushState({
+      shell: route, key: viewKey(layer.id, layer.depth), layer: true, layerId: layer.id,
+      layerDepth: layer.depth, layerBase: layer.base,
+    }, '', location.href);
+  };
+  function finishBack() {
+    const runs = waiting!.runs; waiting = null;
+    while (runs.length && !waiting) runs.shift()!();
+    if (runs.length) waiting!.runs.push(...runs);
   }
+  // The browser did not arrive (a Back that it cancelled, a destination that is gone): the queue must not stay closed.
+  function giveUp(pending: typeof waiting) {
+    if (!pending || waiting !== pending) return;
+    // Clear the closed entry if it is still current.
+    if (!layer && history.state?.layer) {
+      const next = history.state.shell;
+      replacePlace(next);
+      if (JSON.stringify(next) !== JSON.stringify(route)) show(next);
+    }
+    finishBack();
+  }
+  function stepTo(key: string, offset: number, run?: () => void, skipClosed = false) {
+    const target = nav?.currentEntry && nav.entries()[nav.currentEntry.index + offset];
+    if (skipClosed && !target?.sameDocument) return false;
+    const pending = waiting = { key, runs: run ? [run] : [] };
+    setTimeout(() => giveUp(pending), 2000); // longer than a slow Back
+    if (target?.sameDocument) {
+      // A fixed destination cannot move if the browser also goes Back.
+      const traverse = () => {
+        if (waiting !== pending || history.state?.key === key) return;
+        const { committed, finished } = nav.traverseTo(target.key);
+        void finished?.catch(() => {});
+        void committed?.catch((error: DOMException) => {
+          if (waiting !== pending || history.state?.key === key) return;
+          if (error.name === 'AbortError' && nav.entries().some(entry => entry.key === target.key)) setTimeout(traverse, 0);
+          else giveUp(pending); // the destination is gone
+        });
+      };
+      traverse();
+    } else if (offset === -1) history.back();
+    else history.go(offset);
+    return true;
+  }
+  const showLayerView = (depth: number) => {
+    if (!layer) return;
+    layer.depth = depth;
+    if (depth) layer.views[depth - 1]();
+    else layer.back?.();
+  };
+  let pageEffect: Effect | undefined;
   function changePage(old: HTMLElement, page: HTMLElement, direction: number) {
     pageEffect?.finish();
     if (reducedMotion()) return;
@@ -75,14 +106,9 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
   }
   const show = (next: Route, draw = true, scroll?: number) => {
     const before = route; route = next;
-    const oldTab = nav.querySelector<HTMLElement>('[aria-current]');
     const old = root.querySelector<HTMLElement>(':scope > :not(.shell-departing)');
     if (draw) pageEffect?.finish();
-    skip.hidden = nav.hidden = next.place === 'game' || next.place === 'online';
-    for (const link of nav.querySelectorAll('a')) {
-      if (link.hash === `#${next.place}`) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
-    }
-    const newTab = nav.querySelector<HTMLElement>('[aria-current]');
+    skip.hidden = next.place === 'game' || next.place === 'online';
     if (draw) {
       render(next);
       const page = root.firstElementChild as HTMLElement | null;
@@ -96,58 +122,77 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
         } else window.scrollTo(0, scroll);
       }
       // A page that restores the view (the row that the person left) keeps its focus and its scroll.
-      if (page?.dataset.restore !== 'true') { page?.querySelector<HTMLElement>('h1')?.focus({ preventScroll: true }); window.scrollTo(0, 0); }
+      if (page?.dataset.restore !== 'true' && !document.querySelector('dialog[open]')) { page?.querySelector<HTMLElement>('h1')?.focus({ preventScroll: true }); window.scrollTo(0, 0); }
     }
-    if (oldTab && newTab && oldTab !== newTab) { sound('pass'); pulse('light'); if (!reducedMotion()) markTab(oldTab, newTab); }
-    else if (!newTab) plateEffect?.finish();
+    if (draw && before.place !== next.place && places.includes(before.place) && places.includes(next.place)) { sound('pass'); pulse('light'); }
   };
-  function go(next: Route, draw = true) {
-    // Close, then a late invite reply: the route changes after the pending Back lands.
-    if (waiting) { waiting.push(() => go(next, draw)); return; }
-    if (JSON.stringify(next) === JSON.stringify(route)) return;
-    // A route change (a late invite reply) closes an open layer; the new place takes the layer's history entry.
-    const open = layer; layer = null; open?.close();
-    history[open ? 'replaceState' : 'pushState']({ shell: next }, '', routeHash(next)); show(next, draw);
-  }
-  window.addEventListener('popstate', event => {
-    if (waiting) {
-      const runs = waiting; waiting = null;
-      while (runs.length && !waiting) runs.shift()!();
-      if (runs.length) waiting!.push(...runs); // a run started another Back: the rest waits for it
+  function go(next: Route, draw = true, replace = false) {
+    if (waiting) { waiting.runs.push(() => go(next, draw, replace)); return; }
+    if (JSON.stringify(next) === JSON.stringify(route)) {
+      if (replace) history.replaceState({ ...history.state, shell: route }, '', routeHash(route));
       return;
     }
-    const samePlace = JSON.stringify(event.state?.shell) === JSON.stringify(route);
-    if (layer) {
-      // If Back only closes a view in the layer, keep the history entry for the layer.
-      if (samePlace && layer.back?.()) { history.pushState({ shell: route, layer: true }, '', location.href); return; }
-      const open = layer; layer = null; open.close();
-      if (samePlace) return;
+    // A route change (a late invite reply) closes an open layer; the new place takes the layer's history entry.
+    const open = layer; layer = null; open?.close();
+    if (open || replace) {
+      replacePlace(next, routeHash(next));
+      if (open?.views.length && nav?.currentEntry) layerRoutes.set(open.id, { key: history.state.key, browserKey: nav.currentEntry.key });
+    } else history.pushState({ shell: next, key: newKey() }, '', routeHash(next));
+    show(next, draw);
+  }
+  window.addEventListener('popstate', event => {
+    const state = event.state;
+    const movedForward = forward;
+    const next = state?.shell ?? fromAddress();
+    const samePlace = JSON.stringify(next) === JSON.stringify(route);
+    if (layer && samePlace && state?.layerId === layer.id) {
+      showLayerView(state.layerDepth);
+    } else {
+      // A view without its own entry uses the layer's Back action.
+      if (layer && samePlace && state?.key === layer.base && !layer.depth && layer.back?.()) {
+        pushLayer();
+        return;
+      }
+      const open = layer; layer = null; open?.close();
+      // Skip closed views toward the place the browser is moving to.
+      if (state?.layer && !waiting) {
+        const routed = layerRoutes.get(state.layerId);
+        const current = nav?.currentEntry;
+        if (routed && current) {
+          const target = nav.entries().find(entry => entry.key === routed.browserKey);
+          if (target && (movedForward || target.index < current.index) &&
+              stepTo(routed.key, target.index - current.index, undefined, true)) return;
+        }
+        if (state.layerBase && stepTo(state.layerBase, -1 - state.layerDepth, undefined, true)) return;
+        replacePlace(next);
+      } else if (!state?.key) replacePlace(next);
+      if (!samePlace) show(next);
     }
-    // Forward to the entry of a closed layer: the place stays; the next Back leaves it.
-    if (event.state?.layer && samePlace) { waiting = []; history.back(); return; }
-    const next = event.state?.shell ?? fromAddress();
-    show(next, true, next.place === 'you' ? event.state?.youScroll : undefined);
+    // An entry with no key comes from an address edit: it replaces the pending Back.
+    if (waiting && (state?.key === waiting.key || !state?.key)) finishBack();
   });
   // An address edit fires popstate, then hashchange: the second shows nothing new.
   window.addEventListener('hashchange', () => {
+    if (waiting && history.state?.layer) return;
     if (location.hash === '#game' && route.place === 'game') return;
-    const next = fromAddress(); history.replaceState({ shell: next }, '', location.href);
-    if (JSON.stringify(next) !== JSON.stringify(route)) show(next);
+    const next = fromAddress();
+    if (JSON.stringify(next) === JSON.stringify(route)) return;
+    const open = layer; layer = null; open?.close();
+    replacePlace(next);
+    show(next);
   });
-  // About opens a separate document. Back can load this entry before the browser has a page to scroll.
   window.addEventListener('pagehide', () => {
     if (layer) return;
-    if (route.place === 'you') history.replaceState({ shell: route, youScroll: window.scrollY }, '');
     // Chromium can discard a history update made during pagehide on reload.
     if (route.place === 'guide' && root.querySelector('.guide-page[data-view="entry"]:not(.shell-departing)')) {
       try { sessionStorage.setItem(guideScrollKey, JSON.stringify([guideAddress(), window.scrollY])); } catch { /* Storage can be blocked. */ }
     }
   });
-  history.replaceState({ shell: route }, '', location.pathname + location.search + (route.place === 'play' ? '' : routeHash(route)));
+  replacePlace(route, location.pathname + location.search + (route.place === 'play' ? '' : routeHash(route)));
   return {
     go, get route() { return route; },
     start() {
-      let scroll = youScroll;
+      let scroll: number | undefined;
       const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
       if (route.place === 'guide' && route.entry && navigation?.type === 'reload') {
         try {
@@ -159,20 +204,36 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
     },
     /** Runs `run` now, or after a pending layer Back, in order with route changes. Open a layer only in `run`. */
     settled,
-    /** Open a layer: one history entry. Browser Back calls `close`. */
-    openLayer(close: () => void, dialog?: HTMLDialogElement, back?: () => boolean) {
-      if (dialog) {
-        // Only controls inside the modal can take input. Move the bar back before the close animation copies the panel.
-        dialog.prepend(nav);
-        dialog.addEventListener('kd-before-close', () => skip.after(nav), { once: true });
-      }
-      layer = { close, back }; history.pushState({ shell: route, layer: true }, '', location.href);
+    /** Open a layer. Browser Back calls `close`. */
+    openLayer(close: () => void, _dialog?: HTMLDialogElement, back?: () => boolean) {
+      layer = { id: newKey(), base: history.state.key, close, back, views: [], depth: 0 }; pushLayer();
+    },
+    openLayerView(show: () => void) {
+      const open = layer;
+      settled(() => {
+        if (!open || layer !== open) return;
+        open.views.splice(open.depth, Infinity, show);
+        open.depth++;
+        pushLayer(); show();
+      });
+    },
+    backLayerViews(all = false) {
+      if (!layer?.depth) return false;
+      if (waiting) return true;
+      const distance = all ? layer.depth : 1;
+      stepTo(viewKey(layer.id, layer.depth - distance), -distance);
+      return true;
     },
     closeLayer,
   };
   /** The layer closed itself: its history entry goes. Resolves when the entry is gone. */
   function closeLayer(): Promise<void> {
-    if (!layer) return Promise.resolve();
-    layer = null; return new Promise(done => { waiting = [done]; history.back(); });
+    const open = layer;
+    if (!open) return Promise.resolve();
+    return new Promise(done => settled(() => {
+      if (layer !== open) { done(); return; }
+      layer = null;
+      stepTo(open.base, -1 - open.depth, done);
+    }));
   }
 }

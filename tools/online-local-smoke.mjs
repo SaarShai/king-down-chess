@@ -246,10 +246,10 @@ export async function runSmoke() {
       pageA.waitForFunction(() => document.querySelector('.play-game')?.getAttribute('data-state') === 'result', null, { timeout: 15000 }),
       pageB.waitForFunction(() => document.querySelector('.play-game')?.getAttribute('data-state') === 'result', null, { timeout: 20000 }),
     ]);
-    const resA = await pageA.locator('.play-result-copy h3').textContent();
-    const resB = await pageB.locator('.play-result-copy h3').textContent();
-    const causeA = await pageA.locator('.play-result-copy p').first().textContent();
-    const causeB = await pageB.locator('.play-result-copy p').first().textContent();
+    const resA = await pageA.locator('.play-result-body h3').textContent();
+    const resB = await pageB.locator('.play-result-body h3').textContent();
+    const causeA = await pageA.locator('.play-result-cause').textContent();
+    const causeB = await pageB.locator('.play-result-cause').textContent();
     logLine(`Result A: "${resA}" (${causeA}) | Result B: "${resB}" (${causeB})`);
     if (!resB?.includes('You win') || !causeA?.includes('resignation') || !causeB?.includes('resignation')) {
       throw new Error(`Unexpected resign results: A="${resA}/${causeA}", B="${resB}/${causeB}"`);

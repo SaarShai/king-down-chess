@@ -46,23 +46,17 @@ function to(el: Element, channel: string, frame: Keyframe, duration: number, eas
 }
 
 // Press: Glow for a button (section 2), Weight for the brass main action (section 3).
-let held: { el: HTMLElement; light?: HTMLElement; weight: boolean; tab: boolean } | null = null;
+let held: { el: HTMLElement; light?: HTMLElement; weight: boolean } | null = null;
 const sealed = new WeakSet<HTMLElement>();
 function press(event: PointerEvent) {
   if (event.button !== 0) return;
-  const el = (event.target as Element).closest<HTMLElement>('.kd-button, .kd-segment, .shell-nav a');
+  const el = (event.target as Element).closest<HTMLElement>('.kd-button, .kd-segment');
   if (!el || el.getAttribute('aria-disabled') === 'true') return;
-  if (el.closest('.play-game, .daylight-help-sheet') && !el.closest('[data-hand="ribbon"] .play-card')) return;
+  if (el.closest('.play-game, .daylight-help-sheet')) return;
   release();
   const s = S(), weight = el.dataset.kind === 'main';
-  held = { el, weight, tab: el.matches('.shell-nav a') };
+  held = { el, weight };
   if (calm()) { to(el, 'press', { filter: 'brightness(.85)' }, ms('--dur-reduced-press'), 'linear'); return; }
-  if (held.tab) {
-    // The icon moves. The full tab cell stays under the pointer.
-    const icon = el.querySelector<SVGSVGElement>('.kd-icon');
-    if (icon) to(icon, 'press', { transform: 'rotateX(-28deg) scale(1.12)' }, time(170), token('--ease-out3'));
-    return;
-  }
   if (weight) {
     // The finish row reserves 4 px for its press; its 44 px input target keeps its size.
     const transform = el.closest('.play-turn') ? 'translateY(4px)' : `translateY(${5 * s}px) scale(${1 + .015 * s}, ${1 - .05 * s})`;
@@ -82,13 +76,8 @@ function follow(event: PointerEvent) {
 /** Finger up, or the press ends any other way: the light always goes out (the lab fault on disarm). */
 function release() {
   if (!held) return;
-  const { el, light, weight, tab } = held; held = null;
+  const { el, light, weight } = held; held = null;
   if (calm()) { to(el, 'press', { filter: 'brightness(1)' }, ms('--dur-reduced-out'), 'linear', true); light?.remove(); return; }
-  if (tab) {
-    const icon = el.querySelector<SVGSVGElement>('.kd-icon');
-    if (icon) to(icon, 'press', { transform: 'none' }, time(460), linear(E.spring(.5)), true);
-    return;
-  }
   // The click comes after pointerup: the finish action may seal the button first.
   if (weight) { setTimeout(() => { if (!sealed.has(el)) rest(el); }); return; }
   if (light) void light.animate([{ opacity: 0, transform: `translate(-50%, -50%) scale(${1.4 + .4 * S()})` }], { duration: ms('--dur-release-glow'), fill: 'forwards' })
@@ -226,7 +215,15 @@ export function sheetMotion(panel: HTMLElement, open: boolean, close?: () => voi
   if (open) pulse('light');
   const shade = panel.previousElementSibling;
   const scrim = shade instanceof HTMLElement && shade.matches('.daylight-help-shade') ? shade : undefined;
-  if (open && scrim && close) { scrim.style.pointerEvents = 'auto'; scrim.addEventListener('click', close); }
+  if (open && scrim && close) {
+    scrim.style.pointerEvents = 'auto';
+    scrim.addEventListener('click', event => {
+      const { clientX, clientY } = event;
+      close();
+      const menu = document.elementFromPoint(clientX, clientY)?.closest<HTMLButtonElement>('.play-opp > .kd-button:last-child');
+      if (menu && !menu.closest('[inert]')) menu.click();
+    });
+  }
   if (reducedMotion()) return;
   if (!open) {
     const box = bounds ?? panel.getBoundingClientRect(), ghost = panel.cloneNode(true) as HTMLElement;

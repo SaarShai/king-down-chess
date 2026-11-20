@@ -60,8 +60,6 @@ img { display: block; }
 .play-result-art { position: relative; width: 74px; height: 100px; flex: none; display: flex; align-items: flex-end; justify-content: center; }
 .play-result-art .play-stage-floor { left: 0; width: 100%; height: 26px; transform: none; border-radius: 50%; box-shadow: 0 4px 0 #7b7967; background-size: 180% auto; }
 .play-result-art img { height: 96px; width: auto; position: relative; bottom: 6px; filter: drop-shadow(3px 6px 4px #081c2966); }
-.play-result-copy { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.play-result-copy .kd-button { flex: 1 1 7rem; }
 @keyframes play-moment { from { opacity: .4; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
 /* A tall phone: the reading area and the strips share the spare height. Larger text, more space. */
 .play-game[data-roomy='true'] .play-state-line { padding-top: 12px; height: 116px; }
@@ -123,9 +121,6 @@ img { display: block; }
 @media (max-width: 400px) { .play-card { font-size: .875rem; padding-inline: 0; hyphens: none; letter-spacing: -.03em; } .play-own .play-card[aria-pressed='true'] { outline-offset: 0; } }
 @media (max-width: 359px) { .play-card { font-size: .75rem; } }
 /* Ribbon: names only, the smallest layout. */
-.play-game[data-hand='ribbon'] .play-own :is(.play-power, .play-card), .play-game[data-hand='ribbon'] .play-own :is(.play-power, .play-card)[aria-pressed='true'] { background: var(--surface-raised); color: var(--text); box-shadow: var(--raise); border: 1px solid var(--divider); border-radius: 8px; align-items: center; font-weight: 650; }
-.play-game[data-hand='ribbon'] .play-card img, .play-game[data-hand='ribbon'] .play-card::after { display: none; }
-.play-game[data-hand='ribbon'] .play-card [data-button-label] { text-shadow: none; }
 
 /* Finish row: Undo and the brass finish action. */
 .play-turn { display: flex; align-items: center; gap: 8px; padding: 4px 4px; border-top: 1px solid var(--divider); z-index: 2; background: var(--surface-page); }
@@ -200,7 +195,6 @@ img { display: block; }
 .play-first-step { margin-top: 8px; }
 .play-game[data-reading='result'] .play-detail { overflow: hidden; }
 .play-result { height: 100%; }
-.play-result-copy { height: 100%; min-height: 0; display: flex; flex-direction: column; flex-wrap: nowrap; }
 .play-result-body { flex: none; }
 .play-result-actions { display: flex; flex-wrap: wrap; gap: 6px; flex: none; }
 .play-result-actions .kd-button { flex: 1 1 7rem; }
@@ -228,8 +222,6 @@ img { display: block; }
 .learn-owner { color: var(--text-muted); }
 .play-check { color: var(--danger); font-weight: 600; }
 /* A used power or card keeps a legible name; the art dims, the Ribbon slot goes quiet. */
-.play-game[data-hand='ribbon'] .play-own .play-card[data-spent='true'] { color: var(--text-muted); border-style: dashed; }
-.play-game[data-hand='ribbon'] .play-own .play-power { border-radius: 22px; }
 /* After the end the play controls are inert and quiet (decision 21). */
 .play-game[data-state='result'] :is(.play-own, .play-turn) { opacity: .4; }
 

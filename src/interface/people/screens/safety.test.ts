@@ -75,7 +75,7 @@ it('block waits for confirm, retries failure and keeps the current game', async 
     await page.evaluate(() => { (window as any).fail = false; });
     await page.getByRole('button', { name: 'Block player', exact: true }).click();
     await expect.poll(() => page.locator('h2').textContent()).toBe('Player blocked');
-    expect(await page.locator('dialog').textContent()).toContain('current game continues');
+    expect(await page.locator('dialog').textContent()).toContain('You can unblock this player in Account & settings. Any current game continues.');
     expect(await page.evaluate(() => (window as any).calls)).toEqual([['block', { game_id: 'game', blocked: true }], ['block', { game_id: 'game', blocked: true }]]);
   } finally { await page.close(); }
 });

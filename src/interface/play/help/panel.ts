@@ -50,6 +50,10 @@ export function createGameHelp({ board, player = 0, effects }: { board: HTMLElem
     onPress: () => { if (topic) openRule(topic.subject, infoButton, topic.rules, topic.side); },
   });
   infoButton.classList.add('daylight-help-info');
+  infoButton.querySelector('[data-button-label]')!.classList.add('daylight-help-mark');
+  const label = document.createElement('span');
+  label.className = 'daylight-help-rule-label'; label.textContent = 'Rule';
+  infoButton.append(label);
   infoButton.hidden = true;
 
   function clearHint() { hint?.remove(); hint = undefined; }
