@@ -894,6 +894,7 @@ const AGENTS_PHRASES: { section: string; phrase: string }[] = [
   { section: 'Commits and branches', phrase: '`git commit -a`' },
   { section: 'Commits and branches', phrase: 'Code reaches main by pull request only, after an independent review.' },
   { section: 'Commits and branches', phrase: "Merge when the owner asks, or an approved spec's step passes its checks and any sample has the owner's yes." },
+  { section: 'Commits and branches', phrase: 'docs/CHANGES.md' },
   { section: 'Tests and checks', phrase: '`npm test`' },
   { section: 'Tests and checks', phrase: '`node --test`' },
   { section: 'Tests and checks', phrase: 'tail or grep' },
@@ -914,6 +915,7 @@ const AGENTS_PHRASES: { section: string; phrase: string }[] = [
   { section: 'Secrets', phrase: 'rotation' },
   { section: 'Secrets', phrase: 'Never claim a value was never in a command line.' },
   { section: 'Hosting', phrase: 'tools/deploy.sh' },
+  { section: 'Hosting', phrase: 'a tweak preview, which never uses production data' },
   {
     section: 'Working with the owner',
     phrase: "Open decisions go in one block at the end of a status message: a one-sentence rule, two or three numbers, the agent's pick, what happens on yes.",
@@ -1021,8 +1023,8 @@ describe('AGENTS.md standing rules', () => {
   it('names each section over 120 words, the text above the first heading included', () => {
     const lines = good();
     lines.splice(1, 0, words(121));
-    // The Hosting section holds its phrase (2 words) and 118 words: 120, the limit.
-    lines.splice(lines.indexOf('## Hosting') + 1, 0, words(118));
+    // The Hosting section holds its phrases (11 words) and 109 words: 120, the limit.
+    lines.splice(lines.indexOf('## Hosting') + 1, 0, words(109));
     lines.splice(lines.indexOf('## Jev') + 1, 0, words(130));
     expect(agentsFaults(lines.join('\n'), 'fixture.md').map(show)).toEqual([
       'fixture.md § (top) (121 words, line 1): the section must hold 120 words or less, heading excluded',
