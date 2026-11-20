@@ -208,7 +208,7 @@ export default defineConfig(({ command }) => {
   // Vitest collects the source, tools and Claude hook tests. Painted .mjs tests use node:test (npm test).
   // Browser and engine checks share CPU; excess workers cause false timeouts. CI leaves out (KINGDOWN_TEST_SKIP) the
   // files that it runs in a job of their own.
-  test: { maxWorkers: 4, passWithNoTests: process.env.KINGDOWN_TEST_FILE?.includes('.mjs') ?? false, environment: 'node', env: { KINGDOWN_INTERNAL_SECRET: 'kingdown-test-internal-secret-not-for-live-use' }, globalSetup: ['tools/test-lock-guard.ts'],
+  test: { maxWorkers: 4, environment: 'node', env: { KINGDOWN_INTERNAL_SECRET: 'kingdown-test-internal-secret-not-for-live-use' }, globalSetup: ['tools/test-lock-guard.ts'],
     // `npm run test:docs` (KINGDOWN_TEST_DOCS) runs the doc lints only, so the mark cannot open the other tests.
     include: process.env.KINGDOWN_TEST_DOCS ? ['src', 'tools', '.claude/hooks'].map(dir => `${dir}/**/*.docs.test.ts`)
       : process.env.KINGDOWN_TEST_FILE ? [process.env.KINGDOWN_TEST_FILE] : ['src/**/*.test.ts', 'tools/**/*.test.ts', '.claude/hooks/**/*.test.ts'],

@@ -34,6 +34,8 @@ const iconNames = { P:'pawn', N:'knight', B:'bishop', R:'rook', Q:'queen', K:'ki
 const iconSources = Object.fromEntries(await Promise.all(Object.values(iconNames).map(async name => [name, await readFile(`public/ui/icons/${name}.svg`, 'utf8')])));
 import { assertNoErrors, env, launch, shot, STEP, trapErrors } from './lib/checks.mjs';
 const base = env('PLAYABLE_URL');
+const part = process.env.KINGDOWN_PLUGIN_UI_PART || 'all';
+assert(['all', 'opening', 'board'].includes(part), 'Choose opening or board for the plugin UI check');
 // Code typing and code tiles are parked (docs/PARKED.md): the friend screen shows the invite link, which holds the code.
 const linkCode = async scope => (await scope.locator('#friend-link').textContent()).split('#')[1];
 const testHandle = `mvp_${randomUUID().replaceAll('-', '').slice(0,12)}`;
@@ -68,14 +70,16 @@ async function clickButton(page, button) {
 }
 
 try {
-  await checkShell(browser, base);
-  await checkAndroidFixes(browser, base, clickButton);
-  const { createMatch } = await import(pathToFileURL(resolve(process.argv[2] || 'plugin-server-dist', 'runtime/index.mjs')).href);
-  const match = await createMatch();
-  let engine;
-  try { engine = JSON.parse(await match.exportSave()).engine; }
-  finally { await match.close(); }
-  await checkCardDetails(browser, base, engine);
+  if (part !== 'board') {
+    await checkShell(browser, base);
+    await checkAndroidFixes(browser, base, clickButton);
+    const { createMatch } = await import(pathToFileURL(resolve(process.argv[2] || 'plugin-server-dist', 'runtime/index.mjs')).href);
+    const match = await createMatch();
+    let engine;
+    try { engine = JSON.parse(await match.exportSave()).engine; }
+    finally { await match.close(); }
+    await checkCardDetails(browser, base, engine);
+  }
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
   await page.addInitScript(() => {
@@ -182,32 +186,6 @@ try {
     return controls.evaluateAll(controlBounds, true);
   }
 
-  await page.waitForFunction(() => typeof window.releaseBefore === 'function');
-  await frame.locator('#home-card').waitFor();
-  assert.equal(await frame.locator('#app-head').count(), 0, 'The approved sample has no page title or tabs');
-  assert.equal(await frame.locator('symbol').count(), 26, 'The page has the full game sprite');
-  assert.equal(await frame.locator('#over').count(), 1, 'The frame has one shared overlay');
-  assert.equal(await frame.locator('#i-back, #i-close, #i-plus, #i-mic').count(), 0, 'Host icons stay with the host');
-  assert(await frame.locator('#home-play').isDisabled(), 'Play waits for the page and the host to connect');
-  assert.equal(await frame.locator('#home-card button').count(), 2, 'The inline home card has only Play now and Choose a game');
-  await page.evaluate(() => window.releaseBefore());
-  await frame.locator('#home-play:not(:disabled)').waitFor();
-  assert.deepEqual(await page.evaluate(() => window.harnessDeclaredModes), ['inline', 'fullscreen'], 'App declares both display modes to the host');
-  assert.equal(await frame.locator('.inline-line').first().innerText(), 'Chess, the way it was never meant to be played.', 'Home uses the owner pitch line');
-  assert(await frame.locator('#home-line').isHidden(), 'Home hides the zero turn count');
-  assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests ?? []), [], 'Mount sends no fullscreen request');
-  assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), 0, 'An empty home reads no board');
-  await checkTablet(page, frame);
-  await checkFocus(page, frame);
-  await frame.locator('#home-games').click();
-  await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-  await checkFlatRows(frame, '[data-screen="play"] .menu-row');
-  const menuViewport = page.viewportSize();
-  await page.setViewportSize({ width: 336, height: 844 });
-  await checkMenuContent(frame, '[data-screen="play"] [data-nav="settings"]');
-  await page.setViewportSize(menuViewport);
-  assert.equal(await frame.locator('[data-screen="play"] [data-nav="settings"]').evaluate(row => row.getBoundingClientRect().height), 48, 'The plain Settings row is exactly 48 px tall');
-  assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'play', 'Home Choose a game opens the Menu hall');
   // M3: a failed first read on Menu has one error and one way to read again.
   async function readErrorOnce(screen) {
     const message = 'Harness saved-game read failed';
@@ -216,32 +194,70 @@ try {
     assert.equal(await frame.getByRole('button', { name: 'Try again', exact: true }).count(), 1, `${screen} has one Try again`);
     assert(await frame.getByRole('button', { name: 'Try again', exact: true }).isEnabled(), `${screen} can read again`);
   }
-  await page.evaluate(() => { window.rejectNextGet = true; });
-  await remountFrame();
-  await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-  await readErrorOnce('Menu');
-  await frame.getByRole('button', { name: 'Try again', exact: true }).click();
-  await frame.locator('#retry').waitFor({ state: 'hidden' });
-  assert.equal(await frame.locator('#error').innerText(), '', 'A good Menu read clears the error');
-  const homeAgain = await (await page.request.post(new URL('/fixture-tool',base).href, { data: { name: 'kingdown_open', arguments: { screen: 'home' } } })).json();
-  await page.evaluate(result => window.harnessShow(result), homeAgain);
-  await frame.locator('#home-play:not(:disabled)').waitFor();
-  await page.evaluate(() => { window.harnessDisplayRequests = []; });
-  await frame.locator('[data-art]').evaluateAll(images => Promise.all(images.map(image => image.decode())));
 
-  for (const [width,height] of [[390,844],[1440,900],[400,900],[360,844]]) {
-    await page.setViewportSize({width,height});
-    assert.equal(await frame.locator('body').evaluate(el=>el.scrollWidth>innerWidth), false, `Home has no horizontal scroll at ${width}px`);
-    assert.equal(await frame.locator('.wordmark').evaluate(el => getComputedStyle(el).fontSize), '40px', 'Home keeps the sample wordmark size');
-    await shot(page, `shell-home-${width}-${mode}`);
+  async function fits(screen, width) {
+    await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
+    await idleBoard();
+    if (screen === 'end') await page.clock.runFor(34);
+    // The full read replaces old rows and resets the registry scroll.
+    if (screen === 'profile') await frame.locator('#profile-status').waitFor({ state: 'hidden' });
+    if (screen === 'play') await frame.locator('#games-status').filter({hasText:'Loading games…'}).waitFor({state:'hidden'});
+    const layout = await frame.locator('body').evaluate(el => ({ overflow: el.scrollWidth > innerWidth, width: innerWidth, heading: getComputedStyle(document.querySelector(`[data-screen="${el.dataset.page}"] h2`) ?? el).fontFamily }));
+    assert.equal(layout.overflow, false, `${screen} has no horizontal scroll at ${width}px`);
+    assert(layout.width <= width);
+    const controls = frame.locator(`[data-screen="${screen}"] button:visible, [data-screen="${screen}"] input:visible, #page-head button:visible, #retry:visible, #error:visible`);
+    for (const bounds of await controlsInView(controls)) assert(bounds.accessible, `${screen} control scrolls into the safe area at ${width}px: ${JSON.stringify(bounds)}`);
+    await frame.locator(`[data-screen="${screen}"] .new-game-body`).evaluateAll(els => els.forEach(el => { el.scrollTop = 0; }));
+    if (screen === 'handle') {
+      await frame.locator('#handle-free:not([hidden])').waitFor();
+      assert(await frame.locator('#handle-free').evaluate(el => { const r = el.getBoundingClientRect(), row = el.parentElement.getBoundingClientRect(); return r.left >= row.left && r.right <= row.right + 1; }), `The server Free mark fits the name row at ${width}px`);
+    }
+    if (screen === 'handle') assert(await frame.locator('#presets').evaluate(el => {
+      const box = el.getBoundingClientRect();
+      return [...el.querySelectorAll('button')].every(button => { const rect = button.getBoundingClientRect(); return rect.left >= box.left && rect.right <= box.right + 1; });
+    }), `All 17 pictures fit the name screen at ${width}px`);
   }
-  await page.setViewportSize({width:1000,height:1000});
-  await frame.getByRole('button', { name: 'Choose a game', exact: true }).click();
-  await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-  assert.deepEqual(await frame.locator('[data-screen="play"] .row-title:visible').allTextContents(), ['Settings', 'Profile']);
-  assert(await frame.locator('[data-screen="play"] h2').evaluate(el => getComputedStyle(el).fontFamily.includes('Cinzel')), 'The page uses the approved Cinzel heading');
-  assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests), ['fullscreen'], 'Choose a game asks the host for fullscreen');
-  await frame.locator('#setup-options summary').click();
+
+  async function hostPage(width, height, top, bottom) {
+    const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
+    trapErrors(page);
+    await page.goto(base);
+    await page.locator('#remount').evaluate(el => { el.style.display = 'none'; });
+    await page.locator('iframe').evaluate(el => { el.style.setProperty('height', '100dvh', 'important'); });
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    await page.evaluate(() => window.harnessSetContext({ displayMode: 'fullscreen' }));
+    const result = await page.evaluate(() => window.harnessTool({ name: 'kingdown_open', arguments: { screen: 'play' } }));
+    await page.evaluate(result => window.harnessShow(result), result);
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await page.evaluate(safeAreaInsets => window.harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets, deviceCapabilities: { touch: true } }), { top, bottom, left: 0, right: 0 });
+    await page.mainFrame().childFrames()[0].waitForFunction(({ top, bottom }) => {
+      const css = getComputedStyle(document.documentElement);
+      return document.body.dataset.touch === 'true' && parseFloat(css.getPropertyValue('--safe-top')) === top && parseFloat(css.getPropertyValue('--safe-bottom')) === bottom;
+    }, { top, bottom });
+    return { page, frame };
+  }
+
+  // Ticket 39 F-3: use the label bounds as well as the button style.
+  async function sheetLabelsFit(label) {
+    const viewport = page.viewportSize();
+    try {
+      await page.setViewportSize({ width: 402, height: 874 });
+      await frame.locator('#board-sheet .sheet-body > button:visible').last().evaluate(el => el.scrollIntoView({ block: 'nearest' }));
+      await frame.locator('html').evaluate(() => document.fonts.ready);
+      const buttons = await frame.locator('#board-sheet .sheet-body > button:visible').evaluateAll(buttons => buttons.map(button => {
+        const style = getComputedStyle(button), box = button.getBoundingClientRect(), range = document.createRange();
+        range.selectNodeContents(button); const words = range.getBoundingClientRect();
+        return { text: button.textContent, justify: style.justifyContent, align: style.textAlign, column: style.flexDirection === 'column', inset: words.left - box.left, offset: Math.abs(words.left + words.width / 2 - box.left - box.width / 2) };
+      }));
+      await shot(page, `device-sheet-${label}-402-${mode}`);
+      if (label === 'menu') {
+        assert(buttons.length > 0 && buttons.every(b => b.justify === 'flex-start' && b.align === 'left' && Math.abs(b.inset - 12) <= 1), `Flat menu rows use the 12 px text inset: ${JSON.stringify(buttons)}`);
+      } else {
+        assert(buttons.length > 0 && buttons.every(b => b.justify === 'center' && b.align === 'center' && (b.column || b.offset <= 1)), `${label}: sheet button labels are centred: ${JSON.stringify(buttons)}`);
+      }
+    } finally { await page.setViewportSize(viewport); }
+  }
+
   async function openPlay() {
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
     for (let i = 0; i < 2 && !await frame.locator('[data-screen="play"]:not([hidden])').count(); i++) {
@@ -357,6 +373,59 @@ try {
     if (screen) await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
     await callsDone();
   }
+  async function checkOpening() {
+  await page.waitForFunction(() => typeof window.releaseBefore === 'function');
+  await frame.locator('#home-card').waitFor();
+  assert.equal(await frame.locator('#app-head').count(), 0, 'The approved sample has no page title or tabs');
+  assert.equal(await frame.locator('symbol').count(), 26, 'The page has the full game sprite');
+  assert.equal(await frame.locator('#over').count(), 1, 'The frame has one shared overlay');
+  assert.equal(await frame.locator('#i-back, #i-close, #i-plus, #i-mic').count(), 0, 'Host icons stay with the host');
+  assert(await frame.locator('#home-play').isDisabled(), 'Play waits for the page and the host to connect');
+  assert.equal(await frame.locator('#home-card button').count(), 2, 'The inline home card has only Play now and Choose a game');
+  await page.evaluate(() => window.releaseBefore());
+  await frame.locator('#home-play:not(:disabled)').waitFor();
+  assert.deepEqual(await page.evaluate(() => window.harnessDeclaredModes), ['inline', 'fullscreen'], 'App declares both display modes to the host');
+  assert.equal(await frame.locator('.inline-line').first().innerText(), 'Chess, the way it was never meant to be played.', 'Home uses the owner pitch line');
+  assert(await frame.locator('#home-line').isHidden(), 'Home hides the zero turn count');
+  assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests ?? []), [], 'Mount sends no fullscreen request');
+  assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), 0, 'An empty home reads no board');
+  await checkTablet(page, frame);
+  await checkFocus(page, frame);
+  await frame.locator('#home-games').click();
+  await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+  await checkFlatRows(frame, '[data-screen="play"] .menu-row');
+  const menuViewport = page.viewportSize();
+  await page.setViewportSize({ width: 336, height: 844 });
+  await checkMenuContent(frame, '[data-screen="play"] [data-nav="settings"]');
+  await page.setViewportSize(menuViewport);
+  assert.equal(await frame.locator('[data-screen="play"] [data-nav="settings"]').evaluate(row => row.getBoundingClientRect().height), 48, 'The plain Settings row is exactly 48 px tall');
+  assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'play', 'Home Choose a game opens the Menu hall');
+  await page.evaluate(() => { window.rejectNextGet = true; });
+  await remountFrame();
+  await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+  await readErrorOnce('Menu');
+  await frame.getByRole('button', { name: 'Try again', exact: true }).click();
+  await frame.locator('#retry').waitFor({ state: 'hidden' });
+  assert.equal(await frame.locator('#error').innerText(), '', 'A good Menu read clears the error');
+  const homeAgain = await (await page.request.post(new URL('/fixture-tool',base).href, { data: { name: 'kingdown_open', arguments: { screen: 'home' } } })).json();
+  await page.evaluate(result => window.harnessShow(result), homeAgain);
+  await frame.locator('#home-play:not(:disabled)').waitFor();
+  await page.evaluate(() => { window.harnessDisplayRequests = []; });
+  await frame.locator('[data-art]').evaluateAll(images => Promise.all(images.map(image => image.decode())));
+
+  for (const [width,height] of [[390,844],[1440,900],[400,900],[360,844]]) {
+    await page.setViewportSize({width,height});
+    assert.equal(await frame.locator('body').evaluate(el=>el.scrollWidth>innerWidth), false, `Home has no horizontal scroll at ${width}px`);
+    assert.equal(await frame.locator('.wordmark').evaluate(el => getComputedStyle(el).fontSize), '40px', 'Home keeps the sample wordmark size');
+    await shot(page, `shell-home-${width}-${mode}`);
+  }
+  await page.setViewportSize({width:1000,height:1000});
+  await frame.getByRole('button', { name: 'Choose a game', exact: true }).click();
+  await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+  assert.deepEqual(await frame.locator('[data-screen="play"] .row-title:visible').allTextContents(), ['Settings', 'Profile']);
+  assert(await frame.locator('[data-screen="play"] h2').evaluate(el => getComputedStyle(el).fontFamily.includes('Cinzel')), 'The page uses the approved Cinzel heading');
+  assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests), ['fullscreen'], 'Choose a game asks the host for fullscreen');
+  await frame.locator('#setup-options summary').click();
   // Ticket 16: profile. The Badges display and the Collection are parked (docs/PARKED.md).
   {
     const { WHY } = await import('../src/plugin/ending.ts');
@@ -1172,28 +1241,6 @@ try {
   assert.equal(await frame.locator('[data-screen="handle"] .quiet-line').last().innerText(), 'Each name is unique.');
   assert.equal(await frame.locator('#page-back').innerText(), '‹ Menu');
 
-  async function fits(screen, width) {
-    await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
-    await idleBoard();
-    if (screen === 'end') await page.clock.runFor(34);
-    // The full read replaces old rows and resets the registry scroll.
-    if (screen === 'profile') await frame.locator('#profile-status').waitFor({ state: 'hidden' });
-    if (screen === 'play') await frame.locator('#games-status').filter({hasText:'Loading games…'}).waitFor({state:'hidden'});
-    const layout = await frame.locator('body').evaluate(el => ({ overflow: el.scrollWidth > innerWidth, width: innerWidth, heading: getComputedStyle(document.querySelector(`[data-screen="${el.dataset.page}"] h2`) ?? el).fontFamily }));
-    assert.equal(layout.overflow, false, `${screen} has no horizontal scroll at ${width}px`);
-    assert(layout.width <= width);
-    const controls = frame.locator(`[data-screen="${screen}"] button:visible, [data-screen="${screen}"] input:visible, #page-head button:visible, #retry:visible, #error:visible`);
-    for (const bounds of await controlsInView(controls)) assert(bounds.accessible, `${screen} control scrolls into the safe area at ${width}px: ${JSON.stringify(bounds)}`);
-    await frame.locator(`[data-screen="${screen}"] .new-game-body`).evaluateAll(els => els.forEach(el => { el.scrollTop = 0; }));
-    if (screen === 'handle') {
-      await frame.locator('#handle-free:not([hidden])').waitFor();
-      assert(await frame.locator('#handle-free').evaluate(el => { const r = el.getBoundingClientRect(), row = el.parentElement.getBoundingClientRect(); return r.left >= row.left && r.right <= row.right + 1; }), `The server Free mark fits the name row at ${width}px`);
-    }
-    if (screen === 'handle') assert(await frame.locator('#presets').evaluate(el => {
-      const box = el.getBoundingClientRect();
-      return [...el.querySelectorAll('button')].every(button => { const rect = button.getBoundingClientRect(); return rect.left >= box.left && rect.right <= box.right + 1; });
-    }), `All 17 pictures fit the name screen at ${width}px`);
-  }
   for (const [width, height] of [[390,844], [1440,900], [400,900], [360,844]]) {
     await page.setViewportSize({width,height});
     await fits('handle', width); await shot(page, `shell-handle-${width}-${mode}`);
@@ -1301,45 +1348,7 @@ try {
   // Ticket 15: the board and end routes.
   assert.equal(await frame.locator('#game-table').count(), 1, 'The board uses the approved game table');
 
-  async function hostPage(width, height, top, bottom) {
-    const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
-    trapErrors(page);
-    await page.goto(base);
-    await page.locator('#remount').evaluate(el => { el.style.display = 'none'; });
-    await page.locator('iframe').evaluate(el => { el.style.setProperty('height', '100dvh', 'important'); });
-    await frame.locator('#home-play:not(:disabled)').waitFor();
-    await page.evaluate(() => window.harnessSetContext({ displayMode: 'fullscreen' }));
-    const result = await page.evaluate(() => window.harnessTool({ name: 'kingdown_open', arguments: { screen: 'play' } }));
-    await page.evaluate(result => window.harnessShow(result), result);
-    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-    await page.evaluate(safeAreaInsets => window.harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets, deviceCapabilities: { touch: true } }), { top, bottom, left: 0, right: 0 });
-    await page.mainFrame().childFrames()[0].waitForFunction(({ top, bottom }) => {
-      const css = getComputedStyle(document.documentElement);
-      return document.body.dataset.touch === 'true' && parseFloat(css.getPropertyValue('--safe-top')) === top && parseFloat(css.getPropertyValue('--safe-bottom')) === bottom;
-    }, { top, bottom });
-    return { page, frame };
-  }
 
-  // Ticket 39 F-3: use the label bounds as well as the button style.
-  async function sheetLabelsFit(label) {
-    const viewport = page.viewportSize();
-    try {
-      await page.setViewportSize({ width: 402, height: 874 });
-      await frame.locator('#board-sheet .sheet-body > button:visible').last().evaluate(el => el.scrollIntoView({ block: 'nearest' }));
-      await frame.locator('html').evaluate(() => document.fonts.ready);
-      const buttons = await frame.locator('#board-sheet .sheet-body > button:visible').evaluateAll(buttons => buttons.map(button => {
-        const style = getComputedStyle(button), box = button.getBoundingClientRect(), range = document.createRange();
-        range.selectNodeContents(button); const words = range.getBoundingClientRect();
-        return { text: button.textContent, justify: style.justifyContent, align: style.textAlign, column: style.flexDirection === 'column', inset: words.left - box.left, offset: Math.abs(words.left + words.width / 2 - box.left - box.width / 2) };
-      }));
-      await shot(page, `device-sheet-${label}-402-${mode}`);
-      if (label === 'menu') {
-        assert(buttons.length > 0 && buttons.every(b => b.justify === 'flex-start' && b.align === 'left' && Math.abs(b.inset - 12) <= 1), `Flat menu rows use the 12 px text inset: ${JSON.stringify(buttons)}`);
-      } else {
-        assert(buttons.length > 0 && buttons.every(b => b.justify === 'center' && b.align === 'center' && (b.column || b.offset <= 1)), `${label}: sheet button labels are centred: ${JSON.stringify(buttons)}`);
-      }
-    } finally { await page.setViewportSize(viewport); }
-  }
 
   // Ticket 13: friend, join, lobby and wait.
   {
@@ -1843,6 +1852,9 @@ try {
     console.log(`Ticket 13 look comparisons: ${look}`);
     await openPlay(); await legacyStart('solo');
   }
+  }
+
+  async function checkBoard() {
   await freshHost('board');
 
   const pixels = () => frame.locator('canvas').evaluate(c => {
@@ -3591,13 +3603,26 @@ try {
   assert.equal(await frame.locator('#computer').isVisible(), false);
   assert.equal(await frame.locator('#choices button').count(), 0);
   }
+  }
+
+  if (part !== 'board') await checkOpening();
+  if (part === 'board') {
+    // The board runner starts with its own host, player, and solo game.
+    await page.waitForFunction(() => typeof window.releaseBefore === 'function');
+    await page.evaluate(() => window.releaseBefore());
+    await frame.locator('#home-games:not(:disabled)').click();
+    await openPlay();
+    await legacyStart('solo');
+  }
+  if (part !== 'opening') await checkBoard();
   await page.evaluate(() => window.harnessTeardown());
   const draftBases = { ...retiredDraftBases, ...await page.evaluate(() => window.harnessDraftBases) };
   for (const state of [...retiredWidgetStates, ...await page.evaluate(() => window.harnessWidgetStates ?? [])]) checkWidgetState(state, draftBases);
   assert.deepEqual(await frame.locator('body').evaluate(() => window.harnessTableIdConflicts), [], 'The board hand-off keeps one set of table IDs');
   assertNoErrors();
   console.log(`Harness mode: ${mode}`);
-  console.log(`PASS: chat join preview and code-error mounts, shared private games rows, home card, fullscreen request, Settings remount, 4 viewport widths, 14 route remounts, four widget fields, background reads, all piece SVGs and threat endpoints in both seats, safe areas, theme, touch, handle gate and 17 pictures, SDK AppBridge initialization, painted board move, iframe remount with identical FEN/revision, Haste ambiguity, lost-reply same-ID retry committed once, bounded computer turn, definitive rejection recovery, match switch recovery, ${capabilities.friend ? 'friend join/reply polling, ' : ''}no fullscreen control, 390px touch moves, no page errors${mode === 'fixture' ? ', terminal fixture' : ', real HTTP MCP and PostgreSQL'}`);
+  if (part !== 'all') console.log(`PASS: plugin UI ${part}`);
+  else console.log(`PASS: chat join preview and code-error mounts, shared private games rows, home card, fullscreen request, Settings remount, 4 viewport widths, 14 route remounts, four widget fields, background reads, all piece SVGs and threat endpoints in both seats, safe areas, theme, touch, handle gate and 17 pictures, SDK AppBridge initialization, painted board move, iframe remount with identical FEN/revision, Haste ambiguity, lost-reply same-ID retry committed once, bounded computer turn, definitive rejection recovery, match switch recovery, ${capabilities.friend ? 'friend join/reply polling, ' : ''}no fullscreen control, 390px touch moves, no page errors${mode === 'fixture' ? ', terminal fixture' : ', real HTTP MCP and PostgreSQL'}`);
 } catch (error) {
   console.error(error);
   console.error('Page check state:', await page.evaluate(() => ({ screen: window.harnessWidgetState?.privateContent?.screen, pending: window.harnessWidgetState?.privateContent?.pending?.name, view: window.harnessView && { status: window.harnessView.status, kind: window.harnessView.kind, speed: window.harnessView.speed, revision: window.harnessView.revision, turn: window.harnessView.turn, seat: window.harnessView.seat, opponent: window.harnessView.opponent, server_now: window.harnessView.server_now, commands: window.harnessView.last_commands.map(c => ({ seat: c.seat, at: c.at })) }, calls: (window.harnessCalls ?? []).slice(-6).map(c => c.name) })));

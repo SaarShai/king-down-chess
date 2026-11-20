@@ -1,52 +1,72 @@
-// One CI workflow runs the suite on each PR and on pushes to main.
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+// Keep the workflow, sharding tool and release gate on the same contract.
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { checks } from './lib/registry.mjs';
 
-describe('.github/workflows/plugin-checks.yml', () => {
-  const workflow = readFileSync(join(import.meta.dirname, '..', '.github', 'workflows', 'plugin-checks.yml'), 'utf8');
-  const job = (name: string) => workflow.split(`\n  ${name}:\n`)[1]?.split(/\n  [\w-]+:\n/)[0] ?? '';
-  // The WebKit tests (two jobs) and the WebKit journeys (one job) run with the same install, sampler and diagnostics.
-  // The board job runs one file to a runner, so its artifact names end with the file.
-  const webkitJobs = [['browser-webkit', 'webkit', ''], ['browser-webkit-board', 'webkit-board', '-${{ matrix.file }}'], ['browser-webkit-ui', 'webkit-ui', '']] as const;
+const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const workflow = read('.github/workflows/plugin-checks.yml');
+const job = (name: string) => workflow.split(`\n  ${name}:\n`)[1]?.split(/\n  [\w-]+:\n/)[0] ?? '';
 
-  it('runs once per PR update and keeps the Node 24 database suite', () => {
+describe('plugin-checks workflow', () => {
+  it('starts a run on every PR, on main and staging pushes, and on dispatch', () => {
     const triggers = workflow.split('\non:\n')[1].split('\npermissions:')[0];
-    expect(triggers).toBe('  pull_request:\n  push:\n    # staging/first-game too: the staging deploy needs CI on the exact commit it publishes.\n    branches: [main, staging/first-game]\n  workflow_dispatch:\n');
-    const verify = job('verify');
-    expect(verify).toContain('node-version: 24');
-    expect(verify).toContain('image: postgres:17');
-    expect(verify).toContain('PLUGIN_TEST_DATABASE_URL:');
-    expect(verify).toContain('- run: npm run plugin:db:init-test');
-    expect(verify).toContain("- run: npm test\n        env:\n          KINGDOWN_TEST_SKIP: 'tools/plugin-board{,-input,-drafts}.test.ts'\n");
-    expect([...workflow.split('\njobs:\n')[1].matchAll(/^  ([\w-]+):$/gm)].map(m => m[1])).toEqual(['reuse', 'verify', 'browser-board', 'browser-ui', 'browser-web', 'browser-default', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui']);
+    expect(triggers).toContain('  pull_request:\n');
+    expect(triggers).toContain('    branches: [main, staging/first-game]');
+    expect(triggers).toContain('  workflow_dispatch:\n    inputs:\n      base:');
+    expect(triggers).not.toMatch(/paths(?:-ignore)?:/);
+    expect(job('reuse')).toContain('CI_BASE: ${{ github.event.pull_request.base.sha || github.event.before || inputs.base }}');
+    expect(job('reuse')).toContain('run: node tools/ci-plan.mjs workflow');
   });
 
-  it('runs the suite once per tree: every job skips when a green run of this workflow checked the same tree', () => {
-    expect(workflow.split('\njobs:\n')[0]).toContain('permissions:\n  contents: read\n  # The reuse job reads this workflow\'s past runs.\n  actions: read\n');
-    const reuse = job('reuse');
-    expect(reuse).toContain('outputs:\n      green: ${{ steps.find.outputs.green }}\n');
-    expect(reuse).toContain('fetch-depth: 0');
-    expect(reuse).toContain('actions/workflows/plugin-checks.yml/runs?status=success&event=push&');
-    expect(reuse).toContain("tree=$(git rev-parse 'HEAD^{tree}')");
-    expect(reuse).toContain('echo "green=true" >> "$GITHUB_OUTPUT"');
-    for (const name of ['verify', 'browser-board', 'browser-ui', 'browser-web', 'browser-default', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui']) {
-      expect(job(name)).toContain("    runs-on: ubuntu-latest\n    needs: reuse\n    if: needs.reuse.outputs.green != 'true'\n");
+  it('checks types and docs on the short path and requires the plan results to record a tree', () => {
+    const verify = job('verify');
+    expect(verify).toContain("if: needs.reuse.outputs.reused == 'false'");
+    expect(verify).toContain('npm run typecheck');
+    expect(verify).toContain("if: needs.reuse.outputs.verify_tests != ''\n        run: npm test");
+    expect(verify).toContain('KINGDOWN_TEST_FILE: ${{ needs.reuse.outputs.verify_tests }}');
+    expect(verify).toContain("if: needs.reuse.outputs.mode == 'docs'\n        run: npm run test:docs");
+    expect(job('checks')).toContain("if: needs.reuse.outputs.reused == 'false' && needs.reuse.outputs.mode == 'full'");
+    expect(job('record-tree')).toContain('needs: [reuse, verify, checks]');
+    expect(job('record-tree')).toContain("needs.reuse.outputs.reused == 'false' && needs.verify.result == 'success'");
+    expect(job('record-tree')).toContain("needs.reuse.outputs.mode == 'full' && needs.checks.result == 'success'");
+    expect(job('record-tree')).toContain('sparse-checkout: tools');
+    expect(job('record-tree')).toContain('node tools/ci-plan.mjs record');
+    expect(job('record-tree')).toContain('name: tested-tree-${{ steps.tree.outputs.hash }}');
+  });
+
+  it('runs the shard plan and keeps the deploy browser gate', () => {
+    const shard = job('checks');
+    expect(shard).toContain('matrix: ${{ fromJSON(needs.reuse.outputs.matrix) }}');
+    expect(shard).toContain("fetch-depth: ${{ matrix.python && '0' || '1' }}");
+    expect(job('verify')).toContain("fetch-depth: ${{ needs.reuse.outputs.mode == 'full' && '1' || '0' }}");
+    expect(shard).toContain('KINGDOWN_TEST_FILE: ${{ matrix.tests }}');
+    expect(shard).toContain('KINGDOWN_CI_BROWSER_CHECKS: ${{ matrix.checks }}');
+    expect(shard).toContain('KINGDOWN_PLUGIN_UI_PART: ${{ matrix.part }}');
+    const browser = '      - run: npm run check:browser -- --no-gpu';
+    expect(shard).toContain(browser + '\n');
+    expect(read('tools/deploy.sh')).toContain(`grep -qx '${browser}' .github/workflows/plugin-checks.yml`);
+    for (const name of ['verify', 'checks']) {
+      expect(job(name)).toContain('node-version: 24');
+      expect(job(name)).toContain('image: postgres:17');
+      expect(job(name)).toContain('PLUGIN_TEST_DATABASE_URL:');
+      expect(job(name)).toContain('npm run plugin:db:init-test');
     }
   });
 
-  it('runs the ChatGPT plugin browser checks on Chromium in one job that fits their CI limits', () => {
-    const ui = job('browser-ui'), names = ['plugin-oauth', 'plugin-ui', 'plugin-ui-http'];
-    expect(ui).toContain('npx playwright install --with-deps chromium');
-    expect(ui).toContain(`- run: npm run check:browser ${names.join(' ')}\n`);
-    // The check limits times 2 on CI, the 10-minute install and four minutes of setup fit the job limit.
-    const seconds = names.reduce((sum, name) => sum + checks.find(check => check.name === name)!.limit * 2, 0);
-    expect(seconds / 60 + 10 + 4).toBeLessThan(Number(ui.match(/^    timeout-minutes: (\d+)$/m)![1]));
+  it('keeps WebKit diagnostics and the Ubuntu install guard', () => {
+    const shard = job('checks');
+    expect(shard).toContain("PLAYABLE_CPU_CANVAS: ${{ (matrix.browser == 'webkit' || matrix.name == 'browser-ui (http)') && '1' || '' }}");
+    expect(shard).toContain("DEBUG: ${{ matrix.browser == 'webkit' && 'pw:browser' || '' }}");
+    expect(shard).toContain("archive.ubuntu.com/ubuntu/\\tpriority:2");
+    expect(shard).toContain('Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";');
+    expect(shard).toContain('npx playwright install --with-deps "$PLAYABLE_BROWSER"\n        timeout-minutes: 10');
+    expect(shard.indexOf('name: Save kernel log')).toBeLessThan(shard.indexOf('uses: actions/upload-artifact@v4'));
+    expect(shard).toContain("if: matrix.browser == 'webkit' && (failure() || cancelled())\n        name: Save kernel log");
+    expect(shard).toContain('nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log');
+    expect(shard).toContain("if: always() && (matrix.browser == 'webkit' || matrix.checks != '')");
+    expect(shard).toContain('retention-days: 7');
   });
 
   it('keeps the release and sample instructions in line with the CI and push gates', () => {
-    const read = (path: string) => readFileSync(join(import.meta.dirname, '..', path), 'utf8');
     const release = read('docs/specs/web-adaptation/release-route.md');
     expect(release).toContain('Keep `plugin-checks.yml` for PRs and pushes to `main` and `staging/first-game`. Open a PR to start branch checks.');
     expect(release).toContain('The pre-push hook runs only the repo gate.');
@@ -54,126 +74,5 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(sample).toContain('CI and the deploy run `npm test`.');
     expect(sample).toContain('The repository push hook runs only the repo gate.');
     expect(read('tools/lib/checks.mjs')).not.toContain('pre-push');
-  });
-
-  it('uses the standard Ubuntu mirrors and keeps the limits in all eight browser install steps', () => {
-    const directory = join(import.meta.dirname, '..', '.github', 'workflows');
-    const mirrors = "printf 'https://archive.ubuntu.com/ubuntu/\\tpriority:2\\nhttps://security.ubuntu.com/ubuntu/\\tpriority:3\\n' | sudo tee /etc/apt/apt-mirrors.txt";
-    let installs = 0;
-    for (const file of readdirSync(directory).filter(name => /\.ya?ml$/.test(name))) {
-      const source = readFileSync(join(directory, file), 'utf8');
-      for (const step of source.split(/^      - /m).filter(step => /\bplaywright install\b/.test(step))) {
-        installs++;
-        expect(step).toContain(mirrors);
-        expect(step).toContain('timeout-minutes: 10');
-        expect(step).toContain('echo \'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";\' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads');
-        expect(step.indexOf(mirrors)).toBeLessThan(step.indexOf('npx playwright install'));
-        expect(step.indexOf('sudo tee /etc/apt/apt.conf.d/99-ci-downloads')).toBeLessThan(step.indexOf('npx playwright install'));
-      }
-    }
-    expect(installs).toBe(8);
-  });
-
-  it.each(webkitJobs)('runs WebKit in the separate job %s with its own install and the time limit for its scaled steps', name => {
-    const webkit = job(name);
-    // The WebKit steps run with limits times 3 (tools/lib/checks.mjs STEP), so the job has 45 minutes; with plugin-ui, 55.
-    expect(webkit).toContain(`    timeout-minutes: ${name === 'browser-webkit-ui' ? 55 : 45}\n`);
-    expect(webkit).toContain('PLAYABLE_BROWSER: webkit');
-    expect(webkit).toContain("PLAYABLE_CPU_CANVAS: '1'");
-    expect(webkit).toContain('npx playwright install --with-deps webkit');
-    expect(webkit.match(/needs: .*/g)).toEqual(['needs: reuse']);
-    for (const other of ['verify', 'browser-board', 'browser-ui', 'browser-web']) expect(job(other)).not.toContain('PLAYABLE_CPU_CANVAS');
-  });
-
-  it('runs the Chromium board files that verify leaves out, one file to a runner', () => {
-    // Side by side in verify, the three board files starved each other and every other test file (ticket 77, round 9).
-    const board = job('browser-board');
-    expect(board).toContain('timeout-minutes: 30');
-    expect(board).toContain('      matrix:\n        file: [board, board-input, board-drafts]\n');
-    expect(board).toContain('npx playwright install --with-deps chromium');
-    expect(board).toContain('- run: npm test\n        env:\n          KINGDOWN_TEST_FILE: tools/plugin-${{ matrix.file }}.test.ts\n');
-    expect(board).not.toContain('webkit');
-  });
-
-  it('gives the full test job 30 minutes', () => {
-    // The full npm test takes about 15 minutes on CI.
-    expect(job('verify')).toContain('timeout-minutes: 30');
-  });
-
-  it('runs the web journeys on Chromium in their own job, each check a known name', () => {
-    const web = job('browser-web');
-    for (const line of web.match(/- run: npm run check:browser (.+)\n/g)!) {
-      for (const name of line.replace(/^.*check:browser |\n$/g, '').split(' ')) expect(checks.map(check => check.name)).toContain(name);
-    }
-    expect(web).toContain('timeout-minutes: 30');
-    expect(web).toContain('npx playwright install --with-deps chromium');
-    // The default checks run in browser-default, with no names: tools/deploy.sh looks for that exact step line before it
-    // skips its own browser checks. --no-gpu leaves out the frame-time checks, which the deploy runs.
-    expect(web).not.toContain('- run: npm run check:browser home');
-    const all = job('browser-default');
-    expect(all).toContain('      - run: npm run check:browser -- --no-gpu\n        env:\n          PLAYABLE_BROWSER: chromium\n');
-    expect(readFileSync(join(import.meta.dirname, 'deploy.sh'), 'utf8')).toContain("grep -qx '      - run: npm run check:browser -- --no-gpu' .github/workflows/plugin-checks.yml");
-    expect(all).toContain('timeout-minutes: 40');
-    expect(all).toContain('image: postgres:17');
-    expect(all).toContain('npx playwright install --with-deps chromium');
-    expect(all).toContain('name: default-check-logs');
-    expect(web).toContain('- run: npm run check:browser web-online');
-    expect(web).toContain('name: web-check-logs');
-  });
-
-  it('runs the board, phone-size and widget checks, plugin-ui and the web journey on WebKit', () => {
-    const webkit = job('browser-webkit'), board = job('browser-webkit-board'), ui = job('browser-webkit-ui');
-    expect(webkit).toContain('- run: npm test');
-    expect(webkit).toContain("KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size,preview-size}.test.ts'");
-    expect(webkit).toContain('name: webkit-check-logs');
-    expect(board).toContain('- run: npm test');
-    // One board file to a runner: side by side on one runner, the two files starved each other's WebKit page (ticket 77).
-    expect(board).toContain('      matrix:\n        file: [input, drafts]\n');
-    expect(board).toContain('KINGDOWN_TEST_FILE: tools/plugin-board-${{ matrix.file }}.test.ts');
-    expect(board).toContain('name: webkit-board-check-logs-${{ matrix.file }}');
-    expect(ui).toContain('- run: npm run check:browser plugin-ui\n');
-    expect(ui).toContain('- run: npm run check:browser web-online signin-speed');
-    expect(ui).toContain('name: webkit-ui-check-logs');
-  });
-
-  it.each(webkitJobs)('starts the five-second WebKit sampler in %s after install and before the first check', name => {
-    const webkit = job(name);
-    const start = webkit.indexOf('      - name: Start WebKit sampler\n');
-    const install = webkit.indexOf('npx playwright install --with-deps webkit');
-    expect(install).toBeGreaterThan(0);
-    expect(start).toBeGreaterThan(install);
-    expect(start).toBeLessThan(webkit.search(/- run: npm (test|run check:browser)/));
-    const sampler = webkit.slice(start).split(/\n      - /)[0];
-    expect(sampler).toContain('mkdir -p /tmp/kingdown-check-runs');
-    expect(sampler).toMatch(/\n          nproc\n          free -m\n/);
-    expect(sampler).toContain('nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log >/dev/null 2>&1 &');
-  });
-
-  it.each(webkitJobs)('saves kernel output in %s on failure or cancellation before the WebKit log upload', (name, prefix, suffix) => {
-    const webkit = job(name);
-    const capture = webkit.split('      - name: Save kernel log\n')[1]?.split(/\n      - /)[0] ?? '';
-    expect(capture).toContain('if: failure() || cancelled()');
-    expect(capture).toContain('run: sudo dmesg -T | tail -n 400 > /tmp/kingdown-check-runs/dmesg.txt || true');
-    expect(webkit.indexOf('- name: Save kernel log')).toBeLessThan(webkit.indexOf(`name: ${prefix}-check-logs${suffix}\n`));
-  });
-
-  it.each(webkitJobs)('uploads the WebKit sampler log of %s on every result for seven days', (name, prefix, suffix) => {
-    const upload = job(name).split(/\n      - /).find(step => step.includes(`name: ${prefix}-sampler${suffix}\n`)) ?? '';
-    expect(upload).toContain('if: always()');
-    expect(upload).toContain('uses: actions/upload-artifact@v4');
-    expect(upload).toContain('path: /tmp/kingdown-check-runs/webkit-sampler.log');
-    expect(upload).toContain('retention-days: 7');
-  });
-
-  it.each(webkitJobs)('keeps time under the job limit of %s for the WebKit diagnostics after a hung step', name => {
-    const webkit = job(name), limit = Number(webkit.match(/^    timeout-minutes: (\d+)$/m)![1]);
-    const steps = [...webkit.matchAll(/^        timeout-minutes: (\d+)$/gm)].map(m => Number(m[1]));
-    expect(steps).toHaveLength(name === 'browser-webkit-ui' ? 3 : 2);
-    // Count the install limit too; allow four minutes for the other setup steps.
-    expect(steps.reduce((sum, minutes) => sum + minutes, 0) + 4).toBeLessThan(limit);
-  });
-
-  it('writes the WebKit browser output to the plugin-ui log, so a crash names its reason', () => {
-    expect(job('browser-webkit-ui')).toMatch(/- run: npm run check:browser plugin-ui\n\s+env:\n(\s+#.*\n)*\s+DEBUG: pw:browser\n/);
   });
 });

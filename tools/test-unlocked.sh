@@ -7,9 +7,10 @@ root=$(cd "$(dirname "$0")/.." && pwd -P)
 cd "$root"
 PATH="$root/node_modules/.bin:$PATH"
 # The package.json "typecheck" commands, one per line; tools/machine-lease.test.ts checks that they match.
+if [ "${KINGDOWN_TEST_NO_TYPECHECK:-}" != 1 ]; then
 tsc --noEmit
 tsc --noEmit -p tsconfig.tools.json
-vitest run "$@"
+fi
 node_tests=()
 while IFS= read -r file; do
   node_tests+=("$file")
@@ -19,4 +20,6 @@ const pattern = process.env.KINGDOWN_TEST_FILE || '{docs/2d-first-pieces,src/ren
 for (const file of globSync(pattern)) if (file.endsWith('.test.mjs')) console.log(file);
 NODE
 )
+if [ -n "${KINGDOWN_TEST_FILE:-}" ] && [ "${#node_tests[@]}" -gt 0 ]; then set -- --passWithNoTests "$@"; fi
+vitest run "$@"
 if [ "${#node_tests[@]}" -gt 0 ]; then node --test "${node_tests[@]}"; fi

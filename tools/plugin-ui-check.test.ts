@@ -14,7 +14,7 @@ it('sets, waits for and releases the Home hold in the check, but skips the termi
     'await page.evaluate(() => window.releaseBefore());',
     "await frame.locator('#home-play:not(:disabled)').waitFor();",
   ]) {
-    const at = source.indexOf(step);
+    const at = source.indexOf(step, previous + 1);
     expect(at, step).toBeGreaterThan(previous);
     previous = at;
   }
