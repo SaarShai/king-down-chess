@@ -118,7 +118,7 @@ async function resultData(page) {
   try {natural=measure(null);tight=measure('tight');}
   finally {measure(fit);}
   const clips=[];for(let n=cause;n;n=n.parentElement){const css=getComputedStyle(n),r=box(n);clips.push({r,x:/(hidden|clip|auto|scroll)/.test(css.overflowX),y:/(hidden|clip|auto|scroll)/.test(css.overflowY)});}
-  const css=getComputedStyle(cause),title=game.querySelector('.play-result-copy h3'),note=game.querySelector('.play-rematch-note');
+  const css=getComputedStyle(cause),title=game.querySelector('.play-result-body h3'),note=game.querySelector('.play-rematch-note');
   return {shown,fit,natural,tight,floating:reader.dataset.floating??null,layout:game.dataset.layout,form:game.dataset.form,card:box(card),reader:box(reader),strip:box(strip),stripVisible:strip.checkVisibility(),figureVisible:figure.checkVisibility()&&figure.getBoundingClientRect().height>0,cause:cause.innerText,causeBox:box(cause),text:[...range.getClientRects()].map(r=>r.toJSON()),clips,actions:[...game.querySelectorAll('.play-result-actions button')].map(n=>({r:box(n),visible:n.checkVisibility()})),
    causeText:cause.textContent,causeScroll:{top:cause.scrollTop,height:cause.scrollHeight,client:cause.clientHeight,overflowY:css.overflowY,lineHeight:parseFloat(css.lineHeight)},
    fonts:[cause,title,note,...game.querySelectorAll('.play-result-actions button')].map(n=>parseFloat(getComputedStyle(n).fontSize)),
@@ -181,7 +181,7 @@ async function quakeRules(page,label,errors,[width,height]) {
  check(JSON.stringify(data.save)===JSON.stringify(quakeMoves)&&Array.isArray(data.reply)&&data.reply.length===0,`${label}: the computer plays the Earth Quake mate: ${JSON.stringify({save:data.save,reply:data.reply})}`);
  check(data.causeText===quakeCause,`${label}: the result has the full Earth Quake cause: ${data.causeText}`);
  check(data.fonts.every(px=>px>=14),`${label}: result text is 14 px or more: ${data.fonts}`);
- await visibleBounds(page,'.play-result-copy h3');await visibleBounds(page,'.play-rematch-note');await visibleBounds(page,'.play-result-actions button',true);
+ await visibleBounds(page,'.play-result-body h3');await visibleBounds(page,'.play-rematch-note');await visibleBounds(page,'.play-result-actions button',true);
  check(data.actions.length===3&&data.actions.every(({r,visible})=>visible&&r.left>=0&&r.right<=data.width&&r.top>=0&&r.bottom<=data.height),`${label}: all result buttons fit: ${JSON.stringify(data.actions)}`);
  check(data.scroll[0]<=data.width&&data.scroll[1]<=data.height,`${label}: no page scroll ${data.scroll}`);
  check(data.card.bottom<=data.height,`${label}: result bottom ${data.card.bottom} <= ${data.height}`);

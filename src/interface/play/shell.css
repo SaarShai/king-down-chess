@@ -15,14 +15,7 @@
 /* The title and cause remain in one result card, with all three actions visible. */
 .play-game[data-reading='result'] .play-state-line { display: none; }
 .play-result { align-items: start; }
-.play-result-copy { gap: 6px; }
-.play-result-copy h3, .play-result-copy p { width: 100%; }
-.play-result-copy h3 { font-family: var(--font-title); font-size: 1.5rem; }
-.play-result-copy > .kd-button:last-child { flex-basis: 100%; background: transparent; border: 0; box-shadow: none; text-decoration: none; }
 .play-game[data-short='true'] .play-result { gap: 8px; }
-.play-game[data-short='true'] .play-result-copy h3 { font-size: 1.25rem; }
-.play-game[data-short='true'] .play-result-copy p { font-size: .875rem; line-height: 1.25; }
-.play-game[data-short='true'] .play-result-copy .kd-button { padding: 4px 8px; }
 :root[data-motion='fast'] .play-result { animation-duration: 220ms; }
 
 #app > :is(.play-home, .shell-page):not(.shell-departing) { position: relative; z-index: 1; background: var(--paper-tint) var(--surface-page) fixed; min-height: 100dvh; }

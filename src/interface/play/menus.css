@@ -42,6 +42,7 @@ button.army-figure[aria-expanded='true'] { background: var(--selection-fill); bo
 @media (hover: hover) { button.army-figure:hover { background: var(--surface-muted); } }
 .home-hint { margin-top: 8px; font-size: .9375rem; color: var(--text-muted); }
 .home-note { font-size: .875rem; color: var(--danger); }
+.home-status { font-size: .875rem; color: var(--text); }
 /* The piece card under the army row; its arrow points at the tapped figure. */
 /* The card opens in the page under the row, so the page can scroll it clear of the phone bar (or the top bar). */
 .piece-card { position: relative; z-index: 5; margin-top: 10px; padding: 16px; border-radius: 14px; background: var(--surface-raised); box-shadow: var(--elevation-panel);

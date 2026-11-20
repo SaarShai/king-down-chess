@@ -50,7 +50,7 @@ import { seatKingUnsaved } from '../people/seat-king';
 import { homeInvite, personGame, personTurn, personWords } from '../people/host/games';
 import { timeWords } from '../people/words';
 import { runPoll } from '../../plugin/poll';
-import { signInText } from '../people/screens/copy';
+import { personText, signInText } from '../people/screens/copy';
 import { blockedPlayers, deleteAccount, playerOptions, playerSafety } from '../people/screens/safety';
 import { peopleSheet, type PeopleSheet } from '../people/screens/sheet';
 import { signInSheet } from '../people/screens/sign-in';
@@ -223,6 +223,12 @@ const showHomeSignIn = () => peopleStatus !== 'checking' && !people?.signedIn;
 let homePoll: ReturnType<typeof runPoll> | undefined;
 function gameWords(line: string) { return onlineActive ? personWords(line) : line; }
 let mountingOnline = false, shownRevision = -1, onlineNote = '';
+const inviteLinkStatus = el('p', 'home-status');
+let inviteLinkTimer: ReturnType<typeof setTimeout> | undefined;
+function clearInviteLinkStatus() {
+  clearTimeout(inviteLinkTimer);
+  inviteLinkStatus.remove();
+}
 let onlineGameNotice: { id: string; line: string; revision?: number } | undefined;
 const automaticReadyAt = new Map<string, number>();
 function automaticReady(state: PeopleState) {
@@ -237,10 +243,27 @@ function automaticReady(state: PeopleState) {
 async function loadPeople() {
   return peopleReady ??= import('../people/host/index').then(async ({ onlineHost }) => {
     people ??= onlineHost({ rules: () => setup, setRules: value => { setup = value; next = changeDraft(next, { setup }); store(GAME_KEY, setup); },
-      changed: () => { if (document.body.dataset.page === 'home' && shell.route.place === 'play') home(); showAccount(); },
+      changed: () => {
+        if (!people?.signedIn) clearInviteLinkStatus();
+        if (document.body.dataset.page === 'home' && shell.route.place === 'play') home();
+        showAccount();
+      },
       home: () => { onlineActive = false; shell.go({ place: 'play' }); if (document.body.dataset.page === 'game') home(); },
       open: (id, line) => { onlineGameNotice = line ? { id, line } : undefined; shell.go({ place: 'online', entry: id }); },
-      toast: message => { onlineNote = message; announce(message); const line = root.querySelector<HTMLElement>('.home-note'); if (line) line.textContent = message; else if (document.body.dataset.page === 'home') root.querySelector('.home-start')?.prepend(el('p', 'home-note', message)); },
+      toast: message => {
+        announce(message);
+        if (message === personText.linkCopied) {
+          clearInviteLinkStatus();
+          inviteLinkStatus.textContent = message;
+          root.querySelector('.home-start')?.prepend(inviteLinkStatus);
+          inviteLinkTimer = setTimeout(clearInviteLinkStatus, 6000);
+          return;
+        }
+        onlineNote = message;
+        const line = root.querySelector<HTMLElement>('.home-note');
+        if (line) line.textContent = message;
+        else if (document.body.dataset.page === 'home') root.querySelector('.home-start')?.prepend(el('p', 'home-note', message));
+      },
     });
     const returned = await people.init();
     peopleStatus = 'ready';
@@ -486,6 +509,10 @@ function home(newArmy = false) {
     showSignIn: showHomeSignIn(),
     account: { signedIn: !!people?.signedIn, name: me?.handle ?? people?.user?.name, avatar: people?.user?.avatar },
   }, art);
+  if (inviteLinkStatus.isConnected) play.element.querySelector('.home-start')!.prepend(inviteLinkStatus);
+  play.element.addEventListener('click', event => {
+    if ((event.target as Element).closest('button, a')) clearInviteLinkStatus();
+  }, true);
   root.replaceChildren(play.element, ...(old ? [old] : []));
   if (enteringHome) play.focus(); else if (focused) play.element.querySelector<HTMLElement>(focused)?.focus({ preventScroll: true });
   homePoll?.update();
@@ -652,6 +679,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   shell.go(onlineActive ? { place: 'online', entry: onlineState!.view!.game_id } : { place: 'game' }, false);
   document.body.dataset.page = 'game';
   screen = el('section', 'play-game');
+  screen.toggleAttribute('data-online', onlineActive);
   screen.dataset.hand = 'hand'; screen.dataset.coords = String(coords);
   // Opponent strip: name and level, the opponent's power with its uses, Menu.
   // The name has two lines, Computer and the level; the computer's four cards are one group (option b1).
@@ -924,7 +952,7 @@ function fitResult() {
   delete screen.dataset.resultFit;
   const docked = screen.dataset.layout === 'portrait' || (screen.dataset.layout === 'wide' && screen.dataset.form === 'compact');
   if (!onlineActive || reading !== 'result' || !docked || !reader || reader.dataset.floating === 'true') return;
-  const card = detail?.querySelector<HTMLElement>('.play-result, .play-result-copy');
+  const card = detail?.querySelector<HTMLElement>('.play-result');
   const over = () => !!card && card.getBoundingClientRect().bottom > reader!.getBoundingClientRect().bottom;
   if (!over()) return;
   screen.dataset.resultFit = 'tight';
@@ -1311,9 +1339,9 @@ function update() {
   const replay = undoReplayState(draft.length, replySteps.length, thinking || ended || !!fault).replay;
   if (replay) controls.undo.dataset.mode = 'replay'; else delete controls.undo.dataset.mode;
   controls.undo.replaceChildren(icon(replay ? 'rewind' : 'undo'), el('span', replay ? 'play-replay-label' : 'kd-sr', replay ? text.replay : text.undo));
-  controls.update({ sent: thinking && !fault, staged, silent: silentStage, state: ended ? resultCause : fault ? fault === 'art' ? sideText.artFailed : sideText.computerFailed : net && personTurn(net) || (thinking ? text.thinking : choice.length ? choicePrompt(choice) : draft.armed ? armedStep(draft.armedMoves, draft.now, selected, player) : checked ? text.check : free || (draft.length ? draft.canFinish ? text.draft : text.mustContinue : fresh() && !replySteps.length && !code && !player ? text.first : text.ready)), help,
+  controls.update({ sent: !fault && (net ? net.phase === 'sending' || net.phase === 'checking' : thinking), staged, silent: silentStage, state: ended ? resultCause : fault ? fault === 'art' ? sideText.artFailed : sideText.computerFailed : net && personTurn(net) || (thinking ? text.thinking : choice.length ? choicePrompt(choice) : draft.armed ? armedStep(draft.armedMoves, draft.now, selected, player) : checked ? text.check : free || (draft.length ? draft.canFinish ? text.draft : text.mustContinue : fresh() && !replySteps.length && !code && !player ? text.first : text.ready)), help,
     undoReason: !onlineActive && writer.blocked ? writer.warning : undoReplayState(draft.length, replySteps.length, thinking || ended || !!fault).enabled ? '' : text.noStep,
-    finishReason: !onlineActive && writer.blocked ? writer.warning : ended ? text.final : fault ? fault === 'art' ? sideText.artFailed : sideText.computerFailed : net?.connection === 'auth' ? 'Sign in to send your turn.' : thinking ? net ? personTurn(net) ?? text.wait : text.wait : choice.length ? text.choiceFirst : draft.canFinish ? '' : draft.length ? text.mustContinue : text.needMove });
+    finishReason: !onlineActive && writer.blocked ? writer.warning : ended ? text.final : fault ? fault === 'art' ? sideText.artFailed : sideText.computerFailed : net?.connection === 'auth' ? 'Sign in to send your turn.' : thinking ? net ? personTurn(net) ?? text.wait : text.wait : choice.length ? text.choiceFirst : (net?.canSend ?? draft.canFinish) ? '' : draft.length ? text.mustContinue : text.needMove });
   staged = silentStage = false;
   updateSeats();
   const pos = draft.position;
@@ -1434,16 +1462,18 @@ function renderReader(actions?: HTMLElement) {
   gameHelp?.setTopic(null);
   detail.replaceChildren(); detail.dataset.mode = reading; detail.scrollTop = 0;
   if (reading === 'result' && onlineActive && onlineState) {
-    const state = onlineState, block = el('div', 'play-result-copy'), actions = el('div', 'play-result-actions');
-    block.append(el('h3', '', onlineResult(state)), el('p', '', state.view?.result?.reason === 'resignation' ? 'The game ends by resignation.' : state.view?.result?.reason === 'agreement' ? 'Both players agree to a draw.' : state.view?.result?.reason === 'timeout' ? 'The move time ends.' : state.view?.result?.reason === 'checkmate' ? 'Checkmate.' : 'The game ends.'));
+    const state = onlineState, block = el('section', 'play-result'), body = el('div', 'play-result-body'), actions = el('div', 'play-result-actions');
+    const winner = state.view?.result?.winner;
+    block.dataset.outcome = winner == null ? 'draw' : winner === state.view?.seat ? 'win' : 'loss';
+    body.append(el('h3', '', onlineResult(state)), el('p', 'play-result-cause', state.view?.result?.reason === 'resignation' ? 'The game ends by resignation.' : state.view?.result?.reason === 'agreement' ? 'Both players agree to a draw.' : state.view?.result?.reason === 'timeout' ? 'The move time ends.' : state.view?.result?.reason === 'checkmate' ? 'Checkmate.' : 'The game ends.'));
     if (state.rematch === 'theirs') actions.append(button('Accept rematch', { kind: 'main', onPress: () => { void people!.controller!.rematch('accept'); } }), button('Decline', { onPress: () => { void people!.controller!.rematch('decline'); } }));
     else if (state.rematch === 'accepted' && state.rematchGame) actions.append(button('Open rematch', { kind: 'main', onPress: () => shell.go({ place: 'online', entry: state.rematchGame! }) }));
-    else if (state.rematch === 'mine') block.append(el('p', '', 'Waiting for a rematch answer.'));
+    else if (state.rematch === 'mine') body.append(el('p', 'play-result-facts', 'Waiting for a rematch answer.'));
     else if (state.rematch !== 'closed') actions.append(button('Rematch', { kind: 'main', onPress: () => { void people!.controller!.rematch('offer'); } }));
     if (state.view && humanOpponent(state.view)) {
       const options: HTMLButtonElement = button('Player options', { onPress: () => playerOptions(people!.safety, { game_id: state.view!.game_id }, options, () => { void people?.controller?.refresh(); }) }); actions.append(options);
     }
-    actions.append(resultNewGame(), button(text.home, { onPress: () => shell.go({ place: 'play' }) })); block.append(actions); detail.append(block); return;
+    actions.append(resultNewGame(), button(text.home, { onPress: () => shell.go({ place: 'play' }) })); block.append(body, actions); detail.append(block); return;
   }
   if (reading === 'result') {
     const won = game.status === 'checkmate' && game.pos.turn === cpu(), lost = resigned != null || (game.status === 'checkmate' && !won);
@@ -2047,6 +2077,7 @@ function closeHomeGuide() {
 
 function renderPlace(route: Route) {
   homePoll?.update();
+  if (route.place !== 'play') clearInviteLinkStatus();
   if (route.place === 'online') { void openOnline(route.entry!); return; }
   if (route.place === 'join') {
     onlineActive = false; people?.stopGame();

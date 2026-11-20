@@ -129,7 +129,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     const caption = el('span', 'setup-seat-edit');
     if (!own && opponent === 'computer') caption.append(portrait(draft.level));
     caption.append(own ? name : friend ? 'A friend' : text.computer);
-    const title = !king && !own && hasPowers(draft.setup) ? (friend ? 'Friend chooses' : panelText.randomKing) : kingLabel(king?.king, side);
+    const title = !king && !own && hasPowers(draft.setup) ? (friend ? "Friend's king" : panelText.randomKing) : kingLabel(king?.king, side);
     const kingName = el('strong', '', title);
     kingName.id = own ? 'setup-own-king' : 'setup-opponent-king';
     power.id = own ? 'setup-own-power' : 'setup-opponent-power';
@@ -397,6 +397,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
 
   function more() {
     const box = el('div', 'panel-section setup-more'), list = el('div', 'pool-list');
+    if (opponent === 'person') box.append(el('p', 'panel-note', 'Sides are random.'));
     const full = poolLetters(draft.options.pool, draft.options.seconds) === poolLetters(POOL_KINDS);
     box.append(choiceValues(panelText.pieces, [{ value: 'all', label: panelText.allPieces }, { value: 'pool', label: panelText.pool }], full && !poolSelected && !poolOpen ? 'all' : 'pool', value => {
       poolSelected = value === 'pool';
