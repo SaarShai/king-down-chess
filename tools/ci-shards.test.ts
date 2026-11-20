@@ -82,13 +82,14 @@ it('uses the verify runner for the Chromium board and drafts tests', () => {
 });
 
 it('lets a nested test run select a file outside the parent shard', () => {
+  expect(process.env.KINGDOWN_TEST_FILE, 'test workers must not inherit the shard file filter').toBeFalsy();
   const result = spawnSync('npm', ['test', 'tools/test-lock-guard.test.ts'], {
     encoding: 'utf8', timeout: 20_000,
     env: { ...process.env, KINGDOWN_TEST_NAME: '', KINGDOWN_TEST_NO_TYPECHECK: '1' },
   });
   const output = result.stdout + result.stderr;
   expect(result.status, output).toBe(0);
-  expect(output).toMatch(/Tests\s+2 passed/);
+  expect(output).toMatch(/Test Files\s+1 passed/);
 }, 30_000);
 
 it('fails a test shard when neither a TS nor an MJS file matches', () => {
