@@ -49,10 +49,7 @@ export function checkShards({ registry = checks, selection = { mode: 'full', tes
   const ordinary = files.filter(file => file !== app && !boardFiles.includes(file));
   balance(ordinary, 2, file => testSeconds.get(file) ?? 3)
     .forEach((group, i) => add(`test (${i + 1})`, 'chromium', group));
-  for (const file of boardFiles) {
-    const name = file.slice('tools/plugin-'.length, -'.test.ts'.length);
-    add(`browser-board (${name})`, 'chromium', [file]);
-  }
+  add('browser-board (board)', 'chromium', [boardFiles[0]]);
 
   const webkit = selected.filter(check => check.webkit);
   add('browser-webkit', 'webkit', [boardFiles[0], 'tools/plugin-ios-size.test.ts', 'tools/plugin-preview-size.test.ts']);
@@ -66,7 +63,9 @@ export function checkShards({ registry = checks, selection = { mode: 'full', tes
   const fixture = selected.filter(check => check.ci === 'fixture');
   for (const browser of ['chromium', 'webkit']) {
     const name = browser === 'webkit' ? 'browser-webkit-ui' : 'browser-ui';
-    for (const part of fixtures) add(`${name} (${part})`, browser, [], fixture, part);
+    // The two shorter Chromium board files can share setup with the fixture halves.
+    fixtures.forEach((part, i) => add(`${name} (${part})`, browser,
+      browser === 'chromium' ? [boardFiles[i + 1]] : [], fixture, part));
   }
   return jobs;
 }

@@ -18,7 +18,11 @@ it('assigns every test file once and keeps the five extra WebKit test files', ()
     'docs/2d-first-pieces/**/*.test.mjs', 'src/render/painted/**/*.test.mjs',
   ])));
   expect(stable(files('webkit'))).toEqual(stable(webkitFiles));
-  expect(shards.length + 3).toBeLessThanOrEqual(20);
+  // Reuse and record-tree are in series with the matrix and verify.
+  expect(shards.length + 1).toBeLessThanOrEqual(16);
+  const chromiumBoardJobs = shards.filter(job => job.browser === 'chromium' &&
+    job.tests.some(file => /^tools\/plugin-board(?:-input|-drafts)?\.test\.ts$/.test(file)));
+  expect(chromiumBoardJobs).toHaveLength(3);
 });
 
 it('places each baseline browser check once per browser with both fixture parts', () => {

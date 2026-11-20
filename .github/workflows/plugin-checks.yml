@@ -88,7 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: reuse
     if: contains(fromJSON('["full","selected"]'), needs.reuse.outputs.mode)
-    timeout-minutes: 42
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.reuse.outputs.matrix) }}
