@@ -24,7 +24,6 @@ The facts for the live site, its domain and the secret files. Every deploy publi
 - Database backup and restore (release-safety ticket 01): In `plugin-deploy/`, `release-backup.sql` copies every public table in one repeatable-read snapshot, and `release-restore-games.sql` puts back the backup games, players, commands and invites in place, keeps newer games, leaves out the solo games of accounts deleted since the backup (as `delete_account` erased them) and their games that the deletion job ended (the live end stays), and refuses a backup whose games and commands disagree. Both run only by the owner's word; the ticket holds the order and the treatment of newer rows.
 - Both live checks use `DEPLOY_LIVE_TIMEOUT_MS`. The default is 180000 ms for the site check and 120000 ms for the plugin check; each tries again every 5 s until the limit. Set 900000 ms for the migration window. Run the release command detached.
 - The script takes no branch or commit. A commit that is not on `origin/main` cannot go live.
-- Release helpers (`tools/release/`, each detached in tmux): `python3 tools/release/staging.py` deploys the current `origin/staging/first-game` to the staging preview after CI passes on that commit (evidence folder per run under `../evidence/staging-release/`); `tools/release/merge.sh <pr> <head> <reviewed head> [note]` records one complete independent review and merges on green; `tools/release/live.sh check|engines|publish` runs `tools/deploy.sh` on a fresh `origin/main` from the `release-live` worktree, the read-only engines check with the private runtime login, or the publish (it waits for green CI first, so the publish skips the local test run); `tools/release/release.sh <release pr> <head> [note]` runs merge, engines and publish in one go. Both worktrees (`release-staging`, `release-live`) keep their own `node_modules`; `tools/release/publishable-key.mjs <origin>` reads the public publishable key from the live bundle, so no key file is kept.
 - Keep the release record: run `set -o pipefail; tools/deploy.sh --publish 2>&1 | tee <deploy-log-path>` detached. The deploy output log holds the source commit, the byte record, each step and both live-check results. The fresh worktree is the clean tree. The release log is `LOG.md` in `../evidence/production-release/`, relative to the main app checkout. Resolve the main checkout from Git's common directory, then pass the absolute log path to a writer. Check that the file and its prior release entry exist. Append to this file. It is outside the app repository and needs no app PR.
 - The tool gate asks before a `vercel` command, a Porkbun API call or a browser visit to the live site or the Vercel dashboard.
 
@@ -33,6 +32,59 @@ release SQL includes 0015; an existing 0014 schema needs only the missing migrat
 the email helper and keeps the `delete_account(uuid)` grant. Web account access follows at
 0016, then runtime-role block 12. Use [account-off.md](specs/web-build/account-off.md) for that
 separate operator step. No production change is authorized by the staging integration.
+
+## Release and preview
+
+Start `tools/release/release.sh <PR> <full PR head> [reconcile note]` in tmux.
+Start one release at a time. Keep `origin/main` on the release commit through publication.
+Set `KINGDOWN_REVIEW=lead-read` for the lead's review. The merge helper receives this setting.
+
+```text
+ci → staging → staging-checks → merge → main-ci → engines → publish → live-check → log
+```
+
+- The CI gate checks the exact PR head. The staging helper deploys that commit
+  to [staging](https://kingdown-staging.vercel.app). Two signed-out checks run there.
+- The main gate checks the PR's merge commit. It can rerun failed jobs once for that
+  commit. A failed gate stops the release before publication. The release command sends no Git push.
+- The engines check reads the games in use. The publish step uses `live.sh publish`.
+  The release helper sets the solo-launch build profile for staging and production.
+  Keep the local test database on port 55432 ready for these checks.
+- Read the end of the printed `progress.log` path. Its `.done` file holds the exit
+  code. Each stage has a log in the same folder. Use `--from <stage>` with the same PR
+  and head to continue after a fault. Start with `--from main-ci` if the merge commit
+  has no recorded green result. Confirm the deployment before you restart after a
+  publish fault. Use `--tweak` to skip both staging stages.
+- `--dry-run` prints the outward commands. It keeps its progress in a separate folder.
+  A real release appends one line to `KINGDOWN_RELEASE_LOG`. The default is
+  `release-log.md` in the sibling `runs/launch/` folder of the main checkout.
+  The line records the commit, deployments and check results.
+- `release-staging` and `release-live` each use their own packages.
+  `python3 tools/release/staging.py [ref]` still waits for CI when you run it directly.
+  The build names `next.html` for the solo-launch home. The alias check compares
+  `/` with that file, `/play/` with `index.html`, and the worker with `sw.js`.
+
+For a tweak preview, run `python3 tools/release/staging.py --preview <ref>`
+from the release tools checkout. Use `--dry-run` to see the commands.
+The preview uses the linked staging worktree and its staging project.
+It checks types, builds, and runs `release-site` on the local build. The staging
+guard publishes to the preview target. The command changes only the
+[preview alias](https://kingdown-preview.vercel.app), checks it signed out,
+and prints that address last. A Vercel sign-in redirect stops the command.
+
+The preview shows the signed-out site, Guide, setup and local solo play.
+The staging server accepts the staging host. The browser sends website
+API requests to its own host. On the preview host the API gives HTTP 403
+for an untrusted host. A player with a staging session still cannot load
+account data or open, create or move in an online game on the preview.
+The sign-in choices use public staging provider settings. They can open
+on the preview. The check stops at the choices. It permits HTTP 403 from
+`/api/status` on the preview alias.
+
+Run `npm run check:browser release-site release-history` for a local check.
+Set `PLAYABLE_URL` to check a public origin. Both checks use fresh headless
+browser contexts and read-only requests. The checks use the solo-launch
+profile when they build the local site.
 
 ## Domain and DNS
 

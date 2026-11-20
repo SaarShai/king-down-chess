@@ -7,7 +7,8 @@
 # (KINGDOWN_SECRETS_ENV). The value goes only into this process, never in an argument, a message or a log. Without the
 # file, a hidden prompt asks for the URL. The publishable key is the public production value read from the live bundle.
 #   KINGDOWN_RELEASE_WORKTREE  a worktree with its own node_modules (default <main checkout>/.claude/worktrees/release-live)
-#   KINGDOWN_CI_WAIT_MINUTES   how long publish waits for CI (default 30; 0 asks CI once and does not wait)
+#   KINGDOWN_CI_WAIT_MINUTES   how long direct publish waits for CI (default 30)
+#   KINGDOWN_RELEASE_COMMIT    the green main commit supplied by release.sh
 #   KINGDOWN_RELEASE_EVIDENCE  where the logs go (default <main checkout>/../evidence/production-release)
 set -euo pipefail
 mode=${1:?check, engines or publish}
@@ -15,7 +16,10 @@ tools=$(cd "$(dirname "$0")/.." && pwd -P)
 main=$(dirname "$(git -C "$tools" rev-parse --path-format=absolute --git-common-dir)")
 repo=${KINGDOWN_RELEASE_WORKTREE:-$main/.claude/worktrees/release-live}
 evidence=${KINGDOWN_RELEASE_EVIDENCE:-$main/../evidence/production-release}
-secrets=${KINGDOWN_SECRETS_ENV:-/Users/za/Documents/king down chess/.secrets/kingdown-mvp.env}
+secrets=${KINGDOWN_SECRETS_ENV:-$main/../.secrets/kingdown-mvp.env}
+expected=${KINGDOWN_RELEASE_COMMIT:-}
+case "$mode" in check|engines|publish) ;; *) echo 'usage: tools/release/live.sh check|engines|publish' >&2; exit 2 ;; esac
+. "$tools/release/profile.sh"
 [ -d "$repo/.git" ] || [ -f "$repo/.git" ] || { echo "live: $repo is not a worktree; make it with tools/wt.sh add release-live" >&2; exit 2; }
 mkdir -p "$evidence"
 unset KINGDOWN_STAGE VITE_KINGDOWN_STAGE
@@ -28,15 +32,17 @@ engine_url() {
   v=${v%$'\r'}; v=${v#\"}; v=${v%\"}; v=${v#\'}; v=${v%\'}
   case "$v" in
     postgres://*|postgresql://*) KINGDOWN_ENGINES_DATABASE_URL="$v"; echo 'live: engine-check login loaded from the private env file' ;;
-    *) read -r -s -p 'Engine-check URL: ' KINGDOWN_ENGINES_DATABASE_URL; printf '\n' ;;
+    *) [ -t 0 ] || { echo 'live: the private engine-check login is unavailable' >&2; return 1; }
+       read -r -s -p 'Engine-check URL: ' KINGDOWN_ENGINES_DATABASE_URL; printf '\n' ;;
   esac
   unset v
   export KINGDOWN_ENGINES_DATABASE_URL
 }
 test_database() { pg_isready -q -h 127.0.0.1 -p 55432 || { echo 'live: the local test Postgres (port 55432) is down' >&2; exit 1; }; }
-git -C "$repo" fetch -q origin main
-git -C "$repo" checkout -q --detach origin/main
-sha=$(git -C "$repo" rev-parse HEAD)
+git -C "$repo" fetch -q origin +refs/heads/main:refs/remotes/origin/main
+sha=$(git -C "$repo" rev-parse refs/remotes/origin/main)
+[ -z "$expected" ] || [ "$expected" = "$sha" ] || { echo "live: origin/main moved from $expected to $sha" >&2; exit 1; }
+git -C "$repo" checkout -q --detach "$sha"
 echo "live: $mode origin/main $sha"
 case "$mode" in
   check)
@@ -48,8 +54,9 @@ case "$mode" in
     engine_url; cd "$repo"; node tools/engines-check.mjs engines 2>&1 | tee "$evidence/engines-$sha.log" ;;
   publish)
     test_database; engine_url
-    # Green CI on this commit lets deploy.sh skip the local tests; a failed or absent CI run means the full local run.
-    bash "$tools/release/ci-wait.sh" "$sha" "${KINGDOWN_CI_WAIT_MINUTES:-30}" || echo 'live: CI did not pass in time; deploy.sh runs the full local checks'
+    # The release driver already waits for the merge commit. The direct command still has its own gate.
+    if [ -z "$expected" ]; then
+      bash "$tools/release/ci-wait.sh" "$sha" "${KINGDOWN_CI_WAIT_MINUTES:-30}" || echo 'live: CI did not pass in time. deploy.sh runs the full local checks.'
+    fi
     cd "$repo"; tools/deploy.sh --publish 2>&1 | tee "$evidence/deploy-$sha.log" ;;
-  *) echo 'usage: tools/release/live.sh check|engines|publish' >&2; exit 2 ;;
 esac
