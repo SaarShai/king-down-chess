@@ -166,6 +166,7 @@ for (const channel of ['webkit', 'chromium']) {
       await page.locator('.guide-card[data-entry="Freeze"]').click();
       const freezeLimits = await page.locator('.guide-page[data-view="entry"] .learn-limits').textContent();
       assert(freezeLimits.includes('If your king is safe, you can select End turn or Send.') && !freezeLimits.includes('Send or Send'), freezeLimits);
+      if (phone) await button(page, 'Back to Cards').click();
       await button(page, 'Back to Home').click();
       await openSettings(page);
       await oneDialog(page, settings(page));
