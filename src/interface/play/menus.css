@@ -661,8 +661,10 @@ body > .kd-sr { inset: 0 auto auto 0; }
   .setup-friend-foot { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 375px) {
-  .setup-feature { gap: 2px; padding-inline: 4px; }
-  .setup-feature-label.kd-button { gap: 3px; padding-inline: 2px; white-space: nowrap; }
+  /* The switch goes below the name when the name does not fit beside it (large text). */
+  .setup-feature { display: flex; flex-wrap: wrap; gap: 2px; padding-inline: 4px; }
+  .setup-feature-label.kd-button { flex: 1 1 min-content; gap: 3px; padding-inline: 2px; white-space: nowrap; }
+  .setup-feature .kd-switch { inline-size: auto; margin-inline-start: auto; }
 }
 @media (max-height: 700px) and (orientation: portrait) {
   .kd-dialog.new-game-panel { --setup-gap: 7px; }

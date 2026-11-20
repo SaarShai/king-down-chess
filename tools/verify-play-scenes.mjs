@@ -1,5 +1,5 @@
 // The play screen scenes (play-scenes.html, src/interface/play/scenes.ts) at four sizes and two text scales. For each:
-// no cut or split text, no cut control, no control that a different element covers, each control takes a tap (a trial click), and no
+// no cut or split text, no text over the state and track of a switch in the same tile, no cut control, no control that a different element covers, each control takes a tap (a trial click), and no
 // request to /api or to a different host. The page is in a build only with KINGDOWN_TEST_PAGES=1:
 //   KINGDOWN_TEST_PAGES=1 npm run check:browser play-scenes
 // Pictures at 390x844 and 1280x800 (text scale 100%) go to PLAYABLE_OUT.
@@ -41,7 +41,7 @@ try {
       await page.goto(`${base.href}?scene=${scene}`);
       await page.waitForFunction(() => document.body.dataset.sceneReady, null, { timeout: 15_000 });
       if (scale === 100 && (width === 390 || width === 1280)) await shot(page, `${scene}-${width}x${height}`);
-      found.push(...await page.evaluate(cutText));
+      found.push(...await page.evaluate(cutText), ...await page.evaluate(overSwitch));
       for (const role of ROLES) for (const control of await page.getByRole(role).all()) {
         if (!await control.isVisible() || await control.isDisabled() || await control.evaluate(outsideLayer)) continue;
         const label = `${role} "${(await control.getAttribute('aria-label') ?? await control.innerText()).trim().slice(0, 40)}"`;
@@ -76,6 +76,21 @@ function cutBy(control) {
     if (/hidden|clip/.test(style.overflowX + style.overflowY) && (box.left < edge.left - 1 || box.right > edge.right + 1 || box.top < edge.top - 1 || box.bottom > edge.bottom + 1)) return `${node.tagName.toLowerCase()}.${[...node.classList].join('.')}`;
   }
   return '';
+}
+
+/** In the page: text of a switch tile (the switch's parent) that goes over the switch's state and track: a tap there changes the switch. */
+function overSwitch() {
+  const out = [], range = document.createRange();
+  for (const control of document.querySelectorAll('[role="switch"]')) {
+    const mark = control.querySelector('.kd-switch-indicator')?.getBoundingClientRect(), walk = document.createTreeWalker(control.parentElement, NodeFilter.SHOW_TEXT);
+    if (!mark?.width || !control.checkVisibility()) continue;
+    for (let text; (text = walk.nextNode());) {
+      if (!text.textContent.trim() || control.querySelector('.kd-switch-indicator').contains(text)) continue;
+      range.selectNodeContents(text);
+      if ([...range.getClientRects()].some(r => r.right > mark.left + 1 && r.left < mark.right - 1 && r.bottom > mark.top + 1 && r.top < mark.bottom - 1)) out.push(`text "${text.textContent.trim().slice(0, 40)}" goes over switch "${control.getAttribute('aria-label') ?? control.innerText.trim()}"`);
+    }
+  }
+  return out;
 }
 
 /** In the page: text that a clipping box cuts, and words that break over two lines. A scroll box can show its text. */
