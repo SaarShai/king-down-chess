@@ -38,6 +38,12 @@ const LOSS = { status: 'finished', result: { winner: 1, reason: 'checkmate' }, f
 const SCENES: Record<string, Scene> = {
   'online-loss': { online: LOSS, ready: '.play-result' },
   'online-loss-offer': { online: { ...LOSS, rematch_offer: 1 }, ready: '.play-result' },
+  // The opponent resigns, then offers a rematch: five controls under the result.
+  'online-win-offer': { online: { ...LOSS, result: { winner: 0, reason: 'resignation' }, rematch_offer: 1, opponent: THEIR_MOVE.opponent }, ready: '.play-result' },
+  'online-win-wait': { online: { ...LOSS, result: { winner: 0, reason: 'resignation' }, rematch_offer: 0, opponent: THEIR_MOVE.opponent }, ready: '.play-result' },
+  'online-draw-offer': { online: { ...THEIR_MOVE, turn: 0, action: 'ready', draw_offer: 1 }, ready: '.online-status .online-actions .kd-button:last-child' },
+  // The opponent's move time ends: Claim win.
+  'online-claim': { online: { ...THEIR_MOVE, deadline_at: new Date(Date.now() - 60_000).toISOString() }, ready: '.online-status .online-actions .kd-button' },
   'solo-result': { save: SOLO, steps: [text.resume, text.menu, text.resign, text.resign], ready: '.play-result' },
   'solo-turn': { save: SOLO_BOTH, steps: [text.resume],
     ready: `${WITH_HAND}[data-state="ready"]:has(.play-turn) .play-reader .play-title`, readyText: text.ready },

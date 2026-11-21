@@ -1,5 +1,5 @@
 // Check the play scenes at four sizes and two text scales. Find cut and split text, horizontal
-// viewport and scroll box overflow, overlap, card names that another card covers, controls that cannot take a tap, and network requests.
+// viewport and scroll box overflow, reader text and controls that a scroll box hides at rest, overlap, card names that another card covers, controls that cannot take a tap, and network requests.
 // The page is in a build only with KINGDOWN_TEST_PAGES=1:
 //   KINGDOWN_TEST_PAGES=1 npm run check:browser play-scenes
 // Save pictures of faults, 320x568 at 150%, and 390x844 and 1280x800 at 100% in PLAYABLE_OUT.
@@ -76,7 +76,7 @@ try {
         try {
           await page.goto(`${base.href}?scene=${scene}`);
           await page.waitForFunction(scene => document.body.dataset.sceneReady === scene, scene, { timeout: 15_000 });
-          found.push(...await page.evaluate(cutText), ...await page.evaluate(layoutFaults, ROLES), ...await page.evaluate(coveredCards));
+          found.push(...await page.evaluate(cutText), ...await page.evaluate(foldFaults, scale === 100), ...await page.evaluate(layoutFaults, ROLES), ...await page.evaluate(coveredCards));
           if (found.length || width === 320 && scale === 150 || scale === 100 && (width === 390 || width === 1280)) {
             await shot(page, picture);
             pictured = true;
@@ -233,6 +233,48 @@ function coveredCards() {
         const other = document.elementFromPoint(x, y)?.closest('.play-card');
         if (other && other !== card) { out.push(`card name "${name(card)}" is covered by card "${name(other)}"`); break letters; }
       }
+    }
+  }
+  return out;
+}
+
+/**
+ * In the page: text and controls of the reader that a scroll box hides before a scroll. A control and a line of text
+ * never show in part. At 100% text (`full`) each line shows; at a larger text size a line can wait below the fold.
+ */
+function foldFaults(full) {
+  const out = [], range = document.createRange(), items = [];
+  const name = node => [node.localName, ...node.classList].join('.');
+  for (const reader of document.querySelectorAll('.play-reader')) {
+    if (reader.closest('[inert]') || !reader.checkVisibility({ visibilityProperty: true })) continue;
+    for (const control of reader.querySelectorAll('button, a[href]')) {
+      if (!control.checkVisibility({ visibilityProperty: true })) continue;
+      const label = `control "${control.innerText.trim().split('\n', 1)[0]}"`, edge = control.getBoundingClientRect();
+      items.push({ node: control, label, boxes: [edge] });
+      // A label that wraps in a short control runs out of its box.
+      range.selectNodeContents(control);
+      if ([...range.getClientRects()].some(r => r.height >= 2 && (r.top + r.height / 4 < edge.top - 1 || r.bottom - r.height / 4 > edge.bottom + 1))) out.push(`${label} has a label that runs out of its box`);
+    }
+    const walk = document.createTreeWalker(reader, NodeFilter.SHOW_TEXT);
+    for (let text; (text = walk.nextNode());) {
+      const host = text.parentElement, words = text.textContent.trim();
+      if (!words || host.closest('button, a[href], .kd-sr, [aria-hidden="true"]') || !host.checkVisibility({ visibilityProperty: true })) continue;
+      range.selectNodeContents(text);
+      // Each line, less a quarter of its height at the top and the bottom, as in cutText.
+      const boxes = [...range.getClientRects()].filter(r => r.width >= 2 && r.height >= 2).map(r => ({ top: r.top + r.height / 4, bottom: r.bottom - r.height / 4 }));
+      items.push({ node: host, label: `text "${words.slice(0, 40)}"`, boxes, text: true });
+    }
+  }
+  for (const { node, label, boxes, text } of items) {
+    for (let box = node.parentElement; box && !box.matches('.play-game'); box = box.parentElement) {
+      if (!/auto|scroll/.test(getComputedStyle(box).overflowY)) continue;
+      const edge = box.getBoundingClientRect(), top = edge.top + box.clientTop, bottom = top + box.clientHeight;
+      const outside = boxes.filter(b => b.top < top - 1 || b.bottom > bottom + 1);
+      if (!outside.length) continue;
+      const cut = !text || outside.some(b => b.bottom > top + 1 && b.top < bottom - 1);
+      if (cut) out.push(`${label} is cut by the scroll box ${name(box)} at rest`);
+      else if (full) out.push(`${label} is below the fold of ${name(box)}`);
+      break;
     }
   }
   return out;
