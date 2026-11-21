@@ -28,7 +28,6 @@ jobs:
       mode: ${{ steps.plan.outputs.mode }}
       reused: ${{ steps.plan.outputs.reused }}
       matrix: ${{ steps.plan.outputs.matrix }}
-      verify_runner: ${{ steps.plan.outputs.verify_runner }}
       verify_tests: ${{ steps.plan.outputs.verify_tests }}
     steps:
       - uses: actions/checkout@v4
@@ -44,13 +43,13 @@ jobs:
         run: node tools/ci-plan.mjs workflow
 
   verify:
-    runs-on: ${{ needs.reuse.outputs.verify_runner }}
+    runs-on: ubuntu-latest
     needs: reuse
     if: needs.reuse.outputs.reused == 'false'
     timeout-minutes: 30
     services:
       postgres:
-        image: ${{ needs.reuse.outputs.mode == 'full' && 'postgres:17' || '' }}
+        image: postgres:17
         env:
           POSTGRES_USER: kingdown_test
           POSTGRES_PASSWORD: local_test_only

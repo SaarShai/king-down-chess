@@ -52,7 +52,7 @@ export function checkShards({ registry = checks, selection = { mode: 'full', tes
     && (all || selection.checks.includes(check.name)));
   const boardFiles = ['', '-input', '-drafts'].map(suffix => `${board}${suffix}.test.ts`);
   const app = 'tools/plugin-app.test.ts';
-  add('test (app)', 'chromium', [app], selected.filter(check => check.ci === 'app'));
+  add('test (app)', 'chromium', [app]);
   const ordinary = files.filter(file => file !== app && !boardFiles.includes(file));
   balance(ordinary, 2, file => testSeconds.get(file) ?? 3)
     .forEach((group, i) => add(`test (${i + 1})`, 'chromium', group));

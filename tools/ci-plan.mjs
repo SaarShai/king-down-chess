@@ -40,7 +40,7 @@ function report(what, all, selected) {
 if (process.argv[2] === 'changed') {
   const base = git(['rev-parse', '--verify', 'origin/main^{commit}']).trim();
   const selection = select(base);
-  const registry = checks.filter(check => !['standalone', 'app', 'release'].includes(check.ci));
+  const registry = checks.filter(check => !['standalone', 'release'].includes(check.ci));
   const all = checkShards({ registry }), selected = checkShards({ registry, selection });
   if (selection.mode === 'selected') console.log('This is a selection. CI runs the full plan.');
   console.log('Run type check');
@@ -68,7 +68,7 @@ if (process.argv[2] === 'changed') {
   const tree = gitTree('HEAD');
   const reused = !dispatch && findGreenTree(tree, repo);
   const selection = reused ? { mode: 'full' } : select(base, 'HEAD');
-  const { mode, verifyRunner = 'ubuntu-latest' } = selection;
+  const { mode } = selection;
   const shards = reused ? [] : checkShards({ selection });
   const verify = shards.find(job => job.name === 'verify');
   const matrix = {
@@ -82,7 +82,7 @@ if (process.argv[2] === 'changed') {
   };
   console.log(reused ? 'CI reuses a green tree record.' : `CI mode: ${mode}. Shards: ${matrix.include.map(job => job.name).join(', ') || 'none'}`);
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT,
-    `mode=${mode}\nreused=${reused}\nmatrix=${JSON.stringify(matrix)}\nverify_runner=${verifyRunner}\nverify_tests=${verify ? filePattern(verify.tests) : ''}\n`);
+    `mode=${mode}\nreused=${reused}\nmatrix=${JSON.stringify(matrix)}\nverify_tests=${verify ? filePattern(verify.tests) : ''}\n`);
 } else if (process.argv[2] === 'record') {
   const { CI_MODE: mode, CI_REUSED: reused, CI_MATRIX: matrix, GITHUB_RUN_ID: id, GITHUB_OUTPUT: output, RUNNER_TEMP: temp } = process.env;
   const names = JSON.parse(matrix).include.map(job => job.name);

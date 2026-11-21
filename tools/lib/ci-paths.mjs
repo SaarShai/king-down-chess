@@ -13,7 +13,7 @@ export function pathPlan(changes, baseGreen) {
   if (!baseGreen || !changes.length) return { mode: 'full' };
   if (changes.every(({ path }) => docsPath.test(path))) return { mode: 'docs' };
   if (changes.every(({ path }) => path.startsWith('ios/'))) {
-    return { mode: 'docs', verifyRunner: 'macos-latest', tests: ['tools/ios-app.test.ts', 'ios/store.test.ts'] };
+    return { mode: 'docs', tests: ['tools/ios-app.test.ts'] };
   }
   return { mode: 'full' };
 }

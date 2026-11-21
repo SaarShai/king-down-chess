@@ -118,7 +118,7 @@ export const checks = [
   { name: 'selftest-hang', script: 'tools/check-selftest-dirty.mjs', args: ['hang'], limit: 5, byName: true },
   { name: 'selftest-hold', script: 'tools/check-selftest-dirty.mjs', args: ['hold'], limit: 60, byName: true },
   // The play screen scenes at four sizes and two text scales; the page is in the build only with KINGDOWN_TEST_PAGES=1.
-  { name: 'play-scenes', ci: 'app', ciTestPages: true, script: 'tools/verify-play-scenes.mjs', limit: 300, channel: 'chromium', byName: true },
+  { name: 'play-scenes', ci: 'standalone', ciTestPages: true, script: 'tools/verify-play-scenes.mjs', limit: 300, channel: 'chromium', byName: true },
 ];
 
 // The probe files that a check runs as parts of itself: ux-defects (tools/verify-ux-defects.mjs) runs each

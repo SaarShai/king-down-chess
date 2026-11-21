@@ -21,7 +21,7 @@ it('assigns every test file once and keeps the five extra WebKit test files', ()
   ])));
   expect(stable(files('webkit'))).toEqual(stable(webkitFiles));
   // Reuse and record-tree are in series with the matrix and verify.
-  expect(shards.length + 2).toBeLessThanOrEqual(18);
+  expect(shards.length + 2).toBeLessThanOrEqual(19);
   const chromiumBoardJobs = shards.filter(job => job.browser === 'chromium' &&
     job.tests.some(file => /^tools\/plugin-board(?:-input|-drafts)?\.test\.ts$/.test(file)));
   expect(chromiumBoardJobs).toHaveLength(2);
@@ -67,15 +67,15 @@ it('assigns a new default and a new WebKit check without a workflow edit', () =>
   ]);
 });
 
-it('shares a runner for both release checks and enables test pages only for the app browser step', () => {
+it('runs scenes on their own runner with test pages and shares a runner for both release checks', () => {
   const jobs = checkShards();
   const newChecks = ['play-scenes', 'release-site', 'release-history'];
   expect(jobs.filter(job => job.checks.some(name => newChecks.includes(name)))).toMatchObject([
-    { name: 'test (app)', checks: ['play-scenes'], tests: ['tools/plugin-app.test.ts'], browsers: ['chromium'], testPages: true },
     { name: 'browser-webkit-board (drafts)', checks: ['release-site', 'release-history'],
       tests: ['tools/plugin-board-drafts.test.ts'], browsers: ['chromium', 'webkit'], testPages: false },
+    { name: 'play-scenes', checks: ['play-scenes'], tests: [], browsers: ['chromium'], testPages: true },
   ]);
-  expect(jobs.filter(job => job.testPages).map(job => job.name)).toEqual(['test (app)']);
+  expect(jobs.filter(job => job.testPages).map(job => job.name)).toEqual(['play-scenes']);
 });
 
 it('keeps both compiled HTTP widget parts on one Chromium runner', () => {
@@ -90,12 +90,15 @@ it('uses the verify runner for the Chromium board and drafts tests', () => {
   });
 });
 
-it('uses only native and shell tests for an iOS-only change with a green base', () => {
+it('keeps the iOS shell tests from the full Ubuntu plan on the short plan', () => {
   const path = 'ios/App/App.xcodeproj/project.pbxproj';
   const changes = [{ path }];
   const plan = pathPlan(changes, true);
-  const tests = ['tools/ios-app.test.ts', 'ios/store.test.ts'];
-  expect(plan).toEqual({ mode: 'docs', tests, verifyRunner: 'macos-latest' });
+  const tests = ['tools/ios-app.test.ts'];
+  expect(plan).toEqual({ mode: 'docs', tests });
+  const fullTests = checkShards().flatMap(job => job.tests);
+  expect(fullTests).toContain(tests[0]);
+  expect(fullTests).not.toContain('ios/store.test.ts');
   expect(localPlan(changes)).toEqual(plan);
   expect(checkShards({ selection: { checks: [], tests: [], ...plan } })).toMatchObject([{ name: 'verify', tests, checks: [] }]);
   expect(riskyPaths([path])).toEqual([path]);
