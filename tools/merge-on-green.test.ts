@@ -427,7 +427,9 @@ it('ci-green exits 0 for a passed commit, 1 while a suite or a status runs, 2 fo
 it.each([
   [['src/interface/play/help/help.css'], []],
   [['src/interface/play/shell.css', 'docs/specs/ci-fast/issues/01-ci.md'], []],
+  [['src/interface/play/texts.ts', 'tools/verify-play-scenes.mjs', 'src/interface/play/menus.css'], []],
   [['src/interface/play/unknown.css'], ['src/interface/play/unknown.css']],
+  [['src/interface/play/texts.test.ts', 'tools/verify-play-scenes.mjs.bak', 'tools/verify-daylight-tabs.mjs'], ['src/interface/play/texts.test.ts', 'tools/verify-play-scenes.mjs.bak', 'tools/verify-daylight-tabs.mjs']],
   [['src/interface/play/help/help.css', 'src/interface/play/shell.ts', 'supabase/migrations/001.sql'],
     ['src/interface/play/shell.ts', 'supabase/migrations/001.sql']],
 ])('gates lead-read on the changed PR paths %j', async (paths, risky) => {
