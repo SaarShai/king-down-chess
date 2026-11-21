@@ -499,6 +499,8 @@
 @container (max-width: 239px) { .play-game[data-hand='hand'] .play-own .play-card { font-size: 12px; letter-spacing: -.03em; } }
 /* On a phone the fanned cards do not overlap, so the next card cannot cover a long name such as "Salvation". Under 360 px the hand also takes the side padding and 8 px of the power column ("Always on" needs 47 px). */
 @media (max-width: 400px) { .play-game[data-hand='hand'] .play-own .play-card { margin-inline: 0; } }
+/* The same on a landscape phone with a hand row from 260 to 300 px (736x414). */
+@container (max-width: 300px) { .play-game[data-hand='hand'] .play-own .play-card { margin-inline: 0; } }
 @media (max-width: 359px) { .play-game .play-own .play-power { flex-basis: 50px; } .play-hand { padding-inline: 0; } }
 
 .play-wordmark { display: none; }
