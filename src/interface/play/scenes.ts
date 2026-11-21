@@ -49,6 +49,9 @@ const SCENES: Record<string, Scene> = {
     ready: `${WITH_HAND}[data-state="ready"]:has(.play-turn) .play-reader .play-title`, readyText: text.ready },
   'solo-long-hand': { save: LONG_HAND, steps: [text.resume],
     ready: `${WITH_HAND}[data-state="ready"]:has(.play-turn) .play-reader .play-title`, readyText: text.ready },
+  // The computer takes a pawn: the capture count shows in the opponent bar.
+  'solo-captured': { save: { ...SOLO_BOTH, moves: ['e2-e4', 'd7-d5', 'a2-a3', 'd5xe4'] }, steps: [text.resume],
+    ready: `${WITH_HAND}[data-state="ready"]:has(.play-opp .play-store[data-empty="false"]) .play-reader .play-title`, readyText: text.ready },
   'online-their-move': { online: THEIR_MOVE, ready: '.play-game:has(.play-hand > .play-card:nth-child(4):last-child) .play-opp .opponent-clock:not(:empty)' },
   'solo-piece-reader': { save: SOLO_BOTH, steps: [text.resume, knight],
     ready: `${WITH_HAND} .play-reader:has(.learn-short) .play-title`, readyText: 'Knight' },

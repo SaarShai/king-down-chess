@@ -22,7 +22,8 @@
   background: var(--surface-raised);
 }
 .play-game .play-narr-tools .daylight-help-info.kd-button { padding-inline: 10px; }
-.daylight-help-info:is(:hover, :focus-visible)::before { background: var(--surface-muted); }
+.daylight-help-info:focus-visible::before { background: var(--surface-muted); }
+@media (hover: hover) { .daylight-help-info:hover::before { background: var(--surface-muted); } }
 .daylight-help-mark, .daylight-help-rule-label { position: relative; }
 .daylight-help-mark { font: italic 400 19px/1 var(--font-reading); }
 .daylight-help-rule-label { font-size: .875rem; }

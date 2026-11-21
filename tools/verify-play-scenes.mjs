@@ -1,4 +1,4 @@
-// Check the play scenes at four portrait and desktop sizes, two landscape phone sizes (game screen only) and two text scales. Find cut and split text, horizontal
+// Check the play scenes at four portrait and desktop sizes, two landscape phone sizes (game screen; at 667x375 the new-game panel too) and two text scales. Find cut and split text, horizontal
 // viewport and scroll box overflow, reader text and controls that a scroll box hides at rest, overlap, card names that another card covers, controls that cannot take a tap, and network requests.
 // The page is in a build only with KINGDOWN_TEST_PAGES=1:
 //   KINGDOWN_TEST_PAGES=1 npm run check:browser play-scenes
@@ -6,10 +6,11 @@
 import { env, launch, shot } from './lib/checks.mjs';
 import { KNOWN } from './play-scenes-known.mjs';
 
-// Landscape phones check the game screen only: the new-game panel puts the Powers and Cards labels over their switches there,
-// and online-loss cuts its 20-letter test name with an ellipsis, as the known mark at 320 px allows. Repair them in their own change.
+// Landscape phones check the game screen only, and 667x375 the new-game panel too: online-loss cuts its 20-letter test
+// name with an ellipsis, as the known mark at 320 px allows, and at 568x320 the panel header covers the level choice.
 const gameScreen = scene => /^(online|solo)-/.test(scene) && !['online-loss', 'online-loss-offer'].includes(scene);
-const SIZES = [[320, 568], [360, 640], [390, 844], [667, 375, gameScreen], [568, 320, gameScreen], [1280, 800]], SCALES = [100, 150];
+const withPanel = scene => gameScreen(scene) || ['new-game', 'setup-friend'].includes(scene);
+const SIZES = [[320, 568], [360, 640], [390, 844], [667, 375, withPanel], [568, 320, gameScreen], [1280, 800]], SCALES = [100, 150];
 const ROLES = ['button', 'link', 'switch', 'radio', 'checkbox', 'tab', 'menuitem', 'option', 'slider', 'textbox', 'combobox'];
 const SENTINEL = 'kingdown-scene-sentinel';
 
@@ -305,7 +306,9 @@ function cutText() {
       if (edge.width <= 2 && edge.height <= 2 && style.clipPath === 'inset(50%)') continue textNodes;
       if (edge.width <= 2 || edge.height <= 2) break; // a text for screen readers only
       if (/auto|scroll/.test(style.overflowX + style.overflowY)) { lines = [edge]; continue; }
-      if (/hidden|clip/.test(style.overflowX + style.overflowY) && lines.some(box => box.left < edge.left - 1 || box.right > edge.right + 1 || box.top < edge.top - 1 || box.bottom > edge.bottom + 1)) { out.push(`text "${words.slice(0, 40)}" is cut by ${name(node)}`); break; }
+      // A box that draws an ellipsis cuts its text at the first part of a pixel.
+      const slack = style.textOverflow === 'ellipsis' ? .05 : 1;
+      if (/hidden|clip/.test(style.overflowX + style.overflowY) && lines.some(box => box.left < edge.left - slack || box.right > edge.right + slack || box.top < edge.top - 1 || box.bottom > edge.bottom + 1)) { out.push(`text "${words.slice(0, 40)}" is cut by ${name(node)}`); break; }
     }
     // The browser can wrap at a hyphen. Check the parts between legal breaks.
     for (const word of text.textContent.matchAll(/[^\s\u00ad\u2010-]+/g)) {

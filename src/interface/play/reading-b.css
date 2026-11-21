@@ -480,6 +480,13 @@
 .play-game .play-opp, .play-game .play-own { container-type: inline-size; }
 @container (max-width: 335px) { .play-game .play-opp .play-power-copy { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
 @container (max-width: 239px) { .play-game .play-opp .play-seat-ring { display: none; } }
+/* A capture count takes 28 px of the bar. Under 340 px (a phone, a 1024 px tablet) the seat ring gives its place to it,
+   so "Computer" shows whole. Under 240 px the ring is already gone: the gaps and the count get smaller. */
+@container (max-width: 339px) { .play-game .play-opponent-group:has(> .play-store[data-empty='false']) > .play-seat-ring { display: none; } }
+@container (max-width: 239px) {
+  .play-game .play-opponent-group:has(> .play-store[data-empty='false']) { gap: 0; margin-inline-end: -8px; }
+  .play-game .play-opp .play-store { min-width: 20px; height: 20px; margin-inline-start: 2px; }
+}
 /* A hand row under 260 px (a landscape phone) gives each card its whole width: the power shows its coin, and the cards
    do not fan or overlap. Under 240 px the names take 12 px tight letters, so "Salvation" fits. */
 @container (max-width: 259px) {
@@ -492,6 +499,8 @@
 @container (max-width: 239px) { .play-game[data-hand='hand'] .play-own .play-card { font-size: 12px; letter-spacing: -.03em; } }
 /* On a phone the fanned cards do not overlap, so the next card cannot cover a long name such as "Salvation". Under 360 px the hand also takes the side padding and 8 px of the power column ("Always on" needs 47 px). */
 @media (max-width: 400px) { .play-game[data-hand='hand'] .play-own .play-card { margin-inline: 0; } }
+/* The same on a landscape phone with a hand row from 260 to 300 px (736x414). */
+@container (max-width: 300px) { .play-game[data-hand='hand'] .play-own .play-card { margin-inline: 0; } }
 @media (max-width: 359px) { .play-game .play-own .play-power { flex-basis: 50px; } .play-hand { padding-inline: 0; } }
 
 .play-wordmark { display: none; }
