@@ -389,7 +389,7 @@ function receiveOnline(state: PeopleState) {
   game = state.game; draft = state.draft ?? new DraftTurn(game); player = state.view.seat;
   thinking = !state.draft || state.phase === 'sending' || state.phase === 'checking';
   const wasEnded = ended; ended = state.phase === 'over'; liveGame = false;
-  if (ended && !wasEnded && gameDialog?.classList.contains('game-menu-dialog')) closeGameDialog(); // its Offer draw and Resign are stale, and it covers the result
+  if (ended && !wasEnded) closeStaleDialogs();
   if ((changed || ended) && document.querySelector('[data-help-sheet="promotion"]')) gameHelp?.close();
   if (changed) {
     shownRevision = state.view.revision; selected = inspected = null; shown = null; clearChoice(); skipBoard();
@@ -1217,7 +1217,7 @@ function riseNarrator() {
   tween(180, t => { text.style.transform = `translateY(${8 * (1 - t)}px)`; text.style.opacity = String(t); }, { curve: ease.EASE });
 }
 function showResult() {
-  gameHelp?.close();
+  gameHelp?.close(); closeStaleDialogs();
   ended = true; thinking = false; liveGame = false; stopGameTime();
   const status: Status = game.status;
   const won = game.pos.turn === cpu();
@@ -1994,6 +1994,12 @@ function shutGameDialog(history: boolean) {
   if (history) void shell.closeLayer();
 }
 function closeGameDialog() { shutGameDialog(true); }
+/** At a game end, Menu (Offer draw, Resign) and the Resign confirm are stale and cover the result. The Guide and History stay. */
+function closeStaleDialogs() {
+  if (gameDialog?.classList.contains('game-menu-dialog')) closeGameDialog();
+  // The cancel event takes the path of Escape: the confirm gives back its history layer.
+  if (resignDialog?.element.open) { resignDialog.element.dispatchEvent(new Event('cancel')); resignDialog.element.close(); }
+}
 function closeMenu(next?: () => void) {
   const route = shell.route, current = screen;
   closeGameDialog();
