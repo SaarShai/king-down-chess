@@ -14,3 +14,7 @@ Test the review rule at the changed-path gate. Test layout faults through the sc
 - At 320x568 and 360x640 at 150%, text on Salvation extends into Mirror.
 
 Chromium and WebKit find these faults in the same cases. The lead decides which faults to repair.
+
+## PR 411 review
+
+The overlap check uses the full scroll area when a switch and the other item share a scroll box. The Cards label seed in New game at 320x568 now reports both switch overlap faults at 100% and 150%.

@@ -106,26 +106,30 @@ function layoutFaults(roles) {
   const short = label => label.trim().split('\n', 1)[0].slice(0, 40).trimEnd();
   const overlaps = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
     Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1;
-  // A local scroll box can show its contents. Measure only what it shows at the current scroll position.
-  const visibleBox = (box, node) => {
+  // Two items in the same scroll box can scroll into view together.
+  const visibleBox = (box, node, scrollWith) => {
     let { left, right, top, bottom } = box;
     for (; node && node !== document.body; node = node.parentElement) {
       const style = getComputedStyle(node);
       if (style.overflowX === 'visible' && style.overflowY === 'visible') continue;
       const edge = node.getBoundingClientRect();
-      if (style.overflowX !== 'visible') { left = Math.max(left, edge.left); right = Math.min(right, edge.right); }
-      if (style.overflowY !== 'visible') { top = Math.max(top, edge.top); bottom = Math.min(bottom, edge.bottom); }
+      const shared = scrollWith && node.contains(scrollWith);
+      if (style.overflowX !== 'visible' && !(shared && /^(auto|scroll)$/.test(style.overflowX))) { left = Math.max(left, edge.left); right = Math.min(right, edge.right); }
+      if (style.overflowY !== 'visible' && !(shared && /^(auto|scroll)$/.test(style.overflowY))) { top = Math.max(top, edge.top); bottom = Math.min(bottom, edge.bottom); }
     }
     return right - left > 1 && bottom - top > 1 ? { left, right, top, bottom } : null;
   };
+  const clip = (boxes, edge, scrollWith) => boxes.map(box => visibleBox(box, edge, scrollWith)).filter(Boolean);
   const groups = new Map(), switches = [];
-  const add = (host, label, boxes, node = host) => {
-    if (boxes.some(box => box.left < -1)) out.push(`${label} crosses the left viewport edge`);
-    if (boxes.some(box => box.right > width + 1)) out.push(`${label} crosses the right viewport edge`);
+  const add = (host, label, boxes, node = host, isSwitch = false) => {
+    const edge = node === host ? host.parentElement : host;
+    const visible = clip(boxes, edge);
+    if (visible.some(box => box.left < -1)) out.push(`${label} crosses the left viewport edge`);
+    if (visible.some(box => box.right > width + 1)) out.push(`${label} crosses the right viewport edge`);
     const group = modal ?? host.closest(bars);
     if (!group || !boxes.length || host.closest('.kd-switch-indicator')) return;
     if (!groups.has(group)) groups.set(group, []);
-    groups.get(group).push({ node, label, boxes });
+    groups.get(group).push({ node, label, boxes, edge, visible, isSwitch });
   };
   const selector = ['button', 'a[href]', 'input:not([type="hidden"])', 'select', 'textarea', ...roles.map(role => `[role="${role}"]`)].join(', ');
   for (const control of document.querySelectorAll(selector)) {
@@ -133,12 +137,12 @@ function layoutFaults(roles) {
     const label = short(control.getAttribute('aria-label') ??
       document.getElementById(control.getAttribute('aria-labelledby'))?.textContent ??
       control.innerText ?? '');
-    const box = visibleBox(control.getBoundingClientRect(), control.parentElement);
-    if (box) add(control, `control "${label}"`, [box]);
     const mark = control.querySelector('.kd-switch-indicator');
+    add(control, `control "${label}"`, [control.getBoundingClientRect()], control, !!mark);
     if (mark) {
-      const track = visibleBox(mark.getBoundingClientRect(), mark.parentElement);
-      if (track) switches.push({ control, mark, track, label });
+      const tile = control.parentElement;
+      const track = visibleBox(mark.getBoundingClientRect(), mark.parentElement, tile);
+      if (track) switches.push({ tile, mark, track, label });
     }
   }
   const walk = document.createTreeWalker(modal ?? document.body, NodeFilter.SHOW_TEXT);
@@ -146,13 +150,13 @@ function layoutFaults(roles) {
     const host = leaf.parentElement, words = leaf.textContent.trim();
     if (!words || !shown(host)) continue;
     range.selectNodeContents(leaf);
-    const boxes = [...range.getClientRects()].map(rect => visibleBox({
+    const boxes = [...range.getClientRects()].map(rect => ({
       left: rect.left, right: rect.right, top: rect.top + rect.height / 4, bottom: rect.bottom - rect.height / 4,
-    }, host)).filter(Boolean);
+    }));
     const label = `text "${short(words)}"`;
     add(host, label, boxes, leaf);
-    for (const { control, mark, track, label: name } of switches) {
-      if (control.parentElement.contains(host) && !mark.contains(host) && boxes.some(box => overlaps(box, track))) {
+    for (const { tile, mark, track, label: name } of switches) {
+      if (tile.contains(host) && !mark.contains(host) && clip(boxes, host, tile).some(box => overlaps(box, track))) {
         out.push(`${label} goes over switch "${name}"`);
       }
     }
@@ -161,7 +165,10 @@ function layoutFaults(roles) {
     for (let i = 0; i < group.length; i++) for (let j = i + 1; j < group.length; j++) {
       const a = group[i], b = group[j];
       if (a.node.contains(b.node) || b.node.contains(a.node)) continue;
-      if (a.boxes.some(box => b.boxes.some(other => overlaps(box, other)))) out.push(`${a.label} overlaps ${b.label}`);
+      const switchPair = a.isSwitch || b.isSwitch;
+      const aBoxes = switchPair ? clip(a.boxes, a.edge, b.node) : a.visible;
+      const bBoxes = switchPair ? clip(b.boxes, b.edge, a.node) : b.visible;
+      if (aBoxes.some(box => bBoxes.some(other => overlaps(box, other)))) out.push(`${a.label} overlaps ${b.label}`);
     }
   }
   return out;
