@@ -319,14 +319,14 @@ function accountSignIn(source: HTMLButtonElement, returnToSettings = false) {
       updateAccount();
     };
     const load = async () => {
-      sheet.show({ title: 'Sign in', body: [el('p', '', signInText.loading)] });
+      sheet.show({ title: text.signIn, body: [el('p', '', signInText.loading)] });
       try {
         const host = await loadPeople();
         if (!sheet.isOpen) return;
         if (host.signedIn) done();
         else signInSheet(sheet, { ...host.host, start: host.startAccountSignIn }, { kind: 'account' }, done);
       } catch {
-        if (sheet.isOpen) sheet.show({ title: 'Sign in', body: [el('p', '', peopleLoadError), button('Try again', { onPress: () => { void load(); } })] });
+        if (sheet.isOpen) sheet.show({ title: text.signIn, body: [el('p', '', peopleLoadError), button('Try again', { onPress: () => { void load(); } })] });
       }
     };
     void load();
@@ -1959,7 +1959,7 @@ function buildAccountSection() {
       button('Delete account', { kind: 'danger', onPress: () => fromSettings(source => openPeopleLayer(onClose => deleteAccount(source, host.deletion, onClose))) }));
   } else if (peopleStatus === 'checking') section.append(el('p', '', 'Checking sign-in…'));
   else {
-    const signIn = button('Sign in', { onPress: () => fromSettings(source => accountSignIn(source, true)) });
+    const signIn = button(text.signIn, { onPress: () => fromSettings(source => accountSignIn(source, true)) });
     signIn.setAttribute('aria-haspopup', 'dialog');
     const note = peopleStatus === 'failed' ? peopleLoadError : accountNote;
     if (note) section.append(el('p', 'account-note', note));
@@ -2043,7 +2043,7 @@ function openResign() {
 function openGameGuide() {
   if (document.querySelector('dialog[open]')) return;
   const dialog = el('dialog', 'kd-dialog guide-dialog');
-  dialog.setAttribute('aria-label', 'Guide');
+  dialog.setAttribute('aria-label', text.guide);
   let guideSection: string | undefined, guideEntry: string | undefined;
   function show(section?: string, entry?: string) {
     guideSection = section; guideEntry = entry;
@@ -2105,7 +2105,7 @@ function renderPlace(route: Route) {
   document.body.dataset.page = route.place;
   if (route.place === 'guide') root.replaceChildren(guidePage(route.section, route.entry,
     (section, entry) => shell.go({ place: 'guide', ...(section && { section }), ...(entry && { entry }) }),
-    announce, { backLabel: 'Home', onBack: closeHomeGuide }));
+    announce, { onBack: closeHomeGuide }));
 }
 const shell = mountShell(root, renderPlace);
 // Home does not wait for the symbol files (launch decision 45): the small board and the Symbols view take them when they come.

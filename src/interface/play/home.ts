@@ -79,15 +79,15 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
   picture.append(wide, img); hero.append(picture, brand);
   const topbar = el('nav', 'home-topbar'), end = el('div', 'home-topbar-end');
   topbar.setAttribute('aria-label', 'Utilities');
-  const guideBtn = button('Guide', { icon: 'learn', onPress: () => d.onGuide(guideBtn) });
+  const guideBtn = button(text.guide, { icon: 'learn', onPress: () => d.onGuide(guideBtn) });
   guideBtn.classList.add('home-top-btn', 'home-guide-btn');
-  const signIn: HTMLButtonElement = button('Sign in', { kind: 'quiet', onPress: () => d.onSignIn(signIn) });
+  const signIn: HTMLButtonElement = button(text.signIn, { kind: 'quiet', onPress: () => d.onSignIn(signIn) });
   signIn.classList.add('home-top-btn', 'home-sign-in');
   signIn.setAttribute('aria-haspopup', 'dialog');
   signIn.hidden = !d.showSignIn;
-  const settingsBtn = button('Account & settings', { onPress: () => d.onSettings(settingsBtn) });
+  const settingsBtn = button(text.settings, { onPress: () => d.onSettings(settingsBtn) });
   settingsBtn.classList.add('home-top-btn', 'home-settings-btn');
-  settingsBtn.setAttribute('aria-label', 'Account and settings');
+  settingsBtn.setAttribute('aria-label', text.settingsLabel);
   settingsBtn.setAttribute('aria-haspopup', 'dialog');
   const sliders = icon('more');
   sliders.removeAttribute('data-icon');
@@ -140,7 +140,7 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
   const card = el('article', 'home-card');
   const newGame = button(hasGame ? text.newGame : text.play, { kind: hasGame ? 'quiet' : 'main', onPress: () => hasGame ? d.onChange(newGame) : d.onPlay(newGame) });
   newGame.classList.add(hasGame ? 'home-side-new' : 'home-hero-new');
-  const friendBtn = button('Play a friend', { kind: 'quiet', icon: 'next', onPress: () => d.onFriend(friendBtn) });
+  const friendBtn = button(text.friend, { kind: 'quiet', icon: 'next', onPress: () => d.onFriend(friendBtn) });
   friendBtn.classList.add('home-friend-btn');
   friendBtn.setAttribute('aria-haspopup', 'dialog');
   let main = newGame;

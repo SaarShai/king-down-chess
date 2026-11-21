@@ -15,7 +15,7 @@ it('uses the same five settings in Account & settings and the game Menu', () => 
   expect(gameMenu).toBeTypeOf('function');
   const menus = source('play/menus.ts');
   expect(menus.match(/append\(\.\.\.controls\(s\)\)/g)).toHaveLength(2);
-  expect(menus).toContain("button('Guide', { icon: 'learn', onPress: o.onGuide })");
+  expect(menus).toContain("button(text.guide, { icon: 'learn', onPress: o.onGuide })");
   expect(menus).toContain('if (o.onHistory) exits.append(button(text.history, { onPress: o.onHistory }))');
   expect(menus).not.toContain('handView');
 });
@@ -34,7 +34,7 @@ it('owner playtest: true level lines and "Your side"', () => {
   });
   expect(Object.values(homeText.levels).join(' ')).not.toMatch(/mistakes often/);
   expect(homeText.side).toBe('Your side');
-  expect(source('play/home.ts')).toContain("button('Play a friend'");
+  expect(source('play/home.ts')).toContain('button(text.friend');
   expect(source('play/home.ts')).toContain('secondary.append(newGame, friendBtn)');
   expect(summaryLine({ level: 'clever', setup: 'both', sideChoice: 'random' })).toBe('Focused · With powers and cards · Light');
 });
