@@ -734,7 +734,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   // A pointer that leaves the board leaves no candidate sentence (check "play" fault 4).
   grid.addEventListener('pointerleave', event => { if (event.pointerType !== 'touch' && markFocus !== undefined) { markFocus = undefined; drawMarks(); } });
   choiceBox = el('div', 'play-choices'); boardBox.append(host, grid);
-  gameHelp = createGameHelp({ board: boardBox, player, effects: {
+  gameHelp = createGameHelp({ board: boardBox, player, finish: onlineActive ? text.send : text.finish, effects: {
     onSheetOpen: sheet => sheetMotion(sheet, true, () => gameHelp?.close()),
     onSheetClose: (sheet, bounds) => sheetMotion(sheet, false, undefined, bounds),
   } }); // the choice box shows in the reading area
