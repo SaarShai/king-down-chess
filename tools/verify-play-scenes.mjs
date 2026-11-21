@@ -252,8 +252,13 @@ function foldFaults(full) {
       const label = `control "${control.innerText.trim().split('\n', 1)[0]}"`, edge = control.getBoundingClientRect();
       items.push({ node: control, label, boxes: [edge] });
       // A label that wraps in a short control runs out of its box.
-      range.selectNodeContents(control);
-      if ([...range.getClientRects()].some(r => r.height >= 2 && (r.top + r.height / 4 < edge.top - 1 || r.bottom - r.height / 4 > edge.bottom + 1))) out.push(`${label} has a label that runs out of its box`);
+      const words = document.createTreeWalker(control, NodeFilter.SHOW_TEXT), lines = [];
+      for (let text; (text = words.nextNode());) {
+        if (!text.textContent.trim() || text.parentElement.closest('.kd-sr, [aria-hidden="true"]') || !text.parentElement.checkVisibility({ visibilityProperty: true, opacityProperty: true })) continue;
+        if (text.parentElement.getBoundingClientRect().width <= 2) continue; // a label for screen readers only
+        range.selectNodeContents(text); lines.push(...range.getClientRects());
+      }
+      if (lines.some(r => r.height >= 2 && (r.top + r.height / 4 < edge.top - 1 || r.bottom - r.height / 4 > edge.bottom + 1))) out.push(`${label} has a label that runs out of its box`);
     }
     const walk = document.createTreeWalker(reader, NodeFilter.SHOW_TEXT);
     for (let text; (text = walk.nextNode());) {
