@@ -49,7 +49,8 @@ const lines = (page, selector) => page.locator(selector).evaluateAll(nodes => no
   } }
   return [...rows.values()].map(line => line.trim().length);
 }));
-const unbroken = (page, selector) => page.locator(selector).evaluateAll(nodes => nodes.every(node => {
+// An empty set fails: a stale selector must not pass.
+const unbroken = (page, target) => (typeof target === 'string' ? page.locator(target) : target).evaluateAll(nodes => nodes.length > 0 && nodes.every(node => {
   const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) { const text = walker.currentNode; for (const match of text.textContent.matchAll(/\S+/g)) {
     const range = document.createRange(); range.setStart(text, match.index); range.setEnd(text, match.index + match[0].length);
@@ -163,7 +164,7 @@ const cases = {
     await page.getByRole('button', { name: panelText.more, exact: true }).click();
     const sides = page.getByRole('radiogroup', { name: homeText.side, exact: true });
     await sides.scrollIntoViewIfNeeded();
-    check(await unbroken(page, '[aria-label="Your side"] [role="radio"]'), 'side labels keep each word on one line');
+    check(await unbroken(page, sides.getByRole('radio')), 'side labels keep each word on one line');
     await shot(page, 'panel');
     await sides.getByRole('radio', { name: sideText.dark, exact: true }).click();
     await page.getByRole('button', { name: text.close, exact: true }).click();
@@ -275,6 +276,16 @@ const cases = {
     check(await page.locator('[role="switch"]').evaluateAll(nodes => nodes.every(n => !n.hasAttribute('aria-describedby') && n.querySelectorAll('.kd-switch-copy > span').length === 0)), 'an empty switch description creates no empty note');
     const sound = page.getByRole('switch', { name: text.sound, exact: true }); await sound.click();
     check(await sound.getAttribute('aria-checked') === 'true' && await sound.locator('.kd-switch-state').innerText() === text.on, 'the switch state word follows its value');
+    // Decision 35: a touch screen gets no hover style. One known rule is open (the help tip in help.css).
+    const loose = await page.evaluate(() => {
+      const found = [], scan = (rules, hover = false) => { for (const rule of rules) {
+        if (rule.selectorText?.includes(':hover') && !hover) found.push(rule.selectorText);
+        if (rule.cssRules) scan(rule.cssRules, hover || !!rule.conditionText?.includes('(hover: hover)'));
+      } };
+      for (const sheet of document.styleSheets) scan(sheet.cssRules);
+      return found;
+    });
+    check(loose.every(rule => rule === '.daylight-help-info:is(:hover, :focus-visible)::before'), `hover rules require a hover pointer: ${loose.join(' | ')}`);
     await shot(page, 'you');
   },
   async guide(page, context, check, size) {
