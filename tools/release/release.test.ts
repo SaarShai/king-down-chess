@@ -47,6 +47,101 @@ it('plans the browser checks in the worktrees at the PR head and merge commit', 
   expect(plans[0].output).toContain('release-site release-history');
 });
 
+it('plans the frame-time checks during PR CI in the live worktree at the PR head', () => {
+  for (const args of [[], ['--tweak']]) {
+    const plan = release(args);
+    const ci = plan.output.split('release: ci start\n')[1]?.split('release: ci pass\n')[0] ?? '';
+    expect(plan.code, plan.output).toBe(0);
+    expect(ci).toContain('in parallel');
+    expect(ci).toContain('ci-wait.sh');
+    expect(ci).toContain('node tools/check.mjs --gpu');
+    expect(ci.replaceAll('\\', '')).toContain(`cwd=${join(folder, 'build worktree')} git checkout --detach ${head}`);
+    expect(ci).toContain('frame-checks.pass');
+    expect(ci).toMatch(/release: time frame-checks \d+s/);
+  }
+});
+
+it('stops before merge when the frame-time checks fail', () => {
+  for (const args of [[], ['--tweak']]) {
+    const stopped = release(args, 'frame-checks');
+    expect(stopped.started).toEqual(['ci']);
+    expect([stopped.code, stopped.done]).toEqual([1, '1']);
+    expect(stopped.output).toContain('release: ci failed');
+  }
+});
+
+it.each([
+  ['pass', '1505'],
+  ['frame-time fails', '1506'],
+  ['PR CI fails', '1507'],
+  ['fork', '1508'],
+])('records the PR tree only when both CI jobs pass (%s)', (outcome, number) => {
+  const repo = tempRepo({ hooks: false });
+  try {
+    repo.write('.gitignore', 'node_modules/\n');
+    repo.git('add', '.');
+    repo.git('commit', '-qm', 'base');
+    const base = repo.git('rev-parse', 'HEAD').stdout.trim();
+    repo.write('catalog.txt', 'PR change\n');
+    repo.git('add', '.');
+    repo.git('commit', '-qm', 'PR');
+    const commit = repo.git('rev-parse', 'HEAD').stdout.trim();
+    const tree = repo.git('rev-parse', 'HEAD^{tree}').stdout.trim();
+    repo.git('push', '-q', 'origin', `HEAD:refs/pull/${number}/head`);
+    repo.git('checkout', '-q', '--detach', base);
+    const result = run('bash', ['-c', `
+source "$0" --dry-run --from log --force "$2" "$1" >/dev/null
+dry=no
+stage=ci
+mkdir -p "$run/live"
+printf 'old pass\n' > "$frame_record"
+gh() { printf '%s\n' "$PR_JSON" | jq -r "\${!#}"; }
+bash() {
+  [[ "$1" == */ci-wait.sh && "$2" == "$head" && "$4" == --pr-head ]] || return 80
+  touch "$run/ci-started"
+  for ((i = 0; i < 100; i++)); do
+    if [ -f "$run/gpu-started" ]; then [ "$OUTCOME" != "PR CI fails" ]; return; fi
+    sleep .02
+  done
+  return 81
+}
+npm() { [ "$1" = ci ] && mkdir -p node_modules; }
+node() {
+  [ "$*" = 'tools/check.mjs --gpu' ] && [ -d node_modules ] &&
+    [ "$(git rev-parse HEAD)" = "$head" ] && [ "$KINGDOWN_SOLO_LAUNCH" = 1 ] || return 82
+  for ((i = 0; i < 100; i++)); do
+    if [ -f "$run/ci-started" ]; then
+      touch "$run/gpu-started"
+      [ "$OUTCOME" != "frame-time fails" ] || return 83
+      printf 'ok   king-effects     1.0 s\nok   painted-game     1.0 s\n'
+      return
+    fi
+    sleep .02
+  done
+  return 84
+}
+run_stage ci
+cat "$frame_record"
+`, 'tools/release/release.sh', commit, number], {
+      KINGDOWN_RELEASE_WORKTREE: repo.dir,
+      OUTCOME: outcome,
+      PR_JSON: JSON.stringify({ state: 'OPEN', baseRefName: 'main', headRefOid: commit, isCrossRepository: outcome === 'fork' }),
+    });
+    const output = result.stdout + result.stderr;
+    const evidence = join(folder, `release-dry-${number}-${commit}`);
+    expect(result.status, output).toBe(outcome === 'pass' ? 0 : outcome === 'frame-time fails' ? 83 : 1);
+    expect(existsSync(join(evidence, 'gpu-started'))).toBe(outcome !== 'fork');
+    if (outcome === 'pass') {
+      expect(output).toMatch(new RegExp(`^pass ${tree} \\d{4}-\\d{2}-\\d{2}T[0-9:]+Z king-effects painted-game$`, 'm'));
+    } else {
+      expect(existsSync(join(evidence, 'live/frame-checks.pass'))).toBe(false);
+    }
+    rmSync(evidence, { recursive: true, force: true });
+  } finally {
+    repo.cleanup();
+  }
+});
+
 it('plans both preview site checks from the build worktree', () => {
   const result = run('python3', ['tools/release/staging.py', '--preview', '--dry-run', head]);
   const checks = result.stdout.split('\n').filter(line => line.includes('check:browser release-site'));
@@ -60,8 +155,9 @@ it('refuses a stale check worktree and uses its own packages at the expected com
     const shared = join(folder, 'shared packages');
     mkdirSync(shared);
     writeFileSync(join(shared, 'sentinel'), 'shared');
+    repo.write('.gitignore', 'node_modules\n');
     repo.write('catalog.txt', 'text from the expected commit');
-    repo.git('add', 'catalog.txt');
+    repo.git('add', '.');
     repo.git('commit', '-qm', 'catalog');
     const commit = repo.git('rev-parse', 'HEAD').stdout.trim();
     symlinkSync(shared, join(repo.dir, 'node_modules'), 'dir');
@@ -77,10 +173,14 @@ npm() {
   esac
 }
 if checks "$2" "$1" http://127.0.0.1 release-site; then exit 3; fi
+printf 'local edit\n' >> "$2/catalog.txt"
+if checks "$2" "$3" http://127.0.0.1 release-site; then exit 4; fi
+git -C "$2" restore catalog.txt
 checks "$2" "$3" http://127.0.0.1 release-site
 `, 'tools/release/release.sh', head, repo.dir, commit]);
     expect(result.status, result.stdout + result.stderr).toBe(0);
     expect(result.stderr).toContain(`is at ${commit}. Set the worktree to ${head}`);
+    expect(result.stderr).toContain('worktree has changes');
     expect(result.stdout.match(/^ci at .+$/gm)).toEqual([`ci at ${repo.dir}`]);
     expect(result.stdout).toContain(`run check:browser release-site at ${repo.dir}`);
     expect(result.stdout).toContain('text from the expected commit');
