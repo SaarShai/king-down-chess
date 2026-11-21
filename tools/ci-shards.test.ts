@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { globSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { checkShards, filePattern } from './ci-shards.mjs';
+import { localPlan, pathPlan, riskyPaths } from './lib/ci-paths.mjs';
 import { checks } from './lib/registry.mjs';
 
 const stable = (list: string[]) => list.sort();
@@ -20,7 +21,7 @@ it('assigns every test file once and keeps the five extra WebKit test files', ()
   ])));
   expect(stable(files('webkit'))).toEqual(stable(webkitFiles));
   // Reuse and record-tree are in series with the matrix and verify.
-  expect(shards.length + 2).toBeLessThanOrEqual(20);
+  expect(shards.length + 2).toBeLessThanOrEqual(18);
   const chromiumBoardJobs = shards.filter(job => job.browser === 'chromium' &&
     job.tests.some(file => /^tools\/plugin-board(?:-input|-drafts)?\.test\.ts$/.test(file)));
   expect(chromiumBoardJobs).toHaveLength(2);
@@ -34,14 +35,22 @@ it('places each baseline browser check once per browser with both fixture parts'
     'ux-defects', 'verb-marks', 'visual-design',
   ]));
   chromium.push('plugin-oauth', 'plugin-ui:opening', 'plugin-ui:board', 'plugin-ui-http', 'web-online', 'signin-speed', 'web-game',
-    'play-scenes', 'release-site', 'release-history');
-  const webkit = ['plugin-ui:opening', 'plugin-ui:board', 'web-online', 'signin-speed', 'release-site', 'release-history'];
+    'daylight-tabs', 'play-scenes', 'release-site', 'release-history');
+  const webkit = ['plugin-ui:opening', 'plugin-ui:board', 'web-online', 'signin-speed', 'daylight-tabs', 'release-site', 'release-history'];
   const jobs = checkShards();
   for (const [browser, expected] of [['chromium', chromium], ['webkit', webkit]] as const) {
-    const actual = jobs.filter(job => job.browsers.includes(browser)).flatMap(job =>
-      job.checks.map(name => job.part && name === 'plugin-ui' ? `${name}:${job.part}` : name));
+    const actual = jobs.flatMap(job => job.checks.flatMap(name => {
+      const engines = checks.find(check => check.name === name)?.ciBrowsers ?? [job.browser];
+      return engines.includes(browser) ? [job.part && name === 'plugin-ui' ? `${name}:${job.part}` : name] : [];
+    }));
     expect(stable(actual)).toEqual(stable(expected));
   }
+});
+
+it('installs both engines in the daylight tabs journey shard', () => {
+  expect(checkShards().filter(job => job.checks.includes('daylight-tabs'))).toMatchObject([
+    { name: expect.stringMatching(/^browser-default /), browsers: ['chromium', 'webkit'] },
+  ]);
 });
 
 it('assigns a new default and a new WebKit check without a workflow edit', () => {
@@ -58,15 +67,15 @@ it('assigns a new default and a new WebKit check without a workflow edit', () =>
   ]);
 });
 
-it('assigns one job to each named check and enables test pages only for scenes', () => {
+it('shares a runner for both release checks and enables test pages only for the app browser step', () => {
   const jobs = checkShards();
   const newChecks = ['play-scenes', 'release-site', 'release-history'];
   expect(jobs.filter(job => job.checks.some(name => newChecks.includes(name)))).toMatchObject([
-    { name: 'play-scenes', checks: ['play-scenes'], tests: [], browsers: ['chromium'], testPages: true },
-    { name: 'release-site', checks: ['release-site'], tests: [], browsers: ['chromium', 'webkit'], testPages: false },
-    { name: 'release-history', checks: ['release-history'], tests: [], browsers: ['chromium', 'webkit'], testPages: false },
+    { name: 'test (app)', checks: ['play-scenes'], tests: ['tools/plugin-app.test.ts'], browsers: ['chromium'], testPages: true },
+    { name: 'browser-webkit-board (drafts)', checks: ['release-site', 'release-history'],
+      tests: ['tools/plugin-board-drafts.test.ts'], browsers: ['chromium', 'webkit'], testPages: false },
   ]);
-  expect(jobs.filter(job => job.testPages).map(job => job.name)).toEqual(['play-scenes']);
+  expect(jobs.filter(job => job.testPages).map(job => job.name)).toEqual(['test (app)']);
 });
 
 it('keeps both compiled HTTP widget parts on one Chromium runner', () => {
@@ -79,6 +88,19 @@ it('uses the verify runner for the Chromium board and drafts tests', () => {
   expect(checkShards().find(job => job.name === 'verify')).toMatchObject({
     browser: 'chromium', tests: ['tools/plugin-board.test.ts', 'tools/plugin-board-drafts.test.ts'],
   });
+});
+
+it('uses only native and shell tests for an iOS-only change with a green base', () => {
+  const path = 'ios/App/App.xcodeproj/project.pbxproj';
+  const changes = [{ path }];
+  const plan = pathPlan(changes, true);
+  const tests = ['tools/ios-app.test.ts', 'ios/store.test.ts'];
+  expect(plan).toEqual({ mode: 'docs', tests, verifyRunner: 'macos-latest' });
+  expect(localPlan(changes)).toEqual(plan);
+  expect(checkShards({ selection: { checks: [], tests: [], ...plan } })).toMatchObject([{ name: 'verify', tests, checks: [] }]);
+  expect(riskyPaths([path])).toEqual([path]);
+  expect(pathPlan(changes, false)).toEqual({ mode: 'full' });
+  expect(pathPlan([...changes, { path: 'src/platform.ts' }], true)).toEqual({ mode: 'full' });
 });
 
 it('lets a nested test run select a file outside the parent shard', () => {

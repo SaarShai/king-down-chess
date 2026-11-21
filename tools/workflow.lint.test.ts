@@ -20,6 +20,11 @@ describe('plugin-checks workflow', () => {
   it('checks types and docs on the short path and requires the plan results to record a tree', () => {
     const verify = job('verify');
     expect(verify).toContain("if: needs.reuse.outputs.reused == 'false'");
+    expect(job('reuse')).toContain('verify_runner: ${{ steps.plan.outputs.verify_runner }}');
+    expect(verify).toContain('runs-on: ${{ needs.reuse.outputs.verify_runner }}');
+    expect(verify).toContain("image: ${{ needs.reuse.outputs.mode == 'full' && 'postgres:17' || '' }}");
+    expect(verify).toContain("if: needs.reuse.outputs.mode == 'full' && needs.reuse.outputs.verify_tests != ''\n        uses: actions/cache@v4");
+    expect(verify).toContain("if: needs.reuse.outputs.mode == 'full' && needs.reuse.outputs.verify_tests != ''\n        run: |");
     expect(verify).toContain('npm run typecheck');
     expect(verify).toContain("if: needs.reuse.outputs.verify_tests != ''\n        run: npm test");
     expect(verify).toContain('KINGDOWN_TEST_FILE: ${{ needs.reuse.outputs.verify_tests }}');
@@ -44,12 +49,16 @@ describe('plugin-checks workflow', () => {
     const browser = '      - run: npm run check:browser -- --no-gpu';
     expect(shard).toContain(browser + '\n');
     expect(read('tools/deploy.sh')).toContain(`grep -qx '${browser}' .github/workflows/plugin-checks.yml`);
+    expect(shard).toContain('image: postgres:17');
     for (const name of ['verify', 'checks']) {
       expect(job(name)).toContain('node-version: 24');
-      expect(job(name)).toContain('image: postgres:17');
       expect(job(name)).toContain('PLUGIN_TEST_DATABASE_URL:');
       expect(job(name)).toContain('npm run plugin:db:init-test');
     }
+  });
+
+  it('sets up Node 24 before it records a green tree', () => {
+    expect(job('record-tree')).toContain('uses: actions/setup-node@v4\n        with:\n          node-version: 24\n      - id: tree');
   });
 
   it('keeps WebKit diagnostics and the Ubuntu install guard', () => {

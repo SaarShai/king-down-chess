@@ -28,6 +28,7 @@ jobs:
       mode: ${{ steps.plan.outputs.mode }}
       reused: ${{ steps.plan.outputs.reused }}
       matrix: ${{ steps.plan.outputs.matrix }}
+      verify_runner: ${{ steps.plan.outputs.verify_runner }}
       verify_tests: ${{ steps.plan.outputs.verify_tests }}
     steps:
       - uses: actions/checkout@v4
@@ -43,13 +44,13 @@ jobs:
         run: node tools/ci-plan.mjs workflow
 
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ${{ needs.reuse.outputs.verify_runner }}
     needs: reuse
     if: needs.reuse.outputs.reused == 'false'
     timeout-minutes: 30
     services:
       postgres:
-        image: postgres:17
+        image: ${{ needs.reuse.outputs.mode == 'full' && 'postgres:17' || '' }}
         env:
           POSTGRES_USER: kingdown_test
           POSTGRES_PASSWORD: local_test_only
@@ -86,12 +87,12 @@ jobs:
           test ! -e dist/play-scenes.html
           npm run check:vercel
 
-      - if: needs.reuse.outputs.verify_tests != ''
+      - if: needs.reuse.outputs.mode == 'full' && needs.reuse.outputs.verify_tests != ''
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ runner.arch }}-chromium-${{ hashFiles('package-lock.json') }}
-      - if: needs.reuse.outputs.verify_tests != ''
+      - if: needs.reuse.outputs.mode == 'full' && needs.reuse.outputs.verify_tests != ''
         run: |
           printf 'https://archive.ubuntu.com/ubuntu/\tpriority:2\nhttps://security.ubuntu.com/ubuntu/\tpriority:3\n' | sudo tee /etc/apt/apt-mirrors.txt
           echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
@@ -212,6 +213,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           sparse-checkout: tools
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - id: tree
         env:
           GH_TOKEN: ${{ github.token }}
