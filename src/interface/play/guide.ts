@@ -4,13 +4,12 @@ import { A, B, G, K, KINGS, L, M, N, O, P, Q, R, S, type PieceType } from '../..
 import { RELEASED_CARDS } from '../../content/cards';
 import { POWER_NAME, usesAllowed } from '../../powers-ui';
 import { rulesOf } from './saved';
-import { cardLine, pieces, powerLines, text } from './texts';
+import { cardLine, guideTabLabels as tabLabels, pieces, powerLines, text } from './texts';
 import { learningPanel } from './learning-panel';
 import { effectRule, guideFollowUp, newPieces, type LearnSubject } from './learning';
 import { button, icon } from '../ui/kit.js';
 
 export const guideSections = ['Pieces', 'Kings and powers', 'Cards', 'How a turn works'] as const;
-const tabLabels = ['Pieces', 'Kings', 'Cards', 'Rules'] as const;
 export interface GuideEntry { id: string; name: string; short: string; full: string; art?: string; kind: string; subject?: LearnSubject }
 const context = new GameRules(rulesOf('powers', [null, null], [[], []]));
 export function guideEntries(section: string): GuideEntry[] {
@@ -72,7 +71,7 @@ let guideId = 0;
 const node = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = '') => { const n = document.createElement(tag); n.className = className; n.textContent = text; return n; };
 const picture = (src: string, className = '') => { const img = node('img', className); img.src = src; img.alt = ''; img.loading = 'lazy'; return img; };
 /** A back link that names its target. */
-const backLink = (target: string, onPress: () => void) => { const link = button(target, { icon: 'back', onPress }); link.className = 'guide-back'; link.setAttribute('aria-label', `Back to ${target}`); return link; };
+const backLink = (target: string, onPress: () => void) => { const link = button(target, { icon: 'back', onPress }); link.className = 'guide-back'; link.setAttribute('aria-label', text.backTo(target)); return link; };
 function entryRow(item: GuideEntry, open: () => void): HTMLButtonElement {
   const row = node('button', 'list-row guide-row'); row.type = 'button'; row.dataset.entry = item.id; row.addEventListener('click', open);
   const copy = node('span', 'list-row-copy'), name = node('strong', '', item.name);
@@ -140,9 +139,9 @@ export function guidePage(
   const page = node('section', 'shell-page guide-page');
   const activeSection = guideSections.find(sec => sec === section) ?? 'Pieces';
   const activeIndex = guideSections.indexOf(activeSection);
-  const head = node('header', 'guide-head'), top = node('div', 'guide-top'), title = node('h1', '', 'Guide');
+  const head = node('header', 'guide-head'), top = node('div', 'guide-top'), title = node('h1', '', text.guide);
   title.tabIndex = -1;
-  if (options.onBack) top.append(backLink(options.backLabel ?? 'Home', options.onBack));
+  if (options.onBack) top.append(backLink(options.backLabel ?? text.homeLabel, options.onBack));
   top.append(title);
 
   const tabs = node('div', 'guide-tabs'), panel = node('div', 'guide-panel');

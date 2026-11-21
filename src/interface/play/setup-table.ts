@@ -78,7 +78,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   };
   const friendFoot = el('div', 'setup-friend-foot'), status = el('p', 'panel-status');
   status.setAttribute('role', 'status');
-  const send = keyed(button('Send invite link', { kind: 'main', onPress: () => void person('link') }), 'invite-link');
+  const send = keyed(button(panelText.inviteLink, { kind: 'main', onPress: () => void person('link') }), 'invite-link');
   const byName = keyed(button(panelText.byName, { kind: 'quiet', onPress: () => void person('name') }), 'invite-name');
   friendFoot.append(status, send, byName);
 
@@ -164,7 +164,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     if (!powers) dealCards();
   }
   function feature(name: 'powers' | 'cards', on: boolean) {
-    const powers = name === 'powers', label = powers ? 'Powers' : 'Cards', box = el('section', 'setup-feature');
+    const powers = name === 'powers', label = powers ? 'Powers' : text.cards, box = el('section', 'setup-feature');
     const picture = el('span', powers ? 'setup-emblem' : 'setup-deck'); picture.setAttribute('aria-hidden', 'true');
     const king = shownKing(draft.setup, draft.options.king);
     if (powers) picture.append(emblem(king.king));
@@ -202,11 +202,11 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     level.hidden = start.hidden = friend;
     friendFoot.hidden = !friend;
     features.replaceChildren(feature('powers', hasPowers(draft.setup)), feature('cards', hasCards(draft.setup)));
-    links.replaceChildren(openControl('More options', 'more'));
+    links.replaceChildren(openControl(panelText.more, 'more'));
     if (focus) table.querySelector<HTMLElement>(`[data-focus="${CSS.escape(focus)}"]`)?.focus({ preventScroll: true });
   }
 
-  const choiceTitles = { king: panelText.yourKing, opponent: panelText.opponentKing, cards: 'Cards', more: 'More options', confirm: text.newTitle };
+  const choiceTitles = { king: panelText.yourKing, opponent: panelText.opponentKing, cards: text.cards, more: panelText.more, confirm: text.newTitle };
   function openChoice(next: Choice, source: HTMLElement) {
     const key = source.dataset.focus ?? '';
     if (next === 'confirm') showSetupChoice(next, key);

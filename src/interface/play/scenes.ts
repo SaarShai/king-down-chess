@@ -8,6 +8,7 @@
  * Add a scene: one entry in SCENES (records, steps, the selector that shows the state).
  */
 import { memoryStorage } from '../people/fake-server';
+import { panelText, text } from './texts';
 
 interface Scene { save?: object; online?: object; steps?: string[]; ready: string }
 // White to move; the opponent's queen mates on h4 (the "fool's mate").
@@ -17,11 +18,18 @@ const LOSS = { status: 'finished', result: { winner: 1, reason: 'checkmate' }, f
 const SCENES: Record<string, Scene> = {
   'online-loss': { online: LOSS, ready: '.play-result' },
   'online-loss-offer': { online: { ...LOSS, rematch_offer: 1 }, ready: '.play-result' },
-  'solo-result': { save: SOLO, steps: ['Continue', 'Menu', 'Resign', 'Resign'], ready: '.play-result' },
-  'menu': { save: SOLO, steps: ['Continue', 'Menu'], ready: 'dialog.game-menu-dialog[open]' },
-  'new-game': { save: SOLO, steps: ['New game'], ready: 'dialog.new-game-panel[open]' },
-  'setup-powers': { save: SOLO, steps: ['New game', 'Powers'], ready: '.setup-overlay:not([hidden])' },
-  'setup-cards': { save: SOLO, steps: ['New game', 'Cards'], ready: '.setup-overlay:not([hidden])' },
+  'solo-result': { save: SOLO, steps: [text.resume, text.menu, text.resign, text.resign], ready: '.play-result' },
+  'menu': { save: SOLO, steps: [text.resume, text.menu], ready: 'dialog.game-menu-dialog[open]' },
+  'new-game': { save: SOLO, steps: [text.newGame], ready: 'dialog.new-game-panel[open]' },
+  'setup-powers': { save: SOLO, steps: [text.newGame, 'Powers'], ready: '.setup-overlay:not([hidden])' },
+  'setup-cards': { save: SOLO, steps: [text.newGame, text.cards], ready: '.setup-overlay:not([hidden])' },
+  'home-signed-out': { ready: '.play-home[data-state="new"] .home-sign-in:not([hidden])' },
+  'home-saved': { save: SOLO, ready: '.play-home[data-state="saved"] .home-continue' },
+  'setup-more': { save: SOLO, steps: [text.newGame, panelText.more], ready: '.setup-overlay:not([hidden]) [data-choice="more"]' },
+  'setup-friend': { steps: [text.friend], ready: 'dialog.new-game-panel[open] .setup-friend-foot:not([hidden])' },
+  'guide-pieces': { steps: [text.guide], ready: '.guide-page[data-section="Pieces"] .guide-panel' },
+  'guide-cards': { steps: [text.guide, text.cards], ready: '.guide-page[data-section="Cards"] .guide-panel' },
+  'settings': { steps: [text.settingsLabel], ready: 'dialog.settings-sheet[open] .settings-account [aria-haspopup="dialog"]' },
 };
 
 const GAME = '00000000-0000-4000-8000-000000000001', ME = '00000000-0000-4000-8000-000000000002';
@@ -58,10 +66,11 @@ window.fetch = async (input, init) => {
 const shown = (node: Element) => node.checkVisibility() && !node.closest('[inert]');
 const frame = () => new Promise(done => requestAnimationFrame(done));
 async function find(test: () => Element | undefined) { for (;;) { const node = test(); if (node) return node; await frame(); } }
-/** Press the shown button with this name, as a player does. */
 // The state is on the screen when its moves end (a loop, such as an idle figure, never ends).
 const settled = async () => { for (let list; (list = document.getAnimations().filter(a => a.playState !== 'finished' && a.effect?.getTiming().iterations !== Infinity)).length;) await Promise.allSettled(list.map(a => a.finished)); };
-const press = async (label: string) => (await find(() => [...document.querySelectorAll('button')].find(b => shown(b) && (b.getAttribute('role') ?? 'button') === 'button' && (b.getAttribute('aria-label') ?? b.textContent?.trim()) === label)) as HTMLButtonElement).click();
+/** Press the shown button or tab with this name, as a player does. */
+const press = async (label: string) => (await find(() => [...document.querySelectorAll<HTMLButtonElement>('button:not([role]), button[role="button"], button[role="tab"]')]
+  .find(b => shown(b) && (b.getAttribute('aria-label') ?? b.textContent?.trim()) === label)) as HTMLButtonElement).click();
 
 if (!scene) {
   const list = document.createElement('ul');

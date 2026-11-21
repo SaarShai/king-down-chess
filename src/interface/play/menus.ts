@@ -58,7 +58,7 @@ export function dismissSheet(dialog: HTMLDialogElement, onClose: () => void) {
 
 export function settingsSheet(s: Settings, o: { account: HTMLElement; onClose(): void }): HTMLDialogElement {
   const dialog = el('dialog', 'kd-dialog sheet-dialog settings-sheet'), head = el('header', 'sheet-head');
-  const title = el('h2', '', 'Account & settings'); title.id = 'account-settings-title'; title.tabIndex = -1;
+  const title = el('h2', '', text.settings); title.id = 'account-settings-title'; title.tabIndex = -1;
   dialog.setAttribute('aria-labelledby', title.id);
   head.append(title, closeX('Close settings', o.onClose));
   const body = el('div', 'sheet-body'), group = el('div', 'settings-group'), about = el('footer', 'about-inline');
@@ -84,7 +84,7 @@ export function gameMenu(s: Settings, o: {
   const title = el('h3', '', text.menu); title.id = 'game-menu-title'; title.tabIndex = -1;
   head.append(title, closeX('Close menu', o.onClose));
   const body = el('div', 'sheet-body'), exits = el('div', 'menu-exit');
-  exits.append(button('Home', { onPress: o.onHome }), button('Guide', { icon: 'learn', onPress: o.onGuide }));
+  exits.append(button(text.homeLabel, { onPress: o.onHome }), button(text.guide, { icon: 'learn', onPress: o.onGuide }));
   if (o.onHistory) exits.append(button(text.history, { onPress: o.onHistory }));
   body.append(exits);
   if (o.saveLine) body.append(el('p', 'menu-note', o.saveLine));

@@ -4,6 +4,7 @@
  * and the server; the sheet changes no data itself. After sign-in the task goes on by itself (`done`).
  */
 import { button, setButtonState } from '../../ui/kit.js';
+import { text } from '../../play/texts';
 import { WAYS, recoveryText, signInText, type Way } from './copy';
 import { freeName, readyName, saveName, type ReadyName } from './names';
 import { emailProblem } from './problems';
@@ -45,7 +46,7 @@ export function rememberedEmail(storage: SignInHost['storage'], now = Date.now()
 const remember = (storage: SignInHost['storage'], address: string, at: number) => { try { storage?.setItem(EMAIL_STEP_KEY, JSON.stringify({ address, at })); } catch { /* storage blocked: the step lasts until a reload */ } };
 const forget = (storage: SignInHost['storage']) => { try { storage?.removeItem(EMAIL_STEP_KEY); } catch { /* storage blocked */ } };
 
-const titleOf = (purpose: Purpose) => purpose.kind === 'account' ? 'Sign in' : purpose.kind === 'person' ? signInText.person : purpose.kind === 'join' ? signInText.join(purpose.inviter) : signInText.again;
+const titleOf = (purpose: Purpose) => purpose.kind === 'account' ? text.signIn : purpose.kind === 'person' ? signInText.person : purpose.kind === 'join' ? signInText.join(purpose.inviter) : signInText.again;
 /** A third action: text on the sheet, 44 px high. */
 export function plain(label: string, onPress: () => void) { const control = button(label, { onPress }); control.classList.add('people-plain'); return control; }
 

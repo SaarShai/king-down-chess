@@ -1,6 +1,6 @@
 const docsPath = /^(?:TASKS\.md|LESSONS\.md|docs\/lessons\/[a-z-]+\.md|docs\/specs\/[a-z0-9-]+\/issues\/\d+-[a-z0-9-]+\.md)$/;
-// The text catalog and the scene check: a text tweak and its check case (rule 5) stay a lead read.
-const leadRead = /^(?:tools\/verify-play-scenes\.mjs|src\/interface\/play\/texts\.ts)$|^src\/(?:style\.css|interface\/play\/(?:help\/help|menus|reading-b|sides|shell|play)\.css|plugin\/screens\/(?:board|end|collection|seat|setup)\.css)$/;
+// A tweak and its test scene (rule 5) stay a lead read. Known fault marks need independent review.
+const leadRead = /^(?:tools\/verify-play-scenes\.mjs|src\/interface\/play\/(?:texts|scenes)\.ts)$|^src\/(?:style\.css|interface\/play\/(?:help\/help|menus|reading-b|sides|shell|play)\.css|plugin\/screens\/(?:board|end|collection|seat|setup)\.css)$/;
 
 const localChecks = [
   { match: /^src\/interface\/play\/help\/help\.css$/, tests: ['src/interface/play/help/**/*.test.ts', 'tools/focus-contrast.test.ts'],

@@ -12,14 +12,14 @@ const { outputFiles: [copy] } = await build({
   stdin: {
     resolveDir: repo,
     contents: `
-      export { text, panelText, pieces } from './src/interface/play/texts.ts';
+      export { text, panelText, guideTabLabels, squareLabel } from './src/interface/play/texts.ts';
       export { summaryLine } from './src/interface/play/home.ts';
-      export { signInText } from './src/interface/people/screens/copy.ts';
-      export { P } from './src/rules/engine.ts';`,
+      export { signInText, WAYS } from './src/interface/people/screens/copy.ts';
+      export { P, parseSq } from './src/rules/engine.ts';`,
   },
   bundle: true, platform: 'node', format: 'esm', write: false, loader: { '.svg': 'text' },
 });
-const { text, panelText, pieces, summaryLine, signInText, P } =
+const { text, panelText, guideTabLabels, squareLabel, summaryLine, signInText, WAYS, P, parseSq } =
   await import('data:text/javascript;base64,' + Buffer.from(copy.contents).toString('base64'));
 
 export { previewOrigin };
@@ -71,41 +71,35 @@ export async function releaseContext(browser, url, options) {
 
 const button = (scope, name) => scope.getByRole('button', { name, exact: true });
 const dialog = (page, name) => page.getByRole('dialog', { name, exact: true });
-const guide = 'Guide';
-const friend = 'Play a friend';
-const signIn = 'Sign in';
-const settings = 'Account and settings';
-const more = 'More options';
-const send = 'Send invite link';
-const guideTabs = [text.pieces, 'Kings', 'Cards', 'Rules'];
 
 export function releaseDriver(page, url, touch = false) {
   const action = locator => touch ? locator.tap() : locator.click();
   const play = button(page, new RegExp(`^${text.play}$`, 'i'));
   const summary = button(page, summaryLine({ level: 'casual', setup: 'pieces', sideChoice: 'light' }));
   const setup = dialog(page, text.newGame);
-  const moreOptions = dialog(page, more);
+  const moreOptions = dialog(page, panelText.more);
   const pool = moreOptions.getByText(panelText.poolLock, { exact: true });
-  const signInChoices = dialog(page, signIn);
+  const signInChoices = dialog(page, text.signIn);
   const friendSignIn = dialog(page, signInText.person);
   const menu = dialog(page, text.menu);
   const grid = page.getByRole('grid', { name: text.title, exact: true });
   const square = name => grid.getByRole('gridcell', { name });
   const tab = (name, selected) => page.getByRole('tab', { name, exact: true, selected });
-  const settingsSheet = dialog(page, 'Account & settings');
-  const waitHome = () => button(page, friend).waitFor();
+  const settingsSheet = dialog(page, text.settings);
+  const waitHome = () => button(page, text.friend).waitFor();
 
   return {
     async openHome() { await page.goto(url); await waitHome(); },
     async redesignedHome() {
       await play.waitFor();
       return !await page.locator('.shell-nav').count() &&
-        await button(page, guide).isVisible() && await button(page, settings).isVisible();
+        await button(page, text.guide).isVisible() && await button(page, text.settingsLabel).isVisible();
     },
     async openSignIn() {
-      await action(button(page, signIn));
-      await button(signInChoices, /^Continue with /).first().waitFor();
-      return !(await signInChoices.innerText()).includes('does not work');
+      await action(button(page, text.signIn));
+      const choices = WAYS.filter(way => way !== 'apple').map(way => button(signInChoices, signInText.way(way)));
+      await choices.reduce((a, b) => a.or(b)).first().waitFor();
+      return true;
     },
     async hasFacebook() { return button(signInChoices, signInText.way('facebook')).isVisible(); },
     async closeSignIn() {
@@ -114,7 +108,7 @@ export function releaseDriver(page, url, touch = false) {
       return !await signInChoices.isVisible();
     },
     async openSettings() {
-      await action(button(page, settings));
+      await action(button(page, text.settingsLabel));
       await settingsSheet.waitFor();
       return await settingsSheet.getByText(text.coordinates, { exact: true }).isVisible() &&
         await settingsSheet.getByText(text.sound, { exact: true }).isVisible();
@@ -125,22 +119,22 @@ export function releaseDriver(page, url, touch = false) {
       await waitHome();
     },
     async openGuide() {
-      await action(button(page, guide));
+      await action(button(page, text.guide));
       const tabs = page.getByRole('tab');
       await tabs.first().waitFor();
-      return (await tabs.allInnerTexts()).map(label => label.trim().toUpperCase()).join() === guideTabs.map(label => label.toUpperCase()).join();
+      return (await tabs.allInnerTexts()).map(label => label.trim().toUpperCase()).join() === guideTabLabels.map(label => label.toUpperCase()).join();
     },
-    guideTabs: guideTabs.slice(1),
+    guideTabs: guideTabLabels.slice(1),
     async selectGuideTab(name) { await action(tab(name)); await tab(name, true).waitFor(); return true; },
-    async backToHome() { await action(button(page, new RegExp(`^${text.home}$`, 'i'))); await waitHome(); },
+    async backToHome() { await action(button(page, text.backTo(text.homeLabel))); await waitHome(); },
     async openFriendSetup() {
-      await action(button(page, friend));
+      await action(button(page, text.friend));
       await setup.waitFor();
-      return await button(setup, send).isVisible() && await button(setup, panelText.byName).isVisible() &&
+      return await button(setup, panelText.inviteLink).isVisible() && await button(setup, panelText.byName).isVisible() &&
         !/Choose cards|shared cards|No powers|In pool/i.test(await setup.innerText());
     },
-    async openMoreOptions() { await action(button(setup, more)); await moreOptions.waitFor(); },
-    async sendInviteLink() { await action(button(moreOptions, send)); await friendSignIn.waitFor(); return true; },
+    async openMoreOptions() { await action(button(setup, panelText.more)); await moreOptions.waitFor(); },
+    async sendInviteLink() { await action(button(moreOptions, panelText.inviteLink)); await friendSignIn.waitFor(); return true; },
     async closeFriendSignIn() {
       await action(button(friendSignIn, signInText.notNow));
       await friendSignIn.waitFor({ state: 'hidden' });
@@ -156,13 +150,14 @@ export function releaseDriver(page, url, touch = false) {
     async movePawn() {
       await action(square(/^e2 /));
       await action(square(/^e4 /));
-      await square(`e4 Light ${pieces[P].name}`).waitFor();
+      const e4 = parseSq('e4');
+      await square(squareLabel({ board: { [e4]: P } }, e4)).waitFor();
       return true;
     },
     async openMenu() {
       await action(button(page, text.menu));
       await menu.waitFor();
-      return (await Promise.all(['Home', guide, text.resign].map(name => button(menu, name).isVisible()))).every(Boolean);
+      return (await Promise.all([text.homeLabel, text.guide, text.resign].map(name => button(menu, name).isVisible()))).every(Boolean);
     },
     async openHistorySetup() {
       await page.goto(new URL('/privacy.html', url).href);

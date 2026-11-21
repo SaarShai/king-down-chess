@@ -53,6 +53,8 @@ export const powerLines: Partial<Record<CardName, string>> = {
 export const cardLine = (card: CardName): string => card === 'March'
   ? 'A pawn off its start rank can move two empty squares ahead.' : powerLines[card] ?? '';
 export const text = {
+  guide: 'Guide', friend: 'Play a friend', signIn: 'Sign in', settings: 'Account & settings', settingsLabel: 'Account and settings',
+  homeLabel: 'Home', backTo: (place: string) => `Back to ${place}`, kings: 'Kings', cards: 'Cards', rules: 'Rules',
   yourCards: 'Your cards', cardsLeft: (n: number) => `${n} ${n === 1 ? 'card' : 'cards'} left`, unlimited: 'Unlimited', yourGames: 'Your games', showAllGames: 'Show all games',
   rematchHint: 'Select Rematch to play at the same level.', casual: 'Friendly', clever: 'Focused', club: 'Fierce', computerFailed: 'The computer cannot play. Open Menu, then Back to home.', title: 'King Down', intro: 'Chess with new pieces. Checkmate wins.', army: 'This game’s army', level: 'Computer level', play: 'Play', pieces: 'Pieces', computer: 'Computer', you: 'You', menu: 'Menu', rule: 'Rule', undo: 'Undo', replay: 'Replay', finish: 'End turn', send: 'Send', close: 'Close',
   setup: 'Game', withPowers: 'With powers', withCards: 'With cards', withBoth: 'With powers and cards',
@@ -68,6 +70,8 @@ export const text = {
   keptFull: 'This game cannot open here. Another kept game uses the copy space. Both games stay saved.',
   armed: 'Choose a target.', disarmed: 'You cancel the power.', disarmedCard: 'You cancel the card.', spent: 'You used this. It has no use left.', alwaysOn: 'Always on. It needs no tap.', left: 'left', noTarget: 'No legal target now.', notYet: 'You cannot use it at this step.', computerOwns: 'The computer has this.', again: 'Move it again, or select End turn.', another: 'Move another piece, or select End turn.', after: 'Now make your move.', effects: 'Effects', history: 'History', noHistory: 'No action yet.', stagedTurn: 'This turn', useSymbols: 'Use symbols', useRibbon: 'Use ribbon',
 };
+
+export const guideTabLabels = [text.pieces, text.kings, text.cards, text.rules] as const;
 
 const article = (name: string) => /^[aeiou]/i.test(name) ? 'an' : 'a';
 const nameOf = (code: number) => pieces[typeOf(code)]?.name ?? '';
@@ -253,6 +257,7 @@ export const readingBText = { rivalCards: 'Computer’s cards', used: 'Used', no
 
 /** The shared New game panel (owner playtest decisions 88 to 93). */
 export const panelText = {
+  more: 'More options', inviteLink: 'Send invite link',
   opponent: 'Opponent', player: 'Player', options: 'Game options', pieces: 'Pieces', powers: 'With powers', cards: 'With cards',
   allPieces: 'All pieces', pool: 'Piece pool', poolLock: 'Keep at least 7 pieces in the pool.',
   arrangement: 'Starting arrangement', random: 'Random', manual: 'Manual',
