@@ -8,17 +8,51 @@
  * Add a scene: one entry in SCENES (records, steps, the selector that shows the state).
  */
 import { memoryStorage } from '../people/fake-server';
+import { rulesOf } from './saved';
 import { panelText, text } from './texts';
 
-interface Scene { save?: object; online?: object; steps?: string[]; ready: string }
+type Step = string | { control: string };
+interface Scene { save?: object; online?: object; steps?: Step[]; ready: string; readyText?: string }
 // White to move; the opponent's queen mates on h4 (the "fool's mate").
 const LOST = 'rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3';
 const SOLO = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'ai', rules: { kings: [null, null], hands: [[], []] }, pace: 'off' };
+const HAND = ['IceWall', 'Haste', 'Salvation', 'MirrorB'] as const;
+const SOLO_BOTH = { ...SOLO, sound: false, rules: rulesOf('both',
+  [{ king: 'Spirit', power: 'HolyLight' }, { king: 'Shadow', power: 'DeathTouch' }], [[...HAND], [...HAND]]) };
+// The rules reject a hand with a spendable power. Use the same position with Powers only to arm Freeze.
+const SOLO_POWERS = { ...SOLO, sound: false, rules: rulesOf('powers',
+  [{ king: 'Frost', power: 'Freeze' }, { king: 'Shadow', power: 'DeathTouch' }], [[], []]) };
+// The longest card names in one hand.
+const LONG_HAND = { ...SOLO, sound: false, rules: rulesOf('both',
+  [{ king: 'Spirit', power: 'HolyLight' }, { king: 'Mud', power: 'March' }], [['Salvation', 'EarthQuake', 'FireStarter', 'IceWall'], [...HAND]]) };
+const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+// An active online game with the opponent to move: name, turn and time, power and four cards.
+const THEIR_MOVE = { status: 'playing', turn: 1, action: 'waiting', in_check: false, fen: START, rules: SOLO_BOTH.rules,
+  kings: SOLO_BOTH.rules.kings, hands: SOLO_BOTH.rules.hands, history: { initial_fen: START, actions: [] },
+  deadline_at: new Date(Date.now() + 2.5 * 86_400_000).toISOString(),
+  opponent: { handle: 'test-b', icon: 'frost', avatar: null, computer: false, deleted: false, last_seen_ms: 0 } };
+const BOARD = '.play-game:has(.play-grid:not([inert])):has(.play-own .play-power)';
+const WITH_HAND = `${BOARD}:has(.play-hand > .play-card:nth-child(4):last-child)`;
+const knight = { control: '.play-square[data-square="6"]' };
 const LOSS = { status: 'finished', result: { winner: 1, reason: 'checkmate' }, fen: LOST, rematch_offer: null };
 const SCENES: Record<string, Scene> = {
   'online-loss': { online: LOSS, ready: '.play-result' },
   'online-loss-offer': { online: { ...LOSS, rematch_offer: 1 }, ready: '.play-result' },
   'solo-result': { save: SOLO, steps: [text.resume, text.menu, text.resign, text.resign], ready: '.play-result' },
+  'solo-turn': { save: SOLO_BOTH, steps: [text.resume],
+    ready: `${WITH_HAND}[data-state="ready"]:has(.play-turn) .play-reader .play-title`, readyText: text.ready },
+  'solo-long-hand': { save: LONG_HAND, steps: [text.resume],
+    ready: `${WITH_HAND}[data-state="ready"]:has(.play-turn) .play-reader .play-title`, readyText: text.ready },
+  'online-their-move': { online: THEIR_MOVE, ready: '.play-game:has(.play-hand > .play-card:nth-child(4):last-child) .play-opp .opponent-clock:not(:empty)' },
+  'solo-piece-reader': { save: SOLO_BOTH, steps: [text.resume, knight],
+    ready: `${WITH_HAND} .play-reader:has(.learn-short) .play-title`, readyText: 'Knight' },
+  'solo-card-reader': { save: SOLO_BOTH, steps: [text.resume, { control: '.play-hand .play-card:first-child' }],
+    ready: `${WITH_HAND}[data-armed="ward"] .play-reader .play-title`, readyText: 'Ice Wall' },
+  'solo-staged': { save: SOLO_BOTH, steps: [text.resume, knight, { control: '.play-square[data-square="21"]' }],
+    ready: `${WITH_HAND}[data-state="draft"] .play-turn:has(button:first-child:not([aria-disabled="true"]):not([data-mode="replay"])) [data-turn-state="ready"]`,
+    readyText: text.finish },
+  'solo-power-armed': { save: SOLO_POWERS, steps: [text.resume, { control: '.play-own .play-power' }],
+    ready: `${BOARD}[data-armed="freeze"] .play-reader .play-step`, readyText: text.armed },
   'menu': { save: SOLO, steps: [text.resume, text.menu], ready: 'dialog.game-menu-dialog[open]' },
   'new-game': { save: SOLO, steps: [text.newGame], ready: 'dialog.new-game-panel[open]' },
   'setup-powers': { save: SOLO, steps: [text.newGame, 'Powers'], ready: '.setup-overlay:not([hidden])' },
@@ -26,9 +60,16 @@ const SCENES: Record<string, Scene> = {
   'home-signed-out': { ready: '.play-home[data-state="new"] .home-sign-in:not([hidden])' },
   'home-saved': { save: SOLO, ready: '.play-home[data-state="saved"] .home-continue' },
   'setup-more': { save: SOLO, steps: [text.newGame, panelText.more], ready: '.setup-overlay:not([hidden]) [data-choice="more"]' },
+  'setup-piece-pool': { save: SOLO, steps: [text.newGame, panelText.more, panelText.pool],
+    ready: '.setup-overlay:not([hidden]) .pool-list .pool-row' },
   'setup-friend': { steps: [text.friend], ready: 'dialog.new-game-panel[open] .setup-friend-foot:not([hidden])' },
+  'sign-in-home': { steps: [text.signIn], ready: 'dialog.account-sign-in:modal .people-ways button:nth-child(3)' },
   'guide-pieces': { steps: [text.guide], ready: '.guide-page[data-section="Pieces"] .guide-panel' },
   'guide-cards': { steps: [text.guide, text.cards], ready: '.guide-page[data-section="Cards"] .guide-panel' },
+  'guide-kings': { steps: [text.guide, text.kings], ready: '.guide-page[data-section="Kings and powers"] .king-block' },
+  'guide-rules': { steps: [text.guide, text.rules], ready: '.guide-page[data-section="How a turn works"] .turn-steps' },
+  'guide-piece-detail': { steps: [text.guide, { control: '.guide-list-pane .guide-row' }],
+    ready: '.guide-page[data-view="entry"] .guide-entry-title' },
   'settings': { steps: [text.settingsLabel], ready: 'dialog.settings-sheet[open] .settings-account [aria-haspopup="dialog"]' },
 };
 
@@ -59,18 +100,26 @@ const answer = (path: string, method: string) => {
 };
 window.fetch = async (input, init) => {
   const url = new URL(input instanceof Request ? input.url : String(input), location.href);
+  const method = init?.method ?? (input instanceof Request ? input.method : 'GET');
+  if (method === 'GET' && url.origin === import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '') && url.pathname === '/auth/v1/settings') {
+    return json({ external: { google: true, github: true, email: true } });
+  }
   if (url.origin !== location.origin || !url.pathname.startsWith('/api/')) throw new TypeError('Failed to fetch');
-  return answer(url.pathname, init?.method ?? (input instanceof Request ? input.method : 'GET'));
+  return answer(url.pathname, method);
 };
 
-const shown = (node: Element) => node.checkVisibility() && !node.closest('[inert]');
+const shown = (node: Element) => node.checkVisibility({ visibilityProperty: true }) && !node.closest('[inert]');
 const frame = () => new Promise(done => requestAnimationFrame(done));
 async function find(test: () => Element | undefined) { for (;;) { const node = test(); if (node) return node; await frame(); } }
 // The state is on the screen when its moves end (a loop, such as an idle figure, never ends).
 const settled = async () => { for (let list; (list = document.getAnimations().filter(a => a.playState !== 'finished' && a.effect?.getTiming().iterations !== Infinity)).length;) await Promise.allSettled(list.map(a => a.finished)); };
-/** Press the shown button or tab with this name, as a player does. */
-const press = async (label: string) => (await find(() => [...document.querySelectorAll<HTMLButtonElement>('button:not([role]), button[role="button"], button[role="tab"]')]
-  .find(b => shown(b) && (b.getAttribute('aria-label') ?? b.textContent?.trim()) === label)) as HTMLButtonElement).click();
+/** Press a named button or the control at a specific place, such as a square. */
+const press = async (step: Step) => {
+  const named = typeof step === 'string';
+  const controls = named ? 'button:not([role]), button[role="button"], button[role="tab"], button[role="radio"]' : step.control;
+  (await find(() => [...document.querySelectorAll<HTMLElement>(controls)].find(b =>
+    shown(b) && (!named || (b.getAttribute('aria-label') ?? b.textContent?.trim()) === step))) as HTMLElement).click();
+};
 
 if (!scene) {
   const list = document.createElement('ul');
@@ -83,7 +132,8 @@ if (!scene) {
   if (scene.online) { localStorage.setItem('kingdown.auth', JSON.stringify(session)); history.replaceState(null, '', `${location.search}#online=${GAME}`); }
   await import('./main');
   for (const step of scene.steps ?? []) { await press(step); await frame(); await settled(); }
-  await find(() => [...document.querySelectorAll(scene.ready)].find(shown));
+  await find(() => [...document.querySelectorAll(scene.ready)].find(node =>
+    shown(node) && (scene.readyText == null || node.textContent?.trim() === scene.readyText)));
   await document.fonts.ready; await settled(); await frame(); await frame();
   document.body.dataset.sceneReady = name;
 }

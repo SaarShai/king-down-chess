@@ -1,5 +1,5 @@
 // Check the play scenes at four sizes and two text scales. Find cut and split text, horizontal
-// viewport overflow, overlap in bars and dialogs, controls that cannot take a tap, and network requests.
+// viewport and scroll box overflow, overlap, card names that another card covers, controls that cannot take a tap, and network requests.
 // The page is in a build only with KINGDOWN_TEST_PAGES=1:
 //   KINGDOWN_TEST_PAGES=1 npm run check:browser play-scenes
 // Save pictures of faults, 320x568 at 150%, and 390x844 and 1280x800 at 100% in PLAYABLE_OUT.
@@ -20,6 +20,23 @@ try {
       viewport: { width, height }, colorScheme: 'light', reducedMotion: 'reduce', serviceWorkers: 'block', hasTouch: width < 1000,
     });
     try {
+      await context.addInitScript(function trackModals() {
+        const opened = new WeakMap();
+        const showModal = HTMLDialogElement.prototype.showModal;
+        let order = 0;
+        HTMLDialogElement.prototype.showModal = function () {
+          if (!this.matches(':modal')) opened.set(this, ++order);
+          return showModal.call(this);
+        };
+        // Top layer order follows showModal, even when the dialogs are in the reverse order in the DOM.
+        window.playSceneModal = () => {
+          let top = null;
+          for (const dialog of document.querySelectorAll('dialog:modal')) {
+            if (!top || (opened.get(dialog) ?? 0) > (opened.get(top) ?? 0)) top = dialog;
+          }
+          return top;
+        };
+      });
       if (scale !== 100) await context.addInitScript(scale => new MutationObserver((_, watch) => {
         if (document.documentElement) { document.documentElement.style.fontSize = `${scale}%`; watch.disconnect(); }
       }).observe(document, { childList: true }), scale);
@@ -29,6 +46,15 @@ try {
         const origin = await context.newPage();
         links = (await origin.goto(base.href))?.ok() ? await origin.getByRole('link').evaluateAll(list => list.map(a => new URL(a.href).searchParams.get('scene')).filter(Boolean)) : [];
         if (!links.length) throw new Error(`${base.href} has no scenes: build with KINGDOWN_TEST_PAGES=1`);
+        await origin.evaluate(() => {
+          const upper = document.createElement('dialog'), lower = document.createElement('dialog');
+          document.body.append(upper, lower);
+          lower.showModal();
+          upper.showModal();
+          if (window.playSceneModal() !== upper) throw new Error('The last opened dialog must be on top');
+          upper.close();
+          if (window.playSceneModal() !== lower) throw new Error('Closing the top dialog must uncover the lower one');
+        });
         await origin.goto(new URL('/manifest.webmanifest', base).href);
         state = seed => origin.evaluate(async ({ name, seed }) => {
           if (seed) await caches.open(name);
@@ -50,7 +76,7 @@ try {
         try {
           await page.goto(`${base.href}?scene=${scene}`);
           await page.waitForFunction(scene => document.body.dataset.sceneReady === scene, scene, { timeout: 15_000 });
-          found.push(...await page.evaluate(cutText), ...await page.evaluate(layoutFaults, ROLES));
+          found.push(...await page.evaluate(cutText), ...await page.evaluate(layoutFaults, ROLES), ...await page.evaluate(coveredCards));
           if (found.length || width === 320 && scale === 150 || scale === 100 && (width === 390 || width === 1280)) {
             await shot(page, picture);
             pictured = true;
@@ -58,9 +84,12 @@ try {
           for (const role of ROLES) for (const control of await page.getByRole(role).all()) {
             if (!await control.isVisible() || await control.isDisabled() || await control.evaluate(outsideLayer)) continue;
             const label = `${role} "${(await control.getAttribute('aria-label') ?? await control.innerText()).trim().slice(0, 40)}"`;
-            const cut = await control.evaluate(cutBy);
+            // The piece pool draws the tap target on the label around its screen-reader-only input.
+            const poolInput = role === 'checkbox' && await control.evaluate(node => node.matches('.pool-row > input.kd-sr'));
+            const target = poolInput ? control.locator('..') : control;
+            const cut = await target.evaluate(cutBy);
             if (cut) found.push(`${label} is cut by ${cut}`);
-            try { await control.click({ trial: true, timeout: 1500 }); }
+            try { await target.click({ trial: true, timeout: 1500 }); }
             catch (error) { found.push(`${label} takes no tap: ${/intercepts pointer events/.test(error.message) ? `${error.message.match(/<\w+[^>]*>/g)?.at(-1) ?? 'an element'} covers it` : error.message.split('\n')[0]}`); }
           }
         } catch (error) { found.push(error.message.split('\n')[0]); }
@@ -79,10 +108,10 @@ try {
 for (const mark of KNOWN.keys()) if (!used.has(mark)) faults.push(`known mark matches no fault: ${mark}`);
 for (const line of known) console.log(`known fault: ${line}`);
 if (faults.length) { console.error(`play scenes: ${faults.length} case(s) fail\n  ${faults.join('\n  ')}`); process.exit(1); }
-console.log(`play scenes: all ${links.length * SIZES.length * SCALES.length} cases pass`);
+console.log(`play scenes: all ${links.length * SIZES.length * SCALES.length} cases pass (${links.length} scenes)`);
 
 /** In the page: a control must be active in this layer and visible without keyboard focus. */
-function outsideLayer(node) { const modal = document.querySelector('dialog:modal'); return !!node.closest('[inert], .shell-skip:not(:focus)') || !!modal && !modal.contains(node); }
+function outsideLayer(node) { const modal = window.playSceneModal(); return !!node.closest('[inert], .shell-skip:not(:focus)') || !!modal && !modal.contains(node); }
 
 /** In the page: the box that clips part of this control, if any (a scroll box can show all of it). */
 function cutBy(control) {
@@ -97,15 +126,27 @@ function cutBy(control) {
 
 /** In the page: horizontal viewport overflow and overlaps between visible text and controls. */
 function layoutFaults(roles) {
-  const out = [], range = document.createRange(), modal = document.querySelector('dialog:modal');
+  const out = [], range = document.createRange(), modal = window.playSceneModal(), root = modal ?? document.body;
   const width = document.documentElement.clientWidth;
-  const bars = 'header, footer, nav, [role="toolbar"], .home-secondary-actions, .play-opp, .play-own, .play-turn';
+  const regions = [
+    'header, footer, nav, [role="toolbar"]',
+    '.home-secondary-actions, .home-start, .home-card, .home-seat',
+    '.play-opp, .play-own, .play-turn, .play-hand, .play-reader, .play-result',
+    '.guide-entry-pane, .turn-steps',
+  ].join(', ');
   const hidden = '[inert], .kd-sr, .shell-skip:not(:focus), script, style';
   const shown = node => (!modal || modal.contains(node)) && !node.closest(hidden) &&
     node.checkVisibility({ visibilityProperty: true, opacityProperty: true });
   const short = label => label.trim().split('\n', 1)[0].slice(0, 40).trimEnd();
   const overlaps = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
     Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1;
+  const scrolls = value => value === 'auto' || value === 'scroll';
+  for (const node of [root, ...root.querySelectorAll('*')]) {
+    if (node.clientWidth && node.scrollWidth > node.clientWidth + 1 && shown(node) && scrolls(getComputedStyle(node).overflowY)) {
+      const name = [node.localName, ...node.classList].join('.');
+      out.push(`${name} has horizontal overflow (${node.scrollWidth} px of content in ${node.clientWidth} px)`);
+    }
+  }
   // Two items in the same scroll box can scroll into view together.
   const visibleBox = (box, node, scrollWith) => {
     let { left, right, top, bottom } = box;
@@ -114,38 +155,41 @@ function layoutFaults(roles) {
       if (style.overflowX === 'visible' && style.overflowY === 'visible') continue;
       const edge = node.getBoundingClientRect();
       const shared = scrollWith && node.contains(scrollWith);
-      if (style.overflowX !== 'visible' && !(shared && /^(auto|scroll)$/.test(style.overflowX))) { left = Math.max(left, edge.left); right = Math.min(right, edge.right); }
-      if (style.overflowY !== 'visible' && !(shared && /^(auto|scroll)$/.test(style.overflowY))) { top = Math.max(top, edge.top); bottom = Math.min(bottom, edge.bottom); }
+      if (style.overflowX !== 'visible' && !(shared && scrolls(style.overflowX))) { left = Math.max(left, edge.left); right = Math.min(right, edge.right); }
+      if (style.overflowY !== 'visible' && !(shared && scrolls(style.overflowY))) { top = Math.max(top, edge.top); bottom = Math.min(bottom, edge.bottom); }
     }
     return right - left > 1 && bottom - top > 1 ? { left, right, top, bottom } : null;
   };
   const clip = (boxes, edge, scrollWith) => boxes.map(box => visibleBox(box, edge, scrollWith)).filter(Boolean);
   const groups = new Map(), switches = [];
-  const add = (host, label, boxes, node = host, isSwitch = false) => {
+  const add = (host, label, boxes, node = host) => {
     const edge = node === host ? host.parentElement : host;
     const visible = clip(boxes, edge);
     if (visible.some(box => box.left < -1)) out.push(`${label} crosses the left viewport edge`);
+    if (visible.some(box => box.top < -1)) out.push(`${label} crosses the top viewport edge`);
     if (visible.some(box => box.right > width + 1)) out.push(`${label} crosses the right viewport edge`);
-    const group = modal ?? host.closest(bars);
-    if (!group || !boxes.length || host.closest('.kd-switch-indicator')) return;
-    if (!groups.has(group)) groups.set(group, []);
-    groups.get(group).push({ node, label, boxes, edge, visible, isSwitch });
+    if (!boxes.length || host.closest('.kd-switch-indicator')) return;
+    const card = host.closest('.play-game[data-hand="hand"] .play-hand .play-card');
+    for (let group = modal ?? host.closest(regions); group; group = modal ? null : group.parentElement?.closest(regions)) {
+      if (!groups.has(group)) groups.set(group, []);
+      groups.get(group).push({ node, label, boxes, edge, card });
+    }
   };
-  const selector = ['button', 'a[href]', 'input:not([type="hidden"])', 'select', 'textarea', ...roles.map(role => `[role="${role}"]`)].join(', ');
+  const selector = ['button', 'a[href]', 'input:not([type="hidden"])', 'label.pool-row', 'select', 'textarea', ...roles.map(role => `[role="${role}"]`)].join(', ');
   for (const control of document.querySelectorAll(selector)) {
     if (!shown(control)) continue;
     const label = short(control.getAttribute('aria-label') ??
       document.getElementById(control.getAttribute('aria-labelledby'))?.textContent ??
       control.innerText ?? '');
     const mark = control.querySelector('.kd-switch-indicator');
-    add(control, `control "${label}"`, [control.getBoundingClientRect()], control, !!mark);
+    add(control, `control "${label}"`, [control.getBoundingClientRect()]);
     if (mark) {
       const tile = control.parentElement;
       const track = visibleBox(mark.getBoundingClientRect(), mark.parentElement, tile);
       if (track) switches.push({ tile, mark, track, label });
     }
   }
-  const walk = document.createTreeWalker(modal ?? document.body, NodeFilter.SHOW_TEXT);
+  const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   for (let leaf; (leaf = walk.nextNode());) {
     const host = leaf.parentElement, words = leaf.textContent.trim();
     if (!words || !shown(host)) continue;
@@ -165,10 +209,30 @@ function layoutFaults(roles) {
     for (let i = 0; i < group.length; i++) for (let j = i + 1; j < group.length; j++) {
       const a = group[i], b = group[j];
       if (a.node.contains(b.node) || b.node.contains(a.node)) continue;
-      const switchPair = a.isSwitch || b.isSwitch;
-      const aBoxes = switchPair ? clip(a.boxes, a.edge, b.node) : a.visible;
-      const bBoxes = switchPair ? clip(b.boxes, b.edge, a.node) : b.visible;
+      // The painted cards fan out: their button boxes can overlap. Their labels and tap targets still have checks.
+      if (a.card && b.card && a.card !== b.card && (a.node === a.card || b.node === b.card)) continue;
+      if (!a.boxes.some(box => b.boxes.some(other => overlaps(box, other)))) continue;
+      const aBoxes = clip(a.boxes, a.edge, b.node);
+      const bBoxes = clip(b.boxes, b.edge, a.node);
       if (aBoxes.some(box => bBoxes.some(other => overlaps(box, other)))) out.push(`${a.label} overlaps ${b.label}`);
+    }
+  }
+  return out;
+}
+
+/** In the page: a card name in the hand that another card covers. The fanned card boxes can overlap; their names cannot. */
+function coveredCards() {
+  const out = [], range = document.createRange(), name = card => card.querySelector('[data-button-label]')?.textContent.trim();
+  for (const card of document.querySelectorAll('.play-hand .play-card')) {
+    const walk = document.createTreeWalker(card.querySelector('[data-button-label]') ?? card, NodeFilter.SHOW_TEXT);
+    letters: for (let text; (text = walk.nextNode());) for (let i = 0; i < text.length; i++) {
+      if (!text.data[i].trim()) continue;
+      range.setStart(text, i); range.setEnd(text, i + 1);
+      const box = range.getBoundingClientRect(), y = box.top + box.height / 2;
+      for (const x of [box.left + box.width / 4, box.left + box.width / 2, box.right - box.width / 4]) {
+        const other = document.elementFromPoint(x, y)?.closest('.play-card');
+        if (other && other !== card) { out.push(`card name "${name(card)}" is covered by card "${name(other)}"`); break letters; }
+      }
     }
   }
   return out;
@@ -176,9 +240,9 @@ function layoutFaults(roles) {
 
 /** In the page: text that a clipping box cuts, and words that break over two lines. A scroll box can show its text. */
 function cutText() {
-  const out = [], modal = document.querySelector('dialog:modal'), walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT), range = document.createRange();
+  const out = [], modal = window.playSceneModal(), walk = document.createTreeWalker(modal ?? document.body, NodeFilter.SHOW_TEXT), range = document.createRange();
   const name = node => `${node.tagName.toLowerCase()}${node.className && typeof node.className === 'string' ? `.${node.className.trim().split(/\s+/).join('.')}` : ''}`;
-  for (let text; (text = walk.nextNode());) {
+  textNodes: for (let text; (text = walk.nextNode());) {
     const host = text.parentElement, words = text.textContent.trim();
     if (!words || host.closest('[inert], [aria-hidden="true"], script, style') || modal && !modal.contains(host) || !host.checkVisibility({ visibilityProperty: true })) continue;
     range.selectNodeContents(text);
@@ -187,6 +251,7 @@ function cutText() {
     if (!lines.length) continue;
     for (let node = host; node && node !== document.body; node = node.parentElement) {
       const style = getComputedStyle(node), edge = node.getBoundingClientRect();
+      if (edge.width <= 2 && edge.height <= 2 && style.clipPath === 'inset(50%)') continue textNodes;
       if (edge.width <= 2 || edge.height <= 2) break; // a text for screen readers only
       if (/auto|scroll/.test(style.overflowX + style.overflowY)) { lines = [edge]; continue; }
       if (/hidden|clip/.test(style.overflowX + style.overflowY) && lines.some(box => box.left < edge.left - 1 || box.right > edge.right + 1 || box.top < edge.top - 1 || box.bottom > edge.bottom + 1)) { out.push(`text "${words.slice(0, 40)}" is cut by ${name(node)}`); break; }
@@ -194,7 +259,10 @@ function cutText() {
     // The browser can wrap at a hyphen. Check the parts between legal breaks.
     for (const word of text.textContent.matchAll(/[^\s\u00ad\u2010-]+/g)) {
       range.setStart(text, word.index); range.setEnd(text, word.index + word[0].length);
-      if (new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round(r.top / 4))).size > 1) out.push(`word "${word[0]}" breaks over two lines in ${name(host)}`);
+      if (new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round(r.top / 4))).size > 1) {
+        const king = host.closest('.king-block')?.getAttribute('aria-label');
+        out.push(`word "${word[0]}" breaks over two lines in ${name(host)}${king ? ` (${king})` : ''}`);
+      }
     }
   }
   return out;
