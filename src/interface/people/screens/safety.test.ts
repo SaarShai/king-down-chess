@@ -79,6 +79,63 @@ it('block waits for confirm, retries failure and keeps the current game', async 
     expect(await page.evaluate(() => (window as any).calls)).toEqual([['block', { game_id: 'game', blocked: true }], ['block', { game_id: 'game', blocked: true }]]);
   } finally { await page.close(); }
 });
+// The server answers "is this player blocked" (POST /api/blocks with no `blocked`); the control waits for that answer.
+const blockLabel = (page: import('playwright').Page) => page.evaluate(() => {
+  const w = window as any, menu = document.createElement('div'); document.querySelector('#menu')?.remove(); menu.id = 'menu';
+  menu.append(...w.safety.playerSafety(w.api, { game_id: 'game' }, () => {})); document.body.append(menu);
+});
+const serverBlocks = (page: import('playwright').Page) => page.evaluate(() => {
+  const w = window as any; w.blocked = false;
+  w.api.block = async (args: any) => { w.calls.push(['block', args]); if (w.hold) await w.hold; if (args.blocked !== undefined) w.blocked = args.blocked; return { blocked: w.blocked }; };
+  w.api.record = async () => ({ blocks: w.blocked ? [{ user_id: 'opponent', handle: 'Opponent' }] : [], next_blocks_after: null });
+});
+const settledLabel = (page: import('playwright').Page) => page.locator('#menu button:not([aria-busy="true"])').nth(1).textContent();
+it('the player control asks the server: busy Block player, then Unblock player for a blocked player; Unblock uses the settings call', async () => {
+  const page = await open();
+  try {
+    await serverBlocks(page);
+    await page.evaluate(() => { const w = window as any; w.blocked = true; w.hold = new Promise(done => { w.release = done; }); });
+    await blockLabel(page);
+    expect(await page.locator('#menu button').nth(1).evaluate(b => [b.querySelector('[data-button-label]')!.textContent, b.getAttribute('aria-busy')])).toEqual(['Block player', 'true']);
+    await page.evaluate(() => { const w = window as any; w.hold = undefined; w.release(); });
+    await expect.poll(() => settledLabel(page)).toBe('Unblock player');
+    await page.locator('#menu').getByRole('button', { name: 'Unblock player', exact: true }).click();
+    await expect.poll(() => settledLabel(page)).toBe('Block player');
+    expect(await page.evaluate(() => (window as any).calls)).toEqual([['block', { game_id: 'game' }], ['block', { game_id: 'game', blocked: false }]]);
+  } finally { await page.close(); }
+});
+it('review P: an unblock in Account & settings gives Block player in the next Menu', async () => {
+  const page = await open();
+  try {
+    await serverBlocks(page);
+    await page.evaluate(() => { const w = window as any; w.safety.blockPlayer(w.api, { game_id: 'game' }, document.querySelector('#source'), () => {}); });
+    await page.getByRole('button', { name: 'Block player', exact: true }).click();
+    await page.getByRole('button', { name: 'Done', exact: true }).click();
+    await blockLabel(page);
+    await expect.poll(() => settledLabel(page)).toBe('Unblock player');
+    await page.evaluate(() => { const w = window as any; w.safety.blockedPlayers(w.api, document.querySelector('#source')); });
+    await page.getByRole('button', { name: 'Unblock', exact: true }).click();
+    await expect.poll(() => page.getByRole('status').textContent()).toBe('No blocked players.');
+    await page.getByRole('button', { name: 'Done', exact: true }).click();
+    await blockLabel(page);
+    await expect.poll(() => settledLabel(page)).toBe('Block player');
+  } finally { await page.close(); }
+});
+it('review P: a second account in the same tab gets its own answer', async () => {
+  const page = await open();
+  try {
+    await page.evaluate(() => {
+      const w = window as any; w.blocks = { alice: true };
+      w.api.block = async (args: any) => { w.calls.push(['block', w.current, args]); if (args.blocked !== undefined) w.blocks[w.current] = args.blocked; return { blocked: !!w.blocks[w.current] }; };
+    });
+    const label = async () => { await page.evaluate(() => { const w = window as any, menu = document.createElement('div'); document.querySelector('#menu')?.remove(); menu.id = 'menu'; menu.append(...w.safety.playerSafety(w.host.safety, { game_id: 'game' }, () => {})); document.body.append(menu); }); return settledLabel(page); };
+    await expect.poll(label).toBe('Unblock player');
+    await page.evaluate(async () => { const w = window as any; w.changeAccount('bob'); await w.host.signIn(); });
+    await expect.poll(() => page.evaluate(() => (window as any).host.userId)).toBe('bob');
+    await expect.poll(label).toBe('Block player');
+    expect(await page.evaluate(() => (window as any).calls.at(-1))).toEqual(['block', 'bob', { game_id: 'game' }]);
+  } finally { await page.close(); }
+});
 it('player options replaces its sheet and returns focus to the original control', async () => {
   const page = await open();
   try {
@@ -213,3 +270,16 @@ it(`keeps the deletion receipt on its expected sign-out, then closes it for a ne
   } finally { await page.close(); }
 });
 }
+it('offers the read again, not Block player, when the block read fails', async () => {
+  const page = await open();
+  try {
+    await serverBlocks(page);
+    await page.evaluate(() => { const w = window as any; w.blocked = true; w.read = w.api.block; w.api.block = async (args: any) => { w.calls.push(['block', args]); throw Error('read fails'); }; });
+    await blockLabel(page);
+    await expect.poll(() => settledLabel(page)).toBe('Check block again');
+    await page.evaluate(() => { const w = window as any; w.api.block = w.read; });
+    await page.locator('#menu button').nth(1).evaluate((n: HTMLButtonElement) => n.click());
+    await expect.poll(() => settledLabel(page)).toBe('Unblock player');
+    expect(await page.locator('dialog').count()).toBe(0);
+  } finally { await page.close(); }
+});
