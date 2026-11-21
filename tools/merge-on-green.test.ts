@@ -17,6 +17,14 @@ function record(result = 'complete') {
   ] };
 }
 
+function prRuns(over = {}) {
+  const repository = { full_name: 'SaarShai/king-down-chess' };
+  return { workflow_runs: [
+    { id: 100, workflow_id: 11, path: '.github/workflows/plugin-checks.yml', status: 'completed', conclusion: 'success',
+      event: 'pull_request', head_sha: head, check_suite_id: 2, repository, head_repository: repository, ...over },
+  ] };
+}
+
 function fixture(value: unknown = record()) {
   const dir = mkdtempSync(join(tmpdir(), 'kingdown-merge-'));
   dirs.push(dir);
@@ -24,10 +32,12 @@ function fixture(value: unknown = record()) {
   writeFileSync(file, JSON.stringify(value));
   const checks = Array.from({ length: 11 }, (_, id) => ({ id, head_sha: head, status: 'completed', conclusion: 'success' }));
   const status = { sha: head, total_count: 1, state: 'success' };
-  const current = { number: 158, state: 'OPEN', headRefOid: head, baseRefOid: base };
+  const current = { number: 158, state: 'OPEN', headRefOid: head, baseRefOid: base, isCrossRepository: false };
+  const pages = () => [{ total_count: checks.length, check_runs: checks.map(check => ({ check_suite: { id: 2 }, ...check })) }];
   const gh = vi.fn((args: string[], _options?: { timeout: number }) => {
     if (args[0] === 'api' && args[1].endsWith('/status')) return JSON.stringify(status);
-    if (args[0] === 'api') return JSON.stringify([{ total_count: checks.length, check_runs: checks }]);
+    if (args[0] === 'api' && args[1].includes('/actions/workflows/')) return JSON.stringify(prRuns());
+    if (args[0] === 'api') return JSON.stringify(pages());
     if (args[1] === 'view') return JSON.stringify(current);
     if (args[1] === 'merge') return 'merged';
     throw new Error(`unexpected call: ${args}`);
@@ -38,11 +48,11 @@ function fixture(value: unknown = record()) {
   const options = { gh, pause, now: () => clock };
   const run = () => mergeOnGreen(158, head, file, options);
   const merges = () => gh.mock.calls.filter(([args]) => args[1] === 'merge');
-  return { dir, file, checks, status, current, gh, pause, advance, run, merges };
+  return { dir, file, checks, status, current, pages, gh, pause, advance, run, merges };
 }
 
 function runCli(value: ReturnType<typeof record>) {
-  const { dir, file, current, checks, status } = fixture(value);
+  const { dir, file, current, pages, status } = fixture(value);
   const calls = join(dir, 'calls.jsonl');
   writeFileSync(join(dir, 'gh'), `#!/usr/bin/env node
 const fs = require('node:fs');
@@ -50,7 +60,8 @@ const args = process.argv.slice(2);
 fs.appendFileSync(${JSON.stringify(calls)}, JSON.stringify(args) + '\\n');
 if (args[0] === 'pr' && args[1] === 'view') console.log(${JSON.stringify(JSON.stringify(current))});
 if (args[0] === 'api' && args[1].endsWith('/status')) console.log(${JSON.stringify(JSON.stringify(status))});
-else if (args[0] === 'api') console.log(${JSON.stringify(JSON.stringify([{ total_count: 11, check_runs: checks }]))});
+else if (args[0] === 'api' && args[1].includes('/actions/workflows/')) console.log(${JSON.stringify(JSON.stringify(prRuns()))});
+else if (args[0] === 'api') console.log(${JSON.stringify(JSON.stringify(pages()))});
 `, { mode: 0o755 });
   const result = spawnSync(process.execPath, [
     fileURLToPath(new URL('./merge-on-green.mjs', import.meta.url)),
@@ -71,9 +82,10 @@ it('runs the CLI with local GitHub stand-ins and permits a complete record', () 
   const { result, commands } = runCli(record());
   expect(result.status, result.stderr).toBe(0);
   expect(commands.map(args => args.slice(0, 2))).toEqual([
-    ['pr', 'view'], ['api', '--paginate'], ['api', `repos/SaarShai/king-down-chess/commits/${head}/status`], ['pr', 'view'], ['pr', 'merge'],
+    ['pr', 'view'], ['api', '--paginate'], ['api', `repos/SaarShai/king-down-chess/commits/${head}/status`],
+    ['api', `repos/SaarShai/king-down-chess/actions/workflows/plugin-checks.yml/runs?head_sha=${head}&per_page=100`], ['pr', 'view'], ['pr', 'merge'],
   ]);
-  expect(commands[4].slice(-2)).toEqual(['--match-head-commit', head]);
+  expect(commands.at(-1)?.slice(-2)).toEqual(['--match-head-commit', head]);
 });
 
 it.each(['pending', 'running', 'failed', 'cancelled', ''])('refuses review result %s', async result => {
@@ -157,6 +169,26 @@ it.each(['state', 'headRefOid', 'baseRefOid', 'number'])('refuses a changed PR %
   expect(f.merges()).toEqual([]);
 });
 
+it('refuses a PR from a different repository before it reads CI', async () => {
+  const f = fixture();
+  Object.assign(f.current, { isCrossRepository: true });
+  await expect(f.run()).rejects.toThrow('PR head must come from');
+  expect(f.gh).toHaveBeenCalledTimes(1);
+  expect(f.merges()).toEqual([]);
+});
+
+it.each([
+  { event: 'push' },
+  { head_repository: { full_name: 'fork/king-down-chess' } },
+  { head_sha: base },
+  { check_suite_id: 3 },
+])('waits for a green PR workflow tied to the checked head and suite (%j)', async over => {
+  const f = fixture(), gh = f.gh.getMockImplementation()!;
+  f.gh.mockImplementation(args => args.at(-1)?.includes('/actions/workflows/') ? JSON.stringify(prRuns(over)) : gh(args));
+  await expect(f.run()).rejects.toThrow('four hours');
+  expect(f.merges()).toEqual([]);
+});
+
 it('waits for every check to complete', async () => {
   const f = fixture();
   f.checks[0].status = 'in_progress';
@@ -237,7 +269,7 @@ it('reads the review record after the final PR request', async () => {
   expect(f.merges()).toEqual([]);
 });
 
-it.each([1, 2, 3, 4])('refuses merge when read request %s reaches the deadline', async request => {
+it.each([1, 2, 3, 4, 5])('refuses merge when read request %s reaches the deadline', async request => {
   const f = fixture(), gh = f.gh.getMockImplementation()!;
   let reads = 0;
   f.gh.mockImplementation(args => {
@@ -270,7 +302,7 @@ it('limits every request, including merge, to the remaining time', async () => {
     return output;
   });
   await expect(f.run()).resolves.toBe('merged');
-  expect(f.gh.mock.calls.map(([, options]) => options?.timeout)).toEqual([60_000, 50, 50, 50, 25]);
+  expect(f.gh.mock.calls.map(([, options]) => options?.timeout)).toEqual([60_000, 50, 50, 50, 50, 25]);
 });
 
 it.each(['running', 'finding', 'base'])('reads the record again before merge: %s', async change => {

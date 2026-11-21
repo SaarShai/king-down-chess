@@ -68,6 +68,27 @@ describe('wt add <branch>', () => {
 });
 
 describe('wt add with a changed lock file', () => {
+  it('warns once when the main checkout is off main or its lock differs from origin/main', () => {
+    const { repo, wt, npmCalls } = setup();
+    const original = repo.git('rev-parse', 'HEAD').stdout.trim();
+    repo.git('switch', '-q', '-c', 'deps');
+    repo.write('package-lock.json', '{ "lock": 2 }\n');
+    repo.git('commit', '-q', '-am', 'new dependency');
+    repo.git('update-ref', 'refs/remotes/origin/main', 'HEAD');
+
+    const otherBranch = wt(['add', 'off-main', 'main']);
+    repo.git('switch', '-q', 'main');
+    const staleLock = wt(['add', 'stale-lock', 'origin/main']);
+    for (const result of [otherBranch, staleLock]) {
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain('\tinstalled\n');
+      expect(result.stderr.trim().split('\n')).toEqual([expect.stringMatching(/^wt: warning: main checkout /)]);
+    }
+    expect(npmCalls()).toEqual(['ci', 'ci']);
+    repo.git('update-ref', 'refs/remotes/origin/main', original);
+    expect(wt(['add', 'current-main']).stderr).toBe('');
+  });
+
   it('installs with npm ci on a branch whose lock file differs, and the main package folder keeps every entry', () => {
     const { repo, wt, npmCalls, mainPackages, worktrees } = setup();
     const before = mainPackages();

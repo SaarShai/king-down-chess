@@ -113,7 +113,7 @@ function setup() {
 }
 
 /** The deploy worktree path that the script prints on its first line. */
-const worktreeOf = (stdout: string) => /^deploy: worktree (\S+) at /m.exec(stdout)?.[1];
+const worktreeOf = (stdout: string) => /^deploy: worktree (.+) at [0-9a-f]{40}$/m.exec(stdout)?.[1];
 
 const head = (repo: Repo, ref: string) => repo.git('rev-parse', ref).stdout.trim();
 
@@ -477,6 +477,22 @@ describe('deploy.sh', () => {
     const path = worktreeOf(result.stdout);
     const npmTest = calls().find(line => line.startsWith('test-lock.sh '))?.replace(/ with .*/, '');
     expect(npmTest).toBe(`test-lock.sh bash tools/test-unlocked.sh @ ${fresh} in ${path}`);
+  });
+
+  it('stops before making a worktree when fetched main differs from the release commit', () => {
+    const { repo, deploy, calls } = setup();
+    const known = head(repo, 'HEAD');
+    repo.write('app.txt', 'new main\n');
+    repo.git('commit', '-q', '-am', 'new main');
+    repo.git('push', '-q', 'origin', 'main');
+    const moved = head(repo, 'HEAD');
+    repo.git('update-ref', 'refs/remotes/origin/main', known);
+
+    const result = deploy([], { KINGDOWN_RELEASE_COMMIT: known });
+    expect(result.status, result.stdout + result.stderr).not.toBe(0);
+    expect(result.stderr).toContain(`origin/main moved from ${known} to ${moved}`);
+    expect(result.stdout).not.toContain('make worktree');
+    expect(calls()).toEqual([]);
   });
 
   it('checks the combined tree and every release gate on fresh origin/main before publication', () => {
@@ -1182,7 +1198,7 @@ describe('deploy-keep-assets.mjs', () => {
 async function pluginSite(fault = '', files?: Record<string, string> | (() => Record<string, string>)) {
   const requests: { path: string; method?: string; cookie?: string; authorization?: string }[] = [];
   let url = '';
-  const server = createServer((req, res) => {
+  const server = createServer(async (req, res) => {
     const path = req.url ?? '/';
     requests.push({ path, method: req.method, cookie: req.headers.cookie, authorization: req.headers.authorization });
     res.setHeader('set-cookie', 'visit=1; Path=/');
@@ -1209,7 +1225,10 @@ async function pluginSite(fault = '', files?: Record<string, string> | (() => Re
       const headers: Record<string, string> = { ...artHeaders };
       if (fault === 'csp') headers['Content-Security-Policy'] = "default-src 'none'";
       if (fault === 'cors') delete headers['Access-Control-Allow-Origin'];
-      if (fault === 'charset') headers['Content-Type'] += '; charset=utf-8';
+      if (fault === 'charset') {
+        headers['Content-Type'] += '; charset=utf-8';
+        await new Promise(resolve => setTimeout(resolve, 1600));
+      }
       res.writeHead(200, headers).end(fault === 'art' ? 'stale-art' : 'art-v1');
     } else if (path === '/consent.mjs') res.end(fault === 'script' ? 'old-consent' : 'consent-v1');
     else if (!(served && siteRoute(req, res, path, served, 'closed'))) res.writeHead(404).end();
@@ -1231,6 +1250,7 @@ function pluginFolder() {
 }
 
 describe('deploy-plugin-live-check.mjs', () => {
+  const passingEnv = { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '10000' };
   const parkedFolder = () => { const folder = join(buildFolder({}), 'functions/mcp.func'); mkdirSync(folder, { recursive: true }); return folder; };
   const parkedRequests = [...PARKED_PATHS, ...MUSE_PATHS, '/plugin-art/deploy-check-0000.webp'].flatMap(path => [`GET ${path}`, `POST ${path}`]).sort();
   // A ChatGPT build checks that the Muse paths answer 404 to GET and POST.
@@ -1248,7 +1268,7 @@ describe('deploy-plugin-live-check.mjs', () => {
 
   it('checks a Muse build: its metadata, its challenge and the consent page; each ChatGPT path answers 404', async () => {
     const live = await pluginSite('muse');
-    const result = await runAsync(process.execPath, [pluginLiveCheck, museFolder(false), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '1500' } });
+    const result = await runAsync(process.execPath, [pluginLiveCheck, museFolder(false), live.url], { env: passingEnv });
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain('Muse connector: metadata and unsigned challenge');
     const parked = [...PARKED_PATHS.filter(path => !['/authorize', '/consent.mjs'].includes(path)), '/plugin-art/deploy-check-0000.webp'].flatMap(path => [path, path]);
@@ -1258,12 +1278,12 @@ describe('deploy-plugin-live-check.mjs', () => {
 
   it('checks a build with both connectors when Muse is served or parked by the live server', async () => {
     const live = await pluginSite('both');
-    const result = await runAsync(process.execPath, [pluginLiveCheck, museFolder(true), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '1500' } });
+    const result = await runAsync(process.execPath, [pluginLiveCheck, museFolder(true), live.url], { env: passingEnv });
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain('ChatGPT plugin: both metadata paths');
     expect(result.stdout).toContain('Muse connector: metadata and unsigned challenge');
     expect(live.requests.map(request => request.path).sort()).toEqual(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/mcp', ...MUSE_PATHS, authorizePath, '/consent.mjs', '/plugin-art/test-art.webp'].sort());
-    const old = await runAsync(process.execPath, [pluginLiveCheck, museFolder(true), (await pluginSite()).url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '250' } });
+    const old = await runAsync(process.execPath, [pluginLiveCheck, museFolder(true), (await pluginSite()).url], { env: passingEnv });
     expect(old.status, old.stderr).toBe(0);
     expect(old.stdout).toContain('2 parked paths answer 404 to GET and POST');
     expect(old.stdout).not.toContain('Muse connector:');
@@ -1271,7 +1291,7 @@ describe('deploy-plugin-live-check.mjs', () => {
 
   it('checks that each parked plugin path answers 404 when the build has no consent script', async () => {
     const live = await pluginSite('parked');
-    const result = await runAsync(process.execPath, [pluginLiveCheck, parkedFolder(), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '1500' } });
+    const result = await runAsync(process.execPath, [pluginLiveCheck, parkedFolder(), live.url], { env: passingEnv });
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain('ChatGPT plugin parked');
     expect(live.requests.map(request => `${request.method} ${request.path}`).sort()).toEqual(parkedRequests);
@@ -1288,7 +1308,7 @@ describe('deploy-plugin-live-check.mjs', () => {
 
   it('checks discovery, an unsigned challenge and the built consent script without account credentials', async () => {
     const live = await pluginSite();
-    const result = await runAsync(process.execPath, [pluginLiveCheck, buildFolder({ 'consent.mjs': 'consent-v1' }), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '1500' } });
+    const result = await runAsync(process.execPath, [pluginLiveCheck, buildFolder({ 'consent.mjs': 'consent-v1' }), live.url], { env: passingEnv });
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain('plugin-live-check: pass');
     expect(live.requests.map(request => request.path).sort()).toEqual(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/authorize?authorization_id=deploy-check%2Bquery&state=keep%20me', '/consent.mjs', '/mcp', ...museParked].sort());
@@ -1315,8 +1335,8 @@ describe('deploy-plugin-live-check.mjs', () => {
     }
   });
 
-  it('accepts a charset that the host adds to an art file type', async () => {
-    const result = await runAsync(process.execPath, [pluginLiveCheck, pluginFolder(), (await pluginSite('charset')).url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '1500' } });
+  it('accepts a slow art response with a charset that the host adds', async () => {
+    const result = await runAsync(process.execPath, [pluginLiveCheck, pluginFolder(), (await pluginSite('charset')).url], { env: passingEnv });
     expect(result.status, result.stderr).toBe(0);
   });
 });

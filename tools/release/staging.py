@@ -96,31 +96,35 @@ def main():
     def alias(deployment):
         return ['npx', '--yes', 'vercel@62.2.0', 'alias', 'set', deployment, host, '--scope', 'saars-projects-2c777ec5']
 
-    def stub(command):
-        print('dry-run:', shlex.join(command), flush=True)
+    common = subprocess.check_output(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'], cwd=TOOLS, text=True)
+    checkout = Path(common.strip()).parent
+    root = Path(os.environ.get('KINGDOWN_RELEASE_WORKTREE') or checkout / '.claude/worktrees/release-staging').resolve()
+
+    def stub(command, cwd=None):
+        prefix = ['cwd=' + str(cwd)] if cwd else []
+        print('dry-run:', shlex.join([*prefix, *command]), flush=True)
 
     if args.dry_run:
-        stub(['git', 'fetch', '-q', 'origin'])
-        stub(['git', 'checkout', '--detach', ref])
+        stub(['git', 'fetch', '-q', 'origin'], root)
+        stub(['git', 'checkout', '--detach', ref], root)
         if not args.preview:
             stub([*ci, ref, *ci_options])
+        stub(['npm', 'ls', '--depth=0'], root)
+        stub(['npm', 'ci', '(if packages are missing or linked)'], root)
         stub(key_command)
         if args.preview:
-            stub(['npm', 'run', 'typecheck'])
-        stub(['KINGDOWN_STAGE=staging', 'VITE_KINGDOWN_STAGE=staging', 'VITE_SUPABASE_URL=' + STAGING_SUPABASE_URL, *build])
-        stub(['KINGDOWN_RELEASE_SITE_ROOT=<build worktree>', *SITE_CHECK] if args.preview else ['npm', 'run', 'check:vercel'])
+            stub(['npm', 'run', 'typecheck'], root)
+        stub(['KINGDOWN_STAGE=staging', 'VITE_KINGDOWN_STAGE=staging', 'VITE_SUPABASE_URL=' + STAGING_SUPABASE_URL, *build], root)
+        stub(['KINGDOWN_RELEASE_SITE_ROOT=' + str(root), *SITE_CHECK] if args.preview else ['npm', 'run', 'check:vercel'], root)
         stub(GUARD)
         stub(publish)
         stub(alias('<deployment>'))
         stub(['curl', origin + '/'])
         if args.preview:
-            stub(['PLAYABLE_URL=' + origin, *SITE_CHECK])
+            stub(['PLAYABLE_URL=' + origin, *SITE_CHECK], root)
             print(origin)
         return
 
-    common = subprocess.check_output(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'], cwd=TOOLS, text=True)
-    checkout = Path(common.strip()).parent
-    root = Path(os.environ.get('KINGDOWN_RELEASE_WORKTREE') or checkout / '.claude/worktrees/release-staging').resolve()
     here = Path(os.environ.get('KINGDOWN_RELEASE_EVIDENCE') or checkout.parent / 'evidence/staging-release')
     assert root not in (checkout.resolve(), TOOLS.parent), 'Use a dedicated staging or preview worktree'
     assert (root / '.git').exists(), f'{root} is not a worktree. Set KINGDOWN_RELEASE_WORKTREE or use tools/wt.sh add release-staging.'
@@ -187,7 +191,7 @@ def main():
         phase('artifact-check')
         if args.preview:
             # The browser check serves this build, with no database or account session.
-            run(SITE_CHECK, 'local-site', dict(env, PLAYABLE_URL='', KINGDOWN_RELEASE_SITE_ROOT=str(root)), cwd=TOOLS.parent)
+            run(SITE_CHECK, 'local-site', dict(env, PLAYABLE_URL='', KINGDOWN_RELEASE_SITE_ROOT=str(root)))
         else:
             checkenv = env.copy()
             checkenv.setdefault('PLUGIN_TEST_DATABASE_URL', 'postgresql://kingdown_test@127.0.0.1:55432/kingdown_release_test')
@@ -208,7 +212,7 @@ def main():
         save('live-alias.json', dict(live, verified_at=now()))
         if args.preview:
             phase('remote-site')
-            run(SITE_CHECK, 'remote-site', dict(env, PLAYABLE_URL=origin), cwd=TOOLS.parent)
+            run(SITE_CHECK, 'remote-site', dict(env, PLAYABLE_URL=origin))
         record.update(deployment=deployment['id'], finished_at=now())
         phase('pass')
         save('done.json', {'exit_code': 0, 'source': source, 'finished_at': now()})
