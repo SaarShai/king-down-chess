@@ -302,6 +302,9 @@ for (const channel of ['webkit', 'chromium']) {
     // A game end closes Menu and the Resign confirm, whose actions are stale (polish item 8).
     for (const open of ['Menu', 'Resign']) await run(`the computer's checkmate closes ${open}`, async page => {
       await page.addInitScript(save => localStorage.setItem('kingdown.save', save), mateSave);
+      // The computer cannot reply before its search code loads: hold that file until the dialog is open.
+      let release, asked = 0; const held = new Promise(resolve => { release = resolve; });
+      await page.route(/\/assets\/worker-[^/]*\.js$/, async route => { asked++; await held; await route.continue(); });
       await page.goto(url.href);
       await button(home(page), 'Continue').click();
       await page.waitForSelector('.play-grid:not([inert])');
@@ -315,6 +318,8 @@ for (const channel of ['webkit', 'chromium']) {
         await oneDialog(page, page.getByRole('dialog', { name: 'Resign this game?' }));
       }
       assert.equal(await page.locator('.play-result').count(), 0, `${open} opens before the computer replies`);
+      assert.ok(asked, 'the check holds the search code');
+      release();
       await page.locator('.play-result').waitFor({ state: 'attached' });
       await noDialog(page);
       await page.locator('.play-result').getByText('The computer wins').waitFor();
