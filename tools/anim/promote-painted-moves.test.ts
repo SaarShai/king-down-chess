@@ -16,8 +16,10 @@ it('rejects a changed candidate before writing to the target', () => {
 it('removes new banks and snapshots when a rebuild fails', () => {
  const script = `
 import hashlib, importlib.util, json, pathlib, subprocess, sys, tempfile
+from types import SimpleNamespace
 spec = importlib.util.spec_from_file_location('promotion', sys.argv[1])
 p = importlib.util.module_from_spec(spec); spec.loader.exec_module(p)
+p.shutil.disk_usage = lambda _: SimpleNamespace(free=40 * 1024**3)
 with tempfile.TemporaryDirectory() as tmp:
  root = pathlib.Path(tmp); target = root/'target'; candidate = root/'candidate'
  for path in (target/'banks', target/'assets', candidate/'banks'):

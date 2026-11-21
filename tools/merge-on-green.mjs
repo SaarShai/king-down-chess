@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { setTimeout } from 'node:timers/promises';
 import { isSkippedMatrix } from './ci-green-tree.mjs';
 import { riskyPaths } from './lib/ci-paths.mjs';
+import { hasGreenPrRun } from './release/pr-workflow.mjs';
 
 export const repo = 'SaarShai/king-down-chess';
 // The previous workflow skipped every job but reuse. Keep this shape for runs that predate record-tree.
@@ -100,11 +101,13 @@ export async function mergeOnGreen(pr, head, file, { gh = github, pause = setTim
     remaining();
     return output;
   };
+  const readApi = endpoint => JSON.parse(request(['api', endpoint]));
   const readPr = () => {
     const current = JSON.parse(request(['pr', 'view', String(pr), '--repo', repo,
-      '--json', 'number,state,headRefOid,baseRefOid,changedFiles']));
+      '--json', 'number,state,headRefOid,baseRefOid,changedFiles,isCrossRepository']));
     require(current.number === pr && current.state === 'OPEN' && current.headRefOid === head && fullSha(current.baseRefOid),
       'PR is not open at the recorded head and base');
+    require(current.isCrossRepository === false, `PR head must come from ${repo}`);
     return current;
   };
   let changedPaths, inspectedBase;
@@ -132,11 +135,11 @@ export async function mergeOnGreen(pr, head, file, { gh = github, pause = setTim
       `repos/${repo}/commits/${head}/check-runs?per_page=100`]));
     const ready = ciPasses(pages, head);
     // The combined state covers the latest status for every context, across all pages.
-    const status = JSON.parse(request(['api', `repos/${repo}/commits/${head}/status`]));
+    const status = readApi(`repos/${repo}/commits/${head}/status`);
     require(status?.sha === head && Number.isSafeInteger(status.total_count) && status.total_count >= 0 &&
       ['success', 'pending', 'failure'].includes(status.state), 'invalid CI commit status');
     require(status.state !== 'failure', 'CI commit status does not pass');
-    if (ready && (status.total_count === 0 || status.state === 'success')) {
+    if (ready && (status.total_count === 0 || status.state === 'success') && hasGreenPrRun(readApi, repo, head, pages)) {
       const latestPr = readPr();
       // A review can start or report a finding while any GitHub request runs.
       const latest = reviewRecord(file, pr, head);

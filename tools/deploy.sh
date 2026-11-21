@@ -133,13 +133,14 @@ trap 'exit 129' HUP
 
 # step <name> <command ...>: run one step; stop the deploy at its failure.
 step() {
-  local name=$1
+  local name=$1 began=$SECONDS
   shift
   echo "deploy: step $name"
   if ! "$@"; then
     echo "deploy: FAIL at $name" >&2
     exit 1
   fi
+  echo "deploy: time $name $((SECONDS - began))s"
 }
 
 # The build archives a new engine in engines/; a release needs it committed on origin/main.
@@ -249,6 +250,7 @@ fi
 # An explicit refspec, so a custom remote.origin.fetch cannot put another branch into origin/main.
 step 'fetch origin' git fetch --quiet origin +refs/heads/main:refs/remotes/origin/main
 commit=$(git rev-parse --verify --quiet 'refs/remotes/origin/main^{commit}') || die "origin has no main branch"
+[ -z "${KINGDOWN_RELEASE_COMMIT:-}" ] || [ "$commit" = "$KINGDOWN_RELEASE_COMMIT" ] || die "origin/main moved from $KINGDOWN_RELEASE_COMMIT to $commit"
 # One temp folder holds the worktree (tree/) and, with --publish, the published copy (kingdown/).
 base=$(mktemp -d "${TMPDIR:-/tmp}/deploy.XXXXXX")
 base=$(cd "$base" && pwd -P)

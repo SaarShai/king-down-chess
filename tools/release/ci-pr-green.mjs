@@ -1,7 +1,7 @@
 // Use the PR check rule without the exact-build requirement for production.
 import { execFileSync } from 'node:child_process';
-import { greenRun, workflowPath, workflowRuns } from '../ci-green-tree.mjs';
 import { ciPasses, repo } from '../merge-on-green.mjs';
+import { hasGreenPrRun } from './pr-workflow.mjs';
 
 class Retry extends Error {}
 function gh(...args) {
@@ -22,14 +22,7 @@ try {
   if (status?.sha !== head || !Number.isSafeInteger(status.total_count) || status.total_count < 0 ||
       !['success', 'pending', 'failure'].includes(status.state)) throw new Error('invalid CI commit status');
   if (status.state === 'failure') throw new Error('CI commit status does not pass');
-  let passed = ready && (status.total_count === 0 || status.state === 'success');
-  if (passed) {
-    const { workflow_runs: runs } = gh(`${workflowRuns(repo)}/runs?head_sha=${head}&per_page=100`);
-    const suites = new Set(pages.flatMap(page => page.check_runs.map(check => check.check_suite?.id)));
-    passed = runs.some(run => run.head_sha === head && run.event === 'pull_request'
-      && greenRun(run, repo, { id: run.workflow_id, path: workflowPath })
-      && Number.isSafeInteger(run.check_suite_id) && suites.has(run.check_suite_id));
-  }
+  const passed = ready && (status.total_count === 0 || status.state === 'success') && hasGreenPrRun(gh, repo, head, pages);
   console.log(`ci-pr-green: ${passed ? 'pass' : 'pending'} at ${head}`);
   process.exitCode = passed ? 0 : 1;
 } catch (error) {

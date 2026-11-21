@@ -45,6 +45,11 @@ worktree() {
 packages() {
   local dir=$1 branch
   [ "$dir" != "$main" ] || die "$dir is the main checkout; it keeps its own installation"
+  if [ "$(git -C "$main" symbolic-ref -q HEAD)" != refs/heads/main ] ||
+    { git -C "$main" show-ref --verify -q refs/remotes/origin/main &&
+      ! git -C "$main" diff --quiet refs/remotes/origin/main -- package-lock.json; }; then
+    echo 'wt: warning: main checkout is off main or package-lock.json differs from local origin/main. Worktrees may need npm ci.' >&2
+  fi
   branch=$(git -C "$dir" symbolic-ref --short -q HEAD) || branch='(detached)'
   if [ -d "$main/node_modules" ] && cmp -s "$dir/package-lock.json" "$main/package-lock.json"; then
     if [ -L "$dir/node_modules" ] || [ ! -e "$dir/node_modules" ]; then
