@@ -480,6 +480,13 @@
 .play-game .play-opp, .play-game .play-own { container-type: inline-size; }
 @container (max-width: 335px) { .play-game .play-opp .play-power-copy { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
 @container (max-width: 239px) { .play-game .play-opp .play-seat-ring { display: none; } }
+/* A capture count takes 28 px of the bar. Under 340 px (a phone, a 1024 px tablet) the seat ring gives its place to it,
+   so "Computer" shows whole. Under 240 px the ring is already gone: the gaps and the count get smaller. */
+@container (max-width: 339px) { .play-game .play-opponent-group:has(> .play-store[data-empty='false']) > .play-seat-ring { display: none; } }
+@container (max-width: 239px) {
+  .play-game .play-opponent-group:has(> .play-store[data-empty='false']) { gap: 2px; margin-inline-end: -8px; }
+  .play-game .play-opp .play-store { min-width: 20px; height: 20px; }
+}
 /* A hand row under 260 px (a landscape phone) gives each card its whole width: the power shows its coin, and the cards
    do not fan or overlap. Under 240 px the names take 12 px tight letters, so "Salvation" fits. */
 @container (max-width: 259px) {

@@ -49,6 +49,13 @@ const SCENES: Record<string, Scene> = {
     ready: `${WITH_HAND}[data-state="ready"]:has(.play-turn) .play-reader .play-title`, readyText: text.ready },
   'solo-long-hand': { save: LONG_HAND, steps: [text.resume],
     ready: `${WITH_HAND}[data-state="ready"]:has(.play-turn) .play-reader .play-title`, readyText: text.ready },
+  // The computer takes a pawn: the capture count shows in the opponent bar.
+  'solo-captured': { save: { ...SOLO_BOTH, moves: ['e2-e4', 'd7-d5', 'a2-a3', 'd5xe4'] }, steps: [text.resume],
+    ready: `${WITH_HAND}[data-state="ready"]:has(.play-opp .play-store[data-empty="false"]) .play-reader .play-title`, readyText: text.ready },
+  // The same capture in an online game: the bar shows the name and the turn and time text.
+  'online-captured': { online: { ...THEIR_MOVE, turn: 0, action: 'ready', fen: 'rnbqkbnr/ppp1pppp/8/8/4p3/P7/1PPP1PPP/RNBQKBNR w - - 0 3 lP',
+    history: { initial_fen: START, actions: ['e2-e4', 'd7-d5', 'a2-a3', 'd5xe4'] } },
+    ready: '.play-game:has(.play-hand > .play-card:nth-child(4):last-child):has(.play-opp .play-store[data-empty="false"]) .play-opp .opponent-clock:not(:empty)' },
   'online-their-move': { online: THEIR_MOVE, ready: '.play-game:has(.play-hand > .play-card:nth-child(4):last-child) .play-opp .opponent-clock:not(:empty)' },
   'solo-piece-reader': { save: SOLO_BOTH, steps: [text.resume, knight],
     ready: `${WITH_HAND} .play-reader:has(.learn-short) .play-title`, readyText: 'Knight' },
