@@ -1,6 +1,6 @@
 # Make room for another CI run
 
-Status: claimed
+Status: done
 
 Run the scene check in its own job. Enable test pages in its browser step. Run both release checks on the WebKit drafts runner and install both browsers there. The full plan uses 18 jobs. Add the stable live Home checks to the journey shards.
 
