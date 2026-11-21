@@ -10,7 +10,12 @@ const localChecks = [
 ];
 
 export function pathPlan(changes, baseGreen) {
-  return { mode: baseGreen && changes.length > 0 && changes.every(({ path }) => docsPath.test(path)) ? 'docs' : 'full' };
+  if (!baseGreen || !changes.length) return { mode: 'full' };
+  if (changes.every(({ path }) => docsPath.test(path))) return { mode: 'docs' };
+  if (changes.every(({ path }) => path.startsWith('ios/'))) {
+    return { mode: 'docs', tests: ['tools/ios-app.test.ts'] };
+  }
+  return { mode: 'full' };
 }
 
 export function localPlan(changes) {

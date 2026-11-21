@@ -28,7 +28,7 @@ export const checks = [
   { name: 'next-arrange', script: 'tools/verify-next-arrange.mjs', limit: 480, channel: 'chromium', byName: true, external: true },
   { name: 'next-art-wait', script: 'tools/verify-next-art-wait.mjs', limit: 240, channel: 'chromium', byName: true },
   { name: 'next-menus', script: 'tools/verify-next-menus.mjs', limit: 900, channel: 'chromium', byName: true },
-  { name: 'daylight-tabs', script: 'tools/verify-daylight-tabs.mjs', limit: 180, byName: true },
+  { name: 'daylight-tabs', ci: 'journey', ciSeconds: 25, ciBrowsers: ['chromium', 'webkit'], script: 'tools/verify-daylight-tabs.mjs', limit: 180, byName: true },
   { name: 'painted-leaps', script: 'tools/verify-painted-leaps.mjs', limit: 120, channel: 'chromium', byName: true },
   { name: 'leap-start', ciSeconds: 44, script: 'tools/verify-painted-leaps.mjs', args: ['start'], limit: 240, channel: 'chromium', exclusive: true },
   { name: 'movement-runtime', script: 'tools/verify-movement-runtime.mjs', limit: 120, channel: 'chromium', byName: true, exclusive: true },
@@ -128,6 +128,6 @@ export const checks = [
 export const probeFiles = /^tools\/(?:ux-defects\/d\d+-[\w-]+|plugin-(?:ui|oauth)-check)\.mjs$/;
 
 checks.push(
-  { name: 'release-site', ci: 'standalone', ciBrowsers: ['chromium', 'webkit'], script: 'tools/verify-release-site.mjs', limit: 180, byName: true, external: true },
-  { name: 'release-history', ci: 'standalone', ciBrowsers: ['chromium', 'webkit'], script: 'tools/verify-release-history.mjs', limit: 180, byName: true, external: true },
+  { name: 'release-site', ci: 'release', ciBrowsers: ['chromium', 'webkit'], script: 'tools/verify-release-site.mjs', limit: 180, byName: true, external: true },
+  { name: 'release-history', ci: 'release', ciBrowsers: ['chromium', 'webkit'], script: 'tools/verify-release-history.mjs', limit: 180, byName: true, external: true },
 );

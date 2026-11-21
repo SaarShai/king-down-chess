@@ -20,6 +20,9 @@ describe('plugin-checks workflow', () => {
   it('checks types and docs on the short path and requires the plan results to record a tree', () => {
     const verify = job('verify');
     expect(verify).toContain("if: needs.reuse.outputs.reused == 'false'");
+    expect(verify).toContain('runs-on: ubuntu-latest');
+    expect(verify).toContain("if: needs.reuse.outputs.mode == 'full' && needs.reuse.outputs.verify_tests != ''\n        uses: actions/cache@v4");
+    expect(verify).toContain("if: needs.reuse.outputs.mode == 'full' && needs.reuse.outputs.verify_tests != ''\n        run: |");
     expect(verify).toContain('npm run typecheck');
     expect(verify).toContain("if: needs.reuse.outputs.verify_tests != ''\n        run: npm test");
     expect(verify).toContain('KINGDOWN_TEST_FILE: ${{ needs.reuse.outputs.verify_tests }}');
@@ -50,6 +53,10 @@ describe('plugin-checks workflow', () => {
       expect(job(name)).toContain('PLUGIN_TEST_DATABASE_URL:');
       expect(job(name)).toContain('npm run plugin:db:init-test');
     }
+  });
+
+  it('sets up Node 24 before it records a green tree', () => {
+    expect(job('record-tree')).toContain('uses: actions/setup-node@v4\n        with:\n          node-version: 24\n      - id: tree');
   });
 
   it('keeps WebKit diagnostics and the Ubuntu install guard', () => {

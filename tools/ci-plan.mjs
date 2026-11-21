@@ -40,7 +40,7 @@ function report(what, all, selected) {
 if (process.argv[2] === 'changed') {
   const base = git(['rev-parse', '--verify', 'origin/main^{commit}']).trim();
   const selection = select(base);
-  const registry = checks.filter(check => check.ci !== 'standalone');
+  const registry = checks.filter(check => !['standalone', 'release'].includes(check.ci));
   const all = checkShards({ registry }), selected = checkShards({ registry, selection });
   if (selection.mode === 'selected') console.log('This is a selection. CI runs the full plan.');
   console.log('Run type check');
@@ -67,8 +67,9 @@ if (process.argv[2] === 'changed') {
   if (dispatch && base && !commit.test(base)) throw new Error('base must be a full commit SHA');
   const tree = gitTree('HEAD');
   const reused = !dispatch && findGreenTree(tree, repo);
-  const { mode } = reused ? { mode: 'full' } : select(base, 'HEAD');
-  const shards = mode === 'full' && !reused ? checkShards() : [];
+  const selection = reused ? { mode: 'full' } : select(base, 'HEAD');
+  const { mode } = selection;
+  const shards = reused ? [] : checkShards({ selection });
   const verify = shards.find(job => job.name === 'verify');
   const matrix = {
     include: shards.filter(job => job !== verify).map(job => ({
