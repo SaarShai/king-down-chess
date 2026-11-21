@@ -306,7 +306,9 @@ function cutText() {
       if (edge.width <= 2 && edge.height <= 2 && style.clipPath === 'inset(50%)') continue textNodes;
       if (edge.width <= 2 || edge.height <= 2) break; // a text for screen readers only
       if (/auto|scroll/.test(style.overflowX + style.overflowY)) { lines = [edge]; continue; }
-      if (/hidden|clip/.test(style.overflowX + style.overflowY) && lines.some(box => box.left < edge.left - 1 || box.right > edge.right + 1 || box.top < edge.top - 1 || box.bottom > edge.bottom + 1)) { out.push(`text "${words.slice(0, 40)}" is cut by ${name(node)}`); break; }
+      // A box that draws an ellipsis cuts its text at the first part of a pixel.
+      const slack = style.textOverflow === 'ellipsis' ? .05 : 1;
+      if (/hidden|clip/.test(style.overflowX + style.overflowY) && lines.some(box => box.left < edge.left - slack || box.right > edge.right + slack || box.top < edge.top - 1 || box.bottom > edge.bottom + 1)) { out.push(`text "${words.slice(0, 40)}" is cut by ${name(node)}`); break; }
     }
     // The browser can wrap at a hyphen. Check the parts between legal breaks.
     for (const word of text.textContent.matchAll(/[^\s\u00ad\u2010-]+/g)) {
