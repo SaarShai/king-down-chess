@@ -35,8 +35,8 @@ it('places each baseline browser check once per browser with both fixture parts'
     'ux-defects', 'verb-marks', 'visual-design',
   ]));
   chromium.push('plugin-oauth', 'plugin-ui:opening', 'plugin-ui:board', 'plugin-ui-http', 'web-online', 'signin-speed', 'web-game',
-    'daylight-tabs', 'play-scenes', 'release-site', 'release-history');
-  const webkit = ['plugin-ui:opening', 'plugin-ui:board', 'web-online', 'signin-speed', 'daylight-tabs', 'release-site', 'release-history'];
+    'daylight-tabs', 'next-save', 'next-art-wait', 'play-scenes', 'release-site', 'release-history');
+  const webkit = ['plugin-ui:opening', 'plugin-ui:board', 'web-online', 'signin-speed', 'daylight-tabs', 'next-art-wait', 'release-site', 'release-history'];
   const jobs = checkShards();
   for (const [browser, expected] of [['chromium', chromium], ['webkit', webkit]] as const) {
     const actual = jobs.flatMap(job => job.checks.flatMap(name => {
@@ -47,8 +47,8 @@ it('places each baseline browser check once per browser with both fixture parts'
   }
 });
 
-it('installs both engines in the daylight tabs journey shard', () => {
-  expect(checkShards().filter(job => job.checks.includes('daylight-tabs'))).toMatchObject([
+it.each(['daylight-tabs', 'next-art-wait'])('installs both engines in the %s journey shard', name => {
+  expect(checkShards().filter(job => job.checks.includes(name))).toMatchObject([
     { name: expect.stringMatching(/^browser-default /), browsers: ['chromium', 'webkit'] },
   ]);
 });
