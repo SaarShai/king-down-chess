@@ -1,5 +1,5 @@
 // Check the play scenes at four sizes and two text scales. Find cut and split text, horizontal
-// viewport and scroll box overflow, overlap, controls that cannot take a tap, and network requests.
+// viewport and scroll box overflow, overlap, card names that another card covers, controls that cannot take a tap, and network requests.
 // The page is in a build only with KINGDOWN_TEST_PAGES=1:
 //   KINGDOWN_TEST_PAGES=1 npm run check:browser play-scenes
 // Save pictures of faults, 320x568 at 150%, and 390x844 and 1280x800 at 100% in PLAYABLE_OUT.
@@ -76,7 +76,7 @@ try {
         try {
           await page.goto(`${base.href}?scene=${scene}`);
           await page.waitForFunction(scene => document.body.dataset.sceneReady === scene, scene, { timeout: 15_000 });
-          found.push(...await page.evaluate(cutText), ...await page.evaluate(layoutFaults, ROLES));
+          found.push(...await page.evaluate(cutText), ...await page.evaluate(layoutFaults, ROLES), ...await page.evaluate(coveredCards));
           if (found.length || width === 320 && scale === 150 || scale === 100 && (width === 390 || width === 1280)) {
             await shot(page, picture);
             pictured = true;
@@ -166,6 +166,7 @@ function layoutFaults(roles) {
     const edge = node === host ? host.parentElement : host;
     const visible = clip(boxes, edge);
     if (visible.some(box => box.left < -1)) out.push(`${label} crosses the left viewport edge`);
+    if (visible.some(box => box.top < -1)) out.push(`${label} crosses the top viewport edge`);
     if (visible.some(box => box.right > width + 1)) out.push(`${label} crosses the right viewport edge`);
     if (!boxes.length || host.closest('.kd-switch-indicator')) return;
     const card = host.closest('.play-game[data-hand="hand"] .play-hand .play-card');
@@ -214,6 +215,24 @@ function layoutFaults(roles) {
       const aBoxes = clip(a.boxes, a.edge, b.node);
       const bBoxes = clip(b.boxes, b.edge, a.node);
       if (aBoxes.some(box => bBoxes.some(other => overlaps(box, other)))) out.push(`${a.label} overlaps ${b.label}`);
+    }
+  }
+  return out;
+}
+
+/** In the page: a card name in the hand that another card covers. The fanned card boxes can overlap; their names cannot. */
+function coveredCards() {
+  const out = [], range = document.createRange(), name = card => card.querySelector('[data-button-label]')?.textContent.trim();
+  for (const card of document.querySelectorAll('.play-hand .play-card')) {
+    const walk = document.createTreeWalker(card.querySelector('[data-button-label]') ?? card, NodeFilter.SHOW_TEXT);
+    letters: for (let text; (text = walk.nextNode());) for (let i = 0; i < text.length; i++) {
+      if (!text.data[i].trim()) continue;
+      range.setStart(text, i); range.setEnd(text, i + 1);
+      const box = range.getBoundingClientRect(), y = box.top + box.height / 2;
+      for (const x of [box.left + box.width / 4, box.left + box.width / 2, box.right - box.width / 4]) {
+        const other = document.elementFromPoint(x, y)?.closest('.play-card');
+        if (other && other !== card) { out.push(`card name "${name(card)}" is covered by card "${name(other)}"`); break letters; }
+      }
     }
   }
   return out;

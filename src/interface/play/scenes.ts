@@ -22,6 +22,15 @@ const SOLO_BOTH = { ...SOLO, sound: false, rules: rulesOf('both',
 // The rules reject a hand with a spendable power. Use the same position with Powers only to arm Freeze.
 const SOLO_POWERS = { ...SOLO, sound: false, rules: rulesOf('powers',
   [{ king: 'Frost', power: 'Freeze' }, { king: 'Shadow', power: 'DeathTouch' }], [[], []]) };
+// The longest card names in one hand.
+const LONG_HAND = { ...SOLO, sound: false, rules: rulesOf('both',
+  [{ king: 'Spirit', power: 'HolyLight' }, { king: 'Mud', power: 'March' }], [['Salvation', 'EarthQuake', 'FireStarter', 'IceWall'], [...HAND]]) };
+const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+// An active online game with the opponent to move: name, turn and time, power and four cards.
+const THEIR_MOVE = { status: 'playing', turn: 1, action: 'waiting', in_check: false, fen: START, rules: SOLO_BOTH.rules,
+  kings: SOLO_BOTH.rules.kings, hands: SOLO_BOTH.rules.hands, history: { initial_fen: START, actions: [] },
+  deadline_at: new Date(Date.now() + 2.5 * 86_400_000).toISOString(),
+  opponent: { handle: 'test-b', icon: 'frost', avatar: null, computer: false, deleted: false, last_seen_ms: 0 } };
 const BOARD = '.play-game:has(.play-grid:not([inert])):has(.play-own .play-power)';
 const WITH_HAND = `${BOARD}:has(.play-hand > .play-card:nth-child(4):last-child)`;
 const knight = { control: '.play-square[data-square="6"]' };
@@ -32,6 +41,9 @@ const SCENES: Record<string, Scene> = {
   'solo-result': { save: SOLO, steps: [text.resume, text.menu, text.resign, text.resign], ready: '.play-result' },
   'solo-turn': { save: SOLO_BOTH, steps: [text.resume],
     ready: `${WITH_HAND}[data-state="ready"]:has(.play-turn) .play-reader .play-title`, readyText: text.ready },
+  'solo-long-hand': { save: LONG_HAND, steps: [text.resume],
+    ready: `${WITH_HAND}[data-state="ready"]:has(.play-turn) .play-reader .play-title`, readyText: text.ready },
+  'online-their-move': { online: THEIR_MOVE, ready: '.play-game:has(.play-hand > .play-card:nth-child(4):last-child) .play-opp .opponent-clock:not(:empty)' },
   'solo-piece-reader': { save: SOLO_BOTH, steps: [text.resume, knight],
     ready: `${WITH_HAND} .play-reader:has(.learn-short) .play-title`, readyText: 'Knight' },
   'solo-card-reader': { save: SOLO_BOTH, steps: [text.resume, { control: '.play-hand .play-card:first-child' }],
