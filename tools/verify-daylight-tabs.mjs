@@ -14,6 +14,8 @@ const menu = page => page.locator('dialog.game-menu-dialog[open]');
 const openSettings = page => home(page).locator('.home-settings-btn').click();
 const settingsOrder = ['pieces', 'coords', 'sound', 'vibration', 'motion'];
 const soloSave = JSON.stringify({ back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'ai', rules: { kings: [null, null], hands: [[], []] }, pace: 'off' });
+// White plays a2-a3; Black then mates with Qd8-h4.
+const mateSave = JSON.stringify({ back: '', fen: 'rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR w KQkq - 0 3', moves: [], white: 'human', black: 'ai', skill: 'club', pace: 'normal', sound: false, rules: { kings: [null, null], hands: [[], []] } });
 
 async function oneDialog(page, dialog) {
   await dialog.waitFor();
@@ -296,6 +298,33 @@ for (const channel of ['webkit', 'chromium']) {
       await noDialog(page);
       assert.equal(new URL(page.url()).hash, '#game');
     }, { reducedMotion: 'reduce' });
+
+    // A game end closes Menu and the Resign confirm, whose actions are stale (polish item 8).
+    for (const open of ['Menu', 'Resign']) await run(`the computer's checkmate closes ${open}`, async page => {
+      await page.addInitScript(save => localStorage.setItem('kingdown.save', save), mateSave);
+      // The computer cannot reply before its search code loads: hold that file until the dialog is open.
+      let release, asked = 0; const held = new Promise(resolve => { release = resolve; });
+      await page.route(/\/assets\/worker-[^/]*\.js$/, async route => { asked++; await held; await route.continue(); });
+      await page.goto(url.href);
+      await button(home(page), 'Continue').click();
+      await page.waitForSelector('.play-grid:not([inert])');
+      await page.locator('.play-square[data-square="8"]').click();
+      await page.locator('.play-square[data-square="16"]').click();
+      await button(page.locator('.play-turn'), 'End turn').click();
+      await button(page.locator('.play-opp'), 'Menu').click();
+      await oneDialog(page, menu(page));
+      if (open === 'Resign') {
+        await button(menu(page), 'Resign').click();
+        await oneDialog(page, page.getByRole('dialog', { name: 'Resign this game?' }));
+      }
+      assert.equal(await page.locator('.play-result').count(), 0, `${open} opens before the computer replies`);
+      assert.ok(asked, 'the check holds the search code');
+      release();
+      await page.locator('.play-result').waitFor({ state: 'attached' });
+      await noDialog(page);
+      await page.locator('.play-result').getByText('The computer wins').waitFor();
+      await capture(page, `mate-${open.toLowerCase()}`);
+    });
 
     await run('Email sign-in replaces and restores settings', async page => {
       await page.goto(url.href);

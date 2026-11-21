@@ -29,7 +29,7 @@ import { POWER_NAME, POWER_TAG, cardName, coinState, usesAllowed } from '../../p
 import { DraftTurn, isDirect, armKey } from './turn';
 import { Arrangement, ARRANGE_KEY } from './arrange';
 import { actorMarks, mergeMarks, previewMarks, resultMarks, stateMarks, type MarkAction } from './marks';
-import { cardLine, pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, kingLabel, resultText } from './texts';
+import { cardLine, pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, kingLabel, rematchLine, resultText } from './texts';
 import { readingText, checkLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
 import { armCard, calm, cardFly, disarm, screenChange, setInterfaceMotion, sheetMotion, trackCard, time } from './motion';
 import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, tween, type Effect } from './fx';
@@ -389,7 +389,7 @@ function receiveOnline(state: PeopleState) {
   game = state.game; draft = state.draft ?? new DraftTurn(game); player = state.view.seat;
   thinking = !state.draft || state.phase === 'sending' || state.phase === 'checking';
   const wasEnded = ended; ended = state.phase === 'over'; liveGame = false;
-  if (ended && !wasEnded && gameDialog?.classList.contains('game-menu-dialog')) closeGameDialog(); // its Offer draw and Resign are stale, and it covers the result
+  if (ended && !wasEnded) closeStaleDialogs();
   if ((changed || ended) && document.querySelector('[data-help-sheet="promotion"]')) gameHelp?.close();
   if (changed) {
     shownRevision = state.view.revision; selected = inspected = null; shown = null; clearChoice(); skipBoard();
@@ -734,7 +734,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   // A pointer that leaves the board leaves no candidate sentence (check "play" fault 4).
   grid.addEventListener('pointerleave', event => { if (event.pointerType !== 'touch' && markFocus !== undefined) { markFocus = undefined; drawMarks(); } });
   choiceBox = el('div', 'play-choices'); boardBox.append(host, grid);
-  gameHelp = createGameHelp({ board: boardBox, player, effects: {
+  gameHelp = createGameHelp({ board: boardBox, player, finish: onlineActive ? text.send : text.finish, effects: {
     onSheetOpen: sheet => sheetMotion(sheet, true, () => gameHelp?.close()),
     onSheetClose: (sheet, bounds) => sheetMotion(sheet, false, undefined, bounds),
   } }); // the choice box shows in the reading area
@@ -1217,7 +1217,7 @@ function riseNarrator() {
   tween(180, t => { text.style.transform = `translateY(${8 * (1 - t)}px)`; text.style.opacity = String(t); }, { curve: ease.EASE });
 }
 function showResult() {
-  gameHelp?.close();
+  gameHelp?.close(); closeStaleDialogs();
   ended = true; thinking = false; liveGame = false; stopGameTime();
   const status: Status = game.status;
   const won = game.pos.turn === cpu();
@@ -1467,10 +1467,11 @@ function renderReader(actions?: HTMLElement) {
     const heading = el('h3', '', onlineResult(state)), handle = state.opponent?.handle;
     if (block.dataset.outcome === 'loss' && handle) { heading.replaceChildren(el('span', 'play-result-winner', handle), ' wins.'); void document.fonts.ready.then(fitResult); }
     body.append(heading, el('p', 'play-result-cause', state.view?.result?.reason === 'resignation' ? 'The game ends by resignation.' : state.view?.result?.reason === 'agreement' ? 'Both players agree to a draw.' : state.view?.result?.reason === 'timeout' ? 'The move time ends.' : state.view?.result?.reason === 'checkmate' ? 'Checkmate.' : 'The game ends.'));
+    const rematch = state.view ? rematchLine(state.rematch, state.view.seat) : '';
+    if (rematch) body.append(el('p', 'play-result-facts', rematch));
     if (state.rematch === 'theirs') actions.append(button('Accept rematch', { kind: 'main', onPress: () => { void people!.controller!.rematch('accept'); } }), button('Decline', { onPress: () => { void people!.controller!.rematch('decline'); } }));
     else if (state.rematch === 'accepted' && state.rematchGame) actions.append(button('Open rematch', { kind: 'main', onPress: () => shell.go({ place: 'online', entry: state.rematchGame! }) }));
-    else if (state.rematch === 'mine') body.append(el('p', 'play-result-facts', 'Waiting for a rematch answer.'));
-    else if (state.rematch !== 'closed') actions.append(button('Rematch', { kind: 'main', onPress: () => { void people!.controller!.rematch('offer'); } }));
+    else if (state.rematch !== 'mine' && state.rematch !== 'closed') actions.append(button('Rematch', { kind: 'main', onPress: () => { void people!.controller!.rematch('offer'); } }));
     if (state.view && humanOpponent(state.view)) {
       const options: HTMLButtonElement = button('Player options', { onPress: () => playerOptions(people!.safety, { game_id: state.view!.game_id }, options, () => { void people?.controller?.refresh(); }) }); actions.append(options);
     }
@@ -1994,6 +1995,12 @@ function shutGameDialog(history: boolean) {
   if (history) void shell.closeLayer();
 }
 function closeGameDialog() { shutGameDialog(true); }
+/** At a game end, Menu (Offer draw, Resign) and the Resign confirm are stale and cover the result. The Guide and History stay. */
+function closeStaleDialogs() {
+  if (gameDialog?.classList.contains('game-menu-dialog')) closeGameDialog();
+  // The cancel event takes the path of Escape: the confirm gives back its history layer.
+  if (resignDialog?.element.open) { resignDialog.element.dispatchEvent(new Event('cancel')); resignDialog.element.close(); }
+}
 function closeMenu(next?: () => void) {
   const route = shell.route, current = screen;
   closeGameDialog();

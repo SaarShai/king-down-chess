@@ -12,12 +12,13 @@ export function alwaysOnLabel(power: PowerName): string {
   return ALWAYS_ON.includes(power) ? text.alwaysOnShort : '';
 }
 
-export function helpTopic(subject: HelpSubject, rules = defaultRules, side: Color = 0) {
+/** `finish`: the finish control of this game (End turn, or Send online). */
+export function helpTopic(subject: HelpSubject, rules = defaultRules, side: Color = 0, finish = text.finish) {
   if (subject.kind === 'turn') return { name: text.ready.slice(0, -1), line: text.choose, detail: text.staged, badge: '' };
   if (subject.kind === 'frozen') {
     const entry = learningEntry({ kind: 'piece', type: subject.type }, rules, undefined, side);
     return { name: pieces[subject.type].name, line: entry.short, detail: learningNotes.Freeze[0], badge: 'Frozen' };
   }
   const entry = learningEntry(subject, rules, undefined, side);
-  return { name: entry.name, line: entry.short, detail: entry.full, badge: subject.kind === 'power' ? alwaysOnLabel(subject.id) : '' };
+  return { name: entry.name, line: entry.short, detail: entry.full.replace(`Select ${text.finish} to end the chain.`, `Select ${finish} to end the chain.`), badge: subject.kind === 'power' ? alwaysOnLabel(subject.id) : '' };
 }

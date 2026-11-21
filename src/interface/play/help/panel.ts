@@ -39,7 +39,7 @@ function placeBubble(element: HTMLElement, anchor: Anchor, avoid: readonly DOMRe
 }
 
 /** One help instance per game screen. The caller owns the narrator and turn events. */
-export function createGameHelp({ board, player = 0, effects }: { board: HTMLElement; player?: Color; effects?: HelpEffects }) {
+export function createGameHelp({ board, player = 0, finish, effects }: { board: HTMLElement; player?: Color; finish?: string; effects?: HelpEffects }) {
   let topic: { subject: HelpSubject; rules?: GameRules; side: Color } | null = null;
   let active: ReturnType<typeof sheet> | undefined;
   let hints = startHints(false);
@@ -130,7 +130,7 @@ export function createGameHelp({ board, player = 0, effects }: { board: HTMLElem
   }
 
   function openRule(subject: HelpSubject, source: HTMLElement, rules?: GameRules, side: Color = 0) {
-    const entry = helpTopic(subject, rules, side);
+    const entry = helpTopic(subject, rules, side, finish);
     const body = document.createElement('div');
     body.className = 'daylight-help-rule';
     const line = document.createElement('p'), detail = document.createElement('p');

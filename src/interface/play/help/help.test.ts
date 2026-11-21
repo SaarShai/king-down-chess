@@ -3,7 +3,7 @@ import { RELEASED_CARDS } from '../../../content/cards';
 import { Game } from '../../../game';
 import { GameRules } from '../../../game-rules';
 import { ALWAYS_ON } from '../../../match/setup';
-import { B, BUILT, N, POWERS_BALANCED, Q, R, parseSq, type PieceType, type Rules } from '../../../rules/engine';
+import { B, BUILT, N, POWERS_BALANCED, Q, R, S, parseSq, type PieceType, type Rules } from '../../../rules/engine';
 import { diagramFor } from '../learning-diagrams';
 import { learningEntry, type LearnSubject } from '../learning';
 import { cardLine, pieces, powerLines, text } from '../texts';
@@ -26,6 +26,15 @@ describe('Daylight topics', () => {
     expect(expected).toBeTruthy();
     expect(helpTopic(subject, rules)).toMatchObject({ name: entry.name, line: expected, detail: entry.full });
     for (const side of [0, 1] as const) expect(diagramFor(subject, side).frames.length).toBeGreaterThan(0);
+  });
+
+  it('names the finish control of the game in the Beast chain rule', () => {
+    const beast = { kind: 'piece' as const, type: S as PieceType };
+    expect(pieces[S].name).toBe('Beast');
+    expect(helpTopic(beast, rules).detail).toContain(`Select ${text.finish} to end the chain.`);
+    const online = helpTopic(beast, rules, 0, text.send).detail;
+    expect(online).toContain(`Select ${text.send} to end the chain.`);
+    expect(online.replace(`Select ${text.send} to end the chain.`, `Select ${text.finish} to end the chain.`)).toBe(helpTopic(beast, rules).detail);
   });
 
   it('reads the live game text when a power changes a piece', () => {

@@ -5,7 +5,7 @@ import { POWERS_BALANCED } from '../../rules/rules';
 import { A, O, parseSq } from '../../rules/engine';
 import { DraftTurn } from './turn';
 import { previewMarks } from './marks';
-import { effectLines, kingLabel, resultText, stateDescriptions, routeLine, sentence } from './texts';
+import { effectLines, kingLabel, rematchLine, resultText, stateDescriptions, routeLine, sentence } from './texts';
 
 it('uses the side name for a king when Powers are off', () => {
   expect(kingLabel(undefined, 0)).toBe('Light King');
@@ -173,4 +173,12 @@ it('the New game card line names the shown cards in pool order at four', async (
 it('announces Versus when the kings have no powers', async () => {
   const { versusLine } = await import('./texts');
   expect(versusLine('Light King', '', 'Dark King', '')).toBe('Your Light King has no power. The computer’s Dark King has no power.');
+});
+
+it('names the next side of a rematch and replies to a decline', () => {
+  expect(rematchLine('mine', 0)).toBe('Waiting for a rematch answer. You play Black next.');
+  expect(rematchLine('theirs', 0)).toBe('Your opponent offers a rematch. You play Black next.');
+  expect(rematchLine('theirs', 1)).toBe('Your opponent offers a rematch. You play White next.');
+  expect(rematchLine('declined', 0)).toBe('Your opponent declined the rematch.');
+  for (const state of ['none', 'closed', 'accepted'] as const) expect(rematchLine(state, 0)).toBe('');
 });

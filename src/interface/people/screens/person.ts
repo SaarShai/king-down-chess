@@ -151,6 +151,7 @@ export function nameSearch(sheet: PeopleSheet, host: PersonHost, rules: Rules, b
     clearTimeout(timer); say(status);
     const text = input.value.trim().toLowerCase(), mark = ++asked;
     if (text.length < SEARCH_LETTERS) { heading.hidden = !known.length; rows(known); return; }
+    if (text === host.me()?.handle?.toLowerCase()) { heading.hidden = true; rows([]); say(status, personText.self); return; }
     timer = setTimeout(() => {
       host.find(text).then(found => {
         if (mark !== asked) return;

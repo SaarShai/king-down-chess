@@ -59,7 +59,7 @@ export const personText = {
   title: 'Play a person', game: 'Game', time: 'Each player has 3 days for each move. Your pieces are random.',
   again: 'Play again', invite: 'Invite', link: 'Send a link', linkSub: 'For WhatsApp, Messages or Mail.', making: 'Making your game…',
   byName: 'Invite by name', byNameMore: 'Invite another player by name',
-  field: 'Game name', known: 'Players you know', hint: 'Type 2 letters to find any player.', none: 'No player has this name.',
+  field: 'Game name', known: 'Players you know', hint: 'Type 2 letters to find any player.', none: 'No player has this name.', self: "This is your name. Enter a friend's name.",
   linkField: 'Link', copyLink: 'Copy this link and send it to your friend.',
   share: (you: string) => `${you} invites you to a game of King Down.`,
   linkSent: 'Link sent. We tell you when your friend joins.', linkCopied: 'Invite link copied. Send it to your friend.',
