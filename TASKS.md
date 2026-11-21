@@ -6,7 +6,7 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 
 - **iOS app** · `needs-info` · Version 1.1 (build 9) is in TestFlight. Owner steps: the test, then the App Review submission. · [map](docs/specs/ios-app/map.md)
 - **ChatGPT app and submission** · `needs-info` · The owner's Rescan in the portal is open. · [submission steps](docs/submission/checklist.md)
-- **Web app** · `ready-for-agent` · The Daylight design is live at kingdown.dev (2026-11-19). The app and the plugin do not have the later web tweaks. Open: Menu says Block player after a block. Each change follows [the change classes](docs/CHANGES.md). · [index](docs/specs/web-build/README.md)
+- **Web app** · `ready-for-agent` · The Daylight design is live at kingdown.dev (2026-11-19). The app and the plugin do not have the later web tweaks. Open: New game panel at 568x320 with 150% text; the `notice` case of `next-menus` is not in CI. Each change follows [the change classes](docs/CHANGES.md). · [index](docs/specs/web-build/README.md)
 - **Process follow-ups** · `ready-for-agent` · Watch the `painted-game` walk timing (one flake, 2026-11-21). Groundwork: one layer state; move off the old page. · [ticket](docs/specs/ci-fast/issues/03-ci-capacity-and-ios.md)
 - **Accounts and multiplayer** · `needs-info` · Pushed; the ChatGPT MVP builds on it. The 8 [report](docs/research/multiplayer-2026-10-10/README.md) decisions.
 - **Card deal** · `needs-info` · The owner chose MirrorB and dropped Mirror and Rescue (2026-10-07); Hand size: **4 cards** (owner 2026-10-09: "yes. 4 cards."; draws 12.6% at depth 4, against 11.0% with 6). Keep March (below the floor in `cards-d1`)? Which cards make the deal, and do the four new cards join it? · [2026-10](docs/tasks-archive/2026-10.md)
