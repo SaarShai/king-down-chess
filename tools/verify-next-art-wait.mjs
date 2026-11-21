@@ -4,7 +4,8 @@ import { mkdirSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { chromium, webkit } from 'playwright';
-import { env } from './lib/checks.mjs';
+import { assertNoErrors, env, trapErrors } from './lib/checks.mjs';
+import { P, R, parseSq, releaseContext, releaseDriver, squareLabel, text } from './lib/release-browser.mjs';
 
 const out = env('PLAYABLE_OUT');
 mkdirSync(out, { recursive: true });
@@ -12,6 +13,12 @@ const art = /\/(?:interface\/(?:stone-refined-light|computer-king-[^/]+)\.webp|u
 const rookSheet = /\/(?:assets\/rook-[^/]+|docs\/2d-first-pieces\/rook\/rook)\.webp(?:\?.*)?$/;
 const home = new URL('/next.html', env('PLAYABLE_URL')).href;
 const board = '.play-board-host canvas';
+const grid = page => page.getByRole('grid', { name: text.title, exact: true });
+const ready = page => grid(page).and(page.locator(':not([inert])')).waitFor();
+const square = (page, name, piece) => {
+  const index = parseSq(name);
+  return grid(page).getByRole('gridcell', { name: squareLabel({ board: { [index]: piece } }, index), exact: true });
+};
 const state = page => page.locator(board).evaluate(canvas => {
   const ctx = canvas.getContext('2d'), scale = canvas.width / 960;
   const pixel = (x, y) => Array.from(ctx.getImageData(x * scale, y * scale, 1, 1).data);
@@ -22,7 +29,6 @@ const state = page => page.locator(board).evaluate(canvas => {
 });
 
 function observeBoard(pieces) {
-  localStorage.setItem('kingdown.solo-launch-seen', '1');
   localStorage.setItem('kingdown.piece-view', pieces);
   // Count text and images on the real board canvas for each frame.
   const proto = CanvasRenderingContext2D.prototype;
@@ -46,8 +52,9 @@ function observeBoard(pieces) {
 }
 
 async function checkStreamedRook(browser, device) {
-  const context = await browser.newContext({ ...device, colorScheme: 'light', reducedMotion: 'reduce', serviceWorkers: 'block' });
+  const context = await releaseContext(browser, home, { ...device, colorScheme: 'light', reducedMotion: 'reduce' });
   const page = await context.newPage();
+  const driver = releaseDriver(page, home);
   const { promise: holdSheet, resolve: releaseSheet } = Promise.withResolvers();
   const { promise: holdStills, resolve: releaseStills } = Promise.withResolvers();
   let bytes;
@@ -89,11 +96,11 @@ async function checkStreamedRook(browser, device) {
     }, rookSheet.source);
 
     await page.goto(home, { waitUntil: 'domcontentloaded' });
-    await page.locator('.home-continue').click();
-    await page.locator('.play-grid:not([inert])').waitFor({ state: 'visible' });
+    await driver.continueGame();
+    await ready(page);
     await page.waitForFunction(() => { const image = window.rookSheet(); return image?.naturalWidth > 0 && !image.complete; });
     const checkLetters = async () => assert.equal((await state(page)).letters.filter(({ letter }) => letter === 'R').length, 4);
-    const rook = page.getByRole('gridcell', { name: 'a1 Light Rook', exact: true });
+    const rook = square(page, 'a1', R);
     const redraw = async () => {
       const { frame } = await state(page);
       await rook.click();
@@ -135,12 +142,12 @@ for (const [name, engine, device] of [
     if (name === 'desktop') await checkStreamedRook(browser, device);
     for (const cards of ['Off', 'On']) for (const pieces of ['figures', 'symbols']) for (const fault of ['delay', 'failure']) {
       const reducedMotion = cards === 'On' && pieces === 'figures' && fault === 'delay' ? 'no-preference' : 'reduce';
-      const context = await browser.newContext({ ...device, colorScheme: 'light', reducedMotion, serviceWorkers: 'block' });
+      const context = await releaseContext(browser, home, { ...device, colorScheme: 'light', reducedMotion });
       const label = `${name}-cards-${cards.toLowerCase()}-${pieces}-${fault}`;
-      const page = await context.newPage(), errors = [];
-      page.on('pageerror', error => errors.push(error.message));
-      let release, released = false, timer;
-      const hold = new Promise(done => { release = () => { released = true; done(); }; });
+      const page = await context.newPage();
+      const errors = trapErrors(page);
+      const driver = releaseDriver(page, home, name === 'phone');
+      const { promise: hold, resolve: release } = Promise.withResolvers();
       let stoneRequests = 0;
       await page.route(art, async route => {
         if (route.request().resourceType() === 'script') return route.continue();
@@ -152,26 +159,26 @@ for (const [name, engine, device] of [
       const press = locator => name === 'phone' ? locator.tap() : locator.click();
       try {
         await page.goto(home, { waitUntil: 'domcontentloaded' });
-        await press(page.locator('.home-hero-new'));
-        const cardsSwitch = page.getByRole('switch', { name: 'Cards', exact: true });
+        await driver.openSoloSetup();
+        const cardsSwitch = page.getByRole('dialog', { name: text.newGame, exact: true }).getByRole('switch', { name: text.cards, exact: true });
         if ((await cardsSwitch.getAttribute('aria-checked') === 'true') !== (cards === 'On')) await press(cardsSwitch);
-        timer = setTimeout(release, 5000);
-        await press(page.getByRole('button', { name: 'Start game', exact: true }));
-        await page.locator('.play-grid:not([inert])').waitFor({ state: 'visible' });
-        await page.waitForFunction(() => !document.querySelector('.new-game-panel, .play-versus'));
+        const began = Date.now();
+        await driver.startFromSetup();
+        await ready(page);
+        await page.locator('.play-versus').waitFor({ state: 'hidden' });
+        assert.ok(Date.now() - began < 5000, 'the first frame does not wait for the held art (limit: five seconds)');
         assert.ok(await page.locator(board).isVisible(), 'the canvas shows before the board takes input');
         const first = await state(page);
         assert.deepEqual(first.light, [233, 230, 213, 255], 'draw the light square');
         assert.deepEqual(first.dark, [137, 151, 123, 255], 'draw the dark square');
         assert.equal(first.letters.length, 32, 'draw every piece without art');
         assert.ok(stoneRequests, 'the art route applies to the board surface');
-        assert.equal(released, false, 'the first frame does not wait for the five-second delay');
-        assert.match(await page.locator('.play-state').textContent(), /Your turn/);
+        assert.equal(await page.locator('.play-state').textContent(), text.first);
         assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')))).rules.hands[0].length > 0, cards === 'On');
         await page.screenshot({ path: join(out, `${label}.png`) });
-        await press(page.getByRole('gridcell', { name: 'a2 Light Pawn' }));
-        await press(page.getByRole('gridcell', { name: 'a3 empty' }));
-        assert.match(await page.locator('.play-square[data-square="16"]').getAttribute('aria-label'), /a3 Light Pawn/);
+        await press(square(page, 'a2', P));
+        await press(square(page, 'a3', 0));
+        await square(page, 'a3', P).waitFor();
         if (label === 'phone-cards-on-figures-delay') {
           await page.waitForFunction(board => {
             const canvas = document.querySelector(board), scale = canvas.width / 960;
@@ -179,9 +186,10 @@ for (const [name, engine, device] of [
           }, board);
           await page.screenshot({ path: join(out, `${label}-move.png`) });
         }
-        await press(page.getByRole('button', { name: 'End turn', exact: true }));
+        await press(page.getByRole('button', { name: text.finish, exact: true }));
         await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.length > 1);
         if (fault === 'delay') {
+          release();
           await page.waitForFunction(({ board, pieces }) => {
             const canvas = document.querySelector(board), images = canvas?.images ?? [];
             const hasPiece = images.some(src => pieces === 'figures'
@@ -197,12 +205,12 @@ for (const [name, engine, device] of [
           const failed = await page.locator('.play-seat-ring img, .play-card img').evaluateAll(images => images.map(img => [img.complete, img.naturalWidth, img.style.visibility]));
           assert.ok(failed.length && failed.every(([complete, width, visibility]) => complete && width === 0 && visibility === 'hidden'), 'failed decorative pictures are hidden');
         }
-        assert.deepEqual(errors, []);
+        assertNoErrors(errors.filter(error => error.startsWith('pageerror:')));
         console.log(`PASS ${label}`);
       } catch (error) {
         await page.screenshot({ path: join(out, `${label}-check-failed.png`) });
         throw error;
-      } finally { clearTimeout(timer); release(); await context.close(); }
+      } finally { release(); await context.close(); }
     }
   } finally { await browser.close(); }
 }

@@ -13,16 +13,19 @@ const { outputFiles: [copy] } = await build({
     resolveDir: repo,
     contents: `
       export { text, panelText, guideTabLabels, squareLabel } from './src/interface/play/texts.ts';
-      export { summaryLine } from './src/interface/play/home.ts';
+      export { summaryLine, homeText } from './src/interface/play/home.ts';
+      export { stateText } from './src/interface/play/mini-board.ts';
+      export { kingDisplayName } from './src/king-label.ts';
       export { signInText, WAYS } from './src/interface/people/screens/copy.ts';
-      export { P, parseSq } from './src/rules/engine.ts';`,
+      export { P, R, parseSq } from './src/rules/engine.ts';`,
   },
   bundle: true, platform: 'node', format: 'esm', write: false, loader: { '.svg': 'text' },
 });
-const { text, panelText, guideTabLabels, squareLabel, summaryLine, signInText, WAYS, P, parseSq } =
+const { text, panelText, guideTabLabels, squareLabel, summaryLine, homeText, stateText, kingDisplayName, signInText, WAYS, P, R, parseSq } =
   await import('data:text/javascript;base64,' + Buffer.from(copy.contents).toString('base64'));
 
 export { previewOrigin };
+export { text, panelText, squareLabel, stateText, kingDisplayName, P, R, parseSq };
 export const releaseEngines = [chromium, webkit];
 
 export async function withReleaseSite(url, check) {
@@ -147,6 +150,12 @@ export function releaseDriver(page, url, touch = false) {
       await squares.nth(63).waitFor();
       return await squares.count() === 64;
     },
+    async openSoloSetup() { await action(summary); await setup.waitFor(); },
+    async startFromSetup() {
+      await action(button(setup, homeText.startGame));
+      await setup.waitFor({ state: 'hidden' });
+    },
+    async continueGame() { await action(button(page, text.resume)); },
     async movePawn() {
       await action(square(/^e2 /));
       await action(square(/^e4 /));

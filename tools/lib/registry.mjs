@@ -26,7 +26,7 @@ export const checks = [
   { name: 'owner-playtest-b', script: 'tools/verify-owner-playtest-b.mjs', previewPort: 5443, limit: 300, channel: 'chromium', byName: true },
   // Uses the local online stack at PLAYABLE_URL; it must keep the lane's assigned port.
   { name: 'next-arrange', script: 'tools/verify-next-arrange.mjs', limit: 480, channel: 'chromium', byName: true, external: true },
-  { name: 'next-art-wait', script: 'tools/verify-next-art-wait.mjs', limit: 240, channel: 'chromium', byName: true },
+  { name: 'next-art-wait', ci: 'journey', ciSeconds: 28.1, ciBrowsers: ['chromium', 'webkit'], script: 'tools/verify-next-art-wait.mjs', limit: 240, channel: 'chromium', byName: true },
   { name: 'next-menus', script: 'tools/verify-next-menus.mjs', limit: 900, channel: 'chromium', byName: true },
   { name: 'daylight-tabs', ci: 'journey', ciSeconds: 25, ciBrowsers: ['chromium', 'webkit'], script: 'tools/verify-daylight-tabs.mjs', limit: 180, byName: true },
   { name: 'painted-leaps', script: 'tools/verify-painted-leaps.mjs', limit: 120, channel: 'chromium', byName: true },
@@ -112,7 +112,7 @@ export const checks = [
   { name: 'web-online', ci: 'journey', webkit: true, ciSeconds: 152, script: 'tools/web-online-check.mjs', limit: 480, byName: true, exclusive: true },
   // The new page (next.html) by name only until the cutover: its save wiring (interface-playable issue 01).
   { name: 'king-labels', script: 'tools/verify-king-labels.mjs', limit: 300, channel: 'chromium', byName: true },
-  { name: 'next-save', script: 'tools/verify-next-save.mjs', limit: 180, channel: 'chromium', byName: true },
+  { name: 'next-save', ci: 'journey', ciSeconds: 5.4, script: 'tools/verify-next-save.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'selftest-dirty', script: 'tools/check-selftest-dirty.mjs', limit: 30, byName: true },
   { name: 'selftest-fail', script: 'tools/check-selftest-dirty.mjs', args: ['fail'], limit: 30, byName: true },
   { name: 'selftest-hang', script: 'tools/check-selftest-dirty.mjs', args: ['hang'], limit: 5, byName: true },
