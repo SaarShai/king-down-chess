@@ -264,10 +264,14 @@
 .play-game[data-layout][data-reading] .play-reader[data-floating='true'] :is(.learn-top, .play-head, .play-bhead) { position: sticky; top: 0; z-index: 2; background: var(--surface-raised); }
 
 
-/* Online notices and their actions use the text section. The board stays fixed. */
-.play-game[data-form='compact'][data-own-rows='1']:has(.online-status) .play-reader:not([data-floating='true']) { height: calc(var(--reader) + 28px); padding-block: 0; }
-.play-game[data-form='compact'][data-own-rows='1']:has(.online-status) .play-own { top: calc(var(--usable-height) - var(--fin) - var(--own) + 28px); height: calc(var(--own) - 28px); padding-block: 0; }
-.play-game[data-layout='wide'][data-form='compact'][data-own-rows='1']:has(.online-status) .play-own { top: calc(var(--rail-top) + var(--opp) + var(--scroll) + var(--reader) + 28px); }
+/* Online notices and their actions use the text section. The board stays fixed. In the compact form, actions take
+   28 px of the hand's spare art height: the turn line, a notice and one row of 44 px controls show whole. */
+.play-game[data-form='compact']:has(.online-status .kd-button) .play-reader:not([data-floating='true']) { height: calc(var(--hand-y) - var(--reader-y) + 20px); max-height: none; }
+.play-game[data-form='compact']:has(.online-status .kd-button) .play-own { top: calc(var(--hand-y) + 28px); height: calc(var(--own) - 28px); }
+.play-game[data-form='compact'] .online-status .online-actions { row-gap: 2px; }
+.play-game[data-form='compact'] .online-status .online-actions .kd-button { flex: 1 1 0; min-width: 0; font-size: 14px; }
+.play-game[data-form='compact']:has(.online-status .kd-button) .play-own .play-power-coin { width: 22px; height: 22px; }
+.play-game[data-form='compact']:has(.online-status .kd-button) .play-own .play-power small { display: none; }
 .play-game .online-status { gap: 0; min-height: 0; overflow-y: auto; }
 .play-game .online-status > p { margin: 0; font: 650 14px/18px var(--font-reading); }
 
@@ -453,6 +457,9 @@
   overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
 }
 .play-game[data-online] .play-result-actions { flex: none; }
+/* A rematch offer has four controls under Accept rematch. In the compact form they take one row, so the result text shows whole. */
+.play-game[data-form='compact'][data-online] .play-result:has(.play-result-actions > :nth-child(5)) { padding-block: 2px; }
+.play-game[data-form='compact'][data-online] .play-result-actions:has(> :nth-child(5)) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 @media (max-width: 340px) {
   .play-game[data-online] .play-result[data-outcome='loss'] h3 { font-size: 20px; }
 }
