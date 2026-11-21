@@ -445,7 +445,7 @@ function onlineActions(state: PeopleState): HTMLElement {
     block.append(el('p', '', 'Your turn stays on this device.'), button('Sign in again', { kind: 'main', onPress: () => { if (onlineState) void onlineRecovery(onlineState); } }));
     return block;
   }
-  if (state.phase === 'checking') block.append(el('p', '', 'The turn needs a check. Your unsent turn stays.'), button('Check again', { onPress: () => { void people!.controller!.check(); } }), ...(state.check?.canDiscard ? [button('Discard send', { onPress: () => { void people!.controller!.discard(); } })] : []));
+  if (state.phase === 'checking') block.append(el('p', '', 'Your unsent turn stays.'), button('Check again', { onPress: () => { void people!.controller!.check(); } }), ...(state.check?.canDiscard ? [button('Discard send', { onPress: () => { void people!.controller!.discard(); } })] : []));
   else if (state.claim) block.append(button(state.claim === 'win' ? 'Claim win' : 'End game', { onPress: () => { void people!.controller!.claim(); } }));
   else if (state.draw === 'theirs') block.append(el('p', '', 'Your opponent offers a draw.'), button('Accept draw', { onPress: () => { void people!.controller!.answerDraw(true); } }), button('Keep playing', { onPress: () => { void people!.controller!.answerDraw(false); } }));
   if (state.phase === 'waiting') {
@@ -1393,6 +1393,8 @@ function update() {
   }
   screen.dataset.reading = reading; screen.dataset.review = String(resultReview); screen.dataset.borrow = 'false';
   const actions = net ? onlineActions(net) : undefined;
+  // While a notice waits with a control, the hand keeps the place that the notice needs, also under an open reader (reading-b.css).
+  screen.dataset.onlineAction = String(!!actions?.querySelector('.kd-button'));
   screen.dataset.readerActive = String(!!(selected != null || !draft.length && inspected != null || draft.armed || choice.length || notice || actions?.childElementCount));
   renderReader(actions); renderHistory(); placeFloating(); fitResult();
   drawMarks();

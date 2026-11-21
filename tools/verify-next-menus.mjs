@@ -14,11 +14,12 @@ const { outputFiles: [copy] } = await build({
       export { sideText } from './src/interface/play/sides.ts';
       export { SETTING_ORDER } from './src/interface/play/menus.ts';
       export { POWER_NAME } from './src/powers-ui.ts';
-      export { M, N } from './src/rules/engine.ts';`,
+      export { M, N } from './src/rules/engine.ts';
+      export { rulesOf } from './src/interface/play/saved.ts';`,
   },
   bundle: true, platform: 'node', format: 'esm', write: false, loader: { '.svg': 'text' },
 });
-const { text, panelText, pieces, homeText, sideText, SETTING_ORDER, POWER_NAME, M, N } =
+const { text, panelText, pieces, homeText, sideText, SETTING_ORDER, POWER_NAME, M, N, rulesOf } =
   await import('data:text/javascript;base64,' + Buffer.from(copy.contents).toString('base64'));
 
 const browser = await launch(), out = env('PLAYABLE_OUT');
@@ -126,6 +127,31 @@ async function panelRace(page, context, check, action, game, { preload = false, 
   check(await saved(page) === save, 'no local game is written');
   openPolls();
 }
+// An online game with a power and four cards for each side. `answer` holds the game view; the page reads it at each request.
+const HAND = ['IceWall', 'Haste', 'Salvation', 'MirrorB'], ONLINE = '00000000-0000-4000-8000-0000000000aa';
+const onlineRules = rulesOf('both', [{ king: 'Spirit', power: 'HolyLight' }, { king: 'Shadow', power: 'DeathTouch' }], [HAND, HAND]);
+const onlineView = (extra = {}) => { const at = new Date().toISOString(); return { game_id: ONLINE, rating_policy: 'casual', revision: 7, created_at: at, server_now: at, abort_open: false, seat: 0, kind: 'friend', speed: 'daily', days_per_move: 3,
+  status: 'playing', turn: 0, action: 'ready', in_check: false, legal: [], last_commands: [], draw_offer: null, rematch_allowed: true, rematch_game_id: null, rematch_offer: null,
+  deadline_at: new Date(Date.now() + 2.5 * 864e5).toISOString(), fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', rules: onlineRules, kings: onlineRules.kings, hands: onlineRules.hands,
+  history: { initial_fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', actions: [] },
+  opponent: { handle: 'test-b', icon: 'frost', avatar: null, computer: false, deleted: false, last_seen_ms: 0 }, ...extra }; };
+async function openOnline(page, context, answer) {
+  await signedIn(context, []);
+  await page.route(`**/api/games/${ONLINE}**`, route => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/seen')) return route.fulfill({ status: 204 });
+    if (path === `/api/games/${ONLINE}` && route.request().method() === 'GET') return answer.status ? route.fulfill({ status: answer.status, contentType: 'application/json', body: JSON.stringify({ code: 'UNAUTHENTICATED', message: 'Sign in again' }) }) : route.fulfill({ json: answer.view });
+    return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+  });
+  await page.goto(`${NEXT}#online=${ONLINE}`);
+  await page.waitForSelector('.play-game:has(.play-hand > .play-card:nth-child(4):last-child) .play-own .play-power');
+}
+const handTop = page => page.locator('.play-own').evaluate(n => Math.round(n.getBoundingClientRect().top));
+// The notice and each of its controls show whole: one line of notice, no scroll in the status, each control inside the viewport.
+// The status has room for one notice line only (83 px at 320x568 and 360x640): a second line needs a scroll.
+const noticeWhole = page => page.locator('.online-status').evaluate(status => status.scrollHeight <= status.clientHeight + 1
+  && [...status.querySelectorAll('.online-actions p')].every(p => p.getBoundingClientRect().height <= 19)
+  && [...status.querySelectorAll('.kd-button')].every(b => { const r = b.getBoundingClientRect(), s = status.getBoundingClientRect(); return r.top >= s.top - 1 && r.bottom <= Math.min(s.bottom, innerHeight) + 1; }));
 const cases = {
   async code_fault(page, context, check) {
     const pattern = /\/assets\/board-api-[\w-]+\.js$/;
@@ -343,6 +369,58 @@ const cases = {
     check(await preview.evaluate(n => n === document.activeElement), 'Escape returns focus to the Cards preview');
     await page.goBack(); check(await page.locator('dialog[open]').count() === 0, 'Browser Back closes New game');
   },
+  // Online notices with a control (decision of tweaks-2): the hand keeps one place under an open reader; the notice and
+  // its controls show whole; Menu asks the server for the block state.
+  async notice(page, context, check, size) {
+    if (!['320x568', '360x640', '390x844', '667x375'].includes(size)) return;
+    const portrait = size === '320x568' || size === '360x640', answer = { view: onlineView({ draw_offer: 1 }) };
+    let release; const held = new Promise(done => { release = done; }), blocks = [];
+    await page.route('**/api/blocks', async route => { blocks.push(route.request().postDataJSON()); await held; return route.fulfill({ json: { blocked: true } }); });
+    await openOnline(page, context, answer);
+    await page.locator('.online-status .online-actions .kd-button', { hasText: 'Keep playing' }).waitFor();
+    check(await page.locator('.play-game[data-online-action="true"]').count() === 1, 'a draw offer sets the mark');
+    const before = await handTop(page);
+    if (portrait) check(await noticeWhole(page), 'the draw offer and its controls show whole');
+    await shot(page, 'draw-offer');
+    await page.locator('.play-square[data-square="6"]').click();
+    await page.locator('.play-reader .play-title', { hasText: 'Knight' }).waitFor();
+    const reading = await handTop(page);
+    check(reading === before, `the hand stays in place under a piece reader (${before} then ${reading})`);
+    await shot(page, 'draw-offer-piece');
+    await page.locator('.play-square[data-square="6"]').click();
+    await page.locator('.online-status .online-actions .kd-button', { hasText: 'Keep playing' }).waitFor();
+    check(await handTop(page) === before, 'the hand stays in place when the reader closes');
+    if (size === '390x844') {
+      await page.getByRole('button', { name: text.menu, exact: true }).click();
+      const control = page.locator('dialog.game-menu-dialog[open] .online-menu-actions .kd-button').last();
+      check(await control.evaluate(n => n.getAttribute('aria-busy') === 'true' && n.querySelector('[data-button-label]').textContent === 'Block player'), 'Menu shows a busy Block player while the server answer waits');
+      release();
+      check(await control.filter({ hasText: 'Unblock player' }).waitFor().then(() => true, () => false), 'Menu shows Unblock player for a blocked player');
+      check(blocks.length === 1 && JSON.stringify(blocks[0]) === JSON.stringify({ game_id: ONLINE }), `Menu reads the block state once (${JSON.stringify(blocks)})`);
+      await shot(page, 'menu-unblock');
+      await page.keyboard.press('Escape'); await page.waitForSelector('dialog[open]', { state: 'detached' });
+    }
+    // The opponent's next read clears the offer: the mark goes with the notice.
+    answer.view = onlineView({ revision: 8 });
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    check(await page.waitForSelector('.play-game[data-online-action="false"]').then(() => true, () => false), 'the mark goes when the offer goes');
+    if (!portrait) return;
+    // A lost sign-in keeps the turn on this device.
+    answer.status = 401;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.locator('.online-status .kd-button', { hasText: 'Sign in again' }).waitFor({ state: 'attached' });
+    if (await page.locator('dialog[open]').count()) { await page.keyboard.press('Escape'); await page.waitForSelector('dialog[open]', { state: 'detached' }); }
+    check(await noticeWhole(page), 'the sign-in notice and its control show whole');
+    await shot(page, 'notice-auth');
+    // A saved send that this device cannot read: the turn needs a check, and Discard send shows at once.
+    const second = await context.newPage();
+    await second.addInitScript(() => localStorage.setItem('kingdown.account-command.u-tester', 'not a receipt'));
+    await openOnline(second, context, { view: onlineView() });
+    await second.locator('.online-status .kd-button', { hasText: 'Discard send' }).waitFor();
+    check(await noticeWhole(second), 'the check notice and its controls show whole');
+    await shot(second, 'notice-check');
+    await second.close();
+  },
   async menu(page, context, check, size) {
     await page.goto(NEXT); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: homeText.startGame, exact: true }).click(); await ready(page);
     const before = await saved(page);
@@ -402,8 +480,8 @@ try {
     page.on('pageerror', e => errors.push(e.message));
     const check = (ok, label) => { if (!ok) failures.push(label); };
     try { await run(page, context, check, size); } catch (e) { failures.push(String(e)); }
-    // Only these fault cases deliberately abort requests. A page exception is never expected.
-    if (!['code_fault', 'font_fault', 'home_art', 'rematch_art'].includes(name)) {
+    // Only these fault cases deliberately abort requests (notice: a 401 read and the aborted account project). A page exception is never expected.
+    if (!['code_fault', 'font_fault', 'home_art', 'rematch_art', 'notice'].includes(name)) {
       try { assertNoErrors(trapped); } catch (e) { failures.push(String(e)); }
       check(errors.length === 0, `no console error: ${errors.join('; ')}`);
     } else check(!errors.some(e => !/Failed to load resource|Load failed|net::ERR_FAILED/.test(e)), `only blocked requests fail: ${errors.join('; ')}`);

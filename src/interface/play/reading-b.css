@@ -266,14 +266,15 @@
 
 /* Online notices and their actions use the text section. The board stays fixed. In the compact portrait form, actions take
    28 px of the hand's spare art height: the turn line, a notice and one row of 44 px controls show whole. The wide layout has
-   room above the hand, so the hand keeps its place. */
-.play-game[data-layout='portrait'][data-form='compact']:has(.online-status .kd-button) .play-reader:not([data-floating='true']) { height: calc(var(--hand-y) - var(--reader-y) + 20px); max-height: none; }
-.play-game[data-layout='wide'][data-form='compact']:has(.online-status .kd-button) .play-reader:not([data-floating='true']) { height: calc(var(--hand-y) - var(--reader-y)); max-height: none; }
-.play-game[data-layout='portrait'][data-form='compact']:has(.online-status .kd-button) .play-own { top: calc(var(--hand-y) + 28px); height: calc(var(--own) - 28px); }
+   room above the hand, so the hand keeps its place. The mark (main.ts) stays while the notice waits, also under an open
+   reader, so the hand does not move. */
+.play-game[data-layout='portrait'][data-form='compact'][data-online-action='true'] .play-reader:not([data-floating='true']) { height: calc(var(--hand-y) - var(--reader-y) + 20px); max-height: none; }
+.play-game[data-layout='wide'][data-form='compact'][data-online-action='true'] .play-reader:not([data-floating='true']) { height: calc(var(--hand-y) - var(--reader-y)); max-height: none; }
+.play-game[data-layout='portrait'][data-form='compact'][data-online-action='true'] .play-own { top: calc(var(--hand-y) + 28px); height: calc(var(--own) - 28px); }
 .play-game[data-form='compact'] .online-status .online-actions { row-gap: 2px; }
 .play-game[data-form='compact'] .online-status .online-actions .kd-button { flex: 1 1 0; min-width: 0; font-size: 14px; }
-.play-game[data-layout='portrait'][data-form='compact']:has(.online-status .kd-button) .play-own .play-power-coin { width: 22px; height: 22px; }
-.play-game[data-layout='portrait'][data-form='compact']:has(.online-status .kd-button) .play-own .play-power small { display: none; }
+.play-game[data-layout='portrait'][data-form='compact'][data-online-action='true'] .play-own .play-power-coin { width: 22px; height: 22px; }
+.play-game[data-layout='portrait'][data-form='compact'][data-online-action='true'] .play-own .play-power small { display: none; }
 .play-game .online-status { gap: 0; min-height: 0; overflow-y: auto; }
 .play-game .online-status > p { margin: 0; font: 650 14px/18px var(--font-reading); }
 

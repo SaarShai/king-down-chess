@@ -65,7 +65,18 @@ export function playerSafety(
   openSheet: (open: (onClose?: () => void) => PeopleSheet) => void = open => { open(); },
 ) {
   const report: HTMLButtonElement = button('Report player', { onPress: () => beforeOpen(() => openSheet(onClose => reportPlayer(api, target, returnTo ?? report, onClose))) });
-  const block: HTMLButtonElement = button('Block player', { onPress: () => beforeOpen(() => openSheet(onClose => blockPlayer(api, target, returnTo ?? block, changed, onClose))) });
+  const known = 'handle' in target ? null : target;
+  let blocked = false;
+  const block: HTMLButtonElement = button('Block player', { onPress: () => blocked ? void unblock() : beforeOpen(() => openSheet(onClose => blockPlayer(api, target, returnTo ?? block, changed, onClose))) });
+  const show = (answer: { blocked: boolean }) => { blocked = answer.blocked; setButtonState(block, { label: blocked ? 'Unblock player' : 'Block player' }); };
+  // The same call as Unblock in Account & settings (blockedPlayers).
+  async function unblock() {
+    setButtonState(block, { busy: true });
+    try { const answer = await api.block({ ...known, blocked: false }); if (answer.blocked) throw new Error(); show(answer); changed(); }
+    catch { setButtonState(block, { label: 'Unblock player' }); }
+  }
+  // A block with no `blocked` value only reads it. A failed read leaves Block player, which is safe to press again.
+  if (known) { setButtonState(block, { busy: true }); api.block(known).then(show, () => setButtonState(block, {})); }
   return [report, block];
 }
 
