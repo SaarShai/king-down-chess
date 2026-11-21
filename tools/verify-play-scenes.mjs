@@ -1,4 +1,4 @@
-// Check the play scenes at four sizes and two text scales. Find cut and split text, horizontal
+// Check the play scenes at four portrait and desktop sizes, two landscape phone sizes (game screen only) and two text scales. Find cut and split text, horizontal
 // viewport and scroll box overflow, reader text and controls that a scroll box hides at rest, overlap, card names that another card covers, controls that cannot take a tap, and network requests.
 // The page is in a build only with KINGDOWN_TEST_PAGES=1:
 //   KINGDOWN_TEST_PAGES=1 npm run check:browser play-scenes
@@ -6,16 +6,19 @@
 import { env, launch, shot } from './lib/checks.mjs';
 import { KNOWN } from './play-scenes-known.mjs';
 
-const SIZES = [[320, 568], [360, 640], [390, 844], [1280, 800]], SCALES = [100, 150];
+// Landscape phones check the game screen only: the new-game panel puts the Powers and Cards labels over their switches there,
+// and online-loss cuts its 20-letter test name with an ellipsis, as the known mark at 320 px allows. Repair them in their own change.
+const gameScreen = scene => /^(online|solo)-/.test(scene) && !['online-loss', 'online-loss-offer'].includes(scene);
+const SIZES = [[320, 568], [360, 640], [390, 844], [667, 375, gameScreen], [568, 320, gameScreen], [1280, 800]], SCALES = [100, 150];
 const ROLES = ['button', 'link', 'switch', 'radio', 'checkbox', 'tab', 'menuitem', 'option', 'slider', 'textbox', 'combobox'];
 const SENTINEL = 'kingdown-scene-sentinel';
 
 const base = new URL('play-scenes.html', env('PLAYABLE_URL'));
 const browser = await launch();
 const faults = [], known = [], used = new Set();
-let links;
+let links, cases = 0;
 try {
-  for (const [width, height] of SIZES) for (const scale of SCALES) {
+  for (const [width, height, only] of SIZES) for (const scale of SCALES) {
     const context = await browser.newContext({
       viewport: { width, height }, colorScheme: 'light', reducedMotion: 'reduce', serviceWorkers: 'block', hasTouch: width < 1000,
     });
@@ -61,7 +64,8 @@ try {
           return JSON.stringify([await caches.keys(), (await navigator.serviceWorker.getRegistrations()).map(r => r.scope)]);
         }, { name: SENTINEL, seed });
       }
-      for (const scene of links) {
+      for (const scene of links.filter(only ?? Boolean)) {
+        cases++;
         const where = `${scene} ${width}x${height} ${scale}%`, found = [];
         const picture = `${scene}-${width}x${height}-${scale}`;
         let pictured = false;
@@ -108,7 +112,7 @@ try {
 for (const mark of KNOWN.keys()) if (!used.has(mark)) faults.push(`known mark matches no fault: ${mark}`);
 for (const line of known) console.log(`known fault: ${line}`);
 if (faults.length) { console.error(`play scenes: ${faults.length} case(s) fail\n  ${faults.join('\n  ')}`); process.exit(1); }
-console.log(`play scenes: all ${links.length * SIZES.length * SCALES.length} cases pass (${links.length} scenes)`);
+console.log(`play scenes: all ${cases} cases pass (${links.length} scenes)`);
 
 /** In the page: a control must be active in this layer and visible without keyboard focus. */
 function outsideLayer(node) { const modal = window.playSceneModal(); return !!node.closest('[inert], .shell-skip:not(:focus)') || !!modal && !modal.contains(node); }
