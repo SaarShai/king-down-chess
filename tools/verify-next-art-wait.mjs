@@ -162,9 +162,11 @@ for (const [name, engine, device] of [
         await driver.openSoloSetup();
         const cardsSwitch = page.getByRole('dialog', { name: text.newGame, exact: true }).getByRole('switch', { name: text.cards, exact: true });
         if ((await cardsSwitch.getAttribute('aria-checked') === 'true') !== (cards === 'On')) await press(cardsSwitch);
+        const began = Date.now();
         await driver.startFromSetup();
         await ready(page);
         await page.locator('.play-versus').waitFor({ state: 'hidden' });
+        assert.ok(Date.now() - began < 5000, 'the first frame does not wait for the held art (limit: five seconds)');
         assert.ok(await page.locator(board).isVisible(), 'the canvas shows before the board takes input');
         const first = await state(page);
         assert.deepEqual(first.light, [233, 230, 213, 255], 'draw the light square');
