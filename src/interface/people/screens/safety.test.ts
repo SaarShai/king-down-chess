@@ -79,25 +79,6 @@ it('block waits for confirm, retries failure and keeps the current game', async 
     expect(await page.evaluate(() => (window as any).calls)).toEqual([['block', { game_id: 'game', blocked: true }], ['block', { game_id: 'game', blocked: true }]]);
   } finally { await page.close(); }
 });
-it('after a block, the player controls offer Unblock with the call of Account & settings (this session only)', async () => {
-  const page = await open();
-  try {
-    const controls = () => page.evaluate(() => {
-      const w = window as any, menu = document.createElement('div'); document.querySelector('#menu')?.remove(); menu.id = 'menu';
-      menu.append(...w.safety.playerSafety(w.api, { game_id: 'game' }, () => {})); document.body.append(menu);
-      return [...menu.querySelectorAll('button')].map(control => control.textContent);
-    });
-    expect(await controls()).toEqual(['Report player', 'Block player']);
-    await page.locator('#menu').getByRole('button', { name: 'Block player', exact: true }).click();
-    await page.locator('dialog').getByRole('button', { name: 'Block player', exact: true }).click();
-    await page.getByRole('button', { name: 'Done', exact: true }).click();
-    expect(await controls()).toEqual(['Report player', 'Unblock player']);
-    await page.locator('#menu').getByRole('button', { name: 'Unblock player', exact: true }).click();
-    await expect.poll(() => page.locator('#menu button').nth(1).textContent()).toBe('Block player');
-    expect(await page.evaluate(() => (window as any).calls)).toEqual([['block', { game_id: 'game', blocked: true }], ['block', { game_id: 'game', blocked: false }]]);
-    expect(await controls()).toEqual(['Report player', 'Block player']);
-  } finally { await page.close(); }
-});
 it('player options replaces its sheet and returns focus to the original control', async () => {
   const page = await open();
   try {

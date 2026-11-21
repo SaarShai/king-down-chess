@@ -42,8 +42,6 @@ export function reportPlayer(api: Pick<SafetyClient, 'report' | 'onAccountChange
   return sheet;
 }
 
-// shortcut: the game view has no block state, so Unblock shows only after a block in this tab; read GET /api/blocks to show it always.
-const blockedHere = new Set<string>();
 export function blockPlayer(api: Pick<SafetyClient, 'block' | 'relate' | 'onAccountChange'>, target: Target, source: HTMLElement, changed: () => void, onClose?: () => void) {
   const sheet = safetySheet(api, source, onClose), status = statusLine();
   const confirm = button('Block player', { kind: 'danger', onPress: async () => {
@@ -52,7 +50,6 @@ export function blockPlayer(api: Pick<SafetyClient, 'block' | 'relate' | 'onAcco
     try {
       if ('handle' in target) await api.relate('block', target);
       else { const reply = await api.block({ ...target, blocked: true }); if (!reply.blocked) throw new Error(); }
-      if (!('handle' in target)) blockedHere.add(JSON.stringify(target));
       if (!sheet.isOpen) return;
       changed();
       sheet.show({ title: 'Player blocked', body: [node('p', '', 'You can unblock this player in Account & settings. Any current game continues.'), button('Done', { kind: 'main', onPress: sheet.close })] });
@@ -68,15 +65,7 @@ export function playerSafety(
   openSheet: (open: (onClose?: () => void) => PeopleSheet) => void = open => { open(); },
 ) {
   const report: HTMLButtonElement = button('Report player', { onPress: () => beforeOpen(() => openSheet(onClose => reportPlayer(api, target, returnTo ?? report, onClose))) });
-  const key = JSON.stringify(target);
-  const block: HTMLButtonElement = button(blockedHere.has(key) ? 'Unblock player' : 'Block player', { onPress: () => blockedHere.has(key) ? void unblock() : beforeOpen(() => openSheet(onClose => blockPlayer(api, target, returnTo ?? block, changed, onClose))) });
-  // The same call as Unblock in Account & settings (blockedPlayers).
-  async function unblock() {
-    if ('handle' in target || block.getAttribute('aria-busy') === 'true') return;
-    setButtonState(block, { busy: true });
-    try { if ((await api.block({ ...target, blocked: false })).blocked) throw new Error(); blockedHere.delete(key); setButtonState(block, { label: 'Block player' }); changed(); }
-    catch { setButtonState(block, { label: 'Unblock player' }); }
-  }
+  const block: HTMLButtonElement = button('Block player', { onPress: () => beforeOpen(() => openSheet(onClose => blockPlayer(api, target, returnTo ?? block, changed, onClose))) });
   return [report, block];
 }
 
