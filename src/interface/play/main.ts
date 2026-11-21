@@ -29,7 +29,7 @@ import { POWER_NAME, POWER_TAG, cardName, coinState, usesAllowed } from '../../p
 import { DraftTurn, isDirect, armKey } from './turn';
 import { Arrangement, ARRANGE_KEY } from './arrange';
 import { actorMarks, mergeMarks, previewMarks, resultMarks, stateMarks, type MarkAction } from './marks';
-import { cardLine, pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, kingLabel, resultText } from './texts';
+import { cardLine, pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, kingLabel, rematchLine, resultText } from './texts';
 import { readingText, checkLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
 import { armCard, calm, cardFly, disarm, screenChange, setInterfaceMotion, sheetMotion, trackCard, time } from './motion';
 import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, tween, type Effect } from './fx';
@@ -1467,10 +1467,11 @@ function renderReader(actions?: HTMLElement) {
     const heading = el('h3', '', onlineResult(state)), handle = state.opponent?.handle;
     if (block.dataset.outcome === 'loss' && handle) { heading.replaceChildren(el('span', 'play-result-winner', handle), ' wins.'); void document.fonts.ready.then(fitResult); }
     body.append(heading, el('p', 'play-result-cause', state.view?.result?.reason === 'resignation' ? 'The game ends by resignation.' : state.view?.result?.reason === 'agreement' ? 'Both players agree to a draw.' : state.view?.result?.reason === 'timeout' ? 'The move time ends.' : state.view?.result?.reason === 'checkmate' ? 'Checkmate.' : 'The game ends.'));
+    const rematch = state.view ? rematchLine(state.rematch, state.view.seat) : '';
+    if (rematch) body.append(el('p', 'play-result-facts', rematch));
     if (state.rematch === 'theirs') actions.append(button('Accept rematch', { kind: 'main', onPress: () => { void people!.controller!.rematch('accept'); } }), button('Decline', { onPress: () => { void people!.controller!.rematch('decline'); } }));
     else if (state.rematch === 'accepted' && state.rematchGame) actions.append(button('Open rematch', { kind: 'main', onPress: () => shell.go({ place: 'online', entry: state.rematchGame! }) }));
-    else if (state.rematch === 'mine') body.append(el('p', 'play-result-facts', 'Waiting for a rematch answer.'));
-    else if (state.rematch !== 'closed') actions.append(button('Rematch', { kind: 'main', onPress: () => { void people!.controller!.rematch('offer'); } }));
+    else if (state.rematch !== 'mine' && state.rematch !== 'closed') actions.append(button('Rematch', { kind: 'main', onPress: () => { void people!.controller!.rematch('offer'); } }));
     if (state.view && humanOpponent(state.view)) {
       const options: HTMLButtonElement = button('Player options', { onPress: () => playerOptions(people!.safety, { game_id: state.view!.game_id }, options, () => { void people?.controller?.refresh(); }) }); actions.append(options);
     }

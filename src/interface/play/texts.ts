@@ -8,6 +8,7 @@ import type { PieceType } from '../../rules/engine';
 import type { Move, Position } from '../board-api';
 import { sqName, typeOf, colorOf, TAG_POWER, followSq, type Color, A, B, G, K, L, M, N, O, P, Q, R, S } from '../../rules/engine';
 import type { DraftTurn } from './turn';
+import type { Rematch } from '../people/controller';
 import type { CardName, KingName } from '../../rules/rules';
 import { POWER_NAME, cardName, usesAllowed } from '../../powers-ui';
 import type { PowerName } from '../../rules/engine';
@@ -52,6 +53,11 @@ export const powerLines: Partial<Record<CardName, string>> = {
 };
 export const cardLine = (card: CardName): string => card === 'March'
   ? 'A pawn off its start rank can move two empty squares ahead.' : powerLines[card] ?? '';
+/** The result line of an online rematch. A rematch swaps the sides (src/match/service.ts); seat 0 plays White. */
+export function rematchLine(rematch: Rematch, seat: Color): string {
+  const side = `You play ${seat ? 'White' : 'Black'} next.`;
+  return rematch === 'mine' ? `Waiting for a rematch answer. ${side}` : rematch === 'theirs' ? `Your opponent offers a rematch. ${side}` : rematch === 'declined' ? 'Your opponent declined the rematch.' : '';
+}
 export const text = {
   guide: 'Guide', friend: 'Play a friend', signIn: 'Sign in', settings: 'Account & settings', settingsLabel: 'Account and settings',
   homeLabel: 'Home', backTo: (place: string) => `Back to ${place}`, kings: 'Kings', cards: 'Cards', rules: 'Rules',
