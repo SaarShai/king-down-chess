@@ -22,6 +22,7 @@ case "$mode" in check|engines|publish) ;; *) echo 'usage: tools/release/live.sh 
 . "$tools/release/profile.sh"
 [ -d "$repo/.git" ] || [ -f "$repo/.git" ] || { echo "live: $repo is not a worktree; make it with tools/wt.sh add release-live" >&2; exit 2; }
 mkdir -p "$evidence"
+evidence=$(cd "$evidence" && pwd -P)
 unset KINGDOWN_STAGE VITE_KINGDOWN_STAGE KINGDOWN_TEST_PAGES
 export VITE_SUPABASE_URL=https://utqzovjmclfyojedmwok.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=$(node "$tools/release/publishable-key.mjs" https://kingdown.dev); export VITE_SUPABASE_PUBLISHABLE_KEY
@@ -58,5 +59,6 @@ case "$mode" in
     if [ -z "$expected" ]; then
       bash "$tools/release/ci-wait.sh" "$sha" "${KINGDOWN_CI_WAIT_MINUTES:-30}" || echo 'live: CI did not pass in time. deploy.sh runs the full local checks.'
     fi
-    cd "$repo"; tools/deploy.sh --publish 2>&1 | tee "$evidence/deploy-$sha.log" ;;
+    cd "$repo"
+    KINGDOWN_FRAME_CHECKS_RECORD="$evidence/frame-checks.pass" tools/deploy.sh --publish 2>&1 | tee "$evidence/deploy-$sha.log" ;;
 esac

@@ -268,9 +268,8 @@ step 'plugin test database' npm run plugin:db:init-test
 # CI that passed on this exact commit (every check suite complete and green, tools/ci-green.mjs) stands for npm test,
 # the default browser checks, the web journey and the plugin checks, which CI ran on the same tree. CI stands for the browser checks only
 # when this commit's workflow has the step that runs check:browser with --no-gpu and no names (the browser-default
-# job): without it, CI ran four of the default checks. The checks that assert frame times need a GPU, which CI does
-# not have (gpu in tools/lib/registry.mjs): they always run here.
-# The build, artifact and live gates run here. No answer from GitHub, a running or a failed CI: the full local run.
+# job): without it, CI ran four of the default checks. The frame-time checks need a GPU (gpu in tools/lib/registry.mjs).
+# The build, artifact and live gates run here. Without green CI, run the other checks locally.
 ci_green=no ci_browser=no
 if [ "$target" = website ] && node tools/ci-green.mjs "$commit"; then
   ci_green=yes
@@ -286,7 +285,20 @@ else
   step 'npm test' bash tools/test-lock.sh bash tools/test-unlocked.sh
 fi
 if [ "$target" = website ]; then
-  if [ "$ci_browser" = yes ]; then step 'frame-time browser checks' node tools/check.mjs --gpu; else step 'browser checks' node tools/check.mjs; fi
+  record=${KINGDOWN_FRAME_CHECKS_RECORD:-}
+  # The pass record is local to this Mac and has the same trust as a check run at publish time.
+  if [ -f "$record" ] && tree=$(git rev-parse "$commit^{tree}") && passed_at=$(LC_ALL=C awk -v tree="$tree" '
+    NR == 1 && $0 == "pass " tree " " $3 " king-effects painted-game" &&
+      $3 ~ /^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z$/ { time=$3 }
+    END { if (NR != 1 || !time) exit 1; print time }
+  ' 2>/dev/null < "$record"); then
+    echo "deploy: skipped frame-time browser checks for tree $tree (passed at $passed_at)"
+    if [ "$ci_browser" = no ]; then step 'browser checks' node tools/check.mjs --no-gpu; fi
+  elif [ "$ci_browser" = yes ]; then
+    step 'frame-time browser checks' node tools/check.mjs --gpu
+  else
+    step 'browser checks' node tools/check.mjs
+  fi
   # shellcheck disable=SC2086 # site_env holds two checked words without spaces.
   step 'site artifact' env $site_env npm run build:vercel
 else

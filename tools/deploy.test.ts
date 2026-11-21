@@ -549,6 +549,44 @@ describe('deploy.sh', () => {
     expect(result.stdout).toMatch(/CI passed at [0-9a-f]{40}; skipped npm test, the web journey and the plugin checks/);
   });
 
+  it.each(['same tree', 'no record', 'different tree', 'bad record', 'bad time', 'extra line', 'failed record', 'same tree without CI'])(
+    'reuses frame-time checks only for a valid pass at the published tree (%s)', testCase => {
+      const { repo, deploy, calls } = setup();
+      repo.write('.github/workflows/plugin-checks.yml', '      - run: npm run check:browser -- --no-gpu\n');
+      repo.git('add', '.');
+      repo.git('commit', '-qm', 'workflow');
+      const tree = head(repo, 'HEAD^{tree}');
+      const priorTree = head(repo, 'HEAD~1^{tree}');
+      const pr = head(repo, 'HEAD');
+      repo.git('commit', '--allow-empty', '-qm', 'same tree on main');
+      repo.git('push', '-q', 'origin', 'main');
+      expect(head(repo, 'HEAD')).not.toBe(pr);
+      const record = join(repo.root, 'frame checks.pass');
+      const time = '2026-11-21T08:15:00Z';
+      if (testCase !== 'no record') {
+        const status = testCase === 'failed record' ? 'fail' : 'pass';
+        const checks = testCase === 'bad record' ? 'king-effects' : 'king-effects painted-game';
+        const at = testCase === 'bad time' ? '2026-11-21T25:15:00Z' : time;
+        writeFileSync(record, `${status} ${testCase === 'different tree' ? priorTree : tree} ${at} ${checks}\n${testCase === 'extra line' ? '\n' : ''}`);
+      }
+
+      const ci = testCase !== 'same tree without CI';
+      const result = deploy([], { STUB_CI_PASS: ci ? '1' : '', KINGDOWN_FRAME_CHECKS_RECORD: testCase === 'no record' ? '' : record });
+      expect(result.status, result.stdout + result.stderr).toBe(0);
+      const browser = calls().filter(line => line.startsWith('node tools/check.mjs')).map(line => line.replace(/ @ .*/, ''));
+      if (testCase.startsWith('same tree')) {
+        expect(browser).toEqual(ci ? [] : ['node tools/check.mjs --no-gpu', 'node tools/check.mjs web-online', 'node tools/check.mjs plugin-ui plugin-ui-http']);
+        expect(result.stdout.match(/^deploy: skipped frame-time browser checks.*$/gm)).toEqual([
+          `deploy: skipped frame-time browser checks for tree ${tree} (passed at ${time})`,
+        ]);
+      } else {
+        expect(browser).toEqual(['node tools/check.mjs --gpu']);
+        expect(result.stdout).not.toContain('skipped frame-time browser checks');
+      }
+      expect(calls().some(line => line.startsWith('npx '))).toBe(false);
+    },
+  );
+
   it('runs the plugin target without the CI check', () => {
     const { deploy, calls } = setup();
     const result = deploy(['--target', 'plugin'], { PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', STUB_CI_PASS: '1' });

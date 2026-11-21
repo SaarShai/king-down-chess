@@ -35,11 +35,17 @@ kind=release
 [ "$dry" = no ] || kind=release-dry
 run="$base/$kind-$pr-$head"
 mkdir -p "$run"
+run=$(cd "$run" && pwd -P)
 lock="$base/$kind-active"
 progress="$run/progress.log"
-stage= failure_commit=$head publish_error= bypassed=
+frame_record="$run/live/frame-checks.pass"
+stage= failure_commit=$head publish_error= bypassed= ci_pid=
 finish() {
   local code=$?
+  if [ -n "$ci_pid" ]; then
+    kill "$ci_pid" 2>/dev/null || :
+    wait "$ci_pid" 2>/dev/null || :
+  fi
   if [ "$code" -ne 0 ] && [ -n "$stage" ]; then
     write_failure "$code" || echo "release: could not append to $release_log" >&2
     say "$stage failed ($code). ${publish_error:+$publish_error. }See $run/$stage.log"
@@ -65,12 +71,12 @@ release_log=${KINGDOWN_RELEASE_LOG:-$main/../runs/launch/release-log.md}
 pr_view() { gh pr view "$pr" --repo "$repository" "$@"; }
 
 require_release_pr() {
-  local fields=state,baseRefName,headRefOid
-  local filter="select(.state == \"OPEN\" and .baseRefName == \"main\") | .headRefOid"
+  local fields=state,baseRefName,headRefOid,isCrossRepository
+  local filter="select(.state == \"OPEN\" and .baseRefName == \"main\" and .isCrossRepository == false) | .headRefOid"
   if [ "$dry" = yes ]; then
     dry_command gh pr view "$pr" --repo "$repository" --json "$fields" --jq "$filter"
   else
-    [ "$(pr_view --json "$fields" --jq "$filter")" = "$head" ] || { echo 'release: the PR must be open at this head and target main'; return 1; }
+    [ "$(pr_view --json "$fields" --jq "$filter")" = "$head" ] || { echo 'release: the PR must be open at this head and target main from this repository'; return 1; }
   fi
 }
 require_reconciled_base() {
@@ -86,8 +92,42 @@ require_reconcile() {
   require_reconciled_base
 }
 wait_head() {
-  require_release_pr
+  require_release_pr || return
   outward bash "$tools/release/ci-wait.sh" "$head" '' --pr-head
+}
+release_ci() {
+  local began code=0 tree time passed_checks
+  if [ "$dry" = no ]; then rm -f "$frame_record" || return; fi
+  require_release_pr || return
+  if [ "$dry" = yes ]; then
+    echo 'dry-run: run PR CI wait and frame-time browser checks in parallel, then require both to pass'
+    dry_command bash "$tools/release/ci-wait.sh" "$head" '' --pr-head
+  else
+    bash "$tools/release/ci-wait.sh" "$head" '' --pr-head &
+    ci_pid=$!
+  fi
+  began=$SECONDS
+  frame_checks || code=$?
+  say "time frame-checks $((SECONDS - began))s"
+  [ "$code" -eq 0 ] || return "$code"
+  if [ "$dry" = yes ]; then
+    dry_command "cwd=$live_tree" git rev-parse "$head^{tree}"
+    dry_command "write pass (tree, UTC time, king-effects painted-game) to $frame_record"
+    return
+  fi
+  tree=$(git -C "$live_tree" rev-parse "$head^{tree}") || return
+  time=$(date -u +%FT%TZ) || return
+  passed_checks=$(awk '$1 == "ok" {printf "%s%s", separator, $2; separator=" "}' "$run/frame-checks.log") || return
+  if [ -z "$passed_checks" ]; then
+    echo 'release: the frame-time run reported no passing checks' >&2
+    return 1
+  fi
+  wait "$ci_pid" || code=$?
+  ci_pid=
+  [ "$code" -eq 0 ] || return "$code"
+  mkdir -p "$run/live" || return
+  printf 'pass %s %s %s\n' "$tree" "$time" "$passed_checks" > "$frame_record.tmp" &&
+    mv "$frame_record.tmp" "$frame_record"
 }
 merge_release() {
   require_release_pr || return
@@ -134,33 +174,69 @@ live_step() {
   local mode=$1 commit
   commit=$(merge_commit) || return
   if [ "$dry" = yes ]; then
-    dry_command "KINGDOWN_RELEASE_WORKTREE=$live_tree" "KINGDOWN_RELEASE_COMMIT=$commit" bash "$tools/release/live.sh" "$mode"
+    dry_command "KINGDOWN_RELEASE_WORKTREE=$live_tree" "KINGDOWN_RELEASE_COMMIT=$commit" "KINGDOWN_RELEASE_EVIDENCE=$run/live" bash "$tools/release/live.sh" "$mode"
   else
     KINGDOWN_RELEASE_COMMIT="$commit" KINGDOWN_RELEASE_EVIDENCE="$run/live" bash "$tools/release/live.sh" "$mode" </dev/null
   fi
 }
-checks() (
-  local dir=$1 expected=$2 origin=$3 actual
-  shift 3
-  if [ "$dry" = yes ]; then
-    dry_command "cwd=$dir" git rev-parse --verify HEAD "(expect $expected)"
-    dry_command "cwd=$dir" npm ls --depth=0
-    dry_command "cwd=$dir" npm ci '(if packages are missing or linked)'
-    dry_command "cwd=$dir" "PLAYABLE_URL=$origin" npm run check:browser "$@"
-    return
-  fi
+check_worktree() {
+  local dir=$1 expected=${2:-} actual status
   cd -P -- "$dir" || return
   if [ ! -e .git ] || [ "$PWD" = "$main" ] || [ "$PWD" = "${tools%/tools}" ]; then
     echo "release: use a dedicated worktree at $dir" >&2
     return 1
   fi
   actual=$(git rev-parse --verify HEAD) || return
-  if [ "$actual" != "$expected" ]; then
+  if [ -n "$expected" ] && [ "$actual" != "$expected" ]; then
     echo "release: $dir is at $actual. Set the worktree to $expected before retrying." >&2
     return 1
   fi
+  status=$(git status --porcelain --untracked-files=all) || return
+  if [ -n "$status" ]; then
+    echo "release: the worktree has changes at $dir" >&2
+    return 1
+  fi
+}
+frame_checks() (
+  if [ "$dry" = yes ]; then
+    dry_command "cwd=$live_tree" git status --porcelain --untracked-files=all
+    dry_command "cwd=$live_tree" git fetch --no-tags origin "refs/pull/$pr/head"
+    dry_command "cwd=$live_tree" git checkout --detach "$head"
+    dry_command "cwd=$live_tree" npm ci '(with its own node_modules)'
+    dry_command "cwd=$live_tree" node tools/check.mjs --gpu
+    [ "${KINGDOWN_RELEASE_FAIL_STAGE:-}" != frame-checks ]
+    return
+  fi
+  check_worktree "$live_tree" || return
+  git fetch --no-tags origin "refs/pull/$pr/head" || return
+  if [ "$(git rev-parse --verify FETCH_HEAD)" != "$head" ]; then
+    echo 'release: the fetched PR head changed' >&2
+    return 1
+  fi
+  git checkout -q --detach "$head" || return
+  if [ -L node_modules ]; then rm node_modules || return; fi
+  npm ci || return
+  check_worktree "$PWD" "$head" || return
+  . "$tools/release/profile.sh" || return
+  unset KINGDOWN_STAGE VITE_KINGDOWN_STAGE KINGDOWN_TEST_PAGES VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY
+  node tools/check.mjs --gpu | tee "$run/frame-checks.log" || return
+  check_worktree "$PWD" "$head"
+)
+checks() (
+  local dir=$1 expected=$2 origin=$3
+  shift 3
+  if [ "$dry" = yes ]; then
+    dry_command "cwd=$dir" git rev-parse --verify HEAD "(expect $expected)"
+    dry_command "cwd=$dir" git status --porcelain --untracked-files=all
+    dry_command "cwd=$dir" npm ls --depth=0
+    dry_command "cwd=$dir" npm ci '(if packages are missing or linked)'
+    dry_command "cwd=$dir" "PLAYABLE_URL=$origin" npm run check:browser "$@"
+    return
+  fi
+  check_worktree "$dir" "$expected" || return
   if [ -L node_modules ]; then rm node_modules || return; fi
   npm ls --depth=0 >/dev/null 2>&1 || npm ci || return
+  check_worktree "$PWD" "$expected" || return
   PLAYABLE_URL="$origin" npm run check:browser "$@"
 )
 check_result() {
@@ -237,7 +313,7 @@ result() {
 run_stage() {
   local commit
   case "$1" in
-    ci) wait_head ;;
+    ci) release_ci ;;
     staging) staging_deploy ;;
     staging-checks) checks "$staging_tree" "$head" "$staging" release-site release-history ;;
     merge) merge_release ;;
