@@ -14,7 +14,7 @@ const rookSheet = /\/(?:assets\/rook-[^/]+|docs\/2d-first-pieces\/rook\/rook)\.w
 const home = new URL('/next.html', env('PLAYABLE_URL')).href;
 const board = '.play-board-host canvas';
 const grid = page => page.getByRole('grid', { name: text.title, exact: true });
-const ready = page => grid(page).and(page.locator(':not([inert])')).waitFor();
+const ready = (page, options) => grid(page).and(page.locator(':not([inert])')).waitFor(options);
 const square = (page, name, piece) => {
   const index = parseSq(name);
   return grid(page).getByRole('gridcell', { name: squareLabel({ board: { [index]: piece } }, index), exact: true });
@@ -164,9 +164,10 @@ for (const [name, engine, device] of [
         if ((await cardsSwitch.getAttribute('aria-checked') === 'true') !== (cards === 'On')) await press(cardsSwitch);
         const began = Date.now();
         await driver.startFromSetup();
-        await ready(page);
-        await page.locator('.play-versus').waitFor({ state: 'hidden' });
+        // The limit ends at the board that takes input: the Versus intro (1.8 s with motion) follows it.
+        await ready(page, { timeout: 5000 }).catch(() => {});
         assert.ok(Date.now() - began < 5000, 'the first frame does not wait for the held art (limit: five seconds)');
+        await page.locator('.play-versus').waitFor({ state: 'hidden', timeout: 5000 });
         assert.ok(await page.locator(board).isVisible(), 'the canvas shows before the board takes input');
         const first = await state(page);
         assert.deepEqual(first.light, [233, 230, 213, 255], 'draw the light square');
