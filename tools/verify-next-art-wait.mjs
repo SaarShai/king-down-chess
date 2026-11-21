@@ -167,7 +167,7 @@ for (const [name, engine, device] of [
         // The limit ends at the board that takes input: the Versus intro (1.8 s with motion) follows it.
         await ready(page, { timeout: 5000 }).catch(() => {});
         assert.ok(Date.now() - began < 5000, 'the first frame does not wait for the held art (limit: five seconds)');
-        await page.locator('.play-versus').waitFor({ state: 'hidden' });
+        await page.locator('.play-versus').waitFor({ state: 'hidden', timeout: 5000 });
         assert.ok(await page.locator(board).isVisible(), 'the canvas shows before the board takes input');
         const first = await state(page);
         assert.deepEqual(first.light, [233, 230, 213, 255], 'draw the light square');
