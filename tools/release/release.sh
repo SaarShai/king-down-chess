@@ -293,6 +293,7 @@ for name in "${stages[@]}"; do
     continue
   fi
   stage=$name
+  began=$SECONDS
   say "$stage start"
   if [ "$dry" = yes ]; then
     run_stage "$stage" | tee "$run/$stage.log"
@@ -302,5 +303,6 @@ for name in "${stages[@]}"; do
     if [ "$stage" = publish ]; then verify_publish; fi
   fi
   say "$stage pass"
+  say "time $stage $((SECONDS - began))s"
 done
 stage=

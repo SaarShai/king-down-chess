@@ -133,13 +133,14 @@ trap 'exit 129' HUP
 
 # step <name> <command ...>: run one step; stop the deploy at its failure.
 step() {
-  local name=$1
+  local name=$1 began=$SECONDS
   shift
   echo "deploy: step $name"
   if ! "$@"; then
     echo "deploy: FAIL at $name" >&2
     exit 1
   fi
+  echo "deploy: time $name $((SECONDS - began))s"
 }
 
 # The build archives a new engine in engines/; a release needs it committed on origin/main.
