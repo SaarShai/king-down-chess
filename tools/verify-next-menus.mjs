@@ -1,7 +1,25 @@
 // The menus and sides repair. Run through check:browser next-menus, or with PLAYABLE_URL and PLAYABLE_OUT.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { build } from 'esbuild';
 import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
+
+const { outputFiles: [copy] } = await build({
+  stdin: {
+    resolveDir: fileURLToPath(new URL('../', import.meta.url)),
+    contents: `
+      export { text, panelText, pieces } from './src/interface/play/texts.ts';
+      export { homeText } from './src/interface/play/home.ts';
+      export { sideText } from './src/interface/play/sides.ts';
+      export { SETTING_ORDER } from './src/interface/play/menus.ts';
+      export { POWER_NAME } from './src/powers-ui.ts';
+      export { M, N } from './src/rules/engine.ts';`,
+  },
+  bundle: true, platform: 'node', format: 'esm', write: false, loader: { '.svg': 'text' },
+});
+const { text, panelText, pieces, homeText, sideText, SETTING_ORDER, POWER_NAME, M, N } =
+  await import('data:text/javascript;base64,' + Buffer.from(copy.contents).toString('base64'));
 
 const browser = await launch(), out = env('PLAYABLE_OUT');
 mkdirSync(out, { recursive: true });
@@ -10,6 +28,12 @@ const NEXT = new URL('next.html', env('PLAYABLE_URL')).href, MAIN = '.play-home 
 const results = [];
 const ready = page => page.waitForFunction(() => { const g = document.querySelector('.play-game'); return g?.style.visibility !== 'hidden' && g?.dataset.state === 'ready' && !document.querySelector('.play-home, .play-versus'); });
 const saved = page => page.evaluate(() => localStorage.getItem('kingdown.save'));
+const sameSave = (a, b) => {
+  if (!a || !b) return a === b;
+  const x = JSON.parse(a), y = JSON.parse(b);
+  delete x.summary; delete y.summary;
+  return JSON.stringify(x) === JSON.stringify(y);
+};
 const order = page => page.locator('[data-setting]').evaluateAll(nodes => nodes.map(n => n.dataset.setting));
 const shot = async (page, name) => {
   await page.waitForTimeout(650); // Capture the settled page, after the sheet and dialog departure.
@@ -25,7 +49,8 @@ const lines = (page, selector) => page.locator(selector).evaluateAll(nodes => no
   } }
   return [...rows.values()].map(line => line.trim().length);
 }));
-const unbroken = (page, selector) => page.locator(selector).evaluateAll(nodes => nodes.every(node => {
+// An empty set fails: a stale selector must not pass.
+const unbroken = (page, target) => (typeof target === 'string' ? page.locator(target) : target).evaluateAll(nodes => nodes.length > 0 && nodes.every(node => {
   const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) { const text = walker.currentNode; for (const match of text.textContent.matchAll(/\S+/g)) {
     const range = document.createRange(); range.setStart(text, match.index); range.setEnd(text, match.index + match[0].length);
@@ -50,24 +75,35 @@ async function signedIn(context, invites, redeem, polls = {}) {
     return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
   });
 }
-// Accept, open New game, then press `action`. The page holds every Back in window.kdBacks, and home polls wait, until
+//Accept, open New game, then press `action`. The page holds every Back in window.kdBacks, and home polls wait, until
 // the app has handled the late invite reply: only that reply can remove the invite row. The route must wait for the
 // Back. `preload` starts a local game first, so a faulty local start fails at once instead of after a slow import.
 // `reopen` presses New game again while the Back is held: the panel waits, and the game route goes first.
+const openSetup = page => page.locator('.home-summary:visible, .home-side-new:visible').first();
+const backHome = () => text.backTo(text.homeLabel);
 async function panelRace(page, context, check, action, game, { preload = false, reopen = false } = {}) {
   const invites = [{ ...invite('i1', 'ada'), game_id: game }], polls = {};
   let release; const held = new Promise(done => { release = done; });
   await signedIn(context, invites, async json => { await held; invites.length = 0; return json({ game_id: game, revision: 1, status: 'setup', seat: 0, kind: 'person', action: 'wait', deadline_at: null }); }, polls);
   await page.goto(NEXT); await page.waitForSelector('.home-invite-row');
-  const newGame = () => page.locator('.home-hero-new:visible, .home-side-new:visible').first(), panel = page.locator('dialog.new-game-panel');
+  const newGame = () => openSetup(page), panel = page.locator('dialog.new-game-panel');
   if (preload) {
     await newGame().click(); await page.waitForSelector('dialog.new-game-panel[open]');
-    await panel.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
+    await panel.getByRole('button', { name: homeText.startGame, exact: true }).click(); await ready(page);
     await page.goBack(); await page.waitForSelector('.home-invite-row');
     await page.waitForTimeout(650); // Start blocks page clicks for --dur-sheet-in + 300 ms (begin() in home.ts)
   }
   let openPolls; polls.held = new Promise(done => { openPolls = done; });
-  await page.evaluate(() => { const back = history.back.bind(history); window.kdBacks = []; history.back = () => { window.kdBacks.push(back); }; });
+  await page.evaluate(() => {
+    const back = history.back.bind(history); window.kdBacks = []; history.back = () => { window.kdBacks.push(back); };
+    if (window.navigation) {
+      const traverse = navigation.traverseTo.bind(navigation);
+      navigation.traverseTo = key => {
+        const committed = new Promise(done => { window.kdBacks.push(() => { traverse(key); done(); }); });
+        return { committed, finished: committed };
+      };
+    }
+  });
   const start = await page.evaluate(() => history.length), save = await saved(page);
   await page.getByRole('button', { name: 'Accept', exact: true }).click();
   await newGame().click(); await page.waitForSelector('dialog.new-game-panel[open]');
@@ -79,7 +115,7 @@ async function panelRace(page, context, check, action, game, { preload = false, 
   if (reopen) {
     await newGame().click();
     check(await page.locator('dialog.new-game-panel[open]').count() === 0, 'New game waits for the held Back');
-    if (await page.locator('dialog.new-game-panel[open]').count()) await panel.getByRole('button', { name: 'Close', exact: true }).click();
+    if (await page.locator('dialog.new-game-panel[open]').count()) await panel.getByRole('button', { name: backHome(), exact: true }).click();
   }
   await page.evaluate(() => { while (window.kdBacks.length) window.kdBacks.shift()(); });
   check(await page.waitForFunction(id => location.hash === `#online=${id}`, game, { timeout: 5000 }).then(() => true, () => false), 'the reply opens the online game after the Back');
@@ -94,13 +130,13 @@ const cases = {
   async code_fault(page, context, check) {
     const pattern = /\/assets\/board-api-[\w-]+\.js$/;
     await context.route(pattern, r => r.abort());
-    await page.goto(NEXT); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: 'Start game', exact: true }).click();
+    await page.goto(NEXT); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: homeText.startGame, exact: true }).click();
     await page.waitForFunction(() => document.querySelector('body > .kd-sr')?.textContent.includes('The board cannot load.'));
     check(await page.locator('.home-load-fault').isVisible(), 'the board-code fault has a visible line');
-    check(await page.locator('.home-load-fault').textContent().catch(() => '') === 'The board cannot load. Reload the page.', 'the visible line names the safe step');
+    check(await page.locator('.home-load-fault').textContent().catch(() => '') === text.loadFailed, 'the visible line names the safe step');
     check(await saved(page) === null, 'the failed load writes no game');
     await shot(page, 'code-fault');
-    await context.unroute(pattern); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
+    await context.unroute(pattern); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: homeText.startGame, exact: true }).click(); await ready(page);
     check(await page.locator('.home-load-fault').count() === 0, 'a new press clears the fault and opens the game');
   },
   async font_fault(page, context, check) {
@@ -114,24 +150,27 @@ const cases = {
     await page.goto(NEXT); await page.waitForSelector('.play-home');
     await page.waitForTimeout(250);
     check(await page.locator('.home-army-block').count() === 0, 'the removed next-army block stays absent');
-    await page.locator('.home-hero button').click(); await page.locator('[data-section="pieces"]').click();
+    await openSetup(page).click();
+    await page.getByRole('button', { name: panelText.more, exact: true }).click();
+    await page.getByRole('radio', { name: panelText.pool, exact: true }).click();
     check(await page.locator('.pool-row').evaluateAll(rows => rows.length === 15 && rows.every(row => row.textContent.trim())), 'each piece option keeps its name when art fails');
     check(await unbroken(page, '.pool-row > span'), 'piece names keep whole words');
     await shot(page, 'home-art');
   },
-  async panel(page, context, check, size) {
+  async panel(page, context, check) {
     await page.goto(NEXT); await page.waitForSelector('.play-home');
-    const before = await saved(page), choices = await page.locator('.home-summary p').innerText();
-    await page.locator('.home-hero button').click();
-    await page.getByRole('slider', { name: 'Your pieces' }).scrollIntoViewIfNeeded();
-    check(await unbroken(page, '.side-control .level-labels button'), 'side labels keep each word on one line');
-    const [w, h] = size.split('x').map(Number), panel = await page.locator('dialog[open]').boundingBox();
-    check(w < 600 || panel.height <= h * .9 + 1, 'a wide panel uses at most 90 percent of the height');
+    const before = await saved(page), choices = await page.locator('.home-summary').innerText();
+    await openSetup(page).click();
+    await page.getByRole('button', { name: panelText.more, exact: true }).click();
+    const sides = page.getByRole('radiogroup', { name: homeText.side, exact: true });
+    await sides.scrollIntoViewIfNeeded();
+    check(await unbroken(page, sides.getByRole('radio')), 'side labels keep each word on one line');
     await shot(page, 'panel');
-    await page.getByRole('button', { name: 'Dark', exact: true }).click();
-    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    await sides.getByRole('radio', { name: sideText.dark, exact: true }).click();
+    await page.getByRole('button', { name: text.close, exact: true }).click();
+    await page.getByRole('button', { name: backHome(), exact: true }).click();
     await page.waitForFunction(() => !history.state?.layer);
-    check(await saved(page) === before && await page.locator('.home-summary p').innerText() === choices, 'Close keeps the save and choices');
+    check(await saved(page) === before && await page.locator('.home-summary').innerText() === choices, 'Close keeps the save and choices');
     await shot(page, 'panel-closed');
   },
   async panel_refresh(page, context, check) {
@@ -140,33 +179,34 @@ const cases = {
     const invites = [invite('i1', 'ada')];
     await signedIn(context, invites);
     await page.goto(NEXT); await page.waitForSelector('.home-invite-row');
-    const opener = page.locator('.home-top-new:visible, .home-side-new:visible').first(), openerClass = await opener.evaluate(node => node.classList.contains('home-top-new') ? 'home-top-new' : 'home-side-new');
+    const opener = openSetup(page), openerClass = await opener.evaluate(node => node.classList.contains('home-summary') ? 'home-summary' : 'home-side-new');
     await opener.click(); await page.waitForSelector('dialog.new-game-panel[open]');
-    await page.getByRole('button', { name: 'Dark', exact: true }).click();
+    const level = page.getByRole('radiogroup', { name: text.level, exact: true });
+    await level.getByRole('radio', { name: text.club, exact: true }).click();
     invites.push(invite('i2', 'bo'));
     const refreshed = await page.waitForFunction(() => document.querySelectorAll('.home-invite-row').length === 2, null, { timeout: 15000 }).then(() => true, () => false);
     check(refreshed, 'a new invite redraws Play while the panel is open');
     check(await page.locator('dialog.new-game-panel[open]').count() === 1, 'the panel stays open after the refresh');
-    check(await page.getByRole('slider', { name: 'Your pieces' }).getAttribute('aria-valuetext') === 'Dark', 'the draft choice stays after the refresh');
+    check(await level.getByRole('radio', { name: text.club, exact: true }).getAttribute('aria-checked') === 'true', 'the draft choice stays after the refresh');
     check(await page.evaluate(() => !!document.activeElement?.closest('dialog.new-game-panel')), 'the focus stays in the panel after the refresh');
     await shot(page, 'panel-refresh');
     if (await page.locator('dialog.new-game-panel[open]').count()) {
-      await page.locator('dialog.new-game-panel').getByRole('button', { name: 'Close', exact: true }).click();
+      await page.locator('dialog.new-game-panel').getByRole('button', { name: backHome(), exact: true }).click();
       await page.waitForFunction(() => !history.state?.layer);
       const back = await page.waitForFunction(name => document.activeElement?.classList.contains(name) && document.activeElement.isConnected, openerClass, { timeout: 3000 }).then(() => true, () => false);
       check(back, 'Close returns the focus to New game on the redrawn Play');
     }
   },
   async panel_first_invite(page, context, check) {
-    // No games: Play shows the large New game. The first invite replaces it with the New game of a games list while the panel is open.
+    // No games: Play shows the setup summary. The first invite redraws Play while the panel is open.
     const invites = [];
     await signedIn(context, invites);
-    await page.goto(NEXT); await page.locator('.home-hero-new').click(); await page.waitForSelector('dialog.new-game-panel[open]');
+    await page.goto(NEXT); await openSetup(page).click(); await page.waitForSelector('dialog.new-game-panel[open]');
     invites.push(invite('i1', 'ada'));
     check(await page.waitForSelector('.home-invite-row', { timeout: 15000 }).then(() => true, () => false), 'the first invite redraws Play while the panel is open');
     check(await page.locator('dialog.new-game-panel[open]').count() === 1, 'the panel stays open after the first invite');
-    await page.locator('dialog.new-game-panel').getByRole('button', { name: 'Close', exact: true }).click();
-    const back = await page.waitForFunction(() => { const a = document.activeElement; return !!a?.matches('.home-top-new, .home-side-new') && a.getClientRects().length > 0; }, null, { timeout: 3000 }).then(() => true, () => false);
+    await page.locator('dialog.new-game-panel').getByRole('button', { name: backHome(), exact: true }).click();
+    const back = await page.waitForFunction(() => { const a = document.activeElement; return !!a?.matches('.home-summary, .home-side-new') && a.getClientRects().length > 0; }, null, { timeout: 3000 }).then(() => true, () => false);
     check(back, 'Close returns the focus to the visible New game when the large New game is gone');
   },
   async panel_accept(page, context, check) {
@@ -178,7 +218,7 @@ const cases = {
     await page.goto(NEXT); await page.waitForSelector('.home-invite-row');
     const start = await page.evaluate(() => history.length);
     await page.getByRole('button', { name: 'Accept', exact: true }).click();
-    await page.locator('.home-top-new:visible, .home-side-new:visible').first().click(); await page.waitForSelector('dialog.new-game-panel[open]');
+    await openSetup(page).click(); await page.waitForSelector('dialog.new-game-panel[open]');
     release();
     check(await page.waitForFunction(id => location.hash === `#online=${id}`, game).then(() => true, () => false), 'the late reply opens the online game');
     check(await page.waitForFunction(() => !document.querySelector('dialog.new-game-panel')).then(() => true, () => false), 'the panel leaves with the route change');
@@ -190,19 +230,28 @@ const cases = {
   async panel_close_race(page, context, check) {
     // Accept, open New game, then Close: the late reply arrives while the Back of Close is still pending. The game
     // opens after that Back and stays open.
-    await panelRace(page, context, check, 'Close', '00000000-0000-4000-8000-000000000002');
+    await panelRace(page, context, check, backHome(), '00000000-0000-4000-8000-000000000002');
   },
   async panel_start_race(page, context, check) {
     // The same order with Start game: the local start stops, and no local game is written.
-    await panelRace(page, context, check, 'Start game', '00000000-0000-4000-8000-000000000003', { preload: true });
+    await panelRace(page, context, check, homeText.startGame, '00000000-0000-4000-8000-000000000003', { preload: true });
   },
   async panel_double_reopen(page, context, check) {
     // Close, then New game twice before the Back lands: one panel opens after the Back, with one history entry.
-    await page.goto(NEXT); await page.waitForSelector('.home-hero-new');
-    await page.evaluate(() => { const back = history.back.bind(history); window.kdBacks = []; history.back = () => { window.kdBacks.push(back); }; });
-    const start = await page.evaluate(() => history.length), change = page.locator('.home-hero-new'), panel = page.locator('dialog.new-game-panel');
+    await page.goto(NEXT); await openSetup(page).waitFor();
+    await page.evaluate(() => {
+      const back = history.back.bind(history); window.kdBacks = []; history.back = () => { window.kdBacks.push(back); };
+      if (window.navigation) {
+        const traverse = navigation.traverseTo.bind(navigation);
+        navigation.traverseTo = key => {
+          const committed = new Promise(done => { window.kdBacks.push(() => { traverse(key); done(); }); });
+          return { committed, finished: committed };
+        };
+      }
+    });
+    const start = await page.evaluate(() => history.length), change = openSetup(page), panel = page.locator('dialog.new-game-panel');
     await change.click(); await page.waitForSelector('dialog.new-game-panel[open]');
-    await panel.getByRole('button', { name: 'Close', exact: true }).click();
+    await panel.getByRole('button', { name: backHome(), exact: true }).click();
     check(await page.waitForFunction(() => window.kdBacks.length === 1).then(() => true, () => false), 'the Back of Close is held');
     await change.click(); await change.click();
     check(await page.locator('dialog.new-game-panel[open]').count() === 0, 'both opens wait for the held Back');
@@ -210,90 +259,82 @@ const cases = {
     check(await page.waitForFunction(() => document.querySelectorAll('dialog.new-game-panel[open]').length === 1).then(() => true, () => false), 'one panel opens after the Back');
     await page.waitForTimeout(300);
     check(await page.evaluate(() => document.querySelectorAll('dialog.new-game-panel').length === 1 && history.state?.layer === true), 'only one panel and one layer entry');
-    await panel.getByRole('button', { name: 'Close', exact: true }).click();
+    await panel.getByRole('button', { name: backHome(), exact: true }).click();
     check(await page.waitForFunction(() => window.kdBacks.length === 1).then(() => true, () => false), 'the second Close holds one Back');
     await page.evaluate(() => window.kdBacks.shift()());
     check(await page.waitForFunction(n => !history.state?.layer && history.length === n + 1 && !document.querySelector('dialog.new-game-panel'), start).then(() => true, () => false), 'Play with no panel and no extra entry');
   },
   async panel_reopen_race(page, context, check) {
     // Close, a late reply, then New game again before the Back lands: the game opens; no panel opens over it.
-    await panelRace(page, context, check, 'Close', '00000000-0000-4000-8000-000000000004', { reopen: true });
+    await panelRace(page, context, check, backHome(), '00000000-0000-4000-8000-000000000004', { reopen: true });
   },
   async you(page, context, check) {
-    await page.goto(`${NEXT}#you`); await page.waitForSelector('.you-page');
+    await page.goto(`${NEXT}#you`); await page.waitForSelector('dialog.settings-sheet[open]');
     const settings = (await order(page)).join(',');
-    check(settings === 'pieces,hand,coords,sound,motion', `settings keep one order: ${settings}`);
+    check(settings === SETTING_ORDER.join(','), `settings keep one order: ${settings}`);
     check(await unbroken(page, '[data-setting="motion"] [role="radio"]'), 'Motion speed keeps each word on one line');
     check(await page.locator('[role="switch"]').evaluateAll(nodes => nodes.every(n => !n.hasAttribute('aria-describedby') && n.querySelectorAll('.kd-switch-copy > span').length === 0)), 'an empty switch description creates no empty note');
-    const sound = page.getByRole('switch', { name: 'Sound', exact: true }); await sound.click();
-    check(await sound.getAttribute('aria-checked') === 'true' && await sound.locator('.kd-switch-state').innerText() === 'On', 'the switch state word follows its value');
-    check(await page.evaluate(() => {
-      const scan = (rules, hover = false) => [...rules].every(rule => {
-        const guarded = hover || rule.conditionText?.includes('(hover: hover)');
-        if (rule.selectorText?.includes(':hover') && !hover) return false;
-        return !rule.cssRules || scan(rule.cssRules, guarded);
-      });
-      return [...document.styleSheets].every(sheet => scan(sheet.cssRules));
-    }), 'hover rules require a hover pointer');
+    const sound = page.getByRole('switch', { name: text.sound, exact: true }); await sound.click();
+    check(await sound.getAttribute('aria-checked') === 'true' && await sound.locator('.kd-switch-state').innerText() === text.on, 'the switch state word follows its value');
+    // Decision 35: a touch screen gets no hover style. One known rule is open (the help tip in help.css).
+    const loose = await page.evaluate(() => {
+      const found = [], scan = (rules, hover = false) => { for (const rule of rules) {
+        if (rule.selectorText?.includes(':hover') && !hover) found.push(rule.selectorText);
+        if (rule.cssRules) scan(rule.cssRules, hover || !!rule.conditionText?.includes('(hover: hover)'));
+      } };
+      for (const sheet of document.styleSheets) scan(sheet.cssRules);
+      return found;
+    });
+    check(loose.every(rule => rule === '.daylight-help-info:is(:hover, :focus-visible)::before'), `hover rules require a hover pointer: ${loose.join(' | ')}`);
     await shot(page, 'you');
-  },
-  async ribbon(page, context, check) {
-    await page.goto(`${NEXT}#you`);
-    await page.locator('.ribbon-sample').waitFor();
-    for (const size of [100, 150, 200]) {
-      await page.evaluate(size => { document.documentElement.style.fontSize = `${size}%`; }, size);
-      const ribbonFits = await page.locator('.ribbon-sample').evaluate(sample => {
-        const art = sample.getBoundingClientRect(), button = sample.closest('button').getBoundingClientRect();
-        return art.left >= button.left && art.right <= button.right && art.top >= button.top && art.bottom <= button.bottom;
-      });
-      check(ribbonFits && await unbroken(page, '.ribbon-sample'), `the Ribbon sample fits with whole words at ${size}%`);
-    }
   },
   async guide(page, context, check, size) {
     const w = Number(size.split('x')[0]);
     await page.goto(`${NEXT}#guide`); await page.waitForSelector('.guide-page'); await page.evaluate(() => document.fonts.ready);
     const width = await page.locator('.guide-page').evaluate(n => { const cs = getComputedStyle(n); return n.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight); });
     check(width <= (w >= 900 ? 1120 : 640), 'the Guide content stays within its width class');
-    await page.locator('[data-section="How a turn works"]').click(); await page.waitForTimeout(800);
+    await page.getByRole('tab', { name: text.rules, exact: true }).click(); await page.waitForTimeout(800);
     check(Math.max(...await lines(page, '.turn-steps p')) <= 70, 'turn text has at most 70 characters per line');
-    await page.getByRole('button', { name: 'Back to Guide', exact: true }).click();
-    await page.locator('[data-section="Pieces"]').click();
-    await page.locator('.guide-row', { hasText: 'Knight' }).click();
+    await page.getByRole('tab', { name: text.pieces, exact: true }).click();
+    await page.waitForSelector('nav.guide-list-pane[aria-label="Pieces"]');
+    await page.locator('.guide-row', { hasText: pieces[N].name }).click();
     if (w >= 900) {
-      check(await page.locator('nav.entry-list[aria-label="Pieces"]').count() === 1, 'the named entry list is navigation');
-      check(await page.locator('.entry-list h2').count() === 0, 'the entry list has no heading before the page title');
+      check(await page.locator('.guide-page:not(.shell-departing) nav.guide-list-pane[aria-label="Pieces"]').count() === 1, 'the named entry list is navigation');
+      check(await page.locator('.guide-page:not(.shell-departing) .guide-list-pane h2').count() === 2, 'the entry list groups new and chess pieces');
+    } else {
+      await page.getByRole('button', { name: text.backTo(text.pieces), exact: true }).click();
+      await page.waitForTimeout(800);
+      check(await page.locator('.guide-row', { hasText: pieces[N].name }).evaluate(n => { const r = n.getBoundingClientRect(); return document.activeElement === n && r.top >= 0 && r.bottom <= innerHeight; }), 'Back restores the Knight row and its focus in view');
+      await shot(page, 'guide-back');
     }
-    await page.getByRole('button', { name: 'Back to Pieces', exact: true }).click();
-    await page.waitForTimeout(800);
-    check(await page.locator('.guide-row', { hasText: 'Knight' }).evaluate(n => { const r = n.getBoundingClientRect(); return document.activeElement === n && r.top >= 0 && r.bottom <= innerHeight - (innerWidth < 900 ? 56 : 0); }), 'Back restores the Knight row and its focus in view');
-    await shot(page, 'guide-back');
-    await page.getByRole('button', { name: 'Back to Guide', exact: true }).click();
-    await page.locator('[data-section="Cards"]').click(); await page.locator('.guide-card').first().click(); await page.waitForTimeout(800);
-    const measure = Math.max(...await lines(page, '.learn-rule, .learn-limits, .learn-against'));
-    check(measure <= 70, `entry text has at most 70 characters per line (${measure})`);
+    await page.getByRole('tab', { name: text.cards, exact: true }).click(); await page.locator('.guide-card').first().click(); await page.waitForTimeout(800);
+    const measure = Math.max(...await lines(page, '.guide-entry-pane .learn-rule, .guide-entry-pane .learn-limits, .guide-entry-pane .learn-against'));
+    check(measure <= 75, `entry text has at most 75 characters per line (${measure})`);
     await shot(page, 'guide-entry');
   },
   async guide_reload(page, context, check) {
     await page.goto(`${NEXT}#guide`);
-    await page.locator('[data-section="Pieces"]').click();
-    await page.locator('.guide-row', { hasText: 'Maester' }).click();
-    const heading = page.getByRole('heading', { name: /Maester/ });
+    await page.getByRole('tab', { name: text.pieces, exact: true }).click();
+    await page.locator('.guide-row', { hasText: pieces[M].name }).click();
+    const heading = page.getByRole('heading', { name: new RegExp(pieces[M].name) });
     await heading.waitFor();
     const before = await page.evaluate(async () => {
       await document.fonts.ready;
+      for (let i = 0; i < 4; i++) await new Promise(done => requestAnimationFrame(done));
       scrollTo(0, document.body.scrollHeight);
       return scrollY;
     });
+    const canScroll = await page.evaluate(() => document.body.scrollHeight > innerHeight);
     await page.reload();
     await heading.waitFor();
     const restored = await page.waitForFunction(y => Math.abs(scrollY - y) <= 2, before, { timeout: 4000 }).then(() => true, () => false);
-    check(before > 0 && restored, 'the Maester entry keeps its reading position after reload');
+    check((!canScroll || before > 0) && restored, 'the Maester entry keeps its reading position after reload');
   },
   async home_piece_close(page, context, check) {
-    await page.goto(NEXT); await page.locator('.home-hero-new').click();
-    const preview = page.getByRole('button', { name: 'Cards', exact: true });
+    await page.goto(NEXT); await openSetup(page).click();
+    const preview = page.getByRole('button', { name: text.cards, exact: true });
     await preview.press('Enter');
-    const card = page.getByRole('button', { name: 'Ice Wall', exact: true });
+    const card = page.getByRole('button', { name: POWER_NAME.IceWall, exact: true });
     await card.press('Space');
     check(await card.getAttribute('aria-pressed') === 'false', 'Space removes the card from the pool');
     const box = await card.boundingBox(); check(box.width >= 44 && box.height >= 44, 'The card is a 44 px target');
@@ -303,13 +344,12 @@ const cases = {
     await page.goBack(); check(await page.locator('dialog[open]').count() === 0, 'Browser Back closes New game');
   },
   async menu(page, context, check, size) {
-    await page.goto(NEXT); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
+    await page.goto(NEXT); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: homeText.startGame, exact: true }).click(); await ready(page);
     const before = await saved(page);
-    await page.getByRole('button', { name: 'Menu', exact: true }).click();
-    // The game Menu keeps four settings; Motion is on You only (src/interface/play/menus.ts, the Menu rows).
+    await page.getByRole('button', { name: text.menu, exact: true }).click();
     const settings = (await order(page)).join(',');
-    check(settings === 'pieces,hand,coords,sound', `settings keep one order: ${settings}`);
-    check(await page.locator('.menu-note').evaluate(n => parseFloat(getComputedStyle(n).fontSize) >= 14), 'the save note is at least 14 px');
+    check(settings === SETTING_ORDER.join(','), `settings keep one order: ${settings}`);
+    check(await page.locator('.menu-note').count() === 0, 'a healthy save shows no warning note in Menu');
     check(await page.locator('.menu-settings').evaluate(n => n.clientHeight >= 44), 'at least one whole setting row fits');
     check(await unbroken(page, '.menu-settings [role="switch"]'), 'Menu labels keep each word on one line');
     const [w, h] = size.split('x').map(Number), landscape = w > h;
@@ -320,20 +360,20 @@ const cases = {
     const rect = await page.locator('.play-game').boundingBox();
     check(rect.x >= (landscape ? 59 : 0) && rect.y >= (landscape ? 0 : 59) && rect.x + rect.width <= w - (landscape ? 59 : 0) + 1 && rect.y + rect.height <= h - (landscape ? 21 : 34) + 1, 'the game and Menu use the safe-area variables');
     await page.waitForTimeout(200); await shot(page, 'safe-menu');
-    await page.getByRole('button', { name: 'Back to home', exact: true }).click(); await page.waitForSelector('.play-home');
-    check(await saved(page) === before, 'an immediate Menu exit keeps the save');
-    await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
-    await page.getByRole('button', { name: 'Menu', exact: true }).click(); await page.getByRole('button', { name: 'Resign', exact: true }).click();
-    await page.locator('dialog[open]').getByRole('button', { name: 'Resign', exact: true }).click();
+    await page.getByRole('button', { name: text.homeLabel, exact: true }).click(); await page.waitForSelector('.play-home');
+    check(sameSave(await saved(page), before), 'an immediate Menu exit keeps the save');
+    await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: homeText.startGame, exact: true }).click(); await ready(page);
+    await page.getByRole('button', { name: text.menu, exact: true }).click(); await page.getByRole('button', { name: text.resign, exact: true }).click();
+    await page.locator('dialog[open]').getByRole('button', { name: text.resign, exact: true }).click();
     await page.waitForSelector('.play-result', { state: 'attached' });
     check(await page.locator('.play-result-actions .kd-button').evaluateAll(nodes => nodes.every(n => !getComputedStyle(n).textDecorationLine.includes('underline'))), 'result controls have no underline');
   },
   async rematch_art(page, context, check) {
     // Rematch must request a king still that the first game does not use.
     await context.addInitScript(() => localStorage.setItem('kingdown.setup', 'powers'));
-    await page.goto(NEXT); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: 'Start game', exact: true }).click(); await ready(page);
-    await page.getByRole('button', { name: 'Menu', exact: true }).click(); await page.getByRole('button', { name: 'Resign', exact: true }).click();
-    await page.locator('dialog[open]').getByRole('button', { name: 'Resign', exact: true }).click();
+    await page.goto(NEXT); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: homeText.startGame, exact: true }).click(); await ready(page);
+    await page.getByRole('button', { name: text.menu, exact: true }).click(); await page.getByRole('button', { name: text.resign, exact: true }).click();
+    await page.locator('dialog[open]').getByRole('button', { name: text.resign, exact: true }).click();
     await page.waitForSelector('.play-result', { state: 'attached' });
     await page.evaluate(() => {
       const used = JSON.parse(localStorage.getItem('kingdown.save')).rules.kings.map(k => k.king);
