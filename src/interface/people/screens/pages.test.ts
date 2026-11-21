@@ -95,7 +95,7 @@ it('Play again: 3 rows at most, Invite with the chosen game, and the quiet name 
   } finally { await fresh.close(); }
 });
 
-it('Invite by name: Players you know, a search only from 2 letters, "No player has this name.", and the line of a refused invite', async () => {
+it('Invite by name: Players you know, a search only from 2 letters, "No player has this name.", the own name, and the line of a refused invite', async () => {
   const page = await open('person');
   try {
     await expect.poll(() => sheet(page).getByRole('button', { name: 'Invite another player by name' }).count()).toBe(1);
@@ -110,6 +110,8 @@ it('Invite by name: Players you know, a search only from 2 letters, "No player h
     await expect.poll(() => sheet(page).locator('.people-row').count()).toBe(2);
     await field.fill('zz');
     await expect.poll(() => sheet(page).getByRole('status').textContent()).toBe('No player has this name.');
+    await field.fill('Alex');
+    await expect.poll(() => sheet(page).getByRole('status').textContent()).toBe("This is your name. Enter a friend's name.");
     await field.fill('');
     await fail(page, 'invite:noor-k:pieces', { code: 'FRIEND_INVITE_LIMIT', status: 409 });
     await press(page, 'Invite noor-k');
