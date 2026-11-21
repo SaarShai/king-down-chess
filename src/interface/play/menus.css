@@ -152,7 +152,7 @@ body > .kd-sr { inset: 0 auto auto 0; }
 /* Large text on a narrow phone: the longer names take more room, the letters close up. */
 @container (width < 13rem) {
   .guide-tabs { grid-template-columns: repeat(4, auto); }
-  .guide-tab { padding: 0; letter-spacing: -.04em; }
+  .guide-tab { padding: 0; letter-spacing: -.05em; }
 }
 .guide-group + .guide-group { margin-top: 28px; }
 .guide-row.list-row { min-height: 96px; padding: 10px 0; }
