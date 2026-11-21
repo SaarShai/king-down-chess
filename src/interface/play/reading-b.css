@@ -264,14 +264,16 @@
 .play-game[data-layout][data-reading] .play-reader[data-floating='true'] :is(.learn-top, .play-head, .play-bhead) { position: sticky; top: 0; z-index: 2; background: var(--surface-raised); }
 
 
-/* Online notices and their actions use the text section. The board stays fixed. In the compact form, actions take
-   28 px of the hand's spare art height: the turn line, a notice and one row of 44 px controls show whole. */
-.play-game[data-form='compact']:has(.online-status .kd-button) .play-reader:not([data-floating='true']) { height: calc(var(--hand-y) - var(--reader-y) + 20px); max-height: none; }
-.play-game[data-form='compact']:has(.online-status .kd-button) .play-own { top: calc(var(--hand-y) + 28px); height: calc(var(--own) - 28px); }
+/* Online notices and their actions use the text section. The board stays fixed. In the compact portrait form, actions take
+   28 px of the hand's spare art height: the turn line, a notice and one row of 44 px controls show whole. The wide layout has
+   room above the hand, so the hand keeps its place. */
+.play-game[data-layout='portrait'][data-form='compact']:has(.online-status .kd-button) .play-reader:not([data-floating='true']) { height: calc(var(--hand-y) - var(--reader-y) + 20px); max-height: none; }
+.play-game[data-layout='wide'][data-form='compact']:has(.online-status .kd-button) .play-reader:not([data-floating='true']) { height: calc(var(--hand-y) - var(--reader-y)); max-height: none; }
+.play-game[data-layout='portrait'][data-form='compact']:has(.online-status .kd-button) .play-own { top: calc(var(--hand-y) + 28px); height: calc(var(--own) - 28px); }
 .play-game[data-form='compact'] .online-status .online-actions { row-gap: 2px; }
 .play-game[data-form='compact'] .online-status .online-actions .kd-button { flex: 1 1 0; min-width: 0; font-size: 14px; }
-.play-game[data-form='compact']:has(.online-status .kd-button) .play-own .play-power-coin { width: 22px; height: 22px; }
-.play-game[data-form='compact']:has(.online-status .kd-button) .play-own .play-power small { display: none; }
+.play-game[data-layout='portrait'][data-form='compact']:has(.online-status .kd-button) .play-own .play-power-coin { width: 22px; height: 22px; }
+.play-game[data-layout='portrait'][data-form='compact']:has(.online-status .kd-button) .play-own .play-power small { display: none; }
 .play-game .online-status { gap: 0; min-height: 0; overflow-y: auto; }
 .play-game .online-status > p { margin: 0; font: 650 14px/18px var(--font-reading); }
 
@@ -473,8 +475,21 @@
 .play-wait-dots[data-step='0'] i:nth-child(1), .play-wait-dots[data-step='1'] i:nth-child(2), .play-wait-dots[data-step='2'] i:nth-child(3) { opacity: 1; }
 .play-game .play-opp .play-power { flex: none; }
 .play-game .play-opp .play-power [data-button-label] { white-space: nowrap; overflow: visible; text-overflow: clip; }
-/* Under 360 px the bar has no room for the opponent's name beside the power name: the chip shows its coin, and screen readers still read the name. */
-@media (max-width: 359px) { .play-game .play-opp .play-power-copy { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
+/* A bar under 336 px (320 px portrait, a landscape phone) has no room for the opponent's name beside the power name: the chip
+   shows its coin, and screen readers still read the name. Under 240 px the seat ring goes too, so "Their move" shows whole. */
+.play-game .play-opp, .play-game .play-own { container-type: inline-size; }
+@container (max-width: 335px) { .play-game .play-opp .play-power-copy { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
+@container (max-width: 239px) { .play-game .play-opp .play-seat-ring { display: none; } }
+/* A hand row under 260 px (a landscape phone) gives each card its whole width: the power shows its coin, and the cards
+   do not fan or overlap. Under 240 px the names take 12 px tight letters, so "Salvation" fits. */
+@container (max-width: 259px) {
+  .play-game .play-own .play-power { flex-basis: 44px; }
+  .play-game .play-own .play-power-copy { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .play-game[data-hand='hand'] .play-own .play-card { --fan-angle: 0deg !important; --fan-drop: 0px !important; margin-inline: 0; }
+  .play-game .play-own .play-card [data-button-label] { padding: 0; }
+  .play-hand { padding-inline: 0; margin-inline-start: -4px; }
+}
+@container (max-width: 239px) { .play-game[data-hand='hand'] .play-own .play-card { font-size: 12px; letter-spacing: -.03em; } }
 /* On a phone the fanned cards do not overlap, so the next card cannot cover a long name such as "Salvation". Under 360 px the hand also takes the side padding and 8 px of the power column ("Always on" needs 47 px). */
 @media (max-width: 400px) { .play-game[data-hand='hand'] .play-own .play-card { margin-inline: 0; } }
 @media (max-width: 359px) { .play-game .play-own .play-power { flex-basis: 50px; } .play-hand { padding-inline: 0; } }
