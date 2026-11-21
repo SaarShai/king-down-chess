@@ -217,7 +217,7 @@ body > .kd-sr { inset: 0 auto auto 0; }
   .guide-list-pane .card-grid { gap: 16px 12px; --title-room: 6em; }
   .guide-list-pane .guide-card { padding: 6px 8px; border-radius: var(--radius-control); }
   .guide-list-pane .guide-card strong { font-size: 1.0625rem; }
-  .guide-list-pane .king-block { grid-template-columns: min-content minmax(0, 1fr); gap: 8px; }
+  .guide-list-pane .king-block { grid-template-columns: minmax(4.75rem, min-content) minmax(0, 1fr); gap: 8px; }
   .guide-list-pane .king-title img { width: 56px; height: 84px; }
   .guide-page .king-title h2 { font-size: 1rem; }
   .guide-list-pane [aria-current='true'] { background: var(--selection-fill); box-shadow: inset 3px 0 0 var(--brass); }
