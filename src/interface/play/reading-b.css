@@ -468,6 +468,9 @@
 .play-game .play-opp .play-power [data-button-label] { white-space: nowrap; overflow: visible; text-overflow: clip; }
 /* Under 360 px the bar has no room for the opponent's name beside the power name: the chip shows its coin, and screen readers still read the name. */
 @media (max-width: 359px) { .play-game .play-opp .play-power-copy { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
+/* On a phone the fanned cards do not overlap, so the next card cannot cover a long name such as "Salvation". Under 360 px the hand also takes the side padding and 8 px of the power column ("Always on" needs 47 px). */
+@media (max-width: 400px) { .play-game[data-hand='hand'] .play-own .play-card { margin-inline: 0; } }
+@media (max-width: 359px) { .play-game .play-own .play-power { flex-basis: 50px; } .play-hand { padding-inline: 0; } }
 
 .play-wordmark { display: none; }
 .play-game[data-layout='wide'][data-form='wide'] .play-wordmark { display: block; position: absolute; top: 18px; left: 16px; font: 650 12px/1 var(--cinzel, var(--font-title)); text-transform: uppercase; letter-spacing: .1em; color: var(--soft, var(--text-muted)); }
