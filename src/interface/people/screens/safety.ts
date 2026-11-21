@@ -66,8 +66,8 @@ export function playerSafety(
 ) {
   const report: HTMLButtonElement = button('Report player', { onPress: () => beforeOpen(() => openSheet(onClose => reportPlayer(api, target, returnTo ?? report, onClose))) });
   const known = 'handle' in target ? null : target;
-  let blocked = false;
-  const block: HTMLButtonElement = button('Block player', { onPress: () => blocked ? void unblock() : beforeOpen(() => openSheet(onClose => blockPlayer(api, target, returnTo ?? block, changed, onClose))) });
+  let blocked: boolean | null = false; // null: the read failed, so the state is not known
+  const block: HTMLButtonElement = button('Block player', { onPress: () => blocked === null ? read() : blocked ? void unblock() : beforeOpen(() => openSheet(onClose => blockPlayer(api, target, returnTo ?? block, changed, onClose))) });
   const show = (answer: { blocked: boolean }) => { blocked = answer.blocked; setButtonState(block, { label: blocked ? 'Unblock player' : 'Block player' }); };
   // The same call as Unblock in Account & settings (blockedPlayers).
   async function unblock() {
@@ -75,8 +75,9 @@ export function playerSafety(
     try { const answer = await api.block({ ...known, blocked: false }); if (answer.blocked) throw new Error(); show(answer); changed(); }
     catch { setButtonState(block, { label: 'Unblock player' }); }
   }
-  // A block with no `blocked` value only reads it. A failed read leaves Block player, which is safe to press again.
-  if (known) { setButtonState(block, { busy: true }); api.block(known).then(show, () => setButtonState(block, {})); }
+  // A block with no `blocked` value only reads it. After a failed read the control offers the read again, not Block or Unblock.
+  function read() { setButtonState(block, { busy: true }); api.block(known!).then(show, () => { blocked = null; setButtonState(block, { label: 'Check block again' }); }); }
+  if (known) read();
   return [report, block];
 }
 

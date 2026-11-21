@@ -270,3 +270,16 @@ it(`keeps the deletion receipt on its expected sign-out, then closes it for a ne
   } finally { await page.close(); }
 });
 }
+it('offers the read again, not Block player, when the block read fails', async () => {
+  const page = await open();
+  try {
+    await serverBlocks(page);
+    await page.evaluate(() => { const w = window as any; w.blocked = true; w.read = w.api.block; w.api.block = async (args: any) => { w.calls.push(['block', args]); throw Error('read fails'); }; });
+    await blockLabel(page);
+    await expect.poll(() => settledLabel(page)).toBe('Check block again');
+    await page.evaluate(() => { const w = window as any; w.api.block = w.read; });
+    await page.locator('#menu button').nth(1).evaluate((n: HTMLButtonElement) => n.click());
+    await expect.poll(() => settledLabel(page)).toBe('Unblock player');
+    expect(await page.locator('dialog').count()).toBe(0);
+  } finally { await page.close(); }
+});
