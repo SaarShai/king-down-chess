@@ -45,7 +45,7 @@ The game screen makes its list of moves with the engine of the installed build (
 
 - Before a rule change goes live, do an old-app check: play an online game on the build that is in the App Store.
 - A solo game keeps the rules of its build.
-- No test covers a change to the shape of a server reply. Keep the old fields until the old builds are gone.
+- `src/api/ios-build-8-replies.test.ts` fails when a reply loses a field that the App Store build reads (top-level fields and list items only). Keep the old fields until the old builds are gone.
 
 ## The check
 
