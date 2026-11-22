@@ -15,3 +15,6 @@ Release the film when the player leaves Home.
 
 Keep all three still images in the offline cache. Let the browser send
 film and byte range requests directly to the server.
+
+The deploy artifact check accepts the three stills in the solo launch
+worker lists. It rejects films in these lists.
