@@ -189,7 +189,10 @@ jobs:
           KINGDOWN_TEST_PAGES: ${{ matrix.testPages && '1' || '' }}
           DEBUG: ${{ matrix.browser == 'webkit' && 'pw:browser' || '' }}
       - if: matrix.name == 'play-scenes'
-        run: MENUS_CASES=notice npm run check:browser next-menus
+        run: |
+          MENUS_CASES=notice npm run check:browser next-menus
+          npm run check:browser next-skylift
+          npm run check:browser next-rule-text
         timeout-minutes: 5
       - if: matrix.browser == 'webkit' && (failure() || cancelled())
         name: Save kernel log

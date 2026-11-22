@@ -20,5 +20,7 @@ export function helpTopic(subject: HelpSubject, rules = defaultRules, side: Colo
     return { name: pieces[subject.type].name, line: entry.short, detail: learningNotes.Freeze[0], badge: 'Frozen' };
   }
   const entry = learningEntry(subject, rules, undefined, side);
-  return { name: entry.name, line: entry.short, detail: entry.full.replace(`Select ${text.finish} to end the chain.`, `Select ${finish} to end the chain.`), badge: subject.kind === 'power' ? alwaysOnLabel(subject.id) : '' };
+  // A power or a card also gives its limits: the Rule sheet shows all the information (learning decision 2).
+  const detail = subject.kind === 'piece' ? entry.full : `${entry.full} ${entry.limits}`.replaceAll(text.finish, finish);
+  return { name: entry.name, line: entry.short, detail: detail.replace(`Select ${text.finish} to end the chain.`, `Select ${finish} to end the chain.`), badge: subject.kind === 'power' ? alwaysOnLabel(subject.id) : '' };
 }

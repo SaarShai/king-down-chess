@@ -119,14 +119,16 @@ describe('power texts follow the rules in force', () => {
   it('reads the rulebook by default', () => {
     expect(powerText('Freeze')).toBe('as your move, freeze an enemy piece (not the king): it cannot move on its next turn');
     expect(powerText('HolyLight')).toBe('enemy pawns cannot take your king, and it cannot take pawns');
-    expect(powerText('Strike')).toBe('move any piece except the king as if it were a queen; a pawn cannot end on the first or last rank');
+    expect(powerText('Strike')).toBe('move any of your pieces except the king as if it were a queen; a pawn cannot end on the first or last rank');
   });
 
   it('names the balance-lab readings', () => {
     const rules = { ...DEFAULT_RULES, markFree: true, freezeQuiet: true, strikePawns: false, strikeCaptures: false, hasteCaptures: false, holyLightTakesPawns: true, mercyCaptures: true, darknessKeep: true };
     expect(powerText('Freeze', rules)).toBe('freeze an enemy piece (not the king), then make your move, which cannot capture: the frozen piece cannot move on its next turn');
-    expect(powerText('Strike', rules)).toBe('move any piece except a pawn or the king as if it were a queen, to an empty square');
+    expect(powerText('Strike', rules)).toBe('move any of your pieces except a pawn or the king as if it were a queen, to an empty square');
     expect(powerText('Haste', rules)).toBe('move one piece twice in one turn (the second move is optional); neither move captures');
+    // Strike and Flight move only an own piece (rules-round page 3).
+    expect(powerText('Flight', rules)).toBe('move any of your pieces except the king to any empty square in your half of the board');
     expect(powerText('HolyLight', rules)).toBe('enemy pawns cannot take your king');
     expect(powerText('Mercy', rules)).toBe('your king steps 1–2 squares and jumps your pieces (it takes only next to itself)');
     expect(powerText('Darkness', rules)).toBe('your pawns may also step diagonally and take straight ahead');

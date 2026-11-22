@@ -62,3 +62,21 @@ it('diagram frames use real back ranks and both sides', () => {
   const a = diagramFor({ kind: 'piece', type: A }), b = diagramFor({ kind: 'piece', type: A });
   a.frames[0].before.board.fill(0); expect(b.frames[0].before.board.some(Boolean)).toBe(true);
 });
+it('Guide and Help lines match the engine (rules-round page 3)', () => {
+  // Death Touch gives check two squares forward or back over an empty square.
+  const death = learningEntry({ kind: 'power', id: 'DeathTouch' }, context).limits;
+  expect(death).not.toContain('It adds no attacked square.'); expect(death).toContain('The reach can give check.');
+  // A Darkness king on either side removes en passant in a Classic game.
+  for (const side of [0, 1] as const) {
+    const kings: [null | { king: 'Shadow'; power: 'Darkness' }, null | { king: 'Shadow'; power: 'Darkness' }] = [null, null]; kings[side] = { king: 'Shadow', power: 'Darkness' };
+    const classic = new GameRules({ ...POWERS_BALANCED, classicChess: true, kings });
+    const pawn = learningEntry({ kind: 'piece', type: P }, classic);
+    expect(pawn.full).toContain('No en passant in this game.'); expect(pawn.full).not.toContain('En passant is allowed.');
+    expect(pawn.limits).not.toContain('En passant is allowed.');
+  }
+  expect(learningEntry({ kind: 'piece', type: P }, new GameRules({ classicChess: true })).full).toContain('En passant is allowed.');
+  expect(guideEntries('How a turn works').find(entry => entry.id === 'move')!.full).toContain('Your king must be safe after each action.');
+  expect(learningEntry({ kind: 'power', id: 'Strike' }, context).full).toContain('any of your pieces');
+  expect(learningEntry({ kind: 'card', id: 'Flight' }, context).full).toContain('any of your pieces');
+  expect(learningEntry({ kind: 'card', id: 'EarthQuake' }, context).limits).not.toContain('A piece at the edge stays.');
+});

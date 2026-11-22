@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { Game } from '../../game';
-import { DraftTurn, isDirect } from './turn';
+import { armKey, DraftTurn, isDirect } from './turn';
 import { parseSq } from '../../rules/engine';
 import { POWERS_BALANCED, type Rules } from '../../rules/rules';
 
@@ -98,4 +98,36 @@ it('spends a card through the draft only', () => {
   draft.stage(curse); expect(draft.position.used?.[0]).toBe(1); expect(draft.canFinish).toBe(true);
   expect(game.pos.used?.[0] ?? 0).toBe(0);
   draft.undo(); expect(draft.position.used?.[0] ?? 0).toBe(0);
+});
+it('Sky Lift selects either piece of a pair first and stages the one engine action (rules-round page 1)', () => {
+  const fen = '4k3/8/5N2/8/8/8/8/1R2K3 w - - 0 1', b1 = parseSq('b1'), f6 = parseSq('f6');
+  for (const card of ['skylift', 'mirrorb']) {
+    const engine = powered(fen, { kings: [null, null], hands: [['SkyLift', 'MirrorB'], []] }).draft;
+    engine.arm(card); const [one] = engine.armedMoves.filter(m => m.swap); expect([one.from, one.to]).toEqual([b1, f6]);
+    for (const [first, second] of [[b1, f6], [f6, b1]]) {
+      const { draft } = powered(fen, { kings: [null, null], hands: [['SkyLift', 'MirrorB'], []] });
+      draft.arm(card);
+      expect(draft.armedMoves.some(m => m.from === first)).toBe(true);
+      expect(draft.targets(first)).toEqual([second]);
+      const [move] = draft.at(first, second); draft.stage(move);
+      expect(draft.steps[0].move).toBe(draft.game.legal.find(m => m.swap && armKey(m) === card));
+      expect(draft.game.context.toLan(draft.game.pos, draft.steps[0].move)).toBe(engine.game.context.toLan(engine.game.pos, one));
+    }
+  }
+});
+it('a Maester swap keeps its one direction', () => {
+  const { draft } = powered('4k3/8/8/8/8/8/8/1M2K3 w - - 0 1', { kings: [null, null], hands: [[], []] });
+  expect(draft.targets(parseSq('b1'))).toContain(parseSq('e1')); expect(draft.targets(parseSq('e1'))).not.toContain(parseSq('b1'));
+});
+it('a free action or a Haste step that reaches the 50-move draw ends the turn there (rules-round page 2)', () => {
+  for (const [king, power, fen, from, to] of [['Frost', 'Freeze', '4k3/r7/8/8/8/8/P7/4K3 w - - 99 60', 'a7', 'a7'], ['Frost', 'IceWall', '4k3/r7/8/8/8/8/P6N/4K3 w - - 99 60', 'h2', 'h2'], ['Flame', 'Haste', '4k3/r7/8/8/8/8/P7/4K2N w - - 99 60', 'h1', 'g3']] as const) {
+    const { game, draft } = powered(fen, { kings: [{ king, power }, null] });
+    draft.arm(power === 'IceWall' ? 'ward' : power.toLowerCase()); draft.stage(draft.at(parseSq(from), parseSq(to))[0]);
+    expect(game.context.status(draft.now)).toBe('draw50');
+    expect(draft.open).toBe(false); expect(draft.options(parseSq('a2'))).toEqual([]);
+    expect(() => draft.stage(draft.legal.find(m => m.from === parseSq('a2'))!)).toThrow();
+    expect(draft.canFinish).toBe(true);
+    expect(draft.commit().map(m => !!m.pass)).toEqual([false]);
+    expect(game.status).toBe('draw50'); expect(game.pos.halfmove).toBe(100);
+  }
 });
