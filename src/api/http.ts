@@ -9,12 +9,13 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createRemoteJWKSet, errors, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import { z } from 'zod';
 import { parse, MatchServiceError, type GameService } from '../match/service';
-import { commandSchema, createSchema, draftSchema, type Invite } from '../match/protocol';
+import { commandSchema, createSchema, draftSchema, type HistoryEntry, type Invite, type InboxEntry, type InvitationPage, type Lobby, type PlayerRecord, type Reply, type View } from '../match/protocol';
 import { optionsSchema } from '../match/setup-schema';
 import { commandLimit, handleSchema, type PluginService } from '../plugin/service';
-import { settingsSchema } from '../plugin/settings';
+import { settingsSchema, type PlayerSettings } from '../plugin/settings';
 import { noticesBeforeSchema, type AccountService } from '../online/accounts';
 import type { SafetyService } from '../online/safety';
+import type { AccountNotices, Icon } from '../account/profile';
 import { cleanup, DAILY_BUDGET_MS, runDeletions, sweepDeadlines } from '../online/jobs';
 import type { Sender } from '../online/mail';
 import { ACTOR_UUID, AuthenticationError, AuthenticationUnavailable, isLoopback, pluginOrigin } from '../plugin/auth';
@@ -85,6 +86,16 @@ export interface ApiOptions {
 type Route = (actor: string, id: string, body: unknown, query: URLSearchParams, app?: boolean) => Promise<unknown>;
 /** The invitation as the website shares it: a link built from the fixed origin, and the short code. */
 export type InviteLink = Invite & { url: string };
+// The replies that the routes build here. src/api/ios-build-8-replies.test.ts keeps the fields that old iOS builds read.
+type Me = { handle: string | null; icon: Icon | null };
+export type CreateReply = { view: Omit<View, 'invite'>; invite?: InviteLink };
+export type SettingsReply = { settings: PlayerSettings; me: Me };
+export type HandleReply = { me: Me; available?: true };
+export type RecordReply = Me & AccountNotices & { record: PlayerRecord; blocks: { user_id: string; handle: string | null }[]; next_blocks_after: string | null; history: HistoryEntry[]; next_before: string | null };
+export type LobbyReply = Lobby & { server_now: string };
+export type BlockReply = { blocked: boolean; view?: View };
+export type AckReply = Extract<Reply, { type: 'ack' }>;
+export type InvitationsReply = { games: InboxEntry[] } & InvitationPage;
 const emptySchema = z.strictObject({}).optional();
 const startSchema = createSchema.safeExtend({ command_id: commandSchema.shape.command_id });
 const findSchema = z.strictObject({ options: optionsSchema.optional(), colour: z.enum(['white', 'black', 'random']).optional(), mode: createSchema.shape.mode, any_rules: z.boolean().optional(), command_id: commandSchema.shape.command_id });
@@ -115,12 +126,12 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
   if (access?.enabled !== true || !Number.isFinite(access.expiresAt) || performance.now() >= access.expiresAt) throw failure('UNAVAILABLE', 503, 'Account play is temporarily unavailable. Try again or play on this device.');
  };
  const playerService = () => { if (!players) throw failure('UNAVAILABLE', 503, 'Account service is not configured'); return players; };
- const settings = async (actor: string, input: unknown = {}) => {
+ const settings = async (actor: string, input: unknown = {}): Promise<SettingsReply> => {
   const service = playerService();
   const [settings, { handle, icon }] = await Promise.all([service.settings(actor, parse(settingsSchema, input)), service.profile(actor)]);
   return { settings, me: { handle, icon } };
  };
- const block = async (actor: string, input: z.infer<typeof blockSchema>) => {
+ const block = async (actor: string, input: z.infer<typeof blockSchema>): Promise<BlockReply> => {
   const service = playerService(), { blocked: change, ...target } = input;
   const blocked = await service.block(actor, target, change);
   return { blocked, ...(change !== undefined && target.game_id && { view: await games.view(actor, target.game_id) }) };
@@ -139,7 +150,7 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
    return { account_access: 'closed', valid_for_ms: 0, ...museStatus };
   },
   // A friend game comes with its invitation (part 03, section 4.4); a lost link gets a new one from /invite.
-  'POST /api/games': async (actor, _, body, _query, app) => {
+  'POST /api/games': async (actor, _, body, _query, app): Promise<CreateReply> => {
    const { command_id, ...options } = parse(startSchema, body);
    if (localSolo && !app && options.kind === 'solo') throw failure('NOT_ALLOWED', 403, 'Solo games run on this device.');
    await playerService().toolTry(actor, 'kingdown_create');
@@ -149,7 +160,7 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
   'POST /api/games/find': async (actor, _, body) => { const input = parse(findSchema, body); await playerService().toolTry(actor, 'kingdown_create'); return games.find(actor, input.options, input.colour, input.command_id, input.any_rules, input.mode); },
   'POST /api/games/:id/accept': (actor, id, body) => games.accept(actor, id, parse(acceptSchema, body)?.rating_policy),
   'POST /api/games/:id/cancel': (actor, id, body) => { parse(emptySchema, body); return games.cancel(actor, id); },
-  'GET /api/lobby': async actor => ({ ...await games.lobby(actor), server_now: new Date().toISOString() }),
+  'GET /api/lobby': async (actor): Promise<LobbyReply> => ({ ...await games.lobby(actor), server_now: new Date().toISOString() }),
   'GET /api/games/:id': (actor, id, _, query) => {
    const since = query.get('since');
    if (since !== null && !/^\d{1,4}$/.test(since)) throw failure('INVALID_INPUT', 400, 'Invalid revision');
@@ -157,7 +168,7 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
   },
   'POST /api/games/:id/preview': async (actor, id, body) => { const input = parse(draftSchema, body); await playerService().toolTry(actor, 'kingdown_computer'); return games.previewDraft(actor, id, input); },
   'POST /api/games/:id/seen': (actor, id, body) => { parse(z.strictObject({}).optional(), body); return games.seen(actor, id); },
-  'POST /api/games/:id/commands': async (actor, id, body, _query, app) => {
+  'POST /api/games/:id/commands': async (actor, id, body, _query, app): Promise<AckReply> => {
    if (localSolo && !app && (body as { action?: { type?: unknown } } | null)?.action?.type === 'computer') throw failure('NOT_ALLOWED', 403, 'The computer plays on this device.');
    if (localSolo && !app && (body as { action?: { type?: unknown } } | null)?.action?.type === 'rematch' && (await games.view(actor, id)).kind === 'solo') throw failure('NOT_ALLOWED', 403, 'Solo games run on this device.');
    const limit = commandLimit((body as { action?: { type?: unknown; choice?: unknown } } | null)?.action); if (limit) await playerService().toolTry(actor, limit); const view = await games.command(actor, id, body, 'web'); return { type: 'ack', command_id: (body as { command_id: string }).command_id, revision: view.revision, view }; },
@@ -166,7 +177,7 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
   'POST /api/invites/redeem': (actor, _, body) => { const key = parse(redeemSchema, body); return games.join(actor, 'invite_id' in key ? key : 'token' in key ? key.token : key.code); },
   'GET /api/friends': (actor, _, __, query) => games.friends(actor, parse(friendsSchema, queryInput(query))),
   'POST /api/invites/:id/decline': (actor, id, body) => { parse(emptySchema, body); return games.declineInvite(actor, id); },
-  'GET /api/me/games': async (actor, _, __, query) => {
+  'GET /api/me/games': async (actor, _, __, query): Promise<InboxEntry[] | InvitationsReply> => {
    if (!query.has('invitations')) return games.inbox(actor);
    const input = queryInput(query); delete input.invitations;
    return { games: await games.inbox(actor), ...await games.invitations(actor, parse(invitationsSchema, input)) };
@@ -175,8 +186,8 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
   'PATCH /api/me/profile': (actor, _, body) => accounts.updateSettings(actor, body),
   'GET /api/me/settings': actor => settings(actor),
   'PATCH /api/me/settings': (actor, _, body) => settings(actor, body),
-  'POST /api/me/handle': async (actor, _, body) => { const input = parse(handleSchema, body), { handle, icon } = await playerService().handle(actor, input); return { me: { handle, icon }, ...(input.check && { available: true }) }; },
-  'GET /api/me/record': async (actor, _, __, query) => {
+  'POST /api/me/handle': async (actor, _, body): Promise<HandleReply> => { const input = parse(handleSchema, body), { handle, icon } = await playerService().handle(actor, input); return { me: { handle, icon }, ...(input.check && { available: true }) }; },
+  'GET /api/me/record': async (actor, _, __, query): Promise<RecordReply> => {
    const { before, blocks_after, notices_before } = parse(recordSchema, queryInput(query)), service = playerService();
    const [{ handle, icon }, record, history, blocks, notices] = await Promise.all([service.profile(actor), games.record(actor), games.history(actor, before), service.blocks(actor, blocks_after), accounts.notices(actor, notices_before)]);
    return { handle, icon, record, ...notices, blocks: blocks.slice(0, 50), next_blocks_after: blocks.length > 50 ? blocks[49].user_id : null, history: history.games, next_before: history.next_before };

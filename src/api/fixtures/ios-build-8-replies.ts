@@ -1,8 +1,9 @@
 // The /api reply fields of iOS build 1.0 (8), commit f346e832e (ios/release-log.md): the reply types of
 // f346e832e:src/online/client.ts and of the types that it names in src/match/protocol.ts, src/account/profile.ts and
-// src/api/http.ts. Keep the lists unchanged while build 8 is in use.
+// src/api/http.ts, and the /api/status fields of f346e832e:src/online/account-access.ts. Keep the lists unchanged while build 8 is in use.
 // shortcut: top-level fields and the list items only, not `rules`, `options` or the deeper fields; add a level when a reply
 // changes shape there.
+export type Status = 'account_access' | 'valid_for_ms' | 'muse';
 export type Create = 'view' | 'invite';
 export type Settings = 'settings' | 'me';
 export type Handle = 'me' | 'available';
