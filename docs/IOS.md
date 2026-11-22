@@ -8,6 +8,8 @@ The iOS app is a Capacitor shell around the same web build as kingdown.dev. Deci
 2. Run it in the simulator: `npx cap run ios --target <simulator id>` (list ids with `xcrun simctl list devices available`), or open Xcode with `npx cap open ios`.
 3. Inspect the page: debug builds are inspectable in Safari > Develop > Simulator. The native log with the page's console: `xcrun simctl launch --console-pty booted dev.kingdown.app`.
 
+`npm run ios:check` runs the store and link checks (`ios/store.test.ts`, macOS only; CI does not run it) before an upload.
+
 A check build with no signing: `xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`. A debug build opens one start address from a launch argument: `xcrun simctl launch booted dev.kingdown.app -KingDownStart /support.html`.
 
 The new page has one Apple sign-in switch: `VITE_KINGDOWN_APPLE_SIGN_IN=1`. It is off by default.

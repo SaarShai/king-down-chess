@@ -32,6 +32,13 @@ Use `KINGDOWN_REVIEW=lead-read` to record the lead's read of a tweak. The merge 
 
 A tweak goes to the preview address, `https://kingdown-preview.vercel.app`, before CI. Before the preview, these pass: the type check, the build, the scripted journey check and the builder's browser pass. The preview uses the staging project and the staging data. It never uses a production key or the production database, and it never moves the staging address or the live site. Only the lead starts a preview. `tools/deploy.sh` publishes to production only: never use it for a preview.
 
+## The plugin, the connector and the iOS app
+
+Each class applies to these versions too. Each version adds these steps:
+- **ChatGPT plugin.** The preview is a staging build, and a staging build parks `/mcp`. So for a class A change on plugin CSS, the harness pictures are the preview: the builder takes them with `npx tsx tools/plugin-ui-harness.ts` ([the QA protocol](qa/plugin-qa-protocol.md)), and the owner says yes or no on them. Class B and C also pass `npm run check:browser plugin-oauth plugin-ui plugin-ui-http plugin-skylift plugin-privacy`.
+- **Muse connector.** A change to the tool text or the docs page passes `src/muse/*.test.ts` and `npm run check:browser muse-docs`. A rules change also passes `src/muse/engines.test.ts` (saved games of old engines). Class C also calls the tools on `npm run muse:dev` with the MCP Inspector ([MUSE.md](MUSE.md)).
+- **iOS app.** A web change reaches the app only at the next upload. Before an upload: `npm run ios:check` and `npm run ios:sync production` ([IOS.md](IOS.md)). Class C on `/api` stays backward compatible, because old apps keep calling it.
+
 ## Skills for agents
 
 Each build brief and each repair brief names Ponytail (level full) and the skill for its task: `tdd` for a class B or C build, `diagnosing-bugs` for a fault with no clear cause, `pr` for the PR text. The lead runs `retro` one time after each release; its result feeds rule 5.
