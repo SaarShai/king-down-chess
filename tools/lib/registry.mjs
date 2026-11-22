@@ -17,7 +17,7 @@
 // faults that prove the runner: selftest-dirty writes a scratch file into the checkout, selftest-fail
 // fails, selftest-hang never ends, selftest-hold sleeps 15 s so that two runs can be seen together.
 export const checks = [
-  { name: 'muse-docs', script: 'tools/verify-muse-docs.mjs', limit: 60, channel: 'chrome', byName: true },
+  { name: 'muse-docs', ci: 'journey', script: 'tools/verify-muse-docs.mjs', limit: 60, channel: 'chrome', byName: true },
   // Setup retries use the real poll; the expanded cases at four sizes take about 570 seconds.
   { name: 'owner-playtest-r5', script: 'tools/verify-owner-playtest-r5.mjs', limit: 660, channel: 'chromium', byName: true, external: true },
   { name: 'owner-playtest-r4', script: 'tools/verify-owner-playtest-r4.mjs', limit: 240, channel: 'chromium', byName: true, external: true },
@@ -81,10 +81,10 @@ export const checks = [
   { name: 'selftest', ciSeconds: 1, script: 'tools/check-selftest.mjs', limit: 120 },
   // Plugin checks build their own artifact; OAuth and HTTP checks need local PostgreSQL.
   { name: 'plugin-oauth', ci: 'plugin', script: 'tools/plugin-browser-check.mjs', args: ['oauth'], limit: 240, channel: 'chromium', byName: true, exclusive: true },
-  { name: 'plugin-privacy', script: 'tools/plugin-browser-check.mjs', args: ['privacy'], limit: 120, channel: 'chromium', byName: true, exclusive: true },
+  { name: 'plugin-privacy', ci: 'plugin', script: 'tools/plugin-browser-check.mjs', args: ['privacy'], limit: 120, channel: 'chromium', byName: true, exclusive: true },
   { name: 'w6-parts', script: 'tools/verify-w6-parts.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'search-worker', script: 'tools/verify-search-worker.mjs', limit: 180, channel: 'chromium', byName: true },
-  { name: 'plugin-skylift', script: 'tools/plugin-browser-check.mjs', args: ['skylift'], limit: 180, channel: 'chromium', byName: true, exclusive: true },
+  { name: 'plugin-skylift', ci: 'plugin', script: 'tools/plugin-browser-check.mjs', args: ['skylift'], limit: 180, channel: 'chromium', byName: true, exclusive: true },
   // CI WebKit (limit x 3) took 1130-1218 s of 1260 s; New game's open Cards section draws its paintings in each setup step
   // (+30-90 s), and run 40253834383 passed the old limit near the end. 480 s gives 1440 s there.
   { name: 'plugin-ui', ci: 'fixture', script: 'tools/plugin-browser-check.mjs', args: ['fixture'], limit: 480, channel: 'chromium', byName: true },
