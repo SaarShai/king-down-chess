@@ -45,6 +45,11 @@ it('plans the browser checks in the worktrees at the PR head and merge commit', 
     expect(plan.output).toContain('npm ls --depth=0');
   }
   expect(plans[0].output).toContain('release-site release-history');
+  // staging-checks also runs the unsigned plugin and Muse probe on the staging build; a tweak skips staging.
+  const probes = plans[0].output.split('\n').filter(line => line.includes('deploy-plugin-live-check.mjs'));
+  expect(probes).toHaveLength(1);
+  expect(probes[0].replaceAll('\\', '')).toContain(`${join(worktree, 'kingdown-deploy/.vercel/output/functions/mcp.func')} https://kingdown-staging.vercel.app`);
+  expect(plans[1].output).not.toContain('deploy-plugin-live-check.mjs');
 });
 
 it('plans the frame-time checks during PR CI in the live worktree at the PR head', () => {

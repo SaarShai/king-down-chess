@@ -315,7 +315,9 @@ run_stage() {
   case "$1" in
     ci) release_ci ;;
     staging) staging_deploy ;;
-    staging-checks) checks "$staging_tree" "$head" "$staging" release-site release-history ;;
+    # The unsigned plugin and Muse probe reads the staging issuer from the build's staging.json.
+    staging-checks) checks "$staging_tree" "$head" "$staging" release-site release-history &&
+      outward node "$tools/deploy-plugin-live-check.mjs" "$staging_tree/kingdown-deploy/.vercel/output/functions/mcp.func" "$staging" ;;
     merge) merge_release ;;
     main-ci) wait_main ;;
     engines) live_step engines ;;
