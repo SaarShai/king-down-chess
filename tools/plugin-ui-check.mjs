@@ -10,7 +10,7 @@ import { openBoardMenu, settled } from './lib/plugin-settled.mjs';
 import { pauseClock } from './lib/page-clock.mjs';
 import { controlBounds, scaleText } from './lib/plugin-control-bounds.mjs';
 import { cutText } from './lib/cut-text.mjs';
-import { KNOWN, SKIPPED } from './plugin-known.mjs';
+import { KNOWN, markOf } from './plugin-known.mjs';
 import { boxText, layoutMessage } from './lib/layout-message.mjs';
 import { assertCardReadState } from './lib/plugin-card-read.mjs';
 import assert from 'node:assert/strict';
@@ -230,7 +230,7 @@ try {
     if (await frame.locator('body').evaluate(el => el.scrollWidth > innerWidth)) found.push('the page has a horizontal scroll');
     for (const bounds of await controlsInView(controlsOf(screen))) if (!bounds.accessible) found.push(`control "${(bounds.text ?? '').replace(/\s+/g, ' ').trim().slice(0, 40)}" does not scroll into the safe area`);
     await widget().evaluate(() => document.querySelectorAll('*').forEach(el => el.style.removeProperty('font-size')));
-    for (const line of new Set(found)) { const mark = `${where}: ${line}`; if (KNOWN.has(mark)) used.add(mark); else faults.push(mark); }
+    for (const mark of new Set(found.map(line => markOf(where, line)))) { if (KNOWN.has(mark)) used.add(mark); else faults.push(mark); }
     return faults;
   }
 
@@ -3086,7 +3086,8 @@ try {
   const scaledPart = mode === 'fixture' && part === 'board';
   const scaled = [], used = new Set(), scaleStart = Date.now();
   let scaleMs = 0;
-  for (const [width,height] of [[390,844],[400,900],[1440,900]]) {
+  // At 320x568 the 100% Home fails fits() ("Your games" is under the composer), so that size runs the 150% pass alone.
+  for (const [width,height] of [[390,844],[400,900],[1440,900],...(scaledPart ? [[320,568]] : [])]) {
     await freshHost();
     await page.setViewportSize({width,height});
     for (const screen of routes) {
@@ -3097,19 +3098,19 @@ try {
         window.harnessNextView = route ? { ...base, status: route[0], kind: route[1], options: route[2], ...(screen === 'end' ? { result: { winner: 0, reason: 'resign' } } : {}) } : undefined;
         window.harnessWidgetState = { modelContent: {}, privateContent: { screen, sheet: undefined, board_id: window.harnessWidgetState.privateContent.board_id, pending: undefined } };
       }, {screen,base:routeBase,route});
-      await remount(screen); await fits(screen,width);
+      await remount(screen); if (width > 320) await fits(screen,width);
       assert.deepEqual(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_get').arguments), { board_id: routeBoard }, 'A mount reads with the board ID alone');
       assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length), settingsReads + 1, 'Each mount reads server settings and me');
       assert.deepEqual(await page.evaluate(() => Object.keys(window.harnessWidgetState.privateContent).sort()), ['board_id','pending','screen','sheet']);
       assert.deepEqual(await page.evaluate(() => window.harnessWidgetState.modelContent), {});
-      if (scaledPart && !SKIPPED.has(screen)) { const start = Date.now(); scaled.push(...await scaledFaults(screen, width, height, used)); scaleMs += Date.now() - start; }
+      if (scaledPart) { const start = Date.now(); scaled.push(...await scaledFaults(screen, width, height, used)); scaleMs += Date.now() - start; }
     }
   }
   if (scaledPart) {
     for (const mark of KNOWN.keys()) if (!used.has(mark)) scaled.push(`known mark matches no fault: ${mark}`);
     assert(!scaled.length, `150% text: ${scaled.length} fault(s)\n  ${scaled.join('\n  ')}`);
-    console.log(`150% text: ${(routes.length - SKIPPED.size) * 3} route cases pass, ${used.size} known marks, ${scaleMs} ms of ${Date.now() - scaleStart} ms; skipped: ${[...SKIPPED.keys()].join(', ')}`);
-  }
+    console.log(`150% text: ${routes.length * 4} route cases pass, ${used.size} known marks, ${scaleMs} ms of ${Date.now() - scaleStart} ms`);
+  } else console.log(`150% text: off (it runs in the fixture board part alone; this is the ${mode} ${part} part)`);
   await page.setViewportSize({width:1000,height:1000}); await legacyStart('solo'); await boardBox();
   const other = await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_create',arguments:{kind:'solo',options,colour:'white'}}})).json(); assert(!other.isError);
   const backgroundBefore = await frame.locator('#status').innerText(), binding = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
