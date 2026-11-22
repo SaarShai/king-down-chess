@@ -26,6 +26,8 @@ xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -de
 xcodebuild -exportArchive -archivePath "$TMPDIR/App.xcarchive" -exportOptionsPlist ios/ExportOptions.plist -exportPath "$TMPDIR/upload" -allowProvisioningUpdates
 ```
 
+`bash tools/ios-release.sh [--dry-run] [<commit>]` does the first two steps in a clean worktree of an `origin/main` commit (default `origin/main`), with the store test, adds the build and the commit to [the iOS release log](../ios/release-log.md), and prints the export for the owner; `--dry-run` prints the steps and runs none. Run `git fetch origin` first, and remove the `ios-release-build` worktree before a second run; commit the log line. The log also names the App Store build (1.0 (8)), whose `/api` reply fields `src/api/ios-build-8-replies.test.ts` keeps.
+
 `ios/ExportOptions.plist` uploads to App Store Connect and keeps the build number from the project. App Store Connect then processes the build for TestFlight (minutes to an hour) and sends an email if it finds a fault.
 
 ## Rules the code depends on
