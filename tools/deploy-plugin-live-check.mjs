@@ -70,6 +70,7 @@ async function resourceCheck(path, discoveryResponse) {
 }
 
 async function check() {
+  if (staging) assert(museBuilt, 'Muse must be built on staging');
   const discovery = museBuilt ? await get(MUSE_PATHS[1]) : undefined;
   if (discovery) {
     if (staging) assert.equal(discovery.status, 200, 'Muse metadata must be served on staging');

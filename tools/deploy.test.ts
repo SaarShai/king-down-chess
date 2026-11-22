@@ -1349,6 +1349,12 @@ describe('deploy-plugin-live-check.mjs', () => {
       expect(result.status, fault).toBe(1);
       expect(result.stderr).toContain(`plugin-live-check: FAIL: ${reason}`);
     }
+    // A staging build without the Muse route fails, though the server parks each path.
+    const folder = parkedFolder();
+    writeFileSync(join(folder, '../../staging.json'), JSON.stringify({ stage: 'staging', supabaseUrl: 'https://puhspsyjyzaghmgtkzqd.supabase.co' }));
+    const result = await runAsync(process.execPath, [pluginLiveCheck, folder, (await pluginSite('parked')).url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '250' } });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('plugin-live-check: FAIL: Muse must be built on staging');
   });
 
   it('checks that each parked plugin path answers 404 when the build has no consent script', async () => {
