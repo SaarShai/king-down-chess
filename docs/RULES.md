@@ -1,7 +1,7 @@
 # King Down Chess — current rules and dated decisions
 
-Starting source: *King Down Classic — Rules of Play* (Saar Shai, 2017), with the dated owner decisions below.
-Sections 1–3 describe the current default. Kings' powers in §4 are optional lab rules; card/spell effects in §5 are built as lab cards (card mode), not in the playable game.
+Starting source: *King Down Classic — Rules of Play* (Saar Shai, 2017), with the dated decisions below.
+Sections 1–3 describe the current default. Kings' powers in §4 and card mode in §5 are optional game modes.
 
 ## 1. Base rules
 
@@ -13,14 +13,14 @@ Classic chess on 8×8 (check, checkmate, stalemate) with these deltas:
 | En passant | not official (optional) | off | **on**, FIDE rules (below) |
 | Promotion | any piece except a king, fairy pieces included | **Q, R, B or N — the chess set** (§6.13, revised 2026-09-17) | Q, R, B or N |
 | 50-move draw | not stated | on (100 plies) | on |
-| Threefold repetition | not stated | on (3rd occurrence of the same board, side to move and spent-Strike state) | on; the castling rights and the en-passant square are part of the position |
+| Threefold repetition | not stated | on (3rd occurrence of the same board, side to move, and any power or card state that changes legal actions: remaining uses and unspent cards, active marks, a pending Haste or free-mark follow-up, and returnable reserves) | on; the castling rights and the en-passant square are part of the position |
 | Insufficient material | not stated | on (conservative engine check; a live Strike power prevents this draw) | on |
-| History limit (online games) | not stated | a turn that fills the game history ends the game in a draw (about 500 turns each; owner, 2026-10-26) | the same |
+| History limit (online games) | not stated | a turn that fills the game history ends the game in a draw (about 500 turns each; the owner accepted a proposal, 2026-10-26: "do!") | the same |
 
 **Classic** is the plugin's real-chess setup (the normal start position, spec Q30, Q31). Only it sets the rule flag `classicChess`; every other setup keeps King Down's rules.
 
 - **Castling.** The king moves two squares toward a rook, and the rook goes to the square the king passed. The move text is `O-O` (short) and `O-O-O` (long), so a castling never reads as a Mercy or Darkness king's two-square step (`Ke1-g1`). The king and the rook have not moved, the squares between them are empty, and the king is not in check, does not pass an attacked square and does not land on one. A right ends when the king or the rook leaves its square for any reason (a move, a swap, a push, Strike, Flight, Sky Lift), the rook is taken or the rook changes into another piece (Morph). A move that leaves both pieces on their squares keeps the right: a Death Touch shot from the king's square, an Earth Quake centred on the king or the rook. A piece that comes back gets no right. A frozen rook does not castle.
-- **En passant.** Only on the move right after an enemy pawn's two-square advance from its start rank, and only by a pawn that takes diagonally. A free action that holds the turn before that move keeps the right: a free Freeze, Ice Wall, Firewall or Rescue (`markFree`), or a GrowthB draw. A side with Darkness (its pawns take straight ahead) gives and takes no en passant. A March double step from another rank gives none.
+- **En passant.** Only on the move right after an enemy pawn's two-square advance from its start rank, and only by a pawn that takes diagonally. A free action that holds the turn before that move keeps the right: a free Freeze, Ice Wall, Firewall or Rescue (`markFree`), or a GrowthB draw (accepted in general under 2026-10-22: "always do what you recommend. don't ask me."). A side with Darkness (its pawns take straight ahead) gives and takes no en passant. A March double step from another rank gives none.
 - **FEN.** Field 3 holds the rights (`KQkq`), field 4 the en-passant square (`e3`), written only when an enemy pawn stands beside the pawn that advanced. With the flag off both fields are `-`.
 - **Repetition and the en-passant square.** The position key counts the en-passant square only when a legal capture exists. A pinned or frozen pawn, or a victim in Holy Light, does not change the key when no pawn can capture en passant. The stored square stays available for a free action that holds the turn. Full and incremental keys use the same legal-capture check.
 
@@ -30,7 +30,7 @@ Classic chess on 8×8 (check, checkmate, stalemate) with these deltas:
 - Rank 1 / 8: the king plus **7 pieces drawn at random** from the pool
   `1 queen, 1 ogre, 1 paladin, 2 rooks, 2 bishops, 2 knights, 2 archers, **1 guard**, 2 maesters, **1 beast**` (15 letters,
   `QOLRRBBNNAAGMMS`),
-  in a random order that is **identical for both players**.
+  in a random order that is **identical for both players**. In a Manual arrangement, both players get the same 8 back-rank pieces (the 7 drawn pieces and the king), and each side's legal order can differ (plugin answer Q8; the owner accepted a proposal, 2026-10-11: "8. yes", "i approve the spec").
 - Our extra constraint (Chess960 spirit): if both bishops are drawn they start on opposite colours.
 - A drawn guard starts **next to its king**, wherever the king stands (`guardNextToKing`, §6 decision 21).
   There is no "king between rooks" rule because there is no castling.
@@ -62,57 +62,62 @@ Design space by ability (arriving, shield, handicap, hopping, control, on-captur
 
 Kings' powers is a game mode: each player may pick one power for their king before the game (New game,
 or `?kings=frost:freeze,mud:march`). **No power is the default**, and either side may play without one. Token-spending mechanics are dropped; the rulebook's per-game use
-counts are plain counters (§6.5). Powers never capture a king and add no attacked square.
+counts are plain counters (§6.5). Powers never capture a king. Spendable powers add no attacked square; always-on Death Touch adds attacked squares two squares straight forward or back over an empty square, and a Darkness pawn attacks one square straight ahead instead of diagonally.
 
 **Balanced on 2026-10-02** (`docs/research/kings-powers-balance-2026-10-02.md`): head-to-head
 round-robins of all twelve, at depth 3, over five rounds. As printed, the powers spread from 21% to
 80% against each other; the readings below bring all twelve within 42–57% (a 15-point spread).
-**Owner decision (2026-10-02): the balanced readings are the official kings' powers rules.** The game
-applies them whenever a king has a power (`POWERS_BALANCED` in `src/rules/rules.ts`); the
+**The owner accepted a proposal (2026-10-02: "you may change any rules to be the official rules. note that kings' power mode is a specific game mode for the game, but players should be able to choose to play without king powers."): the balanced readings are the official kings' powers rules.** Each rule states its approval in three levels: "the owner chose" (with the date and his words), "the owner accepted a proposal" (with the date and the words), or "no owner word". The game
+applies the balanced readings whenever a king has a power or a game uses cards (`POWERS_BALANCED` in `src/rules/rules.ts`); the
 rule defaults, `?rules=2017` and the lab keep the rulebook as printed. Every reading is one toggle.
 
-| King | Power | As printed (2017 rulebook) | Balanced reading |
+| King | Power | As printed (2017 rulebook) | Balanced reading and approval |
 |---|---|---|---|
-| Frost | **Freeze** (2 uses) | pick an enemy piece (not king); it cannot move during the opponent's next turn | a free action, then your move; **once** a game (`markFree`, `freezeUses: 1`) |
-| Frost | **Ice Wall** (2 uses) | pick a friendly piece (not king); it cannot be captured during the opponent's next turn | a free action, then your move (`markFree`) |
-| Flame | **Strike** (1 use) | move any own piece (not king) as if it were a queen; counts as a turn | pieces only (no pawns), to an empty square (`strikePawns: false`, `strikeCaptures: false`) |
-| Flame | **Haste** (1 use) | move one piece twice in a single turn | neither move captures (`hasteCaptures: false`) |
-| Sky | **Flight** (1 use) | move any own piece (not king) to any empty square in own half; counts as a turn | as printed |
-| Sky | **Sacrifice** (1 use) | swap any own pawn with any own piece captured earlier; counts as a turn | as printed |
-| Earth | **March** (3 uses) | any pawn may move two forward (if unblocked) | always on (`marchUses: 0`) |
-| Earth | **Leap** (3 uses) | own pieces may jump over own pawns when moving several squares | as printed |
-| Spirit | **Holy Light** (always on) | king cannot be captured by enemy pawns and cannot capture pawns | the king may take pawns, and **no piece beside, in front of or behind the Holy Light king can be captured** (`holyLightTakesPawns`, `holyLightShelter`, `holyLightShelterOrtho`) |
-| Spirit | **Mercy** (always on) | king moves 1 or 2 squares in any direction, cannot capture, jumps friendly pieces | as printed, but the king may take pawns; and **no piece next to the Mercy king can be captured, except by a pawn** (`mercyAura`, `mercyAuraPawnsTake`, `mercyTakesPawns`: reading M2, owner 2026-10-03) |
-| Shadow | **Death Touch** (always on) | king captures adjacent enemies without moving | as printed, and **it also reaches two squares straight forward or back (never sideways), over an empty square** (`deathTouchReach`, `deathTouchReachForwardBack`; §6 decision 24) |
-| Shadow | **Darkness** (always on) | own pawns move 1 diagonally and capture 1 straight forward; no double first move | pawns also keep their straight steps (double from the start); they still capture only straight ahead (`darknessMoves`); **the king may also step two squares in a straight line, over an empty square** (`darknessKingStep2`, owner 2026-10-04) |
+| Frost | **Freeze** (2 uses) | pick an enemy piece (not king); it cannot move during the opponent's next turn | a free action, then you make a move or end the turn (`markFree`, `freezeUses: 1`; **once** a game; the owner accepted a proposal, 2026-10-02 package; no owner word on ending the turn without a move) |
+| Frost | **Ice Wall** (2 uses) | pick a friendly piece (not king); it cannot be captured during the opponent's next turn | a free action, then you make a move or end the turn (`markFree`; the owner accepted a proposal, 2026-10-02 package; no owner word on ending the turn without a move) |
+| Flame | **Strike** (1 use) | move any own piece (not king) as if it were a queen; counts as a turn | pieces only (no pawns), to an empty square (`strikePawns: false`, `strikeCaptures: false`; the owner accepted a proposal, 2026-10-02 package) |
+| Flame | **Haste** (1 use) | move one piece twice in a single turn | neither move captures, and the second move is optional (`hasteCaptures: false`; the owner accepted a proposal, 2026-10-02 package; the owner chose to keep Haste, 2026-10-06: "2. haste - stays as is.") |
+| Sky | **Flight** (1 use) | move any own piece (not king) to any empty square in own half; counts as a turn | as printed, except a pawn cannot land on its own first rank (the owner accepted a proposal, 2026-10-02 package; the owner chose the short rule line, 2026-11-13: "Yes, new Flight"; no owner word on the pawn first-rank limit) |
+| Sky | **Sacrifice** (1 use) | swap any own pawn with any own piece captured earlier; counts as a turn | as printed; a pawn, a Guard or a king cannot return, and a Paladin that removed itself counts as lost (the owner accepted a proposal, 2026-10-02 package; the owner chose to allow a second Beast by return, 2026-10-09: "allow it"; no owner word on the Guard exclusion or the self-removed Paladin) |
+| Earth | **March** (3 uses) | any pawn may move two forward (if unblocked) | always on (`marchUses: 0`; the owner accepted a proposal, 2026-10-02 package; the owner accepted a proposal for cards, 2026-10-11: "19. a") |
+| Earth | **Leap** (3 uses) | own pieces may jump over own pawns when moving several squares | as printed, for a rook, bishop or queen (the owner accepted a proposal, 2026-10-02 package) |
+| Spirit | **Holy Light** (always on) | king cannot be captured by enemy pawns and cannot capture pawns | the king may take pawns, and **no friendly piece beside, in front of or behind the Holy Light king can be captured** (`holyLightTakesPawns`, `holyLightShelter`, `holyLightShelterOrtho`; the owner chose, 2026-10-02: "Yes, keep shelters (Recommended)", from a cloud session; not verified) |
+| Spirit | **Mercy** (always on) | king moves 1 or 2 squares in any direction, cannot capture, jumps friendly pieces | as printed, but the king may take an adjacent pawn or Guard; and **no friendly piece next to the Mercy king can be captured, except by a pawn** (`mercyAura`, `mercyAuraPawnsTake`, `mercyTakesPawns`: reading M2; the owner chose, 2026-10-04: "2. mercy - yes."; no owner word on the Guard capture or on two Mercy kings standing side by side) |
+| Shadow | **Death Touch** (always on) | king captures adjacent enemies without moving | as printed, and **it also reaches two squares straight forward or back (never sideways), over an empty square**, and gives check on those squares (`deathTouchReach`, `deathTouchReachForwardBack`; the owner chose, 2026-10-09: "1. go with T2 for death touch."; §6 decision 24) |
+| Shadow | **Darkness** (always on) | own pawns move 1 diagonally and capture 1 straight forward; no double first move | pawns also keep their straight steps (double from the start); they still capture and give check only straight ahead (`darknessMoves`; the owner chose, 2026-10-02: "Keep today's version", from a cloud session; not verified); **the king may also step two squares in a straight line, over an empty square** (`darknessKingStep2`; the owner chose, 2026-10-04: "1. B") |
 
-A Freeze or Ice Wall mark holds a piece, not a square (owner, 2026-10-25): when the frozen or walled piece moves, swaps, or is
-shoved or pushed, also by the marking side's move after a free mark, the mark goes with it. The mark ends when the piece leaves the board.
+King names Sky and Earth: the owner chose (2026-11-16: "change 'Stratus' to 'Sky' EVERYWHERE" and "change 'Mud' to 'Earth' EVERYWHERE").
+
+A Freeze or Ice Wall mark holds a piece, not a square (the owner accepted a proposal in general, 2026-10-22: "always do what you recommend. don't ask me."; repair applied 2026-10-25): when the frozen or walled piece moves, swaps, or is
+shoved or pushed, also by the marking side's move after a free mark, the mark goes with it. The mark ends when the piece leaves the board. In Classic, a free mark keeps en passant available for the follow-up move (accepted in general under the same 2026-10-22 words; no owner word on this detail).
 In card mode a Firewall's mark names its king's square and follows the king; a Rescue renews a mark where its piece stands now.
 
-A pawn that Strikes never lands on the first or last rank (owner, 2026-10-26): Strike does not promote, so a pawn there
+A pawn that Strikes never lands on the first or last rank (the owner accepted a proposal in general, 2026-10-26: "do!"): Strike does not promote, so a pawn there
 could not move on, and a pawn that cannot land there gives no long-range promotion either. The capture reading (`strikeMode: 'capture'`)
 leaves the pawn where it stands, so it may still take a piece on those ranks.
 
-Holy Light's shelter was added after round 6 (owner asked for Mercy and Holy Light variations to be
-tested): it lifted Holy Light from 43% to 53%; sheltering all eight neighbours overshot to 64%, and
+Engine limits in the build since 2026-10-02 (no owner word):
+- **Free mark follow-up:** a free Freeze, Ice Wall or Firewall can be followed by an ordinary move or by the end of the turn (when the king is not in check).
+- **Flight and a pawn's first rank:** a pawn cannot use Flight to land on its own first rank (rank 1 for White, rank 8 for Black).
+- **What Sacrifice can return:** Sacrifice (and Salvation) can return a lost piece of the side except a pawn, a Guard or a king; a Paladin that removed itself after a capture counts as lost and can return.
+
+Holy Light's shelter was added after round 6 (the owner chose, 2026-10-02: "Yes, keep shelters (Recommended)", from a cloud session; not verified): it lifted Holy Light from 43% to 53%; sheltering all eight neighbours overshot to 64%, and
 narrower Mercy shelters (beside/front/behind only, or only against pawns) fell to 37% and 27%.
 Confirmation round (3,744 games on fresh armies): all twelve within 42–57% against the other
 powers; Haste, Sacrifice and Mercy 56–57% (high), Death Touch 43% and Darkness 42% (low). The other readings measured, and why they were not chosen, are in
 the report; the toggles stay in the lab. Earlier single-power measurements of the six always-on
 powers: `docs/research/sim-kings-2026-09-16.md`.
 
-**Owner decisions (2026-10-03), after rounds 14 and 15.** Mercy: "yes": reading M2 is official (in
-rounds 14 and 15 it moved Mercy from about 56% to 50%). Haste and Death Touch stay as they are: the
-trims are "too cumbersome and not worth the gain". Darkness stays as it is for now: the diagonal
-shelter that pawns may break (D2) is "too cumbersome", but Darkness at about 42% is not accepted, so
+**Owner decisions (2026-10-04 UTC / 2026-10-03 Pacific), after rounds 14 and 15.** Mercy: the owner chose ("2. mercy - yes."): reading M2 is official (in
+rounds 14 and 15 it moved Mercy from about 56% to 50%). Haste and Death Touch stay as they are: the owner chose ("1. flame - the change is too cumbersome and not worth the gain.", "4. death touch - too cumbersome."). Darkness stays as it is for now: the diagonal
+shelter that pawns may break (D2) is "too cumbersome", but Darkness at about 42% is not accepted ("3. darkness - change too cumbersome but i don't like the 42% score, we must find a different change to bring close to 50%"), so
 round 16 tests simple second parts, one short sentence each, as lab toggles: enemy pawns cannot take
 your pawns (`darknessPawnArmor`); enemy pawns cannot take your pieces next to your king
 (`darknessAuraPawns`); your king may also step two squares in a straight line, over an empty square,
 to an empty square (`darknessKingStep2`); and D1, your pieces diagonally next to your king cannot be
-taken (`darknessShelter`). No king-power reading changes how other pieces move.
+taken (`darknessShelter`). No king-power reading changes how other pieces move, except existing March and Darkness (the owner accepted a proposal, 2026-10-10: "approved").
 
-**Owner decision (2026-10-04), after rounds 16 and 17:** "1. B", the king step as tested: your king
+**Owner decision (2026-10-04), after rounds 16 and 17:** the owner chose ("1. B"), the king step as tested: your king
 may also step two squares in a straight line, over an empty square (`darknessKingStep2`). The middle
 square may be attacked; the step never takes and adds no attacked square. Over rounds 16 and 17 it
 moved Darkness from about 44% to 48%, with Spirit and Shadow level. The safe step
@@ -128,22 +133,27 @@ Growth (draw), Burn (capture inside the capital zone), Control (control a friend
 Rescue (keep an effect for another turn), Leap (range not obstructed); elemental: Fire Starter, Frost Bite (freeze in range), Sky Lift (swap two units), Earth Quake (shove adjacent units).
 Unit "has X" cards: Archer has Strike, Guard has Shield, Paladin has Leap, Maester has Control, Beast has Rage.
 
-Card mode (lab only, not in the playable game; `docs/research/cards-2026-10-03.md`) deals one-use cards: the
-spendable king powers and the card-only cards, Mimic, Vault, Curse, Sky Lift and **Salvation** (2026-10-04: "Return
-one of your captured pieces to an empty square of your back rank"; a pawn, a guard or the king never returns), and
-(2026-10-04, owner: "cards - let's add all") the 2014 cards **Rage**, **Mirror**, **Firewall**, **Earth Quake**,
+Card mode is released (`docs/research/cards-2026-10-03.md`, `src/content/cards.ts`, `src/match/setup.ts`). A game with cards uses the tested flags (`POWERS_BALANCED`) in all games (the owner chose, 2026-11-22: "Yes, one reading").
+- **The 21 released cards (question Q20, 2026-10-11):** the owner accepted a proposal ("20. yes", "i approve the spec") for the 21 cards in catalog order, with their names in the game: **Freeze**, **Ice Wall**, **Strike**, **Haste**, **Flight**, **Sacrifice**, **March**, **Leap**, **Salvation**, **Mirror** (ID `MirrorB`), **Firewall**, **Earth Quake**, **Burn**, **Fire Starter**, **Control**, **Rally**, **Morph** (ID `MorphP`), **Mimic**, **Hop** (ID `Vault`), **Curse** and **Sky Lift**. The public names **Mirror** and **Morph** (the owner chose, 2026-10-15: "names with no letter ('Mirror', 'Morph')") and **Hop** (the owner chose, 2026-10-25: "change vault to hop") map to `MirrorB`, `MorphP` and `Vault`. Out of the released deal: Rage (the owner chose, 2026-10-06: "keep Rage as a rare 'legendary' card"; the rarity is not built), old Mirror and Rescue (the owner accepted a proposal, 2026-10-07: "do what you recommend"), the Spawn family and the other lab cards.
+- **The deal and the pool editor:** both players get the same 4 cards, both hands show, and each card has one use for each player (the owner chose the hand size, 2026-10-09: "yes. 4 cards."; the owner accepted a proposal for open shared hands, 2026-10-11 Q21: "21. yes"). In the pool editor, all 21 cards are checked at the start, and a player must keep at least four checked (the owner chose, 2026-11-16: "all cards should be selected by default" and "You must select at least 4 cards").
+- **Cards with kings' powers (Q19):** when Cards and King powers are both on, the king picker offers only the five always-on powers: **March**, **Holy Light**, **Mercy**, **Death Touch** and **Darkness** (the owner accepted a proposal, 2026-10-11: "19. a"). The engine refuses a hand together with a power that has a use count.
+
+Card readings and lab measurements (`docs/research/cards-2026-10-03.md`, `docs/QUEUE.md`): the
+spendable king powers (where the **March** card gives one double step from a rank other than the start rank and can promote) and the card-only cards, **Mimic**, **Hop** (`Vault`), **Curse**, **Sky Lift** and **Salvation** (the owner chose, 2026-10-04: "'Salvation (a 2014 card)' - yes, build"; "Return
+one of your captured pieces to an empty square of your back rank"; a pawn, a guard or the king never returns; measured in `cards-m5` +0.71 and `cards-d1` +1.10 pawns), and
+(2026-10-04, the owner chose to test all: "cards - let's add all and test variations for whatever might not work in our version or might be overpowered") the 2014 cards **Rage**, **Mirror**, **Firewall**, **Earth Quake**,
 **Burn**, **Fire Starter**, **Control**, **Rescue** and **Growth**, with softer `B` readings of Rage, Mirror, Firewall,
-Earth Quake and Growth; their texts and readings are in that report ("The 2014 cards"). Not measured yet.
-**Rally** (2026-10-05; card only): one of your pieces moves, then a different one may move; neither
-move captures (Haste's shape with two pieces). Not measured.
-**Morph** (2026-10-06, owner idea; card only): as your move, one of your pieces (not a pawn or the king) becomes another kind of piece of the draw pool where it stands (not a pawn or a king, never a second Beast; a second queen may come). Measured (`morph-a1`): 98% against no card, more than a queen's worth.
-**MorphB** (2026-10-06; card only): the same, but never a queen. Measured (`morph-a1`): 77% against no card, about +3.3 pawns.
-**Spawn** (2026-10-06, owner; card only): as your move, a new pawn of yours appears on an empty square of your pawns' start rank (rank 2 for White, 7 for Black). It is an ordinary pawn from then on (it may double-step from there); it may block a check. Not measured.
-**SpawnK** (2026-10-06; card only): the same, on an empty square next to your king, never on rank 1 or 8. Not measured.
-**Spawn2** (2026-10-06; card only): as Spawn, two new pawns on two different squares. Not measured.
-**SpawnK2** (2026-10-06; card only): as SpawnK, two new pawns on two different squares. Not measured.
-**MorphP** (2026-10-06, owner; card only): as your move, one of your pawns becomes a knight or a bishop where it stands. It is an ordinary knight or bishop from then on (taken, it counts as one). Measured (`morph-b1`): 70% against no card, about +2.3 pawns.
-**MorphS** (2026-10-06, owner; card only): as your move, two of your pieces (not pawns or the king, not of one kind) swap places. The same move as Sky Lift. Measured (`morph-b1`): 59% against no card, about +1.0 pawn.
+Earth Quake and Growth; their texts and readings are in that report ("The 2014 cards") and were measured in `cards-m5` and `cards-d1`.
+**Rally** (2026-10-06, the owner chose the idea and the name: "new card name - 'rally'"; card only): one of your pieces moves, then a different one may move; neither
+move captures (Haste's shape with two pieces). Measured (`rally-r1` +2.60 ± 0.46 pawns, `cards-d1` +2.90 pawns) and in the released 21.
+**Morph** (2026-10-06, the owner chose the test idea; card only, lab): as your move, one of your pieces (not a pawn or the king) becomes another kind of piece of the draw pool where it stands (not a pawn or a king, never a second Beast or a second Guard; a second queen may come). Measured (`morph-a1`): 98% against no card, more than a queen's worth.
+**MorphB** (2026-10-06; card only, lab): the same, but never a queen. Measured (`morph-a1`): 77% against no card, about +3.3 pawns.
+**Spawn** (2026-10-06, the owner chose the test reading; card only, lab, set aside): as your move, a new pawn of yours appears on an empty square of your pawns' start rank (rank 2 for White, 7 for Black). It is an ordinary pawn from then on (it may double-step from there); it may block a check. Measured (`spawn-r1`): +0.36 ± 0.38 pawns.
+**SpawnK** (2026-10-06, the owner chose to keep it in the lab: "1. spawnK - keep."; card only, lab): the same, on an empty square next to your king, never on rank 1 or 8. Measured (`spawn-r1` +0.80 ± 0.36, `cards-d1` +0.66 pawns).
+**Spawn2** (2026-10-06, the owner accepted a proposal: "do what you recommend"; card only, lab): as Spawn, two new pawns on two different squares. Measured (`spawn-r1` +0.50 ± 0.40, `cards-d1` +0.88 pawns).
+**SpawnK2** (2026-10-06; card only, lab): as SpawnK, two new pawns on two different squares. Measured (`spawn-r1` +1.55 ± 0.40, `cards-d1` +1.18 pawns).
+**MorphP** (released as **Morph**; 2026-10-06, the owner chose: "2. morphP."; card only): as your move, one of your pawns becomes a knight or a bishop where it stands. It is an ordinary knight or bishop from then on (taken, it counts as one), and it resets the 50-move count. Measured (`morph-b1` 70% against no card, about +2.3 pawns; `cards-d1` +2.65 pawns).
+**MorphS** (2026-10-06, the owner chose to keep both names; card only, lab): as your move, two of your pieces (not pawns or the king, not of one kind) swap places. The same move as Sky Lift. Measured (`morph-b1` 59% against no card, about +1.0 pawn; `cards-d1` +1.46 pawns).
 
 ## 6. Decisions (2026-09-13, chosen for balance and fun)
 
@@ -165,9 +175,7 @@ move captures (Haste's shape with two pieces). Not measured.
    - **Balance does not move.** White's score changes by **−0.002 ± 0.009** over 30 000 paired games, and less than
      half as many games reach the ply cap.
 
-   The 2017 rulebook game is still playable: add `?rules=2017` to the URL — with the guard unchanged, that preset is
-   now exactly three fields (`archerMove`, `archerShots`, `beastMove`; it pins the classic shot set so the older game
-   stays the older game). `?rules=2021` plays the designer's 2021 "Chess Expansion
+   The 2017 rulebook game is still playable: add `?rules=2017` to the URL — that preset sets seven fields over the defaults (`archerMove: 'ortho'`, `archerShots: 'classic'`, `beastCaptureForward: false`, `beastMove: 'forward'`, `paladinKamikaze: 'always'`, `guardNextToKing: false`, `promotionSet: 'anyNonKing'`; it pins the classic shot set, the Beast's blind spot, Paladin self-removal on every capture, random Guard placement and the full promotion set so the older game stays the older game). `?rules=2021` plays the designer's 2021 "Chess Expansion
    Concept" archer and beast instead.
 9. **Guard stays the immortal wall (designer decision 2026-09-13).** The per-lifetime capture was measured
    (+54 Elo, no harvester) but rejected on identity grounds: the guard is a wall that never captures. `guardStep=2`
@@ -235,9 +243,9 @@ move captures (Haste's shape with two pieces). Not measured.
     shuffle picks one. Both sides mirror one back rank, so both guards stand on the same side. The bishops
     stay on opposite colours. The 2017 preset turns it off, and tournaments recorded before this date keep
     their old draws.
-22. **Guard drop anywhere, lab only (owner, 2026-10-09: "queue guard drop for testing anyway - i want the
+22. **Guard drop anywhere, lab only (the owner chose to test it, 2026-10-09: "queue guard drop for testing anyway - i want the
     data").** `guardReserve: 'any'`: the guard starts beside the board and, as a move, enters on any empty
-    square. Default off; its A/B against Decision 21 waits for a run go.
+    square. Default off; its A/B against Decision 21 is done (`ab-guard-drop-any`, 4,000 games at depth 3: White 54.0% against 54.1%, draws 20.7% against 20.5%, no gain; the drop stays in the lab).
 23. **The Paladin returns to the random pool (owner, 2026-10-09: "paladin - add the approved version to the
     random pool. we might tweak its rules later to reduce white's advantage.").** `POOL` is
     `QOLRRBBNNAAGMMS` (15 letters, 7 drawn); the Ogre stays. The Paladin keeps `paladinKamikaze: 'nonPawn'`
@@ -327,6 +335,13 @@ Reduced runs at depth 3: `docs/research/sim-results-2026-09-13.md`. The error ba
     follows on its own. `anyNonKingNoGuard` and `anyNonKing` stay selectable lab readings; `?rules=2017` plays
     `anyNonKing`.
 
-**One beast per army (designer, 2026-10-04).** "There should never be 2 beasts in one game." `POOL` is now
-`QORRBBNNAAGMMS` (14 letters): an army draws 7 of them, so it holds at most one beast. Earlier pool runs (rounds up to 17, `pa-*`) drew from the 15-letter pool.
+**One beast per army (designer, 2026-10-04).** "There should never be 2 beasts in one game." `POOL` was
+`QORRBBNNAAGMMS` (14 letters) until Decision 23 added the Paladin (`QOLRRBBNNAAGMMS`, 15 letters): an army draws 7 of them, so it holds at most one beast. Earlier pool runs (rounds up to 17, `pa-*`) drew from the two-beast 15-letter pool.
 Custom armies too (designer, 2026-10-04: "one beast per army - that should always be the case"): New game refuses a custom back rank with two beasts.
+
+**Open questions (2026-11-22 audit, calls 2–6; no answer yet):**
+- **Call 2 — Card roster:** whether to keep all 21 released cards of Q20 (including Curse, March and Ice Wall, which measured below 0.7 pawns in `cards-d1`), remove weak cards, or run a fresh test of the 21 on today's engine.
+- **Call 3 — The three October repairs:** whether to keep the three October changes accepted under general instructions (a Freeze or Ice Wall mark follows its piece; en passant stays available after a free mark in Classic; a pawn's Strike cannot land on rank 1 or 8).
+- **Call 4 — Frost, Flame and Sky powers with cards:** whether to keep the five always-on powers only when Cards are on (Q19), or change the engine and run a balance study to allow spendable powers together with a hand.
+- **Call 5 — Two engine faults:** when to repair (i) the insufficient-material draw that can end a game when each side has one minor piece even with a legal mate in one on the board, and (ii) a pawn pushed by an Ogre not resetting the 50-move count.
+- **Call 6 — Unmerged rule-work branches:** whether to push the designer test framework branch and four related rule-work refs from the old local repository to GitHub as a backup without merging them now.

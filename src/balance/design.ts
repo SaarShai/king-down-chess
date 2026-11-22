@@ -131,36 +131,36 @@ export const SHIPPED_ELEMENTS: readonly DesignElement[] = [
 
 export const DOCUMENT_PINS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   "docs/MATRIX.md": {
-    "# King Down — ability matrix (started 2026-09-14)": "31fc739127a131ff505f1911a560e93f4257bf36c4b09f37e68be698c40d6801",
+    "# King Down — ability matrix (started 2026-09-14)": "70b1589ff58626a135504f0e71577241988c9ec8b200bf86390f661c2206abe8",
     "## A. Pieces": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "### A.0 Basic patterns (context for the grid below)": "2c6dddcf879b6bdbec7fab0a76748e09a404f33f3be46b0b3132e8cba49b33d4",
-    "### A.1 Abilities × pieces": "fcd5575283f64b7e0c6072cbb0061e2486895a75d1cea29a4391df5c6e55c793",
+    "### A.1 Abilities × pieces": "89afbccdde8f7fd7cd064a7965179c7c4d7e907e6feae1a57793d4977243c951",
     "### A.2 Where each ability lives in the engine (`src/rules/engine.ts`)": "6b427354383de04b831cbc4065103888276b30513ba5d694d2ebbfc99fd2d0b9",
-    "### A.3 Pieces outside the random pool (status 2026-10-06)": "854f628685d7a6a14efa6700df63fa995be859b62a1d27a001ade9781008a7e2",
+    "### A.3 Pieces outside the random pool (status 2026-10-06)": "5e09831500155587b5950d624e03de33d24572a4b2501036ee5ebb4d2ee7c156",
     "## B. Board": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "### B.1 Zones × rules": "9e7977459941e0310ed4050b19b2d4399208a9d6263da19655fbfe89aad14f2b",
+    "### B.1 Zones × rules": "3705210a05936d6996f54158ff2ccad9ca0430c665572315db5bcfbfc4ba73c6",
     "### B.2 Capital — the four centre tiles": "a12a16869831fa02f598a9f9570de60dc0dcecf1d754104163e3f1582fd226d3",
-    "## C. King powers and cards": "916a5a2d14b81975271f8112b8b8c08d61a79b869729b0229adb42a4b08fa006",
+    "## C. King powers and cards": "1381ecb5f21ef77f90149d1babb367d8f88dcb2a854c9c4494e8ffafb627aa7c",
     "### C.1 Schema: the properties of every power or card": "4e95d41004b5a00ab7aa7430f506605ae40700f989eaf1b235139439f8c4ec06",
-    "### C.2 Each power and card": "2815cdf1e2cbd13274320e0c505c1c43bcde81e9c2ff736cacba9872d0088440",
+    "### C.2 Each power and card": "041bf951376f0c3209edcdde05f04bfbbc3adacc9c1e46ad61cf072fa990928e",
     "### C.3 Ideas: the 2014 cards not built (2026-10-06)": "d618936ad8544902178a0366b3aa6df0bbbc8f20d1630df26a6b711fcbcd3f7c",
     "## D. Conditions, shackles and promotion (owner, 2026-10-06)": "4e318d16fb95d2dae01191f9a84de318137d3dcdbcfe1f1c18310f3f22e193b7",
     "### D.1 Conditions (triggers)": "3cb3825280e00cb250c69555b827a863262f5e337c9c0efbe1acb75ae4356578",
     "### D.2 Shackled: nerfed until a condition": "2c027057cd0f9a0da859a4eb440661e1984d39aa9c77fa339817c1825c06667a",
-    "### D.3 Promotion: a new type on a condition": "2d2fae3e688ea8f229eba5e33a7e3c6cc9f5be2f2abc4ab38ac3336ae100ee4a",
+    "### D.3 Promotion: a new type on a condition": "7898a883956a8a2b2bc54eb1e76a2565b16a327a28b06d68f95dc538132def2b",
     "### D.4 Powers and cards with a condition": "f44f5ff16464094f4fab23ab04f0bc8b2109ff0c3b3a041ff8ebccc2c00fa6d3",
     "### D.5 Spawn: a new piece comes onto the board (owner, 2026-10-06)": "320c6dda4644ed928709d8dd6864badad78bdb118f380cd6b693aedcb4bc859a",
     "## Workshop (build 1a, 2026-10-06)": "991e8ade6d92b1eb72e507fece97468d434e009b17a3929d8e064c4fff14849d"
   },
   "docs/RULES.md": {
-    "# King Down Chess — current rules and dated decisions": "37e2c9e87e0353e65f7c5164c11455ad217029425b62a53d9a7253a13f4fb6bc",
-    "## 1. Base rules": "4839f7becadecb91ee7710313d0fd546d3379e6021dbf6914021ad8910413b02",
-    "## 2. Setup (Chess960-style)": "30867c09e79cc4aee72964d8e1a3dd2e6063a63684ea9fa1e8e28c36e9ec5d07",
+    "# King Down Chess — current rules and dated decisions": "9b292228627ad007767062ecde49c1ceeee63aa6fc99efec2e73c06f3a00c5c3",
+    "## 1. Base rules": "c405da53335873a44db4e4f7e1dfcc620c515fe3188b63ad40619ad8939003a9",
+    "## 2. Setup (Chess960-style)": "424240d88474ad1a2f0fd64ab5a1f7af4a954d57d933dc3aaf3e25d87a779df9",
     "## 3. Pieces": "8bbfdf85044c43e9c2a6012506c950aee12dcabe02c1123ce0badf0ca15eebae",
-    "## 4. Kings' powers mode (all twelve built; the balanced readings are the official rules)": "fd9949e9257851dde7709c7f1577ad0db5dbcb2c938f3e3bd05fa30c1fdd7d2a",
-    "## 5. Card / spell effects (documented, not yet enabled)": "de5b83ad092b776cd9f8ce92f6b2316ede57229bff0bef4c1821a630145abfbd",
-    "## 6. Decisions (2026-09-13, chosen for balance and fun)": "fd67475729af37c7501d1a41c790ff86b20989e1da96ca4607b0d6d3f4a1190f",
-    "### First measured evidence (2026-09-13, provisional) — superseded by §6.8": "17ec3107221657cc6acd94c806ecf0729f4131e48711471efaf6ac6ee7406524"
+    "## 4. Kings' powers mode (all twelve built; the balanced readings are the official rules)": "74aa58c5851227d62464593944089d724f94a7faf6b94cf4fc0c32a851928b4b",
+    "## 5. Card / spell effects (documented, not yet enabled)": "42efabab3277052832c33017d126eb179cd4a6d10c0d206b19ae1493bdb47d26",
+    "## 6. Decisions (2026-09-13, chosen for balance and fun)": "991103b7f345451aa491e2491fd48bef4c5ca4ad5b15227b49ab5b61803811b9",
+    "### First measured evidence (2026-09-13, provisional) — superseded by §6.8": "6fcabd201af429bad706ad27d908c7e695ca891cd10e582dee7d0ffc6eeff90a"
   }
 };
 
