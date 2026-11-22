@@ -277,7 +277,7 @@ function foldFaults(full) {
     }
   }
   for (const { node, label, boxes, text } of items) {
-    for (let box = node.parentElement; box && !box.matches('.play-game, dialog'); box = box.parentElement) {
+    for (let box = node.parentElement; box && !box.matches('.play-game'); box = box.matches('dialog') ? null : box.parentElement) {
       if (!/auto|scroll/.test(getComputedStyle(box).overflowY)) continue;
       const edge = box.getBoundingClientRect(), top = edge.top + box.clientTop, bottom = top + box.clientHeight;
       const outside = boxes.filter(b => b.top < top - 1 || b.bottom > bottom + 1);
@@ -292,7 +292,7 @@ function foldFaults(full) {
 }
 
 /** In the page: text that a clipping box cuts, and words that break over two lines. A scroll box can show its text. */
-function cutText() {
+function cutText(suffix = '') {
   const out = [], modal = window.playSceneModal(), walk = document.createTreeWalker(modal ?? document.body, NodeFilter.SHOW_TEXT), range = document.createRange();
   const name = node => `${node.tagName.toLowerCase()}${node.className && typeof node.className === 'string' ? `.${node.className.trim().split(/\s+/).join('.')}` : ''}`;
   textNodes: for (let text; (text = walk.nextNode());) {
@@ -309,28 +309,23 @@ function cutText() {
       if (/auto|scroll/.test(style.overflowX + style.overflowY)) { lines = [edge]; continue; }
       // A box that draws an ellipsis cuts its text at the first part of a pixel.
       const slack = style.textOverflow === 'ellipsis' ? .05 : 1;
-      if (/hidden|clip/.test(style.overflowX + style.overflowY) && lines.some(box => box.left < edge.left - slack || box.right > edge.right + slack || box.top < edge.top - 1 || box.bottom > edge.bottom + 1)) { out.push(`text "${words.slice(0, 40)}" is cut by ${name(node)}`); break; }
+      if (/hidden|clip/.test(style.overflowX + style.overflowY) && lines.some(box => box.left < edge.left - slack || box.right > edge.right + slack || box.top < edge.top - 1 || box.bottom > edge.bottom + 1)) { out.push(`text "${words.slice(0, 40)}" is cut by ${name(node)}${suffix}`); break; }
     }
     // The browser can wrap at a hyphen. Check the parts between legal breaks.
     for (const word of text.textContent.matchAll(/[^\s\u00ad\u2010-]+/g)) {
       range.setStart(text, word.index); range.setEnd(text, word.index + word[0].length);
       if (new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round(r.top / 4))).size > 1) {
         const king = host.closest('.king-block')?.getAttribute('aria-label');
-        out.push(`word "${word[0]}" breaks over two lines in ${name(host)}${king ? ` (${king})` : ''}`);
+        out.push(`word "${word[0]}" breaks over two lines in ${name(host)}${king ? ` (${king})` : ''}${suffix}`);
       }
     }
   }
-  // A capture count in the opponent bar leaves room for a two-digit count (10 or more) without cutting the name.
-  const store = document.querySelector('.play-opp .play-store[data-empty="false"]'), opp = document.querySelector('.play-opp .play-opponent-name');
-  if (store && opp?.firstChild) {
+  // A capture count in the opponent bar leaves room for a two-digit count (10 or more) without cutting the name or the count.
+  const store = !suffix && document.querySelector('.play-opp .play-store[data-empty="false"]');
+  if (store) {
     const before = store.textContent;
-    store.textContent = '10';
-    range.selectNodeContents(opp.firstChild);
-    const edge = opp.getBoundingClientRect();
-    if ([...range.getClientRects()].some(box => box.left < edge.left - .05 || box.right > edge.right + .05)) {
-      out.push(`text "${opp.textContent.trim().slice(0, 40)}" is cut by ${name(opp)} with 10 captures`);
-    }
-    store.textContent = before;
+    try { store.textContent = '10'; out.push(...cutText(' with 10 captures')); }
+    finally { store.textContent = before; }
   }
   return out;
 }
