@@ -196,7 +196,7 @@ export class GameService {
   const powers = options?.kingPowers ?? false;
   const game: Game = {
    id: gameId, rating_policy: input.mode === 'ranked' ? 'ranked-v1' : 'casual', kind: input.kind, speed, days_per_move: days, category: `${speed}${days ? `-${days}d` : ''}/${powers ? 'powers' : 'no-powers'}/${options?.cards ? 'cards' : 'no-cards'}`,
-   readings: powers ? 'POWERS_BALANCED' : null, colour_rule: input.colour ?? 'white', engine_fingerprint: null, setup: input.setup ?? {}, rules: null,
+   readings: powers || options?.cards ? 'POWERS_BALANCED' : null, colour_rule: input.colour ?? 'white', engine_fingerprint: null, setup: input.setup ?? {}, rules: null,
    setup_admission: options ? setupAdmission(options) : null, options, draw: drawn?.army ?? null, deal: drawn?.hand ?? null, level: input.level ?? 'club', setup_deadline_at: null, rematch_offer: null, rematch_game_id: null,
    status: solo ? needs ? 'setup' : 'playing' : 'waiting', result: null, end_reason: null, turn: 0, revision: 0, draw_offer: null, state: null, snapshot: null,
    deadline_at: null, deadline_kind: null, moves: null, created_by: actor, created_at: at, started_at: null, finished_at: null, updated_at: at,
@@ -224,7 +224,7 @@ export class GameService {
    const snapshot = await match.snapshot(), state = await match.exportSave(), powers = snapshot.rules.kings.some(Boolean);
    Object.assign(game, { snapshot, state, rules: snapshot.rules, turn: snapshot.turn, engine_fingerprint: JSON.parse(state).engine, setup_deadline_at: null });
    if (game.status !== 'waiting') Object.assign(game, { status: 'playing', started_at: at });
-   if (!game.options) Object.assign(game, { readings: powers ? 'POWERS_BALANCED' : null, category: `${game.speed}${game.days_per_move ? `-${game.days_per_move}d` : ''}/${powers ? 'powers' : 'no-powers'}/no-cards` });
+   if (!game.options) Object.assign(game, { readings: powers || snapshot.rules.hands.some(hand => hand.length) ? 'POWERS_BALANCED' : null, category: `${game.speed}${game.days_per_move ? `-${game.days_per_move}d` : ''}/${powers ? 'powers' : 'no-powers'}/no-cards` });
    for (const p of game.players) p.power = snapshot.rules.kings[p.seat]?.power ?? 'none';
   } catch (error) {
    if (error instanceof MatchError && error.code === 'MATCH_INCOMPATIBLE') fail('MATCH_INCOMPATIBLE', 409, 'This unfinished setup uses an unavailable game version.');

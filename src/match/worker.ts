@@ -56,10 +56,10 @@ function create(input: unknown): void {
   if (s.kings !== undefined && (typeof s.kings !== 'string' || s.kings.length > 100 || s.kings.split(',').length !== 2 || s.kings.split(',').some(x => x !== 'none' && !parseKings(`${x},none`)[0]))) throw new Error('Malformed kings');
   const kings = s.kings !== undefined ? parseKings(s.kings) : undefined;
   const preset = s.preset === '2017' ? RULES_2017 : s.preset === '2021' ? RULES_2021 : undefined;
-  // Same precedence as website main.ts: current powers, older preset, explicit king choices.
+  // Precedence: the balanced readings for a hand or a powered king (decision 188), older preset, explicit king choices.
   const hands = [s.hand ?? [], s.hand ?? []] as const;
   // A hand with a spendable king power is a refused rule mix (`setRules`), so it is a setup error.
-  try { setRules(structuredClone({ ...(kings?.some(Boolean) ? POWERS_BALANCED : {}), ...preset, ...(kings ? { kings } : {}), ...(s.classic ? { classicChess: true } : {}), hands })); } catch (e) { throw new Error(`Malformed setup: ${(e as Error).message}`); }
+  try { setRules(structuredClone({ ...(kings?.some(Boolean) || s.hand?.length ? POWERS_BALANCED : {}), ...preset, ...(kings ? { kings } : {}), ...(s.classic ? { classicChess: true } : {}), hands })); } catch (e) { throw new Error(`Malformed setup: ${(e as Error).message}`); }
   if (RULES.piles.some(h => h.length)) throw new Error('Private card data unsupported');
   game = new Game(s.backRank ?? 'RNBQKBNR', RULES);
   if (s.fen !== undefined) game.load(position(s.fen));
