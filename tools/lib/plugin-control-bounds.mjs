@@ -18,3 +18,10 @@ export function controlBounds(el, scroll = false) {
   }
   return { accessible, text: el.textContent || el.getAttribute('aria-label'), rect: [r.x, r.y, r.width, r.height], limit };
 }
+
+/** In the page: scale the text of each element to `scale` percent. The plugin sets its text in px, so a root size does not reach it. */
+export function scaleText(scale) {
+  const elements = [document.documentElement, ...document.querySelectorAll('body, body *')];
+  const sizes = elements.map(el => parseFloat(getComputedStyle(el).fontSize));
+  elements.forEach((el, i) => el.style.setProperty('font-size', `${sizes[i] * scale / 100}px`, 'important'));
+}

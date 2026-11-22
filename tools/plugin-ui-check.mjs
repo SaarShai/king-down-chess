@@ -8,7 +8,9 @@ import { cardFaces } from './lib/plugin-card-faces.mjs';
 import { checkCoinFocus } from './lib/plugin-coin-focus-check.mjs';
 import { openBoardMenu, settled } from './lib/plugin-settled.mjs';
 import { pauseClock } from './lib/page-clock.mjs';
-import { controlBounds } from './lib/plugin-control-bounds.mjs';
+import { controlBounds, scaleText } from './lib/plugin-control-bounds.mjs';
+import { cutText } from './lib/cut-text.mjs';
+import { KNOWN, SKIPPED } from './plugin-known.mjs';
 import { boxText, layoutMessage } from './lib/layout-message.mjs';
 import { assertCardReadState } from './lib/plugin-card-read.mjs';
 import assert from 'node:assert/strict';
@@ -195,6 +197,7 @@ try {
     assert(await frame.getByRole('button', { name: 'Try again', exact: true }).isEnabled(), `${screen} can read again`);
   }
 
+  const controlsOf = screen => frame.locator(`[data-screen="${screen}"] button:visible, [data-screen="${screen}"] input:visible, #page-head button:visible, #retry:visible, #error:visible`);
   async function fits(screen, width) {
     await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
     await idleBoard();
@@ -205,7 +208,7 @@ try {
     const layout = await frame.locator('body').evaluate(el => ({ overflow: el.scrollWidth > innerWidth, width: innerWidth, heading: getComputedStyle(document.querySelector(`[data-screen="${el.dataset.page}"] h2`) ?? el).fontFamily }));
     assert.equal(layout.overflow, false, `${screen} has no horizontal scroll at ${width}px`);
     assert(layout.width <= width);
-    const controls = frame.locator(`[data-screen="${screen}"] button:visible, [data-screen="${screen}"] input:visible, #page-head button:visible, #retry:visible, #error:visible`);
+    const controls = controlsOf(screen);
     for (const bounds of await controlsInView(controls)) assert(bounds.accessible, `${screen} control scrolls into the safe area at ${width}px: ${JSON.stringify(bounds)}`);
     await frame.locator(`[data-screen="${screen}"] .new-game-body`).evaluateAll(els => els.forEach(el => { el.scrollTop = 0; }));
     if (screen === 'handle') {
@@ -216,6 +219,19 @@ try {
       const box = el.getBoundingClientRect();
       return [...el.querySelectorAll('button')].every(button => { const rect = button.getBoundingClientRect(); return rect.left >= box.left && rect.right <= box.right + 1; });
     }), `All 17 pictures fit the name screen at ${width}px`);
+  }
+
+  // The 150% text pass: the screen with 150% text, with the cut-text check of the web scenes and the control bounds of
+  // fits(). It lists the faults that tools/plugin-known.mjs does not mark, and adds each mark that it uses to `used`.
+  async function scaledFaults(screen, width, height, used) {
+    const where = `${screen} ${width}x${height} 150%`, faults = [];
+    await widget().evaluate(scaleText, 150);
+    const found = await widget().evaluate(cutText);
+    if (await frame.locator('body').evaluate(el => el.scrollWidth > innerWidth)) found.push('the page has a horizontal scroll');
+    for (const bounds of await controlsInView(controlsOf(screen))) if (!bounds.accessible) found.push(`control "${(bounds.text ?? '').replace(/\s+/g, ' ').trim().slice(0, 40)}" does not scroll into the safe area`);
+    await widget().evaluate(() => document.querySelectorAll('*').forEach(el => el.style.removeProperty('font-size')));
+    for (const line of new Set(found)) { const mark = `${where}: ${line}`; if (KNOWN.has(mark)) used.add(mark); else faults.push(mark); }
+    return faults;
   }
 
   async function hostPage(width, height, top, bottom) {
@@ -3065,6 +3081,11 @@ try {
   }
   const routes = ['home','play','friend','join','wait','lobby','seat','board','end','profile','settings','handle'];
   assert.deepEqual(await frame.locator('[data-screen]').evaluateAll(els => els.map(el => el.dataset.screen).sort()), [...routes].sort());
+  // The 150% text pass runs in the fixture board part (the CI fixture jobs) alone: there the names are the same in each
+  // run. The HTTP server and the full run give other names, so the marks of tools/plugin-known.mjs would not match.
+  const scaledPart = mode === 'fixture' && part === 'board';
+  const scaled = [], used = new Set(), scaleStart = Date.now();
+  let scaleMs = 0;
   for (const [width,height] of [[390,844],[400,900],[1440,900]]) {
     await freshHost();
     await page.setViewportSize({width,height});
@@ -3081,7 +3102,13 @@ try {
       assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length), settingsReads + 1, 'Each mount reads server settings and me');
       assert.deepEqual(await page.evaluate(() => Object.keys(window.harnessWidgetState.privateContent).sort()), ['board_id','pending','screen','sheet']);
       assert.deepEqual(await page.evaluate(() => window.harnessWidgetState.modelContent), {});
+      if (scaledPart && !SKIPPED.has(screen)) { const start = Date.now(); scaled.push(...await scaledFaults(screen, width, height, used)); scaleMs += Date.now() - start; }
     }
+  }
+  if (scaledPart) {
+    for (const mark of KNOWN.keys()) if (!used.has(mark)) scaled.push(`known mark matches no fault: ${mark}`);
+    assert(!scaled.length, `150% text: ${scaled.length} fault(s)\n  ${scaled.join('\n  ')}`);
+    console.log(`150% text: ${(routes.length - SKIPPED.size) * 3} route cases pass, ${used.size} known marks, ${scaleMs} ms of ${Date.now() - scaleStart} ms; skipped: ${[...SKIPPED.keys()].join(', ')}`);
   }
   await page.setViewportSize({width:1000,height:1000}); await legacyStart('solo'); await boardBox();
   const other = await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_create',arguments:{kind:'solo',options,colour:'white'}}})).json(); assert(!other.isError);

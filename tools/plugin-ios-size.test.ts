@@ -7,7 +7,8 @@ import type { Browser, FrameLocator, Locator, Page } from 'playwright';
 import { launch, STEP } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 import { hitSizes } from './lib/plugin-hit-sizes.mjs';
-import { controlBounds } from './lib/plugin-control-bounds.mjs';
+import { controlBounds, scaleText } from './lib/plugin-control-bounds.mjs';
+import { cutText } from './lib/cut-text.mjs';
 import { settled } from './lib/plugin-settled.mjs';
 vi.setConfig({ testTimeout: 120_000 * STEP, hookTimeout: 120_000 * STEP, expect: { poll: { timeout: 1000 * STEP } } });
 // Test the built page. The build gives the seat its table styles.
@@ -446,6 +447,17 @@ it('wraps the page title at 320 px and never cuts it', async () => {
   try {
     await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-nav="handle"]').click(); await frame.locator('#handle').waitFor();
     expect(await frame.locator('#page-title').evaluate(e => ({ text: e.textContent, cut: e.scrollWidth > e.clientWidth || getComputedStyle(e).textOverflow === 'ellipsis' }))).toEqual({ text: 'Pick a name and a picture', cut: false });
+  } finally { await page.close(); }
+});
+it('scales the px text to 150% and finds a cut that the page makes at that size', async () => {
+  const { page, frame } = await hostPage(390, 844, 0, 0);
+  try {
+    const widget = page.mainFrame().childFrames()[0], size = () => frame.locator('#page-back').evaluate(e => parseFloat(getComputedStyle(e).fontSize));
+    const before = await size();
+    await widget.evaluate(scaleText, 150);
+    expect(await size()).toBeCloseTo(before * 1.5);
+    await frame.locator('#page-back').evaluate(e => { e.style.cssText += 'max-width: 30px; overflow: hidden; white-space: nowrap'; });
+    expect((await widget.evaluate(cutText, '')).filter(line => line.endsWith(' is cut by button'))).toEqual([`text "${(await frame.locator('#page-back').textContent())!.trim()}" is cut by button`]);
   } finally { await page.close(); }
 });
 it('gives each Android control a 48 px tap area at 360 × 800', async () => {
