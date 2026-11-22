@@ -17,6 +17,8 @@ Classic chess on 8×8 (check, checkmate, stalemate) with these deltas:
 | Insufficient material | not stated | on (conservative engine check; a live Strike power prevents this draw) | on |
 | History limit (online games) | not stated | a turn that fills the game history ends the game in a draw (about 500 turns each; the owner accepted a proposal, 2026-10-26: "do!") | the same |
 
+**Draws (owner, 2026-11-22).** The engine draws by material only when it can show that neither side can give mate in any legal sequence. In Classic, this covers two kings, a king and one bishop or knight against a lone king, and kings with bishops on one square colour. A draw by the 50-move rule follows 100 actions without a reset. A capture or a pawn move, including an Ogre push of a pawn, resets the count.
+
 **Classic** is the plugin's real-chess setup (the normal start position, spec Q30, Q31). Only it sets the rule flag `classicChess`; every other setup keeps King Down's rules.
 
 - **Castling.** The king moves two squares toward a rook, and the rook goes to the square the king passed. The move text is `O-O` (short) and `O-O-O` (long), so a castling never reads as a Mercy or Darkness king's two-square step (`Ke1-g1`). The king and the rook have not moved, the squares between them are empty, and the king is not in check, does not pass an attacked square and does not land on one. A right ends when the king or the rook leaves its square for any reason (a move, a swap, a push, Strike, Flight, Sky Lift), the rook is taken or the rook changes into another piece (Morph). A move that leaves both pieces on their squares keeps the right: a Death Touch shot from the king's square, an Earth Quake centred on the king or the rook. A piece that comes back gets no right. A frozen rook does not castle.
@@ -339,9 +341,8 @@ Reduced runs at depth 3: `docs/research/sim-results-2026-09-13.md`. The error ba
 `QORRBBNNAAGMMS` (14 letters) until Decision 23 added the Paladin (`QOLRRBBNNAAGMMS`, 15 letters): an army draws 7 of them, so it holds at most one beast. Earlier pool runs (rounds up to 17, `pa-*`) drew from the two-beast 15-letter pool.
 Custom armies too (designer, 2026-10-04: "one beast per army - that should always be the case"): New game refuses a custom back rank with two beasts.
 
-**Open questions (2026-11-22 audit, calls 2–6; no answer yet):**
+**Open questions (2026-11-22 audit):**
 - **Call 2 — Card roster:** whether to keep all 21 released cards of Q20 (including Curse, March and Ice Wall, which measured below 0.7 pawns in `cards-d1`), remove weak cards, or run a fresh test of the 21 on today's engine.
 - **Call 3 — The three October repairs:** whether to keep the three October changes accepted under general instructions (a Freeze or Ice Wall mark follows its piece; en passant stays available after a free mark in Classic; a pawn's Strike cannot land on rank 1 or 8).
 - **Call 4 — Frost, Flame and Sky powers with cards:** whether to keep the five always-on powers only when Cards are on (Q19), or change the engine and run a balance study to allow spendable powers together with a hand.
-- **Call 5 — Two engine faults:** when to repair (i) the insufficient-material draw that can end a game when each side has one minor piece even with a legal mate in one on the board, and (ii) a pawn pushed by an Ogre not resetting the 50-move count.
 - **Call 6 — Unmerged rule-work branches:** whether to push the designer test framework branch and four related rule-work refs from the old local repository to GitHub as a backup without merging them now.

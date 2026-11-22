@@ -16,7 +16,7 @@
 import {
   A, BLACK, CardCtx, Color, G, GenMode, K, Move, P, Position, RULES, TAG_POWER, WHITE, cardAt, colorOf, drawsOnLost, filterFree, filterHeld, filterMarks, followSq, freePass, genGuardDrops,
   epAfter, genClassic, genHasteFollowUp, genPiece, genPowerMoves, handOf, heldCount, holdsTurn, isAttacked, isMarkTag, isStill, keepsLost, landed, lapsing, materialDraw, moverOf, overShots, piece,
-  moveNumber, powerOf, powerUses, returnable, rightsAfter, spend, tracksLast, typeOf,
+  moveNumber, powerOf, powerUses, resetsHalfmove, returnable, rightsAfter, spend, tracksLast, typeOf,
 } from '../rules/engine';
 import { ALL_CARDS, type CardName, type PowerName, type Rules } from '../rules/rules';
 import { VALUES, evalBoard, setDesignValue } from './eval';
@@ -722,7 +722,7 @@ function quiesce(alpha: number, beta: number, ply: number, qdepth: number, hm: n
     // Delta pruning: even winning this material would not reach alpha. Rifle shots are safe to
     // prune here too — the gain is the whole story, there is no recapture to discover.
     if (!inChk && stand + gain(m) + DELTA < alpha) continue;
-    const nhm = m.captures.length || typeOf(board[m.from]) === P ? 0 : hm + 1;
+    const nhm = resetsHalfmove(board, m) ? 0 : hm + 1;
     const holdTurn = holdsSearchTurn(m);
     const base = apply(m, c);
     sideAt[ply + 1] = holdTurn ? c : c ^ 1;
@@ -774,7 +774,7 @@ function negamax(depth: number, alpha: number, beta: number, ply: number, hm: nu
     pick(moves, s, i);
     const m = moves[i];
     const quiet = m.captures.length === 0 && !m.promo;
-    const nhm = moveResets(m) ? 0 : hm + 1;
+    const nhm = resetsHalfmove(board, m) ? 0 : hm + 1;
     const holdTurn = holdsSearchTurn(m);
     const base = apply(m, c);
     let v: number;
@@ -912,10 +912,6 @@ export function leafPowers(pos: Position): { rows: [number, number]; term: numbe
   return { rows: [livePower(WHITE), livePower(1)], term: powerTerm(pos.turn) - powerTerm((pos.turn ^ 1) as Color) };
 }
 
-/** A move that resets the 50-move clock: a capture or a pawn move, a pushed pawn included (never a spawn or another drop, a mark, a drawn card or a pass); `makeMove`'s own test. */
-const moveResets = (m: Move): boolean =>
-  m.captures.length > 0 || (!isStill(m) && (m.pushes ? m.pushes.some(p => typeOf(board[p.from]) === P) : !m.drop && typeOf(board[m.from]) === P));
-
 /**
  * Test probe: apply `m` to `pos` the way the search does and return the incremental key after it and
  * after the undo, to compare with `positionKey(makeMove(pos, m))` and `positionKey(pos)`.
@@ -1007,7 +1003,7 @@ export function search(pos: Position, opts: SearchOptions = {}): SearchResult {
     const scores: { move: Move; score: number }[] = [];
     for (let i = 0; i < rootMoves.length; i++) {
       const m = rootMoves[i];
-      const nhm = moveResets(m) ? 0 : pos.halfmove + 1;
+      const nhm = resetsHalfmove(board, m) ? 0 : pos.halfmove + 1;
       const holdTurn = holdsSearchTurn(m);
       const base = apply(m, pos.turn);
       let v: number;

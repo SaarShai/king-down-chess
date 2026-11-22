@@ -22,8 +22,8 @@ function choose(context: RuntimeSearch & { askedAt?: number }): string {
   resetSearchState();
   const result = search(context.pos, { timeMs, maxDepth, temperature: plan ? plan.temperature : undefined, history: context.history });
   if (plan && plan.blunder > 0 && Math.random() < plan.blunder) return context.legal[Math.floor(Math.random() * context.legal.length)];
-  if (!result.move) throw new Error('Search returned no move');
-  return toLan(context.pos, result.move);
+  // The stored engine can still have a legal turn when current search rules call it a draw.
+  return result.move ? toLan(context.pos, result.move) : context.legal[0];
 }
 parentPort!.on('message', ({ id, op, input }) => {
   try {

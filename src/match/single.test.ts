@@ -127,9 +127,9 @@ describe('games saved before single-copy options', () => {
       expect({ ...JSON.parse(await current.exportSave()), engine: base.save.engine }).toEqual(base.save);
       const played = await old.apply({ id: 'old-save-move', expectedRevision: 0, lan: base.played.lan });
       expect(played).toMatchObject({ fen: base.played.fen, turn: base.played.turn, revision: 1 });
-      // The current engine also plays the same move to the same position. The compiled worker identity is the gate's runtime hash check.
+      // The new engine resets the count when the Ogre pushes the pawn. The archive keeps count 1.
       const now = await current.apply({ id: 'current-move', expectedRevision: 0, lan: base.played.lan });
-      expect(now).toMatchObject({ fen: base.played.fen, turn: base.played.turn, revision: 1 });
+      expect(now).toMatchObject({ fen: 'alomqkab/pppppppp/8/8/8/P7/OPPPPPPP/1AKQAMBL b - - 0 1', turn: base.played.turn, revision: 1 });
     } finally { await old.close(); await current.close(); }
   });
 
