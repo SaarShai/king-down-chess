@@ -452,12 +452,13 @@ it('wraps the page title at 320 px and never cuts it', async () => {
 it('scales the px text to 150% and finds a cut that the page makes at that size', async () => {
   const { page, frame } = await hostPage(390, 844, 0, 0);
   try {
-    const widget = page.mainFrame().childFrames()[0], size = () => frame.locator('#page-back').evaluate(e => parseFloat(getComputedStyle(e).fontSize));
+    const widget = page.mainFrame().childFrames()[0], start = frame.locator('#setup-start'), size = () => start.evaluate(e => parseFloat(getComputedStyle(e).fontSize));
     const before = await size();
     await widget.evaluate(scaleText, 150);
     expect(await size()).toBeCloseTo(before * 1.5);
-    await frame.locator('#page-back').evaluate(e => { e.style.cssText += 'max-width: 30px; overflow: hidden; white-space: nowrap'; });
-    expect((await widget.evaluate(cutText, '')).filter(line => line.endsWith(' is cut by button'))).toEqual([`text "${(await frame.locator('#page-back').textContent())!.trim()}" is cut by button`]);
+    await start.evaluate(e => { e.style.cssText += 'max-width: 30px; overflow: hidden; white-space: nowrap'; });
+    const words = (await start.textContent())!.trim().slice(0, 40);
+    expect((await widget.evaluate(cutText, '')).filter(line => line.startsWith(`text "${words}" is cut by button`))).toHaveLength(1);
   } finally { await page.close(); }
 });
 it('gives each Android control a 48 px tap area at 360 × 800', async () => {
