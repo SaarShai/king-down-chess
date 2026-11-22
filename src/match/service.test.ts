@@ -140,6 +140,21 @@ describe('game service failure boundaries', () => {
    await expect(service.create(actor,options)).rejects.toMatchObject({code:'INVALID_INPUT'});
   expect(load).not.toHaveBeenCalled(); expect(createMatch).not.toHaveBeenCalled();
  });
+ it.each([
+  ['options with cards', {kind:'solo',options:{...DEFAULT_OPTIONS,cards:true}}, 'POWERS_BALANCED'],
+  ['options with no cards and no powers', {kind:'solo',options:DEFAULT_OPTIONS}, null],
+ ])('records the balanced readings for %s as the worker plays it (decision 188)', async (_name, input, readings) => {
+  const games: { readings: string | null }[] = [], insert = vi.fn(async (game: { readings: string | null }) => { games.push(game); throw new Error('stop'); });
+  const writer = new GameService({transaction:(write: (client: object) => unknown) => write({}),lockAccounts:vi.fn(),insert,pool:{}} as unknown as PostgresMatchStore);
+  vi.mocked(createMatch).mockResolvedValue({close,exportSave:async () => JSON.stringify({engine:'sha256:'+'a'.repeat(64)})} as unknown as LocalMatch);
+  await expect(writer.create(actor,input)).rejects.toThrow('stop');
+  expect(games[0].readings).toBe(readings);
+ });
+ it('records the balanced readings for a setup hand with no options, as an internal rematch makes it (decision 188)', async () => {
+  vi.mocked(createMatch).mockResolvedValue({close,snapshot:async () => ({turn:0,rules:{kings:[null,null],hands:[['Freeze'],['Freeze']]}}),exportSave:async () => JSON.stringify({engine:'sha256:'+'a'.repeat(64)})} as unknown as LocalMatch);
+  const game = await (new GameService({} as PostgresMatchStore) as unknown as { newGame(actor: string, input: object): Promise<{ readings: string | null }> }).newGame(actor, {kind:'solo',setup:{hand:['Freeze']}});
+  expect(game.readings).toBe('POWERS_BALANCED');
+ });
  it('ends the game as a draw when the engine history has no room for a whole turn (server audit F5)', async () => {
   const save = vi.fn(), writer = new GameService({load,seen,receipt,transaction:(write: (client: object) => unknown) => write({}),save,commands:vi.fn().mockResolvedValue([]),pool:{}} as unknown as PostgresMatchStore);
   load.mockResolvedValue({id,kind:'solo',status:'playing',turn:0,revision:0,deadline_at:null,draw_offer:null,state:'saved',setup:{},created_at:new Date(),snapshot:{turn:0,status:'playing',revision:995},players:[seat(0,actor),seat(1,null)]});

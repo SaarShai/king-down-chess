@@ -22,7 +22,7 @@ function fresh(input: CreateOptions, previous?: View, king?: KingChoice | null):
   if (choices && options?.kingPowers && king) choices[seat] = { ...choices[seat], king };
   const setup: import('../match/index').MatchSetup = options && deal && choices ? buildSetup(options, deal, [choices[0], choices[1]]) : input.setup ?? {};
   const kings = parseKings(setup.kings ?? 'none,none');
-  const rules = { ...DEFAULT_RULES, ...(kings.some(Boolean) ? POWERS_BALANCED : {}), ...(setup.preset === '2017' ? RULES_2017 : setup.preset === '2021' ? RULES_2021 : {}), kings,
+  const rules = { ...DEFAULT_RULES, ...(kings.some(Boolean) || setup.hand?.length ? POWERS_BALANCED : {}), ...(setup.preset === '2017' ? RULES_2017 : setup.preset === '2021' ? RULES_2021 : {}), kings,
     ...(setup.classic && { classicChess: true }), hands: [setup.hand ?? [], setup.hand ?? []] as const };
   const game = new Game(setup.backRank, rules);
   if (setup.fen) game.load(game.context.fromFen(setup.fen));
