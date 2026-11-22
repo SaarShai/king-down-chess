@@ -209,6 +209,19 @@ const cases = {
     check(await saved(page) === before && await page.locator('.home-summary').innerText() === choices, 'Close keeps the save and choices');
     await shot(page, 'panel-closed');
   },
+  async friend_side(page, context, check) {
+    // Play a friend: sides are random, so the seats name no side with Powers and Cards off.
+    await page.goto(NEXT); await page.waitForSelector('.play-home');
+    await page.getByRole('button', { name: text.friend, exact: true }).click();
+    const setup = page.locator('dialog.new-game-panel[open]');
+    for (const name of ['Powers', text.cards]) {
+      const toggle = setup.getByRole('switch', { name, exact: true });
+      if (await toggle.getAttribute('aria-checked') === 'true') await toggle.click();
+    }
+    const seats = await setup.locator('.setup-figures').innerText();
+    check(!/Light|Dark/.test(seats), `the friend seats name no side: ${seats.replace(/\s+/g, ' ')}`);
+    await shot(page, 'friend-side');
+  },
   async panel_refresh(page, context, check) {
     // A signed-in player opens New game; a new invite arrives through the home poll and redraws Play. The open panel,
     // its draft choice and the focus stay.
