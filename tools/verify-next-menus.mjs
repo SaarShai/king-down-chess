@@ -470,8 +470,11 @@ const cases = {
   },
 };
 try {
-  for (const size of sizes) for (const [name, run] of Object.entries(cases)) {
-    if (process.env.MENUS_CASES && !process.env.MENUS_CASES.split(',').includes(name)) continue;
+  const only = process.env.MENUS_CASES?.split(',');
+  const list = !process.env.MENUS_SIZES && only?.length === 1 && only[0] === 'notice'
+    ? ['320x568', '360x640', '390x844', '667x375'] : sizes;
+  for (const size of list) for (const [name, run] of Object.entries(cases)) {
+    if (only && !only.includes(name)) continue;
     const [width, height] = size.split('x').map(Number), context = await browser.newContext({ viewport: { width, height }, reducedMotion: name === 'guide' ? 'no-preference' : 'reduce' });
     const page = await context.newPage(), failures = [], errors = [];
     page.setDefaultTimeout(12000);

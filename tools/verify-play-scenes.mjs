@@ -6,11 +6,11 @@
 import { env, launch, shot } from './lib/checks.mjs';
 import { KNOWN } from './play-scenes-known.mjs';
 
-// Landscape phones check the game screen only, and 667x375 the new-game panel too: online-loss cuts its 20-letter test
-// name with an ellipsis, as the known mark at 320 px allows, and at 568x320 the panel header covers the level choice.
+// Landscape phones check the game screen and the new-game panel: online-loss cuts its 20-letter test
+// name with an ellipsis, as the known mark at 320 px allows.
 const gameScreen = scene => /^(online|solo)-/.test(scene) && !['online-loss', 'online-loss-offer'].includes(scene);
 const withPanel = scene => gameScreen(scene) || ['new-game', 'setup-friend'].includes(scene);
-const SIZES = [[320, 568], [360, 640], [390, 844], [667, 375, withPanel], [568, 320, gameScreen], [1280, 800]], SCALES = [100, 150];
+const SIZES = [[320, 568], [360, 640], [390, 844], [667, 375, withPanel], [568, 320, withPanel], [1280, 800]], SCALES = [100, 150];
 const ROLES = ['button', 'link', 'switch', 'radio', 'checkbox', 'tab', 'menuitem', 'option', 'slider', 'textbox', 'combobox'];
 const SENTINEL = 'kingdown-scene-sentinel';
 
@@ -250,7 +250,8 @@ function coveredCards() {
 function foldFaults(full) {
   const out = [], range = document.createRange(), items = [];
   const name = node => [node.localName, ...node.classList].join('.');
-  for (const reader of document.querySelectorAll('.play-reader')) {
+  const areas = ['.play-reader', ...(innerWidth > innerHeight && innerWidth < 1000 ? ['dialog.new-game-panel[open] .setup-controls'] : [])].join(', ');
+  for (const reader of document.querySelectorAll(areas)) {
     if (reader.closest('[inert]') || !reader.checkVisibility({ visibilityProperty: true })) continue;
     for (const control of reader.querySelectorAll('button, a[href]')) {
       if (!control.checkVisibility({ visibilityProperty: true })) continue;
@@ -276,7 +277,7 @@ function foldFaults(full) {
     }
   }
   for (const { node, label, boxes, text } of items) {
-    for (let box = node.parentElement; box && !box.matches('.play-game'); box = box.parentElement) {
+    for (let box = node.parentElement; box && !box.matches('.play-game, dialog'); box = box.parentElement) {
       if (!/auto|scroll/.test(getComputedStyle(box).overflowY)) continue;
       const edge = box.getBoundingClientRect(), top = edge.top + box.clientTop, bottom = top + box.clientHeight;
       const outside = boxes.filter(b => b.top < top - 1 || b.bottom > bottom + 1);
@@ -318,6 +319,18 @@ function cutText() {
         out.push(`word "${word[0]}" breaks over two lines in ${name(host)}${king ? ` (${king})` : ''}`);
       }
     }
+  }
+  // A capture count in the opponent bar leaves room for a two-digit count (10 or more) without cutting the name.
+  const store = document.querySelector('.play-opp .play-store[data-empty="false"]'), opp = document.querySelector('.play-opp .play-opponent-name');
+  if (store && opp?.firstChild) {
+    const before = store.textContent;
+    store.textContent = '10';
+    range.selectNodeContents(opp.firstChild);
+    const edge = opp.getBoundingClientRect();
+    if ([...range.getClientRects()].some(box => box.left < edge.left - .05 || box.right > edge.right + .05)) {
+      out.push(`text "${opp.textContent.trim().slice(0, 40)}" is cut by ${name(opp)} with 10 captures`);
+    }
+    store.textContent = before;
   }
   return out;
 }
