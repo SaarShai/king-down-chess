@@ -47,3 +47,6 @@ docs/specs/effects-animation/preview/card-art/wide-review/previous/mirrorb-v3.pn
 docs/specs/effects-animation/preview/card-art/wide-review/previous/rally-v1.png  Superseded native rally-v1 painting; keep exact pixels and prompt provenance for the selected card-art decision (ticket 33)
 docs/specs/effects-animation/preview/card-art/wide-review/previous/rescue-v1.png  Superseded native rescue-v1 painting; keep exact pixels and prompt provenance for the selected card-art decision (ticket 33)
 docs/specs/effects-animation/preview/card-art/wide-review/previous/sacrifice-v1.png  Superseded native sacrifice-v1 painting; keep exact pixels and prompt provenance for the selected card-art decision (ticket 33)
+public/interface/reveal/portrait.mp4  Final Home reveal for phone screens. The page streams one variant.
+public/interface/reveal/square.mp4  Final Home reveal for tablet screens. The page streams one variant.
+public/interface/reveal/wide.mp4  Final Home reveal for wide screens. The page streams one variant.

@@ -7,7 +7,8 @@ import { miniBoard, savedPreview, replayMiniBoard, stateText, type SavedPreview 
 import type { NewGameDraft } from './new-game';
 import { typeName, type GameType, type Level } from './saved';
 import { daylightCrown } from './shell';
-import { ease, reducedMotion, tween, type Effect } from './fx';
+import { ease, reducedMotion, tween } from './fx';
+import { homeReveal } from './home-reveal';
 import { RELEASED_CARDS } from '../../content/cards';
 import { computerPortrait, profilePortrait } from '../people/host/portrait';
 import { deadlineLine, gameOrder, type HomeInvite, type PersonGame } from '../people/host/games';
@@ -62,21 +63,20 @@ export interface PlayData {
 /** Show three quiet rows until the player asks for the rest. */
 export const gamesListView = (count: number, expanded: boolean) => ({ collapsed: count > 3 && !expanded, shown: expanded ? count : Math.min(3, count) });
 
-export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus(): void } {
-  const games = [...d.people].sort(gameOrder);
-  const primary = d.resume ? undefined : games.find(game => game.state === 'playing' && game.preview);
-  const hasGame = !!(d.resume || primary);
+function createHome() {
   const home = el('section', 'play-home'), hero = el('div', 'home-hero'), brand = el('header', 'home-brand');
   const title = el('h1', '', text.title); title.tabIndex = -1;
   brand.append(daylightCrown(), title);
-  const picture = el('picture'), wide = el('source'), img = el('img');
-  wide.media = hasGame ? '(min-aspect-ratio: 5/4), (min-width: 600px)' : '(min-aspect-ratio: 5/4), (min-width: 600px) and (max-height: 910px)';
-  wide.srcset = '/interface/daylight-hero-wide-960.webp 960w, /interface/daylight-hero-wide-1672.webp 1672w';
-  wide.sizes = '(min-aspect-ratio: 5/4) 70vw, 100vw';
-  img.src = '/interface/daylight-hero-portrait-600.webp';
-  img.srcset = '/interface/daylight-hero-portrait-600.webp 600w, /interface/daylight-hero-portrait-1122.webp 1122w';
-  img.sizes = '100vw'; img.alt = ''; img.decoding = 'async'; img.fetchPriority = 'high';
-  picture.append(wide, img); hero.append(picture, brand);
+  const artwork = el('div', 'home-art');
+  hero.append(artwork, brand); home.append(hero);
+  return { element: home, focus: () => title.focus({ preventScroll: true }), reveal: homeReveal(artwork) };
+}
+
+export function playScreen(d: PlayData, art: Art, previous?: ReturnType<typeof createHome>) {
+  const games = [...d.people].sort(gameOrder);
+  const primary = d.resume ? undefined : games.find(game => game.state === 'playing' && game.preview);
+  const hasGame = !!(d.resume || primary);
+  const view = previous ?? createHome(), home = view.element;
   const topbar = el('nav', 'home-topbar'), end = el('div', 'home-topbar-end');
   topbar.setAttribute('aria-label', 'Utilities');
   const guideBtn = button(text.guide, { icon: 'learn', onPress: () => d.onGuide(guideBtn) });
@@ -93,24 +93,9 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
   sliders.removeAttribute('data-icon');
   sliders.querySelector('path')!.setAttribute('d', 'M4 7h5m4 0h7M11 4v6M4 17h9m4 0h3M15 14v6');
   settingsBtn.replaceChildren(d.account?.signedIn ? profilePortrait(d.account.name ?? 'Player', d.account.avatar ?? null) : sliders);
-  end.append(signIn, settingsBtn); topbar.append(guideBtn, end); home.append(topbar, hero);
-  let x = 0, y = 0, drift: Effect | undefined;
-  const driftTo = (toX: number, toY: number) => {
-    if (reducedMotion()) return;
-    drift?.cancel();
-    const fromX = x, fromY = y;
-    drift = tween(180, k => {
-      x = fromX + (toX - fromX) * k; y = fromY + (toY - fromY) * k;
-      picture.style.transform = `translate(${x}px, ${y}px)`;
-    }, { done: () => { if (reducedMotion() || !toX && !toY) picture.style.removeProperty('transform'); } });
-  };
-  hero.addEventListener('pointermove', event => {
-    if (event.pointerType === 'touch' && !event.buttons) return;
-    const box = hero.getBoundingClientRect();
-    driftTo(10 * (.5 - (event.clientX - box.left) / box.width), 8 * (.5 - (event.clientY - box.top) / box.height));
-  });
-  hero.addEventListener('pointerleave', () => driftTo(0, 0));
-  hero.addEventListener('pointercancel', () => driftTo(0, 0));
+  end.append(signIn, settingsBtn); topbar.append(guideBtn, end);
+  home.querySelector('.home-topbar')?.remove();
+  home.prepend(topbar);
 
   const start = el('div', 'home-start');
   const rows: { mine: boolean; deadline: string | null; state: PersonGame['state']; row: HTMLElement }[] = [];
@@ -203,8 +188,9 @@ export function playScreen(d: PlayData, art: Art): { element: HTMLElement; focus
   if (d.status) start.append(el('p', 'home-note', d.status));
   const offer = d.offer(main); if (offer) start.append(offer);
   home.dataset.state = main === newGame ? 'new' : 'saved';
+  home.querySelector('.home-start')?.remove();
   home.append(start);
-  return { element: home, focus: () => title.focus({ preventScroll: true }) };
+  return view;
 }
 
 function rememberMove(played: Map<string, string>, id: string, preview: SavedPreview, board: HTMLElement) {

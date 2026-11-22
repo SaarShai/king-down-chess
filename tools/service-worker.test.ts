@@ -97,6 +97,18 @@ function worker(caches = storage(), build = version, buildFiles = files, registr
   return { caches, registration, fetch, claim, skipWaiting, fire, request, message, timers, timerStarted, saved, storageAccess };
 }
 
+describe.each(['../public/sw.js', './solo-launch/sw.js'])('media bypass (%s)', path => {
+  it.each([
+    ['ui/pawn.webp', { Range: 'bytes=0-1' }],
+    ['interface/reveal/wide.mp4', {}],
+    ['interface/reveal/wide.webm', {}],
+  ] as const)('leaves %s to the browser even on the allowlist', (file, headers) => {
+    const w = worker(storage(), version, [...files, file], undefined, readFileSync(new URL(path, import.meta.url), 'utf8'));
+    expect(w.request(file, { headers: new Headers(headers) }).response).toBeUndefined();
+    expect(w.fetch).not.toHaveBeenCalled();
+  });
+});
+
 it.each(['../public/sw.js', './solo-launch/sw.js'])('caches painted art at use and leaves uncached banks to the fallback (%s)', async path => {
   const w = worker(storage(), version, files, undefined, readFileSync(new URL(path, import.meta.url), 'utf8'));
   const index = 'moments/painted.json';

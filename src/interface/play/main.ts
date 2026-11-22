@@ -58,6 +58,7 @@ import { humanOpponent } from '../../plugin/screens/board-model';
 
 
 const root = document.querySelector<HTMLElement>('#app')!;
+let homeView: ReturnType<typeof playScreen> | undefined;
 const live = liveRegion(); document.body.append(live.element);
 let announcement = 0;
 const engine = new Engine({ waitReady: true, workClock: true });
@@ -455,6 +456,11 @@ function onlineActions(state: PeopleState): HTMLElement {
   }
   return block;
 }
+function leaveHome() {
+  homeView?.reveal.dispose();
+  homeView = undefined;
+}
+
 function home(newArmy = false) {
   if (enteredAt !== undefined && liveGame && !onlineActive) { stopGameTime(); save(false); }
   if (shell.route.place !== 'play') { if (newArmy) next = createDraft(accepted()); shell.go({ place: 'play' }); return; }
@@ -482,7 +488,8 @@ function home(newArmy = false) {
   const status = saved.kind === 'blocked' || copy === 'failed' ? text.cannotSave : copy === 'full' ? text.keptFull : copy === 'copied' || copy === 'already' ? text.kept : '';
   if (enteringHome) void people?.refresh();
   const me = people?.host.me();
-  const play = playScreen({
+  const hadInviteLinkStatus = inviteLinkStatus.isConnected;
+  const play = homeView = playScreen({
     resume, next, gamesList, previews: homePreviews, status: [status, onlineNote].filter(Boolean).join(' '),
     people: people?.views.filter(view => view.status !== 'aborted' || !!view.history?.actions?.length).map(personGame) ?? [],
     invites: people ? [...people.incomingInvites, ...people.inviteUpdates].map(invite => homeInvite(invite)) : [],
@@ -509,12 +516,15 @@ function home(newArmy = false) {
     onSignIn: accountSignIn,
     showSignIn: showHomeSignIn(),
     account: { signedIn: !!people?.signedIn, name: me?.handle ?? people?.user?.name, avatar: people?.user?.avatar },
-  }, art);
-  if (inviteLinkStatus.isConnected) play.element.querySelector('.home-start')!.prepend(inviteLinkStatus);
-  play.element.addEventListener('click', event => {
-    if ((event.target as Element).closest('button, a')) clearInviteLinkStatus();
-  }, true);
-  root.replaceChildren(play.element, ...(old ? [old] : []));
+  }, art, homeView);
+  if (hadInviteLinkStatus) play.element.querySelector('.home-start')!.prepend(inviteLinkStatus);
+  if (!play.element.isConnected) {
+    play.element.addEventListener('click', event => {
+      if ((event.target as Element).closest('button, a')) clearInviteLinkStatus();
+    }, true);
+    root.replaceChildren(play.element, ...(old ? [old] : []));
+    play.reveal.sync();
+  }
   if (enteringHome) play.focus(); else if (focused) play.element.querySelector<HTMLElement>(focused)?.focus({ preventScroll: true });
   homePoll?.update();
   if (old) void screenChange(old, play.element, true).then(() => { old.remove(); oldBoard?.dispose(); }); else oldBoard?.dispose();
@@ -678,6 +688,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     if (draft.steps.length) lastActions = [...draft.steps];
   }
   shell.go(onlineActive ? { place: 'online', entry: onlineState!.view!.game_id } : { place: 'game' }, false);
+  leaveHome();
   document.body.dataset.page = 'game';
   screen = el('section', 'play-game');
   screen.toggleAttribute('data-online', onlineActive);
@@ -1823,6 +1834,7 @@ function setMotion() {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   setInterfaceMotion(motion, reduce);
   setFxMotion(motion, reduce);
+  homeView?.reveal.sync();
   if (screen?.isConnected && seatRings) updateSeats();
   const pace = reduce || pieceView === 'symbols' ? 'off' : motion;
   board?.setMotion(pace);
@@ -2088,6 +2100,7 @@ function closeHomeGuide() {
 function renderPlace(route: Route) {
   homePoll?.update();
   if (route.place !== 'play') clearInviteLinkStatus();
+  if (route.place !== 'play' && route.place !== 'you' && route.place !== 'person') leaveHome();
   if (route.place === 'online') { void openOnline(route.entry!); return; }
   if (route.place === 'join') {
     onlineActive = false; people?.stopGame();

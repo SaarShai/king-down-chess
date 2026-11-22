@@ -174,6 +174,16 @@ const cases = {
   async home_art(page, context, check) {
     await context.route('**/ui/pieces/*.webp', r => r.abort());
     await page.goto(NEXT); await page.waitForSelector('.play-home');
+    const video = page.locator('.home-reveal-video[data-ready]');
+    await video.waitFor();
+    check(await page.locator('.home-brand').evaluate(node => Number(getComputedStyle(node).opacity) === 0),
+      'the Home title clears the film lettering while it plays');
+    check(await video.evaluate(node => {
+      if (getComputedStyle(node).objectFit !== 'contain') return true;
+      const filmHeight = Math.min(node.parentElement.clientHeight, node.clientWidth * node.videoHeight / node.videoWidth);
+      return Math.abs(node.clientHeight - filmHeight) <= 1;
+    }), 'the wide bottom feather meets the film edge');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.waitForTimeout(250);
     check(await page.locator('.home-army-block').count() === 0, 'the removed next-army block stays absent');
     await openSetup(page).click();
@@ -205,6 +215,7 @@ const cases = {
     const invites = [invite('i1', 'ada')];
     await signedIn(context, invites);
     await page.goto(NEXT); await page.waitForSelector('.home-invite-row');
+    const reveal = await page.locator('.home-reveal-video').elementHandle();
     const opener = openSetup(page), openerClass = await opener.evaluate(node => node.classList.contains('home-summary') ? 'home-summary' : 'home-side-new');
     await opener.click(); await page.waitForSelector('dialog.new-game-panel[open]');
     const level = page.getByRole('radiogroup', { name: text.level, exact: true });
@@ -212,6 +223,7 @@ const cases = {
     invites.push(invite('i2', 'bo'));
     const refreshed = await page.waitForFunction(() => document.querySelectorAll('.home-invite-row').length === 2, null, { timeout: 15000 }).then(() => true, () => false);
     check(refreshed, 'a new invite redraws Play while the panel is open');
+    check(await reveal.evaluate(node => node === document.querySelector('.home-reveal-video')), 'the Home film stays in place after the refresh');
     check(await page.locator('dialog.new-game-panel[open]').count() === 1, 'the panel stays open after the refresh');
     check(await level.getByRole('radio', { name: text.club, exact: true }).getAttribute('aria-checked') === 'true', 'the draft choice stays after the refresh');
     check(await page.evaluate(() => !!document.activeElement?.closest('dialog.new-game-panel')), 'the focus stays in the panel after the refresh');
@@ -475,7 +487,7 @@ try {
     ? ['320x568', '360x640', '390x844', '667x375'] : sizes;
   for (const size of list) for (const [name, run] of Object.entries(cases)) {
     if (only && !only.includes(name)) continue;
-    const [width, height] = size.split('x').map(Number), context = await browser.newContext({ viewport: { width, height }, reducedMotion: name === 'guide' ? 'no-preference' : 'reduce' });
+    const [width, height] = size.split('x').map(Number), context = await browser.newContext({ viewport: { width, height }, reducedMotion: ['guide', 'home_art'].includes(name) ? 'no-preference' : 'reduce' });
     const page = await context.newPage(), failures = [], errors = [];
     page.setDefaultTimeout(12000);
     const trapped = trapErrors(page);

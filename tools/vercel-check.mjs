@@ -106,8 +106,12 @@ try {
     const path = `character-runtime/${file}`;
     if (isCharacterRuntimeStartup(path)) assert(precache.includes(path), `Runtime startup file is offline: ${file}`);
   }
+  const fixedPublicFiles = ['./', 'index.html', ...soloLaunch ? [
+    'next.html', 'browser-support.js', 'interface/stone-refined-light.webp',
+    'interface/reveal/hero-portrait.webp', 'interface/reveal/hero-square.webp', 'interface/reveal/hero-wide.webp',
+  ] : []];
   for (const file of allowlist) {
-    assert(typeof file === 'string' && (['./', 'index.html', ...soloLaunch ? ['next.html', 'browser-support.js', 'interface/stone-refined-light.webp'] : []].includes(file) || isCharacterRuntimeStartup(file) || /^(?:assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|audio\/armour\/[\w-]+\.wav|manifest\.webmanifest)$/.test(file)), `Public build file: ${file}`);
+    assert(typeof file === 'string' && (fixedPublicFiles.includes(file) || isCharacterRuntimeStartup(file) || /^(?:assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|audio\/armour\/[\w-]+\.wav|manifest\.webmanifest)$/.test(file)), `Public build file: ${file}`);
     assert((await exists(join(tree, 'static', file === './' ? home : file)))?.isFile(), `Offline file exists: ${file}`);
   }
   const index = await readFile(join(tree, 'static/index.html'), 'utf8');
