@@ -2262,32 +2262,28 @@ function Vt(e, t = "all") {
 	});
 }
 function Ht(e) {
-	let t = 0, n = 0, r = 0, i = -1, a = [0, 0], o = [0, 0];
-	for (let s = 0; s < 64; s++) {
-		let c = e[s];
-		if (!c) continue;
-		let l = C(c);
-		if (l !== 6) {
-			if (l === 1 || l === 4 || l === 5 || l === 7 || l === 10 || l === 11 || l === 13 || l === 15 || l === 12 && !q.ogreNoCapture || l === 9 && q.guardCaptures === "any" || l === 8 && q.paladinChecks) return !1;
-			if (l !== 3 && l !== 2 && l !== 14) {
-				a[w(c)]++, l === 8 && o[w(c)]++;
+	let t = 0, n = 0, r = 0, i = -1, a = [0, 0];
+	for (let o = 0; o < 64; o++) {
+		let s = e[o];
+		if (!s) continue;
+		let c = C(s);
+		if (c !== 6) {
+			if (c === 1 || c === 4 || c === 5 || c === 7 || c === 10 || c === 11 || c === 13 || c === 15 || c === 12 && !q.ogreNoCapture || c === 9 && q.guardCaptures === "any" || c === 8 && q.paladinChecks) return !1;
+			if (c !== 3 && c !== 2 && c !== 14) {
+				a[w(s)]++;
 				continue;
 			}
-			if (t |= 1 << w(c), n++, l === 3) {
-				let e = T(s) + E(s) & 1;
+			if (t |= 1 << w(s), n++, c === 3) {
+				let e = T(o) + E(o) & 1;
 				if (i !== -1 && i !== e) return !1;
 				i = e, r++;
 			}
 			if (t === 3 && r !== n) return !1;
 		}
 	}
-	if (r !== n && n > 1 || t === 3 && (a[0] || a[1])) return !1;
-	if (t === 1 || t === 2) {
-		let e = +(t === 1);
-		if (a[e] && (a[e] !== 1 || o[e] !== 1 || n !== 1 || a[e ^ 1])) return !1;
-	}
-	let s = F(0), c = F(1);
-	return !(!q.mercyCaptures && (s === "Mercy" || c === "Mercy") || q.deathTouchReach && (s === "DeathTouch" || c === "DeathTouch") || q.darknessKingStep2 && q.darknessKingStepTakes && (s === "Darkness" || c === "Darkness") || r > 1 && (s === "Flight" || c === "Flight" || L("Flight") || L("Curse") || L("EarthQuake") || L("EarthQuakeB")));
+	if (r !== n && n > 1 || n && (a[0] || a[1])) return !1;
+	let o = F(0), s = F(1);
+	return !(!q.mercyCaptures && (o === "Mercy" || s === "Mercy") || q.deathTouchReach && (o === "DeathTouch" || s === "DeathTouch") || q.darknessKingStep2 && q.darknessKingStepTakes && (o === "Darkness" || s === "Darkness") || r > 1 && (o === "Flight" || s === "Flight" || L("Flight") || L("Curse") || L("EarthQuake") || L("EarthQuakeB")));
 }
 function Ut(e, t, n, r, i, a) {
 	return !q.insufficientMaterial || !Ht(e) || q.guardCaptures === "any" && r && (r[0] > 0 || r[1] > 0) ? !1 : !Wt(e, 0, t?.[0] ?? 0, i?.[0] ?? 0, n, a?.[1]) && !Wt(e, 1, t?.[1] ?? 0, i?.[1] ?? 0, n, a?.[0]);
@@ -3313,7 +3309,7 @@ var ei = class {
 //#endregion
 //#region src/match/worker.ts
 t("sha256");
-var ni = "sha256:b22d9e023300b78421fb73280e5f8e90ae886c6baf4bf0884d9eba65b3a84283", ri = 1e3, ii = 8e6, ai = [
+var ni = "sha256:3643657990973c8678d687f60f1ff630b5cf6046183b19673094d62db38916bf", ri = 1e3, ii = 8e6, ai = [
 	"beginner",
 	"casual",
 	"club",

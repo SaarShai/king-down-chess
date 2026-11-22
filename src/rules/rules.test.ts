@@ -300,10 +300,10 @@ describe('draws', () => {
     ['6gk/8/8/8/8/8/8/KG6 w', 'drawMaterial'], // K+G vs K+G
     ['6lk/8/8/8/8/8/8/KG6 w', 'drawMaterial'], // K+G vs K+L
     ['6lk/8/8/8/8/8/8/KL6 w', 'drawMaterial'], // K+L vs K+L
-    ['7k/8/8/8/8/8/8/KNG5 w', 'drawMaterial'], // K+N+G vs K
-    ['7k/8/8/8/8/8/8/KBL5 w', 'drawMaterial'], // K+B+L vs K
-    ['6lk/8/8/8/8/8/8/KN6 w', 'drawMaterial'], // K+N vs K+L
-    ['6lk/8/8/8/8/8/8/KB6 w', 'drawMaterial'], // K+B vs K+L
+    ['7k/8/8/8/8/8/8/KNG5 w', 'playing'], // K+N+G vs K: an Ice Wall on the guard can make a mate
+    ['7k/8/8/8/8/8/8/KBL5 w', 'playing'], // K+B+L vs K
+    ['6lk/8/8/8/8/8/8/KN6 w', 'playing'], // K+N vs K+L: a Freeze on the paladin can make a mate
+    ['6lk/8/8/8/8/8/8/KB6 w', 'playing'], // K+B vs K+L
     ['6gk/8/8/8/8/8/8/KN6 w', 'playing'], // K+N vs K+G
     ['6gk/8/8/8/8/8/8/KB6 w', 'playing'], // K+B vs K+G
   ].flatMap(([fen, result]) => [[fen, result], [swapColours(fen), result]]))('counts guards and paladins for %s as %s', (fen, result) => {
@@ -320,6 +320,21 @@ describe('draws', () => {
     game.load(game.context.fromFen(fen));
     expect(game.status).toBe('playing');
     expect(game.playLan([mate])).toBe(1);
+    expect(game.status).toBe('checkmate');
+  });
+  // A minor with a guard or a paladin plays on: a mark can stop a king that takes or escapes.
+  it.each(([
+    ['Freeze', '8/8/8/8/8/8/l7/k1K1N3 w', ['!F:a2', 'Ne1-c2']],
+    ['Freeze', '5B2/8/8/8/8/8/l7/k1K5 w', ['!F:a2', 'Bf8-g7']],
+    ['IceWall', 'k7/G1K5/8/3N4/8/8/8/8 w', ['!W:a7', 'Nd5-b6']],
+    ['IceWall', 'k7/L1K5/8/8/8/8/8/5B2 w', ['!W:a7', 'Bf1-g2']],
+  ] as const).flatMap(([power, fen, lan]) => [[power, fen, lan], [power, swapColours(fen), lan]] as const))('lets %s mate on %s', (power, fen, lan) => {
+    const white = fen.endsWith(' w');
+    const king = { king: 'Frost', power } as const;
+    const game = new Game(CLASSIC_CHESS, { ...POWERS_BALANCED, kings: white ? [king, null] : [null, king] });
+    game.load(game.context.fromFen(fen));
+    expect(game.status).toBe('playing');
+    expect(game.playLan([...lan])).toBe(2);
     expect(game.status).toBe('checkmate');
   });
   it('lets Curse move a bishop to the other colour in a bishops-only ending', () => {

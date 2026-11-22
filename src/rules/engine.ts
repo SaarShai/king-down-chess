@@ -2026,7 +2026,7 @@ export function legalMoves(pos: Position, mode: GenMode = 'all'): Move[] {
 export function insufficientMaterial(board: Uint8Array): boolean {
   // `pieces` counts the minors. A guard, a paladin or a no-capture ogre (`others`) never gives check.
   let sides = 0, pieces = 0, bishops = 0, bishopColor = -1;
-  const others = [0, 0], paladins = [0, 0];
+  const others = [0, 0];
   for (let s = 0; s < 64; s++) {
     const p = board[s];
     if (!p) continue;
@@ -2037,7 +2037,7 @@ export function insufficientMaterial(board: Uint8Array): boolean {
     if (t === O && !RULES.ogreNoCapture) return false;
     if (t === G && RULES.guardCaptures === 'any') return false; // a commoner guard mates with a king; a pawn-only guard cannot
     if (t === L && RULES.paladinChecks) return false; // a paladin that may take a king can mate with one
-    if (t !== B && t !== N && t !== V) { others[colorOf(p)]++; if (t === L) paladins[colorOf(p)]++; continue; }
+    if (t !== B && t !== N && t !== V) { others[colorOf(p)]++; continue; }
     sides |= 1 << colorOf(p);
     pieces++;
     if (t === B) {
@@ -2049,14 +2049,9 @@ export function insufficientMaterial(board: Uint8Array): boolean {
     if (sides === 0b11 && bishops !== pieces) return false;
   }
   if (bishops !== pieces && pieces > 1) return false;
-  // A defending piece can block an escape square, even if that piece cannot give check. A lone
-  // king has no such piece, so the minor side's others do not count. A lone defending paladin
-  // against a lone minor gives no mate either; a guard does (K+N vs K+G).
-  if (sides === 0b11 && (others[WHITE] || others[BLACK])) return false;
-  if (sides === 1 || sides === 2) {
-    const d = sides === 1 ? BLACK : WHITE;
-    if (others[d] && !(others[d] === 1 && paladins[d] === 1 && pieces === 1 && !others[d ^ 1])) return false;
-  }
+  // A guard, a paladin or an ogre can block an escape square, and a Freeze or an Ice Wall can keep
+  // it there (K+N vs K+L, K+N+G vs K). With a minor, it plays on.
+  if (pieces && (others[WHITE] || others[BLACK])) return false;
 
   const white = powerOf(WHITE), black = powerOf(BLACK);
   // These readings change which squares a king can attack, so the usual mate proof no longer holds.
