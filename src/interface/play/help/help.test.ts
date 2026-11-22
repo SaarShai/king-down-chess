@@ -24,7 +24,7 @@ describe('Daylight topics', () => {
     const entry = learningEntry(subject, rules);
     const expected = subject.kind === 'piece' ? pieces[subject.type].short : subject.kind === 'card' ? cardLine(subject.id) : powerLines[subject.id];
     expect(expected).toBeTruthy();
-    expect(helpTopic(subject, rules)).toMatchObject({ name: entry.name, line: expected, detail: entry.full });
+    expect(helpTopic(subject, rules)).toMatchObject({ name: entry.name, line: expected, detail: subject.kind === 'piece' ? entry.full : `${entry.full} ${entry.limits}` });
     for (const side of [0, 1] as const) expect(diagramFor(subject, side).frames.length).toBeGreaterThan(0);
   });
 

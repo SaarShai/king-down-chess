@@ -38,14 +38,14 @@ export function powerText(power: PowerName, r: Rules = DEFAULT_RULES, web = fals
       ? `wall one of your pieces (not the king), then make your move: the walled piece cannot be captured on the next ${r.markTurns > 1 ? `${r.markTurns} turns` : 'turn'}`
       : `as your move, wall one of your pieces (not the king): it cannot be captured on the next ${r.markTurns > 1 ? `${r.markTurns} turns` : 'turn'}`;
     case 'Strike': {
-      const who = r.strikePawns ? 'any piece except the king' : 'any piece except a pawn or the king';
+      const who = r.strikePawns ? 'any of your pieces except the king' : 'any of your pieces except a pawn or the king';
       if (r.strikeMode === 'capture') return `${who} takes an enemy a queen\u2019s move away without moving`;
       return `move ${who} as if it were a queen${r.strikeCaptures ? '' : ', to an empty square'}${r.strikePawns ? '; a pawn cannot end on the first or last rank' : ''}`;
     }
     case 'Haste': return `move one piece twice in one turn (the second move is optional)${!r.hasteCaptures ? '; neither move captures' : r.hasteSecond === 'quiet' ? '; the second move cannot capture' : ''}`
       + `${r.hasteNoCheck ? '; neither move may give check' : ''}${r.hasteApart ? '; the second move may not end next to an enemy piece' : ''}`
       + `${r.hasteNoThreat ? '; the second move may not end where the piece could capture' : ''}${r.hasteNoForward ? '; the second move may not go forward' : ''}`;
-    case 'Flight': return 'move any piece except the king to any empty square in your half of the board';
+    case 'Flight': return 'move any of your pieces except the king to any empty square in your half of the board';
     case 'Sacrifice': return `turn one of your pawns into one of your pieces that was captured earlier${r.sacrificeBehind ? ', while you have fewer pieces than your opponent' : ''}`;
     case 'March': return r.marchUses === 0 ? 'any pawn may step two squares from any rank' : 'a pawn steps two squares from any rank';
     case 'Leap': return 'a rook, bishop or queen passes over your own pawns';

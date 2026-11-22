@@ -4,7 +4,7 @@ import { kingDisplayName } from '../../king-label';
 import { DEAL_CARDS, POOL_KINDS } from '../../match/setup';
 import { RELEASED_CARDS } from '../../content/cards';
 import { powerText, ruleLine, POWER_NAME } from '../../powers-ui';
-import type { KingChoice } from '../../rules/rules';
+import { POWERS_BALANCED, type KingChoice } from '../../rules/rules';
 import { nameSearch, sendPersonLink, type PersonHost } from '../people/screens/person';
 import { nameSheet, signInSheet } from '../people/screens/sign-in';
 import type { PeopleSheet } from '../people/screens/sheet';
@@ -332,7 +332,8 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     if (chosen) {
       const powers = choiceValues(panelText.power, legal.filter(k => k.king === chosen.king).map(k => ({ value: k.power, label: POWER_NAME[k.power] })), chosen.power,
         value => pick({ king: chosen.king, power: value as PowerName }));
-      box.append(powers, el('p', 'panel-note', ruleLine(powerText(chosen.power, draft.game.context.rules))));
+      // With Powers off, show the rules that a tap on a king turns on (rulesOf), not the printed ones.
+      box.append(powers, el('p', 'panel-note', ruleLine(powerText(chosen.power, { ...draft.game.context.rules, ...POWERS_BALANCED }))));
     }
     return box;
   }

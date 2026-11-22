@@ -53,6 +53,16 @@ try {
     }
     assert.equal(staged[0], staged[1], 'Sky Lift: both tap orders store one action');
     assert.equal(staged[2], staged[3], 'Mirror as Sky Lift: both tap orders store one action');
+    if (touch) {
+      // The Rule sheet of a card gives its limits too (learning decision 2: all the information).
+      await tapAt(page, touch, page.locator('.play-hand .play-card', { hasText: 'Sky' }));
+      await page.locator('.daylight-help-info, button[aria-label^="Rule"], button:has-text("Rule")').first().click();
+      const sheet = page.locator('.daylight-help-rule');
+      await sheet.waitFor(); await page.waitForTimeout(800);
+      assert.match(await sheet.innerText(), /A frozen piece cannot swap\./, 'the Rule sheet gives the Sky Lift limits');
+      assert.equal(await sheet.evaluate(node => node.scrollWidth <= node.clientWidth + 1), true, 'the Rule sheet does not overflow sideways');
+      await shot(page, 'skylift-rule-sheet-390');
+    }
     await context.close();
   }
   assertNoErrors();

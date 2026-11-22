@@ -28,7 +28,7 @@ export function guideEntries(section: string): GuideEntry[] {
   // One Guide serves solo and online play, so it names the finish button of each.
   const finish = `${text.finish} or ${text.send}`;
   if (section === 'How a turn works') return [
-    ['move', 'Make your move', `Move one piece, then select ${finish}.`, 'Select one of your pieces. Select a marked square. Your king must be safe when the turn ends. Checkmate wins.'],
+    ['move', 'Make your move', `Move one piece, then select ${finish}.`, 'Select one of your pieces. Select a marked square. Your king must be safe after each action. Checkmate wins.'],
     ['power', 'Use a power', 'An always-on power needs no tap.', `With powers only, each king has one power. It can be active or always on. Select an active power to see its rule and legal targets. Freeze and Ice Wall are free actions. ${guideFollowUp} Other active powers use the move.`],
     ['card', 'Play a card', 'Each card has one use.', `Both players start with the same four cards. With cards only, kings have no powers. With powers and cards, each king has an always-on power. Select a card, then its target. Freeze, Ice Wall and Firewall are free actions. ${guideFollowUp} Other cards use the move.`],
     ['undo', 'Change your turn', `${text.undo} changes a turn before ${finish}.`, `Your steps are not final until you select ${finish}. ${text.undo} removes the last step. A Beast can capture again before the turn ends.`],

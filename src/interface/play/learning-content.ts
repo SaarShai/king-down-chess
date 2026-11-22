@@ -49,11 +49,11 @@ export const learningNotes: Record<string, readonly [string, string]> = {
     "An enemy piece blocks its path. A non-pawn capture also removes it."
   ],
   "Freeze": [
-    "The frozen piece still attacks. It can still be captured. The effect ends after the opponent’s next turn.",
+    "The frozen piece still attacks. It can still be captured. The effect ends after the opponent’s next turn. If the piece moves, the mark moves with it. The mark ends when the piece leaves the board.",
     "Use another piece, or capture the piece that gives check."
   ],
   "IceWall": [
-    "The piece can move. A push can still move it. The effect ends after the opponent’s next turn.",
+    "The piece can move. A push can still move it. The effect ends after the opponent’s next turn. If the piece moves, the mark moves with it. The mark ends when the piece leaves the board.",
     "Attack another piece, or push the protected piece."
   ],
   "Strike": [
@@ -69,11 +69,11 @@ export const learningNotes: Record<string, readonly [string, string]> = {
     "Cover landing squares in the opponent’s half."
   ],
   "Sacrifice": [
-    "You cannot return a pawn, Guard or king. Use the piece type at capture.",
+    "You cannot return a pawn, Guard or king. Use the piece type at capture. A Paladin that left the board after its capture can return.",
     "Capture valuable pieces only when their return is safe for you."
   ],
   "March": [
-    "Pawns still capture on a forward diagonal. A March move from another rank gives no en passant.",
+    "Pawns still capture on a forward diagonal. A March move from another rank gives no en passant. The card moves only a pawn off its start rank. A pawn that reaches the last rank promotes.",
     "Block the file."
   ],
   "Leap": [
@@ -81,7 +81,7 @@ export const learningNotes: Record<string, readonly [string, string]> = {
     "Block the line with a non-pawn or an enemy piece."
   ],
   "HolyLight": [
-    "The shelter covers four adjacent squares, not diagonals. The king must still avoid other attacks.",
+    "The shelter covers four adjacent squares, not diagonals. The king must still avoid other attacks. The king can capture pawns.",
     "Use a piece other than a pawn to attack the king. Move a protected piece away from its king."
   ],
   "Mercy": [
@@ -89,7 +89,7 @@ export const learningNotes: Record<string, readonly [string, string]> = {
     "Use a pawn to capture a sheltered piece. Attack the king’s landing square."
   ],
   "DeathTouch": [
-    "The two-square reach never goes sideways or diagonally. It adds no attacked square. A king is never a power target.",
+    "The two-square reach never goes sideways or diagonally. The reach can give check. A king is never a power target.",
     "Block the two-square reach or stay outside it."
   ],
   "Darkness": [
@@ -97,11 +97,11 @@ export const learningNotes: Record<string, readonly [string, string]> = {
     "Keep your pieces off the square directly ahead of an enemy pawn. Watch the king’s two-square escape."
   ],
   "Salvation": [
-    "Do not return a pawn, Guard or king. Use its type at capture.",
+    "Do not return a pawn, Guard or king. Use its type at capture. A Paladin that left the board after its capture can return.",
     "Occupy or attack the possible return squares."
   ],
   "MirrorB": [
-    "Do not copy Mirror. The copied card sets the targets, limits and turn cost.",
+    "Copy only a card that you did not play. Do not copy Mirror. The copied card sets the targets, limits and turn cost.",
     "Read the copied card’s rule."
   ],
   "Firewall": [
@@ -109,7 +109,7 @@ export const learningNotes: Record<string, readonly [string, string]> = {
     "Use a move without a capture or push a piece."
   ],
   "EarthQuake": [
-    "A blocked piece stays. A piece at the edge stays. The centre piece stays. A pawn cannot land on rank 1 or 8.",
+    "A blocked piece stays. A piece stays when its push leaves the board. A frozen piece stays. The centre piece stays. A pawn cannot land on rank 1 or 8.",
     "Use occupied destination squares or the edge to prevent a push."
   ],
   "Burn": [
@@ -121,15 +121,15 @@ export const learningNotes: Record<string, readonly [string, string]> = {
     "Block the path to your back rank."
   ],
   "Control": [
-    "Neither piece can be a pawn or king. Use a different adjacent type. A Guard still cannot capture. The moving piece keeps its type. Do not capture a king.",
+    "Neither piece can be a pawn or king. Use a different adjacent type. A Guard still cannot capture. The moving piece keeps its type. Do not capture a king. The borrowed move cannot swap or push.",
     "Separate the two pieces, or block the borrowed path."
   ],
   "Rally": [
-    "Neither move captures. End turn is available after the first move.",
+    "Neither move captures. End turn is available after the first move. The second piece cannot swap or push the first piece.",
     "Block routes; Rally cannot remove a blocker by capture."
   ],
   "MorphP": [
-    "Choose the new type. It remains that type and captures nothing now.",
+    "Choose the new type. It remains that type and captures nothing now. A frozen pawn cannot change.",
     "Attack the new piece on its current square."
   ],
   "Mimic": [
@@ -145,7 +145,7 @@ export const learningNotes: Record<string, readonly [string, string]> = {
     "Use protection or occupy the neighbouring squares."
   ],
   "SkyLift": [
-    "Neither piece can be a pawn or king. Your king must stay safe.",
+    "Neither piece can be a pawn or king. Your king must stay safe. A frozen piece cannot swap.",
     "Attack the possible final positions."
   ]
 };

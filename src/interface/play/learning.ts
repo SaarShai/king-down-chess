@@ -30,11 +30,13 @@ export function learningEntry(subject: LearnSubject, context: GameRules, pos?: P
   const isPiece = subject.kind === 'piece', name = isPiece ? pieces[subject.type].name : subject.kind === 'power' ? POWER_NAME[subject.id] : cardName(subject.id);
   let full: string, uses = '', king = '', short = isPiece ? pieces[subject.type].short : subject.kind === 'card' ? cardLine(subject.id) : powerLines[subject.id]!;
   const power = context.rules.kings[side]?.power;
+  // A Darkness king on either side removes en passant for both sides (engine genClassic; the Darkness pawns give none).
+  const passant = context.rules.classicChess && !context.rules.kings.some(k => k?.power === 'Darkness');
   if (isPiece) {
     const guide = pieceGuide(context, subject.type);
     full = captureWords([guide.moves, guide.captures, guide.special].filter(Boolean).join(' '));
     if (subject.type === P && context.rules.kings[side]?.power === 'Darkness') full = 'Move one square forward or diagonally forward to an empty square. Capture only straight ahead. Move two squares from the start rank on an empty file. Promote on the last rank.';
-    if (subject.type === P) full += ` The path must be clear. Choose a new piece on the last rank. ${context.rules.classicChess ? 'En passant is allowed.' : 'No en passant in this game.'}`;
+    if (subject.type === P) full += ` The path must be clear. Choose a new piece on the last rank. ${passant ? 'En passant is allowed.' : 'No en passant in this game.'}`;
     if (subject.type === K) {
       if (power === 'Mercy' || power === 'DeathTouch') {
         full = `${power === 'DeathTouch' ? 'Move one square in any direction. ' : ''}${complete(captureWords(powerText(power, context.rules)))} Only a king can capture a Guard.`;
@@ -55,7 +57,8 @@ export function learningEntry(subject: LearnSubject, context: GameRules, pos?: P
     } else uses = pos && cardIndex != null && (pos.used?.[side] ?? 0) >> cardIndex & 1 ? 'Used in this game' : 'One use';
   }
   let [limits, against] = learningNotes[isPiece ? name : subject.id];
-  if (isPiece && context.rules.classicChess) limits = limits.replace('No en passant in this game.', 'En passant is allowed.').replace('There is no castling in this game.', 'Castling is allowed.');
+  if (isPiece && passant) limits = limits.replace('No en passant in this game.', 'En passant is allowed.');
+  if (isPiece && context.rules.classicChess) limits = limits.replace('There is no castling in this game.', 'Castling is allowed.');
   if (isPiece && subject.type === P && context.rules.kings[side]?.power === 'Darkness') limits += ' Darkness overrides the base pawn rule: step forward or diagonally forward; capture only straight ahead.';
   if (isPiece && subject.type === P && context.rules.kings[side]?.power === 'March') limits += ' March also permits two steps forward from any rank if both squares are empty.';
   if (isPiece && subject.type === K && short !== pieces[K].short) limits += ` ${full}`;
