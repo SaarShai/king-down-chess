@@ -262,13 +262,40 @@ body > .kd-sr { inset: 0 auto auto 0; }
 }
 .home-hero { grid-area: 1 / 1; position: relative; overflow: clip; min-width: 0; min-height: clamp(230px, 46dvh, 620px); }
 .play-home[data-state='new'] .home-hero { min-height: clamp(260px, 67dvh, 800px); }
-.home-hero picture {
+.home-art {
   position: absolute;
   inset: 0;
   display: block;
   mask-image: linear-gradient(to bottom, #000 calc(100% - 52px), transparent);
 }
-.home-hero img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+.home-art :is(img, video) {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+.home-art video {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 320ms ease;
+  -webkit-mask-image:
+    linear-gradient(to bottom, transparent, #000 20px, #000 calc(100% - 24px), transparent),
+    linear-gradient(to right, transparent, #000 20px, #000 calc(100% - 20px), transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to bottom, transparent, #000 20px, #000 calc(100% - 24px), transparent),
+    linear-gradient(to right, transparent, #000 20px, #000 calc(100% - 20px), transparent);
+  mask-composite: intersect;
+}
+.home-art:not(.home-art-still, .home-art-settled) video[data-ready] { opacity: 1; }
+.home-art:not(.home-art-still, .home-art-settled):has(video[data-ready]) > img,
+.home-art:not(.home-art-still, .home-art-settled):has(video[data-ready]) + .home-brand { opacity: 0; }
+.home-art.home-art-settled video { -webkit-mask-image: none; mask-image: none; }
+.home-art.home-art-still video { transition: none; }
+.home-art.home-art-settled + .home-brand { transition: opacity 320ms ease; }
 .home-brand {
   position: relative;
   display: grid;
@@ -398,10 +425,19 @@ body > .kd-sr { inset: 0 auto auto 0; }
 
 @media (max-width: 599px) and (orientation: portrait) {
   /* Extend the sky into the top safe area so the painting and title move together. */
-  .home-hero {
-    background: linear-gradient(90deg, #e2a080, #f4b582, #e6a991) top / 100% calc(var(--safe-top) * 1.5) no-repeat;
+  .home-hero { background-color: #f5f0e4; }
+  .home-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    height: calc(var(--safe-top) * 1.5);
+    background: linear-gradient(90deg, #e2a080, #f4b582, #e6a991);
+    opacity: 0;
+    transition: opacity 320ms ease;
   }
-  .home-hero picture {
+  .home-hero:has(.home-art-settled, .home-art-still)::before { opacity: 1; }
+  .home-hero:has(.home-art-still)::before { transition: none; }
+  .home-art {
     inset-block-start: var(--safe-top);
     mask-image: linear-gradient(to bottom, transparent, #000 calc(var(--safe-top) / 2), #000 calc(100% - 52px), transparent);
   }
@@ -422,7 +458,7 @@ body > .kd-sr { inset: 0 auto auto 0; }
   .home-start > .home-continue { min-height: 46px; }
 }
 @media (min-width: 600px) and (max-aspect-ratio: 5/4) {
-  .home-hero picture {
+  .home-art {
     width: min(100%, 860px);
     margin-inline: auto;
     mask-image: linear-gradient(to bottom, #000 78%, transparent), linear-gradient(to right, transparent, #000 13%, #000 87%, transparent);
@@ -442,11 +478,11 @@ body > .kd-sr { inset: 0 auto auto 0; }
     padding: calc(12px + var(--safe-top)) max(16px, var(--safe-right)) calc(16px + var(--safe-bottom)) var(--safe-left);
   }
   .play-home .home-hero, .play-home[data-state='new'] .home-hero { grid-area: art; min-height: 0; max-height: calc(100dvh - 28px); aspect-ratio: 1.44; }
-  .home-hero picture {
+  .home-art {
     mask-image: linear-gradient(to bottom, transparent, #000 8%, #000 80%, transparent), linear-gradient(to right, #000 92%, transparent);
     mask-composite: intersect;
   }
-  .home-hero img { object-fit: contain; }
+  .home-art :is(img, video) { height: auto; max-height: 100%; object-fit: contain; }
   .home-brand { padding-top: 3%; }
   .home-topbar { grid-area: bar; justify-content: flex-end; padding: 0; }
   .home-start { grid-area: actions; align-self: center; width: 100%; }

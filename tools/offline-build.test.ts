@@ -532,6 +532,16 @@ it('vercel check scans runtime image bytes for metadata', () => {
  } finally {rmSync(dir,{recursive:true,force:true});}
 });
 
+it('precaches all Home stills and leaves films on the network', () => {
+  const { bundle, files } = fixture();
+  const variants = ['portrait', 'square', 'wide'];
+  const stills = variants.map(variant => `interface/reveal/hero-${variant}.webp`);
+  const films = variants.map(variant => `interface/reveal/${variant}.mp4`);
+  const { allowlist, precache } = offlineCacheFiles(bundle, root, [...files, ...stills, ...films, 'interface/reveal/wide.webm'], true);
+  expect(precache.filter(file => file.startsWith('interface/reveal/'))).toEqual(stills);
+  expect(allowlist.filter(file => file.startsWith('interface/reveal/'))).toEqual(stills);
+});
+
 it('adds both public pages and the interface graph only for the solo launch', () => {
   const { bundle, files } = fixture();
   const next = chunk('assets/next-page.js', join(root, 'src/interface/entry.ts'), [], ['assets/new-main.js']);

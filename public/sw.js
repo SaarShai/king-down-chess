@@ -27,6 +27,7 @@ const noStore = headers => /(?:^|,)\s*no-store\s*(?:=|,|$)/i.test(headers.get('C
 function publicKey(request) {
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== self.location.origin || PRIVATE.test(url.pathname)
+    || request.headers.has('Range') || /\.(?:mp4|webm)$/i.test(url.pathname)
     || request.headers.has('Authorization') || request.cache === 'no-store' || noStore(request.headers)) return null;
   url.hash = '';
   const plain = new URL(url); plain.search = '';
