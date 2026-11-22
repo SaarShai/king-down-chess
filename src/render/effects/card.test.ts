@@ -12,7 +12,7 @@ import { viewBoard } from './view-harness';
 const fixtures = RELEASED_CARDS.map(card => SHARED_MECHANICS.find(row => row.id === card.fixtureId)!);
 function game(fixture: SharedMechanic) {
   const kings = fixture.setup.kings ? parseKings(fixture.setup.kings) : undefined;
-  const context = new GameRules({ ...(kings?.some(Boolean) ? POWERS_BALANCED : {}), ...(kings ? { kings } : {}), hands: [fixture.setup.hand!, fixture.setup.hand!] });
+  const context = new GameRules({ ...(kings?.some(Boolean) || fixture.setup.hand?.length ? POWERS_BALANCED : {}), ...(kings ? { kings } : {}), hands: [fixture.setup.hand!, fixture.setup.hand!] });
   return { context, before: context.fromFen(fixture.setup.fen!) };
 }
 function legal(context: GameRules, before: pieces.Position, lan: string) {

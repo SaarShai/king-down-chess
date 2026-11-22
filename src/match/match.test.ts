@@ -117,13 +117,13 @@ describe('isolated local matches', () => {
     await expect(createMatch({ fen: `7k/8/8/8/8/8/P7/R5K1 w - - 0 1 ${field}` })).rejects.toThrow();
   });
   it('plays a public mirror deal: the computer plays a card, the snapshot shows the hands, a reload replays it', async () => {
-    const fen = '7k/8/8/8/4q3/8/8/R5K1 w - - 0 1', m = await create({ fen, hand: ['Haste'] }), plain = await create({ fen });
+    const fen = '7k/6pp/8/2n5/8/2R5/8/6K1 w - - 0 1', m = await create({ fen, hand: ['Haste'] }), plain = await create({ fen });
     const start = await m.snapshot(), card = await m.chooseMove({ level: 'club', maxTimeMs: 400 });
     expect(start.rules.hands).toEqual([['Haste'], ['Haste']]);
     expect((await plain.snapshot()).legal).not.toContain(card);
     const after = await move(m, card); expect(after.fen.split(' ')[6]).toContain('u1.0');
     await move(m, await m.chooseMove({ level: 'club', maxTimeMs: 400 }));
-    const played = await m.snapshot(); expect(played.fen.split(' ')[0]).not.toContain('q');
+    const played = await m.snapshot(); expect(played.status).toBe('checkmate');
     expect(await (await restart(m)).snapshot()).toEqual(played);
   });
   it('accepts an empty public hand as a game with no cards', async () => {

@@ -9,7 +9,8 @@ Owner decision 188 (2026-11-22, "Yes, one reading"): one rule reading for cards 
 
 - `src/match/worker.ts` `create`: a setup with a hand or a powered king gets `POWERS_BALANCED`. Before, only a powered king did.
 - `src/online/launch.ts` `fresh` (the solo hand-over): the same rule.
-- `src/match/service.ts` `newGame` and `start`: `readings` is `POWERS_BALANCED` when the game has a hand or a powered king. `category` does not change; no code reads it.
+- `src/match/service.ts` `newGame`: `readings` is `POWERS_BALANCED` when the options have cards or king powers. A game with no options has no hand (`createSchema`, `src/match/protocol.ts`), so `start` does not change. `category` does not change; no code reads it.
+- `tools/fixtures/shared-mechanics.ts`: the card rows Freeze, Ice Wall, Strike, Haste and "Cards × powers off" now hold the balanced readings. The card render tests build their rules as the worker does.
 - The solo page (`rulesOf`, `src/interface/play/saved.ts`) already gives the balanced readings to each game type but `pieces`.
 
 ## Engine identity

@@ -110,7 +110,7 @@ describe('promotion reveal', () => {
 const fixture = (item: string) => SHARED_MECHANICS.find(row => row.id === `card-${item.toLowerCase()}`)!;
 function cardGame(item: string, hand?: string[]) {
   const f = fixture(item), kings = f.setup.kings ? parseKings(f.setup.kings) : undefined;
-  const context = new GameRules({ ...(kings?.some(Boolean) ? POWERS_BALANCED : {}), ...(kings ? { kings } : {}), hands: [(hand ?? f.setup.hand!) as never, []] });
+  const context = new GameRules({ ...(kings?.some(Boolean) || (hand ?? f.setup.hand)?.length ? POWERS_BALANCED : {}), ...(kings ? { kings } : {}), hands: [(hand ?? f.setup.hand!) as never, []] });
   return { context, before: context.fromFen(f.setup.fen!), actions: f.actions };
 }
 
