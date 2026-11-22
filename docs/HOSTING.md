@@ -53,7 +53,10 @@ ci → staging → staging-checks → merge → main-ci → engines → publish 
   check results. The engines stage then uses the live worktree at the merge commit.
 - Staging checks the same PR head again and deploys it to
   [staging](https://kingdown-staging.vercel.app).
-  Two signed-out checks run there.
+  Two signed-out checks run there. Then `tools/deploy-plugin-live-check.mjs`
+  probes the staging build unsigned, with the issuer from its `staging.json`.
+  Staging serves the Muse connector, so a Muse 404 there fails the stage.
+  Elsewhere the probe logs `Muse connector parked` for a parked Muse.
 - If the PR needs a merge and main has moved past the PR's merge base, give a
   reconcile note. The command checks for the note before it starts the stages.
 - The main gate checks the PR's merge commit. It can rerun failed jobs once for that

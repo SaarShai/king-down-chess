@@ -19,7 +19,7 @@ if (base.origin !== origin || (base.protocol !== 'https:' && !['127.0.0.1', 'loc
 }
 const consentBuilt = existsSync(join(folder, 'consent.mjs'));
 const script = consentBuilt ? readFileSync(join(folder, 'consent.mjs')) : undefined;
-const artDir = join(folder, '../../static/plugin-art'), configFile = join(folder, '../../config.json');
+const artDir = join(folder, '../../static/plugin-art'), configFile = join(folder, '../../config.json'), stagingFile = join(folder, '../../staging.json');
 const routes = existsSync(configFile) ? JSON.parse(readFileSync(configFile, 'utf8')).routes ?? [] : [];
 // A Muse build routes /muse/mcp to the function (tools/plugin-server-build.mjs). A consent script without that route,
 // or with the board widget beside it, is the ChatGPT plugin.
@@ -38,7 +38,9 @@ const art = (existsSync(artDir) ? readdirSync(artDir).sort() : []).filter(name =
   return { path, bytes: readFileSync(join(artDir, name)), headers: Object.assign({}, ...routes.filter(route => new RegExp(route.src).test(path)).map(route => route.headers)) };
 });
 const authorize = '/authorize?authorization_id=deploy-check%2Bquery&state=keep%20me';
-const issuer = 'https://utqzovjmclfyojedmwok.supabase.co/auth/v1';
+// A staging build records its account (tools/plugin-server-build.mjs). Staging serves Muse: a 404 there fails.
+const staging = existsSync(stagingFile) ? JSON.parse(readFileSync(stagingFile, 'utf8')) : undefined;
+const issuer = `${staging?.supabaseUrl ?? 'https://utqzovjmclfyojedmwok.supabase.co'}/auth/v1`;
 const deadline = Date.now() + limit;
 
 const get = (path, options = {}) => fetch(origin + path, {
@@ -70,7 +72,8 @@ async function resourceCheck(path, discoveryResponse) {
 async function check() {
   const discovery = museBuilt ? await get(MUSE_PATHS[1]) : undefined;
   if (discovery) {
-    assert([200, 404].includes(discovery.status), 'Muse metadata must be served or parked');
+    if (staging) assert.equal(discovery.status, 200, 'Muse metadata must be served on staging');
+    else assert([200, 404].includes(discovery.status), 'Muse metadata must be served or parked');
     muse = discovery.status === 200;
   }
   parkedPaths = [...chatgpt ? [] : [...PARKED_PATHS.filter(path => !muse || !['/authorize', '/consent.mjs'].includes(path)), '/plugin-art/deploy-check-0000.webp'], ...muse ? [] : MUSE_PATHS];
@@ -106,7 +109,7 @@ let reason = 'request failed';
 for (;;) {
   try {
     await check();
-    const served = [chatgpt && `ChatGPT plugin: both metadata paths, unsigned challenge and ${art.length} art files with built headers`, muse && 'Muse connector: metadata and unsigned challenge', (chatgpt || muse) && 'consent query/script'].filter(Boolean);
+    const served = [chatgpt && `ChatGPT plugin: both metadata paths, unsigned challenge and ${art.length} art files with built headers`, muse && 'Muse connector: metadata and unsigned challenge', museBuilt && !muse && 'Muse connector parked', (chatgpt || muse) && 'consent query/script'].filter(Boolean);
     console.log(`plugin-live-check: pass: ${origin}; ${served.length ? served.join('; ') : 'ChatGPT plugin parked'}${parkedPaths.length ? `; ${parkedPaths.length} parked paths answer 404 to GET and POST` : ''}`);
     break;
   } catch (error) {
