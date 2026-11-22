@@ -67,7 +67,7 @@ counts are plain counters (§6.5). Powers never capture a king. Spendable powers
 **Balanced on 2026-10-02** (`docs/research/kings-powers-balance-2026-10-02.md`): head-to-head
 round-robins of all twelve, at depth 3, over five rounds. As printed, the powers spread from 21% to
 80% against each other; the readings below bring all twelve within 42–57% (a 15-point spread).
-**The owner accepted a proposal (2026-10-02: "you may change any rules to be the official rules. note that kings' power mode is a specific game mode for the game, but players should be able to choose to play without king powers."): the balanced readings are the official kings' powers rules.** Each rule states its approval in three levels: "the owner chose" (with the date and his words), "the owner accepted a proposal" (with the date and the words), or "no owner word". The game
+**The owner accepted a proposal (2026-10-02: "you may change any rules to be the official rules. note that kings' power mode is a specific game mode for the game, but players should be able to choose to play without king powers."; the words are in `docs/tasks-archive/2026-10.md`, from a cloud session; not verified): the balanced readings are the official kings' powers rules.** Each rule states its approval in three levels: "the owner chose" (with the date and his words), "the owner accepted a proposal" (with the date and the words), or "no owner word". The game
 applies the balanced readings whenever a king has a power or a game uses cards (`POWERS_BALANCED` in `src/rules/rules.ts`); the
 rule defaults, `?rules=2017` and the lab keep the rulebook as printed. Every reading is one toggle.
 
@@ -124,7 +124,7 @@ moved Darkness from about 44% to 48%, with Spirit and Shadow level. The safe ste
 (`darknessKingStepSafe`) and the taking step (`darknessKingStepTakes`) stay lab toggles, off.
 `?rules=2017` and `?rules=2021` still play the printed Darkness.
 
-## 5. Card / spell effects (documented, not yet enabled)
+## 5. Cards (card mode and lab cards)
 
 From the card-game rulebook drafts (temp 2.0 / 4.0), stripped of toll/action-point costs. Candidate effects to port later as timed modifiers:
 Flight (move to any square once), Salvation (return a captured piece), Strike (capture without moving), Haste (copy another piece's range),

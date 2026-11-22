@@ -131,7 +131,7 @@ export const SHIPPED_ELEMENTS: readonly DesignElement[] = [
 
 export const DOCUMENT_PINS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   "docs/MATRIX.md": {
-    "# King Down — ability matrix (started 2026-09-14)": "70b1589ff58626a135504f0e71577241988c9ec8b200bf86390f661c2206abe8",
+    "# King Down — ability matrix (started 2026-09-14)": "b826f2f00ba6e08439810d325930c5ca4901f1a5e6753a6e9f4cb548804011a4",
     "## A. Pieces": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "### A.0 Basic patterns (context for the grid below)": "2c6dddcf879b6bdbec7fab0a76748e09a404f33f3be46b0b3132e8cba49b33d4",
     "### A.1 Abilities × pieces": "89afbccdde8f7fd7cd064a7965179c7c4d7e907e6feae1a57793d4977243c951",
@@ -157,8 +157,8 @@ export const DOCUMENT_PINS: Readonly<Record<string, Readonly<Record<string, stri
     "## 1. Base rules": "c405da53335873a44db4e4f7e1dfcc620c515fe3188b63ad40619ad8939003a9",
     "## 2. Setup (Chess960-style)": "424240d88474ad1a2f0fd64ab5a1f7af4a954d57d933dc3aaf3e25d87a779df9",
     "## 3. Pieces": "8bbfdf85044c43e9c2a6012506c950aee12dcabe02c1123ce0badf0ca15eebae",
-    "## 4. Kings' powers mode (all twelve built; the balanced readings are the official rules)": "74aa58c5851227d62464593944089d724f94a7faf6b94cf4fc0c32a851928b4b",
-    "## 5. Card / spell effects (documented, not yet enabled)": "42efabab3277052832c33017d126eb179cd4a6d10c0d206b19ae1493bdb47d26",
+    "## 4. Kings' powers mode (all twelve built; the balanced readings are the official rules)": "35c2140f37d596cb96713a69fcde69d7b2499225df118ba3db66cc219a30814b",
+    "## 5. Cards (card mode and lab cards)": "42efabab3277052832c33017d126eb179cd4a6d10c0d206b19ae1493bdb47d26",
     "## 6. Decisions (2026-09-13, chosen for balance and fun)": "991103b7f345451aa491e2491fd48bef4c5ca4ad5b15227b49ab5b61803811b9",
     "### First measured evidence (2026-09-13, provisional) — superseded by §6.8": "6fcabd201af429bad706ad27d908c7e695ca891cd10e582dee7d0ffc6eeff90a"
   }

@@ -9,8 +9,8 @@ Legend: **●** shipped (default rules) · **◐** lab toggle, off by default (`
 
 **Status 2026-09-16:** the six **tier-1** kings' powers — Holy Light, Mercy, Death Touch, Darkness,
 March, Leap — are now **built as lab rules** (`kings` in `src/rules/rules.ts`, off by default; tests
-in `src/rules/rules.test.ts`, measurements in `docs/research/sim-kings-2026-09-16.md`). The other six
-powers and every card remain **○ designed, not built** (updated status in section C: all twelve powers and 21 released cards in Q20, plus the lab cards, are now built and playable). Q1–Q7 are all answered (`docs/QUEUE.md`);
+in `src/rules/rules.test.ts`, measurements in `docs/research/sim-kings-2026-09-16.md`). On that date the other
+six powers and each card were **○ designed, not built**. Today all twelve powers and the 21 released cards of Q20 are built and playable, and the lab cards are built (section C). Q1–Q7 are all answered (`docs/QUEUE.md`);
 `pb-ab-base24` is a recorded old-paladin control, not a current baseline.
 
 Q1…Q6 point at `docs/QUEUE.md`. Piece letters: P N B R Q K standard · A archer · L paladin · G guard · M maester · S beast ·
