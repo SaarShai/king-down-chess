@@ -16,7 +16,7 @@ import { GameRules } from '../game-rules';
 import type { BoardView } from '../render/PaintedView';
 import { momentKind } from '../moment';
 import { setSound, snd } from '../render/sfx';
-import { Color, Move, NAMES, PieceType, Position, S, colorOf, file as fileOf, findKing, sqName, typeOf, type Rules } from '../rules/engine';
+import { Color, Move, NAMES, PieceType, Position, POWERS_BALANCED, S, colorOf, file as fileOf, findKing, sqName, typeOf, type Rules } from '../rules/engine';
 import { toFen } from '../rules/setup';
 import { LESSONS } from '../lessons';
 import { recordLesson } from '../lesson-store';
@@ -686,7 +686,8 @@ export function connectPlay(view: BoardView, c: {
   function newGame(backRank?: string, fen?: string | null, rematch = false, dailyDate: string | null = null, players?: [Side, Side], initial = false): void {
     const setup = c.setup();
     let candidate: Game;
-    if (rematch) candidate = new Game(undefined, game.rules);
+    // A rematch with a hand gets the balanced readings (decision 188), also after an old printed save.
+    if (rematch) candidate = new Game(undefined, game.rules.hands.some(h => h.length) ? { ...game.rules, ...POWERS_BALANCED } : game.rules);
     else {
       const k = kingsOf(setup);
       candidate = new Game(undefined, { ...withPowers(k), ...preset, kings: k });

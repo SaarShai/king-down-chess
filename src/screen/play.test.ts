@@ -476,6 +476,17 @@ describe('new local game validation', () => {
     expect(play.game().backRank).toBe(original.back); expect(play.game().history).toEqual([]);
     expect(play.sides()).toEqual(['ai', 'human']); expect(play.skill()).toBe('strong');
   });
+
+  it('gives the rematch of an old cards-only game the balanced readings (decision 188)', () => {
+    const { play } = page();
+    const printed = { ...play.game().rules };
+    play.rematch();
+    expect(play.game().rules).toEqual(printed);
+    const hands = [['Freeze'], ['Freeze']] as const;
+    play.openSaved({ ...original, rules: { ...printed, hands } });
+    play.rematch();
+    expect(play.game().rules).toEqual({ ...printed, ...POWERS_BALANCED, hands });
+  });
 });
 
 describe('local save recovery on the game page', () => {
