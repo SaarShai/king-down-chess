@@ -159,7 +159,7 @@ export const DOCUMENT_PINS: Readonly<Record<string, Readonly<Record<string, stri
     "## 3. Pieces": "8bbfdf85044c43e9c2a6012506c950aee12dcabe02c1123ce0badf0ca15eebae",
     "## 4. Kings' powers mode (all twelve built; the balanced readings are the official rules)": "35c2140f37d596cb96713a69fcde69d7b2499225df118ba3db66cc219a30814b",
     "## 5. Cards (card mode and lab cards)": "42efabab3277052832c33017d126eb179cd4a6d10c0d206b19ae1493bdb47d26",
-    "## 6. Decisions (2026-09-13, chosen for balance and fun)": "991103b7f345451aa491e2491fd48bef4c5ca4ad5b15227b49ab5b61803811b9",
+    "## 6. Decisions (2026-09-13, chosen for balance and fun)": "b3d7c161f2d314c2161bd8cf3a0195737dad0119950a66c318594eac5e8cd089",
     "### First measured evidence (2026-09-13, provisional) — superseded by §6.8": "6fcabd201af429bad706ad27d908c7e695ca891cd10e582dee7d0ffc6eeff90a"
   }
 };

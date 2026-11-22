@@ -243,7 +243,7 @@ move captures (Haste's shape with two pieces). Measured (`rally-r1` +2.60 ± 0.4
     shuffle picks one. Both sides mirror one back rank, so both guards stand on the same side. The bishops
     stay on opposite colours. The 2017 preset turns it off, and tournaments recorded before this date keep
     their old draws.
-22. **Guard drop anywhere, lab only (the owner chose to test it, 2026-10-09: "queue guard drop for testing anyway - i want the
+22. **Guard drop anywhere, lab only (the owner chose to test it, 2026-10-09: "queue guard drop for testing anyway - i want to
     data").** `guardReserve: 'any'`: the guard starts beside the board and, as a move, enters on any empty
     square. Default off; its A/B against Decision 21 is done (`ab-guard-drop-any`, 4,000 games at depth 3: White 54.0% against 54.1%, draws 20.7% against 20.5%, no gain; the drop stays in the lab).
 23. **The Paladin returns to the random pool (owner, 2026-10-09: "paladin - add the approved version to the
