@@ -91,6 +91,20 @@ test('a full read restores every move beyond the recent command window', () => {
   expect(replayHistory({...next,fen:initial_fen}, {})).toBeUndefined();
 });
 
+test('restores an archived Ogre pawn push with its stored 50-move count', () => {
+  const initial_fen = '7k/8/8/8/3p4/3O4/8/4K3 w - - 17 50';
+  const before = view({ revision: 0, fen: initial_fen, turn: 0 });
+  const lan = 'Od3>d4-d5', actions = [lan];
+  const next = view({ revision: 1, seat: 1, fen: '7k/8/8/3p4/3O4/8/8/4K3 b - - 18 50', history: { initial_fen, actions }, last_commands: [
+    { seq: 1, seat: 0, at: before.server_now, action: { type: 'turn', actions } },
+  ] });
+  const history = replayHistory(next, {}), latest = replayLans(before, next, {});
+  expect(history?.map(step => step.lan)).toEqual(actions);
+  expect(latest).toEqual(history);
+  expect(lastOpponentTurn(history!, next).map(step => step.lan)).toEqual(actions);
+  expect(replayHistory({ ...next, fen: next.fen.replace('18 50', '19 50') }, {})).toBeUndefined();
+});
+
 test.each(['a2-a3', '--'])('replays a complete opponent turn with a free action and %s', end => {
   const partial = stage(FREEZE, ['!F:d5'], freezeRules);
   expect(lastOpponentTurn(partial.steps, { fen: toFen(partial.pos), seat: 1 })).toEqual([]);

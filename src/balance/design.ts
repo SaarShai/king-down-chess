@@ -154,13 +154,13 @@ export const DOCUMENT_PINS: Readonly<Record<string, Readonly<Record<string, stri
   },
   "docs/RULES.md": {
     "# King Down Chess — current rules and dated decisions": "9b292228627ad007767062ecde49c1ceeee63aa6fc99efec2e73c06f3a00c5c3",
-    "## 1. Base rules": "c405da53335873a44db4e4f7e1dfcc620c515fe3188b63ad40619ad8939003a9",
+    "## 1. Base rules": "2ebb8c36f5d4c802ffe3ac4a42dd40cde8aee3f506d2abf8d4b31f5ff2b0747a",
     "## 2. Setup (Chess960-style)": "424240d88474ad1a2f0fd64ab5a1f7af4a954d57d933dc3aaf3e25d87a779df9",
     "## 3. Pieces": "8bbfdf85044c43e9c2a6012506c950aee12dcabe02c1123ce0badf0ca15eebae",
     "## 4. Kings' powers mode (all twelve built; the balanced readings are the official rules)": "35c2140f37d596cb96713a69fcde69d7b2499225df118ba3db66cc219a30814b",
     "## 5. Cards (card mode and lab cards)": "42efabab3277052832c33017d126eb179cd4a6d10c0d206b19ae1493bdb47d26",
     "## 6. Decisions (2026-09-13, chosen for balance and fun)": "b3d7c161f2d314c2161bd8cf3a0195737dad0119950a66c318594eac5e8cd089",
-    "### First measured evidence (2026-09-13, provisional) — superseded by §6.8": "6fcabd201af429bad706ad27d908c7e695ca891cd10e582dee7d0ffc6eeff90a"
+    "### First measured evidence (2026-09-13, provisional) — superseded by §6.8": "461f71442266b7aec8e4a2a4ec0b2e86325295c6cbfa55f1f4b89e111b2252d5"
   }
 };
 

@@ -77,6 +77,28 @@ describe('terminal rules agree in the game and search', () => {
     expect(g.playLan(cycle)).toBe(8);
     expect(g.status).toBe('drawRepetition');
   });
+
+  it('values an Ogre push of a pawn the same at counts 0 and 99', () => {
+    const pos = fromFen('7k/8/8/8/3p4/3O4/8/4K3 w - - 0 1');
+    const rootMoves = legalMoves(pos).filter(m => toLan(pos, m) === 'Od3>d4-d5');
+    expect(rootMoves).toHaveLength(1);
+    const opts = { maxDepth: 1, rootMoves };
+    const score = search(pos, opts).score;
+    expect(score).toBeGreaterThan(0);
+    resetSearchState();
+    expect(search({ ...pos, halfmove: 99 }, opts).score).toBe(score);
+  });
+
+  it.each([
+    ['7k/8/8/8/r7/2n5/1PO5/K7 w', 'Oc2>b2-a2'],
+    ['k7/1po5/2N5/R7/8/8/8/7K b', 'Oc7>b7-a7'],
+  ])('counts the only Ogre escape from check as a pawn move at %s', (fen, shove) => {
+    const pos = fromFen(fen);
+    expect(legalMoves(pos).map(m => toLan(pos, m))).toEqual([shove]);
+    const score = quiesceScore(pos);
+    expect(score).toBeLessThan(0);
+    expect(quiesceScore({ ...pos, halfmove: 99 })).toBe(score);
+  });
 });
 
 it.each([0, 1])('returns a legal fallback with a %i ms budget', timeMs => {
