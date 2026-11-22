@@ -44,6 +44,10 @@ const SCENES: Record<string, Scene> = {
   'online-draw-offer': { online: { ...THEIR_MOVE, turn: 0, action: 'ready', draw_offer: 1 }, ready: '.online-status .online-actions .kd-button:last-child' },
   // The opponent's move time ends: Claim win.
   'online-claim': { online: { ...THEIR_MOVE, deadline_at: new Date(Date.now() - 60_000).toISOString() }, ready: '.online-status .online-actions .kd-button' },
+  // The opponent takes a pawn: the capture count shows in the opponent bar.
+  'online-captured': { online: { ...THEIR_MOVE, turn: 0, action: 'ready', fen: 'rnbqkbnr/ppp1pppp/8/8/4p3/P7/1PPP1PPP/RNBQKBNR w - - 0 3 lP',
+    history: { initial_fen: START, actions: ['e2-e4', 'd7-d5', 'a2-a3', 'd5xe4'] } },
+    ready: '.play-game:has(.play-hand > .play-card:nth-child(4):last-child):has(.play-opp .play-store[data-empty="false"]) .play-opp .opponent-clock:not(:empty)' },
   'solo-result': { save: SOLO, steps: [text.resume, text.menu, text.resign, text.resign], ready: '.play-result' },
   'solo-turn': { save: SOLO_BOTH, steps: [text.resume],
     ready: `${WITH_HAND}[data-state="ready"]:has(.play-turn) .play-reader .play-title`, readyText: text.ready },

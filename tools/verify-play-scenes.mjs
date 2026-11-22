@@ -6,11 +6,11 @@
 import { env, launch, shot } from './lib/checks.mjs';
 import { KNOWN } from './play-scenes-known.mjs';
 
-// Landscape phones check the game screen only, and 667x375 the new-game panel too: online-loss cuts its 20-letter test
-// name with an ellipsis, as the known mark at 320 px allows, and at 568x320 the panel header covers the level choice.
+// Landscape phones check the game screen and the new-game panel: online-loss cuts its 20-letter test
+// name with an ellipsis, as the known mark at 320 px allows.
 const gameScreen = scene => /^(online|solo)-/.test(scene) && !['online-loss', 'online-loss-offer'].includes(scene);
 const withPanel = scene => gameScreen(scene) || ['new-game', 'setup-friend'].includes(scene);
-const SIZES = [[320, 568], [360, 640], [390, 844], [667, 375, withPanel], [568, 320, gameScreen], [1280, 800]], SCALES = [100, 150];
+const SIZES = [[320, 568], [360, 640], [390, 844], [667, 375, withPanel], [568, 320, withPanel], [1280, 800]], SCALES = [100, 150];
 const ROLES = ['button', 'link', 'switch', 'radio', 'checkbox', 'tab', 'menuitem', 'option', 'slider', 'textbox', 'combobox'];
 const SENTINEL = 'kingdown-scene-sentinel';
 
@@ -250,7 +250,8 @@ function coveredCards() {
 function foldFaults(full) {
   const out = [], range = document.createRange(), items = [];
   const name = node => [node.localName, ...node.classList].join('.');
-  for (const reader of document.querySelectorAll('.play-reader')) {
+  const areas = ['.play-reader', ...(innerWidth > innerHeight && innerWidth < 1000 ? ['dialog.new-game-panel[open] .setup-controls'] : [])].join(', ');
+  for (const reader of document.querySelectorAll(areas)) {
     if (reader.closest('[inert]') || !reader.checkVisibility({ visibilityProperty: true })) continue;
     for (const control of reader.querySelectorAll('button, a[href]')) {
       if (!control.checkVisibility({ visibilityProperty: true })) continue;
@@ -276,7 +277,7 @@ function foldFaults(full) {
     }
   }
   for (const { node, label, boxes, text } of items) {
-    for (let box = node.parentElement; box && !box.matches('.play-game'); box = box.parentElement) {
+    for (let box = node.parentElement; box && !box.matches('.play-game'); box = box.matches('dialog') ? null : box.parentElement) {
       if (!/auto|scroll/.test(getComputedStyle(box).overflowY)) continue;
       const edge = box.getBoundingClientRect(), top = edge.top + box.clientTop, bottom = top + box.clientHeight;
       const outside = boxes.filter(b => b.top < top - 1 || b.bottom > bottom + 1);
@@ -291,7 +292,7 @@ function foldFaults(full) {
 }
 
 /** In the page: text that a clipping box cuts, and words that break over two lines. A scroll box can show its text. */
-function cutText() {
+function cutText(suffix = '') {
   const out = [], modal = window.playSceneModal(), walk = document.createTreeWalker(modal ?? document.body, NodeFilter.SHOW_TEXT), range = document.createRange();
   const name = node => `${node.tagName.toLowerCase()}${node.className && typeof node.className === 'string' ? `.${node.className.trim().split(/\s+/).join('.')}` : ''}`;
   textNodes: for (let text; (text = walk.nextNode());) {
@@ -308,16 +309,23 @@ function cutText() {
       if (/auto|scroll/.test(style.overflowX + style.overflowY)) { lines = [edge]; continue; }
       // A box that draws an ellipsis cuts its text at the first part of a pixel.
       const slack = style.textOverflow === 'ellipsis' ? .05 : 1;
-      if (/hidden|clip/.test(style.overflowX + style.overflowY) && lines.some(box => box.left < edge.left - slack || box.right > edge.right + slack || box.top < edge.top - 1 || box.bottom > edge.bottom + 1)) { out.push(`text "${words.slice(0, 40)}" is cut by ${name(node)}`); break; }
+      if (/hidden|clip/.test(style.overflowX + style.overflowY) && lines.some(box => box.left < edge.left - slack || box.right > edge.right + slack || box.top < edge.top - 1 || box.bottom > edge.bottom + 1)) { out.push(`text "${words.slice(0, 40)}" is cut by ${name(node)}${suffix}`); break; }
     }
     // The browser can wrap at a hyphen. Check the parts between legal breaks.
     for (const word of text.textContent.matchAll(/[^\s\u00ad\u2010-]+/g)) {
       range.setStart(text, word.index); range.setEnd(text, word.index + word[0].length);
       if (new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round(r.top / 4))).size > 1) {
         const king = host.closest('.king-block')?.getAttribute('aria-label');
-        out.push(`word "${word[0]}" breaks over two lines in ${name(host)}${king ? ` (${king})` : ''}`);
+        out.push(`word "${word[0]}" breaks over two lines in ${name(host)}${king ? ` (${king})` : ''}${suffix}`);
       }
     }
+  }
+  // A capture count in the opponent bar leaves room for a two-digit count (10 or more) without cutting the name or the count.
+  const store = !suffix && document.querySelector('.play-opp .play-store[data-empty="false"]');
+  if (store) {
+    const before = store.textContent;
+    try { store.textContent = '10'; out.push(...cutText(' with 10 captures')); }
+    finally { store.textContent = before; }
   }
   return out;
 }

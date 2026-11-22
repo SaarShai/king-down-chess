@@ -188,6 +188,9 @@ jobs:
           KINGDOWN_PLUGIN_UI_PART: ${{ matrix.part }}
           KINGDOWN_TEST_PAGES: ${{ matrix.testPages && '1' || '' }}
           DEBUG: ${{ matrix.browser == 'webkit' && 'pw:browser' || '' }}
+      - if: matrix.name == 'play-scenes'
+        run: MENUS_CASES=notice npm run check:browser next-menus
+        timeout-minutes: 5
       - if: matrix.browser == 'webkit' && (failure() || cancelled())
         name: Save kernel log
         run: sudo dmesg -T | tail -n 400 > /tmp/kingdown-check-runs/dmesg.txt || true
