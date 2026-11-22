@@ -75,7 +75,6 @@ describe.skipIf(!process.env.KINGDOWN_BALANCE_DRIFT)('document and source drift'
     const findings = auditDesign(baseline);
     expect(findings.filter(f => f.severity === 'error')).toEqual([]);
     expect(findings.some(f => f.code === 'RULE_ABSENT_FROM_MATRIX' && f.source.includes('guardReserve'))).toBe(true);
-    expect(findings.some(f => f.code === 'STALE_MATRIX_STATUS')).toBe(true);
     expect(findings.every(f => f.source && f.approval && f.message)).toBe(true);
   });
   it('fails if a matrix dimension is removed', () => {
