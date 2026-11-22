@@ -287,9 +287,26 @@ describe('draws', () => {
     ['7k/8/8/8/3b4/8/8/KB6 w', 'playing'],
     ['6nk/8/8/8/8/8/8/KN6 w', 'playing'],
     ['6nk/8/8/8/8/8/8/KB6 w', 'playing'],
-    ['6gk/8/8/8/8/8/8/KL6 w', 'playing'],
     ['6nk/8/8/8/8/8/8/KV6 w', 'playing'],
   ])('sets the material result for %s to %s', (fen, result) => {
+    const game = new Game(CLASSIC_CHESS);
+    game.load(game.context.fromFen(fen));
+    expect(game.status).toBe(result);
+  });
+  // A guard or a paladin never gives check. A mate search finds no mate on these boards, but finds
+  // mates for K+N or K+B against K+G: the enemy guard blocks its own king.
+  const swapColours = (fen: string) => fen.replace(/[a-z]/gi, ch => ch === ch.toLowerCase() ? ch.toUpperCase() : ch.toLowerCase()).replace(/ W$/, ' b').replace(/ B$/, ' w');
+  it.each([
+    ['6gk/8/8/8/8/8/8/KG6 w', 'drawMaterial'], // K+G vs K+G
+    ['6lk/8/8/8/8/8/8/KG6 w', 'drawMaterial'], // K+G vs K+L
+    ['6lk/8/8/8/8/8/8/KL6 w', 'drawMaterial'], // K+L vs K+L
+    ['7k/8/8/8/8/8/8/KNG5 w', 'drawMaterial'], // K+N+G vs K
+    ['7k/8/8/8/8/8/8/KBL5 w', 'drawMaterial'], // K+B+L vs K
+    ['6lk/8/8/8/8/8/8/KN6 w', 'drawMaterial'], // K+N vs K+L
+    ['6lk/8/8/8/8/8/8/KB6 w', 'drawMaterial'], // K+B vs K+L
+    ['6gk/8/8/8/8/8/8/KN6 w', 'playing'], // K+N vs K+G
+    ['6gk/8/8/8/8/8/8/KB6 w', 'playing'], // K+B vs K+G
+  ].flatMap(([fen, result]) => [[fen, result], [swapColours(fen), result]]))('counts guards and paladins for %s as %s', (fen, result) => {
     const game = new Game(CLASSIC_CHESS);
     game.load(game.context.fromFen(fen));
     expect(game.status).toBe(result);
