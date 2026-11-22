@@ -8,6 +8,8 @@ The iOS app is a Capacitor shell around the same web build as kingdown.dev. Deci
 2. Run it in the simulator: `npx cap run ios --target <simulator id>` (list ids with `xcrun simctl list devices available`), or open Xcode with `npx cap open ios`.
 3. Inspect the page: debug builds are inspectable in Safari > Develop > Simulator. The native log with the page's console: `xcrun simctl launch --console-pty booted dev.kingdown.app`.
 
+`npm run ios:check` runs the store and link checks (`ios/store.test.ts`, macOS only; CI does not run it) before an upload.
+
 A check build with no signing: `xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`. A debug build opens one start address from a launch argument: `xcrun simctl launch booted dev.kingdown.app -KingDownStart /support.html`.
 
 The new page has one Apple sign-in switch: `VITE_KINGDOWN_APPLE_SIGN_IN=1`. It is off by default.
@@ -25,6 +27,8 @@ npm run ios:sync production
 xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath "$TMPDIR/App.xcarchive" -allowProvisioningUpdates archive
 xcodebuild -exportArchive -archivePath "$TMPDIR/App.xcarchive" -exportOptionsPlist ios/ExportOptions.plist -exportPath "$TMPDIR/upload" -allowProvisioningUpdates
 ```
+
+`bash tools/ios-release.sh [--dry-run] [<commit>]` does the first two steps in a clean worktree of an `origin/main` commit (default `origin/main`), with the store test, adds the build and the commit to [the iOS release log](../ios/release-log.md), and prints the export for the owner; `--dry-run` prints the steps and runs none. Run `git fetch origin` first, and remove the `ios-release-build` worktree before a second run; commit the log line. The log also names the App Store build (1.0 (8)), whose `/api` reply fields `src/api/ios-build-8-replies.test.ts` keeps.
 
 `ios/ExportOptions.plist` uploads to App Store Connect and keeps the build number from the project. App Store Connect then processes the build for TestFlight (minutes to an hour) and sends an email if it finds a fault.
 

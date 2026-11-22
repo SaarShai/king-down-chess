@@ -1236,6 +1236,7 @@ describe('deploy-keep-assets.mjs', () => {
 async function pluginSite(fault = '', files?: Record<string, string> | (() => Record<string, string>)) {
   const requests: { path: string; method?: string; cookie?: string; authorization?: string }[] = [];
   let url = '';
+  const supabase = fault === 'staging' ? 'https://puhspsyjyzaghmgtkzqd.supabase.co' : 'https://utqzovjmclfyojedmwok.supabase.co';
   const server = createServer(async (req, res) => {
     const path = req.url ?? '/';
     requests.push({ path, method: req.method, cookie: req.headers.cookie, authorization: req.headers.authorization });
@@ -1246,9 +1247,10 @@ async function pluginSite(fault = '', files?: Record<string, string> | (() => Re
     // parked: the live site without the ChatGPT plugin (tools/chatgpt-plugin.mjs) answers 404 for each plugin path.
     else if (fault === 'parked') { if (!(served && siteRoute(req, res, path, served, 'closed'))) res.writeHead(404).end(); }
     // muse and both: the Muse connector serves its resource; muse parks each ChatGPT path but the consent page.
-    else if (['muse', 'both'].includes(fault) && path === '/.well-known/oauth-protected-resource/muse/mcp') res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ resource: `${url}/muse/mcp`, authorization_servers: ['https://utqzovjmclfyojedmwok.supabase.co/auth/v1'], scopes_supported: ['openid'] }));
-    else if (['muse', 'both'].includes(fault) && path === '/muse/mcp') res.writeHead(401, { 'www-authenticate': `Bearer resource_metadata="${url}/.well-known/oauth-protected-resource/muse/mcp", scope="openid"` }).end('{}');
-    else if (fault === 'muse' && (/^\/(mcp|plugin-art\/|\.well-known\/)/.test(path))) res.writeHead(404).end();
+    // staging: the staging Muse connector, with the staging account issuer.
+    else if (['muse', 'both', 'staging'].includes(fault) && path === '/.well-known/oauth-protected-resource/muse/mcp') res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ resource: `${url}/muse/mcp`, authorization_servers: [`${supabase}/auth/v1`], scopes_supported: ['openid'] }));
+    else if (['muse', 'both', 'staging'].includes(fault) && path === '/muse/mcp') res.writeHead(401, { 'www-authenticate': `Bearer resource_metadata="${url}/.well-known/oauth-protected-resource/muse/mcp", scope="openid"` }).end('{}');
+    else if (['muse', 'staging'].includes(fault) && (/^\/(mcp|plugin-art\/|\.well-known\/)/.test(path))) res.writeHead(404).end();
     else if (path === '/.well-known/oauth-protected-resource/mcp' || path === '/.well-known/oauth-protected-resource') {
       if (fault === 'metadata-root' && path === '/.well-known/oauth-protected-resource') { res.writeHead(404).end(); return; }
       res.setHeader('content-type', 'application/json');
@@ -1258,7 +1260,7 @@ async function pluginSite(fault = '', files?: Record<string, string> | (() => Re
     } else if (path.split('?')[0] === '/authorize') {
       if (fault === 'query' && path.includes('?')) { res.writeHead(307, { location: '/authorize' }).end(); return; }
       res.setHeader('content-type', 'text/html');
-      res.end('<script type="application/json" id="kingdown-consent-config">{"supabaseUrl":"https://utqzovjmclfyojedmwok.supabase.co"}</script><script type="module" src="/consent.mjs"></script>');
+      res.end(`<script type="application/json" id="kingdown-consent-config">{"supabaseUrl":"${supabase}"}</script><script type="module" src="/consent.mjs"></script>`);
     } else if (path === '/plugin-art/test-art.webp') {
       const headers: Record<string, string> = { ...artHeaders };
       if (fault === 'csp') headers['Content-Security-Policy'] = "default-src 'none'";
@@ -1325,6 +1327,34 @@ describe('deploy-plugin-live-check.mjs', () => {
     expect(old.status, old.stderr).toBe(0);
     expect(old.stdout).toContain('2 parked paths answer 404 to GET and POST');
     expect(old.stdout).not.toContain('Muse connector:');
+    expect(old.stdout).toContain('Muse connector parked');
+  });
+
+  /** A staging Muse build: the build records the staging account (tools/plugin-server-build.mjs). */
+  const stagingFolder = () => {
+    const folder = museFolder(false);
+    writeFileSync(join(folder, '../../staging.json'), JSON.stringify({ stage: 'staging', supabaseUrl: 'https://puhspsyjyzaghmgtkzqd.supabase.co' }));
+    return folder;
+  };
+
+  it('checks a staging Muse build against the staging issuer from the staging record', async () => {
+    const result = await runAsync(process.execPath, [pluginLiveCheck, stagingFolder(), (await pluginSite('staging')).url], { env: passingEnv });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain('Muse connector: metadata and unsigned challenge');
+  });
+
+  it('rejects a staging Muse endpoint that answers 404 or names the production issuer', async () => {
+    for (const [fault, reason] of [['parked', 'Muse metadata must be served on staging'], ['muse', '/muse/mcp discovery issuer']]) {
+      const result = await runAsync(process.execPath, [pluginLiveCheck, stagingFolder(), (await pluginSite(fault)).url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '250' } });
+      expect(result.status, fault).toBe(1);
+      expect(result.stderr).toContain(`plugin-live-check: FAIL: ${reason}`);
+    }
+    // A staging build without the Muse route fails, though the server parks each path.
+    const folder = parkedFolder();
+    writeFileSync(join(folder, '../../staging.json'), JSON.stringify({ stage: 'staging', supabaseUrl: 'https://puhspsyjyzaghmgtkzqd.supabase.co' }));
+    const result = await runAsync(process.execPath, [pluginLiveCheck, folder, (await pluginSite('parked')).url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '250' } });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('plugin-live-check: FAIL: Muse must be built on staging');
   });
 
   it('checks that each parked plugin path answers 404 when the build has no consent script', async () => {
