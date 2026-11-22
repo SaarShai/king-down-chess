@@ -73,7 +73,7 @@ export const learningNotes: Record<string, readonly [string, string]> = {
     "Capture valuable pieces only when their return is safe for you."
   ],
   "March": [
-    "Pawns still capture on a forward diagonal. A March move from another rank gives no en passant. The card moves only a pawn off its start rank. A pawn that reaches the last rank promotes.",
+    "Pawns still capture on a forward diagonal. A March move from another rank gives no en passant. The card moves only a pawn that is not on its start rank. A pawn that reaches the last rank promotes.",
     "Block the file."
   ],
   "Leap": [
