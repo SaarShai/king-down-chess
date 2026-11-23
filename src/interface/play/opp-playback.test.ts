@@ -5,18 +5,19 @@ import { afterEach, expect, it } from 'vitest';
 import { fixtureService } from '../../../tools/plugin-protocol-fixture';
 import { createMatch, loadMatch, type MatchSetup } from '../../match';
 import { onlineClient } from '../../online/client';
-import { parseSq, sqName, type Move, type Position } from '../../rules/engine';
+import { findKing, parseSq, sqName, type Move, type Position } from '../../rules/engine';
 import { toFen } from '../../rules/setup';
 import { peopleController, type PeopleController, type PeopleState } from '../people/controller';
 import { fakeServer, memoryStorage } from '../people/fake-server';
 import { lastTurnOf } from '../people/replica';
 import { peopleServer } from '../people/server';
 import { lastReplySteps, replayController, undoReplayState } from './replay';
+import { stateMarks } from './marks';
 import { DraftTurn } from './turn';
 
 const filename = new URL('./main.ts', import.meta.url);
 const source = readFileSync(filename, 'utf8');
-const names = ['receiveOnline', 'skipBoard', 'tap', 'undoOrReplay', 'playReply', 'replyMotion'];
+const names = ['receiveOnline', 'skipBoard', 'tap', 'undoOrReplay', 'playReply', 'replyMotion', 'newCheck', 'holdMate', 'armResult'];
 const declarations = parseSync(filename.pathname, source).program.body
   .filter(node => node.type === 'FunctionDeclaration' && names.includes(node.id?.name ?? ''));
 // Run the play screen's real live-update and Replay handlers with a recording board.
@@ -44,10 +45,17 @@ async function match({ hand, ...setup }: MatchSetup = { backRank: 'RBNMQKNR' }) 
 }
 
 function boardFor(previous: PeopleState, { mount = false, reduce = '', inApp = false } = {}) {
-  const plays: string[] = [], positions: string[] = [], falls: string[] = [], noop = () => {};
+  const plays: string[] = [], positions: string[] = [], falls: string[] = [], checks: string[] = [], noop = () => {};
   let shown = toFen(previous.position!), complete: (() => void) | undefined;
   let animation = 0, hold = false;
-  const document = { querySelector: () => null, documentElement: { dataset: { motion: reduce === 'page' ? 'reduce' : '' } } };
+  // The real hold and deadline timers run on this clock; `tick` moves it.
+  const timers = new Map<number, { run: () => void; at: number }>(), listeners = new Set<() => void>();
+  let clock = 0, ids = 0;
+  const tick = (ms: number) => { clock += ms; for (const [id, timer] of [...timers].sort((a, b) => a[1].at - b[1].at)) if (timer.at <= clock && timers.delete(id)) timer.run(); };
+  const document = {
+    hidden: false, querySelector: () => null, documentElement: { dataset: { motion: reduce === 'page' ? 'reduce' : '' } },
+    addEventListener: (_: string, run: () => void, { signal }: { signal: AbortSignal }) => { listeners.add(run); signal.addEventListener('abort', () => listeners.delete(run)); },
+  };
   const scope = {
     receiveOnline(_state: PeopleState) {}, undoOrReplay() {}, tap(_square: number) {},
     onlineActive: true, onlineState: previous, shownRevision: mount ? -1 : previous.view!.revision,
@@ -55,11 +63,11 @@ function boardFor(previous: PeopleState, { mount = false, reduce = '', inApp = f
     mountingOnline: false, inApp, pieceView: reduce === 'symbols' ? 'symbols' : 'figures', motion: 'normal', fault: null, selected: null,
     board: {
       setPosition(pos: Position) { shown = toFen(pos); positions.push(shown); },
-      async play(move: Move, after: Position) {
+      async play(move: Move, after: Position, land?: () => void) {
         const own = animation;
         plays.push(playLabel(move));
         if (hold) await new Promise<void>(resolve => { complete = resolve; });
-        if (own === animation) shown = toFen(after);
+        if (own === animation) { shown = toFen(after); land?.(); }
       },
       skip() { animation++; },
     },
@@ -72,13 +80,17 @@ function boardFor(previous: PeopleState, { mount = false, reduce = '', inApp = f
     onlineRecovery: noop, automaticReady: noop, closeFloating: noop, drawMarks: noop,
     beat: undefined, rewind: undefined, endCardFlight: noop, cancelCheckPulse: noop, endReply: null,
     passTurn: noop, endSeal: noop, onlineResult: () => 'You win.', closeStaleDialogs: noop, playOnlineKingResult: () => falls.push(shown),
+    findKing, stateMarks, drawCheckIn: (pos: Position) => checks.push(toFen(pos)), endResult: undefined, mateHold: undefined,
+    setTimeout: (run: () => void, ms: number) => { timers.set(++ids, { run, at: clock + ms }); return ids; }, clearTimeout: (id: number) => timers.delete(id),
+    AbortController, closeIn: () => ({ cancel: noop, finish: noop }), reducedMotion: () => false,
     refuse: (error: string) => { throw new Error(error); },
-    cells: [], armedResource: noop, gameHelp: undefined, choice: [], refusalReason: noop,
+    cells: Array.from({ length: 64 }, () => ({ getBoundingClientRect: () => ({}), classList: { remove: noop } })), armedResource: noop, gameHelp: undefined, choice: [], refusalReason: noop,
     cue: noop, freezeArmed: () => false, typeOf: () => 1, colorOf: () => previous.view!.seat,
     PLAIN_KINGS: [], learningEntry: () => ({ short: '' }), nameOf: () => 'Pawn', sqName, text: {},
   };
   runInNewContext(page, scope, { filename: filename.pathname });
-  return { scope, plays, positions, falls, shown: () => shown, hold: () => { hold = true; }, complete: () => complete?.() };
+  const hide = () => { document.hidden = true; listeners.forEach(run => run()); };
+  return { scope, plays, positions, falls, checks, tick, hide, timers: () => timers.size + listeners.size, shown: () => shown, hold: () => { hold = true; }, complete: () => complete?.() };
 }
 
 async function send(client: PeopleController, moves: readonly (readonly [string, string])[], arm?: string) {
@@ -233,10 +245,74 @@ it('plays a live checkmate before the king falls and opens History at the final 
   board.complete();
   await settle();
   const final = toFen(dark.state().position!);
-  expect(board.falls).toEqual([final]);
+  // The checkmate hold: the check draws in at the landing, the lines stand 600 ms, then the card and the fall.
+  expect(board.checks).toEqual([final]);
+  board.tick(599);
+  expect([board.falls, board.scope.reading]).toEqual([[], 'normal']);
+  board.tick(1);
+  expect([board.falls, board.scope.reading, board.timers()]).toEqual([[final], 'result', 0]);
   const history = await open('alice'), entry = boardFor(history.state(), { mount: true });
   entry.scope.receiveOnline(history.state());
   expect(entry.plays).toEqual([]);
   expect(entry.falls).toEqual([]);
   expect(entry.shown()).toBe(final);
+});
+
+async function liveMate() {
+  const { light, dark } = await match({ fen: '7k/p7/5KQ1/8/8/8/8/8 w - - 0 1', kings: 'none,none' });
+  const board = boardFor(dark.state());
+  board.hold();
+  dark.subscribe(board.scope.receiveOnline);
+  await send(light, [['g6', 'g7']]);
+  await dark.refresh();
+  return { dark, board };
+}
+
+it('a live checkmate whose playback waits on a hidden page shows the card at once', async () => {
+  const { dark, board } = await liveMate();
+  expect(board.scope.reading).toBe('normal');
+  board.hide();
+  expect([board.scope.reading, board.falls, board.timers()]).toEqual(['result', [toFen(dark.state().position!)], 0]);
+});
+
+it('a live checkmate whose playback never ends shows the card 3 s after the mate arrives', async () => {
+  const { dark, board } = await liveMate();
+  board.tick(2999);
+  expect(board.scope.reading).toBe('normal');
+  board.tick(1);
+  expect([board.scope.reading, board.falls, board.timers()]).toEqual(['result', [toFen(dark.state().position!)], 0]);
+});
+
+it('a lost connection or a repeated revision during the hold keeps the card back; one hold, then one card', async () => {
+  const { dark, board } = await liveMate();
+  board.complete();
+  await settle();
+  board.scope.receiveOnline({ ...dark.state(), connection: 'offline' });
+  board.scope.receiveOnline(dark.state());
+  expect([board.scope.reading, board.falls]).toEqual(['normal', []]);
+  board.tick(600);
+  expect([board.scope.reading, board.falls.length, board.timers()]).toEqual(['result', 1, 0]);
+});
+
+it('leaving the game during the hold leaves no timer and opens no card', async () => {
+  const { board } = await liveMate();
+  board.complete();
+  await settle();
+  (board.scope.endResult as unknown as () => void)();
+  expect(board.timers()).toBe(0);
+  board.tick(5000);
+  expect([board.scope.reading, board.falls]).toEqual(['normal', []]);
+});
+
+it('a live check draws in when the playback shows it; a manual Replay shows it at once', async () => {
+  const { light, dark } = await match({ fen: '7k/p7/8/8/8/8/8/3Q2K1 w - - 0 1', kings: 'none,none' });
+  const board = boardFor(dark.state());
+  dark.subscribe(board.scope.receiveOnline);
+  await send(light, [['d1', 'd4']]);
+  await dark.refresh();
+  await settle();
+  expect(board.checks).toEqual([toFen(dark.state().position!)]);
+  board.scope.undoOrReplay();
+  await settle();
+  expect([board.plays, board.checks.length]).toEqual([['d1 d4', 'd1 d4'], 1]);
 });

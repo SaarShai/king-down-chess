@@ -79,6 +79,21 @@ it('fills the last squares, marks all four check corners and draws a flake over 
   expect(ctx.ellipse).not.toHaveBeenCalled();
 });
 
+it('draws a threat line from each checking piece to the edge of the king square, and grows it with the check progress', () => {
+  // Rook a1 checks the king on a3; knight c2 jumps to it on an arc.
+  const threats = [{ sq: 0, king: 16, path: 'straight' as const }, { sq: 10, king: 16, path: 'arc' as const }];
+  const ends = (progress?: number) => {
+    const { ctx } = draw({ ...emptyMarks(), check: 16, threats, ...(progress != null && { checkProgress: progress }) });
+    return { lines: ctx.lineTo.mock.calls.filter(([x]) => x === 37.5).map(([, y]) => y), arcs: ctx.lineTo.mock.calls.length };
+  };
+  // At rest the rook line ends on the check tile of a3 (its bottom edge, 446.25); a reload or reduced motion has no progress.
+  const foot = (7 + .77) * 75, edge = 6 * 75 - .05 * 75;
+  expect(ends().lines.at(-1)).toBeCloseTo(edge);
+  expect(ends(.5).lines.at(-1)).toBeCloseTo(foot - (foot - edge) / 2);
+  expect(ends(.5).arcs).toBeLessThan(ends().arcs);
+  expect(ends(0).arcs).toBe(draw({ ...emptyMarks(), check: 16 }).ctx.lineTo.mock.calls.length);
+});
+
 // The two stone tones of the play board, the median of an empty a5 and b5 in the 1280x800 build (docs/specs/gui-fx/capture.mjs).
 const STONE = { light: '#dfd6b9', dark: '#a3a397' };
 it('gives each mark kind an edge that reads at 3:1 or more on both stone tones', () => {
@@ -88,6 +103,7 @@ it('gives each mark kind an edge that reads at 3:1 or more on both stone tones',
     staged: { ...emptyMarks(), paths: [{ squares: [0, 8], color: PLAIN.move }], steps: [{ square: 8, number: 1 }] },
     shelter: kind(PLAIN.holy, { role: 'state' }), freeze: kind(PLAIN.ice, { frost: true }), ice: kind(PLAIN.ice, { role: 'state', size: 1.25 }),
     ember: kind(PLAIN.ember), shadow: kind(PLAIN.shadow), friend: kind(PLAIN.friend, { dash: [5, 5] }), check: { ...emptyMarks(), check: 0 },
+    threat: { ...emptyMarks(), threats: [{ sq: 0, king: 16, path: 'straight' }] },
   };
   const reads = Object.fromEntries(Object.entries(kinds).map(([name, marks]) => {
     const inks: string[] = [];

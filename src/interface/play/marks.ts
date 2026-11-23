@@ -2,6 +2,7 @@ import { A, G, K, L, P, S, colorOf, findKing, typeOf, type Color, type Move, typ
 import type { GameRules } from '../../game-rules';
 import { boardStates } from '../../render/effects/states';
 import { PLAIN as C, emptyMarks, type PlainMarks, type PlainRing } from '../../render/plain-marks';
+import { checkersOf } from '../../move-text';
 import { targetOf } from './turn';
 
 export interface MarkAction { before: Position; move: Move }
@@ -81,19 +82,23 @@ export function kingSquare(history: readonly { pos: Position }[], side: Color): 
 /** Current state supplies lasting marks. These end only when the engine ends the state. */
 export function stateMarks(rules: GameRules, pos: Position): PlainMarks {
   const out = emptyMarks();
-  const king = rules.inCheck(pos) ? findKing(pos.board, pos.turn) : -1;
+  // Haste: after the first move the side that does not move now can be in check.
+  const other = { ...pos, turn: (pos.turn ^ 1) as Color }, checked = rules.inCheck(pos) ? pos : pos.haste !== undefined && rules.inCheck(other) ? other : undefined;
+  const king = checked ? findKing(checked.board, checked.turn) : -1;
+  const threats = checked && king >= 0 ? checkersOf(rules, checked) : [];
   if (king >= 0) out.check = king;
+  if (threats.length) out.threats = threats;
   for (const state of boardStates(rules, pos)) ring(out, pos, state.sq, state.kind === 'holy-light' || state.kind === 'mercy' ? C.holy : C.ice, 'state', state.kind === 'holy-light' ? 1.1 : 1.25);
   return out;
 }
 export function mergeMarks(...marks: PlainMarks[]): PlainMarks {
   const rings = marks.flatMap(m => m.rings);
-  const check = marks.find(m => m.check != null)?.check;
+  const check = marks.find(m => m.check != null)?.check, threats = marks.find(m => m.threats)?.threats;
   const shadows = marks.flatMap(m => m.shadows ?? []);
   // The selected mark stays over a protection ring on the same square.
   return {
     rings: [...rings.filter(r => r.role !== 'actor'), ...rings.filter(r => r.role === 'actor')],
     paths: marks.flatMap(m => m.paths), steps: marks.flatMap(m => m.steps),
-    ...(shadows.length > 0 && { shadows }), ...(check != null && { check }),
+    ...(shadows.length > 0 && { shadows }), ...(check != null && { check }), ...(threats && { threats }),
   };
 }

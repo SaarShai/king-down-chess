@@ -64,10 +64,19 @@ it('Haste: one route has two steps; after the first step only number 2 remains',
 it('Check: marks the king square until the king is safe, including double check', () => {
   const f = fixture('7k/7p/8/8/8/2b5/r7/K7 w - - 0 1');
   const state = stateMarks(f.rules, f.pos);
-  expect(state).toEqual({ check: sq('a1'), rings: [], paths: [], steps: [] });
-  expect(mergeMarks(state).check).toBe(sq('a1'));
-  const move = f.move('a1', 'b1');
-  expect(stateMarks(f.rules, f.rules.makeMove(f.pos, move)).check).toBeUndefined();
+  // Double check: a threat line from each checking piece to the king.
+  const threats = [{ sq: sq('a2'), king: sq('a1'), path: 'straight' }, { sq: sq('c3'), king: sq('a1'), path: 'straight' }];
+  expect(state).toEqual({ check: sq('a1'), threats, rings: [], paths: [], steps: [] });
+  expect(mergeMarks(state)).toMatchObject({ check: sq('a1'), threats });
+  const move = f.move('a1', 'b1'), safe = stateMarks(f.rules, f.rules.makeMove(f.pos, move));
+  expect(safe.check).toBeUndefined();
+  expect(safe.threats).toBeUndefined();
+  expect(mergeMarks(safe).threats).toBeUndefined();
+});
+it('Check: one line for a rook from afar, an arc for a knight jump', () => {
+  const rook = fixture('r6k/8/8/8/8/8/8/K7 w - - 0 1'), knight = fixture('7k/8/8/8/8/1n6/8/K7 w - - 0 1');
+  expect(stateMarks(rook.rules, rook.pos).threats).toEqual([{ sq: sq('a8'), king: sq('a1'), path: 'straight' }]);
+  expect(stateMarks(knight.rules, knight.pos).threats).toEqual([{ sq: sq('b3'), king: sq('a1'), path: 'arc' }]);
 });
 it('Last move: the route and result remain independent of a new selection', () => {
   const f=fixture('7k/7p/8/8/8/8/P7/K7 w - - 0 1'),m=f.move('a2','a3'),after=f.rules.makeMove(f.pos,m),actions=[{before:f.pos,move:m}];
@@ -157,4 +166,11 @@ it('Result: a taken king has the square where it was taken', () => {
   const f = fixture('7k/7R/8/8/8/8/8/K7 w - - 0 1'), m = f.move('h7', 'h8');
   expect(kingSquare([{ pos: f.pos }], 1)).toBe(sq('h8'));
   expect(kingSquare([{ pos: f.pos }, { pos: f.rules.makeMove(f.pos, m) }], 1)).toBe(sq('h8'));
+});
+it('Haste: a check on the side that does not move now shows its square and threat line', () => {
+  const f = fixture('4k3/8/8/8/8/8/8/R3K3 w - - 0 1', { kings: [{ king: 'Flame', power: 'Haste' }, null] });
+  const after = f.rules.makeMove(f.pos, f.move('a1', 'a8', m => m.power === 'haste')), marks = stateMarks(f.rules, after);
+  expect(after.turn).toBe(f.pos.turn);
+  expect(marks.check).toBe(sq('e8'));
+  expect(marks.threats).toEqual([expect.objectContaining({ sq: sq('a8'), king: sq('e8'), path: 'straight' })]);
 });
