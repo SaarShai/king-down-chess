@@ -519,7 +519,8 @@ export class PaintedView implements BoardView {
 
   private drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row?: number): void {
     const { PAD, TILE } = scene, m = this.marks;
-    if (this.options.plainMarks && layer === 'under') {
+    // Move dots go over the last row of figures: a large figure on the square in front would hide them.
+    if (this.options.plainMarks && (layer === 'under' || row === 7)) {
       const now = performance.now(), pixel = 960 / Math.max(1, this.width);
       const route = this.plainRouteFade;
       const routeOpacity = route ? 1 - (now - route.at) / PLAIN_FADE_MS : 1;
@@ -537,7 +538,9 @@ export class PaintedView implements BoardView {
       });
       const paths = route && routeOpacity > 0 ? route.paths : this.plainMarks.paths;
       const steps = route && routeOpacity > 0 ? route.steps : this.plainMarks.steps;
-      drawPlainMarks(ctx, scene, { ...this.plainMarks, rings: [...fading, ...rings], paths, steps }, pixel, routeOpacity > 0 ? routeOpacity : 1);
+      const all = [...fading, ...rings], dot = (ring: PlainRing) => ring.shape === 'dot';
+      if (layer === 'over') drawPlainMarks(ctx, scene, { ...emptyMarks(), rings: all.filter(dot) }, pixel);
+      else drawPlainMarks(ctx, scene, { ...this.plainMarks, rings: all.filter(ring => !dot(ring)), paths, steps }, pixel, routeOpacity > 0 ? routeOpacity : 1);
     }
     if (!this.options.plainMarks && layer === 'under') {
       const box = (sq: number) => { const c = scene.cell(sq); return { x: PAD + c.col * TILE, y: PAD + c.row * TILE }; };

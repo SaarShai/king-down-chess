@@ -16,13 +16,16 @@ function color(rules: GameRules, pos: Position, m: Move, target: number): string
   if (enemy && (typeOf(pos.board[m.from]) === K && m.from === m.to || typeOf(pos.board[m.from]) === P && rules.rules.kings[pos.turn]?.power === 'Darkness')) return C.shadow;
   return m.swap ? C.friend : enemy ? C.enemy : C.move;
 }
-// A power, a card, a swap or a drop is special; colour alone does not tell it from a move or a capture.
-const shape = (pos: Position, m: Move, target: number): PlainRing['shape'] =>
-  m.power || m.swap || m.drop !== undefined ? 'special' : pos.board[target] && colorOf(pos.board[target]) !== pos.turn ? 'capture' : 'dot';
+// What happens on the square sets the shape: any capture (a card's too) is a broken ring; a push, a castle, a swap,
+// a drop or a quiet power is special. A square that offers both shows both.
+function shape(moves: readonly Move[]): PlainRing['shape'] {
+  const capture = moves.some(m => m.captures.length), special = moves.some(m => !m.captures.length && (m.power || m.swap || m.drop !== undefined || m.shove || m.pushes?.length || m.castle));
+  return capture && special ? 'both' : capture ? 'capture' : special ? 'special' : 'dot';
+}
 
 
-/** Legal actions supply every target. Focus supplies only one route, never a new game choice. */
-export function previewMarks(rules: GameRules, pos: Position, moves: readonly Move[], focus?: number, bites: readonly number[] = [], selected?: number): PlainMarks {
+/** Legal actions supply every target. Focus supplies only one route, never a new game choice. Playback (shaped false) keeps plain rings. */
+export function previewMarks(rules: GameRules, pos: Position, moves: readonly Move[], focus?: number, bites: readonly number[] = [], selected?: number, shaped = true): PlainMarks {
   const out = emptyMarks();
   if (!moves.length) {
     if (selected != null && pos.board[selected] && typeOf(pos.board[selected]) !== G) ring(out, pos, selected, C.actor, 'actor', 1.1);
@@ -31,10 +34,11 @@ export function previewMarks(rules: GameRules, pos: Position, moves: readonly Mo
   const target = (m: Move) => typeOf(pos.board[m.from]) === S && m.captures.length ? m.captures[bites.length] : targetOf(m);
   const focused = moves.filter(m => target(m) === focus), route = (focused.length ? focused : moves).reduce((a, b) => b.captures.length > a.captures.length ? b : a);
   const t = target(route), actor = bites.at(-1) ?? route.from, c = color(rules, pos, route, t);
-  const direct = route.from === route.to && !route.captures.length;
+  const direct = route.from === route.to && !route.captures.length, haste = pos.haste !== undefined && pos.rage !== 3, later = shaped && haste;
   for (const square of new Set(moves.map(target).filter(sq => sq !== undefined))) {
     const m = moves.find(m => target(m) === square)!;
-    ring(out, pos, square, color(rules, pos, m, square), square === t ? 'focus' : 'target', square === t ? 1.25 : .9, undefined, shape(pos, m, square));
+    // A Haste second step: a dashed diamond, as in the route preview.
+    ring(out, pos, square, color(rules, pos, m, square), square === t ? 'focus' : 'target', square === t ? 1.25 : .9, later ? [5, 5] : undefined, later ? 'special' : shaped ? shape(moves.filter(m => target(m) === square)) : undefined);
     if (m.power === 'freeze') out.rings.at(-1)!.frost = true;
   }
   if (!direct && typeOf(pos.board[actor]) !== G) ring(out, pos, actor, C.actor, 'actor', 1.1);
@@ -45,11 +49,11 @@ export function previewMarks(rules: GameRules, pos: Position, moves: readonly Mo
     const rest = route.captures.slice(bites.length); path(out, [actor, ...rest], C.enemy);
     rest.slice(1).forEach(sq => ring(out, pos, sq, C.enemy, 'target', .9, [5, 5]));
   } else if (!direct) {
-    const haste = route.power === 'haste' || pos.haste !== undefined && pos.rage !== 3;
+    const steps = route.power === 'haste' || haste;
     let second: Move | undefined;
     if (route.power === 'haste') { const next = rules.makeMove(pos, route); second = rules.legalMoves(next).find(m => !m.pass && m.from === route.to); }
     path(out, [actor, t, ...(second ? [second.to] : [])], c, typeOf(pos.board[route.from]) === L || typeOf(pos.board[route.from]) === A && route.from === route.to);
-    if (haste) { out.steps.push({ square: t, number: route.power === 'haste' ? 1 : 2 }); if (second) { ring(out, pos, second.to, C.move, 'target', .9, [5, 5], 'special'); out.steps.push({ square: second.to, number: 2 }); } }
+    if (steps) { out.steps.push({ square: t, number: route.power === 'haste' ? 1 : 2 }); if (second) { ring(out, pos, second.to, C.move, 'target', .9, [5, 5], shaped ? 'special' : undefined); out.steps.push({ square: second.to, number: 2 }); } }
   }
   return out;
 }

@@ -182,8 +182,6 @@ it('gives each target kind its own shape: a dot to move, a broken ring to captur
   expect(shapes(previewMarks(darkness.rules, darkness.pos, darkness.rules.legalMoves(darkness.pos).filter(m => m.from === sq('e2'))))[sq('e3')]).toBe('capture');
   const swap = fixture('7k/7p/8/8/3MP3/8/8/K7 w - - 0 1');
   expect(shapes(previewMarks(swap.rules, swap.pos, [swap.move('d4', 'e4', m => !!m.swap)]))[sq('e4')]).toBe('special');
-  const burn = fixture('7k/7p/8/8/3p4/8/3N4/K7 w - - 0 1', { hands: [['Burn'], []] });
-  expect(shapes(previewMarks(burn.rules, burn.pos, [burn.move('d2', 'd4', m => m.power === 'burn')]))[sq('d4')]).toBe('special');
   const guard = fixture('7k/7p/8/8/8/8/P7/K7 w - - 0 1 g1.0', { guardReserve: 'any' }), drop = guard.rules.legalMoves(guard.pos).find(m => m.drop === G)!;
   expect(shapes(previewMarks(guard.rules, guard.pos, [drop]))[drop.to]).toBe('special');
   // Haste: the second step is a special target too, dashed because it comes later.
@@ -192,4 +190,32 @@ it('gives each target kind its own shape: a dot to move, a broken ring to captur
   // A card that waits for its piece: the pieces it can use are special targets.
   const flight = fixture('7k/7p/8/8/8/8/P7/K7 w - - 0 1', { kings: [{ king: 'Stratus', power: 'Flight' }, null] });
   expect(actorMarks(flight.pos, flight.rules.legalMoves(flight.pos).filter(m => m.power === 'flight')).rings.map(r => r.shape)).toEqual(['special']);
+});
+it('shapes follow what happens on the square: any capture is a broken ring; a push, a castle and a quiet power are special; both cues where a square offers both', () => {
+  const shapes = (p: ReturnType<typeof previewMarks>) => Object.fromEntries(p.rings.filter(r => r.role !== 'actor' && r.role !== 'landing').map(r => [r.square, r.shape]));
+  const passant = fixture('7k/7p/8/3pP3/8/8/8/K7 w - d6 0 1', { classicChess: true });
+  expect(shapes(previewMarks(passant.rules, passant.pos, [passant.move('e5', 'd6')]))[sq('d6')]).toBe('capture');
+  const burn = fixture('7k/7p/8/8/3p4/8/3N4/K7 w - - 0 1', { hands: [['Burn'], []] });
+  expect(shapes(previewMarks(burn.rules, burn.pos, [burn.move('d2', 'd4', m => m.power === 'burn')]))[sq('d4')]).toBe('capture');
+  const flight = fixture('7k/7p/8/8/2p5/8/8/K1N5 w - - 0 1', { kings: [{ king: 'Stratus', power: 'Flight' }, null] });
+  expect(shapes(previewMarks(flight.rules, flight.pos, [flight.move('c1', 'd3', m => m.power === 'flight')]))[sq('d3')]).toBe('special');
+  const ogre = fixture('7k/7p/8/4p3/3O4/2P5/8/K7 w - - 0 1'), pushes = shapes(previewMarks(ogre.rules, ogre.pos, ogre.rules.legalMoves(ogre.pos).filter(m => m.from === sq('d4'))));
+  expect(pushes[sq('c3')]).toBe('special');
+  expect(pushes[sq('e5')]).toBe('both');
+  const castle = fixture('7k/7p/8/8/8/8/8/4K2R w K - 0 1', { classicChess: true });
+  expect(shapes(previewMarks(castle.rules, castle.pos, castle.rules.legalMoves(castle.pos).filter(m => !!m.castle)))).toEqual({ [sq('g1')]: 'special' });
+  // Haste, after the first step: each second step is a dashed diamond.
+  const haste = fixture('7k/7p/8/8/8/8/7P/KN6 w - - 0 1', { kings: [{ king: 'Flame', power: 'Haste' }, null] }), next = haste.rules.makeMove(haste.pos, haste.move('b1', 'c3', m => m.power === 'haste'));
+  const second = previewMarks(haste.rules, next, haste.rules.legalMoves(next).filter(m => !m.pass && m.from === sq('c3'))).rings.filter(r => r.role !== 'actor');
+  expect(second.length).toBeGreaterThan(0);
+  expect(second.every(r => r.shape === 'special' && r.dash?.join() === '5,5')).toBe(true);
+});
+it('playback keeps the plain rings: no target shape, no second-step dash, the Freeze frost square', () => {
+  const f = fixture('7k/7p/8/8/8/8/4P3/K7 w - - 0 1');
+  expect(previewMarks(f.rules, f.pos, [f.move('e2', 'e4')], undefined, [], undefined, false).rings).toEqual([
+    { square: sq('e4'), color: C.move, role: 'focus', width: 1.25, size: .78 }, { square: sq('e2'), color: C.actor, role: 'actor', width: 1.1, size: 1.12 },
+  ]);
+  const haste = fixture('7k/7p/8/8/8/8/7P/KN6 w - - 0 1', { kings: [{ king: 'Flame', power: 'Haste' }, null] }), next = haste.rules.makeMove(haste.pos, haste.move('b1', 'c3', m => m.power === 'haste'));
+  const step = haste.rules.legalMoves(next).find(m => !m.pass && m.from === sq('c3'))!;
+  expect(previewMarks(haste.rules, next, [step], undefined, [], undefined, false).rings.find(r => r.square === step.to)).toEqual({ square: step.to, color: C.move, role: 'focus', width: 1.25, size: step.captures.length ? 1.12 : .78 });
 });

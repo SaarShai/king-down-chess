@@ -28,8 +28,8 @@ export interface PlainRing {
   square: number; color: string; width?: number; size?: number; dash?: number[];
   role: 'actor' | 'target' | 'focus' | 'landing' | 'trail' | 'state';
   frost?: true;
-  /** A target's shape, so that it reads without colour: a dot to move, a broken ring to capture, a diamond for a special action. No shape: a ring. */
-  shape?: 'dot' | 'capture' | 'special';
+  /** A target's shape, so that it reads without colour: a dot to move, a broken ring to capture, a diamond for a special action, both for a square with both. No shape: a ring. */
+  shape?: 'dot' | 'capture' | 'special' | 'both';
 }
 export interface PlainPath { squares: number[]; color: string; arc?: boolean; dash?: number[] }
 export interface PlainMarks {
@@ -166,16 +166,17 @@ export function drawPlainMarks(ctx: CanvasRenderingContext2D, scene: Pick<Painte
     const sweep = ring.sweep ?? 1, opacity = ring.opacity ?? 1;
     if (sweep <= 0 || opacity <= 0) continue;
     const brush = brushes.get(ring.color) ?? PAINT.move;
-    const k = ring.size ?? 1, rx = .4 * s * k, ry = .18 * s * k;
-    const [x, y] = point(ring.square, .79);
-    const width = s * (ring.color === PLAIN.ice && ring.role === 'focus' ? .062 : k < 1 ? .036 : .046);
+    const k = ring.size ?? 1, width = s * (ring.color === PLAIN.ice && ring.role === 'focus' ? .062 : k < 1 ? .036 : .046);
+    // A shape and its keyline stay inside the square: narrower if needed, and lifted off the lower edge.
+    const pad = ring.shape ? (width + key) / 2 : 0, rx = Math.min(.4 * s * k, ring.shape ? .5 * s - pad : Infinity), ry = .18 * s * k;
+    const [x, foot] = point(ring.square, .79), y = ring.shape ? Math.min(foot, box(ring.square)[1] + s - ry - pad) : foot;
     ctx.save(); ctx.globalAlpha *= opacity;
-    if (ring.frost) {
+    if (ring.frost && !ring.shape) {
       drawFrostTarget(ctx, ...box(ring.square), s, sweep);
       ctx.restore();
       continue;
     }
-    if (ring.shape === 'dot' || ring.shape === 'special') {
+    if (ring.shape === 'dot' || ring.shape === 'special' || ring.shape === 'both') {
       const grow = .5 + .5 * sweep, [a, b] = ring.shape === 'dot' ? [.2 * s * k * grow, .12 * s * k * grow] : [rx * grow, ry * grow];
       if (ring.shape === 'dot') {
         for (const [ink, more] of [[KEYLINE, key / 2], [pigment(ctx, brush, y - b, y + b), 0]] as const) {
@@ -186,8 +187,8 @@ export function drawPlainMarks(ctx: CanvasRenderingContext2D, scene: Pick<Painte
         if (ring.dash?.length) ctx.lineCap = 'butt';
         stroke(brush, width, y - b, y + b, ring.dash ?? [], () => { ctx.moveTo(x - a, y); ctx.lineTo(x, y - b); ctx.lineTo(x + a, y); ctx.lineTo(x, y + b); ctx.closePath(); });
       }
-      ctx.restore();
-      continue;
+      // Both: the diamond corners sit in the gaps of the broken ring drawn next.
+      if (ring.shape !== 'both') { ctx.restore(); continue; }
     }
     if (k < 1 && ring.color === PLAIN.move) {
       ctx.save(); ctx.translate(x, y); ctx.scale(1, ry / rx);
@@ -213,7 +214,7 @@ export function drawPlainMarks(ctx: CanvasRenderingContext2D, scene: Pick<Painte
       }
       ctx.closePath();
       const ink = edge ? KEYLINE : pigment(ctx, brush, y - ry, y + ry);
-      if (ring.shape === 'capture') {
+      if (ring.shape === 'capture' || ring.shape === 'both') {
         // Four arcs on the diagonals. The keyline arcs are a little longer, so the keyline also closes each end.
         ctx.clip(); ctx.beginPath();
         const half = .45 + (edge ? key / ry / 2 : 0);
