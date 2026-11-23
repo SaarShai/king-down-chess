@@ -18,7 +18,7 @@ function screen({ online = false, free = false, end = 'playing' } = {}) {
   const scope: Record<string, unknown> = {
     seal, edgeLight, cue: noop, pulse: noop, later: noop, streak: noop, at: noop, onFrame: noop,
     controls: { finish: { dataset: plate.dataset, style } }, sealing: [], SEAL_MS: 420, tween: () => ({ cancel: noop }), detail: { querySelectorAll: () => [] },
-    screen: { dataset: {} }, beat: undefined, generation: 0, boardReplay: { play: () => Promise.resolve() }, gameDialog: undefined, resignDialog: undefined, seatRings: [{}, {}], nodes: { state: {}, title: {} },
+    screen: { dataset: {} }, beat: undefined, casting: undefined, generation: 0, boardReplay: { play: () => Promise.resolve() }, gameDialog: undefined, resignDialog: undefined, seatRings: [{}, {}], nodes: { state: {}, title: {} },
     onlineActive: online, people: { controller: { send: async () => true } },
     gameHelp: undefined, arrangement: undefined, ended: false, thinking: false, choice: [], writer: { blocked: false }, playingAction: null, fault: null,
     freeText: () => free ? 'Haste is spent. Move again, or End turn.' : '',
@@ -78,4 +78,14 @@ it('keeps the brass plate and its shade for the seal only: an End turn with no s
   passTurn(true, false);
   expect(plate.dataset.sealed).toBeUndefined();
   expect(plate.style.size).toBe(0);
+});
+
+it('an online Send clears the card beat and the landing that has not come yet: the seal has the moment', async () => {
+  const { scope, finish } = screen({ online: true });
+  const cast = vi.fn(), action = { before: {}, move: {} };
+  Object.assign(scope, { casting: { cancel: cast, finish: () => {} }, playingAction: action });
+  await finish();
+  expect(cast).toHaveBeenCalledOnce();
+  // The landing starts a beat only while its action plays (main.ts animate).
+  expect(scope.playingAction).toBeNull();
 });

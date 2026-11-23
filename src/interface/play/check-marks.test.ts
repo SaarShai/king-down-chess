@@ -24,7 +24,7 @@ function screen(pos: Position, { ended = false, rules: context = rules } = {}) {
     arrangement: undefined, ended, draft, selected: null, thinking: false, playingAction: null, nextMarksAt: 0, performance: { now: () => 0 },
     game: { pos, context }, actorMarks, previewMarks, mergeMarks, resultMarks, stateMarks, isDirect: () => true, markFocus: undefined,
     routeLine: () => '', stateDescriptions: () => [], player: 0, cpu: () => 1, detail: { querySelector: () => null }, cells: [], lastActions: [], checkPulse: null,
-    checkShown: false, cancelCheckPulse: noop, endSeal: noop, beat: undefined, refuse: noop,
+    checkShown: false, cancelCheckPulse: noop, endSeal: noop, beat: undefined, casting: undefined, castBeat: noop, refuse: noop,
     finalCheckCue: (p: Position) => checks.push(`cue ${p.turn}`), drawCheckIn: (p: Position) => checks.push(`draw ${p.turn}`),
   };
   runInNewContext(page, scope, { filename: filename.pathname });

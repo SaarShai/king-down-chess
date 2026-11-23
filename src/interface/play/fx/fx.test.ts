@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { beatAt, BEAT_MS, burst, closeIn, closeAt, CLOSE_MS, ease, edgeLight, hold, later, onFrame, pulse, seal, sealAt, SEAL_MS, setFxMotion, setPauseHook, setVibration, shake, sound, Spring, startFx, streak, strike, tween } from './index';
+import { beatAt, BEAT_MS, burst, castAt, castIn, CAST_MS, closeIn, closeAt, CLOSE_MS, ease, edgeLight, hold, later, onFrame, pulse, seal, sealAt, SEAL_MS, setFxMotion, setPauseHook, setVibration, shake, sound, Spring, startFx, streak, strike, tween } from './index';
 
 let now: number, id: number, pending: Map<number, FrameRequestCallback>;
 
@@ -246,6 +246,75 @@ describe('Checkmate beat', () => {
   it('draws nothing in reduced motion', () => {
     setFxMotion('normal', true);
     closeIn({ left: 0, top: 0, width: 80, height: 80 });
+    expect(pending.size).toBe(0);
+  });
+});
+
+describe('Cast beat', () => {
+  it('arrives, glints and leaves the board plain in one beat of 350 to 500 ms', () => {
+    expect(CAST_MS).toBeGreaterThanOrEqual(350);
+    expect(CAST_MS).toBeLessThanOrEqual(500);
+    expect(castAt(0)).toMatchObject({ arrive: 0, glint: 0, fade: 1 });
+    expect(castAt(160).arrive).toBe(1);
+    expect(castAt(CAST_MS).fade).toBe(0);
+  });
+
+  it('draws each family at its tiles, stops when a tile leaves the page and clears when reduced motion comes on', async () => {
+    const drawing = new Proxy({ fill: vi.fn(), stroke: vi.fn(), clearRect: vi.fn() } as Record<string, unknown>, { get: (o, key: string) => o[key] ?? (() => ({ addColorStop() {} })) });
+    const canvas = { parentElement: null, getContext: () => drawing, setAttribute() {}, style: {}, width: 0, height: 0 };
+    vi.stubGlobal('document', { createElement: () => canvas, body: { append() {} }, querySelector: () => null });
+    vi.stubGlobal('window', { innerWidth: 1280, innerHeight: 800, devicePixelRatio: 1, scrollX: 0, scrollY: 0 });
+    vi.resetModules();
+    const fx = await import('./index');
+    fx.setFxMotion('normal', false);
+    let width = 80;
+    const tile = (left: number) => ({ getBoundingClientRect: () => ({ left, top: 100, width, height: width, right: left + width, bottom: 100 + width }) }) as Element;
+    const text = () => [tile(600)];
+    const marks = () => (drawing.fill as ReturnType<typeof vi.fn>).mock.calls.length + (drawing.stroke as ReturnType<typeof vi.fn>).mock.calls.length;
+    for (const family of ['shift', 'trade', 'ward', 'change', 'quake', 'rule'] as const) {
+      const before = marks();
+      const effect = fx.castIn(family, [tile(100), tile(180), tile(260)], text);
+      advance(120);
+      expect(marks(), family).toBeGreaterThan(before);
+      effect.cancel();
+    }
+    fx.castIn('ward', [tile(100)], text);
+    advance(16);
+    width = 0; // the game screen has gone (exit to home)
+    const gone = marks();
+    advance(16);
+    expect(marks()).toBe(gone);
+    width = 80;
+    fx.setFxMotion('normal', true);
+    (drawing.clearRect as ReturnType<typeof vi.fn>).mockClear();
+    const after = marks();
+    advance(16);
+    expect(marks()).toBe(after);
+    expect(pending.size).toBe(0);
+  });
+
+  it('draws the path of a piece an Ogre pushes, and a ring on each piece a Firewall protects', async () => {
+    const arc = vi.fn(), drawing = new Proxy({ fill: vi.fn(), stroke: vi.fn(), arc } as Record<string, unknown>, { get: (o, key: string) => o[key] ?? (() => ({ addColorStop() {} })) });
+    const canvas = { parentElement: null, getContext: () => drawing, setAttribute() {}, style: {}, width: 0, height: 0 };
+    vi.stubGlobal('document', { createElement: () => canvas, body: { append() {} }, querySelector: () => null });
+    vi.stubGlobal('window', { innerWidth: 1280, innerHeight: 800, devicePixelRatio: 1, scrollX: 0, scrollY: 0 });
+    vi.resetModules();
+    const fx = await import('./index');
+    fx.setFxMotion('normal', false);
+    const tiles = (...lefts: number[]) => lefts.map(left => ({ getBoundingClientRect: () => ({ left, top: 100, width: 80, height: 80, right: left + 80, bottom: 180 }) }) as Element);
+    const marks = () => (drawing.fill as ReturnType<typeof vi.fn>).mock.calls.length + (drawing.stroke as ReturnType<typeof vi.fn>).mock.calls.length;
+    const count = (family: 'shift' | 'ward', boxes: Element[]) => { const before = marks(), effect = fx.castIn(family, boxes, () => []); advance(120); effect.cancel(); return marks() - before; };
+    arc.mockClear();
+    count('ward', tiles(100, 180, 260));
+    // Each ring centres on its piece's tile (left + 40); thin rings have no rivets.
+    expect(new Set(arc.mock.calls.map(([x]) => x))).toEqual(new Set([140, 220, 300]));
+    expect(count('shift', tiles(100, 180, 260, 340))).toBeGreaterThan(count('shift', tiles(100, 180)));
+  });
+
+  it('draws nothing in reduced motion', () => {
+    setFxMotion('normal', true);
+    const box = { getBoundingClientRect: () => ({ left: 0, top: 0, width: 80, height: 80, right: 80, bottom: 80 }) } as Element;
+    castIn('quake', [box, box], () => []);
     expect(pending.size).toBe(0);
   });
 });

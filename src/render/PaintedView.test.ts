@@ -533,6 +533,21 @@ it.each([false, true])('draws Painted marks only below figures, including symbol
   view.dispose();
 });
 
+it('draws move dots after the last row of figures, so a large figure (an Ogre) does not hide them', async () => {
+  const container = stubDom(), { PaintedView } = await import('./PaintedView');
+  const view = new PaintedView(container as unknown as HTMLElement, { plainMarks: true });
+  view.sync(fromFen('7k/7p/8/8/3O4/8/8/K7 w - - 0 1'));
+  view.setReducedMotion(true);
+  view.setPlainMarks({ ...emptyMarks(), rings: [{ square: 35, color: PLAIN.move, size: .78, role: 'target', shape: 'dot' }, { square: 27, color: PLAIN.actor, role: 'actor' }] });
+  const ellipses: number[] = [];
+  const ctx = new Proxy({ createLinearGradient: () => ({ addColorStop() {} }), ellipse: (_x: number, _y: number, a: number) => ellipses.push(a) } as Record<string, unknown>, { get: (obj, key: string) => obj[key] ?? (() => {}) });
+  const draw = decorate.mock.lastCall![0], scene = (view as unknown as { scene: PaintedScene }).scene;
+  draw(ctx, scene, 'under'); const under = ellipses.length;
+  draw(ctx, scene, 'over', 6); expect(ellipses.length).toBe(under);
+  draw(ctx, scene, 'over', 7); expect(ellipses.length).toBe(under + 2);
+  view.dispose();
+});
+
 it('sweeps the selected ring and targets in order, keeps progress on focus, and fades on clear', async () => {
   const container = stubDom(), { PaintedView } = await import('./PaintedView');
   const view = new PaintedView(container as unknown as HTMLElement, { plainMarks: true });
