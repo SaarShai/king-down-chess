@@ -82,6 +82,10 @@ async function signedIn(context, invites, redeem, polls = {}) {
 // `reopen` presses New game again while the Back is held: the panel waits, and the game route goes first.
 const openSetup = page => page.locator('.home-summary:visible, .home-side-new:visible').first();
 const backHome = () => text.backTo(text.homeLabel);
+// The house tint of each seat (own, opponent), and the feet line: both figure boxes end on the same line.
+const seatTints = setup => setup.locator('.setup-figures').evaluate(node => `${node.dataset.own ?? ''},${node.dataset.opponent ?? ''}`);
+const tintTime = setup => setup.locator('.setup-figures').evaluate(node => getComputedStyle(node).transitionDuration);
+const feetLevel = setup => setup.locator('.setup-figure').evaluateAll(nodes => nodes.length === 2 && Math.abs(nodes[0].getBoundingClientRect().bottom - nodes[1].getBoundingClientRect().bottom) < 1);
 async function panelRace(page, context, check, action, game, { preload = false, reopen = false } = {}) {
   const invites = [{ ...invite('i1', 'ada'), game_id: game }], polls = {};
   let release; const held = new Promise(done => { release = done; });
@@ -225,7 +229,36 @@ const cases = {
       ({ src: node.querySelector('img')?.getAttribute('src') ?? '', random: node.classList.contains('setup-figure-random') })));
     check(figures.length === 2 && figures.every(figure => figure.src === '/ui/pieces/king-shadow-w.webp'), `both friend seats show the same side-less king: ${JSON.stringify(figures)}`);
     check(figures.every(figure => figure.random), 'both friend seat figures are grey');
+    check(await seatTints(setup) === ',', 'a random side has no house tint');
+    // A tint layer paints its full box on each frame of a sheet slide (WebKit CI, no GPU): no tint, no layer.
+    const tintLayers = await setup.locator('.setup-figures').evaluate(node => ['::before', '::after'].map(part => getComputedStyle(node, part).content).join() + ' ' + getComputedStyle(node).isolation);
+    check(tintLayers === 'none,none auto', `no tint draws no tint layer: ${tintLayers}`);
+    // Each extra layer under the slide costs the same CPU-only WebKit: plinths and crest are backgrounds, the row is static.
+    const stone = await setup.locator('.setup-figures, .setup-figure, .setup-vs').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).position + ' ' + getComputedStyle(node, '::before').content).join());
+    check(stone === 'static none,relative none,static none,relative none', `plinths and crest draw no layer: ${stone}`);
+    check(/^0s/.test(await tintTime(setup)), 'reduced motion: the tint has no transition');
+    check(await feetLevel(setup), 'both plinths share one baseline');
+    // At 150% text "Random side" wraps in one seat only: the plinths still share one line. A short landscape has none.
+    await page.evaluate(() => { document.documentElement.style.fontSize = '150%'; });
+    const short = page.viewportSize().height <= 500;
+    const plinths = await setup.locator('.setup-figure').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).backgroundImage.slice(0, 8)));
+    check(plinths.every(image => image === (short ? 'none' : 'url("dat')), `a short landscape has no plinth: ${plinths}`);
+    check(short || await feetLevel(setup), 'both plinths share one baseline at 150% text');
+    await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
     await shot(page, 'friend-side');
+  },
+  async seat_tint(page, context, check) {
+    // A known king has a quiet house tint only with Powers on. The tint changes in 180 ms (friend_side: reduced motion has none).
+    await page.goto(NEXT); await page.waitForSelector('.play-home');
+    await openSetup(page).click();
+    const setup = page.locator('dialog.new-game-panel[open]'), powers = setup.getByRole('switch', { name: 'Powers', exact: true });
+    if (await powers.getAttribute('aria-checked') !== 'true') await powers.click();
+    const own = await setup.locator('#setup-own-king').innerText();
+    check(new RegExp(await seatTints(setup).then(t => t.split(',')[0]), 'i').test(own) && /^\w+,$/.test(await seatTints(setup)), `Powers on tints the known king only: ${await seatTints(setup)} for ${own}`);
+    check(await feetLevel(setup), 'both plinths share one baseline');
+    check(/^0\.18s/.test(await tintTime(setup)), `the tint changes in 180 ms: ${await tintTime(setup)}`);
+    await powers.click();
+    check(await seatTints(setup) === ',', 'Powers off removes the tint');
   },
   async panel_refresh(page, context, check) {
     // A signed-in player opens New game; a new invite arrives through the home poll and redraws Play. The open panel,
@@ -505,7 +538,7 @@ try {
     ? ['320x568', '360x640', '390x844', '667x375'] : sizes;
   for (const size of list) for (const [name, run] of Object.entries(cases)) {
     if (only && !only.includes(name)) continue;
-    const [width, height] = size.split('x').map(Number), context = await browser.newContext({ viewport: { width, height }, reducedMotion: ['guide', 'home_art'].includes(name) ? 'no-preference' : 'reduce' });
+    const [width, height] = size.split('x').map(Number), context = await browser.newContext({ viewport: { width, height }, reducedMotion: ['guide', 'home_art', 'seat_tint'].includes(name) ? 'no-preference' : 'reduce' });
     const page = await context.newPage(), failures = [], errors = [];
     page.setDefaultTimeout(12000);
     const trapped = trapErrors(page);

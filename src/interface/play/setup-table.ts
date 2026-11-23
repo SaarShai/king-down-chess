@@ -121,6 +121,8 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     const node = friend ? el('div', 'setup-seat setup-seat-static') : openControl(name, own ? 'king' : 'opponent', 'setup-seat');
     // A friend game with Powers off has no side: both seats show one grey king.
     const randomSide = !king && opponent === 'person' && (own || !hasPowers(draft.setup));
+    // A known king gets its house tint only with Powers on. The tint sits on the lasting row, so a change can fade.
+    match.dataset[own ? 'own' : 'opponent'] = king && hasPowers(draft.setup) ? king.king.toLowerCase() : '';
     const figure = art.figure(K, side, { kings: [null, null] }); figure.alt = '';
     if (king) figure.src = `/ui/kings/${king.king.toLowerCase()}${side ? '-b' : ''}.webp`;
     else if (randomSide) figure.src = '/ui/pieces/king-shadow-w.webp';

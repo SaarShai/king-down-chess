@@ -555,10 +555,32 @@ body > .kd-sr { inset: 0 auto auto 0; }
 }
 .setup-mode .kd-segment[aria-checked='true'] { background: var(--surface-raised); border-color: var(--divider); box-shadow: none; }
 .setup-match { display: grid; grid-template-rows: minmax(min-content, 1fr) auto; min-width: 0; }
-.setup-figures { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; width: min(100%, 590px); margin: auto auto 0; height: 100%; max-height: min(54dvh, 575px); }
+.setup-figures { position: relative; isolation: isolate; display: grid; grid-template: minmax(45px, 1fr) auto / minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; width: min(100%, 590px); margin: auto auto 0; height: 100%; max-height: min(54dvh, 575px); }
+/* A quiet house tint behind a known king, only with Powers on (data-own, data-opponent). It does not move at rest. */
+@property --own-tint { syntax: '<color>'; inherits: true; initial-value: transparent; }
+@property --opponent-tint { syntax: '<color>'; inherits: true; initial-value: transparent; }
+.setup-figures::before, .setup-figures::after {
+  content: ''; position: absolute; inset: 0; grid-area: 1 / 1 / -1; z-index: -1; pointer-events: none;
+  background: radial-gradient(closest-side at 50% 45%, var(--own-tint), transparent);
+}
+.setup-figures::after { grid-column: 3; background: radial-gradient(closest-side at 50% 45%, var(--opponent-tint), transparent); }
+/* No tint, no layer: a full-box gradient repaints on each frame of a sheet slide, and costs a CPU-only WebKit 1 s. */
+.setup-figures[data-own='']::before, .setup-figures[data-opponent='']::after { content: none; }
+.setup-figures[data-own=''][data-opponent=''] { position: static; isolation: auto; }
+[data-own='spirit'] { --own-tint: #e3c77a45; } [data-opponent='spirit'] { --opponent-tint: #e3c77a45; }
+[data-own='shadow'] { --own-tint: #8a809440; } [data-opponent='shadow'] { --opponent-tint: #8a809440; }
+[data-own='flame'] { --own-tint: #dc8a5a3d; } [data-opponent='flame'] { --opponent-tint: #dc8a5a3d; }
+[data-own='frost'] { --own-tint: #8fbfd245; } [data-opponent='frost'] { --opponent-tint: #8fbfd245; }
+[data-own='mud'] { --own-tint: #a68a5c40; } [data-opponent='mud'] { --opponent-tint: #a68a5c40; }
+[data-own='stratus'] { --own-tint: #a3b9d445; } [data-opponent='stratus'] { --opponent-tint: #a3b9d445; }
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion='reduce']) .setup-figures { transition: --own-tint 180ms var(--ease-out), --opponent-tint 180ms var(--ease-out); }
+}
 :is(.setup-seat.kd-button, .setup-seat-static) {
   display: grid;
-  grid-template: minmax(40px, 1fr) auto / minmax(0, 1fr);
+  /* Both seats share the rows of .setup-figures: a caption that wraps does not lift one plinth. */
+  grid-row: span 2;
+  grid-template: subgrid / minmax(0, 1fr);
   justify-content: stretch;
   min-width: 0;
   height: 100%;
@@ -569,18 +591,35 @@ body > .kd-sr { inset: 0 auto auto 0; }
   box-shadow: none;
 }
 .setup-seat:focus-visible { outline-offset: -2px; }
-.setup-figure { position: relative; display: block; height: 100%; width: 100%; }
-.setup-figure img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
+/* The feet stand on the top face of the plinth; the contact shadow lies on the stone under them. Some king images have
+   clear rows under the feet: the translate puts those feet down on the stone too. The plinth and the crest are
+   background images, with no layer, shadow or clip: a CPU-only WebKit repaints New Game on each frame of a sheet slide. */
+.setup-figure {
+  --plinth: clamp(10px, 9%, 28px); position: relative; display: block; height: 100%; width: 100%;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3ClinearGradient id='s' x2='0' y2='1'%3E%3Cstop stop-color='%23fbf7ec'/%3E%3Cstop offset='.08' stop-color='%23f2ecdc'/%3E%3Cstop offset='.5' stop-color='%23e0d6bf'/%3E%3Cstop offset='.54' stop-color='%23b6a98c'/%3E%3Cstop offset='.76' stop-color='%23cbbfa3'/%3E%3Cstop offset='1' stop-color='%23a89a7d'/%3E%3C/linearGradient%3E%3CradialGradient id='c'%3E%3Cstop stop-color='%232e281f'/%3E%3Cstop offset='.45' stop-color='%232e281f' stop-opacity='.5'/%3E%3Cstop offset='1' stop-color='%232e281f' stop-opacity='0'/%3E%3C/radialGradient%3E%3Cellipse cx='50' cy='50' rx='50' ry='50' fill='url(%23s)'/%3E%3Cellipse cx='50' cy='36.6' rx='31' ry='29' fill='url(%23c)'/%3E%3C/svg%3E") 50% 100% / min(80%, 210px) var(--plinth) no-repeat;
+}
+.setup-figure img { position: absolute; inset: 0; width: 100%; height: calc(100% - var(--plinth) * .6); object-fit: contain; object-position: center bottom; }
+.setup-figure img:is([src$='/kings/flame.webp'], [src*='/kings/frost']) { translate: 0 2%; }
+.setup-figure img[src$='/kings/spirit.webp'] { translate: 0 3%; }
+/* The Sky cloak hangs below the boots: the boots stand on the stone, the cloak falls over its front. */
+.setup-figure img[src*='/kings/stratus'] { translate: 0 11%; }
 .setup-figure-random img { filter: grayscale(1) brightness(0.85); }
 .setup-seat-copy { display: grid; justify-items: center; gap: 2px; text-align: center; }
 .setup-seat-copy strong { font: 650 .8125rem/1.2 var(--font-title); letter-spacing: .045em; }
 .setup-seat-power, .setup-seat-edit { display: inline-flex; gap: 4px; align-items: center; justify-content: center; }
 .setup-seat-power { min-height: 17px; color: var(--info); font: 650 .75rem/1.2 var(--font-title); }
 .setup-seat-power img { width: 17px; height: 17px; object-fit: contain; }
-.setup-seat-edit { color: var(--text-muted); font-size: .875rem; overflow-wrap: normal; }
+/* The computer portrait is 24 px: each caption takes that height, so both plinths sit on one line. */
+.setup-seat-edit { min-height: 24px; color: var(--text-muted); font-size: .875rem; overflow-wrap: normal; }
 .setup-seat-edit .profile-portrait { width: 24px; height: 24px; }
 .setup-seat-edit .kd-icon { inline-size: 14px; block-size: 14px; }
-.setup-vs { font: 600 clamp(25px, 6vw, 46px)/1 var(--font-title); }
+/* A small brass crest: 0.6 of the VS size, with the layout box of the full VS. */
+.setup-vs {
+  grid-row: span 2; padding: .38em .42em .7em; color: #4d3c21; font: 600 calc(.6 * clamp(25px, 6vw, 46px))/1 var(--font-title);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3ClinearGradient id='g' x2='0' y2='1'%3E%3Cstop stop-color='%23f1e3b6'/%3E%3Cstop offset='.55' stop-color='%23d9b965'/%3E%3Cstop offset='1' stop-color='%23b98f3e'/%3E%3C/linearGradient%3E%3Cpath fill='url(%23g)' d='M0 0H100V70L50 100L0 70Z'/%3E%3C/svg%3E") 0 0 / 100% 100%;
+}
+/* Forced colours remove the brass: a border keeps the crest. */
+@media (forced-colors: active) { .setup-vs { background: none; border: 1px solid; } }
 .king-change { margin: 4px auto 0; max-width: 50ch; text-align: center; font-size: .8125rem; color: var(--text-muted); }
 .king-change:empty { display: none; }
 .setup-controls { display: grid; align-content: center; gap: var(--setup-gap); width: min(100%, 530px); margin-inline: auto; }
@@ -741,6 +780,12 @@ body > .kd-sr { inset: 0 auto auto 0; }
   .setup-friend-foot { grid-template-columns: 1fr 1fr; }
   .setup-friend-foot .kd-button[data-kind='main'] { font-size: .875rem; }
   .setup-seat-copy { gap: 0; }
+  /* A short landscape seat row has small figures: no plinth, no shared rows and no crest, as before the plinths. */
+  .setup-figure { background: none; }
+  .setup-figure img[src] { height: 100%; translate: none; }
+  .setup-figures { grid-template-rows: auto; }
+  :is(.setup-seat.kd-button, .setup-seat-static) { grid-row: auto; grid-template-rows: minmax(40px, 1fr) auto; }
+  .setup-vs { grid-row: auto; padding: 0; color: inherit; font-size: clamp(25px, 6vw, 46px); background: none; }
 }
 
 .home-growing-card { position: fixed; z-index: 36; pointer-events: none; overflow: clip; }
