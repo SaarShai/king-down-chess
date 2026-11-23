@@ -38,3 +38,26 @@ it('keeps text on the brass plate, the vellum card, the stone slot and the wax s
     expect(contrast(colour(ink), colour(ground)), `${ink} on ${ground}`).toBeGreaterThanOrEqual(4.5);
   }
 });
+
+it('keeps each switch, pool box and spent pip state at 3:1 or more against what is next to it', () => {
+  const daylight = readFileSync('src/interface/ui/tokens.css', 'utf8'), components = readFileSync('src/interface/ui/components.css', 'utf8');
+  const colour = (name: string) => daylight.match(new RegExp(`--${name}: (#[0-9a-f]{6});`))![1];
+  const offKnob = /\.kd-switch-knob \{[^}]*radial-gradient\(circle at 35% 30%, (#[0-9a-f]{6}), var\(--main-edge\)/.exec(components)![1];
+  const onTrack = /\.kd-switch\[aria-checked='true'\] \.kd-switch-track \{ background: linear-gradient\((#[0-9a-f]{6}), (#[0-9a-f]{6})\)/.exec(components)!.slice(1);
+  expect(components).toMatch(/\.kd-switch\[aria-checked='true'\] \.kd-switch-knob \{ background: radial-gradient\([^;]*var\(--paper-0\)/);
+  const pairs = [[offKnob, colour('stone')], [colour('main-edge'), colour('stone')], ...onTrack.map(track => [colour('paper-0'), track]),
+    [colour('sage-500'), colour('paper-0')], [colour('ink-900'), colour('paper-0')]];
+  for (const [a, b] of pairs) expect(contrast(a, b), `${a} next to ${b}`).toBeGreaterThanOrEqual(3);
+  expect(readFileSync('src/interface/play/menus.css', 'utf8')).toMatch(/\.pool-check \{[^}]*border: 1px solid var\(--border\)/);
+  expect(readFileSync('src/interface/play/reading-b.css', 'utf8')).toMatch(/\.play-power-notch\[data-used='true'\] \{[^}]*0 0 0 1px var\(--text\)/);
+});
+
+it('keeps the armed mark and the board edge in forced colours, a focused card undimmed and the Rematch ring whole', () => {
+  const css = readFileSync('src/interface/play/reading-b.css', 'utf8');
+  const forced = css.slice(css.indexOf('@media (forced-colors: active)'));
+  expect(forced).toMatch(/\.play-card\[aria-pressed='true'\]::before \{ border: 3px solid CanvasText; \}/);
+  expect(forced).toMatch(/\.play-power\[aria-pressed='true'\] \.play-power-coin \{ outline: 3px solid CanvasText;/);
+  expect(forced).toMatch(/\.play-board \{ outline: 1px solid CanvasText; \}/);
+  expect(css).toMatch(/\.play-card:not\(\[aria-pressed='true'\], :focus-visible\) \{ opacity: \.6; \}/);
+  expect(css).toMatch(/\.play-result-actions \.kd-button\[data-kind='main'\] \{[^}]*margin-inline: calc\(var\(--focus-width\) \+ var\(--focus-offset\)\)/);
+});

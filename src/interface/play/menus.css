@@ -678,7 +678,7 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .pool-name { flex: 1; }
 .pool-check {
   display: grid; place-items: center; width: 23px; height: 23px; margin-inline: 4px;
-  border: 1px solid #8b765259; border-radius: 5px; background: var(--stone); box-shadow: var(--stone-in);
+  border: 1px solid var(--border); border-radius: 5px; background: var(--stone); box-shadow: var(--stone-in);
 }
 .pool-check .kd-icon { width: 18px; height: 18px; visibility: hidden; }
 .pool-row input:checked + .pool-check { border-color: var(--main-edge); background: var(--main-fill); box-shadow: var(--main-depth); color: var(--main-ink); }

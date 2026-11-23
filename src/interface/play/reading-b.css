@@ -127,7 +127,9 @@
 .play-power-coin img { width: 85%; height: 85%; object-fit: contain; }
 .play-power-notches { position: absolute; display: flex; gap: 5px; bottom: 3px; }
 .play-power-notch { width: 6px; height: 6px; rotate: 45deg; background: var(--power-ink); box-shadow: 0 0 0 1px #1d3f41; }
-.play-power-notch[data-used='true'] { background: transparent; box-shadow: inset 0 0 0 1.5px var(--power-ink); }
+/* On the paper coin of the seat ring a full pip is teal; a spent pip keeps a dark outline on both coins. */
+.play-seat-ring .play-power-notch { background: var(--power-fill); }
+.play-power-notch[data-used='true'] { background: transparent; box-shadow: 0 0 0 1px var(--text), inset 0 0 0 1.5px var(--power-ink); }
 .play-game .play-power[data-coin='always'] .play-power-coin { box-shadow: inset 0 0 0 1px #a87935; }
 .play-game .play-power[data-spent='true'] .play-power-coin { box-shadow: inset 0 1px #efffef; filter: grayscale(1); opacity: .55; }
 .play-game .play-power[data-spent='true'] { color: var(--text-muted); }
@@ -394,9 +396,15 @@
 .play-game[data-hand='hand'] .play-own .play-card[aria-pressed='true']:not(:focus-visible) { outline: none; }
 /* Two channels: armed is the inlay inside, keyboard focus is the outer ring. Both show together. */
 .play-game .play-own :is(.play-card, .play-power):focus-visible { outline: var(--focus-width) solid var(--focus-ring); outline-offset: var(--focus-offset); }
+@media (forced-colors: active) {
+  /* The browser drops the shadows: armed is an inner CanvasText edge, focus stays the outer Highlight ring. */
+  .play-game[data-hand='hand'] .play-own .play-card[aria-pressed='true']::before { border: 3px solid CanvasText; }
+  .play-game .play-power[aria-pressed='true'] .play-power-coin { outline: 3px solid CanvasText; outline-offset: 1px; }
+  .play-game[data-layout] .play-board { outline: 1px solid CanvasText; }
+}
 .play-game[data-hand='hand'] .play-own .play-card[data-frost='true'] { --arm-lift: 6px; --arm-scale: 0; }
 .play-game[data-hand='hand'] .play-own .play-card[data-frost='true'][aria-pressed='true'] { --armed-edge: var(--frost, var(--info)); }
-.play-game[data-hand='hand'] .play-hand:has([aria-pressed='true']) .play-card:not([aria-pressed='true']) { opacity: .6; }
+.play-game[data-hand='hand'] .play-hand:has([aria-pressed='true']) .play-card:not([aria-pressed='true'], :focus-visible) { opacity: .6; }
 .play-game[data-hand='hand'] .play-hand .play-card:has(~ [aria-pressed='true']) { translate: -3px; }
 .play-game[data-hand='hand'] .play-hand [aria-pressed='true'] ~ .play-card { translate: 3px; }
 .play-game .play-own .play-card[data-spent='true'] { flex-grow: .65; }
@@ -451,7 +459,8 @@
 .play-game .play-result-facts { color: var(--soft, var(--text-muted)); }
 .play-game .play-result .play-result-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; }
 .play-game .play-result-actions .kd-button { min-width: 44px; min-height: 44px; padding: 0 4px; text-align: center; }
-.play-game .play-result-actions .kd-button[data-kind='main'] { grid-column: 1 / -1; min-height: 48px; border-radius: var(--radius-plate); font-family: var(--cinzel, var(--font-title)); }
+/* The reader clips its sides: the margin keeps the whole focus ring of Rematch in view. */
+.play-game .play-result-actions .kd-button[data-kind='main'] { grid-column: 1 / -1; min-height: 48px; margin-inline: calc(var(--focus-width) + var(--focus-offset)); border-radius: var(--radius-plate); font-family: var(--cinzel, var(--font-title)); }
 .play-game .play-result-actions .kd-button:not([data-kind='main']) { border: 0; background: transparent; box-shadow: none; }
 .play-game[data-review='true'] .play-result > :not(.play-result-actions),
 .play-game[data-review='true'] .play-result-actions > :not([aria-pressed='true']) { visibility: hidden; }
