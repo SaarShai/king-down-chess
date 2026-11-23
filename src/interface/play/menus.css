@@ -555,7 +555,24 @@ body > .kd-sr { inset: 0 auto auto 0; }
 }
 .setup-mode .kd-segment[aria-checked='true'] { background: var(--surface-raised); border-color: var(--divider); box-shadow: none; }
 .setup-match { display: grid; grid-template-rows: minmax(min-content, 1fr) auto; min-width: 0; }
-.setup-figures { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; width: min(100%, 590px); margin: auto auto 0; height: 100%; max-height: min(54dvh, 575px); }
+.setup-figures { position: relative; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; width: min(100%, 590px); margin: auto auto 0; height: 100%; max-height: min(54dvh, 575px); }
+/* A quiet house tint behind a known king, only with Powers on (data-own, data-opponent). It does not move at rest. */
+@property --own-tint { syntax: '<color>'; inherits: true; initial-value: transparent; }
+@property --opponent-tint { syntax: '<color>'; inherits: true; initial-value: transparent; }
+.setup-figures::before, .setup-figures::after {
+  content: ''; position: absolute; inset: 0; grid-area: 1 / 1; z-index: -1; pointer-events: none;
+  background: radial-gradient(closest-side at 50% 45%, var(--own-tint), transparent);
+}
+.setup-figures::after { grid-column: 3; background: radial-gradient(closest-side at 50% 45%, var(--opponent-tint), transparent); }
+[data-own='spirit'] { --own-tint: #e3c77a45; } [data-opponent='spirit'] { --opponent-tint: #e3c77a45; }
+[data-own='shadow'] { --own-tint: #8a809440; } [data-opponent='shadow'] { --opponent-tint: #8a809440; }
+[data-own='flame'] { --own-tint: #dc8a5a3d; } [data-opponent='flame'] { --opponent-tint: #dc8a5a3d; }
+[data-own='frost'] { --own-tint: #8fbfd245; } [data-opponent='frost'] { --opponent-tint: #8fbfd245; }
+[data-own='mud'] { --own-tint: #a68a5c40; } [data-opponent='mud'] { --opponent-tint: #a68a5c40; }
+[data-own='stratus'] { --own-tint: #a3b9d445; } [data-opponent='stratus'] { --opponent-tint: #a3b9d445; }
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion='reduce']) .setup-figures { transition: --own-tint 180ms var(--ease-out), --opponent-tint 180ms var(--ease-out); }
+}
 :is(.setup-seat.kd-button, .setup-seat-static) {
   display: grid;
   grid-template: minmax(40px, 1fr) auto / minmax(0, 1fr);
@@ -569,18 +586,37 @@ body > .kd-sr { inset: 0 auto auto 0; }
   box-shadow: none;
 }
 .setup-seat:focus-visible { outline-offset: -2px; }
-.setup-figure { position: relative; display: block; height: 100%; width: 100%; }
-.setup-figure img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
+/* The feet stand on the top face of the plinth; the contact shadow lies on the stone under them. Some king images have
+   clear rows under the feet: the translate puts those feet down on the stone too. */
+.setup-figure { --plinth: clamp(10px, 9%, 28px); position: relative; display: block; height: 100%; width: 100%; }
+.setup-figure img { position: absolute; inset: 0; width: 100%; height: calc(100% - var(--plinth) * .6); object-fit: contain; object-position: center bottom; }
+.setup-figure img:is([src$='/kings/flame.webp'], [src*='/kings/frost']) { translate: 0 2%; }
+.setup-figure img[src$='/kings/spirit.webp'] { translate: 0 3%; }
+.setup-figure img[src*='/kings/stratus'] { translate: 0 4.5%; }
+.setup-figure::before {
+  content: ''; position: absolute; bottom: 0; inset-inline: max(10%, 50% - 105px); height: var(--plinth); border-radius: 50%;
+  background:
+    radial-gradient(closest-side, #2e281f, #2e281f80 45%, transparent) 50% 18% / 62% 58% no-repeat,
+    linear-gradient(#f2ecdc, #e0d6bf 50%, #b6a98c 54%, #cbbfa3 76%, #b4a78a);
+  box-shadow: inset 0 1px #fffaf0b3, 0 3px 6px -1px #594d3640;
+}
 .setup-figure-random img { filter: grayscale(1) brightness(0.85); }
 .setup-seat-copy { display: grid; justify-items: center; gap: 2px; text-align: center; }
 .setup-seat-copy strong { font: 650 .8125rem/1.2 var(--font-title); letter-spacing: .045em; }
 .setup-seat-power, .setup-seat-edit { display: inline-flex; gap: 4px; align-items: center; justify-content: center; }
 .setup-seat-power { min-height: 17px; color: var(--info); font: 650 .75rem/1.2 var(--font-title); }
 .setup-seat-power img { width: 17px; height: 17px; object-fit: contain; }
-.setup-seat-edit { color: var(--text-muted); font-size: .875rem; overflow-wrap: normal; }
+/* The computer portrait is 24 px: each caption takes that height, so both plinths sit on one line. */
+.setup-seat-edit { min-height: 24px; color: var(--text-muted); font-size: .875rem; overflow-wrap: normal; }
 .setup-seat-edit .profile-portrait { width: 24px; height: 24px; }
 .setup-seat-edit .kd-icon { inline-size: 14px; block-size: 14px; }
-.setup-vs { font: 600 clamp(25px, 6vw, 46px)/1 var(--font-title); }
+/* A small brass crest. The scale keeps the layout box of VS. */
+.setup-vs { position: relative; color: #4d3c21; font: 600 clamp(25px, 6vw, 46px)/1 var(--font-title); scale: .6; }
+.setup-vs::before {
+  content: ''; position: absolute; inset: -.38em -.42em -.7em; z-index: -1;
+  background: linear-gradient(#f1e3b6, #d9b965 55%, #b98f3e);
+  clip-path: polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%);
+}
 .king-change { margin: 4px auto 0; max-width: 50ch; text-align: center; font-size: .8125rem; color: var(--text-muted); }
 .king-change:empty { display: none; }
 .setup-controls { display: grid; align-content: center; gap: var(--setup-gap); width: min(100%, 530px); margin-inline: auto; }
