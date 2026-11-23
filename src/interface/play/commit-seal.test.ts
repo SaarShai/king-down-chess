@@ -79,3 +79,13 @@ it('keeps the brass plate and its shade for the seal only: an End turn with no s
   expect(plate.dataset.sealed).toBeUndefined();
   expect(plate.style.size).toBe(0);
 });
+
+it('an online Send clears the card beat and the landing that has not come yet: the seal has the moment', async () => {
+  const { scope, finish } = screen({ online: true });
+  const cast = vi.fn(), action = { before: {}, move: {} };
+  Object.assign(scope, { casting: { cancel: cast, finish: () => {} }, playingAction: action });
+  await finish();
+  expect(cast).toHaveBeenCalledOnce();
+  // The landing starts a beat only while its action plays (main.ts animate).
+  expect(scope.playingAction).toBeNull();
+});

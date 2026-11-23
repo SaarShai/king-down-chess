@@ -332,10 +332,11 @@ function studs(ctx: CanvasRenderingContext2D, a: Point, b: Point, bend: number, 
 const RAYS = [[.02, .95], [.19, .7], [.33, .9], [.5, .8], [.66, .95], [.83, .75]] as const;
 type CastDraw = (ctx: CanvasRenderingContext2D, boxes: Box[], at: ReturnType<typeof castAt>, ms: number) => void;
 const CAST_DRAW: Record<CastFamily, CastDraw> = {
-  // Shift: brass studs run from the start square to the landing square; a brass star glints there.
-  shift(ctx, [a, b], { arrive, glint }, ms) {
-    const s = b.width;
-    studs(ctx, footOf(a), footOf(b), 0, arrive, ease.in2(unit((ms - 100) / 220)), .05 * s);
+  // Shift: brass studs run from the start square to the landing square (and along an Ogre's push); a brass star glints there.
+  shift(ctx, [a, b, ...push], { arrive, glint }, ms) {
+    const s = b.width, tail = ease.in2(unit((ms - 100) / 220));
+    studs(ctx, footOf(a), footOf(b), 0, arrive, tail, .05 * s);
+    if (push[1]) studs(ctx, footOf(push[0]), footOf(push[1]), 0, arrive, tail, .05 * s);
     star(ctx, { x: b.left + .78 * s, y: b.top + .22 * s }, .26 * s * Math.sin(Math.PI * glint));
   },
   // Trade: two lines of studs cross between the two squares, one each way; both squares glint.
@@ -346,14 +347,18 @@ const CAST_DRAW: Record<CastFamily, CastDraw> = {
     for (const t of [a, b]) star(ctx, { x: t.left + .78 * s, y: t.top + .22 * s }, .22 * s * Math.sin(Math.PI * glint));
   },
   // Ward: a hammered brass ring with eight rivets closes on the square, and a glint runs round it.
-  ward(ctx, [t], { arrive, glint }) {
-    const s = t.width, x = t.left + s / 2, y = t.top + t.height / 2, r = s * (.9 - .38 * arrive);
-    ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI);
-    ctx.strokeStyle = UMBER; ctx.lineWidth = .06 * s; ctx.stroke(); ctx.strokeStyle = brass.body; ctx.lineWidth = .035 * s; ctx.stroke();
-    for (let i = 0; i < 8; i++) stud(ctx, { x: x + Math.cos(i * Math.PI / 4) * r, y: y + Math.sin(i * Math.PI / 4) * r }, .035 * s);
-    if (glint > 0 && glint < 1) {
-      const a = -Math.PI / 2 + 2 * Math.PI * ease.io3(glint);
-      ctx.beginPath(); ctx.arc(x, y, r, a - .8, a); ctx.strokeStyle = brass.light; ctx.lineWidth = .02 * s; ctx.stroke();
+  // Firewall marks every own piece: each gets a thin ring with no rivets, so the board stays calm.
+  ward(ctx, boxes, { arrive, glint }) {
+    const k = boxes.length > 1 ? .5 : 1;
+    for (const t of boxes) {
+      const s = t.width, x = t.left + s / 2, y = t.top + t.height / 2, r = s * (.9 - .38 * arrive) * (k < 1 ? .85 : 1);
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI);
+      ctx.strokeStyle = UMBER; ctx.lineWidth = .06 * s * k; ctx.stroke(); ctx.strokeStyle = brass.body; ctx.lineWidth = .035 * s * k; ctx.stroke();
+      if (k === 1) for (let i = 0; i < 8; i++) stud(ctx, { x: x + Math.cos(i * Math.PI / 4) * r, y: y + Math.sin(i * Math.PI / 4) * r }, .035 * s);
+      if (glint > 0 && glint < 1) {
+        const a = -Math.PI / 2 + 2 * Math.PI * ease.io3(glint);
+        ctx.beginPath(); ctx.arc(x, y, r, a - .8, a); ctx.strokeStyle = brass.light; ctx.lineWidth = .02 * s * k; ctx.stroke();
+      }
     }
   },
   // Change: gilt vellum flecks rise from the piece's foot round a fading gilt ground ring.

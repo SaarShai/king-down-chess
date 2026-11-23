@@ -1,4 +1,4 @@
-import { TAG_POWER, type Move } from '../../rules/engine';
+import { colorOf, TAG_POWER, type Move, type Position } from '../../rules/engine';
 import type { CardName } from '../../rules/rules';
 
 /**
@@ -19,14 +19,18 @@ export const CAST_FAMILY: Partial<Record<CardName, CastFamily>> = {
 };
 
 /**
- * The cast beat of a card move and its squares: shift and trade [from, to], ward [the marked piece], change [each new
+ * The cast beat of a card move from `before` and its squares: shift and trade [from, to, then an Ogre's pushed piece
+ * from, to], ward [each marked piece: every own piece for Firewall and a Rescue that renews it], change [each new
  * piece], quake [the centre, then each pushed piece], rule none. A card that captures has none: the capture beat wins.
  */
-export function castOf(move: Move): { family: CastFamily; squares: number[] } | undefined {
+export function castOf(move: Move, before: Position): { family: CastFamily; squares: number[] } | undefined {
   if (!move.power || move.pass || move.captures.length) return undefined;
   const family = CAST_FAMILY[TAG_POWER[move.power]] ?? 'rule';
-  const squares = family === 'rule' ? [] : family === 'ward' ? [move.to]
+  const all = move.power === 'firewall' || move.power === 'rescue' && before.marks?.[before.turn]?.all;
+  const squares = family === 'rule' ? []
+    : family === 'ward' ? all ? [...before.board.keys()].filter(s => before.board[s] && colorOf(before.board[s]) === before.turn) : [move.to]
     : family === 'change' ? [move.to, ...move.drop2 != null ? [move.drop2] : []]
-    : family === 'quake' ? [move.from, ...(move.pushes ?? []).map(p => p.to)] : [move.from, move.to];
+    : family === 'quake' ? [move.from, ...(move.pushes ?? []).map(p => p.to)]
+    : [move.from, move.to, ...move.shove ? [move.shove.from, move.shove.to] : []];
   return { family, squares };
 }

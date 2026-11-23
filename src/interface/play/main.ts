@@ -1099,7 +1099,7 @@ function animate(before: Position, move: Move, after: Position): Promise<unknown
   const turned = !move.pass && before.turn !== after.turn && game.context.inCheck(after);
   const checkCue = turned ? game.context.legalMoves(after).length > 0 ? finalCheckCue : drawCheckIn : !move.pass && newCheck(before, after) ? drawCheckIn : undefined;
   // The marks follow the landed move: a check that ends or starts shows at the landing.
-  const done = board.play(move, after, () => { action.landed = after; checkCue?.(after); drawMarks(); if (playingAction === action) castBeat(move); }).catch(error => { refuse(String(error)); }).finally(() => {
+  const done = board.play(move, after, () => { action.landed = after; checkCue?.(after); drawMarks(); if (playingAction === action) castBeat(move, before); }).catch(error => { refuse(String(error)); }).finally(() => {
     if (playingAction === action) {
       playingAction = null;
 
@@ -1126,16 +1126,18 @@ function playReply(steps: readonly ReplayStep[], view: Board, live = false) {
   beat?.cancel(); casting?.cancel(); endSeal(); screen.dataset.replaying = 'true';
   return boardReplay.play(steps, view, game.context, () => own === generation && board === view,
     () => { playingAction = null; view.setPosition(draft.position, game.context); screen.dataset.replaying = 'false'; drawMarks(); },
-    (pos, step) => { playingAction = step ? { before: pos, move: step.move } : null; drawMarks(); },
-    step => { if (playingAction) playingAction.landed = step.after; if (live && newCheck(step.before, step.after)) drawCheckIn(step.after); drawMarks(); if (playingAction?.move === step.move) castBeat(step.move); })
+    (pos, step) => { if (step) casting?.cancel(); playingAction = step ? { before: pos, move: step.move } : null; drawMarks(); },
+    step => { if (playingAction) playingAction.landed = step.after; if (live && newCheck(step.before, step.after)) drawCheckIn(step.after); drawMarks(); if (playingAction?.move === step.move && pieceView !== 'symbols') castBeat(step.move, step.before); })
     .catch(error => refuse(String(error)));
 }
-/** A card's finale where it changed the board, for both players (cast.ts); none on a hidden page. */
-function castBeat(move: Move) {
+/** A card's finale where it changed the board, for both players (cast.ts); none on a hidden page or after the game end. */
+function castBeat(move: Move, before: Position) {
   casting?.cancel();
-  const cast = document.hidden ? undefined : castOf(move);
+  const cast = document.hidden || ended ? undefined : castOf(move, before);
   casting = cast && castIn(cast.family, cast.squares.map(square => cells[square]), () => [...detail.querySelectorAll('.play-turn-state'), nodes.title]);
 }
+/** A page that becomes hidden ends the beat: a quick tab switch does not resume it part drawn. */
+function castHidden() { if (document.hidden) casting?.cancel(); }
 /** A move gives a new check: also on the side that does not move now (Haste). */
 function newCheck(before: Position, after: Position) {
   const king = stateMarks(game.context, after).check;
@@ -1217,7 +1219,7 @@ async function finish() {
   }
   // The seal is for a turn that keeps the game going and is more than a free action (a game end has its own moment).
   const sealed = !freeText() && game.context.status(draft.position) === 'playing';
-  if (onlineActive) { if (draft.canFinish && !choice.length && !thinking && !ended) { selected = inspected = null; passTurn(true, sealed); await people?.controller?.send(); } return; }
+  if (onlineActive) { if (draft.canFinish && !choice.length && !thinking && !ended) { selected = inspected = null; casting?.cancel(); playingAction = null; passTurn(true, sealed); await people?.controller?.send(); } return; }
   if (!draft.canFinish || choice.length || thinking || ended || !onlineActive && writer.blocked) return;
   const checkWasInFlight = playingAction && game.context.inCheck(draft.position);
   skipBoard(); const mine = game.history.length; if (draft.commit().at(-1)!.pass) board?.setPosition(game.pos, game.context); last = turnText(mine, false); lastActions = turnActions(mine); selected = inspected = null; notice = ''; shown = null;
@@ -1248,7 +1250,7 @@ async function reply() {
       // The whole reply is saved before its playback ends: a reload then shows it as done.
       if (game.pos.turn !== cpu() || game.status !== 'playing') save(false);
       // A pass changes no square: show its end of marks at once.
-      if (m.pass) { board?.setPosition(game.pos, game.context); played = Promise.resolve(); } else played = animate(before, m, game.pos);
+      if (m.pass) { casting?.cancel(); board?.setPosition(game.pos, game.context); played = Promise.resolve(); } else played = animate(before, m, game.pos);
       // The computer acts: the reading area follows the step that plays (design section 4).
       if (!m.pass) { acting = [...effectEndLines(game.context, before, m, game.pos, player), sentence(before, m, true, cards(cpu()))].join(' '); update(); }
     }
@@ -2262,4 +2264,5 @@ const idle = (task: () => void) => 'requestIdleCallback' in window ? requestIdle
 idle(() => { loadBoardCode().catch(() => {}); void loadPeople().catch(() => {}); });
 setInterval(() => { if (onlineActive && onlineState) update(); }, 30_000);
 addEventListener('pagehide', () => people?.stopGame());
+document.addEventListener('visibilitychange', castHidden);
 void symbolsReady.then(() => { applyPieceView(); document.querySelectorAll<HTMLImageElement>('.mini-board:not(.mini-painted) .mini-glyph[data-code]').forEach(img => { img.src = symbol(Number(img.dataset.code)); }); });

@@ -46,7 +46,7 @@ async function match({ hand, ...setup }: MatchSetup = { backRank: 'RBNMQKNR' }) 
 }
 
 function boardFor(previous: PeopleState, { mount = false, reduce = '', inApp = false } = {}) {
-  const plays: string[] = [], positions: string[] = [], falls: string[] = [], checks: string[] = [], casts: string[] = [], noop = () => {};
+  const plays: string[] = [], positions: string[] = [], falls: string[] = [], checks: string[] = [], casts: string[] = [], cancels: string[] = [], noop = () => {};
   let shown = toFen(previous.position!), complete: (() => void) | undefined;
   let animation = 0, hold = false;
   // The real hold and deadline timers run on this clock; `tick` moves it.
@@ -79,7 +79,7 @@ function boardFor(previous: PeopleState, { mount = false, reduce = '', inApp = f
     takeOnlineNotice: () => '', clearChoice: noop, turnActions: () => [], turnText: () => '',
     update: noop, announce: noop, arrangementWaiting: () => false, replyText: () => '',
     onlineRecovery: noop, automaticReady: noop, closeFloating: noop, drawMarks: noop,
-    beat: undefined, casting: undefined, castOf, castIn: (family: string, tiles: { square: number }[]) => { casts.push(`${family} ${tiles.map(t => sqName(t.square)).join(' ')}`); return { cancel: noop, finish: noop }; }, nodes: { title: {} }, rewind: undefined, endCardFlight: noop, cancelCheckPulse: noop, endReply: null,
+    beat: undefined, casting: undefined, castOf, castIn: (family: string, tiles: { square: number }[]) => { const cast = `${family} ${tiles.map(t => sqName(t.square)).join(' ')}`; casts.push(cast); return { cancel: () => cancels.push(cast), finish: noop }; }, nodes: { title: {} }, rewind: undefined, endCardFlight: noop, cancelCheckPulse: noop, endReply: null,
     passTurn: noop, endSeal: noop, onlineResult: () => 'You win.', closeStaleDialogs: noop, playOnlineKingResult: () => falls.push(shown),
     findKing, stateMarks, drawCheckIn: (pos: Position) => checks.push(toFen(pos)), endResult: undefined, mateHold: undefined,
     setTimeout: (run: () => void, ms: number) => { timers.set(++ids, { run, at: clock + ms }); return ids; }, clearTimeout: (id: number) => timers.delete(id),
@@ -91,7 +91,7 @@ function boardFor(previous: PeopleState, { mount = false, reduce = '', inApp = f
   };
   runInNewContext(page, scope, { filename: filename.pathname });
   const hide = () => { document.hidden = true; listeners.forEach(run => run()); };
-  return { scope, plays, positions, falls, checks, casts, tick, hide, timers: () => timers.size + listeners.size, shown: () => shown, hold: () => { hold = true; }, complete: () => complete?.() };
+  return { scope, plays, positions, falls, checks, casts, cancels, tick, hide, timers: () => timers.size + listeners.size, shown: () => shown, hold: () => { hold = true; }, complete: () => complete?.() };
 }
 
 async function send(client: PeopleController, moves: readonly (readonly [string, string])[], arm?: string) {
@@ -149,6 +149,35 @@ it.each(turns)('plays a new $name once, from the prior position to the server po
   expect(board.plays).toEqual([...turn.plays, ...turn.plays]);
   expect(board.casts).toEqual([...casts, ...casts]);
   expect(board.shown()).toBe(server.fen);
+}, 15_000);
+
+it('the second move of an online Haste clears the beat of the first', async () => {
+  const { light, dark } = await match(turns.find(turn => turn.name === 'Haste turn')!.setup);
+  const board = boardFor(dark.state());
+  board.hold();
+  dark.subscribe(board.scope.receiveOnline);
+  await send(light, [['b1', 'c3'], ['c3', 'd5']], 'haste');
+  await dark.refresh();
+  await settle();
+  board.complete();
+  await settle();
+  // The second move travels now: the first move's beat has gone.
+  expect(board.plays).toEqual(['b1 c3 haste', 'c3 d5']);
+  expect(board.casts).toEqual(['shift b1 c3']);
+  expect(board.cancels).toEqual(['shift b1 c3']);
+  board.complete();
+}, 15_000);
+
+it('Replay in the Symbols view, where moves show at once, plays no cast beat', async () => {
+  const { light, dark } = await match(turns.find(turn => turn.name === 'Curse card')!.setup);
+  const board = boardFor(dark.state(), { reduce: 'symbols' });
+  dark.subscribe(board.scope.receiveOnline);
+  await send(light, [['d5', 'c5']], 'curse');
+  await dark.refresh();
+  board.scope.undoOrReplay();
+  await settle();
+  expect(board.plays).toEqual(['d5 c5 curse']);
+  expect(board.casts).toEqual([]);
 }, 15_000);
 
 it.each(['page', 'system', 'symbols', 'app'])('shows the server board at once with %s settings', async setting => {

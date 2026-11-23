@@ -18,7 +18,7 @@ const { POWERS_BALANCED } = await import('data:text/javascript;base64,' + Buffer
 const FAMILIES = [
   ['shift', 'Strike', '4k3/8/8/8/8/8/8/R3K3 w - - 0 1', [0, 36]],
   ['trade', 'SkyLift', '4k3/8/8/8/8/8/8/R2BK3 w - - 0 1', [0, 3]],
-  ['ward', 'Freeze', '4k3/3p4/8/8/8/8/8/4K3 w - - 0 1', [51]],
+  ['ward', 'Firewall', '4k3/8/8/8/8/8/PPP5/2N1K3 w - - 0 1', [4]],
   ['change', 'MorphP', '4k3/8/8/8/8/8/4P3/4K3 w - - 0 1', [12], 'Knight'],
   ['quake', 'EarthQuake', '4k2p/8/8/8/3n4/8/7P/4K3 w - - 0 1', [28]],
 ];

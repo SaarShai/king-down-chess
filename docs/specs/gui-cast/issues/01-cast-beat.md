@@ -8,7 +8,7 @@ When a card lands on the board, one short beat (440 ms) plays on the effect laye
 | --- | --- | --- |
 | shift (a piece moves in a new way) | Strike, Haste, Flight, March, Leap, Mimic, Vault, Curse, Rage, RageB, Burn, FireStarter, Control, Rally | Hammered brass studs run from the start square to the landing square; a brass star glints at the landing. |
 | trade (two pieces change squares) | SkyLift, FirewallB, MorphS | Two lines of studs cross between the two squares, one each way; both squares glint. |
-| ward (a mark binds or guards) | Freeze, IceWall, Firewall (at the own king), Rescue | A brass ring with eight rivets closes on the square; a glint runs round it. |
+| ward (a mark binds or guards) | Freeze, IceWall, Firewall, Rescue | A brass ring with eight rivets closes on the square; a glint runs round it. Firewall (and a Rescue that renews it) gives a thin ring with no rivets to each own piece. |
 | change (a piece comes or takes a new type) | Sacrifice, Salvation, Morph, MorphB, MorphP, Spawn, SpawnK, Spawn2, SpawnK2 | Gilt vellum flecks rise from the piece's foot round a fading gilt ground ring. |
 | quake (pieces are pushed) | EarthQuake, EarthQuakeB | A limestone crack opens from the chosen square; stone chips fall from each pushed piece. |
 | rule (no square changes) | Growth, GrowthB (Mirror and MirrorB play the copied card's beat) | A gilt lozenge pops at the start of the turn text. |
