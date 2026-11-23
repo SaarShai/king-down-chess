@@ -31,7 +31,8 @@ p { font-size: var(--type-body); }
   overflow-wrap: anywhere; text-align: center;
 }
 .kd-button { display: inline-flex; gap: var(--space-2); align-items: center; justify-content: center; font-weight: var(--weight-strong); box-shadow: var(--raise, none); }
-.kd-button[data-kind='main'] { background: var(--main-fill); color: var(--main-ink); border-color: var(--main-edge); border-radius: var(--radius-round); box-shadow: var(--main-depth); font-family: var(--font-title); font-weight: 600; letter-spacing: var(--tracking-title); }
+.kd-button[data-kind='main'] { background: var(--main-fill); color: var(--main-ink); border-color: var(--main-edge); border-radius: var(--radius-plate); box-shadow: var(--main-depth); font-family: var(--font-title); font-weight: 600; letter-spacing: var(--tracking-title); }
+.kd-button[data-kind='main']:not(:disabled, [aria-disabled='true']):active { box-shadow: var(--main-pressed); }
 .kd-button[data-kind='danger'] { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
 /* No underline on a control (launch decision 24). Hover styles only where a pointer can hover (decision 37). */
 @media (hover: hover) { .kd-button:not([aria-disabled='true']):hover, .kd-choice:hover, .kd-segment:not([aria-checked='true']):hover, .kd-switch:hover, .kd-game-row:hover { filter: brightness(.97); } }
@@ -63,9 +64,9 @@ p { font-size: var(--type-body); }
 .kd-switch-copy { flex: 1; min-inline-size: 0; display: grid; gap: var(--space-1); }
 /* The switch shows its state with a word, a knob and the track colour. */
 .kd-switch-indicator { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--text-muted); font-size: .8125rem; }
-.kd-switch-track { inline-size: 40px; block-size: 24px; padding: 3px; border-radius: var(--radius-round); background: var(--border); flex: none; }
-.kd-switch-knob { display: block; inline-size: 18px; block-size: 18px; border-radius: 50%; background: var(--surface-raised); box-shadow: 0 1px 2px #2a26224d; transition: transform var(--dur-arm) var(--ease-out3); }
-.kd-switch[aria-checked='true'] .kd-switch-track { background: var(--selection-line); }
+.kd-switch-track { inline-size: 40px; block-size: 24px; padding: 3px; border-radius: var(--radius-round); background: var(--stone); box-shadow: var(--stone-in), inset 0 0 0 1px #8b765259; flex: none; }
+.kd-switch-knob { display: block; inline-size: 18px; block-size: 18px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fbe9b8, var(--brass) 60%, #9a6f2c); box-shadow: inset 0 0 0 1px #7a5a2766, 0 1px 2px #2a26224d; transition: transform var(--dur-arm) var(--ease-out3); }
+.kd-switch[aria-checked='true'] .kd-switch-track { background: linear-gradient(#b8893a, #d9b46a); box-shadow: inset 0 2px 3px #6e4f2259, inset 0 0 0 1px #7a5a27; }
 .kd-switch[aria-checked='true'] .kd-switch-knob { transform: translateX(16px); }
 :root[data-motion='reduce'] .kd-switch-knob { transition: none; }
 .kd-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: var(--space-3); }

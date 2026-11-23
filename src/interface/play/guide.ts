@@ -75,7 +75,6 @@ const backLink = (target: string, onPress: () => void) => { const link = button(
 function entryRow(item: GuideEntry, open: () => void): HTMLButtonElement {
   const row = node('button', 'list-row guide-row'); row.type = 'button'; row.dataset.entry = item.id; row.addEventListener('click', open);
   const copy = node('span', 'list-row-copy'), name = node('strong', '', item.name);
-  if (item.kind === 'Piece' && newPieces.has(+item.id)) name.append(node('span', 'new-tag', 'New'));
   copy.append(name, node('small', '', item.short));
   const next = icon('next'); next.classList.add('list-row-next');
   row.append(...(item.art ? [picture(item.art, 'row-art')] : []), copy, next);

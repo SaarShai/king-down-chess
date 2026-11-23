@@ -30,3 +30,11 @@ it('keeps the Daylight focus ring visible on both paper surfaces', () => {
   const colour = (name: string) => daylight.match(new RegExp(`--${name}: (#[0-9a-f]{6});`))![1];
   for (const surface of ['paper-50', 'paper-0']) expect(contrast(colour(fill), colour(surface))).toBeGreaterThanOrEqual(3);
 });
+
+it('keeps text on the brass plate, the vellum card, the stone slot and the wax stamp at 4.5:1 or more', () => {
+  const daylight = readFileSync('src/interface/ui/tokens.css', 'utf8');
+  const colour = (name: string) => daylight.match(new RegExp(`--${name}: (#[0-9a-f]{6});`))![1];
+  for (const [ink, ground] of [['ink-900', 'brass'], ['ink-900', 'stock'], ['sage-700', 'stone'], ['paper-0', 'wax']]) {
+    expect(contrast(colour(ink), colour(ground)), `${ink} on ${ground}`).toBeGreaterThanOrEqual(4.5);
+  }
+});
