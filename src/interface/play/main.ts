@@ -28,12 +28,12 @@ import { RELEASED_CARDS } from '../../content/cards';
 import { POWER_NAME, POWER_TAG, cardName, coinState, usesAllowed } from '../../powers-ui';
 import { DraftTurn, isDirect, armKey } from './turn';
 import { Arrangement, ARRANGE_KEY } from './arrange';
-import { actorMarks, mergeMarks, previewMarks, resultMarks, stateMarks, type MarkAction } from './marks';
+import { actorMarks, kingSquare, mergeMarks, previewMarks, resultMarks, stateMarks, type MarkAction } from './marks';
 import { cardLine, pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, kingLabel, rematchLine, resultSheet, resultText } from './texts';
 import { readingText, checkLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
 import { armCard, calm, cardFly, disarm, screenChange, setInterfaceMotion, sheetMotion, trackCard, time } from './motion';
-import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, tween, type Effect } from './fx';
-import { gameLayout, type Form } from './layout';
+import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, strike, tween, type Effect } from './fx';
+import { gameLayout, panelBox, type Form } from './layout';
 import { fitReader, narratorView, readerNodes, readerView, resetFit, sentences, type ReaderModel } from './reader';
 import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, gameFacts, savedPlayTime, storeChoice as store, storedChoice as stored, storedGameType, storedVibration, storeVibration, type GameType as Setup, type KeptOffer, type Level } from './saved';
 import { arrowStep, fileLabelRow, rankLabelColumn, sideText, SIDE_CHOICES, SIDE_KEY, squareAt, type SideChoice } from './sides';
@@ -133,7 +133,7 @@ let last = '', notice = '', resultCause = '', choice: Move[] = [], choiceSquare 
 // the computer's card group, and the computer's text while its reply plays.
 let form: Form = 'tall', nodes = readerNodes(), rivalGroup: Resource | null = null, acting = '';
 let screen: HTMLElement, boardBox: HTMLElement, boardHost: HTMLElement, reader: HTMLElement, detail: HTMLElement, choiceBox: HTMLElement;
-let cells: HTMLButtonElement[] = [], choiceCancel: HTMLButtonElement;
+let cells: HTMLButtonElement[] = [], choiceCancel: HTMLButtonElement, struck: { square: number; height: number } | undefined, beat: Effect | undefined;
 let menuButton: HTMLButtonElement;
 let historyStrip: HTMLElement, historyButton: HTMLButtonElement, historyCompact: HTMLElement, scrollPanel: HTMLElement;
 let scrollOpen: 'history' | null = null, floatingSource: HTMLElement | null = null, swallowedPointer = false;
@@ -678,7 +678,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   enteredAt = undefined; resultReview = false;
   resources = []; shown = null; replySteps = []; resigned = null; liveGame = true;
   ended = false; fault = null; thinking = arrangement ? false : onlineActive ? !onlineState?.draft : game.pos.turn === cpu() && game.status === 'playing'; cursor = arrangement ? player ? 63 : 0 : player ? 52 : 12;
-  selected = inspected = null; choice = []; reading = 'normal'; last = ''; lastActions = []; playingAction = null; markFocus = undefined; nextMarksAt = 0; notice = ''; resultCause = '';
+  selected = inspected = null; choice = []; reading = 'normal'; last = ''; lastActions = []; playingAction = null; beat?.cancel(); markFocus = undefined; nextMarksAt = 0; notice = ''; resultCause = '';
   if (resumed) {
     // The last handed-over turn shows in the reading area and in the marks.
     const h = game.history, side = h.at(-1)?.pos.turn; let i = h.length;
@@ -784,11 +784,17 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     onArtError: progressiveArt ? undefined : onArtError,
     sceneHooks: {
       hold,
+      // The scene reports the struck figure's height just before its contact.
+      onCaptureVictim: (square: number, _kind: string, _army: string, height: number) => { struck = { square, height }; },
       onCaptureContact: (square: number, animated: boolean) => {
-        const victim = playingAction?.before.board[square];
-        if (!victim) return false;
+        const victim = playingAction?.before.board[square], move = playingAction?.move;
+        if (!victim || !move) return false;
         cue('impact');
-        if (animated) { shake(seatRings[colorOf(victim) === player ? 0 : 1], { amplitude: 4, ms: 260 }); pulse('medium'); }
+        if (animated) {
+          shake(seatRings[colorOf(victim) === player ? 0 : 1], { amplitude: 4, ms: 260 }); pulse('medium');
+          beat?.cancel();
+          beat = strike(cells[square].getBoundingClientRect(), { from: at(cells[move.from]), height: struck?.square === square ? struck.height : undefined, ranged: move.from === move.to });
+        }
         return true;
       },
       onKingImpact: () => { if (endResult || onlineActive) { cue('knock', { pitch: .7, volume: .7 * .85 }); pulse('medium'); } },
@@ -922,7 +928,7 @@ function versusCard(loaded: Promise<unknown>): Promise<void> {
 }
 
 /** End any board playback; a computer reply that only waits for its playback ends with it. */
-function skipBoard() { rewind?.finish(); boardReplay.cancel(); endCardFlight(); cancelCheckPulse(); board?.skip(); playingAction = null; endReply?.(); }
+function skipBoard() { beat?.cancel(); rewind?.finish(); boardReplay.cancel(); endCardFlight(); cancelCheckPulse(); board?.skip(); playingAction = null; endReply?.(); }
 function moveCursor(square: number) { cells[cursor].tabIndex = -1; cursor = square; cells[cursor].tabIndex = 0; cells[cursor].focus({ preventScroll: true }); }
 document.addEventListener('keydown', event => {
   if (event.defaultPrevented) return;
@@ -1060,7 +1066,7 @@ function animate(before: Position, move: Move, after: Position): Promise<unknown
   nextMarksAt = 0;
   checkShown = false;
   const action = playingAction = { before, move };
-  board.setPosition(before, game.context);
+  beat?.cancel(); board.setPosition(before, game.context);
   const check = !move.pass && before.turn !== after.turn && game.context.inCheck(after);
   const checked = check && game.context.legalMoves(after).length > 0;
   const done = board.play(move, after, checked ? () => finalCheckCue(after) : undefined).catch(error => { refuse(String(error)); }).finally(() => {
@@ -1082,7 +1088,7 @@ function undoOrReplay() {
   lastActions = replySteps.map(({ before, move }) => ({ before, move }));
   if (calm() || motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) { drawMarks(); announce(text.replay); return; }
   const own = generation, view = board;
-  screen.dataset.replaying = 'true';
+  beat?.cancel(); screen.dataset.replaying = 'true';
   void boardReplay.play(replySteps, view, game.context, () => own === generation && board === view,
     () => { playingAction = null; view.setPosition(draft.position, game.context); screen.dataset.replaying = 'false'; drawMarks(); },
     (pos, step) => { playingAction = step ? { before: pos, move: step.move } : null; drawMarks(); })
@@ -1255,7 +1261,7 @@ function showResult() {
   if (status !== 'checkmate') { cue('arrive'); pulse('light'); show(); return; }
   const title = detail.querySelector('.play-narrator .play-title');
   if (title) { title.textContent = 'Checkmate.'; riseNarrator(); }
-  const square = findKing(game.pos.board, game.pos.turn);
+  const standing = findKing(game.pos.board, game.pos.turn), square = standing >= 0 ? standing : kingSquare(game.history, game.pos.turn);
   const view = board, skip = button('Skip result animation', { onPress: () => finish(true) });
   skip.classList.add('play-sequence-skip');
   skip.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); finish(true); } });
@@ -1277,7 +1283,8 @@ function showResult() {
   endResult = cancel;
   cue('impact'); pulse('heavy'); hold(90);
   shake(ground, { amplitude: 2.5, ms: 240 });
-  const playback = view?.play({ kind: 'fall', square });
+  // A taken king has no figure to fall: the light and the sparks play on the square where it was taken.
+  const playback = standing >= 0 ? view?.play({ kind: 'fall', square }) : new Promise<void>(done => cues.push(later(won ? 900 : 1100, done)));
   cues.push(later(200, () => {
     cues.push(tween(won ? 700 : 900, t => {
       light(t);
@@ -1673,9 +1680,10 @@ function renderHistory() {
   if (openHistory) openHistory.replaceChildren(...historyRows(groups));
   if (!historyStrip) return;
   historyStrip.hidden = !game.history.length;
-  const preview = groups.flatMap(group => group.lines).slice(0, 3);
+  // The closed History is one row: its name and the newest record.
+  const preview = groups.flatMap(group => group.lines).slice(0, 1);
   const records = preview.map(item => { const record = el('span', 'play-history-record', item.line); record.dataset.historyKey = item.key; return record; });
-  historyButton.querySelector('[data-button-label]')!.replaceChildren(...(records.length ? records : [el('span', 'play-history-record', text.noHistory)]));
+  historyButton.querySelector('[data-button-label]')!.replaceChildren(el('span', 'play-history-name', text.history), ...(records.length ? records : [el('span', 'play-history-record', text.noHistory)]));
   historyCompact.replaceChildren(...records.map(record => record.cloneNode(true)));
   historyButton.setAttribute('aria-label', `${text.history}: ${preview.map(item => item.line).join(' ') || text.noHistory}`);
   historyButton.setAttribute('aria-expanded', String(scrollOpen === 'history'));
@@ -1707,11 +1715,13 @@ function placeFloating() {
     const box = screen.getBoundingClientRect(), at = anchor.getBoundingClientRect();
     const rail = screen.dataset.layout === 'wide', left = rail ? parseFloat(screen.style.getPropertyValue('--board-x')) + parseFloat(screen.style.getPropertyValue('--board')) + parseFloat(screen.style.getPropertyValue('--gap')) : Math.max(4, at.left - box.left);
     const width = Math.min(rail ? parseFloat(screen.style.getPropertyValue('--rail')) : 380, box.width - 8);
-    const below = at.bottom - box.top, above = at.top - box.top;
-    const top = box.height - below < 220 ? Math.max(4, above - 380) : Math.max(4, below);
+    // The wide rail keeps its command tray in view; History opens over the turn text, below the opponent bar.
+    const wide = screen.dataset.form === 'wide', readerY = parseFloat(screen.style.getPropertyValue('--reader-y'));
+    const history = wide && panel === scrollPanel, { top, height } = panelBox(wide ? parseFloat(screen.style.getPropertyValue('--action-y')) : box.height,
+      history ? readerY : at.top - box.top, history ? readerY : at.bottom - box.top);
     panel.style.setProperty('--panel-left', `${Math.min(left, box.width - width - 4)}px`);
     panel.style.setProperty('--panel-top', `${top}px`); panel.style.setProperty('--panel-width', `${width}px`);
-    panel.style.setProperty('--panel-height', `${Math.max(88, box.height - below < 220 ? above - top : box.height - top - 8)}px`);
+    panel.style.setProperty('--panel-height', `${height}px`);
   };
   if (source) { place(reader, source); if (!wasFloating && keyed) detail.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true }); }
   if (scrollOpen) place(scrollPanel, historyButton);
