@@ -499,28 +499,33 @@ body > .kd-sr { inset: 0 auto auto 0; }
 }
 /* A desktop window: the painting fills the window, edge to edge. The kings stand in the top corners, so the title
    sits between them on a vellum plate, and the utility buttons and the card sit at the lower right. Tablets keep the
-   layout above (an iPad in landscape is under 3:2). One grid cell holds the painting, so a tall card makes it taller. */
+   layout above (an iPad in landscape is under 3:2). One grid cell holds the painting. When the actions cannot fit
+   below the kings (a short window, large text, many rows), home.ts sets .home-split and the layout above stays. */
 @media (min-width: 1200px) and (min-aspect-ratio: 3/2) and (hover: hover) and (pointer: fine) {
-  .play-home {
+  .play-home:not(.home-split) {
+    --preview: clamp(120px, 24dvh, 260px);
     grid-template: 1fr auto auto / minmax(0, 1fr);
     gap: 12px 0;
     padding: 0;
   }
-  .play-home .home-hero, .play-home[data-state='new'] .home-hero { grid-area: 1 / 1 / -1 / -1; align-self: stretch; max-height: none; aspect-ratio: auto; }
-  .home-art, .home-art video { -webkit-mask-image: none; mask-image: none; }
-  .home-art :is(img, video) { height: 100%; max-height: none; object-fit: cover; }
+  .play-home:not(.home-split) .home-hero { grid-area: 1 / 1 / -1 / -1; align-self: stretch; max-height: none; aspect-ratio: auto; }
+  .play-home:not(.home-split) :is(.home-art, .home-art video) { -webkit-mask-image: none; mask-image: none; }
+  .play-home:not(.home-split) .home-art :is(img, video) { height: 100%; max-height: none; object-fit: cover; }
   /* The title and all the actions sit on gilt vellum: the quiet actions have no fill of their own. */
-  .home-brand, .home-start {
+  .play-home:not(.home-split) :is(.home-brand, .home-start) {
     border: 1px solid var(--gilt);
     border-radius: var(--radius-surface);
     background: var(--surface-raised);
     box-shadow: inset 0 0 0 3px var(--surface-raised), inset 0 0 0 4px color-mix(in srgb, var(--gilt) 55%, transparent), 0 2px 12px #2a26222e;
   }
-  .home-brand { width: max-content; margin: calc(28px + var(--safe-top)) auto 0; padding: 10px 30px 12px; gap: 4px; background-color: color-mix(in srgb, var(--paper-0) 90%, transparent); }
-  .home-start .home-card { padding: 0; border: 0; background: none; box-shadow: none; }
-  .home-topbar, .home-start { justify-self: end; width: clamp(300px, 28vw, 390px); margin-inline-end: max(24px, var(--safe-right)); }
-  .home-topbar { grid-area: 2 / 1; }
-  .home-start { grid-area: 3 / 1; z-index: 1; padding: 14px; margin-bottom: calc(24px + var(--safe-bottom)); }
+  .play-home:not(.home-split) .home-brand { width: max-content; margin: calc(28px + var(--safe-top)) auto 0; padding: 10px 30px 12px; gap: 4px; background-color: color-mix(in srgb, var(--paper-0) 90%, transparent); }
+  .play-home:not(.home-split) .home-start .home-card { padding: 0; border: 0; background: none; box-shadow: none; }
+  .play-home:not(.home-split) :is(.home-topbar, .home-start) { justify-self: end; width: clamp(300px, 28vw, 390px); margin-inline-end: max(24px, var(--safe-right)); }
+  .play-home:not(.home-split) .home-topbar { grid-area: 2 / 1; }
+  .play-home:not(.home-split) .home-start { grid-area: 3 / 1; z-index: 1; padding: 14px; margin-bottom: calc(24px + var(--safe-bottom)); }
+  /* On the painting: a solid fill, no blur over the film, and the focus ring inside the button. */
+  .play-home:not(.home-split) .home-top-btn.kd-button { background: var(--surface-raised); backdrop-filter: none; }
+  .play-home:not(.home-split) .home-top-btn.kd-button:focus-visible { outline-offset: -4px; }
 }
 
 /* The setup table takes the page. The active choice sits over the table. */

@@ -197,18 +197,80 @@ const cases = {
     check(await unbroken(page, '.pool-row > span'), 'piece names keep whole words');
     await shot(page, 'home-art');
   },
-  async home_wide(page, context, check) {
-    // A desktop window (1200 px or wider, 3:2 or wider, a mouse): the painting fills the window and the actions sit on it.
-    // Phones and tablets keep their own layout.
+  async home_wide(page, context, check, size) {
+    // A desktop window (1200 px or wider, 3:2 or wider, a mouse) whose panel fits below the kings: the painting fills the
+    // window and the actions sit on it. Phones, tablets, touch screens, short windows and large text keep the split layout.
+    const filled = async () => {
+      const { width: w, height: h } = page.viewportSize(), hero = await page.locator('.home-hero').boundingBox();
+      const fit = await page.locator('.home-reveal-still').evaluate(n => getComputedStyle(n).objectFit);
+      return Math.abs(hero.x) < 1 && Math.abs(hero.y) < 1 && Math.abs(hero.width - w) < 1 && hero.height >= h - 1 && fit === 'cover';
+    };
+    // The kings stand in the top third of the painting: in the wide layout no control reaches them, and each control is
+    // 44 px high or more and inside the window. The utilities have a solid fill, no blur, and an inset focus ring at 3:1.
+    const wideLayout = async label => {
+      await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
+      const wide = await filled();
+      if (!wide) return false;
+      // The painting (16:9) covers the window; the kings end at 30% of its height.
+      check(await page.locator('.home-start, .home-topbar').evaluateAll(nodes => nodes.every(n => n.getBoundingClientRect().top >= .34 * Math.max(innerHeight, innerWidth * 9 / 16))), `${label}: the actions stay below the kings`);
+      check(await page.locator('.home-start .kd-button, .home-topbar .kd-button:not([hidden])').evaluateAll(nodes => nodes.every(n => {
+        const r = n.getBoundingClientRect();
+        return r.height >= 44 && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight;
+      })), `${label}: each Home control is 44 px high or more and inside the window`);
+      const guide = page.locator('.home-guide-btn');
+      await guide.focus();
+      check(await guide.evaluate(n => {
+        const rgb = value => { const c = document.createElement('canvas').getContext('2d'); c.fillStyle = value; c.fillRect(0, 0, 1, 1); return [...c.getImageData(0, 0, 1, 1).data]; };
+        const lum = ([r, g, b]) => [r, g, b].map(v => { v /= 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }).reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i], 0);
+        const style = getComputedStyle(n), fill = rgb(style.backgroundColor), ring = rgb(style.outlineColor), [a, b] = [lum(fill), lum(ring)].sort((x, y) => y - x);
+        return n.matches(':focus-visible') && fill[3] === 255 && style.backdropFilter === 'none' && parseFloat(style.outlineOffset) < 0 && (a + .05) / (b + .05) >= 3;
+      }), `${label}: the utilities have a solid fill, no blur, and an inset focus ring at 3:1`);
+      return true;
+    };
+    const [w, h] = size.split('x').map(Number), gate = w >= 1200 && w / h >= 1.5;
     await page.goto(NEXT); await page.waitForSelector('.play-home .home-reveal-still');
-    const { width: w, height: h } = page.viewportSize(), wide = w >= 1200 && w / h >= 1.5;
-    const hero = await page.locator('.home-hero').boundingBox(), fit = await page.locator('.home-reveal-still').evaluate(n => getComputedStyle(n).objectFit);
-    const full = Math.abs(hero.x) < 1 && Math.abs(hero.y) < 1 && Math.abs(hero.width - w) < 1 && hero.height >= h - 1 && fit === 'cover';
-    check(full === wide, `the Home painting ${wide ? 'fills' : 'does not fill'} the window: ${JSON.stringify(hero)} ${fit}`);
-    if (wide) check(await page.locator('.home-start .kd-button, .home-topbar .kd-button:not([hidden])').evaluateAll(nodes => nodes.every(n => {
-      const r = n.getBoundingClientRect();
-      return r.height >= 44 && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight;
-    })), 'each Home control is 44 px high or more and inside the window');
+    check(await filled() === gate, `the Home painting ${gate ? 'fills' : 'does not fill'} the window`);
+    if (gate) await wideLayout('new');
+    // Focus order: the title, then the utilities.
+    await page.locator('.home-brand h1').focus(); await page.keyboard.press('Tab');
+    check(await page.evaluate(() => !!document.activeElement?.closest('.home-topbar')), 'the first Tab after the title goes to the utilities');
+    if (size !== '1280x800' && size !== '1920x1080') return;
+    // Both gate edges, at this height.
+    for (const [edge, wide] of [[[1199, 799], false], [[1200, 800], true], [[1200, 801], false]]) {
+      await page.setViewportSize({ width: edge[0], height: edge[1] });
+      check(await filled() === wide, `${edge.join('x')}: the Home painting ${wide ? 'fills' : 'does not fill'} the window`);
+    }
+    // A resize into the wide layout loads the wide still.
+    await page.setViewportSize({ width: 500, height: 1000 }); await page.reload(); await page.waitForSelector('.play-home .home-reveal-still');
+    await page.setViewportSize({ width: w, height: h });
+    check(await page.waitForFunction(() => document.querySelector('.home-reveal-still')?.src.endsWith('hero-wide.webp'), null, { timeout: 3000 }).then(() => true, () => false), 'a resize into the wide layout loads the wide still');
+    // Touch input keeps the split layout.
+    const touch = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true, isMobile: false }), tapped = await touch.newPage();
+    await tapped.goto(NEXT); await tapped.waitForSelector('.play-home .home-reveal-still');
+    check(!(await tapped.locator('.home-hero').evaluate(n => getComputedStyle(n.querySelector('.home-reveal-still')).objectFit === 'cover' && n.getBoundingClientRect().width >= innerWidth - 1)), 'a touch screen keeps the split layout');
+    await touch.close();
+    // A saved game keeps the wide layout. Continue grows a copy of the card with the card's own padding.
+    const save = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'ai', sound: false };
+    await context.addInitScript(s => localStorage.setItem('kingdown.save', s), JSON.stringify(save));
+    await page.goto(NEXT); await page.waitForSelector('.home-continue');
+    check(await wideLayout('saved'), 'a saved game keeps the wide layout');
+    await shot(page, 'home-wide-saved');
+    await page.emulateMedia({ reducedMotion: 'no-preference' }); await page.reload(); await page.waitForSelector('.home-continue');
+    const source = await page.locator('.home-start .home-card').evaluate(n => new Promise(done => requestAnimationFrame(() => done(getComputedStyle(n).padding))));
+    await page.locator('.home-continue').click();
+    const copy = await page.waitForSelector('.home-growing-card', { timeout: 2000 }).then(n => n.evaluate(c => getComputedStyle(c).padding), () => null);
+    check(copy === source, `the growing card keeps the card padding: ${copy} for ${source}`);
+    // Signed-in rows, at 100% and 150% text, and in a short window: wide only where all fits below the kings.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await signedIn(context, [invite('i1', 'ada'), invite('i2', 'bo'), invite('i3', 'cy'), invite('i4', 'di')]);
+    await page.goto(NEXT); await page.waitForSelector('.home-continue'); await page.waitForSelector('.home-invite-row');
+    await wideLayout('saved, signed in');
+    await shot(page, 'home-wide-signed-in');
+    await page.evaluate(() => { document.documentElement.style.fontSize = '150%'; });
+    await wideLayout('saved, signed in, 150% text');
+    await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
+    await page.setViewportSize({ width: w, height: Math.round(w / 2.4) });
+    await wideLayout('saved, signed in, short window');
   },
   async panel(page, context, check) {
     await page.goto(NEXT); await page.waitForSelector('.play-home');
