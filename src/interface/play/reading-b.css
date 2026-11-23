@@ -491,8 +491,9 @@
 .play-game[data-form='compact'] .play-result-numbers p { display: block; }
 .play-game[data-form='compact'] .play-result-numbers strong { font-size: 16px; }
 .play-game[data-form='compact'] .play-result-numbers small { display: inline; }
-/* Online, the outcome in a short screen needs the whole width for a long name: no seal. */
-.play-game[data-form='compact'][data-online] .play-result-seal { display: none; }
+/* Online on a phone, a short screen or a rematch offer (five controls) leaves no room for the seal. */
+.play-game[data-form='compact'][data-online] .play-result-seal,
+.play-game[data-form='tall'][data-online] .play-result:has(.play-result-actions > :nth-child(5)) .play-result-seal { display: none; }
 /* The desktop rail has room: the full sheet sits at the top of the rail at the size of the design. */
 .play-game[data-form='wide'][data-reading='result'] .play-result:has(.play-result-seal) { height: auto; justify-content: start; gap: 22px; padding: 26px 22px 16px; }
 .play-game[data-form='wide'] .play-result-body { gap: 10px; }
