@@ -101,6 +101,7 @@ describe.each(['../public/sw.js', './solo-launch/sw.js'])('media bypass (%s)', p
   it.each([
     ['ui/pawn.webp', { Range: 'bytes=0-1' }],
     ['interface/reveal/wide.mp4', {}],
+    ['interface/reveal/wide-hevc.mp4', {}],
     ['interface/reveal/wide.webm', {}],
   ] as const)('leaves %s to the browser even on the allowlist', (file, headers) => {
     const w = worker(storage(), version, [...files, file], undefined, readFileSync(new URL(path, import.meta.url), 'utf8'));
