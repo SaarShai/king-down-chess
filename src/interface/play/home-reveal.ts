@@ -9,6 +9,9 @@ export function revealVariant(width: number, height: number): RevealVariant {
   return aspect <= 1.25 ? 'square' : 'wide';
 }
 
+/** The wide Home layout of menus.css: the painting fills a desktop window. */
+export const WIDE_HOME = '(min-width: 1200px) and (min-aspect-ratio: 3/2) and (hover: hover) and (pointer: fine)';
+
 export const revealVideo = (variant: RevealVariant, codec: 'av1' | 'hevc' | 'h264' = 'h264') => `/interface/reveal/${variant}${codec === 'h264' ? '' : `-${codec}`}.mp4`;
 export const revealPoster = (width: number, height: number) => `/interface/reveal/hero-${revealVariant(width, height)}.webp`;
 
@@ -107,6 +110,12 @@ export function homeReveal(art: HTMLElement) {
   }, { signal });
   video.addEventListener('transitionend', event => {
     if (settled && event.propertyName === 'opacity') release();
+  }, { signal });
+  // A film framed for a narrower window would crop the kings in the wide layout: show the wide still.
+  const wide = matchMedia(WIDE_HOME);
+  wide.addEventListener('change', () => {
+    if (!wide.matches || !variant || variant === 'wide') return;
+    variant = 'wide'; still.src = revealPoster(window.innerWidth, window.innerHeight); fallback();
   }, { signal });
   document.addEventListener('visibilitychange', sync, { signal });
   window.addEventListener('online', sync, { signal });

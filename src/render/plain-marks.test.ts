@@ -94,6 +94,46 @@ it('draws a threat line from each checking piece to the edge of the king square,
   expect(ends(0).arcs).toBe(draw({ ...emptyMarks(), check: 16 }).ctx.lineTo.mock.calls.length);
 });
 
+it('draws a dot to move, a ring broken into four arcs to capture and a diamond for a special action', () => {
+  const at = (shape: PlainMarks['rings'][number]['shape'], size: number) => draw({ ...emptyMarks(), rings: [{ square: 8, color: PLAIN.move, size, role: 'target', shape }] }).ctx;
+  const [x, y] = [37.5, (6 + .79) * 75];
+  const dot = at('dot', .78), [a, b] = [.2 * 75 * .78, .12 * 75 * .78];
+  expect(dot.ellipse.mock.calls).toEqual([[x, y, a + 1.2, b + 1.2, 0, 0, 2 * Math.PI], [x, y, a, b, 0, 0, 2 * Math.PI]]);
+  expect(dot.lineTo).not.toHaveBeenCalled();
+  // Capture: the keyline arcs and then the body arcs, centred on the four diagonals; the gaps face front, back and sides.
+  const capture = at('capture', 1.12).ellipse.mock.calls;
+  expect(capture).toHaveLength(8);
+  expect(capture.slice(4).map(([, , , , , from, to]) => Math.round((from + to) / 2 / (Math.PI / 4)))).toEqual([1, 3, 5, 7]);
+  // A large diamond lifts so that its keyline ends at the lower edge of the square.
+  const diamond = at('special', 1.12), [rx, ry] = [.4 * 75 * 1.12, .18 * 75 * 1.12], up = 7 * 75 - ry - (.046 * 75 + 2.4) / 2;
+  expect(diamond.moveTo.mock.calls).toEqual([[x - rx, up], [x - rx, up]]);
+  expect(diamond.lineTo.mock.calls.slice(0, 3)).toEqual([[x, up - ry], [x + rx, up], [x, up + ry]]);
+  expect(diamond.ellipse).not.toHaveBeenCalled();
+});
+
+it('keeps each shaped mark inside its square on a phone board, and draws both cues on a square with both', () => {
+  // Both draws the capture ring and the diamond, each checked alone.
+  const tile = 46, shapes = [['dot', .78], ['capture', 1.12], ['special', 1.12], ['special', .78, [5, 5]]] as const;
+  for (const [shape, size, dash] of shapes) {
+    const { ctx, strokes } = draw({ ...emptyMarks(), rings: [{ square: 8, color: PLAIN.move, size, role: 'target', shape, ...(dash && { dash: [...dash] }) }] }, tile);
+    const half = Math.max(0, ...strokes.map(s => s.width)) / 2;
+    const points = [...ctx.moveTo.mock.calls, ...ctx.lineTo.mock.calls].map(([x, y]) => [x - half, x + half, y - half, y + half]);
+    for (const [x, y, a, b, , from, to] of ctx.ellipse.mock.calls) if (to - from >= 2 * Math.PI - 1e-9) points.push([x - a, x + a, y - b, y + b]);
+    const [left, right, top, bottom] = [Math.min(...points.map(p => p[0])), Math.max(...points.map(p => p[1])), Math.min(...points.map(p => p[2])), Math.max(...points.map(p => p[3]))];
+    expect([shape, left >= 0, right <= tile, top >= 6 * tile, bottom <= 7 * tile]).toEqual([shape, true, true, true, true]);
+  }
+  const both = draw({ ...emptyMarks(), rings: [{ square: 8, color: PLAIN.enemy, size: 1.12, role: 'target', shape: 'both' }] }).ctx;
+  expect(both.ellipse).toHaveBeenCalledTimes(8);
+  expect(both.lineTo.mock.calls.length).toBeGreaterThan(3);
+});
+
+it('draws a Freeze target with a shape as an ice diamond, not the frost square', () => {
+  const { ctx, strokes } = draw({ ...emptyMarks(), rings: [{ square: 8, color: PLAIN.ice, size: .78, role: 'target', frost: true, shape: 'special' }] });
+  expect(ctx.fillRect).not.toHaveBeenCalled();
+  expect(ctx.moveTo).toHaveBeenCalled();
+  expect(strokes.length).toBe(2);
+});
+
 // The two stone tones of the play board, the median of an empty a5 and b5 in the 1280x800 build (docs/specs/gui-fx/capture.mjs).
 const STONE = { light: '#dfd6b9', dark: '#a3a397' };
 it('gives each mark kind an edge that reads at 3:1 or more on both stone tones', () => {
@@ -104,6 +144,8 @@ it('gives each mark kind an edge that reads at 3:1 or more on both stone tones',
     shelter: kind(PLAIN.holy, { role: 'state' }), freeze: kind(PLAIN.ice, { frost: true }), ice: kind(PLAIN.ice, { role: 'state', size: 1.25 }),
     ember: kind(PLAIN.ember), shadow: kind(PLAIN.shadow), friend: kind(PLAIN.friend, { dash: [5, 5] }), check: { ...emptyMarks(), check: 0 },
     threat: { ...emptyMarks(), threats: [{ sq: 0, king: 16, path: 'straight' }] },
+    dot: kind(PLAIN.move, { size: .78, shape: 'dot' }), bracket: kind(PLAIN.enemy, { size: 1.12, shape: 'capture' }),
+    diamond: kind(PLAIN.friend, { size: 1.12, shape: 'special' }), 'dashed diamond': kind(PLAIN.move, { shape: 'special', dash: [5, 5] }),
   };
   const reads = Object.fromEntries(Object.entries(kinds).map(([name, marks]) => {
     const inks: string[] = [];

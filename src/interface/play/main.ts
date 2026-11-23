@@ -1998,7 +1998,7 @@ function drawMarks() {
   const options = !playingAction && performance.now() < nextMarksAt ? [] : playingAction ? [playingAction.move] : picked ? draft.options(source) : !thinking && !ended ? draft.armedMoves : [];
   const pos = playingAction?.before ?? (thinking ? game.pos : draft.position);
   const chooseActor = !playingAction && source == null && !!draft.armed && !options.every(isDirect);
-  const preview = chooseActor ? actorMarks(draft.now, options, markFocus) : previewMarks(game.context, playingAction?.before ?? draft.now, options, markFocus, playingAction ? [] : draft.captures, picked ? draft.captures.at(-1) ?? source : undefined);
+  const preview = chooseActor ? actorMarks(draft.now, options, markFocus) : previewMarks(game.context, playingAction?.before ?? draft.now, options, markFocus, playingAction ? [] : draft.captures, picked ? draft.captures.at(-1) ?? source : undefined, !playingAction);
   const focus = preview.rings.find(r => r.role === 'focus')?.square;
   const hits = options.filter(m => m.captures.includes(focus!) || (m.shove?.from ?? m.to) === focus);
   // A square with a later choice (a new piece, a returned piece, capture or push) has no one result to name (check "play" fault 4).
