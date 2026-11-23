@@ -588,5 +588,8 @@
   font: 700 15px/1 var(--sans, var(--font-reading)); text-transform: none; letter-spacing: 0;
 }
 .play-game[data-online] .play-turn [data-turn-state='wait'] { position: relative; overflow: hidden; }
-.play-turn [data-turn-state='wait']::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: var(--stone); opacity: var(--wait-shade, 0); }
-.play-turn [data-turn-state='wait'] :is([data-button-label], .play-wait-dots) { position: relative; z-index: 1; }
+.play-turn [data-turn-state='wait']::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: var(--stone); opacity: var(--wait-shade, 1); }
+.play-turn :is([data-turn-state='wait'], [data-sealed]) :is([data-button-label], .play-wait-dots) { position: relative; z-index: 1; }
+/* The commit seal owns the plate: brass in each state, then the stone shade at 300-420 ms (main.ts passTurn). */
+.play-game .play-turn .kd-button[data-sealed] { position: relative; overflow: hidden; background: var(--main-fill); border-color: var(--main-edge); color: var(--main-ink); box-shadow: none; }
+.play-turn [data-sealed]::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: var(--stone); opacity: var(--wait-shade, 0); }

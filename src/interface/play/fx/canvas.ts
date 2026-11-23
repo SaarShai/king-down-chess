@@ -229,16 +229,16 @@ const CROWN = [[4, 8], [8, 12], [12, 5], [16, 12], [20, 8], [18, 19], [6, 19]] a
 
 /**
  * The own End turn as one moment: a wax seal lands on the plate, a brass line carries it to the first turn text
- * that shows (`text`), and a rule sweeps under that text. Boxes are read on each frame.
+ * that shows (`text()`), and a rule sweeps under that text. The elements and their boxes are read on each frame.
  */
-export function seal(plate: Element, text: Element[], { onArrive }: SealOptions = {}): Effect {
+export function seal(plate: Element, text: () => Element[], { onArrive }: SealOptions = {}): Effect {
   if (reducedMotion()) return drawFor(0, () => {}, onArrive);
   let arrived = false;
   return drawFor(SEAL_MS, (ctx, progress) => {
     const { land, ring, head, tail, rule, fade } = sealAt(progress * SEAL_MS), box = plate.getBoundingClientRect();
     if (!box.width) return;
     const r = Math.min(16, box.height * .3), cx = box.right - box.height * .62, cy = box.top + box.height / 2;
-    const line = text.map(node => node.getBoundingClientRect()).find(b => b.width && b.height);
+    const line = text().map(node => node.getBoundingClientRect()).find(b => b.width && b.height);
     if (head === 1 && !arrived) { arrived = true; onArrive?.(); }
     ctx.globalAlpha = fade;
     if (line && head > tail) {

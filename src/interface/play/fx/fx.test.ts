@@ -212,9 +212,12 @@ describe('Commit seal', () => {
     fx.setFxMotion('normal', false);
     const box = (left: number, top: number, width: number, height: number) => ({ getBoundingClientRect: () => ({ left, top, width, height, right: left + width, bottom: top + height }) }) as Element;
     const arrive = vi.fn();
-    fx.seal(box(80, 772, 294, 56), [box(0, 0, 0, 0), box(16, 553, 153, 20)], { onArrive: arrive });
+    // The turn text can move to a new element while the seal runs (the online status panel of a draw offer).
+    let text = [box(0, 0, 0, 0)];
+    fx.seal(box(80, 772, 294, 56), () => text, { onArrive: arrive });
     advance(16);
     expect(drawing.fill).toHaveBeenCalled();
+    text = [box(0, 0, 0, 0), box(16, 553, 153, 20)];
     for (let i = 0; i < 30; i++) advance(16);
     expect(arrive).toHaveBeenCalledOnce();
     // The rule starts at the left of the turn text that shows, 3 px under it.
@@ -225,7 +228,7 @@ describe('Commit seal', () => {
     const arrive = vi.fn();
     setFxMotion('normal', true);
     const box = { getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 50, right: 100, bottom: 50 }) } as Element;
-    seal(box, [box], { onArrive: arrive });
+    seal(box, () => [box], { onArrive: arrive });
     expect(arrive).toHaveBeenCalledOnce();
     expect(pending.size).toBe(0);
   });
