@@ -81,6 +81,35 @@ export async function releaseContext(browser, url, options) {
   return context;
 }
 
+export function releaseRequestFailures(page) {
+  const bad = [];
+  const films = new Set();
+  let leavingHome = new Set();
+  page.on('request', request => {
+    if (/^\/interface\/reveal\/[^/]+\.mp4$/.test(new URL(request.url()).pathname)) films.add(request);
+  });
+  page.on('requestfinished', request => films.delete(request));
+  page.on('requestfailed', request => {
+    films.delete(request);
+    const error = request.failure()?.errorText;
+    if (leavingHome.has(request) && (error === 'net::ERR_ABORTED' || error === 'cancelled')) return;
+    bad.push(`${error} ${new URL(request.url()).pathname}`);
+  });
+  page.on('response', response => {
+    const address = new URL(response.url()), status = response.status();
+    if (address.origin === previewOrigin && address.pathname === '/api/status' && status === 403) return;
+    if (status >= 400) bad.push(`${status} ${address.pathname}`);
+  });
+  return {
+    bad,
+    async leaveHome(action) {
+      leavingHome = new Set(films);
+      try { return await action(); }
+      finally { leavingHome.clear(); }
+    },
+  };
+}
+
 const button = (scope, name) => scope.getByRole('button', { name, exact: true });
 const dialog = (page, name) => page.getByRole('dialog', { name, exact: true });
 
@@ -101,7 +130,15 @@ export function releaseDriver(page, url, touch = false) {
   const waitHome = () => button(page, text.friend).waitFor();
 
   return {
-    async openHome() { await page.goto(url, { waitUntil: 'domcontentloaded' }); await waitHome(); },
+    async openHome() {
+      const start = performance.now();
+      try { await page.goto(url, { waitUntil: 'domcontentloaded' }); }
+      finally {
+        const elapsed = performance.now() - start;
+        if (elapsed > 5_000) console.warn(`WARN navigation ${new URL(url).pathname} took ${(elapsed / 1_000).toFixed(2)} s`);
+      }
+      await waitHome();
+    },
     async redesignedHome() {
       await play.waitFor();
       return !await page.locator('.shell-nav').count() &&
