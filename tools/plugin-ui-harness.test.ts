@@ -30,9 +30,11 @@ it('lets screen checks seed one record and call any friend tool', async () => {
   const seed = await fetch(new URL('/fixture-seed',harness.url),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({actor:'alice',data:{record}})});
   expect(seed.status).toBe(200);
   const call = async (path:string,name:string,args={},fresh=false) => (await fetch(new URL(path,harness.url),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,arguments:args,fresh})})).json();
-  expect((await call('/fixture-tool','kingdown_profile'))._meta.record).toEqual(record);
-  expect((await call('/fixture-friend-tool','kingdown_profile'))._meta.handle).toMatch(/^host1-/);
-  expect((await call('/fixture-friend-tool','kingdown_profile',{},true))._meta.handle).toMatch(/^host2-/);
+  const profile = (await call('/fixture-tool','kingdown_profile'))._meta;
+  expect(profile.record).toEqual(record);
+  expect(profile.handle).toBe('host0-294255f7');
+  expect((await call('/fixture-friend-tool','kingdown_profile'))._meta.handle).toBe('host1-294255f7');
+  expect((await call('/fixture-friend-tool','kingdown_profile',{},true))._meta.handle).toBe('host2-294255f7');
  } finally {await harness.close();await rm(folder,{recursive:true,force:true});}
 },15000);
 
