@@ -197,6 +197,19 @@ const cases = {
     check(await unbroken(page, '.pool-row > span'), 'piece names keep whole words');
     await shot(page, 'home-art');
   },
+  async home_wide(page, context, check) {
+    // A desktop window (1200 px or wider, 3:2 or wider, a mouse): the painting fills the window and the actions sit on it.
+    // Phones and tablets keep their own layout.
+    await page.goto(NEXT); await page.waitForSelector('.play-home .home-reveal-still');
+    const { width: w, height: h } = page.viewportSize(), wide = w >= 1200 && w / h >= 1.5;
+    const hero = await page.locator('.home-hero').boundingBox(), fit = await page.locator('.home-reveal-still').evaluate(n => getComputedStyle(n).objectFit);
+    const full = Math.abs(hero.x) < 1 && Math.abs(hero.y) < 1 && Math.abs(hero.width - w) < 1 && hero.height >= h - 1 && fit === 'cover';
+    check(full === wide, `the Home painting ${wide ? 'fills' : 'does not fill'} the window: ${JSON.stringify(hero)} ${fit}`);
+    if (wide) check(await page.locator('.home-start .kd-button, .home-topbar .kd-button:not([hidden])').evaluateAll(nodes => nodes.every(n => {
+      const r = n.getBoundingClientRect();
+      return r.height >= 44 && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight;
+    })), 'each Home control is 44 px high or more and inside the window');
+  },
   async panel(page, context, check) {
     await page.goto(NEXT); await page.waitForSelector('.play-home');
     const before = await saved(page), choices = await page.locator('.home-summary').innerText();
