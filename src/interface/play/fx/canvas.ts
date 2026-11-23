@@ -1,6 +1,6 @@
 import { reducedMotion, setPaintHook, tween } from './clock';
 import { ease } from './curves';
-import type { BurstOptions, EdgeOptions, Effect, Point, ShakeOptions, StreakOptions } from './index';
+import type { BurstOptions, EdgeOptions, Effect, Point, ShakeOptions, StreakOptions, StrikeOptions } from './index';
 
 type Draw = (ctx: CanvasRenderingContext2D, progress: number) => void;
 const painters = new Set<(ctx: CanvasRenderingContext2D) => void>();
@@ -136,6 +136,80 @@ export function burst(kind: 'sparks' | 'dust', point: Point, {
         ctx.lineTo(px + particle.dx * .08, py + particle.size * 6);
         ctx.strokeStyle = brass.edge; ctx.lineWidth = particle.size * 2.4; ctx.stroke();
         ctx.strokeStyle = brass.light; ctx.lineWidth = particle.size * 1.1; ctx.stroke();
+      }
+    }
+  });
+}
+
+export const BEAT_MS = 260;
+const unit = (n: number) => Math.min(1, Math.max(0, n));
+/** The capture beat at a time on the effect clock. The scene's contact hold stops that clock, so the hold shows beatAt(0). */
+export function beatAt(ms: number) {
+  return { rim: unit(1 - ms / 70), head: ease.out3(unit(ms / 75)), tail: ease.in2(unit((ms - 50) / 160)), chips: unit((ms - 20) / (BEAT_MS - 20)) };
+}
+// Limestone chips: direction from the strike (rad), reach and size (tiles), spin (turns over the beat).
+const CHIPS = [[-.5, .5, 1, .5], [-.15, .62, .75, -.7], [.2, .45, .9, .8], [.55, .38, .6, -.5]] as const;
+const CHIP = [[0, 1], [1.3, .7], [2.4, .9], [3.6, .6], [4.9, .8]] as const;
+
+/**
+ * A capture on the struck tile (viewport box): a rim light on the figure, a dry-brush slash along the strike
+ * and stone chips. A ranged capture has no slash. `height` is the figure's height in CSS pixels.
+ */
+export function strike(tile: { left: number; top: number; width: number; height: number }, { from, height = tile.width, ranged = false }: StrikeOptions = {}): Effect {
+  if (reducedMotion()) return drawFor(0, () => {});
+  const s = tile.width, foot = pagePoint({ x: tile.left + s / 2, y: tile.top + tile.height * .79 });
+  const dx = from ? tile.left + s / 2 - from.x : 1, dy = from ? tile.top + tile.height * .79 - from.y : 0, l = Math.hypot(dx, dy) || 1;
+  const dir = { x: dx / l, y: dy / l };
+  // A brush cut crosses the figure: tilt it 40 degrees off the strike, and light its upper side.
+  const a = Math.atan2(dir.y, dir.x) - .7, u = { x: Math.cos(a), y: Math.sin(a) };
+  const n = -u.x <= 0 ? { x: u.y, y: -u.x } : { x: -u.y, y: u.x };
+  return drawFor(BEAT_MS, (ctx, progress) => {
+    const { rim, head, tail, chips } = beatAt(progress * BEAT_MS), { x, y } = foot(), body = { x, y: y - .5 * height };
+    if (rim > 0) {
+      // The rim lights the figure's flank on the attacker's side (the left one for a strike straight up or down).
+      const rx = Math.min(.3 * s, .28 * height), ry = .46 * height, facing = dir.x > .2 ? Math.PI : dir.x < -.2 ? 0 : Math.PI;
+      ctx.globalAlpha = rim; ctx.shadowColor = '#ffdf85'; ctx.shadowBlur = .12 * s;
+      for (const [color, width] of [['#ffdf85aa', .05 * s], ['#fff8e1', .018 * s]] as const) {
+        ctx.beginPath(); ctx.ellipse(body.x, body.y, rx, ry, 0, facing - .9, facing + .9);
+        ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
+      }
+      ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    }
+    if (!ranged && head > tail) {
+      const length = 1.2 * s, belly = .13 * s, c = body;
+      const along = (q: number, off: number) => {
+        const t = tail + (head - tail) * q, bend = .08 * s * Math.sin(Math.PI * t) + off;
+        return [c.x + u.x * (t - .5) * length + n.x * bend, c.y + u.y * (t - .5) * length + n.y * bend] as const;
+      };
+      const half = (q: number) => belly / 2 * Math.sin(Math.PI * q) ** .7;
+      const edge = (side: number, from = 0, to = 1) => {
+        for (let i = 0; i <= 20; i++) { const q = from + (to - from) * i / 20; ctx.lineTo(...along(q, side * half(q))); }
+      };
+      ctx.beginPath(); edge(1); for (let i = 20; i >= 0; i--) ctx.lineTo(...along(i / 20, -half(i / 20))); ctx.closePath();
+      ctx.fillStyle = '#433022eb'; ctx.fill();
+      // Two bristle splits run out of the tail.
+      ctx.globalCompositeOperation = 'destination-out'; ctx.lineWidth = Math.max(.8, .012 * s);
+      for (const side of [.3, -.25]) { ctx.beginPath(); edge(side, .04, .55); ctx.stroke(); }
+      ctx.globalCompositeOperation = 'source-over';
+      // A dry gold edge on the lit side, broken in two places.
+      const lit = (length * (head - tail));
+      ctx.setLineDash([lit * .34, lit * .07, lit * .3, lit * .06, lit]);
+      ctx.beginPath(); edge(.85); ctx.strokeStyle = '#ffdf85'; ctx.lineWidth = Math.max(1, .018 * s); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    if (chips > 0) {
+      const travel = ease.out3(chips), origin = { x: body.x, y: y - .25 * height };
+      ctx.globalAlpha = unit((1 - chips) / .4); ctx.lineWidth = Math.max(1, .016 * s); ctx.strokeStyle = '#4e3815';
+      for (const [turn, reach, size, spin] of CHIPS) {
+        const way = Math.atan2(dir.y, dir.x) + turn, r = size * .065 * s;
+        ctx.save();
+        ctx.translate(origin.x + Math.cos(way) * reach * s * travel, origin.y + Math.sin(way) * reach * s * travel + .25 * s * chips ** 2);
+        ctx.rotate(spin * 2 * Math.PI * chips);
+        ctx.beginPath(); for (const [angle, k] of CHIP) ctx.lineTo(Math.cos(angle) * r * k, Math.sin(angle) * r * k); ctx.closePath();
+        ctx.fillStyle = '#cdbf9c'; ctx.fill(); ctx.stroke();
+        ctx.beginPath(); for (const [angle, k] of CHIP.slice(0, 3)) ctx.lineTo(Math.cos(angle) * r * k, Math.sin(angle) * r * k); ctx.closePath();
+        ctx.fillStyle = '#fffaf0'; ctx.fill();
+        ctx.restore();
       }
     }
   });

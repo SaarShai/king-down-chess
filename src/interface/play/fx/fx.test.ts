@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { burst, ease, edgeLight, hold, later, onFrame, pulse, setFxMotion, setPauseHook, setVibration, shake, sound, Spring, startFx, streak, tween } from './index';
+import { beatAt, BEAT_MS, burst, ease, edgeLight, hold, later, onFrame, pulse, setFxMotion, setPauseHook, setVibration, shake, sound, Spring, startFx, streak, strike, tween } from './index';
 
 let now: number, id: number, pending: Map<number, FrameRequestCallback>;
 
@@ -92,7 +92,7 @@ it('draws all primitives on one canvas and clears it when Motion goes off', () =
   const drawing = {
     setTransform: vi.fn(), clearRect: vi.fn(), save: vi.fn(), restore: vi.fn(),
     beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(), arc: vi.fn(), fill: vi.fn(),
-    setLineDash: vi.fn(), roundRect: vi.fn(), ellipse: vi.fn(),
+    setLineDash: vi.fn(), roundRect: vi.fn(), ellipse: vi.fn(), closePath: vi.fn(), translate: vi.fn(), rotate: vi.fn(),
     createRadialGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
   };
   const canvas = { parentElement: null as object | null, getContext: vi.fn(() => drawing), setAttribute: vi.fn(), style: {}, width: 0, height: 0 };
@@ -110,11 +110,15 @@ it('draws all primitives on one canvas and clears it when Motion goes off', () =
   burst('dust', { x: 10, y: 20 }, { count: 3 });
   burst('sparks', { x: 4, y: 20 }, { count: 2 });
   const firstShake = shake(element, { amplitude: 2 });
+  const beat = strike({ left: 100, top: 100, width: 80, height: 80 }, { from: { x: 140, y: 380 }, height: 90 });
   advance(16);
   expect(append).toHaveBeenCalledExactlyOnceWith(canvas);
   expect(drawing.setTransform).toHaveBeenCalledWith(2, 0, 0, 2, 0, 0);
   expect(drawing.roundRect).toHaveBeenCalledWith(7, 9, 108, 44, 22);
-  expect(drawing.ellipse).toHaveBeenCalledTimes(3);
+  // Three dust puffs and the two strokes of the capture's rim light.
+  expect(drawing.ellipse).toHaveBeenCalledTimes(5);
+  expect(drawing.closePath).toHaveBeenCalled();
+  beat.cancel();
   expect(drawing.stroke.mock.calls.length).toBeGreaterThan(6);
   expect(element.style.translate).not.toBe('5px');
   expect(arrive).not.toHaveBeenCalled();
@@ -134,6 +138,29 @@ it('draws all primitives on one canvas and clears it when Motion goes off', () =
   expect(element.style.translate).toBe('5px');
   expect(pending.size).toBe(0);
   expect(drawing.clearRect).toHaveBeenLastCalledWith(0, 0, 390, 844);
+});
+
+describe('Capture beat', () => {
+  it('lights the rim during the contact hold, then cuts and clears the slash by 210 ms and the chips by the end', () => {
+    expect(beatAt(0)).toEqual({ rim: 1, head: 0, tail: 0, chips: 0 });
+    expect(beatAt(75).head).toBe(1);
+    expect(beatAt(70).rim).toBe(0);
+    expect(beatAt(209).tail).toBeLessThan(1);
+    expect(beatAt(210).tail).toBe(1);
+    expect(beatAt(BEAT_MS).chips).toBe(1);
+    // The scene holds the contact frame for 45 ms; the whole beat stays under 320 ms.
+    expect(45 + BEAT_MS).toBeLessThan(320);
+  });
+
+  it('runs on the effect clock and leaves no drawing in reduced motion', () => {
+    const tile = { left: 100, top: 100, width: 80, height: 80 };
+    const done = vi.fn();
+    setFxMotion('normal', true);
+    strike(tile, { from: { x: 140, y: 380 }, height: 90 });
+    later(0, done);
+    expect(done).toHaveBeenCalledOnce();
+    expect(pending.size).toBe(0);
+  });
 });
 
 it('uses the specified browser patterns and cancels vibration when the switch goes off', () => {

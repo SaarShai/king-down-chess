@@ -32,7 +32,7 @@ import { actorMarks, mergeMarks, previewMarks, resultMarks, stateMarks, type Mar
 import { cardLine, pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, kingLabel, rematchLine, resultText } from './texts';
 import { readingText, checkLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
 import { armCard, calm, cardFly, disarm, screenChange, setInterfaceMotion, sheetMotion, trackCard, time } from './motion';
-import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, tween, type Effect } from './fx';
+import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, strike, tween, type Effect } from './fx';
 import { gameLayout, type Form } from './layout';
 import { fitReader, narratorView, readerNodes, readerView, resetFit, sentences, type ReaderModel } from './reader';
 import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, gameFacts, savedPlayTime, storeChoice as store, storedChoice as stored, storedGameType, storedVibration, storeVibration, type GameType as Setup, type KeptOffer, type Level } from './saved';
@@ -133,7 +133,7 @@ let last = '', notice = '', resultCause = '', choice: Move[] = [], choiceSquare 
 // the computer's card group, and the computer's text while its reply plays.
 let form: Form = 'tall', nodes = readerNodes(), rivalGroup: Resource | null = null, acting = '';
 let screen: HTMLElement, boardBox: HTMLElement, boardHost: HTMLElement, reader: HTMLElement, detail: HTMLElement, choiceBox: HTMLElement;
-let cells: HTMLButtonElement[] = [], choiceCancel: HTMLButtonElement;
+let cells: HTMLButtonElement[] = [], choiceCancel: HTMLButtonElement, struck: { square: number; height: number } | undefined;
 let menuButton: HTMLButtonElement;
 let historyStrip: HTMLElement, historyButton: HTMLButtonElement, historyCompact: HTMLElement, scrollPanel: HTMLElement;
 let scrollOpen: 'history' | null = null, floatingSource: HTMLElement | null = null, swallowedPointer = false;
@@ -784,11 +784,16 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     onArtError: progressiveArt ? undefined : onArtError,
     sceneHooks: {
       hold,
+      // The scene reports the struck figure's height just before its contact.
+      onCaptureVictim: (square: number, _kind: string, _army: string, height: number) => { struck = { square, height }; },
       onCaptureContact: (square: number, animated: boolean) => {
-        const victim = playingAction?.before.board[square];
-        if (!victim) return false;
+        const victim = playingAction?.before.board[square], move = playingAction?.move;
+        if (!victim || !move) return false;
         cue('impact');
-        if (animated) { shake(seatRings[colorOf(victim) === player ? 0 : 1], { amplitude: 4, ms: 260 }); pulse('medium'); }
+        if (animated) {
+          shake(seatRings[colorOf(victim) === player ? 0 : 1], { amplitude: 4, ms: 260 }); pulse('medium');
+          strike(cells[square].getBoundingClientRect(), { from: at(cells[move.from]), height: struck?.square === square ? struck.height : undefined, ranged: move.from === move.to });
+        }
         return true;
       },
       onKingImpact: () => { if (endResult || onlineActive) { cue('knock', { pitch: .7, volume: .7 * .85 }); pulse('medium'); } },

@@ -27,6 +27,14 @@ async function open(fen, [width, height]) {
     localStorage.setItem('kingdown.solo-launch-seen', '1');
     localStorage.setItem('kingdown.save', s);
   }, JSON.stringify(save(fen)));
+  // The beat's first rim stroke on the effect layer marks the contact.
+  await page.addInitScript(() => {
+    const ellipse = CanvasRenderingContext2D.prototype.ellipse;
+    CanvasRenderingContext2D.prototype.ellipse = function (...args) {
+      if (this.canvas.className === 'daylight-fx') window.beatAt ??= performance.now();
+      return ellipse.apply(this, args);
+    };
+  });
   await page.goto(`${base}next.html`);
   await until(page, () => [...document.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Continue' && b.checkVisibility()));
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
@@ -73,20 +81,21 @@ try {
   } else {
     for (const [kind, [fen, from, to]] of Object.entries(CAPTURES)) for (const size of [[1280, 800], [390, 844]]) {
       const page = await open(fen, size);
-      await tap(page, from); await tap(page, to);
-      await page.getByRole('button', { name: /End turn/ }).first().click();
+      // The board plays a move when it is staged: the contact comes after the second tap, before End turn.
+      await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50));
+      await tap(page, from);
+      await page.locator(`.play-square[data-square="${to}"]`).click();
       const target = await box(page, to), start = await box(page, from), t = target.width;
       const clip = { x: Math.max(0, Math.min(target.x, start.x) - t), y: Math.max(0, Math.min(target.y, start.y) - 1.6 * t), width: Math.abs(target.x - start.x) + 3 * t, height: Math.abs(target.y - start.y) + 3.2 * t };
-      // Contact: the first frame where the effect layer paints inside the struck square.
-      await until(page, ({ x, y, width, height }) => {
-        const fx = document.querySelector('canvas.daylight-fx'), k = fx ? fx.width / innerWidth : 1;
-        const data = fx?.getContext('2d').getImageData(x * k, y * k, width * k, height * k).data;
-        return data?.some((v, i) => i % 4 === 3 && v > 0);
-      }, target).catch(() => { throw new Error(`${kind}: no beat at the contact`); });
+      clip.width = Math.min(clip.width, size[0] - clip.x); clip.height = Math.min(clip.height, size[1] - clip.y);
+      for (let i = 0; !await page.evaluate(() => window.beatAt); i++) {
+        if (i > 600) throw new Error(`${kind}: no beat at the contact`);
+        await page.clock.runFor(4);
+      }
       const frames = [];
-      // 0 and 30 ms: the hold (rim light). Then the beat on the effect clock after the hold.
-      for (const [i, step] of [0, 30, 50, 60, 70, 80].entries()) {
-        if (step) await page.clock.runFor(step === 30 ? 30 : step);
+      // Wall times 0, 30, 75, 125, 195 and 275 ms after the contact: two in the 45 ms hold, four in the beat.
+      for (const [i, step] of [0, 30, 45, 50, 70, 80].entries()) {
+        if (step) await page.clock.runFor(step);
         frames.push(join(out, `.fx-${kind}-${size[0]}-${i}.png`));
         await page.screenshot({ path: frames.at(-1), clip });
       }
