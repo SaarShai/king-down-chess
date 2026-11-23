@@ -53,11 +53,12 @@ function fakePage(av1Answer: string, hevcAnswer = av1Answer, app = false) {
   vi.stubGlobal('IntersectionObserver', class { constructor(seen: typeof observers[number]) { observers.push(seen); } observe() {} disconnect() {} });
   return {
     codecChecks,
-    async show() {
+    async show(playError?: DOMException) {
       const { homeReveal } = await import('./home-reveal');
       const art = node(), videos: ReturnType<typeof node>[] = [];
       Object.assign(art, { append: (...children: ReturnType<typeof node>[]) => videos.push(...children.filter(child => child.tag === 'video')) });
       const reveal = homeReveal(art as unknown as HTMLElement);
+      if (playError) videos[0].play.mockRejectedValue(playError);
       observers.at(-1)!([{ intersectionRatio: 1 }]);
       return { art, video: videos[0], reveal };
     },
@@ -85,6 +86,37 @@ it('moves an AV1 error to HEVC, then H.264, then the still', async () => {
   expect(first.video.play).toHaveBeenCalledTimes(3);
   expect(first.art.classList.contains('home-art-still')).toBe(false);
   first.video.emit('error');
+  expect(first.video.src).toBeUndefined();
+  expect(first.art.classList.contains('home-art-still')).toBe(true);
+});
+
+it('shows the still while the next film loads after a playback error', async () => {
+  const first = await fakePage('probably').show();
+  first.video.emit('playing');
+  expect(first.video.dataset).toHaveProperty('ready');
+
+  first.video.emit('error');
+  expect(first.video.src).toBe('/interface/reveal/wide-hevc.mp4');
+  expect(first.video.dataset).not.toHaveProperty('ready');
+
+  first.video.emit('playing');
+  expect(first.video.dataset).toHaveProperty('ready');
+});
+
+it('shows the still if reduced motion is on when a film fails', async () => {
+  const first = await fakePage('probably').show();
+  const { setFxMotion } = await import('./fx');
+  setFxMotion('normal', true);
+
+  first.video.emit('error');
+  expect(first.video.src).toBeUndefined();
+  expect(first.art.classList.contains('home-art-still')).toBe(true);
+  expect(first.video.play).toHaveBeenCalledTimes(1);
+});
+
+it('shows the still when the browser refuses playback', async () => {
+  const first = await fakePage('probably').show(new DOMException('Playback is blocked', 'NotAllowedError'));
+  expect(first.video.play).toHaveBeenCalledTimes(1);
   expect(first.video.src).toBeUndefined();
   expect(first.art.classList.contains('home-art-still')).toBe(true);
 });

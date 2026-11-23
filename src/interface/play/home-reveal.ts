@@ -64,13 +64,14 @@ export function homeReveal(art: HTMLElement) {
   function play() {
     const attempt = source;
     void video.play().catch((error: DOMException) => {
-      if (attempt === source && !signal.aborted && error.name !== 'AbortError') nextFilm();
+      if (attempt === source && error.name !== 'AbortError') nextFilm(error.name);
     });
   }
 
-  function nextFilm() {
+  function nextFilm(playErrorName?: string) {
     if (failed || settled || signal.aborted || !video.hasAttribute('src')) return;
-    if (++source === codecs.length) { fallback(); return; }
+    if (playErrorName === 'NotAllowedError' || reducedMotion() || ++source === codecs.length) { fallback(); return; }
+    delete video.dataset.ready;
     video.src = revealVideo(variant!, codecs[source]);
     play();
   }
@@ -97,7 +98,7 @@ export function homeReveal(art: HTMLElement) {
   }
 
   video.addEventListener('playing', () => { video.dataset.ready = ''; }, { signal });
-  video.addEventListener('error', nextFilm, { signal });
+  video.addEventListener('error', () => nextFilm(), { signal });
   video.addEventListener('ended', () => {
     settled = true;
     art.classList.add('home-art-settled');
