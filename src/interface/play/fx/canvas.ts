@@ -1,6 +1,6 @@
 import { reducedMotion, setPaintHook, tween } from './clock';
 import { ease } from './curves';
-import type { BurstOptions, EdgeOptions, Effect, Point, ShakeOptions, StreakOptions, StrikeOptions } from './index';
+import type { BurstOptions, EdgeOptions, Effect, Point, SealOptions, ShakeOptions, StreakOptions, StrikeOptions } from './index';
 
 type Draw = (ctx: CanvasRenderingContext2D, progress: number) => void;
 const painters = new Set<(ctx: CanvasRenderingContext2D) => void>();
@@ -215,6 +215,63 @@ export function strike(tile: { left: number; top: number; width: number; height:
         ctx.restore();
       }
     }
+  });
+}
+
+export const SEAL_MS = 420;
+/** The commit seal at a time after the End turn tap: the stamp lands, a brass line runs to the turn text, a rule sweeps under it. */
+export function sealAt(ms: number) {
+  return { land: ease.in2(unit(ms / 100)), ring: unit((ms - 100) / 140), head: ease.io3(unit((ms - 100) / 130)), tail: ease.io3(unit((ms - 150) / 120)),
+    rule: ease.out3(unit((ms - 230) / 100)), fade: unit((SEAL_MS - ms) / 100) };
+}
+// A crown in a 24 x 26 box, the win mark of the result seal.
+const CROWN = [[4, 8], [8, 12], [12, 5], [16, 12], [20, 8], [18, 19], [6, 19]] as const;
+
+/**
+ * The own End turn as one moment: a wax seal lands on the plate, a brass line carries it to the first turn text
+ * that shows (`text`), and a rule sweeps under that text. Boxes are read on each frame.
+ */
+export function seal(plate: Element, text: Element[], { onArrive }: SealOptions = {}): Effect {
+  if (reducedMotion()) return drawFor(0, () => {}, onArrive);
+  let arrived = false;
+  return drawFor(SEAL_MS, (ctx, progress) => {
+    const { land, ring, head, tail, rule, fade } = sealAt(progress * SEAL_MS), box = plate.getBoundingClientRect();
+    if (!box.width) return;
+    const r = Math.min(16, box.height * .3), cx = box.right - box.height * .62, cy = box.top + box.height / 2;
+    const line = text.map(node => node.getBoundingClientRect()).find(b => b.width && b.height);
+    if (head === 1 && !arrived) { arrived = true; onArrive?.(); }
+    ctx.globalAlpha = fade;
+    if (line && head > tail) {
+      // The line leaves the top of the seal and ends where the rule starts.
+      const to = { x: line.left, y: line.bottom + 3 }, dx = to.x - cx, dy = to.y - (cy - r);
+      const point = (t: number) => ({ x: cx + dx * t - dy * .12 * t * (1 - t), y: cy - r + dy * t + dx * .12 * t * (1 - t) });
+      for (const [color, width] of [[brass.edge, 4], [brass.body, 2.6], [brass.light, 1]] as const) {
+        ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = width;
+        for (let i = 0; i <= 12; i++) { const p = point(tail + (head - tail) * i / 12); ctx.lineTo(p.x, p.y); }
+        ctx.stroke();
+      }
+    }
+    if (line && rule > 0) {
+      for (const [color, width] of [[brass.edge, 3], [brass.light, 1]] as const) {
+        ctx.beginPath(); ctx.moveTo(line.left, line.bottom + 3); ctx.lineTo(line.left + line.width * rule, line.bottom + 3);
+        ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
+      }
+    }
+    if (ring > 0 && ring < 1) {
+      // The wax spreads a faint ring as the stamp lands.
+      ctx.globalAlpha = fade * .45 * (1 - ring);
+      ctx.beginPath(); ctx.arc(cx, cy, r * (1 + .6 * ring), 0, 2 * Math.PI); ctx.strokeStyle = '#9b3324'; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+    // The stamp drops from 1.6 times its size and lands at 100 ms.
+    const k = r * (1.6 - .6 * land);
+    ctx.globalAlpha = fade * unit(land * 1.6);
+    ctx.beginPath();
+    for (let i = 0; i < 16; i++) { const a = i * Math.PI / 8, e = k * (1 + .07 * Math.sin(i * 2.7)); ctx.lineTo(cx + Math.cos(a) * e, cy + Math.sin(a) * e); }
+    ctx.closePath(); ctx.fillStyle = '#9b3324'; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, k * .74, 0, 2 * Math.PI); ctx.strokeStyle = '#6e2116'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.beginPath();
+    for (const [x, y] of CROWN) ctx.lineTo(cx + (x - 12) * k / 18, cy + (y - 13) * k / 18);
+    ctx.closePath(); ctx.strokeStyle = '#f6e7c8'; ctx.lineWidth = 1.4; ctx.stroke();
   });
 }
 

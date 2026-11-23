@@ -57,8 +57,9 @@ export function turnControls(labels: { undo: string; finish: string }, actions: 
     if (finish.dataset.turnState !== mode) {
       shadeDelay?.cancel(); shade?.cancel();
       finish.style.removeProperty('--wait-shade');
-      if (mode === 'wait') shadeDelay = later(150, () => {
-        shade = tween(300, t => { finish.style.setProperty('--wait-shade', String(.28 * t)); }, { curve: ease.out2 });
+      // A sent turn's plate goes back to the stone slot as the commit seal ends (300-420 ms); reduced motion sets it at once.
+      if (mode === 'wait') shadeDelay = later(300, () => {
+        shade = tween(120, t => { finish.style.setProperty('--wait-shade', String(t)); }, { curve: ease.out2 });
       });
     }
     finish.dataset.turnState = mode;

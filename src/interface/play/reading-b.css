@@ -588,5 +588,5 @@
   font: 700 15px/1 var(--sans, var(--font-reading)); text-transform: none; letter-spacing: 0;
 }
 .play-game[data-online] .play-turn [data-turn-state='wait'] { position: relative; overflow: hidden; }
-.play-turn [data-turn-state='wait']::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: var(--surface-raised); opacity: var(--wait-shade, 0); }
+.play-turn [data-turn-state='wait']::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: var(--stone); opacity: var(--wait-shade, 0); }
 .play-turn [data-turn-state='wait'] :is([data-button-label], .play-wait-dots) { position: relative; z-index: 1; }

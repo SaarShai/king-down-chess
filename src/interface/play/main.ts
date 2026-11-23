@@ -32,7 +32,7 @@ import { actorMarks, kingSquare, mergeMarks, previewMarks, resultMarks, stateMar
 import { cardLine, pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, kingLabel, rematchLine, resultSheet, resultText } from './texts';
 import { readingText, checkLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
 import { armCard, calm, cardFly, disarm, screenChange, setInterfaceMotion, sheetMotion, trackCard, time } from './motion';
-import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, strike, tween, type Effect } from './fx';
+import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, seal, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, strike, tween, type Effect } from './fx';
 import { gameLayout, panelBox, type Form } from './layout';
 import { fitReader, narratorView, readerNodes, readerView, resetFit, sentences, type ReaderModel } from './reader';
 import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, gameFacts, savedPlayTime, storeChoice as store, storedChoice as stored, storedGameType, storedVibration, storeVibration, type GameType as Setup, type KeptOffer, type Level } from './saved';
@@ -1195,14 +1195,16 @@ async function finish() {
     if (game.pos.turn === cpu()) void reply(); else announce(text.ready);
     return;
   }
-  if (onlineActive) { if (draft.canFinish && !choice.length && !thinking && !ended) { selected = inspected = null; passTurn(true); await people?.controller?.send(); } return; }
+  // The seal is for a turn that keeps the game going and is more than a free action (a game end has its own moment).
+  const sealed = !freeText() && game.context.status(draft.position) === 'playing';
+  if (onlineActive) { if (draft.canFinish && !choice.length && !thinking && !ended) { selected = inspected = null; passTurn(true, sealed); await people?.controller?.send(); } return; }
   if (!draft.canFinish || choice.length || thinking || ended || !onlineActive && writer.blocked) return;
   const checkWasInFlight = playingAction && game.context.inCheck(draft.position);
   skipBoard(); const mine = game.history.length; if (draft.commit().at(-1)!.pass) board?.setPosition(game.pos, game.context); last = turnText(mine, false); lastActions = turnActions(mine); selected = inspected = null; notice = ''; shown = null;
   clearChoice(); save(true);
   if (game.status !== 'playing') { showResult(); return; }
   if (checkWasInFlight && game.inCheck && !checkShown) finalCheckCue(game.pos);
-  passTurn(true); void reply(); announce(text.sent);
+  passTurn(true, sealed); void reply(); announce(text.sent);
 }
 /** The computer's turn: after End turn, or after Continue when the computer is to move. */
 async function reply() {
@@ -1459,9 +1461,12 @@ function update() {
   renderReader(actions); renderHistory(); placeFloating(); fitResult();
   drawMarks();
 }
-function passTurn(out: boolean) {
+function passTurn(out: boolean, sealed = false) {
   const from = out ? controls.finish : seatRings[1], to = seatRings[out ? 1 : 0];
-  if (out) { edgeLight(from, { width: 2.4, ms: 420 }); cue('ting'); pulse('medium'); }
+  if (out) { cue('ting'); pulse('medium'); }
+  // The own End turn is one moment: a seal on the plate, then a brass line to the turn text (gui-commit).
+  if (sealed) { later(60, () => cue('pass')); seal(from, [nodes.state, nodes.title], { onArrive: () => cue('arrive') }); return; }
+  if (out) edgeLight(from, { width: 2.4, ms: 420 });
   later(out ? 60 : 0, () => {
     if (!from.isConnected) return;
     cue('pass', { pitch: out ? 1 : .82 });

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { beatAt, BEAT_MS, burst, ease, edgeLight, hold, later, onFrame, pulse, setFxMotion, setPauseHook, setVibration, shake, sound, Spring, startFx, streak, strike, tween } from './index';
+import { beatAt, BEAT_MS, burst, ease, edgeLight, hold, later, onFrame, pulse, seal, sealAt, SEAL_MS, setFxMotion, setPauseHook, setVibration, shake, sound, Spring, startFx, streak, strike, tween } from './index';
 
 let now: number, id: number, pending: Map<number, FrameRequestCallback>;
 
@@ -185,6 +185,48 @@ describe('Capture beat', () => {
     strike(tile, { from: { x: 140, y: 380 }, height: 90 });
     later(0, done);
     expect(done).toHaveBeenCalledOnce();
+    expect(pending.size).toBe(0);
+  });
+});
+
+describe('Commit seal', () => {
+  it('lands the stamp, carries a brass line to the turn text and sweeps its rule in one moment of 350 to 450 ms', () => {
+    expect(SEAL_MS).toBeGreaterThanOrEqual(350);
+    expect(SEAL_MS).toBeLessThanOrEqual(450);
+    expect(sealAt(0)).toMatchObject({ land: 0, head: 0, rule: 0, fade: 1 });
+    expect(sealAt(100).land).toBe(1);
+    expect(sealAt(99).head).toBe(0);
+    expect(sealAt(230).head).toBe(1);
+    expect(sealAt(229).rule).toBe(0);
+    expect(sealAt(330).rule).toBe(1);
+    expect(sealAt(SEAL_MS).fade).toBe(0);
+  });
+
+  it('draws on the effect layer under the first turn text that shows, and calls onArrive one time', async () => {
+    const drawing = new Proxy({ fill: vi.fn(), moveTo: vi.fn() } as Record<string, unknown>, { get: (o, key: string) => o[key] ?? (() => ({ addColorStop() {} })) });
+    const canvas = { parentElement: null, getContext: () => drawing, setAttribute() {}, style: {}, width: 0, height: 0 };
+    vi.stubGlobal('document', { createElement: () => canvas, body: { append() {} }, querySelector: () => null });
+    vi.stubGlobal('window', { innerWidth: 390, innerHeight: 844, devicePixelRatio: 1, scrollX: 0, scrollY: 0 });
+    vi.resetModules();
+    const fx = await import('./index');
+    fx.setFxMotion('normal', false);
+    const box = (left: number, top: number, width: number, height: number) => ({ getBoundingClientRect: () => ({ left, top, width, height, right: left + width, bottom: top + height }) }) as Element;
+    const arrive = vi.fn();
+    fx.seal(box(80, 772, 294, 56), [box(0, 0, 0, 0), box(16, 553, 153, 20)], { onArrive: arrive });
+    advance(16);
+    expect(drawing.fill).toHaveBeenCalled();
+    for (let i = 0; i < 30; i++) advance(16);
+    expect(arrive).toHaveBeenCalledOnce();
+    // The rule starts at the left of the turn text that shows, 3 px under it.
+    expect(drawing.moveTo).toHaveBeenCalledWith(16, 576);
+  });
+
+  it('draws nothing in reduced motion and arrives at once', () => {
+    const arrive = vi.fn();
+    setFxMotion('normal', true);
+    const box = { getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 50, right: 100, bottom: 50 }) } as Element;
+    seal(box, [box], { onArrive: arrive });
+    expect(arrive).toHaveBeenCalledOnce();
     expect(pending.size).toBe(0);
   });
 });
