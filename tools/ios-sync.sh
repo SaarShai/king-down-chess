@@ -15,6 +15,8 @@ VITE_SUPABASE_PUBLISHABLE_KEY=$(node tools/release/publishable-key.mjs "$site");
 # launch marker solo-launch.json, and AppRouter sends / to next.html.
 export KINGDOWN_SOLO_LAUNCH=1
 npm run build
+# The app uses its bundled H.264 films. Keep the browser-only AV1 and HEVC files out of the app.
+rm -f dist/interface/reveal/*-av1.mp4 dist/interface/reveal/*-hevc.mp4
 # The app carries all of dist/ (about 257 MB, mostly character frames): docs/specs/ios-app/issues/09-frames.md.
 npx cap sync ios
 echo "ios-sync: $stage build copied to ios/App/App/public"

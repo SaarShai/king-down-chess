@@ -35,6 +35,12 @@ it('builds the app with the new page whatever the website cutover is', () => {
   expect(sync.slice(build)).not.toContain('KINGDOWN_SOLO_LAUNCH');
 });
 
+it('copies only the H.264 reveal films into the app', () => {
+  const sync = read('tools/ios-sync.sh');
+  expect(sync.slice(sync.indexOf('\nnpm run build'), sync.indexOf('\nnpx cap sync ios')))
+    .toContain('rm -f dist/interface/reveal/*-av1.mp4 dist/interface/reveal/*-hevc.mp4');
+});
+
 it('gives the app the browser Back as a swipe, and a start address only in a debug build', () => {
   expect(swift).toContain('webView?.allowsBackForwardNavigationGestures = true');
   expect(swift.slice(swift.indexOf('#if DEBUG'), swift.indexOf('#endif'))).toContain('"KingDownStart"');
