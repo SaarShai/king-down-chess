@@ -320,13 +320,12 @@
    follows 18 px later. The open History has a cap and scrolls (main.ts), so the tray stays in view. */
 .play-game[data-layout='wide'] .play-history-strip { top: calc(var(--reader-y) + var(--reader) + 32px); height: 48px; border-block: 1px solid color-mix(in srgb, var(--gilt, var(--divider)) 50%, transparent); }
 .play-game[data-layout='wide'] .play-history-toggle [data-button-label] { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 12px; }
-/* A long record takes a second line (36 px) in the row, never an ellipsis. */
-.play-game[data-layout='wide'] .play-history-record { white-space: normal; text-align: end; }
+/* The newest record is a one-line preview with an ellipsis (line 219); the open History and the button's name hold it in full. */
+.play-game[data-layout='wide'] .play-history-record { text-align: end; }
 .play-game[data-layout='wide'] .play-history-name { flex: none; color: var(--ink, var(--text)); }
 .play-game[data-layout='wide'] .play-history-toggle svg { display: block; width: 14px; rotate: -90deg; transition: rotate 160ms ease-out; }
 .play-game[data-layout='wide'] .play-history-toggle[aria-expanded='true'] svg { rotate: 0deg; }
-@media (prefers-reduced-motion: reduce) { .play-game .play-history-toggle svg { transition: none; } }
-:root[data-motion='off'] .play-game .play-history-toggle svg { transition: none; }
+:root[data-motion='reduce'] .play-game[data-layout='wide'] .play-history-toggle svg { transition: none; }
 /* The result keeps its full rail height: its bottom is the board's bottom, not the raised tray. */
 .play-game[data-layout='wide'][data-form='wide'][data-reading='result'] .play-reader { --action-y: calc(var(--rail-top) + var(--rail-h) - var(--fin)); }
 .play-game[data-layout='wide'][data-form='wide'] .play-reader:not([data-floating='true']):not(:has(.play-result)) { max-height: calc(var(--reader) + 28px); }
