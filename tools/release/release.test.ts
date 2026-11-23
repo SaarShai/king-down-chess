@@ -80,6 +80,7 @@ it.each([
   ['frame-time fails', '1506'],
   ['PR CI fails', '1507'],
   ['fork', '1508'],
+  ['reuse', '1509'],
 ])('records the PR tree only when both CI jobs pass (%s)', (outcome, number) => {
   const repo = tempRepo({ hooks: false });
   try {
@@ -100,10 +101,16 @@ dry=no
 stage=ci
 mkdir -p "$run/live"
 printf 'old pass\n' > "$frame_record"
+if [ "$OUTCOME" = reuse ]; then
+  prior="$base/release-1505-$head/live"
+  mkdir -p "$prior"
+  printf 'pass %s 2026-11-23T10:00:00Z king-effects painted-game\n' "$TREE" > "$prior/frame-checks.pass"
+fi
 gh() { printf '%s\n' "$PR_JSON" | jq -r "\${!#}"; }
 bash() {
   [[ "$1" == */ci-wait.sh && "$2" == "$head" && "$4" == --pr-head ]] || return 80
   touch "$run/ci-started"
+  [ "$OUTCOME" != reuse ] || return 0
   for ((i = 0; i < 100; i++)); do
     if [ -f "$run/gpu-started" ]; then [ "$OUTCOME" != "PR CI fails" ]; return; fi
     sleep .02
@@ -112,7 +119,7 @@ bash() {
 }
 npm() { [ "$1" = ci ] && mkdir -p node_modules; }
 node() {
-  [ "$*" = 'tools/check.mjs --gpu' ] && [ -d node_modules ] &&
+  [ "$OUTCOME" != reuse ] && [ "$*" = 'tools/check.mjs --gpu' ] && [ -d node_modules ] &&
     [ "$(git rev-parse HEAD)" = "$head" ] && [ "$KINGDOWN_SOLO_LAUNCH" = 1 ] || return 82
   for ((i = 0; i < 100; i++)); do
     if [ -f "$run/ci-started" ]; then
@@ -130,13 +137,14 @@ cat "$frame_record"
 `, 'tools/release/release.sh', commit, number], {
       KINGDOWN_RELEASE_WORKTREE: repo.dir,
       OUTCOME: outcome,
+      TREE: tree,
       PR_JSON: JSON.stringify({ state: 'OPEN', baseRefName: 'main', headRefOid: commit, isCrossRepository: outcome === 'fork' }),
     });
     const output = result.stdout + result.stderr;
     const evidence = join(folder, `release-dry-${number}-${commit}`);
-    expect(result.status, output).toBe(outcome === 'pass' ? 0 : outcome === 'frame-time fails' ? 83 : 1);
-    expect(existsSync(join(evidence, 'gpu-started'))).toBe(outcome !== 'fork');
-    if (outcome === 'pass') {
+    expect(result.status, output).toBe(['pass', 'reuse'].includes(outcome) ? 0 : outcome === 'frame-time fails' ? 83 : 1);
+    expect(existsSync(join(evidence, 'gpu-started'))).toBe(!['fork', 'reuse'].includes(outcome));
+    if (['pass', 'reuse'].includes(outcome)) {
       expect(output).toMatch(new RegExp(`^pass ${tree} \\d{4}-\\d{2}-\\d{2}T[0-9:]+Z king-effects painted-game$`, 'm'));
     } else {
       expect(existsSync(join(evidence, 'live/frame-checks.pass'))).toBe(false);

@@ -95,7 +95,7 @@ function setup() {
     `case "$1" in tools/engines-check.mjs) ${behave.join('; ')}; exit 0 ;; esac`,
     // STUB_CI_PASS: CI passed on the commit (exit 0); otherwise the check answers pending (exit 1).
     `case "$1" in tools/ci-green.mjs) ${record}; if [ -n "$STUB_CI_PASS" ]; then exit 0; fi; exit 1 ;; esac`,
-    `case "$1" in tools/check.mjs) ${behave.join('; ')}; if [ $# -eq 1 ] && [ -n "$STUB_DIST" ]; then cp -R "$STUB_DIST" dist; fi; exit 0 ;; esac`,
+    `case "$1" in tools/check.mjs) ${behave.join('; ')}; if [ $# -eq 1 ] && [ -n "$STUB_DIST" ]; then cp -R "$STUB_DIST" dist; fi; if [ "$2" = --gpu ] && [ -n "$STUB_FRAME_PASS" ]; then printf 'ok king-effects\\nok painted-game\\n'; fi; exit 0 ;; esac`,
     `exec "${process.execPath}" "$@"`,
   ]);
   stub(join(bin, 'npx'), [...behave,
@@ -586,6 +586,28 @@ describe('deploy.sh', () => {
       expect(calls().some(line => line.startsWith('npx '))).toBe(false);
     },
   );
+
+  it('reuses a completed frame-time run for the merge tree after a later deploy gate fails', () => {
+    const { repo, deploy, calls } = setup();
+    repo.write('.github/workflows/plugin-checks.yml', '      - run: npm run check:browser -- --no-gpu\n');
+    repo.git('add', '.');
+    repo.git('commit', '-qm', 'workflow');
+    repo.git('push', '-q', 'origin', 'main');
+    const history = join(repo.root, 'evidence');
+    const live = join(history, `release-1-${'a'.repeat(40)}`, 'live');
+    mkdirSync(live, { recursive: true });
+    const record = join(live, 'frame-checks.pass');
+    writeFileSync(record, `pass ${head(repo, 'HEAD~1^{tree}')} 2026-11-23T10:00:00Z king-effects painted-game\n`);
+    const config = { STUB_CI_PASS: '1', STUB_FRAME_PASS: '1', KINGDOWN_FRAME_CHECKS_RECORD: record, KINGDOWN_FRAME_CHECKS_HISTORY: history };
+    const failed = deploy([], { ...config, STUB_FAIL: 'build:vercel' });
+    expect(failed.status, failed.stdout + failed.stderr).toBe(1);
+    expect(calls().filter(line => line.startsWith('node tools/check.mjs --gpu'))).toHaveLength(1);
+    const retry = deploy([], config);
+    expect(retry.status, retry.stdout + retry.stderr).toBe(0);
+    expect(retry.stdout).toContain(`skipped frame-time browser checks for tree ${head(repo, 'HEAD^{tree}')}`);
+    expect(calls().filter(line => line.startsWith('node tools/check.mjs --gpu'))).toHaveLength(1);
+    expect(readFileSync(record, 'utf8')).toContain(head(repo, 'HEAD~1^{tree}'));
+  });
 
   it('runs the plugin target without the CI check', () => {
     const { deploy, calls } = setup();

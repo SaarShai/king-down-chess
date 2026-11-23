@@ -28,6 +28,7 @@ reviewed=${reviewed:-$head}
 [[ " ${stages[*]} " == *" $from "* && -n "$from" ]] || usage
 
 tools=$(cd "$(dirname "$0")/.." && pwd -P)
+. "$tools/release/frame-checks.sh"
 cd "$tools/.."
 main=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
 base=${KINGDOWN_RELEASE_EVIDENCE:-$main/../evidence}
@@ -96,38 +97,54 @@ wait_head() {
   outward bash "$tools/release/ci-wait.sh" "$head" '' --pr-head
 }
 release_ci() {
-  local began code=0 tree time passed_checks
-  if [ "$dry" = no ]; then rm -f "$frame_record" || return; fi
+  local began code=0 tree saved=
+  if tree=$(git rev-parse --quiet --verify "$head^{tree}") ||
+     tree=$(git -C "$live_tree" rev-parse --quiet --verify "$head^{tree}" 2>/dev/null); then
+    if frame_passed_at "$frame_record" "$tree" >/dev/null; then
+      saved=$frame_record
+    else
+      saved=$(find_frame_record "$base" "$tree") || saved=
+    fi
+  fi
+  if [ "$dry" = no ] && [ "$saved" != "$frame_record" ]; then rm -f "$frame_record" || return; fi
   require_release_pr || return
   if [ "$dry" = yes ]; then
-    echo 'dry-run: run PR CI wait and frame-time browser checks in parallel, then require both to pass'
+    echo 'dry-run: reuse the passing PR CI run at the exact head if it exists'
+    echo 'dry-run: check PR CI and frame-time evidence in parallel, then require both to pass'
     dry_command bash "$tools/release/ci-wait.sh" "$head" '' --pr-head
   else
     bash "$tools/release/ci-wait.sh" "$head" '' --pr-head &
     ci_pid=$!
   fi
   began=$SECONDS
-  frame_checks || code=$?
+  if [ -n "$saved" ]; then
+    say "reuse frame-checks for tree $tree from $saved"
+  else
+    frame_checks || code=$?
+  fi
   say "time frame-checks $((SECONDS - began))s"
   [ "$code" -eq 0 ] || return "$code"
   if [ "$dry" = yes ]; then
-    dry_command "cwd=$live_tree" git rev-parse "$head^{tree}"
-    dry_command "write pass (tree, UTC time, king-effects painted-game) to $frame_record"
+    if [ -z "$saved" ]; then
+      dry_command "cwd=$live_tree" git rev-parse "$head^{tree}"
+      dry_command "write pass (tree, UTC time, king-effects painted-game) to $frame_record"
+    fi
     return
-  fi
-  tree=$(git -C "$live_tree" rev-parse "$head^{tree}") || return
-  time=$(date -u +%FT%TZ) || return
-  passed_checks=$(awk '$1 == "ok" {printf "%s%s", separator, $2; separator=" "}' "$run/frame-checks.log") || return
-  if [ -z "$passed_checks" ]; then
-    echo 'release: the frame-time run reported no passing checks' >&2
-    return 1
   fi
   wait "$ci_pid" || code=$?
   ci_pid=
   [ "$code" -eq 0 ] || return "$code"
-  mkdir -p "$run/live" || return
-  printf 'pass %s %s %s\n' "$tree" "$time" "$passed_checks" > "$frame_record.tmp" &&
-    mv "$frame_record.tmp" "$frame_record"
+  if [ -n "$saved" ]; then
+    if [ "$saved" != "$frame_record" ]; then
+      mkdir -p "$run/live" && cp "$saved" "$frame_record.tmp" && mv -f "$frame_record.tmp" "$frame_record"
+    fi
+  else
+    tree=$(git -C "$live_tree" rev-parse "$head^{tree}") || return
+    write_frame_record "$frame_record" "$tree" "$run/frame-checks.log" || {
+      echo 'release: the frame-time run has no complete pass record' >&2
+      return 1
+    }
+  fi
 }
 merge_release() {
   require_release_pr || return
@@ -174,9 +191,13 @@ live_step() {
   local mode=$1 commit
   commit=$(merge_commit) || return
   if [ "$dry" = yes ]; then
+    if [ "$mode" = publish ]; then
+      echo 'dry-run: reuse frame-time evidence only for the merge tree, else run the frame-time checks'
+    fi
     dry_command "KINGDOWN_RELEASE_WORKTREE=$live_tree" "KINGDOWN_RELEASE_COMMIT=$commit" "KINGDOWN_RELEASE_EVIDENCE=$run/live" bash "$tools/release/live.sh" "$mode"
   else
-    KINGDOWN_RELEASE_COMMIT="$commit" KINGDOWN_RELEASE_EVIDENCE="$run/live" bash "$tools/release/live.sh" "$mode" </dev/null
+    KINGDOWN_RELEASE_COMMIT="$commit" KINGDOWN_RELEASE_EVIDENCE="$run/live" KINGDOWN_FRAME_CHECKS_HISTORY="$base" \
+      bash "$tools/release/live.sh" "$mode" </dev/null
   fi
 }
 check_worktree() {
