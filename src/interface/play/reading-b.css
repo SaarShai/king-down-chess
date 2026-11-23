@@ -316,7 +316,18 @@
 .play-game[data-layout] .play-board { outline: 0; border-radius: 4px; box-shadow: 0 0 0 1px #6f6656, -1px -1px 0 1px #fffaf0, 1px 3px 0 1px #8b8170, 0 12px 20px -8px #3c280a66; }
 .play-game [data-file]::after, .play-game [data-rank]::before { font-size: 12px; }
 .play-game[data-layout='portrait'] .play-history-strip, .play-game[data-layout='wide'][data-form='compact'] .play-history-strip { display: none; }
-.play-game[data-layout='wide'] .play-history-strip { top: calc(var(--reader-y) + var(--reader) + 32px); height: 70px; }
+/* The wide rail is one group from the board top (layout.ts). History is one 48 px row between two gilt hairlines; the hand
+   follows 18 px later. The open History has a cap and scrolls (main.ts), so the tray stays in view. */
+.play-game[data-layout='wide'] .play-history-strip { top: calc(var(--reader-y) + var(--reader) + 32px); height: 48px; border-block: 1px solid color-mix(in srgb, var(--gilt, var(--divider)) 50%, transparent); }
+.play-game[data-layout='wide'] .play-history-toggle [data-button-label] { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 12px; }
+/* The newest record is a one-line preview with an ellipsis (line 219); the open History and the button's name hold it in full. */
+.play-game[data-layout='wide'] .play-history-record { text-align: end; }
+.play-game[data-layout='wide'] .play-history-name { flex: none; color: var(--ink, var(--text)); }
+.play-game[data-layout='wide'] .play-history-toggle svg { display: block; width: 14px; rotate: -90deg; transition: rotate 160ms ease-out; }
+.play-game[data-layout='wide'] .play-history-toggle[aria-expanded='true'] svg { rotate: 0deg; }
+:root[data-motion='reduce'] .play-game[data-layout='wide'] .play-history-toggle svg { transition: none; }
+/* The result keeps its full rail height: its bottom is the board's bottom, not the raised tray. */
+.play-game[data-layout='wide'][data-form='wide'][data-reading='result'] .play-reader { --action-y: calc(var(--rail-top) + var(--rail-h) - var(--fin)); }
 .play-game[data-layout='wide'][data-form='wide'] .play-reader:not([data-floating='true']):not(:has(.play-result)) { max-height: calc(var(--reader) + 28px); }
 .play-game .play-history-strip::before, .play-game .play-history-strip::after { display: none; }
 .play-game .play-history-toggle.kd-button { background: transparent; border: 0; box-shadow: none; justify-content: flex-start; padding-inline: 0; color: var(--soft, var(--text-muted)); }
@@ -401,6 +412,7 @@
   .play-game[data-hand='hand'] .play-own .play-card[aria-pressed='true']::before { border: 3px solid CanvasText; }
   .play-game .play-power[aria-pressed='true'] .play-power-coin { outline: 3px solid CanvasText; outline-offset: 1px; }
   .play-game[data-layout] .play-board { outline: 1px solid CanvasText; }
+  .play-game:not([data-review='true']) .play-result { outline: 1px solid CanvasText; outline-offset: -1px; }
 }
 .play-game[data-hand='hand'] .play-own .play-card[data-frost='true'] { --arm-lift: 6px; --arm-scale: 0; }
 .play-game[data-hand='hand'] .play-own .play-card[data-frost='true'][aria-pressed='true'] { --armed-edge: var(--frost, var(--info)); }
@@ -446,15 +458,29 @@
   top: calc(var(--reader-y) - 8px); padding: 0; height: calc(var(--action-y) + var(--fin) - var(--reader-y) + 8px); overflow: hidden;
 }
 .play-game[data-reading='result'] .play-detail:has(.play-result) { height: 100%; padding: 0; overflow: hidden; background: transparent; }
-.play-game .play-result { display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; height: 100%; gap: 4px; padding: 2px 0; animation: none; }
-.play-result-seat { display: flex; align-items: center; gap: 10px; min-height: 39px; border-bottom: 1px solid var(--line-2, var(--divider)); padding-bottom: 4px; }
-.play-result-seat .play-seat-ring { width: 34px; height: 34px; overflow: hidden; }
-.play-result-seat strong { font: 650 12px/1.2 var(--cinzel, var(--font-title)); text-transform: uppercase; }
+/* The result is one gilt sheet of vellum: a gilt top edge and two inner rules, one seal, one brass action. */
+.play-game .play-result { position: relative; display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; height: 100%; gap: 4px; padding: 12px 10px 4px; animation: none;
+  background: var(--vellum, #fbf7ee); box-shadow: inset 0 2px var(--gilt), inset 0 -1px #c9b996, 0 2px 6px #59462c14; }
+.play-game .play-result::before, .play-game .play-result::after { content: ''; position: absolute; inset: 4px 10px auto; height: 1px; background: #d9c89f; pointer-events: none; }
+.play-game .play-result::after { inset: auto 10px 3px; }
 .play-game .play-result-body { display: grid; gap: 4px; text-align: center; }
-.play-game .play-result-body h3 { font: 650 clamp(24px, 6vw, 36px)/1.05 var(--cinzel, var(--font-title)); margin: 0; text-wrap: balance; }
+.play-game .play-result-body h3 { font: 650 28px/1.05 var(--cinzel, var(--font-title)); margin: 0; text-wrap: balance; }
+/* Wax red for a win, muted brown for a loss, stone for a draw. The words carry the result; the seal is a second cue. */
+.play-result-seal { display: grid; place-items: center; width: 40px; height: 40px; margin: 0 auto; border-radius: 46% 49% 45% 48%; color: #f3d39c;
+  background: radial-gradient(ellipse at 35% 25%, #b25a46, var(--wax) 68%, #753426); box-shadow: inset 0 0 0 4px #9d4937, inset 0 0 0 5px #cf8061, 0 2px 5px #57302330; }
+.play-result-seal svg { width: 50%; height: auto; }
+.play-result[data-outcome='loss'] .play-result-seal { color: #fff5de; background: radial-gradient(ellipse at 35% 25%, #a2815a, #896b4e); box-shadow: inset 0 0 0 4px #997d59, inset 0 0 0 5px #cdbb99, 0 2px 5px #57302325; }
+.play-result[data-outcome='draw'] .play-result-seal { color: #4e4638; background: radial-gradient(ellipse at 35% 25%, #e4dcc8, #b8ac91); box-shadow: inset 0 0 0 4px #c4b79b, inset 0 0 0 5px #ece4d4, 0 2px 5px #57302320; }
+.play-game .play-result-players { font: 400 13px/1.2 var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); margin: 0; }
+/* Moves, Captures and Minutes in one ruled strip. */
+.play-result-numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-block: 1px solid #d9cdb4; padding-block: 4px; }
+.play-result-numbers p { display: grid; margin: 0; }
+.play-result-numbers p + p { border-left: 1px solid #d9cdb4; }
+.play-result-numbers strong { font: 500 20px/1.15 var(--cinzel, var(--font-title)); font-variant-numeric: tabular-nums; }
+.play-result-numbers small { font: 400 12px/1.2 var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); }
+.play-result-side { white-space: nowrap; }
 .play-game .play-result-body:has(.play-result-winner) { container-type: inline-size; }
 .play-result-winner { white-space: nowrap; font-size: min(1em, 100cqi / var(--name, 1)); }
-.play-game .play-result[data-outcome='win'] h3 { color: color-mix(in srgb, var(--brass) 46%, var(--text)); font-size: clamp(30px, 9vw, 54px); }
 .play-game .play-result-body :is(.play-result-cause, .play-result-facts) { font: 400 15px/1.1 var(--sans, var(--font-reading)); margin: 0; }
 .play-game .play-result-facts { color: var(--soft, var(--text-muted)); }
 .play-game .play-result .play-result-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; }
@@ -462,11 +488,38 @@
 /* The reader clips its sides: the margin keeps the whole focus ring of Rematch in view. */
 .play-game .play-result-actions .kd-button[data-kind='main'] { grid-column: 1 / -1; min-height: 48px; margin-inline: calc(var(--focus-width) + var(--focus-offset)); border-radius: var(--radius-plate); font-family: var(--cinzel, var(--font-title)); }
 .play-game .play-result-actions .kd-button:not([data-kind='main']) { border: 0; background: transparent; box-shadow: none; }
+.play-game[data-review='true'] .play-result { background: none; box-shadow: none; }
+.play-game[data-review='true'] .play-result::before, .play-game[data-review='true'] .play-result::after,
 .play-game[data-review='true'] .play-result > :not(.play-result-actions),
 .play-game[data-review='true'] .play-result-actions > :not([aria-pressed='true']) { visibility: hidden; }
-.play-game[data-form='compact'] .play-result-seat { display: none; }
 .play-game[data-form='compact'] .play-result-body h3 { font-size: 26px; }
-.play-game[data-form='compact'] .play-result[data-outcome='win'] h3 { font-size: 35px; }
+/* A short screen sets a small seal beside the outcome and leaves out the players line. */
+.play-game[data-form='compact']:not([data-online]) .play-result-body { grid-template-columns: auto auto; justify-content: center; align-items: center; column-gap: 10px; }
+.play-game[data-form='compact']:not([data-online]) .play-result-body > :not(.play-result-seal, h3) { grid-column: 1 / -1; }
+.play-game[data-form='compact'] .play-result-seal { width: 28px; height: 28px; }
+.play-game[data-form='compact'] .play-result-players { display: none; }
+.play-game[data-form='compact']:not([data-online]) .play-result { padding: 8px 4px 2px; }
+.play-game[data-form='compact']:not([data-online]) .play-result-body h3 { font-size: 20px; }
+.play-game[data-form='compact'] .play-result-numbers p { display: block; }
+.play-game[data-form='compact'] .play-result-numbers strong { font-size: 16px; }
+.play-game[data-form='compact'] .play-result-numbers small { display: inline; }
+/* Online on a phone, a short screen or a rematch offer (five controls) leaves no room for the seal. */
+.play-game[data-form='compact'][data-online] .play-result-seal,
+.play-game[data-form='tall'][data-online] .play-result:has(.play-result-actions > :nth-child(5)) .play-result-seal { display: none; }
+/* The desktop rail has room: the full sheet sits at the top of the rail at the size of the design. */
+.play-game[data-form='wide'][data-reading='result'] .play-result:has(.play-result-seal) { gap: 22px; padding: 26px 22px 16px; }
+/* Online keeps the height of the reader, so a rematch offer does not change the card. */
+.play-game[data-form='wide'][data-reading='result']:not([data-online]) .play-result { height: auto; justify-content: start; }
+.play-game[data-form='wide'] .play-result-body { gap: 10px; }
+.play-game[data-form='wide'] .play-result-seal { width: 68px; height: 68px; margin-bottom: 12px; }
+.play-game[data-form='wide'] .play-result-cause { font-size: 18px; }
+.play-game[data-form='wide'] .play-result-players { font-size: 14px; margin-top: 8px; }
+.play-game[data-form='wide'] .play-result-numbers { padding-block: 14px; margin-top: 8px; }
+.play-game[data-form='wide'] .play-result-numbers strong { font-size: 26px; }
+.play-game[data-form='wide'] .play-result-numbers small { font-size: 14px; }
+/* A short reader leaves out the numbers, then the players line, then takes a small seal (fitResult in main.ts). */
+.play-result[data-fit~='numbers'] .play-result-numbers, .play-result[data-fit~='players'] .play-result-players { display: none; }
+.play-game .play-result[data-fit~='seal'] .play-result-seal { width: 28px; height: 28px; margin-bottom: 0; }
 .play-game[data-moment='win'] .play-board::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: var(--brass-1, var(--brass)); mix-blend-mode: screen; opacity: var(--result-light, 0); }
 .play-game[data-moment='loss'] .play-board { filter: saturate(var(--result-saturation, 1)) brightness(calc(1 - var(--result-light, 0))); }
 .play-game[data-layout='portrait'][data-reading='result'] .play-reader:not([data-floating='true']):has(.play-result) {
@@ -486,9 +539,6 @@
 @media (max-width: 340px) {
   .play-game[data-online] .play-result[data-outcome='loss'] h3 { font-size: 20px; }
 }
-.play-result-name { display: grid; }
-.play-result-name small { font: 400 12px/1.1 var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); }
-.play-result-seat:has([data-outcome='win']) .play-result-name strong { color: var(--brass-p, var(--text)); }
 .play-game[data-hand='hand'] .play-own .play-card[data-spent='true'] { display: none; }
 .play-game .play-turn .play-wait-dots { display: none; align-items: center; gap: 4px; }
 .play-game .play-turn [data-turn-state='wait'] .play-wait-dots[data-step] { display: inline-flex; }

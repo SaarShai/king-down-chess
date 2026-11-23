@@ -49,6 +49,11 @@ const SCENES: Record<string, Scene> = {
     history: { initial_fen: START, actions: ['e2-e4', 'd7-d5', 'a2-a3', 'd5xe4'] } },
     ready: '.play-game:has(.play-hand > .play-card:nth-child(4):last-child):has(.play-opp .play-store[data-empty="false"]) .play-opp .opponent-clock:not(:empty)' },
   'solo-result': { save: SOLO, steps: [text.resume, text.menu, text.resign, text.resign], ready: '.play-result' },
+  // The Rook mates on the back rank (a3-a8); the King takes the last pawn (a1xb2): insufficient material.
+  'solo-win': { save: { ...SOLO, back: '', fen: '7k/6pp/8/8/8/R7/8/6MK w - - 0 1', moves: [] },
+    steps: [text.resume, { control: '.play-square[data-square="16"]' }, { control: '.play-square[data-square="56"]' }, text.finish], ready: '.play-result' },
+  'solo-draw': { save: { ...SOLO, back: '', fen: 'k7/8/8/8/8/8/1p6/K7 w - - 0 1', moves: [] },
+    steps: [text.resume, { control: '.play-square[data-square="0"]' }, { control: '.play-square[data-square="9"]' }, text.finish], ready: '.play-result' },
   'solo-turn': { save: SOLO_BOTH, steps: [text.resume],
     ready: `${WITH_HAND}[data-state="ready"]:has(.play-turn) .play-reader .play-title`, readyText: text.ready },
   'solo-long-hand': { save: LONG_HAND, steps: [text.resume],

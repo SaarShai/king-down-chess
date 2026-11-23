@@ -96,10 +96,20 @@ it('online action content takes the shared area before it renders', () => {
   expect(update).toMatch(/readerActive = String\([^;]*actions\?\.childElementCount/);
   expect(update).toContain('renderReader(actions)');
 });
-it('keeps the last three moves in the rail and hides the turn scroll on a phone', () => {
-  expect(main).toContain('groups.flatMap(group => group.lines).slice(0, 3)');
+it('keeps the newest move in the one-row History of the rail and hides the turn scroll on a phone', () => {
+  expect(main).toContain('groups.flatMap(group => group.lines).slice(0, 1)');
   expect(css).toContain(".play-game[data-layout='portrait'] .play-history-strip, .play-game[data-layout='wide'][data-form='compact'] .play-history-strip { display: none; }");
   expect(css).toContain("top: var(--reader-y); height: auto; min-height: var(--reader); max-height: calc(var(--hand-y) - var(--reader-y) - 8px);");
+});
+it('shows the newest History record on one line with an ellipsis, and names it in full', () => {
+  expect(css).toContain('.play-history-record { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }');
+  expect(css).not.toMatch(/\.play-history-record \{[^}]*white-space: normal/);
+  expect(main).toContain("historyButton.setAttribute('aria-label', `${text.history}: ${preview.map(item => item.line).join(' ') || text.noHistory}`)");
+});
+it('stops the History arrow turn when the motion is reduced or Off', () => {
+  // motion.ts sets data-motion="reduce" for the system setting and for Off; the rule must beat the wide arrow rule.
+  expect(motion).toContain("root.dataset.motion = reduce || pace === 'off' ? 'reduce' : pace;");
+  expect(css).toContain(":root[data-motion='reduce'] .play-game[data-layout='wide'] .play-history-toggle svg { transition: none; }");
 });
 it('removes the Effects control and its panel opener, and keeps the effect data functions', () => {
   expect(main).not.toMatch(/effectsButton|play-effects-toggle|toggleScroll\('effects'/);
