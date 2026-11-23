@@ -233,6 +233,9 @@ const cases = {
     // A tint layer paints its full box on each frame of a sheet slide (WebKit CI, no GPU): no tint, no layer.
     const tintLayers = await setup.locator('.setup-figures').evaluate(node => ['::before', '::after'].map(part => getComputedStyle(node, part).content).join() + ' ' + getComputedStyle(node).isolation);
     check(tintLayers === 'none,none auto', `no tint draws no tint layer: ${tintLayers}`);
+    // A blur shadow or a clip-path under the slide costs the same CPU-only WebKit about 0.8 s.
+    const stone = await setup.locator('.setup-figure, .setup-vs').evaluateAll(nodes => nodes.map(node => getComputedStyle(node, '::before')).map(style => style.boxShadow + ' ' + style.clipPath).join());
+    check(stone === 'none none,none none,none none', `plinths and crest paint no shadow and no clip: ${stone}`);
     check(/^0s/.test(await tintTime(setup)), 'reduced motion: the tint has no transition');
     check(await feetLevel(setup), 'both plinths share one baseline');
     // At 150% text "Random side" wraps in one seat only: the plinths still share one line. A short landscape has none.
