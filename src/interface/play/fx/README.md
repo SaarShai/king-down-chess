@@ -22,6 +22,7 @@ Import from `src/interface/play/fx`. Time is in milliseconds. Points are CSS pix
 | `streak(from, to, options?)` | Send a curved line of light between two points and call `onArrive` at the end. | `streak(at(button), at(seat), { width: 6, ms: 340, onArrive: showTurn })` |
 | `edgeLight(element, options?)` | Send a line of light round an element. | `edgeLight(undo, { width: 2.2, reverse: true })` |
 | `burst(kind, point, options?)` | Draw a burst of sparks or dust. | `burst('dust', at(piece, .5, .8), { count: 4 })` |
+| `strike(tile, options?)` | Draw the capture beat on a struck tile: rim light, brush slash and stone chips; `ranged` drops the slash. `beatAt(ms)` gives its schedule. | `strike(cell.getBoundingClientRect(), { from: at(attacker), height: 64 })` |
 | `shake(element, options?)` | Shake an element, then restore its position. | `shake(board, { amplitude: 2, ms: 220 })` |
 | `sound(name, options?)` | Play a sound. Give the piece kind and, for a king, its name for recorded cues. | `sound('mark', { piece: N })` |
 | `pulse(kind)` | Send a named vibration pattern when the switch is on. | `pulse('light')` |
