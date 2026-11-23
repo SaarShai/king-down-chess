@@ -319,7 +319,9 @@
 /* The wide rail is one group from the board top (layout.ts). History is one 48 px row between two gilt hairlines; the hand
    follows 18 px later. The open History has a cap and scrolls (main.ts), so the tray stays in view. */
 .play-game[data-layout='wide'] .play-history-strip { top: calc(var(--reader-y) + var(--reader) + 32px); height: 48px; border-block: 1px solid color-mix(in srgb, var(--gilt, var(--divider)) 50%, transparent); }
-.play-game[data-layout='wide'] .play-history-toggle [data-button-label] { display: flex; flex: 1; align-items: baseline; justify-content: space-between; gap: 12px; }
+.play-game[data-layout='wide'] .play-history-toggle [data-button-label] { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 12px; }
+/* A long record takes a second line (36 px) in the row, never an ellipsis. */
+.play-game[data-layout='wide'] .play-history-record { white-space: normal; text-align: end; }
 .play-game[data-layout='wide'] .play-history-name { flex: none; color: var(--ink, var(--text)); }
 .play-game[data-layout='wide'] .play-history-toggle svg { display: block; width: 14px; rotate: -90deg; transition: rotate 160ms ease-out; }
 .play-game[data-layout='wide'] .play-history-toggle[aria-expanded='true'] svg { rotate: 0deg; }
