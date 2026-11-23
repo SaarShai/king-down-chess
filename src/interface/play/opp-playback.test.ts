@@ -71,7 +71,7 @@ function boardFor(previous: PeopleState, { mount = false, reduce = '', inApp = f
     update: noop, announce: noop, arrangementWaiting: () => false, replyText: () => '',
     onlineRecovery: noop, automaticReady: noop, closeFloating: noop, drawMarks: noop,
     beat: undefined, rewind: undefined, endCardFlight: noop, cancelCheckPulse: noop, endReply: null,
-    passTurn: noop, onlineResult: () => 'You win.', closeStaleDialogs: noop, playOnlineKingResult: () => falls.push(shown),
+    passTurn: noop, endSeal: noop, onlineResult: () => 'You win.', closeStaleDialogs: noop, playOnlineKingResult: () => falls.push(shown),
     refuse: (error: string) => { throw new Error(error); },
     cells: [], armedResource: noop, gameHelp: undefined, choice: [], refusalReason: noop,
     cue: noop, freezeArmed: () => false, typeOf: () => 1, colorOf: () => previous.view!.seat,

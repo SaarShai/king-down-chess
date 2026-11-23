@@ -32,7 +32,7 @@ import { actorMarks, kingSquare, mergeMarks, previewMarks, resultMarks, stateMar
 import { cardLine, pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, kingLabel, rematchLine, resultSheet, resultText } from './texts';
 import { readingText, checkLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
 import { armCard, calm, cardFly, disarm, screenChange, setInterfaceMotion, sheetMotion, trackCard, time } from './motion';
-import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, strike, tween, type Effect } from './fx';
+import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, seal, SEAL_MS, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, strike, tween, type Effect } from './fx';
 import { gameLayout, panelBox, type Form } from './layout';
 import { fitReader, narratorView, readerNodes, readerView, resetFit, sentences, type ReaderModel } from './reader';
 import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, gameFacts, savedPlayTime, storeChoice as store, storedChoice as stored, storedGameType, storedVibration, storeVibration, type GameType as Setup, type KeptOffer, type Level } from './saved';
@@ -132,7 +132,7 @@ let last = '', notice = '', resultCause = '', choice: Move[] = [], choiceSquare 
 
 // Stage "readingb": the form of the layout, the persistent reader nodes, the open effects summary (its subject key),
 // the computer's card group, and the computer's text while its reply plays.
-let form: Form = 'tall', nodes = readerNodes(), rivalGroup: Resource | null = null, acting = '';
+let sealing: Effect[] = [], form: Form = 'tall', nodes = readerNodes(), rivalGroup: Resource | null = null, acting = '';
 let screen: HTMLElement, boardBox: HTMLElement, boardHost: HTMLElement, reader: HTMLElement, detail: HTMLElement, choiceBox: HTMLElement;
 let cells: HTMLButtonElement[] = [], choiceCancel: HTMLButtonElement, struck: { square: number; height: number } | undefined, beat: Effect | undefined;
 let menuButton: HTMLButtonElement;
@@ -1007,7 +1007,7 @@ function fitResult() {
 }
 function tap(square: number) {
   if (fault === 'art' || !onlineActive && writer.blocked) return; // a fault waits for recovery
-  const wasEnded = ended; skipBoard();
+  const wasEnded = ended; skipBoard(); endSeal();
   cells.forEach(cell => cell.classList.remove('square-error')); // a new tap ends the red edge of an earlier refusal
   if (ended && !wasEnded) return; // the last reply can end the game inside skipBoard: the result and its announcement keep their place (decision 129)
   lastActions = []; notice = ''; onlineGameNotice = undefined;
@@ -1088,7 +1088,7 @@ function animate(before: Position, move: Move, after: Position): Promise<unknown
   if (!board) return Promise.resolve();
   nextMarksAt = 0;
   checkShown = false;
-  const action = playingAction = { before, move };
+  const action = playingAction = { before, move }; endSeal();
   beat?.cancel(); board.setPosition(before, game.context);
   const check = !move.pass && before.turn !== after.turn && game.context.inCheck(after);
   const checked = check && game.context.legalMoves(after).length > 0;
@@ -1115,7 +1115,7 @@ function undoOrReplay() {
 function replyMotion() { return !calm() && motion !== 'off' && !matchMedia('(prefers-reduced-motion: reduce)').matches; }
 function playReply(steps: readonly ReplayStep[], view: Board) {
   const own = generation;
-  beat?.cancel(); screen.dataset.replaying = 'true';
+  beat?.cancel(); endSeal(); screen.dataset.replaying = 'true';
   return boardReplay.play(steps, view, game.context, () => own === generation && board === view,
     () => { playingAction = null; view.setPosition(draft.position, game.context); screen.dataset.replaying = 'false'; drawMarks(); },
     (pos, step) => { playingAction = step ? { before: pos, move: step.move } : null; drawMarks(); })
@@ -1195,14 +1195,16 @@ async function finish() {
     if (game.pos.turn === cpu()) void reply(); else announce(text.ready);
     return;
   }
-  if (onlineActive) { if (draft.canFinish && !choice.length && !thinking && !ended) { selected = inspected = null; passTurn(true); await people?.controller?.send(); } return; }
+  // The seal is for a turn that keeps the game going and is more than a free action (a game end has its own moment).
+  const sealed = !freeText() && game.context.status(draft.position) === 'playing';
+  if (onlineActive) { if (draft.canFinish && !choice.length && !thinking && !ended) { selected = inspected = null; passTurn(true, sealed); await people?.controller?.send(); } return; }
   if (!draft.canFinish || choice.length || thinking || ended || !onlineActive && writer.blocked) return;
   const checkWasInFlight = playingAction && game.context.inCheck(draft.position);
   skipBoard(); const mine = game.history.length; if (draft.commit().at(-1)!.pass) board?.setPosition(game.pos, game.context); last = turnText(mine, false); lastActions = turnActions(mine); selected = inspected = null; notice = ''; shown = null;
   clearChoice(); save(true);
   if (game.status !== 'playing') { showResult(); return; }
   if (checkWasInFlight && game.inCheck && !checkShown) finalCheckCue(game.pos);
-  passTurn(true); void reply(); announce(text.sent);
+  passTurn(true, sealed); void reply(); announce(text.sent);
 }
 /** The computer's turn: after End turn, or after Continue when the computer is to move. */
 async function reply() {
@@ -1459,9 +1461,24 @@ function update() {
   renderReader(actions); renderHistory(); placeFloating(); fitResult();
   drawMarks();
 }
-function passTurn(out: boolean) {
+/** End the commit seal: its marks and the brass plate go, and the plate shows its true state on the next frame. */
+function endSeal() {
+  for (const effect of sealing) effect.cancel();
+  sealing = []; delete controls.finish.dataset.sealed; controls.finish.style.removeProperty('--wait-shade');
+}
+function passTurn(out: boolean, sealed = false) {
   const from = out ? controls.finish : seatRings[1], to = seatRings[out ? 1 : 0];
-  if (out) { edgeLight(from, { width: 2.4, ms: 420 }); cue('ting'); pulse('medium'); }
+  endSeal();
+  if (out) { cue('ting'); pulse('medium'); }
+  // The own End turn is one moment: a seal on the plate, then a brass line to the turn text (gui-commit).
+  if (sealed) {
+    later(60, () => cue('pass')); from.dataset.sealed = '';
+    // The turn text is in the online status panel when it shows (a draw offer), else in the reader.
+    sealing = [seal(from, () => [...detail.querySelectorAll('.play-turn-state'), nodes.title], { onArrive: () => cue('arrive') }),
+      tween(SEAL_MS, (_, p) => { from.style.setProperty('--wait-shade', String(ease.out2(Math.max(0, p * SEAL_MS - 300) / 120))); }, { done: endSeal })];
+    return;
+  }
+  if (out) edgeLight(from, { width: 2.4, ms: 420 });
   later(out ? 60 : 0, () => {
     if (!from.isConnected) return;
     cue('pass', { pitch: out ? 1 : .82 });
@@ -2057,7 +2074,9 @@ function shutGameDialog(history: boolean) {
 }
 function closeGameDialog() { shutGameDialog(true); }
 /** At a game end, Menu (Offer draw, Resign) and the Resign confirm are stale and cover the result. The Guide and History stay. */
+/** A game end closes what the last turn left open: the menus, the resign dialog and the commit seal. */
 function closeStaleDialogs() {
+  endSeal();
   if (gameDialog?.classList.contains('game-menu-dialog')) closeGameDialog();
   // The cancel event takes the path of Escape: the confirm gives back its history layer.
   if (resignDialog?.element.open) { resignDialog.element.dispatchEvent(new Event('cancel')); resignDialog.element.close(); }
