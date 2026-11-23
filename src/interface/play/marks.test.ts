@@ -167,3 +167,10 @@ it('Result: a taken king has the square where it was taken', () => {
   expect(kingSquare([{ pos: f.pos }], 1)).toBe(sq('h8'));
   expect(kingSquare([{ pos: f.pos }, { pos: f.rules.makeMove(f.pos, m) }], 1)).toBe(sq('h8'));
 });
+it('Haste: a check on the side that does not move now shows its square and threat line', () => {
+  const f = fixture('4k3/8/8/8/8/8/8/R3K3 w - - 0 1', { kings: [{ king: 'Flame', power: 'Haste' }, null] });
+  const after = f.rules.makeMove(f.pos, f.move('a1', 'a8', m => m.power === 'haste')), marks = stateMarks(f.rules, after);
+  expect(after.turn).toBe(f.pos.turn);
+  expect(marks.check).toBe(sq('e8'));
+  expect(marks.threats).toEqual([expect.objectContaining({ sq: sq('a8'), king: sq('e8'), path: 'straight' })]);
+});

@@ -119,9 +119,9 @@ let selected: number | null = null, inspected: number | null = null, cursor = 12
 let thinking = false, ended = false, generation = 0, reading: 'normal' | 'result' = 'normal';
 // End active sequences when the player leaves the game.
 let endResult: (() => void) | undefined, endReply: (() => void) | null = null, starting = 0, endVersus: (() => void) | null = null;
-let endCardFlight = () => {}, checkFrame: Effect | undefined, checkPulse: { square: number; threats: PlainMarks['threats']; progress: number } | null = null, mateHeld = false;
+let endCardFlight = () => {}, checkFrame: Effect | undefined, checkPulse: { square: number; threats: PlainMarks['threats']; progress: number } | null = null, mateHold: Effect | undefined;
 let playedMs = 0, enteredAt: number | undefined, resultReview = false;
-let lastActions: MarkAction[] = [], playingAction: MarkAction | null = null, markFocus: number | undefined, nextMarksAt = 0;
+let lastActions: MarkAction[] = [], playingAction: (MarkAction & { landed?: Position }) | null = null, markFocus: number | undefined, nextMarksAt = 0;
 // The last input was a key: only keyboard focus on a square gives the candidate sentence (reading decision 22).
 let keyed = false;
 document.addEventListener('keydown', () => { keyed = true; }, true); document.addEventListener('pointerdown', () => { keyed = false; }, true);
@@ -400,7 +400,7 @@ function receiveOnline(state: PeopleState) {
   if ((changed || ended) && document.querySelector('[data-help-sheet="promotion"]')) gameHelp?.close();
   let playback: Promise<void> | undefined, liveRevision = false;
   if (changed) {
-    shownRevision = state.view.revision; selected = inspected = null; shown = null; clearChoice(); skipBoard();
+    shownRevision = state.view.revision; selected = inspected = null; shown = null; clearChoice(); skipBoard(); endResult?.();
     replySteps = state.received?.steps ?? lastReplySteps(game, cpu());
     const h = game.history; let i = h.length; const side = h.at(-1)?.pos.turn; while (i > 0 && h[i - 1].pos.turn === side) i--;
     lastActions = draft.length ? [...draft.steps] : turnActions(i); last = turnText(i, side !== player);
@@ -411,20 +411,23 @@ function receiveOnline(state: PeopleState) {
       const turn = turns[0];
       if (liveRevision && turn && turn.seat !== player && pieceView !== 'symbols' && replyMotion()) {
         const reply = state.received ?? lastTurnOf(game, state.view);
-        if (reply?.seq === turn.seq && reply.steps.length) playback = playReply(reply.steps, board);
+        if (reply?.seq === turn.seq && reply.steps.length) playback = playReply(reply.steps, board, true);
       }
     }
     if (!playback) board.setPosition(draft.position, game.context);
   }
   // A live checkmate holds the result card (holdMate) until the threat lines and the beat have shown.
   const mate = changed && previousRevision >= 0 && ended && !wasEnded && state.view.result?.reason === 'checkmate' && (inApp || liveRevision);
-  if (ended) { resultCause = onlineResult(state); reading = mate ? 'normal' : 'result'; if (changed) detail.dataset.mode = ''; }
+  // A held checkmate keeps the card back also for a repeated revision or a lost connection.
+  if (ended) { resultCause = onlineResult(state); reading = mate || endResult ? 'normal' : 'result'; if (changed) detail.dataset.mode = ''; }
   else if (reading === 'result') reading = 'normal';
   update();
   if (mate) {
-    const own = generation, revision = shownRevision, current = () => own === generation && revision === shownRevision;
-    const result = () => { if (current()) { reading = 'result'; update(); playOnlineKingResult(); } };
-    const held = () => { const king = findKing(game.pos.board, game.pos.turn); if (king < 0) result(); else if (current()) holdMate(king, result); };
+    // One hold for this revision: exit and a newer revision cancel it (endResult); the deadline opens the card.
+    let hold: Effect | undefined;
+    const deadline = armResult(() => { endResult = undefined; hold?.cancel(); reading = 'result'; update(); playOnlineKingResult(); });
+    const stop = endResult = () => { endResult = undefined; hold?.cancel(); deadline.stop(); };
+    const held = () => { if (endResult !== stop) return; const king = findKing(game.pos.board, game.pos.turn); if (king < 0) deadline.go(); else hold = holdMate(king, deadline.go); };
     if (!playback) held(); else void playback.then(held);
   }
   if (changed && previousRevision >= 0 && wasWaiting && !thinking && !ended && !arrangement) passTurn(false);
@@ -1090,15 +1093,14 @@ function animate(before: Position, move: Move, after: Position): Promise<unknown
   if (!board) return Promise.resolve();
   nextMarksAt = 0;
   checkShown = false; cancelCheckPulse();
-  const action = playingAction = { before, move }; endSeal();
+  const action: NonNullable<typeof playingAction> = playingAction = { before, move }; endSeal();
   beat?.cancel(); board.setPosition(before, game.context);
-  const check = !move.pass && before.turn !== after.turn && game.context.inCheck(after);
-  const checked = check && game.context.legalMoves(after).length > 0;
-  const done = board.play(move, after, check ? () => checked ? finalCheckCue(after) : drawCheckIn(after) : undefined).catch(error => { refuse(String(error)); }).finally(() => {
+  const turned = !move.pass && before.turn !== after.turn && game.context.inCheck(after);
+  const checkCue = turned ? game.context.legalMoves(after).length > 0 ? finalCheckCue : drawCheckIn : !move.pass && newCheck(before, after) ? drawCheckIn : undefined;
+  // The marks follow the landed move: a check that ends or starts shows at the landing.
+  const done = board.play(move, after, () => { action.landed = after; checkCue?.(after); drawMarks(); }).catch(error => { refuse(String(error)); }).finally(() => {
     if (playingAction === action) {
       playingAction = null;
-      // The drawn-in check stays over the move's last frame; after it the position's own marks carry it.
-      if (checkPulse?.progress === 1) checkPulse = null;
 
       if ((draft.chain || draft.open && draft.now.haste !== undefined) && motion !== 'off' && pieceView !== 'symbols' && !calm()) { nextMarksAt = performance.now() + time(260); later(262, drawMarks); }
       drawMarks();
@@ -1117,13 +1119,20 @@ function undoOrReplay() {
   void playReply(replySteps, board);
 }
 function replyMotion() { return !calm() && motion !== 'off' && !matchMedia('(prefers-reduced-motion: reduce)').matches; }
-function playReply(steps: readonly ReplayStep[], view: Board) {
+/** Live playback draws a new check in; a manual Replay shows it at once. */
+function playReply(steps: readonly ReplayStep[], view: Board, live = false) {
   const own = generation;
   beat?.cancel(); endSeal(); screen.dataset.replaying = 'true';
   return boardReplay.play(steps, view, game.context, () => own === generation && board === view,
     () => { playingAction = null; view.setPosition(draft.position, game.context); screen.dataset.replaying = 'false'; drawMarks(); },
-    (pos, step) => { playingAction = step ? { before: pos, move: step.move } : null; drawMarks(); })
+    (pos, step) => { playingAction = step ? { before: pos, move: step.move } : null; drawMarks(); },
+    step => { if (playingAction) playingAction.landed = step.after; if (live && newCheck(step.before, step.after)) drawCheckIn(step.after); drawMarks(); })
     .catch(error => refuse(String(error)));
+}
+/** A move gives a new check: also on the side that does not move now (Haste). */
+function newCheck(before: Position, after: Position) {
+  const king = stateMarks(game.context, after).check;
+  return king != null && king !== stateMarks(game.context, before).check;
 }
 function undo() {
   if (!draft.length || thinking || ended || !onlineActive && writer.blocked) return;
@@ -1237,11 +1246,12 @@ async function reply() {
       if (!m.pass) { acting = [...effectEndLines(game.context, before, m, game.pos, player), sentence(before, m, true, cards(cpu()))].join(' '); update(); }
     }
     if (own !== generation) return;
+    const deadline = game.status !== 'playing' ? armResult(() => { if (own === generation) endReply?.(); }) : undefined;
     // The status changes when the board has shown the reply, not before (fault C2). A board tap ends both at once.
     endReply = () => {
       endReply = null; if (own !== generation) return;
       thinking = false; acting = ''; notice = ''; draft = new DraftTurn(game); replySteps = lastReplySteps(game, cpu());
-      if (game.status !== 'playing') { showResult(); return; }
+      if (game.status !== 'playing') { showResult(deadline); return; }
       passTurn(false); update(); announce(`${replyText()} ${game.inCheck ? text.check : text.ready}`);
     };
     await played; endReply?.();
@@ -1266,9 +1276,10 @@ function finalCheckCue(pos: Position) {
 /** The check mark and its threat lines draw in (200 ms; at once in reduced motion). */
 function drawCheckIn(pos: Position) {
   cancelCheckPulse();
-  checkPulse = { square: findKing(pos.board, pos.turn), threats: stateMarks(game.context, pos).threats, progress: 0 };
+  const marks = stateMarks(game.context, pos);
+  checkPulse = { square: marks.check!, threats: marks.threats, progress: 0 };
   checkFrame = tween(200, t => { if (checkPulse) checkPulse.progress = t; drawMarks(); }, {
-    curve: ease.EASE, done: () => { if (!playingAction) checkPulse = null; drawMarks(); },
+    curve: ease.EASE, done: () => { checkPulse = null; drawMarks(); },
   });
 }
 /**
@@ -1278,10 +1289,20 @@ function drawCheckIn(pos: Position) {
 function holdMate(square: number, then: () => void): Effect {
   const reduce = reducedMotion(), beat = reduce ? undefined : closeIn(cells[square].getBoundingClientRect());
   if (!reduce) cue('check');
-  mateHeld = true; drawMarks();
-  const end = () => { clearTimeout(timer); beat?.cancel(); mateHeld = false; };
-  const timer = setTimeout(() => { end(); drawMarks(); then(); }, reduce ? 300 : 600);
-  return { cancel: end, finish: end };
+  const end = () => { clearTimeout(timer); beat?.cancel(); if (mateHold === hold) mateHold = undefined; };
+  const timer = setTimeout(() => hold.finish(), reduce ? 300 : 600);
+  const hold: Effect = mateHold = { cancel: end, finish: () => { end(); then(); } };
+  return hold;
+}
+/**
+ * A game end: the card opens by 3 s after the game detects it, and at once on a hidden page, where playback waits for
+ * frames that do not come. `open` can change; `late` says that the deadline came.
+ */
+function armResult(open = () => {}) {
+  const listen = new AbortController(), timer = setTimeout(() => deadline.go(), document.hidden ? 0 : 3000);
+  const deadline = { open, late: false, stop() { clearTimeout(timer); listen.abort(); }, go() { deadline.stop(); deadline.late = true; deadline.open(); } };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) deadline.go(); }, { signal: listen.signal });
+  return deadline;
 }
 /** The seal marks: a crown for a win, a broken crown for a loss, two equal lines for a draw. */
 const SEAL = { win: 'm4 8 4 4 4-7 4 7 4-4-2 11H6L4 8ZM7 22h10', loss: 'm5 7 4 4 3-6 3 6 4-4-2 10H7L5 7ZM7 21h10M4 4l16 19', draw: 'M5 9h14M5 16h14' };
@@ -1296,7 +1317,7 @@ function riseNarrator() {
   if (!text) return;
   tween(180, t => { text.style.transform = `translateY(${8 * (1 - t)}px)`; text.style.opacity = String(t); }, { curve: ease.EASE });
 }
-function showResult() {
+function showResult(deadline = armResult()) {
   gameHelp?.close(); closeStaleDialogs();
   ended = true; thinking = false; liveGame = false; stopGameTime();
   const status: Status = game.status;
@@ -1306,22 +1327,22 @@ function showResult() {
   const show = () => {
     reading = 'result'; update(); focusResult(); announce(`${replyText()} ${resultCause}`);
   };
-  if (status !== 'checkmate') { cue('arrive'); pulse('light'); show(); return; }
+  if (status !== 'checkmate') { deadline.stop(); cue('arrive'); pulse('light'); show(); return; }
   const title = detail.querySelector('.play-narrator .play-title');
   if (title) { title.textContent = 'Checkmate.'; riseNarrator(); }
   const standing = findKing(game.pos.board, game.pos.turn), square = standing >= 0 ? standing : kingSquare(game.history, game.pos.turn);
   const view = board, skip = button('Skip result animation', { onPress: () => finish(true) });
   skip.classList.add('play-sequence-skip');
   skip.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); finish(true); } });
-  screen.append(skip); skip.focus({ preventScroll: true });
+  // The skip covers the board only: Menu and Back to home stay free.
+  boardBox.append(skip); skip.focus({ preventScroll: true });
   screen.dataset.moment = won ? 'win' : 'loss'; screen.dataset.state = 'result';
   const cues: Effect[] = [];
   const ground = boardBox;
   const light = (t: number) => ground.style.setProperty('--result-light', String(won ? .26 - .13 * t : .16 * t));
-  const hidden = new AbortController(); // a hidden page gives no frames: the result must not wait for the bow
   const finish = (showCard: boolean) => {
     if (endResult !== cancel) return;
-    endResult = undefined; hidden.abort();
+    endResult = undefined;
     cues.forEach(effect => effect.cancel()); skip.remove(); view?.skip();
     light(1);
     if (!won) ground.style.setProperty('--result-saturation', '.5');
@@ -1346,13 +1367,12 @@ function showResult() {
     }));
     void Promise.resolve(playback).catch(() => {}).then(() => finish(true));
   };
-  document.addEventListener('visibilitychange', () => { if (document.hidden) finish(true); }, { signal: hidden.signal });
-  // The card comes in any case: a fall that never ends meets this hard end.
-  const last = setTimeout(() => finish(true), 3000);
-  cues.push({ cancel: () => clearTimeout(last), finish() {} });
-  if (document.hidden) finish(true);
+  // The card comes in any case: a fall that never ends meets the hard end, a hidden page shows the card at once.
+  deadline.open = () => finish(true);
+  cues.push({ cancel: deadline.stop, finish() {} });
+  if (document.hidden || deadline.late) finish(true);
   // A mate (not a taken king, which has its own moment) holds first; reduced motion then shows the card.
-  else if (standing >= 0) cues.push(holdMate(square, reducedMotion() ? () => finish(true) : fall));
+  else if (standing >= 0) cues.push(holdMate(square, () => reducedMotion() ? finish(true) : fall()));
   else if (reducedMotion()) finish(true);
   else fall();
 }
@@ -1925,6 +1945,7 @@ function setMotion() {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   setInterfaceMotion(motion, reduce);
   setFxMotion(motion, reduce);
+  if (reducedMotion()) mateHold?.finish();
   homeView?.reveal.sync();
   if (screen?.isConnected && seatRings) updateSeats();
   const pace = reduce || pieceView === 'symbols' ? 'off' : motion;
@@ -1991,7 +2012,9 @@ function drawMarks() {
     else cell.removeAttribute('aria-description');
   }
   // Playback holds its target. The next board input clears the opponent cue.
-  const marks = mergeMarks(resultMarks(pos, (playingAction ? lastActions.slice(0, -1) : lastActions).filter(action => action.before.turn === cpu())), preview, ...(ended && !mateHeld ? [] : [stateMarks(game.context, pos)]));
+  // A finished game keeps the check marks of its last position; a landed move shows its own.
+  const state = stateMarks(game.context, playingAction?.landed ?? pos);
+  const marks = mergeMarks(resultMarks(pos, (playingAction ? lastActions.slice(0, -1) : lastActions).filter(action => action.before.turn === cpu())), preview, ended ? { ...state, rings: [] } : state);
   if (checkPulse) {
     marks.check = checkPulse.square; marks.threats = checkPulse.threats;
     marks.checkProgress = checkPulse.progress;

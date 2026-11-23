@@ -82,8 +82,10 @@ export function kingSquare(history: readonly { pos: Position }[], side: Color): 
 /** Current state supplies lasting marks. These end only when the engine ends the state. */
 export function stateMarks(rules: GameRules, pos: Position): PlainMarks {
   const out = emptyMarks();
-  const king = rules.inCheck(pos) ? findKing(pos.board, pos.turn) : -1;
-  const threats = king >= 0 ? checkersOf(rules, pos) : [];
+  // Haste: after the first move the side that does not move now can be in check.
+  const other = { ...pos, turn: (pos.turn ^ 1) as Color }, checked = rules.inCheck(pos) ? pos : pos.haste !== undefined && rules.inCheck(other) ? other : undefined;
+  const king = checked ? findKing(checked.board, checked.turn) : -1;
+  const threats = checked && king >= 0 ? checkersOf(rules, checked) : [];
   if (king >= 0) out.check = king;
   if (threats.length) out.threats = threats;
   for (const state of boardStates(rules, pos)) ring(out, pos, state.sq, state.kind === 'holy-light' || state.kind === 'mercy' ? C.holy : C.ice, 'state', state.kind === 'holy-light' ? 1.1 : 1.25);
