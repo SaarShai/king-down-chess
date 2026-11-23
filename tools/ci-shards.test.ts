@@ -35,7 +35,7 @@ it('places each baseline browser check once per browser with both fixture parts'
     'ux-defects', 'verb-marks', 'visual-design',
   ]));
   chromium.push('plugin-oauth', 'plugin-ui:opening', 'plugin-ui:board', 'plugin-ui-http', 'web-online', 'signin-speed', 'web-game',
-    'daylight-tabs', 'next-save', 'next-art-wait', 'play-scenes', 'release-site', 'release-history',
+    'daylight-tabs', 'next-save', 'next-art-wait', 'layout-result', 'play-scenes', 'release-site', 'release-history',
     'plugin-skylift', 'plugin-privacy', 'muse-docs');
   const webkit = ['plugin-ui:opening', 'plugin-ui:board', 'web-online', 'signin-speed', 'daylight-tabs', 'next-art-wait', 'release-site', 'release-history'];
   const jobs = checkShards();

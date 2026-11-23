@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { chromium, webkit } from 'playwright';
@@ -43,16 +46,22 @@ export async function withReleaseSite(url, check) {
   }
   const built = process.env.KINGDOWN_RELEASE_SITE_ROOT;
   const root = built || repo;
-  if (!built) {
-    const profile = fileURLToPath(new URL('../release/profile.sh', import.meta.url));
-    execFileSync('bash', ['-c', '. "$1"; exec npm run build', 'release-site', profile], {
-      cwd: root, stdio: 'inherit', env: { ...process.env, ...CHECK_SITE_ENV },
-    });
+  // A combined run keeps serving the shared build while the release check uses its own build.
+  const outDir = built ? undefined : await mkdtemp(join(tmpdir(), 'kingdown-release-site-'));
+  try {
+    if (outDir) {
+      const profile = fileURLToPath(new URL('../release/profile.sh', import.meta.url));
+      execFileSync('bash', ['-c', '. "$1"; exec npm run build -- --outDir "$2"', 'release-site', profile, outDir], {
+        cwd: root, stdio: 'inherit', env: { ...process.env, ...CHECK_SITE_ENV },
+      });
+    }
+    const { preview } = await import('vite');
+    const server = await preview({ root, ...(outDir ? { build: { outDir } } : {}), logLevel: 'silent', preview: { host: '127.0.0.1', port: 0, strictPort: true, open: false } });
+    try { await check(server.resolvedUrls.local[0]); }
+    finally { await server.close(); }
+  } finally {
+    if (outDir) await rm(outDir, { recursive: true, force: true });
   }
-  const { preview } = await import('vite');
-  const server = await preview({ root, logLevel: 'silent', preview: { host: '127.0.0.1', port: 0, strictPort: true, open: false } });
-  try { await check(server.resolvedUrls.local[0]); }
-  finally { await server.close(); }
 }
 
 export async function releaseContext(browser, url, options) {
