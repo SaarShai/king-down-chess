@@ -46,6 +46,7 @@ import { computerPortrait, profilePortrait } from '../people/host/portrait';
 import type { OnlineHost } from '../people/host/index';
 import { ObsoleteAction } from '../people/server';
 import type { PeopleState } from '../people/controller';
+import { lastTurnOf } from '../people/replica';
 import { seatKingUnsaved } from '../people/seat-king';
 import { homeInvite, personGame, personTurn, personWords } from '../people/host/games';
 import { timeWords } from '../people/words';
@@ -223,7 +224,7 @@ const signInRetry = 'Sign-in does not finish. Try again.';
 const showHomeSignIn = () => peopleStatus !== 'checking' && !people?.signedIn;
 let homePoll: ReturnType<typeof runPoll> | undefined;
 function gameWords(line: string) { return onlineActive ? personWords(line) : line; }
-let mountingOnline = false, shownRevision = -1, onlineNote = '';
+let mountingOnline = false, shownRevision = -1, onlineNote = '', onlineReconnecting = false;
 const inviteLinkStatus = el('p', 'home-status');
 let inviteLinkTimer: ReturnType<typeof setTimeout> | undefined;
 function clearInviteLinkStatus() {
@@ -341,7 +342,7 @@ function personFlow(source: HTMLElement | null = null, resumeInviteAction = fals
 }
 async function openOnline(id: string) {
   if (onlineGameNotice?.id !== id) onlineGameNotice = undefined;
-  onlineActive = true; onlineState = undefined; shownRevision = -1; arrangement = undefined; arrangementGame = '';
+  onlineActive = true; onlineState = undefined; shownRevision = -1; onlineReconnecting = false; arrangement = undefined; arrangementGame = '';
   endResult?.(); rewind?.finish(); seatFrame?.finish(); boardReplay.cancel(); generation++; engine.cancel(); endEntry(); board?.dispose(); board = undefined;
   document.body.dataset.page = 'game'; root.replaceChildren(el('p', 'people-loading', 'Loading your game…'));
   try { const host = await loadPeople(); if (!onlineActive || shell.route.entry !== id) return; await host.open(id, receiveOnline); }
@@ -350,6 +351,10 @@ async function openOnline(id: string) {
 function receiveOnline(state: PeopleState) {
   if (!onlineActive) return;
   const previousStatus = onlineState?.view?.status;
+  if (state.connection !== 'online') onlineReconnecting = true;
+  const liveOnline = !onlineReconnecting && previousStatus === 'playing';
+  // The online event can come before the server answers the first read.
+  if (state.connection === 'online' && state.view && state.view !== onlineState?.view) onlineReconnecting = false;
   onlineState = state;
   if (previousStatus === 'setup' && state.view?.status === 'playing' && board) {
     board.dispose(); board = undefined; shownRevision = -1;
@@ -362,7 +367,7 @@ function receiveOnline(state: PeopleState) {
   } else { arrangement = undefined; arrangementGame = ''; }
   if (state.view?.status === 'aborted') {
     if (gameDialog) closeGameDialog(); // an open Menu or History would cover the end page
-    endEntry(); board?.dispose(); board = undefined; liveGame = false; ended = true; thinking = false;
+    endEntry(); boardReplay.cancel(); board?.dispose(); board = undefined; liveGame = false; ended = true; thinking = false;
     const page = el('section', 'people-landing'), title = el('h1', '', onlineResult(state)); title.tabIndex = -1;
     page.append(title, button(text.home, { kind: 'main', onPress: () => shell.go({ place: 'play' }) }));
     if (people && humanOpponent(state.view)) page.append(...playerSafety(people.safety, { game_id: state.view.game_id }, () => { void people?.refresh(); }));
@@ -392,16 +397,34 @@ function receiveOnline(state: PeopleState) {
   const wasEnded = ended; ended = state.phase === 'over'; liveGame = false;
   if (ended && !wasEnded) closeStaleDialogs();
   if ((changed || ended) && document.querySelector('[data-help-sheet="promotion"]')) gameHelp?.close();
+  let playback: Promise<void> | undefined, liveRevision = false;
   if (changed) {
     shownRevision = state.view.revision; selected = inspected = null; shown = null; clearChoice(); skipBoard();
-    board.setPosition(draft.position, game.context); replySteps = state.received?.steps ?? lastReplySteps(game, cpu());
+    replySteps = state.received?.steps ?? lastReplySteps(game, cpu());
     const h = game.history; let i = h.length; const side = h.at(-1)?.pos.turn; while (i > 0 && h[i - 1].pos.turn === side) i--;
     lastActions = draft.length ? [...draft.steps] : turnActions(i); last = turnText(i, side !== player);
+    if (!inApp && liveOnline && previousRevision >= 0) {
+      const commands = state.view.last_commands.filter(command => command.seq > previousRevision);
+      const turns = commands.filter(({ action }) => action.type === 'turn' || action.type === 'computer');
+      liveRevision = commands.length === shownRevision - previousRevision && turns.length <= 1;
+      const turn = turns[0];
+      if (liveRevision && turn && turn.seat !== player && pieceView !== 'symbols' && replyMotion()) {
+        const reply = state.received ?? lastTurnOf(game, state.view);
+        if (reply?.seq === turn.seq && reply.steps.length) playback = playReply(reply.steps, board);
+      }
+    }
+    if (!playback) board.setPosition(draft.position, game.context);
   }
   if (ended) { resultCause = onlineResult(state); reading = 'result'; if (changed) detail.dataset.mode = ''; }
   else if (reading === 'result') reading = 'normal';
   update();
-  if (changed && previousRevision >= 0 && ended && !wasEnded && state.view.result?.reason === 'checkmate') playOnlineKingResult();
+  if (changed && previousRevision >= 0 && ended && !wasEnded && state.view.result?.reason === 'checkmate' && (inApp || liveRevision)) {
+    if (!playback) playOnlineKingResult();
+    else {
+      const own = generation, revision = shownRevision;
+      void playback.then(() => { if (own === generation && revision === shownRevision) playOnlineKingResult(); });
+    }
+  }
   if (changed && previousRevision >= 0 && wasWaiting && !thinking && !ended && !arrangement) passTurn(false);
   if (changed && previousRevision >= 0) announce(arrangementWaiting() ? arrangeText.wait : ended ? resultCause : state.draft ? `${replyText()} Your turn.` : state.sent ? 'Turn sent. Your opponent now plays.' : 'The game changes.');
   void onlineRecovery(state);
@@ -1086,10 +1109,14 @@ function undoOrReplay() {
   if (!board || boardReplay.running) return;
   closeFloating(false);
   lastActions = replySteps.map(({ before, move }) => ({ before, move }));
-  if (calm() || motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) { drawMarks(); announce(text.replay); return; }
-  const own = generation, view = board;
+  if (!replyMotion()) { drawMarks(); announce(text.replay); return; }
+  void playReply(replySteps, board);
+}
+function replyMotion() { return !calm() && motion !== 'off' && !matchMedia('(prefers-reduced-motion: reduce)').matches; }
+function playReply(steps: readonly ReplayStep[], view: Board) {
+  const own = generation;
   beat?.cancel(); screen.dataset.replaying = 'true';
-  void boardReplay.play(replySteps, view, game.context, () => own === generation && board === view,
+  return boardReplay.play(steps, view, game.context, () => own === generation && board === view,
     () => { playingAction = null; view.setPosition(draft.position, game.context); screen.dataset.replaying = 'false'; drawMarks(); },
     (pos, step) => { playingAction = step ? { before: pos, move: step.move } : null; drawMarks(); })
     .catch(error => refuse(String(error)));
