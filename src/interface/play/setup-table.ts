@@ -129,7 +129,8 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     const caption = el('span', 'setup-seat-edit');
     if (!own && opponent === 'computer') caption.append(portrait(draft.level));
     caption.append(own ? name : friend ? 'A friend' : text.computer);
-    const title = !king && !own && hasPowers(draft.setup) ? (friend ? "Friend's king" : panelText.randomKing) : kingLabel(king?.king, side);
+    const title = !king && !own && hasPowers(draft.setup) ? (friend ? "Friend's king" : panelText.randomKing)
+      : !king && opponent === 'person' ? 'Random side' : kingLabel(king?.king, side);
     const kingName = el('strong', '', title);
     kingName.id = own ? 'setup-own-king' : 'setup-opponent-king';
     power.id = own ? 'setup-own-power' : 'setup-opponent-power';

@@ -83,3 +83,6 @@ it('keeps iOS safe areas and has no persistent shell bar', () => {
   expect(shell + source('play/menus.css')).not.toContain('--daylight-bar');
   expect(shell + source('play/shell.ts')).not.toContain('shell-nav');
 });
+it('staging 2026-11-22: an online game names the opponent, not the computer, in the square descriptions', () => {
+  expect(source('play/main.ts')).toContain("cell.setAttribute('aria-description', gameWords(descriptions.join(' ')))");
+});
