@@ -8,11 +8,16 @@ export function revealVariant(width: number, height: number): RevealVariant {
   return aspect <= 1.25 ? 'square' : 'wide';
 }
 
-export const revealVideo = (variant: RevealVariant) => `/interface/reveal/${variant}.mp4`;
+export const revealVideo = (variant: RevealVariant, av1 = false) => `/interface/reveal/${variant}${av1 ? '-av1' : ''}.mp4`;
 export const revealPoster = (width: number, height: number) => `/interface/reveal/hero-${revealVariant(width, height)}.webp`;
 
+// The AV1 film is about half the bytes; browsers that cannot decode it get the H.264 film.
+const av1 = 'video/mp4; codecs="av01.0.08M.08"';
+// The film plays once in each page session: later Home views show the still. A reload starts a new session.
+let played = false;
 
 export function homeReveal(art: HTMLElement) {
+  const replay = played;
   const still = document.createElement('img');
   still.className = 'home-reveal-still';
   still.alt = '';
@@ -61,11 +66,14 @@ export function homeReveal(art: HTMLElement) {
       still.src = revealPoster(width, height);
       void still.decode().catch(() => {});
     }
-    const useStill = failed || reducedMotion() || !navigator.onLine;
+    const useStill = replay || failed || reducedMotion() || !navigator.onLine;
     art.classList.toggle('home-art-still', useStill);
     if (settled) return;
     if (useStill || !visible || pageHidden || document.hidden) { video.pause(); return; }
-    if (!video.hasAttribute('src')) video.src = revealVideo(variant);
+    if (!video.hasAttribute('src')) {
+      video.src = revealVideo(variant, video.canPlayType(av1) === 'probably');
+      played = true;
+    }
     if (video.paused) void video.play().catch((error: DOMException) => {
       if (!signal.aborted && error.name !== 'AbortError') fallback();
     });
