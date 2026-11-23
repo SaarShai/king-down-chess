@@ -1,4 +1,5 @@
 import { expect, it, vi } from 'vitest';
+import { contrast } from './contrast';
 import { drawPlainMarks, emptyMarks, PLAIN, type PlainMarks } from './plain-marks';
 
 function draw(marks: Parameters<typeof drawPlainMarks>[2], tile = 75, flipped = false, pixel = 1) {
@@ -43,7 +44,7 @@ it('keeps dashed rings, curved paths, arrow heads and step positions at each sca
     steps: [{ square: 8, number: 2 }],
   };
   const { ctx, strokes } = draw(marks);
-  expect(strokes[0]).toEqual({ color: '#7d6a458c', width: (.027 * .8 + .016) * 75 });
+  expect(strokes[0]).toEqual({ color: '#4e3815d9', width: .027 * .8 * 75 + 2.4 });
   expect(ctx.quadraticCurveTo.mock.calls[0]).toEqual([37.5, 459.75, 37.5, 507.75]);
   expect(ctx.moveTo.mock.calls[2][0]).toBeCloseTo(37.5 - Math.cos(Math.PI / 2 - .5) * .147 * 75);
   expect(ctx.ellipse.mock.calls[1].slice(0, 4)).toEqual([37.5, 584.25, .4 * 75 * 1.12, .18 * 75 * 1.12]);
@@ -72,4 +73,28 @@ it('fills the last squares, marks all four check corners and draws a flake over 
   expect(ctx.lineTo).toHaveBeenCalledWith(.91 * 75, 525 + .91 * 75);
   expect(strokes.at(-1)?.color).toBe('#3f86b3');
   expect(ctx.ellipse).not.toHaveBeenCalled();
+});
+
+// The two stone tones of the play board, the median of an empty a5 and b5 in the 1280x800 build (docs/specs/gui-fx/capture.mjs).
+const STONE = { light: '#dfd6b9', dark: '#a3a397' };
+it('gives each mark kind an edge that reads at 3:1 or more on both stone tones', () => {
+  const kind = (color: string, extra: Partial<PlainMarks['rings'][number]> = {}): PlainMarks => ({ ...emptyMarks(), rings: [{ square: 8, color, role: 'target', ...extra }] });
+  const kinds: Record<string, PlainMarks> = {
+    move: kind(PLAIN.move, { size: .78 }), capture: kind(PLAIN.enemy, { size: 1.12 }), selected: kind(PLAIN.actor, { size: 1.12, role: 'actor' }),
+    staged: { ...emptyMarks(), paths: [{ squares: [0, 8], color: PLAIN.move }], steps: [{ square: 8, number: 1 }] },
+    shelter: kind(PLAIN.holy, { role: 'state' }), freeze: kind(PLAIN.ice, { frost: true }), ice: kind(PLAIN.ice, { role: 'state', size: 1.25 }),
+    ember: kind(PLAIN.ember), shadow: kind(PLAIN.shadow), friend: kind(PLAIN.friend, { dash: [5, 5] }), check: { ...emptyMarks(), check: 0 },
+  };
+  const reads = Object.fromEntries(Object.entries(kinds).map(([name, marks]) => {
+    const inks: string[] = [];
+    const ctx = new Proxy({ fillStyle: '' as unknown, strokeStyle: '' as unknown, globalAlpha: 1,
+      createLinearGradient: () => ({ addColorStop() {} }), createRadialGradient: () => ({ addColorStop() {} }),
+      fill() { inks.push(this.fillStyle as string); }, stroke() { inks.push(this.strokeStyle as string); },
+      strokeRect() { inks.push(this.strokeStyle as string); },
+    }, { get: (o, key: string) => o[key as keyof typeof o] ?? (() => {}) });
+    drawPlainMarks(ctx as unknown as CanvasRenderingContext2D, { PAD: 0, TILE: 75, cell: sq => ({ col: sq % 8, row: 7 - (sq >> 3) }) }, marks);
+    const best = Math.max(...inks.filter(ink => typeof ink === 'string').map(ink => Math.min(contrast(ink, STONE.light), contrast(ink, STONE.dark))));
+    return [name, best >= 3];
+  }));
+  expect(reads).toEqual(Object.fromEntries(Object.keys(kinds).map(name => [name, true])));
 });
