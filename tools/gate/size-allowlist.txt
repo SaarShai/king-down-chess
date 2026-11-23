@@ -50,6 +50,8 @@ docs/specs/effects-animation/preview/card-art/wide-review/previous/sacrifice-v1.
 public/interface/reveal/portrait-av1.mp4  Final Home reveal for phone screens in AV1, about half the bytes. The page streams one variant, one time in each page session.
 public/interface/reveal/portrait.mp4  Final Home reveal for phone screens in H.264, for browsers that cannot play AV1.
 public/interface/reveal/square-av1.mp4  Final Home reveal for tablet screens in AV1, about half the bytes. The page streams one variant, one time in each page session.
+public/interface/reveal/square-hevc.mp4  Final Home reveal for tablet screens in HEVC, for Safari without AV1. The page tries H.264 if HEVC fails.
 public/interface/reveal/square.mp4  Final Home reveal for tablet screens in H.264, for browsers that cannot play AV1.
 public/interface/reveal/wide-av1.mp4  Final Home reveal for wide screens in AV1, about half the bytes. The page streams one variant, one time in each page session.
+public/interface/reveal/wide-hevc.mp4  Final Home reveal for wide screens in HEVC, for Safari without AV1. The page tries H.264 if HEVC fails.
 public/interface/reveal/wide.mp4  Final Home reveal for wide screens in H.264, for browsers that cannot play AV1.
