@@ -40,11 +40,11 @@ run=$(cd "$run" && pwd -P)
 lock="$base/$kind-active"
 progress="$run/progress.log"
 frame_record="$run/live/frame-checks.pass"
-stage= failure_commit=$head publish_error= bypassed= frame_pid= staging_pid=
+stage= failure_commit=$head publish_error= bypassed= frame_pid= staging_pid= engines_pid=
 finish() {
   local code=$? pid
   # Keep the release lock until both worktrees are free.
-  for pid in "$frame_pid" "$staging_pid"; do
+  for pid in "$frame_pid" "$staging_pid" "$engines_pid"; do
     [ -z "$pid" ] || wait "$pid" 2>/dev/null || :
   done
   if [ "$code" -ne 0 ] && [ -n "$stage" ]; then
@@ -176,6 +176,7 @@ wait_main() {
   local commit
   if [ "$dry" = yes ]; then
     dry_command gh pr view "$pr" --repo "$repository" --json state,baseRefName,headRefOid,mergeCommit
+    echo 'dry-run: reuse the passing main CI run at the exact merge commit if it exists'
     commit='<merge-commit>'
   else
     commit=$(pr_view --json state,baseRefName,headRefOid,mergeCommit --jq \
@@ -184,6 +185,10 @@ wait_main() {
     failure_commit=$commit
   fi
   rm -f "$run/main-commit"
+  if [ "$dry" = no ]; then
+    run_logged_stage engines "$commit" &
+    engines_pid=$!
+  fi
   outward bash "$tools/release/ci-wait.sh" "$commit" "${KINGDOWN_CI_WAIT_MINUTES:-50}" --retry-failed
   printf '%s\n' "$commit" > "$run/main-commit"
 }
@@ -200,8 +205,8 @@ merge_commit() {
   printf '%s\n' "$commit"
 }
 live_step() {
-  local mode=$1 commit
-  commit=$(merge_commit) || return
+  local mode=$1 commit=${2:-}
+  if [ -z "$commit" ]; then commit=$(merge_commit) || return; fi
   if [ "$dry" = yes ]; then
     if [ "$mode" = publish ]; then
       echo 'dry-run: reuse frame-time evidence only for the merge tree, else run the frame-time checks'
@@ -359,26 +364,30 @@ run_stage() {
       outward node "$tools/deploy-plugin-live-check.mjs" "$staging_tree/kingdown-deploy/.vercel/output/functions/mcp.func" "$staging" ;;
     merge) merge_release ;;
     main-ci) wait_main ;;
-    engines) live_step engines ;;
+    engines) live_step engines "${2:-}" ;;
     publish) live_step publish ;;
     live-check) commit=$(merge_commit) && checks "$live_tree" "$commit" "$live" release-site ;;
     log) write_log ;;
   esac
 }
 run_logged_stage() {
-  stage=$1
-  local began=$SECONDS
+  local name=$1 began=$SECONDS
+  shift
+  stage=$name
   say "$stage start"
   if [ "$dry" = yes ]; then
-    run_stage "$stage" | tee "$run/$stage.log"
+    run_stage "$stage" "$@" | tee "$run/$stage.log"
     [ "${KINGDOWN_RELEASE_FAIL_STAGE:-}" != "$stage" ] || return 1
     if [ "$stage" = ci ] && [ "$overlap_staging" = yes ]; then
       echo 'dry-run: when PR CI passes, start staging while frame-time checks run'
       staging_lane
-      stage=ci
+    elif [ "$stage" = main-ci ]; then
+      echo 'dry-run: start the engine check while main CI runs on the merge commit'
+      run_logged_stage engines '<merge-commit>'
     fi
+    stage=$name
   else
-    run_stage "$stage" > "$run/$stage.log" 2>&1
+    run_stage "$stage" "$@" > "$run/$stage.log" 2>&1
     if [ "$stage" = publish ]; then verify_publish; fi
   fi
   say "$stage pass"
@@ -426,7 +435,7 @@ say "PR $pr $head from $from (tweak=$tweak, dry-run=$dry)"
 case "$from" in
   ci|staging|staging-checks|merge) require_reconcile ;;
 esac
-started=no
+started=no joined_engines=no
 for name in "${stages[@]}"; do
   [ "$name" != "$from" ] || started=yes
   if [ "$tweak" = yes ] && [[ "$name" == staging* ]]; then
@@ -435,6 +444,7 @@ for name in "${stages[@]}"; do
     continue
   fi
   if [ "$overlap_staging" = yes ] && [[ "$name" == staging* ]]; then continue; fi
+  if [ "$name" = engines ] && [ "$joined_engines" = yes ]; then continue; fi
   if [ "$started" = no ]; then
     if [ "$force" = no ] && [ "$(result "$name")" != pass ]; then
       say "$name has no pass. Start at $name or use --force."
@@ -445,6 +455,15 @@ for name in "${stages[@]}"; do
     continue
   fi
   run_logged_stage "$name"
-  if [ "$name" = ci ]; then join_staging; fi
+  case "$name" in
+    ci) join_staging ;;
+    main-ci)
+      if [ -n "$engines_pid" ]; then
+        stage=engines
+        wait "$engines_pid"
+        engines_pid=
+      fi
+      joined_engines=yes ;;
+  esac
 done
 stage=

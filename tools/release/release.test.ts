@@ -95,6 +95,44 @@ it('runs staging after CI when the stages share a worktree', () => {
   expect(shared.output.indexOf('release: staging start')).toBeGreaterThan(shared.output.indexOf('release: ci pass'));
 });
 
+it('starts the engine check during main CI and waits for both before publish', () => {
+  const plan = release(['--from', 'main-ci', '--force']);
+  expect(plan.code, plan.output).toBe(0);
+  expect(plan.output.indexOf('release: engines start')).toBeLessThan(plan.output.indexOf('release: main-ci pass'));
+  expect(plan.output.indexOf('release: publish start')).toBeGreaterThan(plan.output.indexOf('release: engines pass'));
+});
+
+it('does not publish if the engine check fails during main CI', () => {
+  const failed = release(['--from', 'main-ci', '--force'], 'engines');
+  expect(failed.code, failed.output).toBe(1);
+  expect(failed.output).toContain('release: engines failed');
+  expect(failed.started).not.toContain('publish');
+});
+
+it('uses the exact merge commit for the engine check while main CI is still pending', () => {
+  const merged = 'e'.repeat(40);
+  const result = run('bash', ['-c', `
+source "$0" --dry-run --from log --force 1512 "$1" >/dev/null
+dry=no
+stage=main-ci
+live_step() { [ "$1 $2" = "engines $MERGED" ] && [ ! -f "$run/main-commit" ] && touch "$run/engines-started"; }
+outward() {
+  [ "$2" = "$tools/release/ci-wait.sh" ] && [ "$3" = "$MERGED" ] && [ "$5" = '--retry-failed' ] || return 80
+  for ((i = 0; i < 100; i++)); do
+    [ ! -f "$run/engines-started" ] || return 0
+    sleep .02
+  done
+  return 81
+}
+gh() { echo "$MERGED"; }
+run_stage main-ci
+wait "$engines_pid"
+cat "$run/main-commit"
+`, 'tools/release/release.sh', head], { MERGED: merged });
+  expect(result.status, result.stdout + result.stderr).toBe(0);
+  expect(result.stdout).toContain(merged);
+});
+
 it.each([
   ['pass', '1505'],
   ['frame-time fails', '1506'],
