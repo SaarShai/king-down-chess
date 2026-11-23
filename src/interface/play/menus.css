@@ -555,12 +555,12 @@ body > .kd-sr { inset: 0 auto auto 0; }
 }
 .setup-mode .kd-segment[aria-checked='true'] { background: var(--surface-raised); border-color: var(--divider); box-shadow: none; }
 .setup-match { display: grid; grid-template-rows: minmax(min-content, 1fr) auto; min-width: 0; }
-.setup-figures { position: relative; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; width: min(100%, 590px); margin: auto auto 0; height: 100%; max-height: min(54dvh, 575px); }
+.setup-figures { position: relative; isolation: isolate; display: grid; grid-template: minmax(45px, 1fr) auto / minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; width: min(100%, 590px); margin: auto auto 0; height: 100%; max-height: min(54dvh, 575px); }
 /* A quiet house tint behind a known king, only with Powers on (data-own, data-opponent). It does not move at rest. */
 @property --own-tint { syntax: '<color>'; inherits: true; initial-value: transparent; }
 @property --opponent-tint { syntax: '<color>'; inherits: true; initial-value: transparent; }
 .setup-figures::before, .setup-figures::after {
-  content: ''; position: absolute; inset: 0; grid-area: 1 / 1; z-index: -1; pointer-events: none;
+  content: ''; position: absolute; inset: 0; grid-area: 1 / 1 / -1; z-index: -1; pointer-events: none;
   background: radial-gradient(closest-side at 50% 45%, var(--own-tint), transparent);
 }
 .setup-figures::after { grid-column: 3; background: radial-gradient(closest-side at 50% 45%, var(--opponent-tint), transparent); }
@@ -575,7 +575,9 @@ body > .kd-sr { inset: 0 auto auto 0; }
 }
 :is(.setup-seat.kd-button, .setup-seat-static) {
   display: grid;
-  grid-template: minmax(40px, 1fr) auto / minmax(0, 1fr);
+  /* Both seats share the rows of .setup-figures: a caption that wraps does not lift one plinth. */
+  grid-row: span 2;
+  grid-template: subgrid / minmax(0, 1fr);
   justify-content: stretch;
   min-width: 0;
   height: 100%;
@@ -592,7 +594,8 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .setup-figure img { position: absolute; inset: 0; width: 100%; height: calc(100% - var(--plinth) * .6); object-fit: contain; object-position: center bottom; }
 .setup-figure img:is([src$='/kings/flame.webp'], [src*='/kings/frost']) { translate: 0 2%; }
 .setup-figure img[src$='/kings/spirit.webp'] { translate: 0 3%; }
-.setup-figure img[src*='/kings/stratus'] { translate: 0 4.5%; }
+/* The Sky cloak hangs below the boots: the boots stand on the stone, the cloak falls over its front. */
+.setup-figure img[src*='/kings/stratus'] { translate: 0 11%; }
 .setup-figure::before {
   content: ''; position: absolute; bottom: 0; inset-inline: max(10%, 50% - 105px); height: var(--plinth); border-radius: 50%;
   background:
@@ -611,12 +614,14 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .setup-seat-edit .profile-portrait { width: 24px; height: 24px; }
 .setup-seat-edit .kd-icon { inline-size: 14px; block-size: 14px; }
 /* A small brass crest. The scale keeps the layout box of VS. */
-.setup-vs { position: relative; color: #4d3c21; font: 600 clamp(25px, 6vw, 46px)/1 var(--font-title); scale: .6; }
+.setup-vs { grid-row: span 2; position: relative; color: #4d3c21; font: 600 clamp(25px, 6vw, 46px)/1 var(--font-title); scale: .6; }
 .setup-vs::before {
   content: ''; position: absolute; inset: -.38em -.42em -.7em; z-index: -1;
   background: linear-gradient(#f1e3b6, #d9b965 55%, #b98f3e);
   clip-path: polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%);
 }
+/* Forced colours remove the brass: a border keeps the crest. */
+@media (forced-colors: active) { .setup-vs::before { clip-path: none; border: 1px solid; } }
 .king-change { margin: 4px auto 0; max-width: 50ch; text-align: center; font-size: .8125rem; color: var(--text-muted); }
 .king-change:empty { display: none; }
 .setup-controls { display: grid; align-content: center; gap: var(--setup-gap); width: min(100%, 530px); margin-inline: auto; }
@@ -777,6 +782,12 @@ body > .kd-sr { inset: 0 auto auto 0; }
   .setup-friend-foot { grid-template-columns: 1fr 1fr; }
   .setup-friend-foot .kd-button[data-kind='main'] { font-size: .875rem; }
   .setup-seat-copy { gap: 0; }
+  /* A short landscape seat row has small figures: no plinth, no shared rows and no crest, as before the plinths. */
+  .setup-figure::before, .setup-vs::before { content: none; }
+  .setup-figure img[src] { height: 100%; translate: none; }
+  .setup-figures { grid-template-rows: auto; }
+  :is(.setup-seat.kd-button, .setup-seat-static) { grid-row: auto; grid-template-rows: minmax(40px, 1fr) auto; }
+  .setup-vs { grid-row: auto; color: inherit; scale: none; }
 }
 
 .home-growing-card { position: fixed; z-index: 36; pointer-events: none; overflow: clip; }

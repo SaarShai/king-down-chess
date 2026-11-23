@@ -232,6 +232,13 @@ const cases = {
     check(await seatTints(setup) === ',', 'a random side has no house tint');
     check(/^0s/.test(await tintTime(setup)), 'reduced motion: the tint has no transition');
     check(await feetLevel(setup), 'both plinths share one baseline');
+    // At 150% text "Random side" wraps in one seat only: the plinths still share one line. A short landscape has none.
+    await page.evaluate(() => { document.documentElement.style.fontSize = '150%'; });
+    const short = page.viewportSize().height <= 500;
+    const plinths = await setup.locator('.setup-figure').evaluateAll(nodes => nodes.map(node => getComputedStyle(node, '::before').content));
+    check(plinths.every(content => content === (short ? 'none' : '""')), `a short landscape has no plinth: ${plinths}`);
+    check(short || await feetLevel(setup), 'both plinths share one baseline at 150% text');
+    await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
     await shot(page, 'friend-side');
   },
   async seat_tint(page, context, check) {
