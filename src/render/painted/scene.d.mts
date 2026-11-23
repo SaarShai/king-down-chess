@@ -17,7 +17,7 @@ export interface ScenePieces {
 }
 export interface SceneMove { from: number; to: number; captures: number[]; swap?: boolean; shove?: { from: number; to: number }; selfRemove?: boolean }
 export interface DaylightSceneHooks {
-  /** Take over the 55 ms hold. Call the board's pause() now and resume() when the shared hold ends. */
+  /** Take over the contact hold (45 ms; 55 ms without this hook). Call the board's pause() now and resume() when the shared hold ends. */
   hold?: (ms: number) => void;
   /** Return true to replace the game's capture sound. */
   onCaptureContact?: (square: number, animated: boolean) => boolean | void;

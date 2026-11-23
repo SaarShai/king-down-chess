@@ -1,16 +1,18 @@
 import type { PaintedScene } from './painted/scene.mjs';
 
-type Brush = readonly [light: string, body: string, deep: string];
+type Brush = readonly [light: string, body: string];
 const PAINT = {
-  actor: ['#fff6cf', '#e9b44c', '#7a5318'],
-  move: ['#fffdf2', '#f3deb0', '#7d6a45'],
-  enemy: ['#ffc9b8', '#c8382a', '#5e130d'],
-  friend: ['#d9eeea', '#2f6f73', '#17494d'],
-  ice: ['#ffffff', '#8fd3f4', '#2b6591'],
-  holy: ['#fff6cf', '#ebcb80', '#7a5318'],
-  ember: ['#ffe0b8', '#b46635', '#683412'],
-  shadow: ['#eadde8', '#796378', '#3e2d3e'],
+  actor: ['#fff6cf', '#e9b44c'],
+  move: ['#fffdf2', '#f3deb0'],
+  enemy: ['#ffc9b8', '#c8382a'],
+  friend: ['#d9eeea', '#2f6f73'],
+  ice: ['#ffffff', '#8fd3f4'],
+  holy: ['#fff6cf', '#ebcb80'],
+  ember: ['#ffe0b8', '#b46635'],
+  shadow: ['#eadde8', '#796378'],
 } as const satisfies Record<string, Brush>;
+// One umber keyline round every mark: 5.3:1 on light stone and 3.4:1 on dark stone, so no body colour has to carry it.
+const KEYLINE = '#4e3815d9';
 export const PLAIN = {
   actor: PAINT.actor[1], move: PAINT.move[1], enemy: PAINT.enemy[1],
   friend: PAINT.friend[1], ice: PAINT.ice[1], holy: PAINT.holy[1],
@@ -47,7 +49,7 @@ function pigment(ctx: CanvasRenderingContext2D, [light, body]: Brush, top: numbe
 /** All geometry uses one square. The scene supplies orientation and canvas scale. */
 export function drawPlainMarks(ctx: CanvasRenderingContext2D, scene: Pick<PaintedScene, 'PAD' | 'TILE' | 'cell'>,
   marks: Omit<PlainMarks, 'rings'> & { rings: RingFrame[] }, pixel = 1, routeOpacity = 1): void {
-  const s = scene.TILE;
+  const s = scene.TILE, key = Math.max(2.4 * pixel, .03 * s);
   const box = (sq: number) => {
     const { col, row } = scene.cell(sq);
     return [scene.PAD + col * s, scene.PAD + row * s] as const;
@@ -58,10 +60,7 @@ export function drawPlainMarks(ctx: CanvasRenderingContext2D, scene: Pick<Painte
   };
   const stroke = (brush: Brush, width: number, top: number, bottom: number, dash: number[], shape: () => void) => {
     ctx.setLineDash(dash.map(n => n * s / 75));
-    ctx.save();
-    ctx.translate(0, .014 * s);
-    ctx.beginPath(); shape(); ctx.strokeStyle = brush[2] + '8c'; ctx.lineWidth = width + .016 * s; ctx.stroke();
-    ctx.restore();
+    ctx.beginPath(); shape(); ctx.strokeStyle = KEYLINE; ctx.lineWidth = width + key; ctx.stroke();
     ctx.beginPath(); shape(); ctx.strokeStyle = pigment(ctx, brush, top, bottom); ctx.lineWidth = width; ctx.stroke();
   };
 
@@ -151,29 +150,40 @@ export function drawPlainMarks(ctx: CanvasRenderingContext2D, scene: Pick<Painte
     const start = Math.PI * (.5 - sweep), end = Math.PI * (.5 + sweep);
     const slices = Math.ceil(64 * sweep);
     for (const edge of [true, false]) {
-      const drop = edge ? .014 * s : 0, extra = edge ? .016 * s : 0;
+      const extra = edge ? key : 0;
       ctx.save();
       ctx.beginPath();
       for (const side of [1, -1]) {
         for (let i = 0; i <= slices; i++) {
           const a = side === 1 ? start + (end - start) * i / slices : end - (end - start) * i / slices;
           const height = Math.sin(a), half = side * (width * (.71 + .29 * height) + extra) / 2;
-          ctx.lineTo(x + Math.cos(a) * (rx + half), y + drop + height * (ry + .7 * half));
+          ctx.lineTo(x + Math.cos(a) * (rx + half), y + height * (ry + .7 * half));
         }
       }
       ctx.closePath();
-      const ink = edge ? brush[2] + '8c' : pigment(ctx, brush, y - ry, y + ry);
+      const ink = edge ? KEYLINE : pigment(ctx, brush, y - ry, y + ry);
       if (ring.dash?.length) {
         ctx.clip(); ctx.beginPath();
-        ctx.ellipse(x, y + drop, rx, ry, 0, start, end);
-        ctx.setLineDash(ring.dash.map(n => n * s / 75));
+        ctx.ellipse(x, y, rx, ry, 0, start, end);
+        // Flat ends: a round cap of the wide keyline fills the dash gap (a dashed ring looks solid).
+        ctx.setLineDash(ring.dash.map(n => n * s / 75)); ctx.lineCap = 'butt';
         ctx.strokeStyle = ink; ctx.lineWidth = width + extra; ctx.stroke();
       } else { ctx.fillStyle = ink; ctx.fill(); }
       ctx.restore();
     }
-    if (sweep === 1 && !ring.dash?.length) {
-      ctx.beginPath(); ctx.ellipse(x, y - width * .12, rx, ry, 0, Math.PI / 6, Math.PI * 5 / 6);
-      ctx.strokeStyle = brush[0] + 'd1'; ctx.lineWidth = Math.max(pixel, .01 * s); ctx.stroke();
+    if (!ring.dash?.length) {
+      // A crisp light edge inside the keyline, along the inner side of the ring.
+      const line = Math.max(pixel, .01 * s);
+      ctx.beginPath();
+      for (let i = 0; i <= slices; i++) {
+        const a = start + (end - start) * i / slices, height = Math.sin(a), half = (line - width * (.71 + .29 * height)) / 2;
+        ctx.lineTo(x + Math.cos(a) * (rx + half), y + height * (ry + .7 * half));
+      }
+      ctx.strokeStyle = brush[0]; ctx.lineWidth = line; ctx.stroke();
+      if (sweep === 1) {
+        ctx.beginPath(); ctx.ellipse(x, y - width * .12, rx, ry, 0, Math.PI / 6, Math.PI * 5 / 6);
+        ctx.strokeStyle = brush[0] + 'd1'; ctx.stroke();
+      }
     }
     ctx.restore();
   }
@@ -196,6 +206,8 @@ function drawFrostTarget(ctx: CanvasRenderingContext2D, x: number, y: number, s:
   const edge = s / 46.75;
   ctx.strokeStyle = '#7fb7d9b3'; ctx.lineWidth = edge;
   ctx.strokeRect(x + edge / 2, y + edge / 2, s - edge, s - edge);
+  ctx.strokeStyle = KEYLINE;
+  ctx.strokeRect(x + edge * 1.5, y + edge * 1.5, s - 3 * edge, s - 3 * edge);
   ctx.translate(x + 3 * edge + .13 * s, y + 3 * edge + .13 * s);
   ctx.rotate((sweep - 1) * 2 * Math.PI / 9);
   const r = .104 * s * (.5 + .5 * sweep);
