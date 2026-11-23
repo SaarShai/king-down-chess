@@ -37,6 +37,19 @@ it('gives the same turn actions as commit, with no change to the game', () => {
   expect(turnActions(setup('7k/8/8/8/8/8/P7/K7 w - - 0 1').draft)).toBeUndefined();
 });
 
+it.each([
+  { side: 'White', halfmove: 99, fen: '7k/8/8/r3r3/8/8/8/R5K1 w - - 99 60', rules: HASTE, from: 'a1', to: 'a2', status: 'draw50', actions: ['Ra1-a2!H'] },
+  { side: 'White', halfmove: 98, fen: '7k/8/8/r3r3/8/8/8/R5K1 w - - 98 60', rules: HASTE, from: 'a1', to: 'a2', status: 'playing', actions: ['Ra1-a2!H', '--'] },
+  { side: 'Black', halfmove: 99, fen: 'r5k1/8/8/8/R3R3/8/8/7K b - - 99 60', rules: { kings: [null, { king: 'Flame', power: 'Haste' }] } as Partial<Rules>, from: 'a8', to: 'a7', status: 'draw50', actions: ['Ra8-a7!H'] },
+  { side: 'Black', halfmove: 98, fen: 'r5k1/8/8/8/R3R3/8/8/7K b - - 98 60', rules: { kings: [null, { king: 'Flame', power: 'Haste' }] } as Partial<Rules>, from: 'a8', to: 'a7', status: 'playing', actions: ['Ra8-a7!H', '--'] },
+])('sends the whole $side Haste turn from halfmove $halfmove, and no more', ({ fen, rules, from, to, status, actions }) => {
+  const act = (draft: DraftTurn) => { draft.arm('haste'); draft.stage(draft.at(parseSq(from), parseSq(to))[0]); };
+  const { game, draft } = setup(fen, rules); act(draft);
+  expect(game.context.status(draft.now)).toBe(status);
+  expect(committed(fen, rules, act)).toEqual(actions);
+  expect(turnActions(draft)).toEqual(actions);
+});
+
 it('stages moves again only while they are legal', () => {
   const { draft } = setup('7k/7p/8/8/8/8/7P/KN6 w - - 0 1', HASTE);
   draft.arm('haste'); draft.stage(draft.at(parseSq('b1'), parseSq('c3'))[0]);
