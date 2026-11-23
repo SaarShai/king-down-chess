@@ -571,6 +571,7 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .setup-seat:focus-visible { outline-offset: -2px; }
 .setup-figure { position: relative; display: block; height: 100%; width: 100%; }
 .setup-figure img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
+.setup-figure-random img { filter: grayscale(1) brightness(0.85); }
 .setup-seat-copy { display: grid; justify-items: center; gap: 2px; text-align: center; }
 .setup-seat-copy strong { font: 650 .8125rem/1.2 var(--font-title); letter-spacing: .045em; }
 .setup-seat-power, .setup-seat-edit { display: inline-flex; gap: 4px; align-items: center; justify-content: center; }
