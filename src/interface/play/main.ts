@@ -1896,7 +1896,7 @@ function drawMarks() {
     const descriptions = states.filter(state => state.squares.includes(square)).map(state => state.line);
     if (moves.length) descriptions.push(chooseActor ? `Choose this piece for ${armedResource()?.name}.` : `${readingText.possible} ${moves.map(m => sentence(draft.now, m, false, cards(player))).join(' ')}`);
     if (route && preview.steps.some(step => step.square === square)) descriptions.push(route);
-    if (descriptions.length) cell.setAttribute('aria-description', descriptions.join(' '));
+    if (descriptions.length) cell.setAttribute('aria-description', gameWords(descriptions.join(' ')));
     else cell.removeAttribute('aria-description');
   }
   // Playback holds its target. The next board input clears the opponent cue.

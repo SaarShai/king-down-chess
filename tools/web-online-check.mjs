@@ -696,7 +696,7 @@ export async function main() {
       const recordOfflineError=message=>{if(message.type()==='error')offlineErrors.push(message.text());};
       const recordOfflineRequest = request => { if (offline) offlineRequests.add(request); };
       const recordFailedAsset = request => {
-        if (offlineRequests.has(request) && !isOfflineProbe(request.url())) failedAssets.push(request.url());
+        if (offlineRequests.has(request) && !isOfflineProbe(request.url())) failedAssets.push(`${request.url()} ${request.resourceType()} ${request.failure()?.errorText}`); // the reason tells a cancel from a cache miss
       };
       active.on('console',recordOfflineError);
       active.on('request',recordOfflineRequest);
