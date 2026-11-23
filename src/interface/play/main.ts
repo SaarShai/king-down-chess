@@ -29,7 +29,7 @@ import { POWER_NAME, POWER_TAG, cardName, coinState, usesAllowed } from '../../p
 import { DraftTurn, isDirect, armKey } from './turn';
 import { Arrangement, ARRANGE_KEY } from './arrange';
 import { actorMarks, mergeMarks, previewMarks, resultMarks, stateMarks, type MarkAction } from './marks';
-import { cardLine, pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, kingLabel, rematchLine, resultText } from './texts';
+import { cardLine, pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, kingLabel, rematchLine, resultSheet, resultText } from './texts';
 import { readingText, checkLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
 import { armCard, calm, cardFly, disarm, screenChange, setInterfaceMotion, sheetMotion, trackCard, time } from './motion';
 import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, tween, type Effect } from './fx';
@@ -1221,6 +1221,13 @@ function finalCheckCue(pos: Position) {
     curve: ease.EASE, done: () => { checkPulse = null; drawMarks(); },
   });
 }
+/** The seal marks: a crown for a win, a broken crown for a loss, two equal lines for a draw. */
+const SEAL = { win: 'm4 8 4 4 4-7 4 7 4-4-2 11H6L4 8ZM7 22h10', loss: 'm5 7 4 4 3-6 3 6 4-4-2 10H7L5 7ZM7 21h10M4 4l16 19', draw: 'M5 9h14M5 16h14' };
+function sealOf(outcome: keyof typeof SEAL) {
+  const seal = el('span', 'play-result-seal');
+  seal.innerHTML = `<svg aria-hidden="true" viewBox="0 0 24 26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${SEAL[outcome]}"/></svg>`;
+  return seal;
+}
 const focusResult = () => detail.querySelector<HTMLButtonElement>('.play-result-actions .kd-button')?.focus({ preventScroll: true });
 function riseNarrator() {
   const text = detail.querySelector<HTMLElement>('.play-narr-copy');
@@ -1479,7 +1486,7 @@ function renderReader(actions?: HTMLElement) {
     block.dataset.outcome = winner == null ? 'draw' : winner === state.view?.seat ? 'win' : 'loss';
     const heading = el('h3', '', onlineResult(state)), handle = state.opponent?.handle;
     if (block.dataset.outcome === 'loss' && handle) { heading.replaceChildren(el('span', 'play-result-winner', handle), ' wins.'); void document.fonts.ready.then(fitResult); }
-    body.append(heading, el('p', 'play-result-cause', state.view?.result?.reason === 'resignation' ? 'The game ends by resignation.' : state.view?.result?.reason === 'agreement' ? 'Both players agree to a draw.' : state.view?.result?.reason === 'timeout' ? 'The move time ends.' : state.view?.result?.reason === 'checkmate' ? 'Checkmate.' : 'The game ends.'));
+    body.append(sealOf(block.dataset.outcome as keyof typeof SEAL), heading, el('p', 'play-result-cause', state.view?.result?.reason === 'resignation' ? 'The game ends by resignation.' : state.view?.result?.reason === 'agreement' ? 'Both players agree to a draw.' : state.view?.result?.reason === 'timeout' ? 'The move time ends.' : state.view?.result?.reason === 'checkmate' ? 'Checkmate.' : 'The game ends.'));
     const rematch = state.view ? rematchLine(state.rematch, state.view.seat) : '';
     if (rematch) body.append(el('p', 'play-result-facts', rematch));
     if (state.rematch === 'theirs') actions.append(button('Accept rematch', { kind: 'main', onPress: () => { void people!.controller!.rematch('accept'); } }), button('Decline', { onPress: () => { void people!.controller!.rematch('decline'); } }));
@@ -1494,34 +1501,29 @@ function renderReader(actions?: HTMLElement) {
     const won = game.status === 'checkmate' && game.pos.turn === cpu(), lost = resigned != null || (game.status === 'checkmate' && !won);
     const outcome = won ? 'win' : lost ? 'loss' : 'draw';
     const result = resultText(game.status, resigned != null, game.pos.turn, player);
-    const seats = el('div', 'play-result-seat'), ring = el('span', 'play-seat-ring');
-    ring.append(figure(kingFile(player))); ring.dataset.outcome = outcome;
-    const identity = el('div', 'play-result-name');
-    identity.append(el('strong', '', kingLabel(game.context.rules.kings[player]?.king, player)), el('small', '', text.you));
-    seats.append(ring, identity);
     screen.querySelector<HTMLElement>('.play-opp .play-seat-ring')!.dataset.outcome = won ? 'loss' : lost ? 'win' : 'draw';
-    const card = el('section', 'play-result'), body = el('div', 'play-result-body');
+    const card = el('section', 'play-result'), body = el('div', 'play-result-body'), seal = sealOf(outcome), numbers = el('div', 'play-result-numbers');
     card.dataset.outcome = outcome;
-    const facts = gameFacts(game, elapsedGame());
-    body.append(el('h3', '', result.title), el('p', 'play-result-cause', result.cause),
-      el('p', 'play-result-facts', `${facts.moves} ${facts.moves === 1 ? 'move' : 'moves'} · ${facts.captures} ${facts.captures === 1 ? 'capture' : 'captures'} · ${Math.floor(facts.playedMs / 60000)} min · Rematch as ${player ? 'Light' : 'Dark'}`));
+    const sheet = resultSheet(gameFacts(game, elapsedGame()), player, text[gameLevel]);
+    for (const [value, label] of sheet.facts) { const cell = el('p'); cell.append(el('strong', '', value), ' ', el('small', '', label)); numbers.append(cell); }
+    body.append(seal, el('h3', '', result.title), el('p', 'play-result-cause', result.cause), el('p', 'play-result-players', sheet.players), numbers);
     const actions = el('div', 'play-result-actions');
     const rematch = button(text.rematch, { kind: 'main', onPress: () => { void start(); } });
+    // The side shows on the plate; the name stays "Rematch" and the side is its description.
+    const side = el('span', 'play-result-side', ` · ${sheet.next}`);
+    side.id = 'play-result-side'; side.setAttribute('aria-hidden', 'true');
+    rematch.querySelector('[data-button-label]')!.append(side); rematch.setAttribute('aria-describedby', side.id);
     const review = button('See the game', { onPress: () => {
       resultReview = !resultReview; screen.dataset.review = String(resultReview);
       review.querySelector('[data-button-label]')!.textContent = resultReview ? 'Show result' : 'See the game';
       review.setAttribute('aria-pressed', String(resultReview));
     } });
-    actions.append(rematch, resultNewGame(),
-      review, button('Home', { onPress: () => home() }));
-    card.append(seats, body, actions); detail.append(card);
-    const rise = () => edgeLight(rematch, { ms: 420, width: 2.4 });
+    actions.append(rematch, review, resultNewGame(), button('Home', { onPress: () => home() }));
+    card.append(body, actions); detail.append(card);
     if (reducedMotion()) return;
-    if (won) {
-      const spring = new Spring(1, 360, 22); spring.to = 0;
-      const paint = () => { card.style.transform = `translateY(${20 * spring.x}px)`; card.style.opacity = String(1 - spring.x); };
-      paint(); onFrame(dt => { spring.step(dt); paint(); if (spring.still || !card.isConnected) return false; }, () => { if (card.isConnected) rise(); });
-    } else tween(560, t => { card.style.opacity = String(t); card.style.transform = `translateY(${12 * (1 - t)}px)`; }, { curve: ease.out2, done: () => { if (card.isConnected) rise(); } });
+    // The seal presses into the sheet once, then the light runs along Rematch.
+    seal.animate([{ transform: 'scale(1.16)', opacity: 0 }, { transform: 'scale(.95)', opacity: 1, offset: .7 }, { transform: 'none' }], { duration: time(240), easing: 'cubic-bezier(.3, 0, .2, 1)' })
+      .finished.then(() => { if (card.isConnected) edgeLight(rematch, { ms: 420, width: 2.4 }); }, () => {});
     return;
   }
   // The fault sits on the board, which waits: the reader has no room on a short screen.

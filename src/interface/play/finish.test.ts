@@ -4,7 +4,7 @@ import { A, B, G, K, KINGS, L, M, N, O, P, Q, R, S, type PieceType } from '../..
 import { POWERS_BALANCED } from '../../rules/rules';
 import { RELEASED_CARDS } from '../../content/cards';
 import { diagramFor, learningEntry, type LearnSubject } from './learning';
-import { effectEndLines, opponentLines, pieces, resultText } from './texts';
+import { effectEndLines, opponentLines, pieces, resultSheet, resultText } from './texts';
 import { Game } from '../../game';
 import { DraftTurn } from './turn';
 import { refusalForTap } from './refusals';
@@ -103,4 +103,12 @@ it('reads the winning side and the result cause from the final game state', () =
   expect(resultText('checkmate', false, 1, 1)).toEqual({ title: 'The computer wins', cause: 'Checkmate.' });
   expect(resultText('playing', true, 0)).toEqual({ title: 'The computer wins', cause: 'You resign.' });
   expect(resultText('drawMaterial', false, 0)).toEqual({ title: 'Draw', cause: 'Insufficient material.' });
+});
+
+it('the result sheet names both players, the next side and three numbers from the saved facts', () => {
+  expect(resultSheet({ moves: 7, captures: 1, playedMs: 179_999 }, 0, 'Friendly')).toEqual({
+    players: 'You · Light / Computer · Friendly', next: 'Play Dark',
+    facts: [['7', 'Moves'], ['1', 'Captures'], ['2', 'Minutes']],
+  });
+  expect(resultSheet({ moves: 0, captures: 0, playedMs: 0 }, 1, 'Fierce')).toMatchObject({ players: 'You · Dark / Computer · Fierce', next: 'Play Light' });
 });
