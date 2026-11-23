@@ -52,12 +52,12 @@ async function checkKingCapture(reducedMotion) {
     await square('a3 Light Rook').click();
     await square('a8 Dark King').click();
     await square('a8 Light Rook').waitFor();
-    const end = page.locator('.play-turn button').first();
+    const end = page.locator('.play-turn button').filter({ has: page.getByText('End turn', { exact: true }) });
     const endActive = async () => await end.isVisible() && await end.isEnabled();
     const card = page.locator('.play-result[data-outcome="win"]');
     const skip = button('Skip result animation');
     await pauseClock(page);
-    await button('End turn').click();
+    await end.click();
     const light = () => page.locator('.play-game[data-moment="win"] .play-board').evaluate(board => Number(getComputedStyle(board, '::after').opacity));
     if (reducedMotion === 'no-preference') {
       assert(await skip.isVisible() && !await card.isVisible(), 'The win effect starts before the result card');

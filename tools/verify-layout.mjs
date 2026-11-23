@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { assertNoErrors, env, insideViewport, launch, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, env, insideViewport, launch, noOverlap, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
+import { cutText } from './lib/cut-text.mjs';
 
 const mode = process.argv[2];
 const sizes = [[375, 812], [320, 568], [852, 393], [768, 1024], [1280, 800], [320, 200]];
@@ -63,6 +64,9 @@ try {
       check(inside(layout.card, layout.reader), `${width}×${height}: the chronicle card fits in the reader`);
       for (const part of layout.parts) check(part.visible && inside(part.box, layout.card), `${width}×${height}: ${part.label} fits in the chronicle card`);
       check(await card.getByRole('button').count() === 4, `${width}×${height}: all four result actions show`);
+      const cut = await page.evaluate(cutText);
+      check(!cut.length, `${width}×${height}: ${cut.join(', ')}`);
+      await noOverlap(page, '.play-result :is(h3, .play-result-cause, .play-result-numbers p, .play-result-actions button)');
       await insideViewport(page, '.play-result');
       await noSidewaysScroll(page);
       assertNoErrors(errors);
