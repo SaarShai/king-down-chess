@@ -40,7 +40,8 @@ function frame(stamp: number): void {
     holdUntil = 0;
     pauseScene?.(false);
   }
-  const delta = Math.min(34, Math.max(0, elapsed)) * (pace === 'fast' ? 2 : 1);
+  // A short hitch moves the clock one frame; a stall (a hidden page) moves it the whole time, so old effects end.
+  const delta = (elapsed > 250 ? elapsed : Math.min(34, Math.max(0, elapsed))) * (pace === 'fast' ? 2 : 1);
   time += delta;
   if (delta > 0) {
     for (const [effect, step] of [...frames]) {

@@ -28,7 +28,7 @@ import { RELEASED_CARDS } from '../../content/cards';
 import { POWER_NAME, POWER_TAG, cardName, coinState, usesAllowed } from '../../powers-ui';
 import { DraftTurn, isDirect, armKey } from './turn';
 import { Arrangement, ARRANGE_KEY } from './arrange';
-import { actorMarks, mergeMarks, previewMarks, resultMarks, stateMarks, type MarkAction } from './marks';
+import { actorMarks, kingSquare, mergeMarks, previewMarks, resultMarks, stateMarks, type MarkAction } from './marks';
 import { cardLine, pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, kingLabel, rematchLine, resultText } from './texts';
 import { readingText, checkLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
 import { armCard, calm, cardFly, disarm, screenChange, setInterfaceMotion, sheetMotion, trackCard, time } from './motion';
@@ -133,7 +133,7 @@ let last = '', notice = '', resultCause = '', choice: Move[] = [], choiceSquare 
 // the computer's card group, and the computer's text while its reply plays.
 let form: Form = 'tall', nodes = readerNodes(), rivalGroup: Resource | null = null, acting = '';
 let screen: HTMLElement, boardBox: HTMLElement, boardHost: HTMLElement, reader: HTMLElement, detail: HTMLElement, choiceBox: HTMLElement;
-let cells: HTMLButtonElement[] = [], choiceCancel: HTMLButtonElement, struck: { square: number; height: number } | undefined;
+let cells: HTMLButtonElement[] = [], choiceCancel: HTMLButtonElement, struck: { square: number; height: number } | undefined, beat: Effect | undefined;
 let menuButton: HTMLButtonElement;
 let historyStrip: HTMLElement, historyButton: HTMLButtonElement, historyCompact: HTMLElement, scrollPanel: HTMLElement;
 let scrollOpen: 'history' | null = null, floatingSource: HTMLElement | null = null, swallowedPointer = false;
@@ -678,7 +678,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   enteredAt = undefined; resultReview = false;
   resources = []; shown = null; replySteps = []; resigned = null; liveGame = true;
   ended = false; fault = null; thinking = arrangement ? false : onlineActive ? !onlineState?.draft : game.pos.turn === cpu() && game.status === 'playing'; cursor = arrangement ? player ? 63 : 0 : player ? 52 : 12;
-  selected = inspected = null; choice = []; reading = 'normal'; last = ''; lastActions = []; playingAction = null; markFocus = undefined; nextMarksAt = 0; notice = ''; resultCause = '';
+  selected = inspected = null; choice = []; reading = 'normal'; last = ''; lastActions = []; playingAction = null; beat?.cancel(); markFocus = undefined; nextMarksAt = 0; notice = ''; resultCause = '';
   if (resumed) {
     // The last handed-over turn shows in the reading area and in the marks.
     const h = game.history, side = h.at(-1)?.pos.turn; let i = h.length;
@@ -792,7 +792,8 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
         cue('impact');
         if (animated) {
           shake(seatRings[colorOf(victim) === player ? 0 : 1], { amplitude: 4, ms: 260 }); pulse('medium');
-          strike(cells[square].getBoundingClientRect(), { from: at(cells[move.from]), height: struck?.square === square ? struck.height : undefined, ranged: move.from === move.to });
+          beat?.cancel();
+          beat = strike(cells[square].getBoundingClientRect(), { from: at(cells[move.from]), height: struck?.square === square ? struck.height : undefined, ranged: move.from === move.to });
         }
         return true;
       },
@@ -927,7 +928,7 @@ function versusCard(loaded: Promise<unknown>): Promise<void> {
 }
 
 /** End any board playback; a computer reply that only waits for its playback ends with it. */
-function skipBoard() { rewind?.finish(); boardReplay.cancel(); endCardFlight(); cancelCheckPulse(); board?.skip(); playingAction = null; endReply?.(); }
+function skipBoard() { beat?.cancel(); rewind?.finish(); boardReplay.cancel(); endCardFlight(); cancelCheckPulse(); board?.skip(); playingAction = null; endReply?.(); }
 function moveCursor(square: number) { cells[cursor].tabIndex = -1; cursor = square; cells[cursor].tabIndex = 0; cells[cursor].focus({ preventScroll: true }); }
 document.addEventListener('keydown', event => {
   if (event.defaultPrevented) return;
@@ -1057,7 +1058,7 @@ function animate(before: Position, move: Move, after: Position): Promise<unknown
   nextMarksAt = 0;
   checkShown = false;
   const action = playingAction = { before, move };
-  board.setPosition(before, game.context);
+  beat?.cancel(); board.setPosition(before, game.context);
   const check = !move.pass && before.turn !== after.turn && game.context.inCheck(after);
   const checked = check && game.context.legalMoves(after).length > 0;
   const done = board.play(move, after, checked ? () => finalCheckCue(after) : undefined).catch(error => { refuse(String(error)); }).finally(() => {
@@ -1079,7 +1080,7 @@ function undoOrReplay() {
   lastActions = replySteps.map(({ before, move }) => ({ before, move }));
   if (calm() || motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) { drawMarks(); announce(text.replay); return; }
   const own = generation, view = board;
-  screen.dataset.replaying = 'true';
+  beat?.cancel(); screen.dataset.replaying = 'true';
   void boardReplay.play(replySteps, view, game.context, () => own === generation && board === view,
     () => { playingAction = null; view.setPosition(draft.position, game.context); screen.dataset.replaying = 'false'; drawMarks(); },
     (pos, step) => { playingAction = step ? { before: pos, move: step.move } : null; drawMarks(); })
@@ -1245,7 +1246,7 @@ function showResult() {
   if (status !== 'checkmate') { cue('arrive'); pulse('light'); show(); return; }
   const title = detail.querySelector('.play-narrator .play-title');
   if (title) { title.textContent = 'Checkmate.'; riseNarrator(); }
-  const square = findKing(game.pos.board, game.pos.turn);
+  const standing = findKing(game.pos.board, game.pos.turn), square = standing >= 0 ? standing : kingSquare(game.history, game.pos.turn);
   const view = board, skip = button('Skip result animation', { onPress: () => finish(true) });
   skip.classList.add('play-sequence-skip');
   skip.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); finish(true); } });
@@ -1267,7 +1268,8 @@ function showResult() {
   endResult = cancel;
   cue('impact'); pulse('heavy'); hold(90);
   shake(ground, { amplitude: 2.5, ms: 240 });
-  const playback = view?.play({ kind: 'fall', square });
+  // A taken king has no figure to fall: the light and the sparks play on the square where it was taken.
+  const playback = standing >= 0 ? view?.play({ kind: 'fall', square }) : new Promise<void>(done => cues.push(later(won ? 900 : 1100, done)));
   cues.push(later(200, () => {
     cues.push(tween(won ? 700 : 900, t => {
       light(t);

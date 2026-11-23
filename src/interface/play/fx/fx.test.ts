@@ -141,6 +141,32 @@ it('draws all primitives on one canvas and clears it when Motion goes off', () =
 });
 
 describe('Capture beat', () => {
+  it('ends an effect that a stalled page outlived, so an old beat never draws late', () => {
+    const draw = vi.fn(), done = vi.fn();
+    tween(BEAT_MS, draw, { done });
+    advance(16);
+    advance(740);
+    expect(done).toHaveBeenCalledOnce();
+    expect(draw).toHaveBeenLastCalledWith(1, 1);
+  });
+
+  it('stops drawing the beat when the window changes size', async () => {
+    const drawing = new Proxy({ fill: vi.fn() } as Record<string, unknown>, { get: (o, key: string) => o[key] ?? (() => ({ addColorStop() {} })) });
+    const canvas = { parentElement: null, getContext: () => drawing, setAttribute() {}, style: {}, width: 0, height: 0 };
+    vi.stubGlobal('document', { createElement: () => canvas, body: { append() {} }, querySelector: () => null });
+    vi.stubGlobal('window', { innerWidth: 390, innerHeight: 844, devicePixelRatio: 1, scrollX: 0, scrollY: 0 });
+    // A fresh module: the effect canvas of an earlier test stays in the module.
+    vi.resetModules();
+    const { strike } = await import('./index');
+    strike({ left: 100, top: 100, width: 80, height: 80 }, { from: { x: 140, y: 380 }, height: 90 });
+    advance(60);
+    expect(drawing.fill).toHaveBeenCalled();
+    (drawing.fill as ReturnType<typeof vi.fn>).mockClear();
+    vi.stubGlobal('window', { innerWidth: 844, innerHeight: 390, devicePixelRatio: 1, scrollX: 0, scrollY: 0 });
+    advance(16);
+    expect(drawing.fill).not.toHaveBeenCalled();
+  });
+
   it('lights the rim during the contact hold, then cuts and clears the slash by 210 ms and the chips by the end', () => {
     expect(beatAt(0)).toEqual({ rim: 1, head: 0, tail: 0, chips: 0 });
     expect(beatAt(75).head).toBe(1);

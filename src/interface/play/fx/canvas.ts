@@ -163,7 +163,10 @@ export function strike(tile: { left: number; top: number; width: number; height:
   // A brush cut crosses the figure: tilt it 40 degrees off the strike, and light its upper side.
   const a = Math.atan2(dir.y, dir.x) - .7, u = { x: Math.cos(a), y: Math.sin(a) };
   const n = -u.x <= 0 ? { x: u.y, y: -u.x } : { x: -u.y, y: u.x };
+  const { innerWidth, innerHeight } = window;
   return drawFor(BEAT_MS, (ctx, progress) => {
+    // A turned phone or a resized window moves the board: the beat stops at once.
+    if (window.innerWidth !== innerWidth || window.innerHeight !== innerHeight) return;
     const { rim, head, tail, chips } = beatAt(progress * BEAT_MS), { x, y } = foot(), body = { x, y: y - .5 * height };
     if (rim > 0) {
       // The rim lights the figure's flank on the attacker's side (the left one for a strike straight up or down).
@@ -179,13 +182,13 @@ export function strike(tile: { left: number; top: number; width: number; height:
       const length = 1.2 * s, belly = .13 * s, c = body;
       const along = (q: number, off: number) => {
         const t = tail + (head - tail) * q, bend = .08 * s * Math.sin(Math.PI * t) + off;
-        return [c.x + u.x * (t - .5) * length + n.x * bend, c.y + u.y * (t - .5) * length + n.y * bend] as const;
+        ctx.lineTo(c.x + u.x * (t - .5) * length + n.x * bend, c.y + u.y * (t - .5) * length + n.y * bend);
       };
       const half = (q: number) => belly / 2 * Math.sin(Math.PI * q) ** .7;
       const edge = (side: number, from = 0, to = 1) => {
-        for (let i = 0; i <= 20; i++) { const q = from + (to - from) * i / 20; ctx.lineTo(...along(q, side * half(q))); }
+        for (let i = 0; i <= 20; i++) { const q = from + (to - from) * i / 20; along(q, side * half(q)); }
       };
-      ctx.beginPath(); edge(1); for (let i = 20; i >= 0; i--) ctx.lineTo(...along(i / 20, -half(i / 20))); ctx.closePath();
+      ctx.beginPath(); edge(1); for (let i = 20; i >= 0; i--) along(i / 20, -half(i / 20)); ctx.closePath();
       ctx.fillStyle = '#433022eb'; ctx.fill();
       // Two bristle splits run out of the tail.
       ctx.globalCompositeOperation = 'destination-out'; ctx.lineWidth = Math.max(.8, .012 * s);

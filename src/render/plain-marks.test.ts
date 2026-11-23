@@ -9,17 +9,17 @@ function draw(marks: Parameters<typeof drawPlainMarks>[2], tile = 75, flipped = 
     gradients.push(ink.addColorStop);
     return ink;
   };
-  const strokes: { color: unknown; width: number }[] = [];
+  const strokes: { color: unknown; width: number }[] = [], caps: unknown[] = [];
   const ctx = new Proxy({
     fillRect: vi.fn(), fillText: vi.fn(), roundRect: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(),
     ellipse: vi.fn(), quadraticCurveTo: vi.fn(), arc: vi.fn(), setLineDash: vi.fn(),
     createLinearGradient: vi.fn(gradient), createRadialGradient: vi.fn(gradient),
-    globalAlpha: 1, lineWidth: 0, strokeStyle: null as unknown, font: '',
-    stroke() { strokes.push({ color: this.strokeStyle, width: this.lineWidth }); },
+    globalAlpha: 1, lineWidth: 0, strokeStyle: null as unknown, font: '', lineCap: 'round',
+    stroke() { strokes.push({ color: this.strokeStyle, width: this.lineWidth }); caps.push(this.lineCap); },
   }, { get: (o, key: string) => o[key as keyof typeof o] ?? (() => {}) });
   const scene = { PAD: 0, TILE: tile, cell: (sq: number) => ({ col: flipped ? 7 - sq % 8 : sq % 8, row: flipped ? sq >> 3 : 7 - (sq >> 3) }) };
   drawPlainMarks(ctx as unknown as CanvasRenderingContext2D, scene, marks, pixel);
-  return { ctx, gradients, strokes };
+  return { ctx, gradients, strokes, caps };
 }
 
 const actor = { square: 0, color: PLAIN.actor, size: 1.12, role: 'actor' } as const;
@@ -35,6 +35,10 @@ it('paints a tapered ring and a pool inside each empty move ring', () => {
   expect(d.gradients[0].mock.calls).toEqual([[0, '#fff6cf'], [.55, '#e9b44c'], [1, '#e9b44c']]);
   expect(ctx.createRadialGradient).toHaveBeenCalledExactlyOnceWith(0, 0, 0, 0, 0, .4 * 75 * .78);
   expect(d.gradients[1].mock.calls).toEqual([[0, 'rgba(255,214,120,0.5)'], [1, 'rgba(255,214,120,0)']]);
+});
+
+it('keeps the gaps of a dashed ring open: its keyline and body dashes have flat ends', () => {
+  expect(draw({ ...emptyMarks(), rings: [{ ...actor, dash: [4, 5] }] }).caps).toEqual(['butt', 'butt']);
 });
 
 it('keeps dashed rings, curved paths, arrow heads and step positions at each scale and orientation', () => {

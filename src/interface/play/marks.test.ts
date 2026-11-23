@@ -3,7 +3,7 @@ import { GameRules } from '../../game-rules';
 import { POWERS_BALANCED, type Rules } from '../../rules/rules';
 import { G, parseSq, type Move } from '../../rules/engine';
 import { PLAIN as C } from '../../render/plain-marks';
-import { actorMarks, mergeMarks, previewMarks, resultMarks, stateMarks } from './marks';
+import { actorMarks, kingSquare, mergeMarks, previewMarks, resultMarks, stateMarks } from './marks';
 
 const sq = parseSq;
 function fixture(fen: string, over: Partial<Rules> = {}) {
@@ -152,4 +152,9 @@ it.each([false,true])('a target power or card leaves its affected square only (c
   const move=f.rules.legalMoves(f.pos).find(m=>m.power==='freeze'&&m.from===sq('a6'))!;
   expect(move).toBeTruthy();const marks=resultMarks(f.rules.makeMove(f.pos,move),[{before:f.pos,move}]);
   expect(marks).toEqual({rings:[],paths:[],steps:[],shadows:[{square:sq('a6'),opacity:.24}]});
+});
+it('Result: a taken king has the square where it was taken', () => {
+  const f = fixture('7k/7R/8/8/8/8/8/K7 w - - 0 1'), m = f.move('h7', 'h8');
+  expect(kingSquare([{ pos: f.pos }], 1)).toBe(sq('h8'));
+  expect(kingSquare([{ pos: f.pos }, { pos: f.rules.makeMove(f.pos, m) }], 1)).toBe(sq('h8'));
 });

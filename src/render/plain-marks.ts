@@ -165,7 +165,8 @@ export function drawPlainMarks(ctx: CanvasRenderingContext2D, scene: Pick<Painte
       if (ring.dash?.length) {
         ctx.clip(); ctx.beginPath();
         ctx.ellipse(x, y, rx, ry, 0, start, end);
-        ctx.setLineDash(ring.dash.map(n => n * s / 75));
+        // Flat ends: a round cap of the wide keyline fills the dash gap (a dashed ring looks solid).
+        ctx.setLineDash(ring.dash.map(n => n * s / 75)); ctx.lineCap = 'butt';
         ctx.strokeStyle = ink; ctx.lineWidth = width + extra; ctx.stroke();
       } else { ctx.fillStyle = ink; ctx.fill(); }
       ctx.restore();
