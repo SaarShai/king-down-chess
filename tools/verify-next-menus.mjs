@@ -220,6 +220,11 @@ const cases = {
     }
     const seats = await setup.locator('.setup-figures').innerText();
     check(!/Light|Dark/.test(seats), `the friend seats name no side: ${seats.replace(/\s+/g, ' ')}`);
+    // A random side shows no side: both seats show the same grey figure.
+    const figures = await setup.locator('.setup-figure').evaluateAll(nodes => nodes.map(node =>
+      ({ src: node.querySelector('img')?.getAttribute('src') ?? '', random: node.classList.contains('setup-figure-random') })));
+    check(figures.length === 2 && figures.every(figure => figure.src === '/ui/pieces/king-shadow-w.webp'), `both friend seats show the same side-less king: ${JSON.stringify(figures)}`);
+    check(figures.every(figure => figure.random), 'both friend seat figures are grey');
     await shot(page, 'friend-side');
   },
   async panel_refresh(page, context, check) {
