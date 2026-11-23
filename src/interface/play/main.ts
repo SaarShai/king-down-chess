@@ -958,8 +958,16 @@ function key(event: KeyboardEvent) {
 }
 function clearChoice() { choice = []; choiceBox.replaceChildren(); }
 function fitResult() {
+  const card = detail?.querySelector<HTMLElement>('.play-result'), row = card?.querySelector('.play-result-actions');
+  if (!card || !row) return;
+  // A short reader leaves out the numbers, then the players line, then takes a small seal: the outcome, the cause and the controls stay.
+  card.dataset.fit = '';
+  for (const part of ['numbers', 'players', 'seal']) {
+    if (row.getBoundingClientRect().bottom <= detail.getBoundingClientRect().bottom + 1) break;
+    card.dataset.fit += ` ${part}`;
+  }
   if (!onlineActive || reading !== 'result') return;
-  const body = detail?.querySelector<HTMLElement>('.play-result-body');
+  const body = card.querySelector<HTMLElement>('.play-result-body');
   if (!body) return;
   // A long name takes a smaller size to stay whole on one line (reading-b.css). --name is its width in em: no screen size changes it.
   const name = body.querySelector<HTMLElement>('.play-result-winner'), width = name?.getBoundingClientRect().width;
@@ -1519,7 +1527,7 @@ function renderReader(actions?: HTMLElement) {
       review.setAttribute('aria-pressed', String(resultReview));
     } });
     actions.append(rematch, review, resultNewGame(), button('Home', { onPress: () => home() }));
-    card.append(body, actions); detail.append(card);
+    card.append(body, actions); detail.append(card); void document.fonts.ready.then(fitResult);
     if (reducedMotion()) return;
     // The seal presses into the sheet once, then the light runs along Rematch.
     seal.animate([{ transform: 'scale(1.16)', opacity: 0 }, { transform: 'scale(.95)', opacity: 1, offset: .7 }, { transform: 'none' }], { duration: time(240), easing: 'cubic-bezier(.3, 0, .2, 1)' })

@@ -61,3 +61,11 @@ it('keeps the armed mark and the board edge in forced colours, a focused card un
   expect(css).toMatch(/\.play-card:not\(\[aria-pressed='true'\], :focus-visible\) \{ opacity: \.6; \}/);
   expect(css).toMatch(/\.play-result-actions \.kd-button\[data-kind='main'\] \{[^}]*margin-inline: calc\(var\(--focus-width\) \+ var\(--focus-offset\)\)/);
 });
+
+it('keeps each result seal mark at 3:1 or more on every stop of its wax, and the sheet edge in forced colours', () => {
+  const css = readFileSync('src/interface/play/reading-b.css', 'utf8'), wax = /--wax: (#[0-9a-f]{6});/.exec(readFileSync('src/interface/ui/tokens.css', 'utf8'))![1];
+  const seals = [...css.matchAll(/\.play-result-seal \{[^}]*?color: (#[0-9a-f]{6});\s*background: radial-gradient\(([^;]+)\);/g)];
+  expect(seals).toHaveLength(3);
+  for (const [, mark, stops] of seals) for (const stop of stops.replace('var(--wax)', wax).match(/#[0-9a-f]{6}/g)!) expect(contrast(mark, stop), `${mark} on ${stop}`).toBeGreaterThanOrEqual(3);
+  expect(css.slice(css.indexOf('@media (forced-colors: active)'))).toMatch(/\.play-result \{ outline: 1px solid CanvasText;/);
+});

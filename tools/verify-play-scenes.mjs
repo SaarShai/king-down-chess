@@ -2,6 +2,7 @@
 // viewport and scroll box overflow, reader text and controls that a scroll box hides at rest, overlap, card names that another card covers, controls that cannot take a tap, and network requests.
 // The page is in a build only with KINGDOWN_TEST_PAGES=1:
 //   KINGDOWN_TEST_PAGES=1 npm run check:browser play-scenes
+// Check the result sheet at eight sizes and three text sizes.
 // Save pictures of faults, 320x568 at 150%, and 390x844 and 1280x800 at 100% in PLAYABLE_OUT.
 import { env, launch, shot } from './lib/checks.mjs';
 import { KNOWN } from './play-scenes-known.mjs';
@@ -16,6 +17,9 @@ const ROLES = ['button', 'link', 'switch', 'radio', 'checkbox', 'tab', 'menuitem
 const SENTINEL = 'kingdown-scene-sentinel';
 
 const base = new URL('play-scenes.html', env('PLAYABLE_URL'));
+const textSize = (context, scale) => scale !== 100 && context.addInitScript(scale => new MutationObserver((_, watch) => {
+  if (document.documentElement) { document.documentElement.style.fontSize = `${scale}%`; watch.disconnect(); }
+}).observe(document, { childList: true }), scale);
 const browser = await launch();
 const faults = [], known = [], used = new Set();
 let links, cases = 0;
@@ -42,9 +46,7 @@ try {
           return top;
         };
       });
-      if (scale !== 100) await context.addInitScript(scale => new MutationObserver((_, watch) => {
-        if (document.documentElement) { document.documentElement.style.fontSize = `${scale}%`; watch.disconnect(); }
-      }).observe(document, { childList: true }), scale);
+      await textSize(context, scale);
       let state;
       if (!links) {
         // Cache and worker state depends only on the scene, so check it in the first context.
@@ -109,6 +111,36 @@ try {
         if (lines.length) (reasons.every(Boolean) ? known : faults).push(`${where}:\n    ${lines.map((line, i) => reasons[i] ? `${line} (known: ${reasons[i]})` : line).join('\n    ')}`);
       }
     } finally { await context.close(); }
+  }
+  // The result sheet at eight sizes and three text sizes: the outcome, the cause, Rematch and the row stay inside the reader,
+  // and a rematch offer keeps the height of the card.
+  const sheets = ['solo-win', 'online-loss', 'online-loss-offer'];
+  for (const [width, height] of [[320, 568], [360, 640], [390, 844], [568, 320], [844, 390], [1024, 768], [1280, 800], [1440, 900]]) for (const scale of [100, 150, 200]) {
+    const context = await browser.newContext({ viewport: { width, height }, colorScheme: 'light', reducedMotion: 'reduce', serviceWorkers: 'block', hasTouch: width < 1000 });
+    await textSize(context, scale);
+    const heights = {};
+    for (const scene of sheets) {
+      cases++;
+      const page = await context.newPage(), where = `${scene} ${width}x${height} ${scale}%`;
+      try {
+        await page.goto(`${base.href}?scene=${scene}`);
+        await page.waitForFunction(scene => document.body.dataset.sceneReady === scene, scene, { timeout: 15_000 });
+        const sheet = await page.evaluate(() => {
+          const edge = document.querySelector('.play-reader').getBoundingClientRect(), out = [];
+          for (const node of document.querySelectorAll('.play-result-body h3, .play-result-cause, .play-result-actions button')) {
+            const box = node.getBoundingClientRect(), name = `"${node.textContent.trim().slice(0, 20)}"`;
+            if (!node.checkVisibility({ visibilityProperty: true })) out.push(`${name} is hidden`);
+            else if (box.top < edge.top - 1 || box.bottom > edge.bottom + 1 || box.left < edge.left - 1 || box.right > edge.right + 1) out.push(`${name} leaves the reader`);
+          }
+          return { out, height: Math.round(document.querySelector('.play-result').getBoundingClientRect().height) };
+        });
+        heights[scene] = sheet.height;
+        faults.push(...sheet.out.map(line => `${where}: ${line}`));
+      } catch (error) { faults.push(`${where}: ${error.message.split('\n')[0]}`); }
+      await page.close();
+    }
+    if (heights['online-loss'] !== heights['online-loss-offer']) faults.push(`online-loss-offer ${width}x${height} ${scale}%: a rematch offer changes the card height from ${heights['online-loss']} to ${heights['online-loss-offer']} px`);
+    await context.close();
   }
 } finally { await browser.close(); }
 for (const mark of KNOWN.keys()) if (!used.has(mark)) faults.push(`known mark matches no fault: ${mark}`);
