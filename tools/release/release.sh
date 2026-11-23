@@ -40,13 +40,54 @@ run=$(cd "$run" && pwd -P)
 lock="$base/$kind-active"
 progress="$run/progress.log"
 frame_record="$run/live/frame-checks.pass"
-stage= failure_commit=$head publish_error= bypassed= frame_pid= staging_pid= engines_pid=
-finish() {
-  local code=$? pid
-  # Keep the release lock until both worktrees are free.
-  for pid in "$frame_pid" "$staging_pid" "$engines_pid"; do
-    [ -z "$pid" ] || wait "$pid" 2>/dev/null || :
+stage= failure_commit=$head publish_error= bypassed=
+frame_pid= staging_pid= main_ci_pid= engines_pid= starting_job=no interrupted=0
+start_job() {
+  local slot=$1
+  shift
+  starting_job=yes
+  # Give each lane a process group, including its child commands (Bash 3.2).
+  set -m
+  (set +m; "$@") </dev/null &
+  printf -v "$slot" '%s' "$!"
+  set +m
+  starting_job=no
+  [ "$interrupted" -eq 0 ] || exit "$interrupted"
+}
+interrupt() {
+  [ "$starting_job" = yes ] || exit "$1"
+  interrupted=$1
+}
+wait_job() {
+  local slot=$1 pid
+  pid=${!slot}
+  [ -n "$pid" ] || return 0
+  wait "$pid" || return
+  printf -v "$slot" '%s' ''
+}
+stop_jobs() {
+  local pid deadline=$((SECONDS + 5))
+  for pid in "$@"; do
+    [ -n "$pid" ] || continue
+    kill -s TERM -- "-$pid" 2>/dev/null || :
   done
+  for pid in "$@"; do
+    [ -n "$pid" ] || continue
+    # A child can still be cleaning up after the group leader exits.
+    while kill -0 -- "-$pid" 2>/dev/null; do
+      if [ "$SECONDS" -ge "$deadline" ]; then
+        kill -s KILL -- "-$pid" 2>/dev/null || :
+        break
+      fi
+      sleep .1
+    done
+    wait "$pid" 2>/dev/null || :
+  done
+}
+finish() {
+  local code=$?
+  trap '' INT TERM HUP
+  stop_jobs "$frame_pid" "$staging_pid" "$main_ci_pid" "$engines_pid"
   if [ "$code" -ne 0 ] && [ -n "$stage" ]; then
     write_failure "$code" || echo "release: could not append to $release_log" >&2
     say "$stage failed ($code). ${publish_error:+$publish_error. }See $run/$stage.log"
@@ -104,7 +145,7 @@ wait_head() {
   outward bash "$tools/release/ci-wait.sh" "$head" '' --pr-head
 }
 release_ci() {
-  local code=0 frame_code=0 tree saved=
+  local code=0 tree saved=
   if tree=$(git rev-parse --quiet --verify "$head^{tree}") ||
      tree=$(git -C "$live_tree" rev-parse --quiet --verify "$head^{tree}" 2>/dev/null); then
     if frame_passed_at "$frame_record" "$tree" >/dev/null; then
@@ -128,23 +169,20 @@ release_ci() {
     dry_command "cwd=$live_tree" git rev-parse "$head^{tree}"
     dry_command "write pass (tree, UTC time, king-effects painted-game) to $frame_record"
   else
-    timed_frame_checks &
-    frame_pid=$!
+    start_job frame_pid timed_frame_checks
   fi
   [ "$dry" = no ] || return 0
   if bash "$tools/release/ci-wait.sh" "$head" '' --pr-head; then
     if [ "$overlap_staging" = yes ]; then
-      staging_lane &
-      staging_pid=$!
+      if [ -n "$frame_pid" ] && ! kill -0 "$frame_pid" 2>/dev/null; then
+        wait_job frame_pid || return
+      fi
+      start_job staging_pid staging_lane
     fi
   else
     code=$?
   fi
-  if [ -n "$frame_pid" ]; then
-    wait "$frame_pid" || frame_code=$?
-    frame_pid=
-  fi
-  [ "$frame_code" -eq 0 ] || return "$frame_code"
+  wait_job frame_pid || return
   [ "$code" -eq 0 ] || return "$code"
   if [ -n "$saved" ]; then
     if [ "$saved" != "$frame_record" ]; then
@@ -185,11 +223,19 @@ wait_main() {
     failure_commit=$commit
   fi
   rm -f "$run/main-commit"
-  if [ "$dry" = no ]; then
-    run_logged_stage engines "$commit" &
-    engines_pid=$!
+  local cmd=(bash "$tools/release/ci-wait.sh" "$commit" "${KINGDOWN_CI_WAIT_MINUTES:-50}" --retry-failed)
+  if [ "$dry" = yes ]; then
+    outward "${cmd[@]}"
+  else
+    start_job engines_pid run_logged_stage engines "$commit"
+    start_job main_ci_pid outward "${cmd[@]}"
+    # Bash 3.2 cannot wait for the first of two jobs.
+    while kill -0 "$main_ci_pid" 2>/dev/null && kill -0 "$engines_pid" 2>/dev/null; do
+      sleep .2
+    done
+    if ! kill -0 "$engines_pid" 2>/dev/null; then join_engines || return; fi
+    wait_job main_ci_pid || return
   fi
-  outward bash "$tools/release/ci-wait.sh" "$commit" "${KINGDOWN_CI_WAIT_MINUTES:-50}" --retry-failed
   printf '%s\n' "$commit" > "$run/main-commit"
 }
 merge_commit() {
@@ -398,14 +444,18 @@ staging_lane() {
   run_logged_stage staging-checks
 }
 join_staging() {
-  local code=0
-  [ -n "$staging_pid" ] || return 0
-  wait "$staging_pid" || code=$?
-  staging_pid=
-  if [ "$code" -ne 0 ]; then
-    stage=staging
-    if [ "$(result staging)" = pass ]; then stage=staging-checks; fi
-  fi
+  local code
+  wait_job staging_pid && return 0
+  code=$?
+  stage=staging
+  if [ "$(result staging)" = pass ]; then stage=staging-checks; fi
+  return "$code"
+}
+join_engines() {
+  local code
+  wait_job engines_pid && return 0
+  code=$?
+  stage=engines
   return "$code"
 }
 
@@ -424,9 +474,9 @@ if ! mkdir "$lock" 2>/dev/null; then
   exit 2
 fi
 trap finish EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
-trap 'exit 129' HUP
+trap 'interrupt 130' INT
+trap 'interrupt 143' TERM
+trap 'interrupt 129' HUP
 printf '%s\n' "$$" > "$lock/pid"
 rm -f "$progress.done"
 
@@ -458,11 +508,7 @@ for name in "${stages[@]}"; do
   case "$name" in
     ci) join_staging ;;
     main-ci)
-      if [ -n "$engines_pid" ]; then
-        stage=engines
-        wait "$engines_pid"
-        engines_pid=
-      fi
+      join_engines
       joined_engines=yes ;;
   esac
 done

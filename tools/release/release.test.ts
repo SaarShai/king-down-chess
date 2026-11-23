@@ -30,6 +30,42 @@ function release(args: string[] = [], fail?: string, note = 'dry-run fixture', s
   };
 }
 
+function pendingRelease(pr: string, script: string, settings: NodeJS.ProcessEnv = {}) {
+  const result = run('bash', ['-c', `
+source "$0" --dry-run --from log --force "$2" "$1" >/dev/null
+dry=no
+: > "$progress"
+exec 3>&1
+pending_job() {
+  /bin/bash -c '
+    evidence=$1 lock=$2
+    on_term() { sleep .1; [ ! -d "$lock" ] || touch "$evidence/stopped"; exit 143; }
+    trap on_term TERM
+    touch "$1/pending"
+    sleep 2
+    touch "$1/finished"
+  ' fixture "$run" "$lock" >&3
+}
+await_pending() {
+  for ((i = 0; i < 200; i++)); do
+    [ ! -f "$run/pending" ] || return 0
+    sleep .02
+  done
+  return 81
+}
+${script}
+`, 'tools/release/release.sh', head, pr], settings);
+  const evidence = join(folder, `release-dry-${pr}-${head}`);
+  return {
+    code: result.status,
+    output: result.stdout + result.stderr,
+    started: [...readFileSync(join(evidence, 'progress.log'), 'utf8').matchAll(/^release: (\S+) start$/gm)].map(match => match[1]),
+    finished: existsSync(join(evidence, 'finished')),
+    stoppedWithLock: existsSync(join(evidence, 'stopped')),
+    unlocked: !existsSync(join(folder, 'release-dry-active')),
+  };
+}
+
 it('plans the browser checks in the worktrees at the PR head and merge commit', () => {
   const worktree = join(folder, 'build worktree');
   const plans = [release(), release(['--tweak'])];
@@ -75,6 +111,34 @@ it('stops before merge when the frame-time checks fail', () => {
   }
 });
 
+it.each([
+  ['a frame-time failure', '', 83, '1513'],
+  ['Ctrl-C', 'INT', 130, '1514'],
+  ['SIGTERM', 'TERM', 143, '1515'],
+])('stops staging and its child before a later stage starts after %s', (_fault, signal, code, pr) => {
+  const stopped = pendingRelease(pr, `
+overlap_staging=yes
+gh() { echo "$head"; }
+bash() { [ "$1" = "$tools/release/ci-wait.sh" ]; }
+staging_deploy() { pending_job; }
+checks() { return 0; }
+node() { return 0; }
+frame_checks() {
+  await_pending || return
+  if [ -n "$SIGNAL" ]; then kill -s "$SIGNAL" "$$"; fi
+  return 83
+}
+run_logged_stage ci
+join_staging
+say 'merge start'
+`, { SIGNAL: signal });
+  expect(stopped.code, stopped.output).toBe(code);
+  expect(stopped.finished, stopped.output).toBe(false);
+  expect(stopped.stoppedWithLock).toBe(true);
+  expect(stopped.unlocked).toBe(true);
+  expect(stopped.started).toEqual(['ci', 'staging']);
+});
+
 it('starts staging before the frame-time checks finish when the worktrees differ', () => {
   const full = release([], undefined, undefined, { KINGDOWN_RELEASE_WORKTREE: '' });
   expect(full.code, full.output).toBe(0);
@@ -109,6 +173,31 @@ it('does not publish if the engine check fails during main CI', () => {
   expect(failed.started).not.toContain('publish');
 });
 
+it.each([
+  ['engines', '1516'],
+  ['main-ci', '1517'],
+])('stops the pending check when %s fails', (failed, pr) => {
+  const stopped = pendingRelease(pr, `
+gh() { echo "$head"; }
+outward() {
+  [ "$2" = "$tools/release/ci-wait.sh" ] || return 80
+  if [ "$FAILED" = main-ci ]; then await_pending && return 82; else pending_job; fi
+}
+live_step() {
+  if [ "$FAILED" = engines ]; then await_pending && return 82; else pending_job; fi
+}
+run_logged_stage main-ci
+join_engines
+say 'publish start'
+`, { FAILED: failed });
+  expect(stopped.finished, stopped.output).toBe(false);
+  expect(stopped.code, stopped.output).toBe(82);
+  expect(stopped.output).toContain(`release: ${failed} failed (82)`);
+  expect(stopped.stoppedWithLock).toBe(true);
+  expect(stopped.unlocked).toBe(true);
+  expect(stopped.started).toEqual(['main-ci', 'engines']);
+});
+
 it('uses the exact merge commit for the engine check while main CI is still pending', () => {
   const merged = 'e'.repeat(40);
   const result = run('bash', ['-c', `
@@ -126,7 +215,7 @@ outward() {
 }
 gh() { echo "$MERGED"; }
 run_stage main-ci
-wait "$engines_pid"
+join_engines
 cat "$run/main-commit"
 `, 'tools/release/release.sh', head], { MERGED: merged });
   expect(result.status, result.stdout + result.stderr).toBe(0);
