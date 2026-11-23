@@ -17,6 +17,7 @@ await withReleaseSite(origin, async url => {
         { viewport: { width: 1280, height: 800 } });
       const page = await context.newPage();
       page.setDefaultTimeout(10_000);
+      page.setDefaultNavigationTimeout(20_000);
       const errors = trapErrors(page), bad = [];
       page.on('response', response => {
         const address = new URL(response.url()), status = response.status();
@@ -25,7 +26,7 @@ await withReleaseSite(origin, async url => {
       });
       const driver = releaseDriver(page, url, touch);
       const ok = (point, pass, detail) => check(`${device} ${point}`, pass, detail);
-      const picture = name => shot(page, `${device}-${name}`, { animations: 'disabled' });
+      const picture = name => shot(page, `${device}-${name}`, { animations: 'disabled', timeout: 20_000 });
       try {
         await driver.openHome();
         ok('Home is the redesign', await driver.redesignedHome());

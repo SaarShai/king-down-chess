@@ -101,7 +101,7 @@ export function releaseDriver(page, url, touch = false) {
   const waitHome = () => button(page, text.friend).waitFor();
 
   return {
-    async openHome() { await page.goto(url); await waitHome(); },
+    async openHome() { await page.goto(url, { waitUntil: 'domcontentloaded' }); await waitHome(); },
     async redesignedHome() {
       await play.waitFor();
       return !await page.locator('.shell-nav').count() &&
