@@ -160,6 +160,7 @@ describe('Firewall and FirewallB', () => {
     expect(card(pos, '!E:')).toEqual(['!E:c4<>d5']); // the kings neither swap nor are swapped
     const p = play(pos, '!E:c4<>d5');
     expect([typeOf(at(p, 'd5')), at(p, 'd5') >> 4, typeOf(at(p, 'c4')), at(p, 'c4') >> 4, p.turn]).toEqual([N, WHITE, P, BLACK, BLACK]);
+    expect(play(fromFen('8/8/8/1k1p4/2N5/8/5n2/4K3 w - - 99 50'), '!E:c4<>d5').halfmove).toBe(0); // the swap moves a pawn
     expect(card(fromFen('3rk3/2P5/8/8/8/8/8/4K3 w - - 0 1'), '!E:')).toEqual([]); // the pawn would land on the last rank
     hands(['FirewallB'], ['IceWall']);
     const warded = play(play(fromFen('4k3/8/8/3p4/2N5/8/8/4K3 b - - 0 1'), '!W:d5'), 'Ke8-f8');
