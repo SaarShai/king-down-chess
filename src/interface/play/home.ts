@@ -8,7 +8,7 @@ import type { NewGameDraft } from './new-game';
 import { typeName, type GameType, type Level } from './saved';
 import { daylightCrown } from './shell';
 import { ease, reducedMotion, tween } from './fx';
-import { homeReveal } from './home-reveal';
+import { WIDE_HOME, homeReveal } from './home-reveal';
 import { RELEASED_CARDS } from '../../content/cards';
 import { computerPortrait, profilePortrait } from '../people/host/portrait';
 import { deadlineLine, gameOrder, type HomeInvite, type PersonGame } from '../people/host/games';
@@ -69,7 +69,17 @@ function createHome() {
   brand.append(daylightCrown(), title);
   const artwork = el('div', 'home-art');
   hero.append(artwork, brand); home.append(hero);
-  return { element: home, focus: () => title.focus({ preventScroll: true }), reveal: homeReveal(artwork) };
+  const reveal = homeReveal(artwork), fit = new ResizeObserver(() => fitHome(home));
+  return { element: home, focus: () => title.focus({ preventScroll: true }), reveal: { ...reveal, dispose() { fit.disconnect(); reveal.dispose(); } }, fit };
+}
+/** The wide layout keeps the kings clear: the actions start below them and end inside the window. Else Home splits. */
+function fitHome(home: HTMLElement) {
+  home.classList.remove('home-split');
+  if (!matchMedia(WIDE_HOME).matches) return;
+  // The 16:9 painting covers the window; the kings end at 30% of its height.
+  const kings = .34 * Math.max(innerHeight, innerWidth * 9 / 16);
+  const bar = home.querySelector('.home-topbar')?.getBoundingClientRect(), start = home.querySelector('.home-start')?.getBoundingClientRect();
+  if (bar && start && (bar.top < kings || start.bottom > innerHeight)) home.classList.add('home-split');
 }
 
 export function playScreen(d: PlayData, art: Art, previous?: ReturnType<typeof createHome>) {
@@ -95,7 +105,8 @@ export function playScreen(d: PlayData, art: Art, previous?: ReturnType<typeof c
   settingsBtn.replaceChildren(d.account?.signedIn ? profilePortrait(d.account.name ?? 'Player', d.account.avatar ?? null) : sliders);
   end.append(signIn, settingsBtn); topbar.append(guideBtn, end);
   home.querySelector('.home-topbar')?.remove();
-  home.prepend(topbar);
+  // After the hero: the first Tab from the title goes to the utilities.
+  home.querySelector('.home-hero')!.after(topbar);
 
   const start = el('div', 'home-start');
   const rows: { mine: boolean; deadline: string | null; state: PersonGame['state']; row: HTMLElement }[] = [];
@@ -190,6 +201,7 @@ export function playScreen(d: PlayData, art: Art, previous?: ReturnType<typeof c
   home.dataset.state = main === newGame ? 'new' : 'saved';
   home.querySelector('.home-start')?.remove();
   home.append(start);
+  view.fit.disconnect(); view.fit.observe(home); view.fit.observe(start);
   return view;
 }
 
@@ -209,6 +221,8 @@ function expandCard(card: HTMLElement): void {
   const box = card.getBoundingClientRect();
   const copy = card.cloneNode(true) as HTMLElement;
   copy.classList.add('home-growing-card'); copy.inert = true; copy.setAttribute('aria-hidden', 'true');
+  // Outside the panel the copy would take the default card padding: keep the source's, so the content does not jump.
+  copy.style.padding = getComputedStyle(card).padding;
   document.body.append(copy);
   const draw = (k: number) => {
     Object.assign(copy.style, {

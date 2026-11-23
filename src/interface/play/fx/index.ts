@@ -3,7 +3,7 @@ import { pulse } from './pulse';
 
 export { ease, Spring } from './curves';
 export { hold, later, onFrame, reducedMotion, setFxMotion, setPauseHook, tween } from './clock';
-export { beatAt, BEAT_MS, burst, edgeLight, seal, sealAt, SEAL_MS, shake, streak, strike } from './canvas';
+export { beatAt, BEAT_MS, burst, castAt, castIn, CAST_MS, closeAt, closeIn, CLOSE_MS, edgeLight, seal, sealAt, SEAL_MS, shake, streak, strike } from './canvas';
 export { pulse, setVibration } from './pulse';
 
 export type Curve = (progress: number) => number;

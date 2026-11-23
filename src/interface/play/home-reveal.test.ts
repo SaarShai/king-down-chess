@@ -50,17 +50,19 @@ function fakePage(av1Answer: string, hevcAnswer = av1Answer, app = false) {
   vi.stubGlobal('window', { addEventListener() {}, innerWidth: 1440, innerHeight: 900 });
   vi.stubGlobal('navigator', { onLine: true });
   vi.stubGlobal('location', { protocol: app ? 'capacitor:' : 'https:' });
+  const media = { matches: false, listeners: [] as (() => void)[], addEventListener(_type: string, listener: () => void) { media.listeners.push(listener); } };
+  vi.stubGlobal('matchMedia', () => media);
   vi.stubGlobal('IntersectionObserver', class { constructor(seen: typeof observers[number]) { observers.push(seen); } observe() {} disconnect() {} });
   return {
-    codecChecks,
-    async show(playError?: DOMException) {
+    codecChecks, media,
+    async show(playError?: DOMException, [clientWidth, clientHeight] = [1440, 900]) {
       const { homeReveal } = await import('./home-reveal');
-      const art = node(), videos: ReturnType<typeof node>[] = [];
-      Object.assign(art, { append: (...children: ReturnType<typeof node>[]) => videos.push(...children.filter(child => child.tag === 'video')) });
+      const art = node(), videos: ReturnType<typeof node>[] = [], stills: ReturnType<typeof node>[] = [];
+      Object.assign(art, { clientWidth, clientHeight, append: (...children: ReturnType<typeof node>[]) => { videos.push(...children.filter(child => child.tag === 'video')); stills.push(...children.filter(child => child.tag === 'img')); } });
       const reveal = homeReveal(art as unknown as HTMLElement);
       if (playError) videos[0].play.mockRejectedValue(playError);
       observers.at(-1)!([{ intersectionRatio: 1 }]);
-      return { art, video: videos[0], reveal };
+      return { art, video: videos[0], still: stills[0], reveal };
     },
   };
 }
@@ -137,4 +139,13 @@ it.each([
   const first = await page.show();
   expect(first.video.src).toBe(src);
   expect(page.codecChecks.map(type => type.includes('av01') ? 'av01' : 'hvc1')).toEqual(checks);
+});
+
+it('ends a portrait film and loads the wide still when the window enters the wide Home layout', async () => {
+  const page = fakePage('probably'), first = await page.show(undefined, [500, 1000]);
+  expect(first.video.src).toBe('/interface/reveal/portrait-av1.mp4');
+  page.media.matches = true; page.media.listeners.forEach(listener => listener());
+  expect(first.video.src).toBeUndefined();
+  expect(first.still.src).toBe('/interface/reveal/hero-wide.webp');
+  expect(first.art.classList.contains('home-art-still')).toBe(true);
 });

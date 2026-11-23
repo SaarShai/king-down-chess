@@ -1,3 +1,4 @@
+import type { Checker } from '../move-text';
 import type { PaintedScene } from './painted/scene.mjs';
 
 type Brush = readonly [light: string, body: string];
@@ -13,6 +14,8 @@ const PAINT = {
 } as const satisfies Record<string, Brush>;
 // One umber keyline round every mark: 5.3:1 on light stone and 3.4:1 on dark stone, so no body colour has to carry it.
 const KEYLINE = '#4e3815d9';
+// Threat line: wax red. As for every mark, the umber keyline carries the 3:1 on dark stone (the body alone: 4.1:1 light, 2.3:1 dark).
+const WAX = '#b8322a', WAX_LINE = .03;
 export const PLAIN = {
   actor: PAINT.actor[1], move: PAINT.move[1], enemy: PAINT.enemy[1],
   friend: PAINT.friend[1], ice: PAINT.ice[1], holy: PAINT.holy[1],
@@ -25,11 +28,15 @@ export interface PlainRing {
   square: number; color: string; width?: number; size?: number; dash?: number[];
   role: 'actor' | 'target' | 'focus' | 'landing' | 'trail' | 'state';
   frost?: true;
+  /** A target's shape, so that it reads without colour: a dot to move, a broken ring to capture, a diamond for a special action, both for a square with both. No shape: a ring. */
+  shape?: 'dot' | 'capture' | 'special' | 'both';
 }
 export interface PlainPath { squares: number[]; color: string; arc?: boolean; dash?: number[] }
 export interface PlainMarks {
   shadows?: { square: number; opacity: number }[];
   check?: number;
+  /** A line from each checking piece to the checked king. */
+  threats?: readonly Checker[];
   checkProgress?: number;
   rings: PlainRing[];
   paths: PlainPath[];
@@ -100,6 +107,36 @@ export function drawPlainMarks(ctx: CanvasRenderingContext2D, scene: Pick<Painte
     ctx.restore();
   }
   ctx.shadowBlur = 0;
+  // Threat lines: wax red from each checking piece to the edge of the king's square; a jump or a lob bends.
+  const drawn = marks.checkProgress ?? 1;
+  for (const threat of drawn > 0 ? marks.threats ?? [] : []) {
+    const a = point(threat.sq, .77), k = point(threat.king, .77), [bx, by] = box(threat.king);
+    const dx = k[0] - a[0], dy = k[1] - a[1], up = dy > 0 || !dy && dx > 0 ? -1 : 1;
+    const c = [a[0] + dx / 2 + up * .25 * dy, a[1] + dy / 2 - up * .25 * dx], n = threat.path === 'arc' ? 16 : 1;
+    const line = Array.from({ length: n + 1 }, (_, i) => {
+      const t = i / n;
+      return n === 1 ? [a[0] + dx * t, a[1] + dy * t] : [(1 - t) ** 2 * a[0] + 2 * t * (1 - t) * c[0] + t * t * k[0], (1 - t) ** 2 * a[1] + 2 * t * (1 - t) * c[1] + t * t * k[1]];
+    });
+    const inside = ([x, y]: number[]) => x >= bx + .05 * s && x <= bx + .95 * s && y >= by + .05 * s && y <= by + .95 * s;
+    const end = line.findIndex(inside), [p, q] = [line[end - 1], line[end]];
+    // Where the last segment enters the king's square (its check tile).
+    const enter = (i: 0 | 1, d = q[i] - p[i]) => d ? ((d > 0 ? (i ? by : bx) + .05 * s : (i ? by : bx) + .95 * s) - p[i]) / d : -Infinity;
+    const t = Math.max(0, enter(0), enter(1));
+    line.splice(end, Infinity, [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]);
+    // The draw-in: the line grows from the attacker to the king.
+    let left = drawn * line.slice(1).reduce((sum, r, i) => sum + Math.hypot(r[0] - line[i][0], r[1] - line[i][1]), 0) || 0;
+    const shown = [line[0]];
+    for (let i = 1; i < line.length && left > 0; i++) {
+      const [r0, r1] = [line[i - 1], line[i]], part = Math.hypot(r1[0] - r0[0], r1[1] - r0[1]), f = Math.min(1, left / part);
+      shown.push([r0[0] + (r1[0] - r0[0]) * f, r0[1] + (r1[1] - r0[1]) * f]); left -= part;
+    }
+    for (const [ink, width] of [[KEYLINE, WAX_LINE * s + key], [WAX, WAX_LINE * s]] as const) {
+      ctx.beginPath(); shown.forEach(([x, y]) => ctx.lineTo(x, y)); ctx.strokeStyle = ink; ctx.lineWidth = width; ctx.stroke();
+    }
+    // A wax bead at the foot of the checking piece.
+    ctx.beginPath(); ctx.arc(a[0], a[1], .05 * s, 0, 2 * Math.PI); ctx.fillStyle = WAX; ctx.fill();
+    ctx.strokeStyle = KEYLINE; ctx.lineWidth = key / 2; ctx.stroke();
+  }
 
   ctx.save();
   ctx.globalAlpha *= routeOpacity;
@@ -129,14 +166,29 @@ export function drawPlainMarks(ctx: CanvasRenderingContext2D, scene: Pick<Painte
     const sweep = ring.sweep ?? 1, opacity = ring.opacity ?? 1;
     if (sweep <= 0 || opacity <= 0) continue;
     const brush = brushes.get(ring.color) ?? PAINT.move;
-    const k = ring.size ?? 1, rx = .4 * s * k, ry = .18 * s * k;
-    const [x, y] = point(ring.square, .79);
-    const width = s * (ring.color === PLAIN.ice && ring.role === 'focus' ? .062 : k < 1 ? .036 : .046);
+    const k = ring.size ?? 1, width = s * (ring.color === PLAIN.ice && ring.role === 'focus' ? .062 : k < 1 ? .036 : .046);
+    // A shape and its keyline stay inside the square: narrower if needed, and lifted off the lower edge.
+    const pad = ring.shape ? (width + key) / 2 : 0, rx = Math.min(.4 * s * k, ring.shape ? .5 * s - pad : Infinity), ry = .18 * s * k;
+    const [x, foot] = point(ring.square, .79), y = ring.shape ? Math.min(foot, box(ring.square)[1] + s - ry - pad) : foot;
     ctx.save(); ctx.globalAlpha *= opacity;
-    if (ring.frost) {
+    if (ring.frost && !ring.shape) {
       drawFrostTarget(ctx, ...box(ring.square), s, sweep);
       ctx.restore();
       continue;
+    }
+    if (ring.shape === 'dot' || ring.shape === 'special' || ring.shape === 'both') {
+      const grow = .5 + .5 * sweep, [a, b] = ring.shape === 'dot' ? [.2 * s * k * grow, .12 * s * k * grow] : [rx * grow, ry * grow];
+      if (ring.shape === 'dot') {
+        for (const [ink, more] of [[KEYLINE, key / 2], [pigment(ctx, brush, y - b, y + b), 0]] as const) {
+          ctx.beginPath(); ctx.ellipse(x, y, a + more, b + more, 0, 0, 2 * Math.PI); ctx.fillStyle = ink; ctx.fill();
+        }
+      } else {
+        // Flat dash ends, as on a dashed ring.
+        if (ring.dash?.length) ctx.lineCap = 'butt';
+        stroke(brush, width, y - b, y + b, ring.dash ?? [], () => { ctx.moveTo(x - a, y); ctx.lineTo(x, y - b); ctx.lineTo(x + a, y); ctx.lineTo(x, y + b); ctx.closePath(); });
+      }
+      // Both: the diamond corners sit in the gaps of the broken ring drawn next.
+      if (ring.shape !== 'both') { ctx.restore(); continue; }
     }
     if (k < 1 && ring.color === PLAIN.move) {
       ctx.save(); ctx.translate(x, y); ctx.scale(1, ry / rx);
@@ -162,7 +214,13 @@ export function drawPlainMarks(ctx: CanvasRenderingContext2D, scene: Pick<Painte
       }
       ctx.closePath();
       const ink = edge ? KEYLINE : pigment(ctx, brush, y - ry, y + ry);
-      if (ring.dash?.length) {
+      if (ring.shape === 'capture' || ring.shape === 'both') {
+        // Four arcs on the diagonals. The keyline arcs are a little longer, so the keyline also closes each end.
+        ctx.clip(); ctx.beginPath();
+        const half = .45 + (edge ? key / ry / 2 : 0);
+        for (let q = 1; q < 8; q += 2) { ctx.moveTo(x, y); ctx.ellipse(x, y, 2 * rx, 2 * ry, 0, q * Math.PI / 4 - half, q * Math.PI / 4 + half); ctx.closePath(); }
+        ctx.fillStyle = ink; ctx.fill();
+      } else if (ring.dash?.length) {
         ctx.clip(); ctx.beginPath();
         ctx.ellipse(x, y, rx, ry, 0, start, end);
         // Flat ends: a round cap of the wide keyline fills the dash gap (a dashed ring looks solid).
@@ -171,7 +229,7 @@ export function drawPlainMarks(ctx: CanvasRenderingContext2D, scene: Pick<Painte
       } else { ctx.fillStyle = ink; ctx.fill(); }
       ctx.restore();
     }
-    if (!ring.dash?.length) {
+    if (!ring.dash?.length && !ring.shape) {
       // A crisp light edge inside the keyline, along the inner side of the ring.
       const line = Math.max(pixel, .01 * s);
       ctx.beginPath();
