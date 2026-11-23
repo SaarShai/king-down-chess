@@ -28,11 +28,12 @@ import { RELEASED_CARDS } from '../../content/cards';
 import { POWER_NAME, POWER_TAG, cardName, coinState, usesAllowed } from '../../powers-ui';
 import { DraftTurn, isDirect, armKey } from './turn';
 import { Arrangement, ARRANGE_KEY } from './arrange';
+import type { PlainMarks } from '../../render/plain-marks';
 import { actorMarks, kingSquare, mergeMarks, previewMarks, resultMarks, stateMarks, type MarkAction } from './marks';
 import { cardLine, pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, kingLabel, rematchLine, resultSheet, resultText } from './texts';
 import { readingText, checkLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
 import { armCard, calm, cardFly, disarm, screenChange, setInterfaceMotion, sheetMotion, trackCard, time } from './motion';
-import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, seal, SEAL_MS, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, strike, tween, type Effect } from './fx';
+import { at, burst, closeIn, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, seal, SEAL_MS, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, strike, tween, type Effect } from './fx';
 import { gameLayout, panelBox, type Form } from './layout';
 import { fitReader, narratorView, readerNodes, readerView, resetFit, sentences, type ReaderModel } from './reader';
 import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, gameFacts, savedPlayTime, storeChoice as store, storedChoice as stored, storedGameType, storedVibration, storeVibration, type GameType as Setup, type KeptOffer, type Level } from './saved';
@@ -118,7 +119,7 @@ let selected: number | null = null, inspected: number | null = null, cursor = 12
 let thinking = false, ended = false, generation = 0, reading: 'normal' | 'result' = 'normal';
 // End active sequences when the player leaves the game.
 let endResult: (() => void) | undefined, endReply: (() => void) | null = null, starting = 0, endVersus: (() => void) | null = null;
-let endCardFlight = () => {}, checkFrame: Effect | undefined, checkPulse: { square: number; progress: number } | null = null;
+let endCardFlight = () => {}, checkFrame: Effect | undefined, checkPulse: { square: number; threats: PlainMarks['threats']; progress: number } | null = null, mateHeld = false;
 let playedMs = 0, enteredAt: number | undefined, resultReview = false;
 let lastActions: MarkAction[] = [], playingAction: MarkAction | null = null, markFocus: number | undefined, nextMarksAt = 0;
 // The last input was a key: only keyboard focus on a square gives the candidate sentence (reading decision 22).
@@ -415,15 +416,16 @@ function receiveOnline(state: PeopleState) {
     }
     if (!playback) board.setPosition(draft.position, game.context);
   }
-  if (ended) { resultCause = onlineResult(state); reading = 'result'; if (changed) detail.dataset.mode = ''; }
+  // A live checkmate holds the result card (holdMate) until the threat lines and the beat have shown.
+  const mate = changed && previousRevision >= 0 && ended && !wasEnded && state.view.result?.reason === 'checkmate' && (inApp || liveRevision);
+  if (ended) { resultCause = onlineResult(state); reading = mate ? 'normal' : 'result'; if (changed) detail.dataset.mode = ''; }
   else if (reading === 'result') reading = 'normal';
   update();
-  if (changed && previousRevision >= 0 && ended && !wasEnded && state.view.result?.reason === 'checkmate' && (inApp || liveRevision)) {
-    if (!playback) playOnlineKingResult();
-    else {
-      const own = generation, revision = shownRevision;
-      void playback.then(() => { if (own === generation && revision === shownRevision) playOnlineKingResult(); });
-    }
+  if (mate) {
+    const own = generation, revision = shownRevision, current = () => own === generation && revision === shownRevision;
+    const result = () => { if (current()) { reading = 'result'; update(); playOnlineKingResult(); } };
+    const held = () => { const king = findKing(game.pos.board, game.pos.turn); if (king < 0) result(); else if (current()) holdMate(king, result); };
+    if (!playback) held(); else void playback.then(held);
   }
   if (changed && previousRevision >= 0 && wasWaiting && !thinking && !ended && !arrangement) passTurn(false);
   if (changed && previousRevision >= 0) announce(arrangementWaiting() ? arrangeText.wait : ended ? resultCause : state.draft ? `${replyText()} Your turn.` : state.sent ? 'Turn sent. Your opponent now plays.' : 'The game changes.');
@@ -1087,14 +1089,16 @@ function afterStage(before: Position, move: Move) {
 function animate(before: Position, move: Move, after: Position): Promise<unknown> {
   if (!board) return Promise.resolve();
   nextMarksAt = 0;
-  checkShown = false;
+  checkShown = false; cancelCheckPulse();
   const action = playingAction = { before, move }; endSeal();
   beat?.cancel(); board.setPosition(before, game.context);
   const check = !move.pass && before.turn !== after.turn && game.context.inCheck(after);
   const checked = check && game.context.legalMoves(after).length > 0;
-  const done = board.play(move, after, checked ? () => finalCheckCue(after) : undefined).catch(error => { refuse(String(error)); }).finally(() => {
+  const done = board.play(move, after, check ? () => checked ? finalCheckCue(after) : drawCheckIn(after) : undefined).catch(error => { refuse(String(error)); }).finally(() => {
     if (playingAction === action) {
       playingAction = null;
+      // The drawn-in check stays over the move's last frame; after it the position's own marks carry it.
+      if (checkPulse?.progress === 1) checkPulse = null;
 
       if ((draft.chain || draft.open && draft.now.haste !== undefined) && motion !== 'off' && pieceView !== 'symbols' && !calm()) { nextMarksAt = performance.now() + time(260); later(262, drawMarks); }
       drawMarks();
@@ -1251,18 +1255,33 @@ function cancelCheckPulse() { checkFrame?.cancel(); checkFrame = undefined; chec
 let checkShown = false;
 function finalCheckCue(pos: Position) {
   checkShown = true;
-  cancelCheckPulse();
-  const square = findKing(pos.board, pos.turn);
   const ring = seatRings[pos.turn === player ? 0 : 1];
   ring.dataset.check = 'true';
   cue('check'); pulse('warn');
   update();
   riseNarrator();
   shake(ring, { amplitude: 5, ms: 340 }); burst('sparks', at(ring), { count: 8, ms: 400 });
-  checkPulse = { square, progress: 0 };
-  checkFrame = tween(160, t => { if (checkPulse) checkPulse.progress = t; drawMarks(); }, {
-    curve: ease.EASE, done: () => { checkPulse = null; drawMarks(); },
+  drawCheckIn(pos);
+}
+/** The check mark and its threat lines draw in (200 ms; at once in reduced motion). */
+function drawCheckIn(pos: Position) {
+  cancelCheckPulse();
+  checkPulse = { square: findKing(pos.board, pos.turn), threats: stateMarks(game.context, pos).threats, progress: 0 };
+  checkFrame = tween(200, t => { if (checkPulse) checkPulse.progress = t; drawMarks(); }, {
+    curve: ease.EASE, done: () => { if (!playingAction) checkPulse = null; drawMarks(); },
   });
+}
+/**
+ * The checkmate hold: the threat lines stand and the mated king takes one beat, then `then` runs (600 ms; reduced
+ * motion: a plain 300 ms pause). A timer, not the effect clock, ends it: it also ends on a hidden page.
+ */
+function holdMate(square: number, then: () => void): Effect {
+  const reduce = reducedMotion(), beat = reduce ? undefined : closeIn(cells[square].getBoundingClientRect());
+  if (!reduce) cue('check');
+  mateHeld = true; drawMarks();
+  const end = () => { clearTimeout(timer); beat?.cancel(); mateHeld = false; };
+  const timer = setTimeout(() => { end(); drawMarks(); then(); }, reduce ? 300 : 600);
+  return { cancel: end, finish: end };
 }
 /** The seal marks: a crown for a win, a broken crown for a loss, two equal lines for a draw. */
 const SEAL = { win: 'm4 8 4 4 4-7 4 7 4-4-2 11H6L4 8ZM7 22h10', loss: 'm5 7 4 4 3-6 3 6 4-4-2 10H7L5 7ZM7 21h10M4 4l16 19', draw: 'M5 9h14M5 16h14' };
@@ -1310,24 +1329,32 @@ function showResult() {
   };
   const cancel = () => finish(false);
   endResult = cancel;
-  cue('impact'); pulse('heavy'); hold(90);
-  shake(ground, { amplitude: 2.5, ms: 240 });
-  // A taken king has no figure to fall: the light and the sparks play on the square where it was taken.
-  const playback = standing >= 0 ? view?.play({ kind: 'fall', square }) : new Promise<void>(done => cues.push(later(won ? 900 : 1100, done)));
-  cues.push(later(200, () => {
-    cues.push(tween(won ? 700 : 900, t => {
-      light(t);
-      if (!won) ground.style.setProperty('--result-saturation', String(1 - .5 * t));
-    }, { curve: won ? ease.lin : ease.out2 }));
-  }));
-  cues.push(later(won ? 260 : 300, () => {
-    if (won) { cue('arrive'); cue('ting'); pulse('success'); burst('sparks', at(cells[square]), { count: 12, ms: 700 }); }
-    else { cue('no', { pitch: .65 }); pulse('error'); }
-  }));
-  const finished = Promise.resolve(playback).catch(() => {});
+  const fall = () => {
+    cue('impact'); pulse('heavy'); hold(90);
+    shake(ground, { amplitude: 2.5, ms: 240 });
+    // A taken king has no figure to fall: the light and the sparks play on the square where it was taken.
+    const playback = standing >= 0 ? view?.play({ kind: 'fall', square }) : new Promise<void>(done => cues.push(later(won ? 900 : 1100, done)));
+    cues.push(later(200, () => {
+      cues.push(tween(won ? 700 : 900, t => {
+        light(t);
+        if (!won) ground.style.setProperty('--result-saturation', String(1 - .5 * t));
+      }, { curve: won ? ease.lin : ease.out2 }));
+    }));
+    cues.push(later(won ? 260 : 300, () => {
+      if (won) { cue('arrive'); cue('ting'); pulse('success'); burst('sparks', at(cells[square]), { count: 12, ms: 700 }); }
+      else { cue('no', { pitch: .65 }); pulse('error'); }
+    }));
+    void Promise.resolve(playback).catch(() => {}).then(() => finish(true));
+  };
   document.addEventListener('visibilitychange', () => { if (document.hidden) finish(true); }, { signal: hidden.signal });
-  if (reducedMotion() || document.hidden) finish(true);
-  else void finished.then(() => finish(true));
+  // The card comes in any case: a fall that never ends meets this hard end.
+  const last = setTimeout(() => finish(true), 3000);
+  cues.push({ cancel: () => clearTimeout(last), finish() {} });
+  if (document.hidden) finish(true);
+  // A mate (not a taken king, which has its own moment) holds first; reduced motion then shows the card.
+  else if (standing >= 0) cues.push(holdMate(square, reducedMotion() ? () => finish(true) : fall));
+  else if (reducedMotion()) finish(true);
+  else fall();
 }
 function playOnlineKingResult() {
   const view = board;
@@ -1964,9 +1991,9 @@ function drawMarks() {
     else cell.removeAttribute('aria-description');
   }
   // Playback holds its target. The next board input clears the opponent cue.
-  const marks = mergeMarks(resultMarks(pos, (playingAction ? lastActions.slice(0, -1) : lastActions).filter(action => action.before.turn === cpu())), preview, ...(ended ? [] : [stateMarks(game.context, pos)]));
+  const marks = mergeMarks(resultMarks(pos, (playingAction ? lastActions.slice(0, -1) : lastActions).filter(action => action.before.turn === cpu())), preview, ...(ended && !mateHeld ? [] : [stateMarks(game.context, pos)]));
   if (checkPulse) {
-    marks.check = checkPulse.square;
+    marks.check = checkPulse.square; marks.threats = checkPulse.threats;
     marks.checkProgress = checkPulse.progress;
   }
   board.mark(marks);

@@ -5,7 +5,7 @@ import { afterEach, expect, it } from 'vitest';
 import { fixtureService } from '../../../tools/plugin-protocol-fixture';
 import { createMatch, loadMatch, type MatchSetup } from '../../match';
 import { onlineClient } from '../../online/client';
-import { parseSq, sqName, type Move, type Position } from '../../rules/engine';
+import { findKing, parseSq, sqName, type Move, type Position } from '../../rules/engine';
 import { toFen } from '../../rules/setup';
 import { peopleController, type PeopleController, type PeopleState } from '../people/controller';
 import { fakeServer, memoryStorage } from '../people/fake-server';
@@ -44,7 +44,8 @@ async function match({ hand, ...setup }: MatchSetup = { backRank: 'RBNMQKNR' }) 
 }
 
 function boardFor(previous: PeopleState, { mount = false, reduce = '', inApp = false } = {}) {
-  const plays: string[] = [], positions: string[] = [], falls: string[] = [], noop = () => {};
+  const plays: string[] = [], positions: string[] = [], falls: string[] = [], holds: number[] = [], noop = () => {};
+  let release = noop;
   let shown = toFen(previous.position!), complete: (() => void) | undefined;
   let animation = 0, hold = false;
   const document = { querySelector: () => null, documentElement: { dataset: { motion: reduce === 'page' ? 'reduce' : '' } } };
@@ -72,13 +73,14 @@ function boardFor(previous: PeopleState, { mount = false, reduce = '', inApp = f
     onlineRecovery: noop, automaticReady: noop, closeFloating: noop, drawMarks: noop,
     beat: undefined, rewind: undefined, endCardFlight: noop, cancelCheckPulse: noop, endReply: null,
     passTurn: noop, endSeal: noop, onlineResult: () => 'You win.', closeStaleDialogs: noop, playOnlineKingResult: () => falls.push(shown),
+    findKing, holdMate: (square: number, then: () => void) => { holds.push(square); release = then; },
     refuse: (error: string) => { throw new Error(error); },
     cells: [], armedResource: noop, gameHelp: undefined, choice: [], refusalReason: noop,
     cue: noop, freezeArmed: () => false, typeOf: () => 1, colorOf: () => previous.view!.seat,
     PLAIN_KINGS: [], learningEntry: () => ({ short: '' }), nameOf: () => 'Pawn', sqName, text: {},
   };
   runInNewContext(page, scope, { filename: filename.pathname });
-  return { scope, plays, positions, falls, shown: () => shown, hold: () => { hold = true; }, complete: () => complete?.() };
+  return { scope, plays, positions, falls, holds, release: () => release(), shown: () => shown, hold: () => { hold = true; }, complete: () => complete?.() };
 }
 
 async function send(client: PeopleController, moves: readonly (readonly [string, string])[], arm?: string) {
@@ -233,7 +235,11 @@ it('plays a live checkmate before the king falls and opens History at the final 
   board.complete();
   await settle();
   const final = toFen(dark.state().position!);
-  expect(board.falls).toEqual([final]);
+  // The checkmate hold: the board shows the threat lines on the mated king before the card and the fall.
+  expect(board.holds).toEqual([parseSq('h8')]);
+  expect([board.falls, board.scope.reading]).toEqual([[], 'normal']);
+  board.release();
+  expect([board.falls, board.scope.reading]).toEqual([[final], 'result']);
   const history = await open('alice'), entry = boardFor(history.state(), { mount: true });
   entry.scope.receiveOnline(history.state());
   expect(entry.plays).toEqual([]);

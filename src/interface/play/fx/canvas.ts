@@ -275,6 +275,30 @@ export function seal(plate: Element, text: () => Element[], { onArrive }: SealOp
   });
 }
 
+export const CLOSE_MS = 480;
+/** The checkmate beat at a time after the hold starts: the wax ring closes on the king, a brass glint leaves it, all fades. */
+export function closeAt(ms: number) {
+  return { close: ease.in2(unit(ms / 160)), glint: unit((ms - 160) / 200), fade: unit((CLOSE_MS - ms) / 180) };
+}
+
+/** Checkmate: a wax-red ring closes round the mated king's foot on its tile (viewport box) and a brass glint leaves it. */
+export function closeIn(tile: { left: number; top: number; width: number; height: number }): Effect {
+  if (reducedMotion()) return drawFor(0, () => {});
+  const s = tile.width, foot = pagePoint({ x: tile.left + s / 2, y: tile.top + tile.height * .79 });
+  const { innerWidth, innerHeight } = window;
+  return drawFor(CLOSE_MS, (ctx, progress) => {
+    if (window.innerWidth !== innerWidth || window.innerHeight !== innerHeight) return;
+    const { close, glint, fade } = closeAt(progress * CLOSE_MS), { x, y } = foot();
+    const ring = (k: number, color: string, width: number) => {
+      ctx.beginPath(); ctx.ellipse(x, y, .44 * s * k, .19 * s * k, 0, 0, 2 * Math.PI); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
+    };
+    // The ring drops from 1.8 times the king's ring and lands at 160 ms, like the stamp of the result seal.
+    ctx.globalAlpha = fade * unit(close * 2);
+    ring(1.8 - .8 * close, '#4e3815', .075 * s); ring(1.8 - .8 * close, '#9b3324', .045 * s);
+    if (glint > 0 && glint < 1) { ctx.globalAlpha = fade * (1 - glint); ring(1 + .35 * ease.out3(glint), '#ffdf85', .022 * s); }
+  });
+}
+
 const shakes = new WeakMap<HTMLElement, Effect>();
 
 export function shake(element: HTMLElement, { ms = 220, amplitude = 3 }: ShakeOptions = {}): Effect {

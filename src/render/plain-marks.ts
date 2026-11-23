@@ -1,3 +1,4 @@
+import type { Checker } from '../move-text';
 import type { PaintedScene } from './painted/scene.mjs';
 
 type Brush = readonly [light: string, body: string];
@@ -13,6 +14,8 @@ const PAINT = {
 } as const satisfies Record<string, Brush>;
 // One umber keyline round every mark: 5.3:1 on light stone and 3.4:1 on dark stone, so no body colour has to carry it.
 const KEYLINE = '#4e3815d9';
+// Threat line: wax red. As for every mark, the umber keyline carries the 3:1 on dark stone (the body alone: 4.1:1 light, 2.3:1 dark).
+const WAX = '#b8322a', WAX_LINE = .03;
 export const PLAIN = {
   actor: PAINT.actor[1], move: PAINT.move[1], enemy: PAINT.enemy[1],
   friend: PAINT.friend[1], ice: PAINT.ice[1], holy: PAINT.holy[1],
@@ -30,6 +33,8 @@ export interface PlainPath { squares: number[]; color: string; arc?: boolean; da
 export interface PlainMarks {
   shadows?: { square: number; opacity: number }[];
   check?: number;
+  /** A line from each checking piece to the checked king. */
+  threats?: readonly Checker[];
   checkProgress?: number;
   rings: PlainRing[];
   paths: PlainPath[];
@@ -100,6 +105,36 @@ export function drawPlainMarks(ctx: CanvasRenderingContext2D, scene: Pick<Painte
     ctx.restore();
   }
   ctx.shadowBlur = 0;
+  // Threat lines: wax red from each checking piece to the edge of the king's square; a jump or a lob bends.
+  const drawn = marks.checkProgress ?? 1;
+  for (const threat of drawn > 0 ? marks.threats ?? [] : []) {
+    const a = point(threat.sq, .77), k = point(threat.king, .77), [bx, by] = box(threat.king);
+    const dx = k[0] - a[0], dy = k[1] - a[1], up = dy > 0 || !dy && dx > 0 ? -1 : 1;
+    const c = [a[0] + dx / 2 + up * .25 * dy, a[1] + dy / 2 - up * .25 * dx], n = threat.path === 'arc' ? 16 : 1;
+    const line = Array.from({ length: n + 1 }, (_, i) => {
+      const t = i / n;
+      return n === 1 ? [a[0] + dx * t, a[1] + dy * t] : [(1 - t) ** 2 * a[0] + 2 * t * (1 - t) * c[0] + t * t * k[0], (1 - t) ** 2 * a[1] + 2 * t * (1 - t) * c[1] + t * t * k[1]];
+    });
+    const inside = ([x, y]: number[]) => x >= bx + .05 * s && x <= bx + .95 * s && y >= by + .05 * s && y <= by + .95 * s;
+    const end = line.findIndex(inside), [p, q] = [line[end - 1], line[end]];
+    // Where the last segment enters the king's square (its check tile).
+    const enter = (i: 0 | 1, d = q[i] - p[i]) => d ? ((d > 0 ? (i ? by : bx) + .05 * s : (i ? by : bx) + .95 * s) - p[i]) / d : -Infinity;
+    const t = Math.max(0, enter(0), enter(1));
+    line.splice(end, Infinity, [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]);
+    // The draw-in: the line grows from the attacker to the king.
+    let left = drawn * line.slice(1).reduce((sum, r, i) => sum + Math.hypot(r[0] - line[i][0], r[1] - line[i][1]), 0) || 0;
+    const shown = [line[0]];
+    for (let i = 1; i < line.length && left > 0; i++) {
+      const [r0, r1] = [line[i - 1], line[i]], part = Math.hypot(r1[0] - r0[0], r1[1] - r0[1]), f = Math.min(1, left / part);
+      shown.push([r0[0] + (r1[0] - r0[0]) * f, r0[1] + (r1[1] - r0[1]) * f]); left -= part;
+    }
+    for (const [ink, width] of [[KEYLINE, WAX_LINE * s + key], [WAX, WAX_LINE * s]] as const) {
+      ctx.beginPath(); shown.forEach(([x, y]) => ctx.lineTo(x, y)); ctx.strokeStyle = ink; ctx.lineWidth = width; ctx.stroke();
+    }
+    // A wax bead at the foot of the checking piece.
+    ctx.beginPath(); ctx.arc(a[0], a[1], .05 * s, 0, 2 * Math.PI); ctx.fillStyle = WAX; ctx.fill();
+    ctx.strokeStyle = KEYLINE; ctx.lineWidth = key / 2; ctx.stroke();
+  }
 
   ctx.save();
   ctx.globalAlpha *= routeOpacity;

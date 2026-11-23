@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { beatAt, BEAT_MS, burst, ease, edgeLight, hold, later, onFrame, pulse, seal, sealAt, SEAL_MS, setFxMotion, setPauseHook, setVibration, shake, sound, Spring, startFx, streak, strike, tween } from './index';
+import { beatAt, BEAT_MS, burst, closeIn, closeAt, CLOSE_MS, ease, edgeLight, hold, later, onFrame, pulse, seal, sealAt, SEAL_MS, setFxMotion, setPauseHook, setVibration, shake, sound, Spring, startFx, streak, strike, tween } from './index';
 
 let now: number, id: number, pending: Map<number, FrameRequestCallback>;
 
@@ -230,6 +230,22 @@ describe('Commit seal', () => {
     const box = { getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 50, right: 100, bottom: 50 }) } as Element;
     seal(box, () => [box], { onArrive: arrive });
     expect(arrive).toHaveBeenCalledOnce();
+    expect(pending.size).toBe(0);
+  });
+});
+
+describe('Checkmate beat', () => {
+  it('closes a wax ring on the mated king in one beat that ends inside the 600 ms hold', () => {
+    expect(CLOSE_MS).toBeLessThanOrEqual(500);
+    expect(closeAt(0)).toMatchObject({ close: 0, glint: 0, fade: 1 });
+    expect(closeAt(160)).toMatchObject({ close: 1, glint: 0 });
+    expect(closeAt(360).glint).toBe(1);
+    expect(closeAt(CLOSE_MS).fade).toBe(0);
+  });
+
+  it('draws nothing in reduced motion', () => {
+    setFxMotion('normal', true);
+    closeIn({ left: 0, top: 0, width: 80, height: 80 });
     expect(pending.size).toBe(0);
   });
 });
