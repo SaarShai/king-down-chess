@@ -7,7 +7,10 @@
   /* Materials: brass is the one main action; enamel is a power. */
   --main-fill: linear-gradient(180deg, #efd18a, #ebcb80 18%, var(--brass));
   --main-ink: var(--ink-900);
-  --main-depth: var(--elevation-panel);
+  /* A brass plate: a light top edge, a bronze lower edge, a soft ground shadow. Pressed: the edges go in. */
+  --main-depth: inset 0 1px 0 #fff3cf, inset 0 -2px 0 #9a6f2c, 0 6px 12px -8px #3c280a8c;
+  --main-pressed: inset 0 2px 3px #6e4f2266;
+  --radius-plate: 10px;
   --main-edge: #604a2b;
   --main-disabled-fill: linear-gradient(#efe3c4, #dcc8a0);
   --selection-fill: color-mix(in srgb, var(--paper-50), var(--brass) 22%);
@@ -19,6 +22,12 @@
   --rival-ink: var(--ink-900);
   --rival-depth: var(--elevation-panel);
   --card-edge: inset 0 0 0 1px var(--border), var(--elevation-panel);
+  /* Crafted materials: card vellum and its gilt rule, a carved limestone slot, a wax-red stamp. */
+  --stock: #f4ead3;
+  --gilt: #b08a3e;
+  --stone: #ebe5d8;
+  --stone-in: inset 0 2px 3px #3c280a33, inset 0 -1px 0 #fffaf0;
+  --wax: #9b3324;
   --paper-50: #f5f0e4;
   --paper-0: #fbf8f0;
   --paper-tint: radial-gradient(ellipse at top, #fffaf0 0%, transparent 65%);
@@ -61,7 +70,7 @@
   --radius-round: 999px;
   --line-width: 1px;
   --line-selected: 2px;
-  --focus-width: 3px;
+  --focus-width: 2px;
   --focus-offset: 3px;
   --target-min: 44px;
   --target-comfort: 50px;

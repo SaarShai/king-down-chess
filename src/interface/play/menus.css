@@ -6,7 +6,7 @@
 /* The shadow comes only with focus: a hidden link casts no shadow into the page. */
 .shell-skip:focus-visible, .shell-skip:focus { transform: none; box-shadow: var(--elevation-panel); }
 .group-title, .shell-page .group-title { font-family: var(--font-title); font-size: .75rem; line-height: 20px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 8px; }
-.new-tag { display: inline-block; vertical-align: middle; margin-left: 8px; padding: 2px 7px; border-radius: 4px; font: 700 .75rem/1.4 var(--font-reading); letter-spacing: 0; color: var(--info); background: var(--info-soft); white-space: nowrap; }
+.new-tag { display: inline-block; vertical-align: middle; margin-left: 8px; padding: 2px 7px; border-radius: 3px; font: 700 .75rem/1.4 var(--font-reading); letter-spacing: .04em; text-transform: uppercase; color: var(--paper-0); background: var(--wax); box-shadow: inset 0 -1px 0 #0000004d, inset 0 1px 0 #ffffff33; rotate: -3deg; white-space: nowrap; }
 .text-button.kd-button { min-height: 44px; padding: 8px 12px; border: 0; background: transparent; box-shadow: none; color: var(--info); }
 
 /* A list row: the whole row is the target. */
@@ -678,10 +678,10 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .pool-name { flex: 1; }
 .pool-check {
   display: grid; place-items: center; width: 23px; height: 23px; margin-inline: 4px;
-  border: 1px solid var(--border); border-radius: 5px; background: var(--surface-raised);
+  border: 1px solid var(--border); border-radius: 5px; background: var(--stone); box-shadow: var(--stone-in);
 }
 .pool-check .kd-icon { width: 18px; height: 18px; visibility: hidden; }
-.pool-row input:checked + .pool-check { border-color: var(--selection-line); background: var(--selection-fill); }
+.pool-row input:checked + .pool-check { border-color: var(--main-edge); background: var(--main-fill); box-shadow: var(--main-depth); color: var(--main-ink); }
 .pool-row input:checked + .pool-check .kd-icon { visibility: visible; }
 @media (prefers-reduced-motion: no-preference) {
   :root:not([data-motion='reduce']) .draw-check path { animation: pool-check-draw 200ms var(--ease-out); }
