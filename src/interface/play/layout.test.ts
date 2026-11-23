@@ -35,6 +35,8 @@ it('stacks the wide rail from the board top: History, the hand 18 px later, the 
     expect(l.actionY).toBe(l.handY + l.own + 16);
     expect(l.actionY + l.fin).toBeLessThan(l.boardY + l.board);
   }
+  expect(gameLayout(1280, 800, 'both')).toMatchObject({ boardY: 56, readerY: 142, handY: 316, actionY: 456 });
+  expect(gameLayout(1440, 900, 'both')).toMatchObject({ boardY: 98, readerY: 184, handY: 358, actionY: 498 });
 });
 
 it('keeps the phone and short landscape places', () => {
