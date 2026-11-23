@@ -58,6 +58,21 @@ it('builds the copy from the history and refuses a copy that does not reach the 
   expect(replicaOf({ ...view, history: undefined })).toBeUndefined();
 });
 
+it.each([[10, 11, 'playing'], [99, 100, 'draw50']] as const)('restores the opponent turn after an archived Maester pawn swap at count %i', (before, after, status) => {
+  const initial = `7k/8/8/8/3P4/3M4/8/K7 w - - ${before} 50`, { game } = setup(initial);
+  const actions = ['Md3<>d4'];
+  const view = viewOf(game, initial, actions, {
+    engine_fingerprint: 'sha256:3643657990973c8678d687f60f1ff630b5cf6046183b19673094d62db38916bf',
+    fen: `7k/8/8/8/3M4/3P4/8/K7 b - - ${after} 50`, status: status === 'draw50' ? 'finished' : 'playing', turn: 1, seat: 1,
+    last_commands: [{ seq: 1, seat: 0, at: 'a', action: { type: 'turn', actions } }],
+  });
+  const copy = replicaOf(view);
+  expect(copy).toBeDefined();
+  expect(toFen(copy!.pos)).toBe(view.fen);
+  expect(copy!.status).toBe(status);
+  expect(lastTurnOf(copy!, view)?.steps.map(step => step.lan)).toEqual(actions);
+});
+
 it('plays new commands in order and refuses a gap or another FEN', () => {
   const initial = '4k3/8/8/8/8/8/4P3/4K3 w - - 0 1';
   const server = setup(initial).game, local = setup(initial).game;
