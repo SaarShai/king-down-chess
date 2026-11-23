@@ -28,6 +28,8 @@ export interface PlainRing {
   square: number; color: string; width?: number; size?: number; dash?: number[];
   role: 'actor' | 'target' | 'focus' | 'landing' | 'trail' | 'state';
   frost?: true;
+  /** A target's shape, so that it reads without colour: a dot to move, a broken ring to capture, a diamond for a special action. No shape: a ring. */
+  shape?: 'dot' | 'capture' | 'special';
 }
 export interface PlainPath { squares: number[]; color: string; arc?: boolean; dash?: number[] }
 export interface PlainMarks {
@@ -173,6 +175,20 @@ export function drawPlainMarks(ctx: CanvasRenderingContext2D, scene: Pick<Painte
       ctx.restore();
       continue;
     }
+    if (ring.shape === 'dot' || ring.shape === 'special') {
+      const grow = .5 + .5 * sweep, [a, b] = ring.shape === 'dot' ? [.2 * s * k * grow, .12 * s * k * grow] : [rx * grow, ry * grow];
+      if (ring.shape === 'dot') {
+        for (const [ink, more] of [[KEYLINE, key / 2], [pigment(ctx, brush, y - b, y + b), 0]] as const) {
+          ctx.beginPath(); ctx.ellipse(x, y, a + more, b + more, 0, 0, 2 * Math.PI); ctx.fillStyle = ink; ctx.fill();
+        }
+      } else {
+        // Flat dash ends, as on a dashed ring.
+        if (ring.dash?.length) ctx.lineCap = 'butt';
+        stroke(brush, width, y - b, y + b, ring.dash ?? [], () => { ctx.moveTo(x - a, y); ctx.lineTo(x, y - b); ctx.lineTo(x + a, y); ctx.lineTo(x, y + b); ctx.closePath(); });
+      }
+      ctx.restore();
+      continue;
+    }
     if (k < 1 && ring.color === PLAIN.move) {
       ctx.save(); ctx.translate(x, y); ctx.scale(1, ry / rx);
       const pool = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
@@ -197,7 +213,13 @@ export function drawPlainMarks(ctx: CanvasRenderingContext2D, scene: Pick<Painte
       }
       ctx.closePath();
       const ink = edge ? KEYLINE : pigment(ctx, brush, y - ry, y + ry);
-      if (ring.dash?.length) {
+      if (ring.shape === 'capture') {
+        // Four arcs on the diagonals. The keyline arcs are a little longer, so the keyline also closes each end.
+        ctx.clip(); ctx.beginPath();
+        const half = .45 + (edge ? key / ry / 2 : 0);
+        for (let q = 1; q < 8; q += 2) { ctx.moveTo(x, y); ctx.ellipse(x, y, 2 * rx, 2 * ry, 0, q * Math.PI / 4 - half, q * Math.PI / 4 + half); ctx.closePath(); }
+        ctx.fillStyle = ink; ctx.fill();
+      } else if (ring.dash?.length) {
         ctx.clip(); ctx.beginPath();
         ctx.ellipse(x, y, rx, ry, 0, start, end);
         // Flat ends: a round cap of the wide keyline fills the dash gap (a dashed ring looks solid).
@@ -206,7 +228,7 @@ export function drawPlainMarks(ctx: CanvasRenderingContext2D, scene: Pick<Painte
       } else { ctx.fillStyle = ink; ctx.fill(); }
       ctx.restore();
     }
-    if (!ring.dash?.length) {
+    if (!ring.dash?.length && !ring.shape) {
       // A crisp light edge inside the keyline, along the inner side of the ring.
       const line = Math.max(pixel, .01 * s);
       ctx.beginPath();

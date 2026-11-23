@@ -6,7 +6,7 @@ import { checkersOf } from '../../move-text';
 import { targetOf } from './turn';
 
 export interface MarkAction { before: Position; move: Move }
-const ring = (marks: PlainMarks, pos: Position, square: number, color: string, role: PlainRing['role'], width = .9, dash?: number[]) => marks.rings.push({ square, color, role, width, size: pos.board[square] ? 1.12 : .78, ...(dash && { dash }) });
+const ring = (marks: PlainMarks, pos: Position, square: number, color: string, role: PlainRing['role'], width = .9, dash?: number[], shape?: PlainRing['shape']) => marks.rings.push({ square, color, role, width, size: pos.board[square] ? 1.12 : .78, ...(dash && { dash }), ...(shape && { shape }) });
 const path = (marks: PlainMarks, squares: number[], color: string, arc = false) => { if (new Set(squares).size > 1) marks.paths.push({ squares, color, ...(arc && { arc, dash: [2, 7] }) }); };
 function color(rules: GameRules, pos: Position, m: Move, target: number): string {
   if (m.power === 'freeze' || m.power === 'ward' || m.power === 'firewall') return C.ice;
@@ -16,6 +16,9 @@ function color(rules: GameRules, pos: Position, m: Move, target: number): string
   if (enemy && (typeOf(pos.board[m.from]) === K && m.from === m.to || typeOf(pos.board[m.from]) === P && rules.rules.kings[pos.turn]?.power === 'Darkness')) return C.shadow;
   return m.swap ? C.friend : enemy ? C.enemy : C.move;
 }
+// A power, a card, a swap or a drop is special; colour alone does not tell it from a move or a capture.
+const shape = (pos: Position, m: Move, target: number): PlainRing['shape'] =>
+  m.power || m.swap || m.drop !== undefined ? 'special' : pos.board[target] && colorOf(pos.board[target]) !== pos.turn ? 'capture' : 'dot';
 
 
 /** Legal actions supply every target. Focus supplies only one route, never a new game choice. */
@@ -31,7 +34,7 @@ export function previewMarks(rules: GameRules, pos: Position, moves: readonly Mo
   const direct = route.from === route.to && !route.captures.length;
   for (const square of new Set(moves.map(target).filter(sq => sq !== undefined))) {
     const m = moves.find(m => target(m) === square)!;
-    ring(out, pos, square, color(rules, pos, m, square), square === t ? 'focus' : 'target', square === t ? 1.25 : .9);
+    ring(out, pos, square, color(rules, pos, m, square), square === t ? 'focus' : 'target', square === t ? 1.25 : .9, undefined, shape(pos, m, square));
     if (m.power === 'freeze') out.rings.at(-1)!.frost = true;
   }
   if (!direct && typeOf(pos.board[actor]) !== G) ring(out, pos, actor, C.actor, 'actor', 1.1);
@@ -46,7 +49,7 @@ export function previewMarks(rules: GameRules, pos: Position, moves: readonly Mo
     let second: Move | undefined;
     if (route.power === 'haste') { const next = rules.makeMove(pos, route); second = rules.legalMoves(next).find(m => !m.pass && m.from === route.to); }
     path(out, [actor, t, ...(second ? [second.to] : [])], c, typeOf(pos.board[route.from]) === L || typeOf(pos.board[route.from]) === A && route.from === route.to);
-    if (haste) { out.steps.push({ square: t, number: route.power === 'haste' ? 1 : 2 }); if (second) { ring(out, pos, second.to, C.move, 'target', .9, [5, 5]); out.steps.push({ square: second.to, number: 2 }); } }
+    if (haste) { out.steps.push({ square: t, number: route.power === 'haste' ? 1 : 2 }); if (second) { ring(out, pos, second.to, C.move, 'target', .9, [5, 5], 'special'); out.steps.push({ square: second.to, number: 2 }); } }
   }
   return out;
 }
@@ -54,7 +57,7 @@ export function previewMarks(rules: GameRules, pos: Position, moves: readonly Mo
 /** Before the piece choice, mark the pieces the armed action can use. */
 export function actorMarks(pos: Position, moves: readonly Move[], focus?: number): PlainMarks {
   const out = emptyMarks();
-  for (const square of new Set(moves.map(m => m.from))) ring(out, pos, square, moves.some(m => m.from === square && m.power === 'burn') ? C.ember : C.move, square === focus ? 'focus' : 'target', square === focus ? 1.25 : .9);
+  for (const square of new Set(moves.map(m => m.from))) ring(out, pos, square, moves.some(m => m.from === square && m.power === 'burn') ? C.ember : C.move, square === focus ? 'focus' : 'target', square === focus ? 1.25 : .9, undefined, 'special');
   return out;
 }
 

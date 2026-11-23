@@ -174,3 +174,22 @@ it('Haste: a check on the side that does not move now shows its square and threa
   expect(marks.check).toBe(sq('e8'));
   expect(marks.threats).toEqual([expect.objectContaining({ sq: sq('a8'), king: sq('e8'), path: 'straight' })]);
 });
+it('gives each target kind its own shape: a dot to move, a broken ring to capture, a diamond for a special action', () => {
+  const shapes = (p: ReturnType<typeof previewMarks>) => Object.fromEntries(p.rings.filter(r => r.role !== 'actor').map(r => [r.square, r.shape]));
+  const plain = fixture('7k/7p/8/8/8/3p4/4P3/K7 w - - 0 1');
+  expect(shapes(previewMarks(plain.rules, plain.pos, plain.rules.legalMoves(plain.pos).filter(m => m.from === sq('e2'))))).toEqual({ [sq('e3')]: 'dot', [sq('e4')]: 'dot', [sq('d3')]: 'capture' });
+  const darkness = fixture('7k/7p/8/8/8/4n3/4P3/K7 w - - 0 1', { kings: [{ king: 'Shadow', power: 'Darkness' }, null] });
+  expect(shapes(previewMarks(darkness.rules, darkness.pos, darkness.rules.legalMoves(darkness.pos).filter(m => m.from === sq('e2'))))[sq('e3')]).toBe('capture');
+  const swap = fixture('7k/7p/8/8/3MP3/8/8/K7 w - - 0 1');
+  expect(shapes(previewMarks(swap.rules, swap.pos, [swap.move('d4', 'e4', m => !!m.swap)]))[sq('e4')]).toBe('special');
+  const burn = fixture('7k/7p/8/8/3p4/8/3N4/K7 w - - 0 1', { hands: [['Burn'], []] });
+  expect(shapes(previewMarks(burn.rules, burn.pos, [burn.move('d2', 'd4', m => m.power === 'burn')]))[sq('d4')]).toBe('special');
+  const guard = fixture('7k/7p/8/8/8/8/P7/K7 w - - 0 1 g1.0', { guardReserve: 'any' }), drop = guard.rules.legalMoves(guard.pos).find(m => m.drop === G)!;
+  expect(shapes(previewMarks(guard.rules, guard.pos, [drop]))[drop.to]).toBe('special');
+  // Haste: the second step is a special target too, dashed because it comes later.
+  const haste = fixture('7k/7p/8/8/8/8/7P/KN6 w - - 0 1', { kings: [{ king: 'Flame', power: 'Haste' }, null] });
+  expect(previewMarks(haste.rules, haste.pos, [haste.move('b1', 'c3', m => m.power === 'haste')]).rings.find(r => r.dash)).toMatchObject({ shape: 'special', dash: [5, 5] });
+  // A card that waits for its piece: the pieces it can use are special targets.
+  const flight = fixture('7k/7p/8/8/8/8/P7/K7 w - - 0 1', { kings: [{ king: 'Stratus', power: 'Flight' }, null] });
+  expect(actorMarks(flight.pos, flight.rules.legalMoves(flight.pos).filter(m => m.power === 'flight')).rings.map(r => r.shape)).toEqual(['special']);
+});

@@ -94,6 +94,22 @@ it('draws a threat line from each checking piece to the edge of the king square,
   expect(ends(0).arcs).toBe(draw({ ...emptyMarks(), check: 16 }).ctx.lineTo.mock.calls.length);
 });
 
+it('draws a dot to move, a ring broken into four arcs to capture and a diamond for a special action', () => {
+  const at = (shape: PlainMarks['rings'][number]['shape'], size: number) => draw({ ...emptyMarks(), rings: [{ square: 8, color: PLAIN.move, size, role: 'target', shape }] }).ctx;
+  const [x, y] = [37.5, (6 + .79) * 75];
+  const dot = at('dot', .78), [a, b] = [.2 * 75 * .78, .12 * 75 * .78];
+  expect(dot.ellipse.mock.calls).toEqual([[x, y, a + 1.2, b + 1.2, 0, 0, 2 * Math.PI], [x, y, a, b, 0, 0, 2 * Math.PI]]);
+  expect(dot.lineTo).not.toHaveBeenCalled();
+  // Capture: the keyline arcs and then the body arcs, centred on the four diagonals; the gaps face front, back and sides.
+  const capture = at('capture', 1.12).ellipse.mock.calls;
+  expect(capture).toHaveLength(8);
+  expect(capture.slice(4).map(([, , , , , from, to]) => Math.round((from + to) / 2 / (Math.PI / 4)))).toEqual([1, 3, 5, 7]);
+  const diamond = at('special', 1.12), [rx, ry] = [.4 * 75 * 1.12, .18 * 75 * 1.12];
+  expect(diamond.moveTo.mock.calls).toEqual([[x - rx, y], [x - rx, y]]);
+  expect(diamond.lineTo.mock.calls.slice(0, 3)).toEqual([[x, y - ry], [x + rx, y], [x, y + ry]]);
+  expect(diamond.ellipse).not.toHaveBeenCalled();
+});
+
 // The two stone tones of the play board, the median of an empty a5 and b5 in the 1280x800 build (docs/specs/gui-fx/capture.mjs).
 const STONE = { light: '#dfd6b9', dark: '#a3a397' };
 it('gives each mark kind an edge that reads at 3:1 or more on both stone tones', () => {
@@ -104,6 +120,8 @@ it('gives each mark kind an edge that reads at 3:1 or more on both stone tones',
     shelter: kind(PLAIN.holy, { role: 'state' }), freeze: kind(PLAIN.ice, { frost: true }), ice: kind(PLAIN.ice, { role: 'state', size: 1.25 }),
     ember: kind(PLAIN.ember), shadow: kind(PLAIN.shadow), friend: kind(PLAIN.friend, { dash: [5, 5] }), check: { ...emptyMarks(), check: 0 },
     threat: { ...emptyMarks(), threats: [{ sq: 0, king: 16, path: 'straight' }] },
+    dot: kind(PLAIN.move, { size: .78, shape: 'dot' }), bracket: kind(PLAIN.enemy, { size: 1.12, shape: 'capture' }),
+    diamond: kind(PLAIN.friend, { size: 1.12, shape: 'special' }), 'dashed diamond': kind(PLAIN.move, { shape: 'special', dash: [5, 5] }),
   };
   const reads = Object.fromEntries(Object.entries(kinds).map(([name, marks]) => {
     const inks: string[] = [];
