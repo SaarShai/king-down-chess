@@ -25,24 +25,34 @@ it('uses the still that matches the selected variant', () => {
   expect(revealPoster(1440, 900)).toBe('/interface/reveal/hero-wide.webp');
 });
 
-function fakePage(av1: string) {
+function fakePage(av1Answer: string, hevcAnswer = av1Answer, app = false) {
   vi.resetModules();
+  const codecChecks: string[] = [];
   const node = (tag = 'div') => {
     const classes = new Set<string>(), attributes = new Map<string, string>();
+    const listeners = new Map<string, (event: { propertyName?: string }) => void>();
     return {
       tag, dataset: {}, isConnected: true, clientWidth: 1440, clientHeight: 900, paused: true,
       classList: { add: (name: string) => classes.add(name), contains: (name: string) => classes.has(name), toggle: (name: string, on: boolean) => on ? classes.add(name) : classes.delete(name) },
       setAttribute: (name: string, value: string) => attributes.set(name, value), hasAttribute: (name: string) => attributes.has(name),
       removeAttribute: (name: string) => attributes.delete(name), get src() { return attributes.get('src'); }, set src(value) { attributes.set('src', value!); },
-      append() {}, addEventListener() {}, decode: () => Promise.resolve(), play: () => Promise.resolve(), pause() {}, load() {}, canPlayType: () => av1,
+      append() {}, addEventListener: (type: string, listener: (event: { propertyName?: string }) => void) => listeners.set(type, listener),
+      emit: (type: string) => listeners.get(type)?.({}),
+      decode: () => Promise.resolve(), play: vi.fn(() => Promise.resolve()), pause() {}, load() {},
+      canPlayType: (type: string) => {
+        codecChecks.push(type);
+        return type.includes('av01') ? av1Answer : type.includes('hvc1') ? hevcAnswer : '';
+      },
     };
   };
   const observers: ((entries: { intersectionRatio: number }[]) => void)[] = [];
   vi.stubGlobal('document', { createElement: node, addEventListener() {}, hidden: false });
   vi.stubGlobal('window', { addEventListener() {}, innerWidth: 1440, innerHeight: 900 });
   vi.stubGlobal('navigator', { onLine: true });
+  vi.stubGlobal('location', { protocol: app ? 'capacitor:' : 'https:' });
   vi.stubGlobal('IntersectionObserver', class { constructor(seen: typeof observers[number]) { observers.push(seen); } observe() {} disconnect() {} });
   return {
+    codecChecks,
     async show() {
       const { homeReveal } = await import('./home-reveal');
       const art = node(), videos: ReturnType<typeof node>[] = [];
@@ -64,7 +74,35 @@ it('plays the film once in each page session and shows the still on later Home v
   expect(second.art.classList.contains('home-art-still')).toBe(true);
 });
 
-it('loads the H.264 film when the browser cannot play AV1', async () => {
-  const first = await fakePage('').show();
+it('moves an AV1 error to HEVC, then H.264, then the still', async () => {
+  const first = await fakePage('probably', 'probably').show();
+  expect(first.video.src).toBe('/interface/reveal/wide-av1.mp4');
+  first.video.emit('error');
+  expect(first.video.src).toBe('/interface/reveal/wide-hevc.mp4');
+  expect(first.video.play).toHaveBeenCalledTimes(2);
+  first.video.emit('error');
   expect(first.video.src).toBe('/interface/reveal/wide.mp4');
+  expect(first.video.play).toHaveBeenCalledTimes(3);
+  expect(first.art.classList.contains('home-art-still')).toBe(false);
+  first.video.emit('error');
+  expect(first.video.src).toBeUndefined();
+  expect(first.art.classList.contains('home-art-still')).toBe(true);
+});
+
+it('uses only H.264 in the app and makes no codec check', async () => {
+  const page = fakePage('probably', 'probably', true);
+  const first = await page.show();
+  expect(first.video.src).toBe('/interface/reveal/wide.mp4');
+  expect(page.codecChecks).toEqual([]);
+});
+
+it.each([
+  { av1: 'probably', hevc: 'probably', src: '/interface/reveal/wide-av1.mp4', checks: ['av01'] },
+  { av1: '', hevc: 'probably', src: '/interface/reveal/wide-hevc.mp4', checks: ['av01', 'hvc1'] },
+  { av1: '', hevc: '', src: '/interface/reveal/wide.mp4', checks: ['av01', 'hvc1'] },
+])('uses the first supported film: AV1 $av1, HEVC $hevc', async ({ av1, hevc, src, checks }) => {
+  const page = fakePage(av1, hevc);
+  const first = await page.show();
+  expect(first.video.src).toBe(src);
+  expect(page.codecChecks.map(type => type.includes('av01') ? 'av01' : 'hvc1')).toEqual(checks);
 });
