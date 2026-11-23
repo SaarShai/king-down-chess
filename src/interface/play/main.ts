@@ -33,7 +33,7 @@ import { cardLine, pieces, powerLines, text, sentence, draftSentences, squareLab
 import { readingText, checkLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
 import { armCard, calm, cardFly, disarm, screenChange, setInterfaceMotion, sheetMotion, trackCard, time } from './motion';
 import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, tween, type Effect } from './fx';
-import { gameLayout, type Form } from './layout';
+import { gameLayout, panelBox, type Form } from './layout';
 import { fitReader, narratorView, readerNodes, readerView, resetFit, sentences, type ReaderModel } from './reader';
 import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, gameFacts, savedPlayTime, storeChoice as store, storedChoice as stored, storedGameType, storedVibration, storeVibration, type GameType as Setup, type KeptOffer, type Level } from './saved';
 import { arrowStep, fileLabelRow, rankLabelColumn, sideText, SIDE_CHOICES, SIDE_KEY, squareAt, type SideChoice } from './sides';
@@ -1663,9 +1663,10 @@ function renderHistory() {
   if (openHistory) openHistory.replaceChildren(...historyRows(groups));
   if (!historyStrip) return;
   historyStrip.hidden = !game.history.length;
-  const preview = groups.flatMap(group => group.lines).slice(0, 3);
+  // The closed History is one row: its name and the newest record.
+  const preview = groups.flatMap(group => group.lines).slice(0, 1);
   const records = preview.map(item => { const record = el('span', 'play-history-record', item.line); record.dataset.historyKey = item.key; return record; });
-  historyButton.querySelector('[data-button-label]')!.replaceChildren(...(records.length ? records : [el('span', 'play-history-record', text.noHistory)]));
+  historyButton.querySelector('[data-button-label]')!.replaceChildren(el('span', 'play-history-name', text.history), ...(records.length ? records : [el('span', 'play-history-record', text.noHistory)]));
   historyCompact.replaceChildren(...records.map(record => record.cloneNode(true)));
   historyButton.setAttribute('aria-label', `${text.history}: ${preview.map(item => item.line).join(' ') || text.noHistory}`);
   historyButton.setAttribute('aria-expanded', String(scrollOpen === 'history'));
@@ -1697,11 +1698,13 @@ function placeFloating() {
     const box = screen.getBoundingClientRect(), at = anchor.getBoundingClientRect();
     const rail = screen.dataset.layout === 'wide', left = rail ? parseFloat(screen.style.getPropertyValue('--board-x')) + parseFloat(screen.style.getPropertyValue('--board')) + parseFloat(screen.style.getPropertyValue('--gap')) : Math.max(4, at.left - box.left);
     const width = Math.min(rail ? parseFloat(screen.style.getPropertyValue('--rail')) : 380, box.width - 8);
-    const below = at.bottom - box.top, above = at.top - box.top;
-    const top = box.height - below < 220 ? Math.max(4, above - 380) : Math.max(4, below);
+    // The wide rail keeps its command tray in view; History opens over the turn text, below the opponent bar.
+    const wide = screen.dataset.form === 'wide', readerY = parseFloat(screen.style.getPropertyValue('--reader-y'));
+    const history = wide && panel === scrollPanel, { top, height } = panelBox(wide ? parseFloat(screen.style.getPropertyValue('--action-y')) : box.height,
+      history ? readerY : at.top - box.top, history ? readerY : at.bottom - box.top);
     panel.style.setProperty('--panel-left', `${Math.min(left, box.width - width - 4)}px`);
     panel.style.setProperty('--panel-top', `${top}px`); panel.style.setProperty('--panel-width', `${width}px`);
-    panel.style.setProperty('--panel-height', `${Math.max(88, box.height - below < 220 ? above - top : box.height - top - 8)}px`);
+    panel.style.setProperty('--panel-height', `${height}px`);
   };
   if (source) { place(reader, source); if (!wasFloating && keyed) detail.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true }); }
   if (scrollOpen) place(scrollPanel, historyButton);

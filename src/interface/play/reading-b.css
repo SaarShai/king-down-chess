@@ -316,7 +316,17 @@
 .play-game[data-layout] .play-board { outline: 0; border-radius: 4px; box-shadow: 0 0 0 1px #6f6656, -1px -1px 0 1px #fffaf0, 1px 3px 0 1px #8b8170, 0 12px 20px -8px #3c280a66; }
 .play-game [data-file]::after, .play-game [data-rank]::before { font-size: 12px; }
 .play-game[data-layout='portrait'] .play-history-strip, .play-game[data-layout='wide'][data-form='compact'] .play-history-strip { display: none; }
-.play-game[data-layout='wide'] .play-history-strip { top: calc(var(--reader-y) + var(--reader) + 32px); height: 70px; }
+/* The wide rail is one group from the board top (layout.ts). History is one 48 px row between two gilt hairlines; the hand
+   follows 18 px later. The open History has a cap and scrolls (main.ts), so the tray stays in view. */
+.play-game[data-layout='wide'] .play-history-strip { top: calc(var(--reader-y) + var(--reader) + 32px); height: 48px; border-block: 1px solid color-mix(in srgb, var(--gilt, var(--divider)) 50%, transparent); }
+.play-game[data-layout='wide'] .play-history-toggle [data-button-label] { display: flex; flex: 1; align-items: baseline; justify-content: space-between; gap: 12px; }
+.play-game[data-layout='wide'] .play-history-name { flex: none; color: var(--ink, var(--text)); }
+.play-game[data-layout='wide'] .play-history-toggle svg { display: block; width: 14px; rotate: -90deg; transition: rotate 160ms ease-out; }
+.play-game[data-layout='wide'] .play-history-toggle[aria-expanded='true'] svg { rotate: 0deg; }
+@media (prefers-reduced-motion: reduce) { .play-game .play-history-toggle svg { transition: none; } }
+:root[data-motion='off'] .play-game .play-history-toggle svg { transition: none; }
+/* The result keeps its full rail height: its bottom is the board's bottom, not the raised tray. */
+.play-game[data-layout='wide'][data-form='wide'][data-reading='result'] .play-reader { --action-y: calc(var(--rail-top) + var(--rail-h) - var(--fin)); }
 .play-game[data-layout='wide'][data-form='wide'] .play-reader:not([data-floating='true']):not(:has(.play-result)) { max-height: calc(var(--reader) + 28px); }
 .play-game .play-history-strip::before, .play-game .play-history-strip::after { display: none; }
 .play-game .play-history-toggle.kd-button { background: transparent; border: 0; box-shadow: none; justify-content: flex-start; padding-inline: 0; color: var(--soft, var(--text-muted)); }

@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { Game } from '../../game';
 import { historyGroups, historyPreview, removedHistoryLine } from './history';
+import { gameLayout, panelBox } from './layout';
 import { sentence } from './texts';
 const game = new Game('RNBQKBNR', { kings: [null, null] });
 const pos = game.pos, move = game.legal.find(m => m.from === 12 && m.to === 28)!;
@@ -31,4 +32,10 @@ it('the closed scroll shows exactly the newest two records across turn boundarie
 it('Undo wipes only the removed record and keeps the next record in view', () => {
   const erased = { key: 'd1', line: 'removed' };
   expect(historyPreview(groups(['kept']), erased).map(l => l.line)).toEqual(['removed', 'kept']);
+});
+it('the open History in the wide rail covers the turn text and stops 8 px above the command tray', () => {
+  for (const [w, h] of [[1280, 800], [1440, 900]] as const) {
+    const l = gameLayout(w, h, 'both');
+    expect(panelBox(l.actionY, l.readerY, l.readerY)).toEqual({ top: l.readerY, height: 306 });
+  }
 });
