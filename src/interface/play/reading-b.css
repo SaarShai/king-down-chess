@@ -448,11 +448,11 @@
 .play-game[data-reading='result'] .play-detail:has(.play-result) { height: 100%; padding: 0; overflow: hidden; background: transparent; }
 /* The result is one gilt sheet of vellum: a gilt top edge and two inner rules, one seal, one brass action. */
 .play-game .play-result { position: relative; display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; height: 100%; gap: 4px; padding: 12px 10px 4px; animation: none;
-  background: var(--vellum); border-top: 2px solid var(--gilt); border-bottom: 1px solid #c9b996; box-shadow: 0 2px 6px #59462c14; }
+  background: var(--vellum); box-shadow: inset 0 2px var(--gilt), inset 0 -1px #c9b996, 0 2px 6px #59462c14; }
 .play-game .play-result::before, .play-game .play-result::after { content: ''; position: absolute; inset: 4px 10px auto; height: 1px; background: #d9c89f; pointer-events: none; }
 .play-game .play-result::after { inset: auto 10px 3px; }
 .play-game .play-result-body { display: grid; gap: 4px; text-align: center; }
-.play-game .play-result-body h3 { font: 650 28px/1.1 var(--cinzel, var(--font-title)); margin: 0; text-wrap: balance; }
+.play-game .play-result-body h3 { font: 650 28px/1.05 var(--cinzel, var(--font-title)); margin: 0; text-wrap: balance; }
 /* Wax red for a win, muted brown for a loss, stone for a draw. The words carry the result; the seal is a second cue. */
 .play-result-seal { display: grid; place-items: center; width: 40px; height: 40px; margin: 0 auto; border-radius: 46% 49% 45% 48%; color: #f3d39c;
   background: radial-gradient(ellipse at 35% 25%, #bf6853, var(--wax) 68%, #753426); box-shadow: inset 0 0 0 4px #9d4937, inset 0 0 0 5px #cf8061, 0 2px 5px #57302330; }
@@ -476,18 +476,18 @@
 /* The reader clips its sides: the margin keeps the whole focus ring of Rematch in view. */
 .play-game .play-result-actions .kd-button[data-kind='main'] { grid-column: 1 / -1; min-height: 48px; margin-inline: calc(var(--focus-width) + var(--focus-offset)); border-radius: var(--radius-plate); font-family: var(--cinzel, var(--font-title)); }
 .play-game .play-result-actions .kd-button:not([data-kind='main']) { border: 0; background: transparent; box-shadow: none; }
-.play-game[data-review='true'] .play-result { background: none; border-color: transparent; box-shadow: none; }
+.play-game[data-review='true'] .play-result { background: none; box-shadow: none; }
 .play-game[data-review='true'] .play-result::before, .play-game[data-review='true'] .play-result::after,
 .play-game[data-review='true'] .play-result > :not(.play-result-actions),
 .play-game[data-review='true'] .play-result-actions > :not([aria-pressed='true']) { visibility: hidden; }
 .play-game[data-form='compact'] .play-result-body h3 { font-size: 26px; }
 /* A short screen sets a small seal beside the outcome and leaves out the players line. */
-.play-game[data-form='compact'] .play-result-body:has(.play-result-seal) { grid-template-columns: auto auto; justify-content: center; align-items: center; column-gap: 10px; }
-.play-game[data-form='compact'] .play-result-body > :not(.play-result-seal, h3) { grid-column: 1 / -1; }
+.play-game[data-form='compact']:not([data-online]) .play-result-body { grid-template-columns: auto auto; justify-content: center; align-items: center; column-gap: 10px; }
+.play-game[data-form='compact']:not([data-online]) .play-result-body > :not(.play-result-seal, h3) { grid-column: 1 / -1; }
 .play-game[data-form='compact'] .play-result-seal { width: 28px; height: 28px; }
 .play-game[data-form='compact'] .play-result-players { display: none; }
 .play-game[data-form='compact']:not([data-online]) .play-result { padding: 8px 4px 2px; }
-.play-game[data-form='compact']:not([data-online]) .play-result-body h3 { font-size: 22px; }
+.play-game[data-form='compact']:not([data-online]) .play-result-body h3 { font-size: 20px; }
 .play-game[data-form='compact'] .play-result-numbers p { display: block; }
 .play-game[data-form='compact'] .play-result-numbers strong { font-size: 16px; }
 .play-game[data-form='compact'] .play-result-numbers small { display: inline; }
