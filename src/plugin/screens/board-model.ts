@@ -141,24 +141,27 @@ export function committedPreview(before: View, next: View, preview: DraftPreview
 function replayActions(initial: string, actions: readonly string[], next: View, rules: Partial<Rules>): BoardMove[] | undefined {
   try {
     const start = new GameRules(rules).fromFen(initial);
-    let pawnPush = false;
-    const replay = (oldClock: boolean) => {
+    let pawnPush = false, pawnSwap = false;
+    const replay = (oldSwap: boolean, oldPush = false) => {
       let pos = start;
       const steps: BoardMove[] = [];
       for (const lan of actions) {
         const step = applyLan(pos, lan, rules);
         if (!step) return;
-        const shove = step.move.shove;
-        if (shove && typeOf(pos.board[shove.from]) === P) {
-          pawnPush = true;
-          if (oldClock) step.pos.halfmove = pos.halfmove + 1;
-        }
+        const { shove, swap, from, to } = step.move;
+        const pushesPawn = shove && typeOf(pos.board[shove.from]) === P;
+        const swapsPawn = swap && typeOf(pos.board[to]) === P && typeOf(pos.board[from]) !== P;
+        if (pushesPawn) pawnPush = true;
+        if (swapsPawn) pawnSwap = true;
+        if ((oldPush && pushesPawn) || (oldSwap && swapsPawn)) step.pos.halfmove = pos.halfmove + 1;
         steps.push(step); pos = step.pos;
       }
       return toFen(pos) === next.fen ? steps : undefined;
     };
-    // An older worker counts an Ogre pawn push as a quiet action. The full final FEN must still match.
-    return replay(false) ?? (pawnPush && next.engine_fingerprint && needsServerPreview(next.engine_fingerprint) ? replay(true) : undefined);
+    const current = replay(false);
+    if (current || !next.engine_fingerprint || !needsServerPreview(next.engine_fingerprint)) return current;
+    // Ogre pawn pushes began to reset the count before pawn swaps did.
+    return (pawnSwap ? replay(true) : undefined) ?? (pawnPush ? replay(true, true) : undefined);
   } catch { return; }
 }
 

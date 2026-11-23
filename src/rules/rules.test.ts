@@ -345,6 +345,30 @@ describe('draws', () => {
     expect(game.status).toBe('playing');
   });
   it.each([
+    ['k7/2K5/B7/8/8/8/8/8 b - - 0 1 g0.1', ['G@a7', 'Ba6-b7']],
+    ['8/8/8/8/8/b7/2k5/K7 w - - 0 1 g1.0', ['G@a2', 'Ba3-b2']],
+  ])('lets a waiting Guard block for mate from %s', (fen, lan) => {
+    const game = new Game(CLASSIC_CHESS, { guardReserve: 'rank12', guardCaptures: 'none' });
+    game.load(game.context.fromFen(fen));
+    expect(game.status).toBe('playing');
+    expect(game.playLan(lan)).toBe(2);
+    expect(game.status).toBe('checkmate');
+  });
+  it.each(['k7/8/8/8/8/8/8/K7 w - - 0 1 g1.1', 'k7/8/8/8/8/8/8/KG6 b - - 0 1 g0.1'])('keeps the material draw with no minor piece while a Guard waits: %s', fen => {
+    const game = new Game(CLASSIC_CHESS, { guardReserve: 'rank12', guardCaptures: 'none' });
+    game.load(game.context.fromFen(fen));
+    expect(game.status).toBe('drawMaterial');
+  });
+  it.each([
+    ['7k/8/8/8/3P4/3M4/8/K7 w - - 99 50', 'Md3<>d4'],
+    ['k7/8/3m4/3p4/8/8/8/7K b - - 99 50', 'Md6<>d5'],
+  ])('resets the 50-move count when a Maester swaps a pawn from %s', (fen, swap) => {
+    const game = new Game(CLASSIC_CHESS);
+    game.load(game.context.fromFen(fen));
+    expect(game.playLan([swap])).toBe(1);
+    expect({ halfmove: game.pos.halfmove, status: game.status }).toEqual({ halfmove: 0, status: 'playing' });
+  });
+  it.each([
     ['7k/8/8/8/3p4/3O4/8/4K3 w - - 99 50', 'Od3>d4-d5', 'd5', P, 0, 'playing'],
     ['4k3/8/3o4/3P4/8/8/8/7K b - - 99 50', 'Od6>d5-d4', 'd4', P, 0, 'playing'],
     ['7k/3P4/3O4/8/8/8/8/K7 w - - 99 50', 'Od6>d7-d8', 'd8', P, 0, 'playing'],

@@ -154,7 +154,7 @@ export const DOCUMENT_PINS: Readonly<Record<string, Readonly<Record<string, stri
   },
   "docs/RULES.md": {
     "# King Down Chess — current rules and dated decisions": "9b292228627ad007767062ecde49c1ceeee63aa6fc99efec2e73c06f3a00c5c3",
-    "## 1. Base rules": "2ebb8c36f5d4c802ffe3ac4a42dd40cde8aee3f506d2abf8d4b31f5ff2b0747a",
+    "## 1. Base rules": "ea38bdcf7a2e487744b3ee6551690962015f03e15ff367db8946d1fc7f783223",
     "## 2. Setup (Chess960-style)": "424240d88474ad1a2f0fd64ab5a1f7af4a954d57d933dc3aaf3e25d87a779df9",
     "## 3. Pieces": "8bbfdf85044c43e9c2a6012506c950aee12dcabe02c1123ce0badf0ca15eebae",
     "## 4. Kings' powers mode (all twelve built; the balanced readings are the official rules)": "35c2140f37d596cb96713a69fcde69d7b2499225df118ba3db66cc219a30814b",

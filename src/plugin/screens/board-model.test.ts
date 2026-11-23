@@ -105,6 +105,21 @@ test('restores an archived Ogre pawn push with its stored 50-move count', () => 
   expect(replayHistory({ ...next, fen: next.fen.replace('18 50', '19 50') }, {})).toBeUndefined();
 });
 
+test.each([
+  { name: 'a Maester pawn swap', initial_fen: '7k/8/8/8/3P4/3M4/8/K7 w - - 10 50', actions: ['Md3<>d4'], fen: '7k/8/8/8/3M4/3P4/8/K7 b - - 11 50', rules: {} },
+  { name: 'a FirewallB pawn swap', initial_fen: '7k/8/8/8/3p4/3N4/8/K7 w - - 10 50', actions: ['!E:d3<>d4'], fen: '7k/8/8/8/3N4/3p4/8/K7 b - - 11 50 u1.0', rules: { hands: [['FirewallB'], []] } as Partial<Rules> },
+  { name: 'an Ogre pawn push and a Maester pawn swap', initial_fen: '7k/8/8/8/3Pp3/3MO3/8/K7 w - - 10 50', actions: ['Oe3>e4-e5', 'Kh8-h7', 'Md3<>d4'], fen: '8/7k/8/4p3/3MO3/3P4/8/K7 b - - 2 51', rules: {} },
+])('replays an archived game with $name to the server FEN', ({ initial_fen, actions, fen, rules }) => {
+  const before = view({ revision: 0, fen: initial_fen });
+  const next = view({ revision: actions.length, fen, engine_fingerprint: 'sha256:3643657990973c8678d687f60f1ff630b5cf6046183b19673094d62db38916bf', history: { initial_fen, actions },
+    last_commands: actions.map((lan, i) => ({ seq: i + 1, seat: i % 2 === 0 ? 0 : 1, at: before.server_now, action: { type: 'turn', actions: [lan] } })),
+  });
+  const history = replayHistory(next, rules);
+  expect(history?.map(step => step.lan)).toEqual(actions);
+  expect(toFen(history!.at(-1)!.pos)).toBe(fen);
+  expect(replayLans(before, next, rules)).toEqual(history);
+});
+
 test.each(['a2-a3', '--'])('replays a complete opponent turn with a free action and %s', end => {
   const partial = stage(FREEZE, ['!F:d5'], freezeRules);
   expect(lastOpponentTurn(partial.steps, { fen: toFen(partial.pos), seat: 1 })).toEqual([]);
