@@ -30,10 +30,11 @@ import { DraftTurn, isDirect, armKey } from './turn';
 import { Arrangement, ARRANGE_KEY } from './arrange';
 import type { PlainMarks } from '../../render/plain-marks';
 import { actorMarks, kingSquare, mergeMarks, previewMarks, resultMarks, stateMarks, type MarkAction } from './marks';
+import { castOf } from './cast';
 import { cardLine, pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, kingLabel, rematchLine, resultSheet, resultText } from './texts';
 import { readingText, checkLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
 import { armCard, calm, cardFly, disarm, screenChange, setInterfaceMotion, sheetMotion, trackCard, time } from './motion';
-import { at, burst, closeIn, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, seal, SEAL_MS, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, strike, tween, type Effect } from './fx';
+import { at, burst, castIn, closeIn, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, seal, SEAL_MS, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, strike, tween, type Effect } from './fx';
 import { gameLayout, panelBox, type Form } from './layout';
 import { fitReader, narratorView, readerNodes, readerView, resetFit, sentences, type ReaderModel } from './reader';
 import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, gameFacts, savedPlayTime, storeChoice as store, storedChoice as stored, storedGameType, storedVibration, storeVibration, type GameType as Setup, type KeptOffer, type Level } from './saved';
@@ -135,7 +136,7 @@ let last = '', notice = '', resultCause = '', choice: Move[] = [], choiceSquare 
 // the computer's card group, and the computer's text while its reply plays.
 let sealing: Effect[] = [], form: Form = 'tall', nodes = readerNodes(), rivalGroup: Resource | null = null, acting = '';
 let screen: HTMLElement, boardBox: HTMLElement, boardHost: HTMLElement, reader: HTMLElement, detail: HTMLElement, choiceBox: HTMLElement;
-let cells: HTMLButtonElement[] = [], choiceCancel: HTMLButtonElement, struck: { square: number; height: number } | undefined, beat: Effect | undefined;
+let cells: HTMLButtonElement[] = [], choiceCancel: HTMLButtonElement, struck: { square: number; height: number } | undefined, beat: Effect | undefined, casting: Effect | undefined;
 let menuButton: HTMLButtonElement;
 let historyStrip: HTMLElement, historyButton: HTMLButtonElement, historyCompact: HTMLElement, scrollPanel: HTMLElement;
 let scrollOpen: 'history' | null = null, floatingSource: HTMLElement | null = null, swallowedPointer = false;
@@ -501,7 +502,7 @@ function home(newArmy = false) {
   }
   onlineActive = false; onlineState = undefined; people?.stopGame();
   gameHelp?.close(); closeGuidePanel();
-  endResult?.(); rewind?.finish(); seatFrame?.finish(); boardReplay.cancel(); generation++; engine.cancel(); endEntry(); endCardFlight(); cancelCheckPulse(); endReply = null;
+  endResult?.(); rewind?.finish(); seatFrame?.finish(); boardReplay.cancel(); generation++; engine.cancel(); endEntry(); endCardFlight(); cancelCheckPulse(); casting?.cancel(); endReply = null;
   // The game screen slides away over the home screen; its board goes when it has left.
   board?.skip();
   const old = root.querySelector<HTMLElement>('.play-game'), oldBoard = board; board = undefined;
@@ -706,7 +707,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   enteredAt = undefined; resultReview = false;
   resources = []; shown = null; replySteps = []; resigned = null; liveGame = true;
   ended = false; fault = null; thinking = arrangement ? false : onlineActive ? !onlineState?.draft : game.pos.turn === cpu() && game.status === 'playing'; cursor = arrangement ? player ? 63 : 0 : player ? 52 : 12;
-  selected = inspected = null; choice = []; reading = 'normal'; last = ''; lastActions = []; playingAction = null; beat?.cancel(); markFocus = undefined; nextMarksAt = 0; notice = ''; resultCause = '';
+  selected = inspected = null; choice = []; reading = 'normal'; last = ''; lastActions = []; playingAction = null; beat?.cancel(); casting?.cancel(); markFocus = undefined; nextMarksAt = 0; notice = ''; resultCause = '';
   if (resumed) {
     // The last handed-over turn shows in the reading area and in the marks.
     const h = game.history, side = h.at(-1)?.pos.turn; let i = h.length;
@@ -956,7 +957,7 @@ function versusCard(loaded: Promise<unknown>): Promise<void> {
 }
 
 /** End any board playback; a computer reply that only waits for its playback ends with it. */
-function skipBoard() { beat?.cancel(); rewind?.finish(); boardReplay.cancel(); endCardFlight(); cancelCheckPulse(); board?.skip(); playingAction = null; endReply?.(); }
+function skipBoard() { beat?.cancel(); casting?.cancel(); rewind?.finish(); boardReplay.cancel(); endCardFlight(); cancelCheckPulse(); board?.skip(); playingAction = null; endReply?.(); }
 function moveCursor(square: number) { cells[cursor].tabIndex = -1; cursor = square; cells[cursor].tabIndex = 0; cells[cursor].focus({ preventScroll: true }); }
 document.addEventListener('keydown', event => {
   if (event.defaultPrevented) return;
@@ -1094,11 +1095,11 @@ function animate(before: Position, move: Move, after: Position): Promise<unknown
   nextMarksAt = 0;
   checkShown = false; cancelCheckPulse();
   const action: NonNullable<typeof playingAction> = playingAction = { before, move }; endSeal();
-  beat?.cancel(); board.setPosition(before, game.context);
+  beat?.cancel(); casting?.cancel(); board.setPosition(before, game.context);
   const turned = !move.pass && before.turn !== after.turn && game.context.inCheck(after);
   const checkCue = turned ? game.context.legalMoves(after).length > 0 ? finalCheckCue : drawCheckIn : !move.pass && newCheck(before, after) ? drawCheckIn : undefined;
   // The marks follow the landed move: a check that ends or starts shows at the landing.
-  const done = board.play(move, after, () => { action.landed = after; checkCue?.(after); drawMarks(); }).catch(error => { refuse(String(error)); }).finally(() => {
+  const done = board.play(move, after, () => { action.landed = after; checkCue?.(after); drawMarks(); if (playingAction === action) castBeat(move); }).catch(error => { refuse(String(error)); }).finally(() => {
     if (playingAction === action) {
       playingAction = null;
 
@@ -1122,12 +1123,18 @@ function replyMotion() { return !calm() && motion !== 'off' && !matchMedia('(pre
 /** Live playback draws a new check in; a manual Replay shows it at once. */
 function playReply(steps: readonly ReplayStep[], view: Board, live = false) {
   const own = generation;
-  beat?.cancel(); endSeal(); screen.dataset.replaying = 'true';
+  beat?.cancel(); casting?.cancel(); endSeal(); screen.dataset.replaying = 'true';
   return boardReplay.play(steps, view, game.context, () => own === generation && board === view,
     () => { playingAction = null; view.setPosition(draft.position, game.context); screen.dataset.replaying = 'false'; drawMarks(); },
     (pos, step) => { playingAction = step ? { before: pos, move: step.move } : null; drawMarks(); },
-    step => { if (playingAction) playingAction.landed = step.after; if (live && newCheck(step.before, step.after)) drawCheckIn(step.after); drawMarks(); })
+    step => { if (playingAction) playingAction.landed = step.after; if (live && newCheck(step.before, step.after)) drawCheckIn(step.after); drawMarks(); if (playingAction?.move === step.move) castBeat(step.move); })
     .catch(error => refuse(String(error)));
+}
+/** A card's finale where it changed the board, for both players (cast.ts); none on a hidden page. */
+function castBeat(move: Move) {
+  casting?.cancel();
+  const cast = document.hidden ? undefined : castOf(move);
+  casting = cast && castIn(cast.family, cast.squares.map(square => cells[square]), () => [...detail.querySelectorAll('.play-turn-state'), nodes.title]);
 }
 /** A move gives a new check: also on the side that does not move now (Haste). */
 function newCheck(before: Position, after: Position) {
@@ -2126,7 +2133,7 @@ function closeGameDialog() { shutGameDialog(true); }
 /** At a game end, Menu (Offer draw, Resign) and the Resign confirm are stale and cover the result. The Guide and History stay. */
 /** A game end closes what the last turn left open: the menus, the resign dialog and the commit seal. */
 function closeStaleDialogs() {
-  endSeal();
+  endSeal(); casting?.cancel();
   if (gameDialog?.classList.contains('game-menu-dialog')) closeGameDialog();
   // The cancel event takes the path of Escape: the confirm gives back its history layer.
   if (resignDialog?.element.open) { resignDialog.element.dispatchEvent(new Event('cancel')); resignDialog.element.close(); }
@@ -2239,7 +2246,7 @@ function renderPlace(route: Route) {
     openSettings(homeSettingsButton() ?? root);
     return;
   }
-  endResult?.(); rewind?.finish(); seatFrame?.finish(); boardReplay.cancel(); generation++; engine.cancel(); endEntry(); endCardFlight(); cancelCheckPulse(); board?.dispose(); board = undefined; endReply = null;
+  endResult?.(); rewind?.finish(); seatFrame?.finish(); boardReplay.cancel(); generation++; engine.cancel(); endEntry(); endCardFlight(); cancelCheckPulse(); casting?.cancel(); board?.dispose(); board = undefined; endReply = null;
   document.body.dataset.page = route.place;
   if (route.place === 'guide') root.replaceChildren(guidePage(route.section, route.entry,
     (section, entry) => shell.go({ place: 'guide', ...(section && { section }), ...(entry && { entry }) }),
