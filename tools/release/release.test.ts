@@ -19,8 +19,8 @@ const run = (command: string, args: string[], settings: NodeJS.ProcessEnv = {}) 
   });
 };
 
-function release(args: string[] = [], fail?: string, note = 'dry-run fixture') {
-  const result = run('bash', ['tools/release/release.sh', '--dry-run', ...args, '1499', head, note], { KINGDOWN_RELEASE_FAIL_STAGE: fail });
+function release(args: string[] = [], fail?: string, note = 'dry-run fixture', settings: NodeJS.ProcessEnv = {}) {
+  const result = run('bash', ['tools/release/release.sh', '--dry-run', ...args, '1499', head, note], { KINGDOWN_RELEASE_FAIL_STAGE: fail, ...settings });
   const progress = result.stdout.match(/^release: progress (.+)$/m)?.[1];
   return {
     code: result.status,
@@ -75,12 +75,34 @@ it('stops before merge when the frame-time checks fail', () => {
   }
 });
 
+it('starts staging before the frame-time checks finish when the worktrees differ', () => {
+  const full = release([], undefined, undefined, { KINGDOWN_RELEASE_WORKTREE: '' });
+  expect(full.code, full.output).toBe(0);
+  expect(full.output.indexOf('release: staging start')).toBeLessThan(full.output.indexOf('release: ci pass'));
+  expect(full.output.indexOf('release: merge start')).toBeGreaterThan(full.output.indexOf('release: staging-checks pass'));
+});
+
+it('stops before merge when the parallel staging checks fail', () => {
+  const failed = release([], 'staging-checks', undefined, { KINGDOWN_RELEASE_WORKTREE: '' });
+  expect(failed.code, failed.output).toBe(1);
+  expect(failed.output).toContain('release: staging-checks failed');
+  expect(failed.started).not.toContain('merge');
+});
+
+it('runs staging after CI when the stages share a worktree', () => {
+  const shared = release();
+  expect(shared.code, shared.output).toBe(0);
+  expect(shared.output.indexOf('release: staging start')).toBeGreaterThan(shared.output.indexOf('release: ci pass'));
+});
+
 it.each([
   ['pass', '1505'],
   ['frame-time fails', '1506'],
   ['PR CI fails', '1507'],
   ['fork', '1508'],
   ['reuse', '1509'],
+  ['overlap', '1510'],
+  ['overlap CI fails', '1511'],
 ])('records the PR tree only when both CI jobs pass (%s)', (outcome, number) => {
   const repo = tempRepo({ hooks: false });
   try {
@@ -88,7 +110,7 @@ it.each([
     repo.git('add', '.');
     repo.git('commit', '-qm', 'base');
     const base = repo.git('rev-parse', 'HEAD').stdout.trim();
-    repo.write('catalog.txt', 'PR change\n');
+    repo.write('catalog.txt', `PR change ${number}\n`);
     repo.git('add', '.');
     repo.git('commit', '-qm', 'PR');
     const commit = repo.git('rev-parse', 'HEAD').stdout.trim();
@@ -102,29 +124,44 @@ stage=ci
 mkdir -p "$run/live"
 printf 'old pass\n' > "$frame_record"
 if [ "$OUTCOME" = reuse ]; then
-  prior="$base/release-1505-$head/live"
+  prior="$base/release-1505-${'b'.repeat(40)}/live"
   mkdir -p "$prior"
   printf 'pass %s 2026-11-23T10:00:00Z king-effects painted-game\n' "$TREE" > "$prior/frame-checks.pass"
 fi
+if [[ "$OUTCOME" == overlap* ]]; then overlap_staging=yes; fi
 gh() { printf '%s\n' "$PR_JSON" | jq -r "\${!#}"; }
 bash() {
   [[ "$1" == */ci-wait.sh && "$2" == "$head" && "$4" == --pr-head ]] || return 80
   touch "$run/ci-started"
   [ "$OUTCOME" != reuse ] || return 0
   for ((i = 0; i < 100; i++)); do
-    if [ -f "$run/gpu-started" ]; then [ "$OUTCOME" != "PR CI fails" ]; return; fi
+    if [ -f "$run/gpu-started" ]; then
+      [[ "$OUTCOME" != *'CI fails' ]] || return 1
+      touch "$run/pr-green"
+      return
+    fi
     sleep .02
   done
   return 81
 }
 npm() { [ "$1" = ci ] && mkdir -p node_modules; }
+staging_deploy() { [ -f "$run/pr-green" ] && [ -f "$run/gpu-started" ] && touch "$run/staging-ran"; }
+checks() { [ -f "$run/staging-ran" ] && touch "$run/staging-checked"; }
 node() {
+  [[ "$1" != */deploy-plugin-live-check.mjs ]] || return 0
   [ "$OUTCOME" != reuse ] && [ "$*" = 'tools/check.mjs --gpu' ] && [ -d node_modules ] &&
     [ "$(git rev-parse HEAD)" = "$head" ] && [ "$KINGDOWN_SOLO_LAUNCH" = 1 ] || return 82
   for ((i = 0; i < 100; i++)); do
     if [ -f "$run/ci-started" ]; then
       touch "$run/gpu-started"
       [ "$OUTCOME" != "frame-time fails" ] || return 83
+      if [ "$OUTCOME" = overlap ]; then
+        for ((i = 0; i < 100; i++)); do
+          [ ! -f "$run/staging-checked" ] || break
+          sleep .02
+        done
+        [ -f "$run/staging-checked" ] || return 85
+      fi
       printf 'ok   king-effects     1.0 s\nok   painted-game     1.0 s\n'
       return
     fi
@@ -133,6 +170,7 @@ node() {
   return 84
 }
 run_stage ci
+if [ "$OUTCOME" = overlap ]; then join_staging; fi
 cat "$frame_record"
 `, 'tools/release/release.sh', commit, number], {
       KINGDOWN_RELEASE_WORKTREE: repo.dir,
@@ -142,9 +180,11 @@ cat "$frame_record"
     });
     const output = result.stdout + result.stderr;
     const evidence = join(folder, `release-dry-${number}-${commit}`);
-    expect(result.status, output).toBe(['pass', 'reuse'].includes(outcome) ? 0 : outcome === 'frame-time fails' ? 83 : 1);
+    const passed = ['pass', 'reuse', 'overlap'].includes(outcome);
+    expect(result.status, output).toBe(passed ? 0 : outcome === 'frame-time fails' ? 83 : 1);
     expect(existsSync(join(evidence, 'gpu-started'))).toBe(!['fork', 'reuse'].includes(outcome));
-    if (['pass', 'reuse'].includes(outcome)) {
+    expect(existsSync(join(evidence, 'staging-checked'))).toBe(outcome === 'overlap');
+    if (passed) {
       expect(output).toMatch(new RegExp(`^pass ${tree} \\d{4}-\\d{2}-\\d{2}T[0-9:]+Z king-effects painted-game$`, 'm'));
     } else {
       expect(existsSync(join(evidence, 'live/frame-checks.pass'))).toBe(false);
@@ -400,6 +440,7 @@ it('sets test pages only for the preview build', () => {
   const staging = run('python3', ['tools/release/staging.py', '--dry-run', head], { KINGDOWN_TEST_PAGES: '1' });
   expect(preview.stdout.split('\n').find(line => line.includes('npm run build:vercel'))).toContain('env KINGDOWN_TEST_PAGES=1');
   expect(staging.stdout.split('\n').find(line => line.includes('npm run build:vercel'))).toContain('env -u KINGDOWN_TEST_PAGES');
+  expect(staging.stdout.split('\n').find(line => line.includes('npm run build:vercel'))).toContain('tools/test-lock.sh --machine');
   expect(readFileSync('tools/release/live.sh', 'utf8')).toMatch(/^unset KINGDOWN_STAGE VITE_KINGDOWN_STAGE KINGDOWN_TEST_PAGES$/m);
 });
 
