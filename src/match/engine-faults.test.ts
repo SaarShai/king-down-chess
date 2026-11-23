@@ -23,6 +23,25 @@ it('keeps the archived material draw and lets a new match play the mate', async 
   } finally { await old.close(); }
 }, 20_000);
 
+it('keeps the archived Maester pawn-swap draw and lets a new match play on', async () => {
+  const save = readFileSync(new URL('./fixtures/maester-swap-364365e3.save.json', import.meta.url), 'utf8').trimEnd();
+  const saved: MatchSave = JSON.parse(save);
+  const old = await loadMatch(save);
+  try {
+    const before = await old.snapshot();
+    expect(before).toMatchObject({ fen: '7k/8/8/8/3M4/3P4/8/K7 b - - 100 50', status: 'draw50', history: ['Md3<>d4'], legal: [] });
+    expect(await old.exportSave()).toBe(save);
+
+    const fresh = await createMatch(saved.setup);
+    try {
+      const after = await fresh.apply({ id: 'maester-pawn-swap', expectedRevision: 0, lan: 'Md3<>d4' });
+      expect(after).toMatchObject({ fen: '7k/8/8/8/3M4/3P4/8/K7 b - - 0 50', status: 'playing' });
+      expect(after.legal.length).toBeGreaterThan(0);
+      expect(JSON.parse(await fresh.exportSave()).engine).not.toBe(saved.engine);
+    } finally { await fresh.close(); }
+  } finally { await old.close(); }
+}, 20_000);
+
 it('lets the computer play a position that its archived engine keeps open', async () => {
   const engine = 'sha256:e97592e3982641cacfe591e70ec2aacd7736ef3863172b34d59d2a18452efcd2';
   const original = await createPinnedMatch({ fen: '7k/8/8/8/8/8/2B5/KB6 w - - 0 1', classic: true }, engine);
