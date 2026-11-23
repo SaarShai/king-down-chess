@@ -1264,7 +1264,11 @@ async function pluginSite(fault = '', files?: Record<string, string> | (() => Re
     } else if (path === '/plugin-art/test-art.webp') {
       const headers: Record<string, string> = { ...artHeaders };
       if (fault === 'csp') headers['Content-Security-Policy'] = "default-src 'none'";
-      if (fault === 'cors') delete headers['Access-Control-Allow-Origin'];
+      if (fault === 'cors') {
+        delete headers['Access-Control-Allow-Origin'];
+        // This reply takes longer than the old 250 ms deadline.
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
       if (fault === 'charset') {
         headers['Content-Type'] += '; charset=utf-8';
         await new Promise(resolve => setTimeout(resolve, 1600));
@@ -1394,7 +1398,8 @@ describe('deploy-plugin-live-check.mjs', () => {
   it('rejects missing metadata, a lost consent query, unsigned access and stale scripts or art policies', async () => {
     for (const fault of ['issuer', 'challenge', 'script', 'metadata-root', 'query', 'art', 'csp', 'cors']) {
       const live = await pluginSite(fault);
-      const result = await runAsync(process.execPath, [pluginLiveCheck, pluginFolder(), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '250' } });
+      const timeoutMs = fault === 'cors' ? '2000' : '250';
+      const result = await runAsync(process.execPath, [pluginLiveCheck, pluginFolder(), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: timeoutMs } });
       expect(result.status, fault).toBe(1);
       expect(result.stderr).toContain('plugin-live-check: FAIL');
       // The report names the check that failed, not the last short request.
