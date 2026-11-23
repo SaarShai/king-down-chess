@@ -1033,7 +1033,7 @@ export function resetsHalfmove(board: Uint8Array, m: Move): boolean {
   if (isStill(m)) return false;
   if (m.captures.length || (m.shove && typeOf(board[m.shove.from]) === P)) return true;
   if (m.pushes) return m.pushes.some(p => typeOf(board[p.from]) === P);
-  return !m.drop && typeOf(board[m.from]) === P;
+  return !m.drop && (typeOf(board[m.from]) === P || (m.swap === true && typeOf(board[m.to]) === P));
 }
 
 export function makeMove(pos: Position, m: Move): Position {
@@ -2069,7 +2069,7 @@ export function insufficientMaterial(board: Uint8Array): boolean {
  * Material draw under the active rules; an unspent Strike can still change mating potential, and so
  * can a piece that may still enter: a Salvation card with a returnable piece in the reserve
  * (`lost`; conservative, whatever the piece), or a waiting guard (`waiting`) when guards mate
- * (`guardCaptures: 'any'`), and so can a Morph or MorphB card while the side has a piece to morph
+ * (`guardCaptures: 'any'`) or, beside a minor, when the reserve lets it enter as a blocker, and so can a Morph or MorphB card while the side has a piece to morph
  * (conservative: any piece but the king), and an unplayed Spawn card of any reading (a new pawn can
  * still promote; conservative: whether or not a square is free now). A card counts while a Mirror may copy it (the opponent
  * played it last, `last`) or a Growth may still draw it from the pile (`drawn`). The other card-only
@@ -2082,6 +2082,8 @@ export function materialDraw(board: Uint8Array, used?: readonly [number, number]
   // The board first: it is the cheap test (a pawn or a rook ends it), and the search asks at every node.
   if (!RULES.insufficientMaterial || !insufficientMaterial(board)) return false;
   if (RULES.guardCaptures === 'any' && !!waiting && (waiting[0] > 0 || waiting[1] > 0)) return false;
+  // A guard that may still enter can block a king beside a minor, as one on the board can (`insufficientMaterial`).
+  if (RULES.guardReserve !== 'off' && !!waiting && (waiting[0] > 0 || waiting[1] > 0) && board.some(p => typeOf(p) === B || typeOf(p) === N || typeOf(p) === V)) return false;
   return !liveCard(board, WHITE, used?.[0] ?? 0, drawn?.[0] ?? 0, lost, last?.[1]) && !liveCard(board, BLACK, used?.[1] ?? 0, drawn?.[1] ?? 0, lost, last?.[0]);
 }
 
