@@ -28,6 +28,7 @@ reviewed=${reviewed:-$head}
 [[ " ${stages[*]} " == *" $from "* && -n "$from" ]] || usage
 
 tools=$(cd "$(dirname "$0")/.." && pwd -P)
+. "$tools/release/frame-checks.sh"
 cd "$tools/.."
 main=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
 base=${KINGDOWN_RELEASE_EVIDENCE:-$main/../evidence}
@@ -39,13 +40,54 @@ run=$(cd "$run" && pwd -P)
 lock="$base/$kind-active"
 progress="$run/progress.log"
 frame_record="$run/live/frame-checks.pass"
-stage= failure_commit=$head publish_error= bypassed= ci_pid=
+stage= failure_commit=$head publish_error= bypassed=
+frame_pid= staging_pid= main_ci_pid= engines_pid= starting_job=no interrupted=0
+start_job() {
+  local slot=$1
+  shift
+  starting_job=yes
+  # Give each lane a process group, including its child commands (Bash 3.2).
+  set -m
+  (set +m; "$@") </dev/null &
+  printf -v "$slot" '%s' "$!"
+  set +m
+  starting_job=no
+  [ "$interrupted" -eq 0 ] || exit "$interrupted"
+}
+interrupt() {
+  [ "$starting_job" = yes ] || exit "$1"
+  interrupted=$1
+}
+wait_job() {
+  local slot=$1 pid
+  pid=${!slot}
+  [ -n "$pid" ] || return 0
+  wait "$pid" || return
+  printf -v "$slot" '%s' ''
+}
+stop_jobs() {
+  local pid deadline=$((SECONDS + 5))
+  for pid in "$@"; do
+    [ -n "$pid" ] || continue
+    kill -s TERM -- "-$pid" 2>/dev/null || :
+  done
+  for pid in "$@"; do
+    [ -n "$pid" ] || continue
+    # A child can still be cleaning up after the group leader exits.
+    while kill -0 -- "-$pid" 2>/dev/null; do
+      if [ "$SECONDS" -ge "$deadline" ]; then
+        kill -s KILL -- "-$pid" 2>/dev/null || :
+        break
+      fi
+      sleep .1
+    done
+    wait "$pid" 2>/dev/null || :
+  done
+}
 finish() {
   local code=$?
-  if [ -n "$ci_pid" ]; then
-    kill "$ci_pid" 2>/dev/null || :
-    wait "$ci_pid" 2>/dev/null || :
-  fi
+  trap '' INT TERM HUP
+  stop_jobs "$frame_pid" "$staging_pid" "$main_ci_pid" "$engines_pid"
   if [ "$code" -ne 0 ] && [ -n "$stage" ]; then
     write_failure "$code" || echo "release: could not append to $release_log" >&2
     say "$stage failed ($code). ${publish_error:+$publish_error. }See $run/$stage.log"
@@ -56,7 +98,10 @@ finish() {
   rm -f "$lock/pid"
   rmdir "$lock"
 }
-say() { printf 'release: %s\n' "$*" | tee -a "$progress"; }
+say() {
+  local line="release: $*"
+  printf '%s\n' "$line" >> "$progress" && printf '%s\n' "$line"
+}
 dry_command() { printf 'dry-run:'; printf ' %q' "$@"; printf '\n'; }
 outward() {
   if [ "$dry" = yes ]; then dry_command "$@"; else "$@"; fi
@@ -67,6 +112,10 @@ staging=https://kingdown-staging.vercel.app
 live=https://kingdown.dev
 staging_tree=${KINGDOWN_RELEASE_WORKTREE:-$main/.claude/worktrees/release-staging}
 live_tree=${KINGDOWN_RELEASE_WORKTREE:-$main/.claude/worktrees/release-live}
+overlap_staging=no
+if [ "$from" = ci ] && [ "$tweak" = no ] && [ "$staging_tree" != "$live_tree" ] && ! [ "$staging_tree" -ef "$live_tree" ]; then
+  overlap_staging=yes
+fi
 release_log=${KINGDOWN_RELEASE_LOG:-$main/../runs/launch/release-log.md}
 pr_view() { gh pr view "$pr" --repo "$repository" "$@"; }
 
@@ -96,38 +145,56 @@ wait_head() {
   outward bash "$tools/release/ci-wait.sh" "$head" '' --pr-head
 }
 release_ci() {
-  local began code=0 tree time passed_checks
-  if [ "$dry" = no ]; then rm -f "$frame_record" || return; fi
+  local code=0 tree saved=
+  if tree=$(git rev-parse --quiet --verify "$head^{tree}") ||
+     tree=$(git -C "$live_tree" rev-parse --quiet --verify "$head^{tree}" 2>/dev/null); then
+    if frame_passed_at "$frame_record" "$tree" >/dev/null; then
+      saved=$frame_record
+    else
+      saved=$(find_frame_record "$base" "$tree") || saved=
+    fi
+  fi
+  if [ "$dry" = no ] && [ "$saved" != "$frame_record" ]; then rm -f "$frame_record" || return; fi
   require_release_pr || return
   if [ "$dry" = yes ]; then
-    echo 'dry-run: run PR CI wait and frame-time browser checks in parallel, then require both to pass'
+    echo 'dry-run: reuse the passing PR CI run at the exact head if it exists'
+    echo 'dry-run: check PR CI and frame-time evidence in parallel, then require both to pass'
     dry_command bash "$tools/release/ci-wait.sh" "$head" '' --pr-head
-  else
-    bash "$tools/release/ci-wait.sh" "$head" '' --pr-head &
-    ci_pid=$!
   fi
-  began=$SECONDS
-  frame_checks || code=$?
-  say "time frame-checks $((SECONDS - began))s"
-  [ "$code" -eq 0 ] || return "$code"
-  if [ "$dry" = yes ]; then
+  if [ -n "$saved" ]; then
+    say "reuse frame-checks for tree $tree from $saved"
+    say 'time frame-checks 0s'
+  elif [ "$dry" = yes ]; then
+    timed_frame_checks || return
     dry_command "cwd=$live_tree" git rev-parse "$head^{tree}"
     dry_command "write pass (tree, UTC time, king-effects painted-game) to $frame_record"
-    return
+  else
+    start_job frame_pid timed_frame_checks
   fi
-  tree=$(git -C "$live_tree" rev-parse "$head^{tree}") || return
-  time=$(date -u +%FT%TZ) || return
-  passed_checks=$(awk '$1 == "ok" {printf "%s%s", separator, $2; separator=" "}' "$run/frame-checks.log") || return
-  if [ -z "$passed_checks" ]; then
-    echo 'release: the frame-time run reported no passing checks' >&2
-    return 1
+  [ "$dry" = no ] || return 0
+  if bash "$tools/release/ci-wait.sh" "$head" '' --pr-head; then
+    if [ "$overlap_staging" = yes ]; then
+      if [ -n "$frame_pid" ] && ! kill -0 "$frame_pid" 2>/dev/null; then
+        wait_job frame_pid || return
+      fi
+      start_job staging_pid staging_lane
+    fi
+  else
+    code=$?
   fi
-  wait "$ci_pid" || code=$?
-  ci_pid=
+  wait_job frame_pid || return
   [ "$code" -eq 0 ] || return "$code"
-  mkdir -p "$run/live" || return
-  printf 'pass %s %s %s\n' "$tree" "$time" "$passed_checks" > "$frame_record.tmp" &&
-    mv "$frame_record.tmp" "$frame_record"
+  if [ -n "$saved" ]; then
+    if [ "$saved" != "$frame_record" ]; then
+      mkdir -p "$run/live" && cp "$saved" "$frame_record.tmp" && mv -f "$frame_record.tmp" "$frame_record"
+    fi
+  else
+    tree=$(git -C "$live_tree" rev-parse "$head^{tree}") || return
+    write_frame_record "$frame_record" "$tree" "$run/frame-checks.log" || {
+      echo 'release: the frame-time run has no complete pass record' >&2
+      return 1
+    }
+  fi
 }
 merge_release() {
   require_release_pr || return
@@ -136,7 +203,7 @@ merge_release() {
 }
 staging_deploy() {
   local cmd=(python3 "$tools/release/staging.py" --ci-passed --pr-head "$head")
-  if [ "$(result ci)" != pass ]; then wait_head; fi
+  if [ "$overlap_staging" = no ] && [ "$(result ci)" != pass ]; then wait_head || return; fi
   if [ "$dry" = yes ]; then
     "${cmd[@]}" --dry-run
   else
@@ -147,6 +214,7 @@ wait_main() {
   local commit
   if [ "$dry" = yes ]; then
     dry_command gh pr view "$pr" --repo "$repository" --json state,baseRefName,headRefOid,mergeCommit
+    echo 'dry-run: reuse the passing main CI run at the exact merge commit if it exists'
     commit='<merge-commit>'
   else
     commit=$(pr_view --json state,baseRefName,headRefOid,mergeCommit --jq \
@@ -155,7 +223,19 @@ wait_main() {
     failure_commit=$commit
   fi
   rm -f "$run/main-commit"
-  outward bash "$tools/release/ci-wait.sh" "$commit" "${KINGDOWN_CI_WAIT_MINUTES:-50}" --retry-failed
+  local cmd=(bash "$tools/release/ci-wait.sh" "$commit" "${KINGDOWN_CI_WAIT_MINUTES:-50}" --retry-failed)
+  if [ "$dry" = yes ]; then
+    outward "${cmd[@]}"
+  else
+    start_job engines_pid run_logged_stage engines "$commit"
+    start_job main_ci_pid outward "${cmd[@]}"
+    # Bash 3.2 cannot wait for the first of two jobs.
+    while kill -0 "$main_ci_pid" 2>/dev/null && kill -0 "$engines_pid" 2>/dev/null; do
+      sleep .2
+    done
+    if ! kill -0 "$engines_pid" 2>/dev/null; then join_engines || return; fi
+    wait_job main_ci_pid || return
+  fi
   printf '%s\n' "$commit" > "$run/main-commit"
 }
 merge_commit() {
@@ -171,12 +251,16 @@ merge_commit() {
   printf '%s\n' "$commit"
 }
 live_step() {
-  local mode=$1 commit
-  commit=$(merge_commit) || return
+  local mode=$1 commit=${2:-}
+  if [ -z "$commit" ]; then commit=$(merge_commit) || return; fi
   if [ "$dry" = yes ]; then
+    if [ "$mode" = publish ]; then
+      echo 'dry-run: reuse frame-time evidence only for the merge tree, else run the frame-time checks'
+    fi
     dry_command "KINGDOWN_RELEASE_WORKTREE=$live_tree" "KINGDOWN_RELEASE_COMMIT=$commit" "KINGDOWN_RELEASE_EVIDENCE=$run/live" bash "$tools/release/live.sh" "$mode"
   else
-    KINGDOWN_RELEASE_COMMIT="$commit" KINGDOWN_RELEASE_EVIDENCE="$run/live" bash "$tools/release/live.sh" "$mode" </dev/null
+    KINGDOWN_RELEASE_COMMIT="$commit" KINGDOWN_RELEASE_EVIDENCE="$run/live" KINGDOWN_FRAME_CHECKS_HISTORY="$base" \
+      bash "$tools/release/live.sh" "$mode" </dev/null
   fi
 }
 check_worktree() {
@@ -222,6 +306,12 @@ frame_checks() (
   node tools/check.mjs --gpu | tee "$run/frame-checks.log" || return
   check_worktree "$PWD" "$head"
 )
+timed_frame_checks() {
+  local began=$SECONDS code=0
+  frame_checks || code=$?
+  say "time frame-checks $((SECONDS - began))s"
+  return "$code"
+}
 checks() (
   local dir=$1 expected=$2 origin=$3
   shift 3
@@ -320,11 +410,53 @@ run_stage() {
       outward node "$tools/deploy-plugin-live-check.mjs" "$staging_tree/kingdown-deploy/.vercel/output/functions/mcp.func" "$staging" ;;
     merge) merge_release ;;
     main-ci) wait_main ;;
-    engines) live_step engines ;;
+    engines) live_step engines "${2:-}" ;;
     publish) live_step publish ;;
     live-check) commit=$(merge_commit) && checks "$live_tree" "$commit" "$live" release-site ;;
     log) write_log ;;
   esac
+}
+run_logged_stage() {
+  local name=$1 began=$SECONDS
+  shift
+  stage=$name
+  say "$stage start"
+  if [ "$dry" = yes ]; then
+    run_stage "$stage" "$@" | tee "$run/$stage.log"
+    [ "${KINGDOWN_RELEASE_FAIL_STAGE:-}" != "$stage" ] || return 1
+    if [ "$stage" = ci ] && [ "$overlap_staging" = yes ]; then
+      echo 'dry-run: when PR CI passes, start staging while frame-time checks run'
+      staging_lane
+    elif [ "$stage" = main-ci ]; then
+      echo 'dry-run: start the engine check while main CI runs on the merge commit'
+      run_logged_stage engines '<merge-commit>'
+    fi
+    stage=$name
+  else
+    run_stage "$stage" "$@" > "$run/$stage.log" 2>&1
+    if [ "$stage" = publish ]; then verify_publish; fi
+  fi
+  say "$stage pass"
+  say "time $stage $((SECONDS - began))s"
+}
+staging_lane() {
+  run_logged_stage staging
+  run_logged_stage staging-checks
+}
+join_staging() {
+  local code
+  wait_job staging_pid && return 0
+  code=$?
+  stage=staging
+  if [ "$(result staging)" = pass ]; then stage=staging-checks; fi
+  return "$code"
+}
+join_engines() {
+  local code
+  wait_job engines_pid && return 0
+  code=$?
+  stage=engines
+  return "$code"
 }
 
 if ! mkdir "$lock" 2>/dev/null; then
@@ -342,9 +474,9 @@ if ! mkdir "$lock" 2>/dev/null; then
   exit 2
 fi
 trap finish EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
-trap 'exit 129' HUP
+trap 'interrupt 130' INT
+trap 'interrupt 143' TERM
+trap 'interrupt 129' HUP
 printf '%s\n' "$$" > "$lock/pid"
 rm -f "$progress.done"
 
@@ -353,7 +485,7 @@ say "PR $pr $head from $from (tweak=$tweak, dry-run=$dry)"
 case "$from" in
   ci|staging|staging-checks|merge) require_reconcile ;;
 esac
-started=no
+started=no joined_engines=no
 for name in "${stages[@]}"; do
   [ "$name" != "$from" ] || started=yes
   if [ "$tweak" = yes ] && [[ "$name" == staging* ]]; then
@@ -361,6 +493,8 @@ for name in "${stages[@]}"; do
     say "$name skipped"
     continue
   fi
+  if [ "$overlap_staging" = yes ] && [[ "$name" == staging* ]]; then continue; fi
+  if [ "$name" = engines ] && [ "$joined_engines" = yes ]; then continue; fi
   if [ "$started" = no ]; then
     if [ "$force" = no ] && [ "$(result "$name")" != pass ]; then
       say "$name has no pass. Start at $name or use --force."
@@ -370,17 +504,12 @@ for name in "${stages[@]}"; do
     say "$name skipped"
     continue
   fi
-  stage=$name
-  began=$SECONDS
-  say "$stage start"
-  if [ "$dry" = yes ]; then
-    run_stage "$stage" | tee "$run/$stage.log"
-    [ "${KINGDOWN_RELEASE_FAIL_STAGE:-}" != "$stage" ] || exit 1
-  else
-    run_stage "$stage" > "$run/$stage.log" 2>&1
-    if [ "$stage" = publish ]; then verify_publish; fi
-  fi
-  say "$stage pass"
-  say "time $stage $((SECONDS - began))s"
+  run_logged_stage "$name"
+  case "$name" in
+    ci) join_staging ;;
+    main-ci)
+      join_engines
+      joined_engines=yes ;;
+  esac
 done
 stage=
