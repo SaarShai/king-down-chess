@@ -425,7 +425,7 @@ function receiveOnline(state: PeopleState) {
   if (mate) {
     // One hold for this revision: exit and a newer revision cancel it (endResult); the deadline opens the card.
     let hold: Effect | undefined;
-    const deadline = armResult(() => { endResult = undefined; hold?.cancel(); reading = 'result'; update(); playOnlineKingResult(); });
+    const deadline = armResult(() => { endResult = undefined; hold?.cancel(); boardReplay.cancel(); reading = 'result'; update(); playOnlineKingResult(); });
     const stop = endResult = () => { endResult = undefined; hold?.cancel(); deadline.stop(); };
     const held = () => { if (endResult !== stop) return; const king = findKing(game.pos.board, game.pos.turn); if (king < 0) deadline.go(); else hold = holdMate(king, deadline.go); };
     if (!playback) held(); else void playback.then(held);

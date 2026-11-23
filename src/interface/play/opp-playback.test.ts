@@ -269,18 +269,18 @@ async function liveMate() {
 }
 
 it('a live checkmate whose playback waits on a hidden page shows the card at once', async () => {
-  const { board } = await liveMate();
+  const { dark, board } = await liveMate();
   expect(board.scope.reading).toBe('normal');
   board.hide();
-  expect([board.scope.reading, board.falls.length, board.timers()]).toEqual(['result', 1, 0]);
+  expect([board.scope.reading, board.falls, board.timers()]).toEqual(['result', [toFen(dark.state().position!)], 0]);
 });
 
 it('a live checkmate whose playback never ends shows the card 3 s after the mate arrives', async () => {
-  const { board } = await liveMate();
+  const { dark, board } = await liveMate();
   board.tick(2999);
   expect(board.scope.reading).toBe('normal');
   board.tick(1);
-  expect([board.scope.reading, board.falls.length, board.timers()]).toEqual(['result', 1, 0]);
+  expect([board.scope.reading, board.falls, board.timers()]).toEqual(['result', [toFen(dark.state().position!)], 0]);
 });
 
 it('a lost connection or a repeated revision during the hold keeps the card back; one hold, then one card', async () => {
