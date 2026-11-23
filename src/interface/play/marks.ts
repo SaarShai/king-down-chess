@@ -1,4 +1,4 @@
-import { A, G, K, L, P, S, colorOf, findKing, typeOf, type Move, type Position } from '../../rules/engine';
+import { A, G, K, L, P, S, colorOf, findKing, typeOf, type Color, type Move, type Position } from '../../rules/engine';
 import type { GameRules } from '../../game-rules';
 import { boardStates } from '../../render/effects/states';
 import { PLAIN as C, emptyMarks, type PlainMarks, type PlainRing } from '../../render/plain-marks';
@@ -70,6 +70,12 @@ export function resultMarks(_pos: Position, actions: readonly MarkAction[]): Pla
   }
   if (squares.size) out.shadows = [...squares].map(square => ({ square, opacity: final.includes(square) ? .24 : .12 }));
   return out;
+}
+
+/** The last square of a side's king in the history: after a king capture, the square where it was taken. */
+export function kingSquare(history: readonly { pos: Position }[], side: Color): number {
+  for (let i = history.length - 1; i >= 0; i--) { const king = findKing(history[i].pos.board, side); if (king >= 0) return king; }
+  return -1;
 }
 
 /** Current state supplies lasting marks. These end only when the engine ends the state. */

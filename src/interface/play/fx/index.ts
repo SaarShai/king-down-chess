@@ -3,7 +3,7 @@ import { pulse } from './pulse';
 
 export { ease, Spring } from './curves';
 export { hold, later, onFrame, reducedMotion, setFxMotion, setPauseHook, tween } from './clock';
-export { burst, edgeLight, shake, streak } from './canvas';
+export { beatAt, BEAT_MS, burst, edgeLight, shake, streak, strike } from './canvas';
 export { pulse, setVibration } from './pulse';
 
 export type Curve = (progress: number) => number;
@@ -20,6 +20,7 @@ export type StreakOptions = { ms?: number; width?: number; bend?: number; curve?
 export type EdgeOptions = { ms?: number; width?: number; reverse?: boolean };
 export type BurstOptions = { ms?: number; count?: number; rise?: number };
 export type ShakeOptions = { ms?: number; amplitude?: number };
+export type StrikeOptions = { from?: Point; height?: number; ranged?: boolean };
 type SoundPlayer = (name: SoundName, options?: SoundOptions) => void;
 
 export function at(element: Element, x = .5, y = .5): Point {
