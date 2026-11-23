@@ -107,7 +107,7 @@ export function turnActions(draft: DraftTurn): string[] | undefined {
     if (!move) return;
     lans.push(context.toLan(pos, move)); pos = context.makeMove(pos, move);
   }
-  if (pos.turn === draft.base.turn) {
+  if (pos.turn === draft.base.turn && context.status(pos) === 'playing') {
     const pass = context.legalMoves(pos).find(m => m.pass);
     if (pass) lans.push(context.toLan(pos, pass));
   }
