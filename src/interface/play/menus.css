@@ -564,6 +564,9 @@ body > .kd-sr { inset: 0 auto auto 0; }
   background: radial-gradient(closest-side at 50% 45%, var(--own-tint), transparent);
 }
 .setup-figures::after { grid-column: 3; background: radial-gradient(closest-side at 50% 45%, var(--opponent-tint), transparent); }
+/* No tint, no layer: a full-box gradient repaints on each frame of a sheet slide, and costs a CPU-only WebKit 1 s. */
+.setup-figures[data-own='']::before, .setup-figures[data-opponent='']::after { content: none; }
+.setup-figures[data-own=''][data-opponent=''] { isolation: auto; }
 [data-own='spirit'] { --own-tint: #e3c77a45; } [data-opponent='spirit'] { --opponent-tint: #e3c77a45; }
 [data-own='shadow'] { --own-tint: #8a809440; } [data-opponent='shadow'] { --opponent-tint: #8a809440; }
 [data-own='flame'] { --own-tint: #dc8a5a3d; } [data-opponent='flame'] { --opponent-tint: #dc8a5a3d; }

@@ -230,6 +230,9 @@ const cases = {
     check(figures.length === 2 && figures.every(figure => figure.src === '/ui/pieces/king-shadow-w.webp'), `both friend seats show the same side-less king: ${JSON.stringify(figures)}`);
     check(figures.every(figure => figure.random), 'both friend seat figures are grey');
     check(await seatTints(setup) === ',', 'a random side has no house tint');
+    // A tint layer paints its full box on each frame of a sheet slide (WebKit CI, no GPU): no tint, no layer.
+    const tintLayers = await setup.locator('.setup-figures').evaluate(node => ['::before', '::after'].map(part => getComputedStyle(node, part).content).join() + ' ' + getComputedStyle(node).isolation);
+    check(tintLayers === 'none,none auto', `no tint draws no tint layer: ${tintLayers}`);
     check(/^0s/.test(await tintTime(setup)), 'reduced motion: the tint has no transition');
     check(await feetLevel(setup), 'both plinths share one baseline');
     // At 150% text "Random side" wraps in one seat only: the plinths still share one line. A short landscape has none.
