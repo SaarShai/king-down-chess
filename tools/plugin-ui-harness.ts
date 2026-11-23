@@ -184,7 +184,8 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
     const [e, f] = InMemoryTransport.createLinkedPair(); await laterBuddyServer.connect(e); await laterBuddy.connect(f);
     resource = await board(client);
   }
-  const tag = randomUUID().slice(0,8);
+  // The in-memory fixture keeps the Profile text width fixed at 150% text.
+  const tag = endpoint ? randomUUID().slice(0, 8) : '294255f7';
   for (const [i, persona] of [client,buddy,laterBuddy].entries()) if (persona) { const result = await persona.callTool({name:'kingdown_handle',arguments:{handle:`host${i}-${tag}`}}); if (result.isError) throw new Error('The harness cannot set its disposable handles'); }
   return { url, close };
   } catch (error) { await close(); throw error; }

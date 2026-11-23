@@ -4,9 +4,11 @@
 //   KINGDOWN_TEST_PAGES=1 npm run check:browser play-scenes
 // Check the result sheet at eight sizes and three text sizes.
 // Save pictures of faults, 320x568 at 150%, and 390x844 and 1280x800 at 100% in PLAYABLE_OUT.
-import { env, launch, shot } from './lib/checks.mjs';
+import assert from 'node:assert/strict';
+import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { KNOWN } from './play-scenes-known.mjs';
 import { cutText } from './lib/cut-text.mjs';
+import { pauseClock } from './lib/page-clock.mjs';
 
 // Landscape phones check the game screen and the new-game panel: online-loss cuts its 20-letter test
 // name with an ellipsis, as the known mark at 320 px allows.
@@ -23,6 +25,57 @@ const textSize = (context, scale) => scale !== 100 && context.addInitScript(scal
 const browser = await launch();
 const faults = [], known = [], used = new Set();
 let links, cases = 0;
+
+async function openScene(page, scene) {
+  await page.goto(`${base.href}?scene=${scene}`);
+  await page.waitForFunction(scene => document.body.dataset.sceneReady === scene, scene, { timeout: 15_000 });
+}
+
+async function checkKingCapture(reducedMotion) {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion, serviceWorkers: 'block' });
+  const errors = trapErrors(page);
+  try {
+    page.setDefaultTimeout(10_000);
+    await page.clock.install();
+    await openScene(page, 'home-saved');
+    const button = name => page.getByRole('button', { name, exact: true });
+    const square = name => page.getByRole('gridcell', { name, exact: true });
+    await button('Account and settings').click();
+    await page.getByRole('radiogroup', { name: 'Motion speed' }).getByRole('radio', { name: 'Normal', exact: true }).click();
+    await button('Close settings').click();
+    // Home reads the scene's memory save again when Continue is pressed.
+    await page.evaluate(() => {
+      const save = JSON.parse(localStorage.getItem('kingdown.save'));
+      localStorage.setItem('kingdown.save', JSON.stringify({ ...save, back: '', fen: 'k7/6pp/8/8/8/R7/8/6MK w - - 0 1', moves: [] }));
+    });
+    await button('Continue').click();
+    await square('a3 Light Rook').click();
+    await square('a8 Dark King').click();
+    await square('a8 Light Rook').waitFor();
+    const end = page.locator('.play-turn button').filter({ has: page.getByText('End turn', { exact: true }) });
+    const endActive = async () => await end.isVisible() && await end.isEnabled();
+    const card = page.locator('.play-result[data-outcome="win"]');
+    const skip = button('Skip result animation');
+    await pauseClock(page);
+    await end.click();
+    const light = () => page.locator('.play-game[data-moment="win"] .play-board').evaluate(board => Number(getComputedStyle(board, '::after').opacity));
+    if (reducedMotion === 'no-preference') {
+      assert(await skip.isVisible() && !await card.isVisible(), 'The win effect starts before the result card');
+      assert(!await endActive(), 'End turn is inactive during the win effect');
+      await page.clock.runFor(400);
+      assert(await light() > 0 && !await card.isVisible(), 'The board lights up during the win effect');
+      await page.clock.runFor(1000);
+    } else {
+      assert(await card.isVisible() && await light() > 0, 'Reduced motion shows the win at once');
+    }
+    await card.getByRole('heading', { name: 'You win', exact: true }).waitFor();
+    assert(!await skip.isVisible(), 'The result ends the effect');
+    assert(!await endActive(), 'End turn stays inactive after the result');
+    assertNoErrors(errors);
+    await shot(page, `king-capture-${reducedMotion}`);
+  } finally { await page.close(); }
+}
+
 try {
   for (const [width, height, only] of SIZES) for (const scale of SCALES) {
     const context = await browser.newContext({
@@ -82,8 +135,7 @@ try {
         context.on('request', onRequest);
         page.on('pageerror', error => found.push(`page error: ${error.message}`));
         try {
-          await page.goto(`${base.href}?scene=${scene}`);
-          await page.waitForFunction(scene => document.body.dataset.sceneReady === scene, scene, { timeout: 15_000 });
+          await openScene(page, scene);
           found.push(...await page.evaluate(cutText), ...await page.evaluate(foldFaults, scale === 100), ...await page.evaluate(layoutFaults, ROLES), ...await page.evaluate(coveredCards));
           if (found.length || width === 320 && scale === 150 || scale === 100 && (width === 390 || width === 1280)) {
             await shot(page, picture);
@@ -123,8 +175,7 @@ try {
       cases++;
       const page = await context.newPage(), where = `${scene} ${width}x${height} ${scale}%`;
       try {
-        await page.goto(`${base.href}?scene=${scene}`);
-        await page.waitForFunction(scene => document.body.dataset.sceneReady === scene, scene, { timeout: 15_000 });
+        await openScene(page, scene);
         const sheet = await page.evaluate(() => {
           const edge = document.querySelector('.play-reader').getBoundingClientRect(), out = [];
           for (const node of document.querySelectorAll('.play-result-body h3, .play-result-cause, .play-result-actions button')) {
@@ -141,6 +192,14 @@ try {
     }
     if (heights['online-loss'] !== heights['online-loss-offer']) faults.push(`online-loss-offer ${width}x${height} ${scale}%: a rematch offer changes the card height from ${heights['online-loss']} to ${heights['online-loss-offer']} px`);
     await context.close();
+  }
+  for (const motion of ['no-preference', 'reduce']) {
+    cases++;
+    const label = motion === 'reduce' ? 'reduced motion' : 'normal motion';
+    try {
+      await checkKingCapture(motion);
+      console.log(`ok king capture with ${label}: the win shows and End turn is inactive`);
+    } catch (error) { faults.push(`king capture with ${label}: ${error.message}`); }
   }
 } finally { await browser.close(); }
 for (const mark of KNOWN.keys()) if (!used.has(mark)) faults.push(`known mark matches no fault: ${mark}`);

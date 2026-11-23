@@ -11,7 +11,10 @@ export async function checkErrorRecorder({ browser, origin, pool, root }) {
  const html = await readFile(join(root, 'static/index.html'), 'utf8');
  const asset = html.match(/<script[^>]+src="([^"]+\.js)"/)?.[1];
  assert(asset?.startsWith('/assets/'), 'The website uses an emitted bundle');
- const context = await browser.newContext({ viewport: { width: 1100, height: 1000 } });
+ // A cached site module would replace the native test scripts that use its asset URL.
+ const context = await browser.newContext({ viewport: { width: 1100, height: 1000 }, serviceWorkers: 'block' });
+ // Playwright WebKit does not expose Blob beacon bodies. Use the recorder's fetch fallback for its payload checks.
+ if (browser.browserType().name() === 'webkit') await context.addInitScript(() => { navigator.sendBeacon = () => false; });
  let nativeChecks = false;
  const reports = [], fingerprints = new Set(), names = new Map(), tag = `Recorder check ${randomUUID().slice(0, 8)}`;
  await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
@@ -189,7 +192,7 @@ async function checkNativeLocations({ context, origin, pool, asset, build, brows
   assert.equal(sent.length, 1, item.label);
   const report = sent[0], message = item.message ?? (item.label === 'property' ? 'Cannot read properties of [value] (reading [value])' : item.label === 'syntax' ? 'Unlisted message' : 'Failed to fetch');
   if (item.name) assert.equal(native.name, item.name);
-  assert.deepEqual(report, { kind: native.kind, name: native.name, message, route: '/', build, browser: browserFamily, size: 'desktop', fingerprint: report.fingerprint });
+  assert.deepEqual(report, { kind: native.kind, name: native.name, message, route: '/', build, browser: browserFamily, size: 'desktop', fingerprint: report.fingerprint }, item.label);
   if (item.label.startsWith('name-')) {
    nameFingerprint ??= report.fingerprint;
    assert.equal(report.fingerprint, nameFingerprint, item.label + ' same group');

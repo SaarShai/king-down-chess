@@ -145,6 +145,17 @@ it.each(['release-site', 'release-history'])('lets %s use its own local build in
   expect(calls).toEqual([{ script: `tools/verify-${name}.mjs`, args: [] }]);
 });
 
+it.each([undefined, 'http://127.0.0.1:5442/'])('keeps the release URL separate from the shared preview (%s)', url => {
+  const { result, calls } = run(['release-site', 'layout-result'], false, url ? { PLAYABLE_URL: url } : {});
+  expect(result.status, result.stderr + result.stdout).toBe(0);
+  expect(calls).toEqual([
+    'build', 'preview',
+    { script: 'tools/verify-release-site.mjs', args: [], ...(url ? { url } : {}) },
+    { script: 'tools/verify-layout.mjs', args: ['result'], url: 'http://127.0.0.1:1234/' },
+    'close',
+  ]);
+});
+
 it('fails a CI browser shard when every named check needs a GPU', () => {
   const { result, calls } = run(['--no-gpu'], false, { KINGDOWN_CI_BROWSER_CHECKS: 'king-effects painted-game' });
   expect(result.status, result.stderr + result.stdout).toBe(2);

@@ -40,7 +40,7 @@ export const checks = [
   { name: 'character-runtime', script: 'tools/verify-character-runtime.mjs', limit: 600, channel: 'chromium', byName: true },
   { name: 'layout-title', script: 'tools/verify-layout.mjs', args: ['title'], limit: 120, channel: 'chromium', byName: true },
   { name: 'layout-zoom', script: 'tools/verify-layout.mjs', args: ['zoom'], limit: 120, channel: 'chromium', byName: true },
-  { name: 'layout-result', script: 'tools/verify-layout.mjs', args: ['result'], limit: 120, channel: 'chromium', byName: true },
+  { name: 'layout-result', ci: 'journey', ciSeconds: 4, script: 'tools/verify-layout.mjs', args: ['result'], limit: 120, channel: 'chromium', byName: true },
   { name: 'effects-animation', script: 'docs/specs/effects-animation/verify.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'effects-concepts', script: 'docs/specs/effects-animation/verify-concepts.mjs', limit: 120, channel: 'chromium', byName: true },
   { name: 'effects-comparisons', script: 'docs/specs/effects-animation/verify-comparisons.mjs', limit: 120, channel: 'chromium', byName: true },

@@ -3,7 +3,7 @@
 // has a 16-letter name, and at 150% text at 390x844 the seat and end screens cut it and the line under it.
 const cases = (screens, sizes, scales) => screens.flatMap(screen =>
   sizes.flatMap(size => scales.map(scale => `${screen} ${size} ${scale}%`)));
-// The run tag of the names (host1-294255f7) changes in each run, so a mark names it <tag>.
+// The marks use <tag> for the handle suffix. The in-memory harness fixes the suffix for this pass.
 export const markOf = (where, line) => `${where}: ${line.replace(/-[0-9a-f]{8}\b/g, '-<tag>')}`;
 const rowNames = ['text "Computer · Club" is cut by b', 'text "Computer · Casual" is cut by b', 'text "host1-<tag>" is cut by b', 'text "host2-<tag>" is cut by b'];
 const rowMarks = ['text "Turn" is cut by b.turn-mark', 'text "Open" is cut by b.open-mark'];
