@@ -233,16 +233,16 @@ const cases = {
     // A tint layer paints its full box on each frame of a sheet slide (WebKit CI, no GPU): no tint, no layer.
     const tintLayers = await setup.locator('.setup-figures').evaluate(node => ['::before', '::after'].map(part => getComputedStyle(node, part).content).join() + ' ' + getComputedStyle(node).isolation);
     check(tintLayers === 'none,none auto', `no tint draws no tint layer: ${tintLayers}`);
-    // A blur shadow or a clip-path under the slide costs the same CPU-only WebKit about 0.8 s.
-    const stone = await setup.locator('.setup-figure, .setup-vs').evaluateAll(nodes => nodes.map(node => getComputedStyle(node, '::before')).map(style => style.boxShadow + ' ' + style.clipPath).join());
-    check(stone === 'none none,none none,none none', `plinths and crest paint no shadow and no clip: ${stone}`);
+    // Each extra layer under the slide costs the same CPU-only WebKit: plinths and crest are backgrounds, the row is static.
+    const stone = await setup.locator('.setup-figures, .setup-figure, .setup-vs').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).position + ' ' + getComputedStyle(node, '::before').content).join());
+    check(stone === 'static none,relative none,static none,relative none', `plinths and crest draw no layer: ${stone}`);
     check(/^0s/.test(await tintTime(setup)), 'reduced motion: the tint has no transition');
     check(await feetLevel(setup), 'both plinths share one baseline');
     // At 150% text "Random side" wraps in one seat only: the plinths still share one line. A short landscape has none.
     await page.evaluate(() => { document.documentElement.style.fontSize = '150%'; });
     const short = page.viewportSize().height <= 500;
-    const plinths = await setup.locator('.setup-figure').evaluateAll(nodes => nodes.map(node => getComputedStyle(node, '::before').content));
-    check(plinths.every(content => content === (short ? 'none' : '""')), `a short landscape has no plinth: ${plinths}`);
+    const plinths = await setup.locator('.setup-figure').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).backgroundImage.slice(0, 8)));
+    check(plinths.every(image => image === (short ? 'none' : 'url("da')), `a short landscape has no plinth: ${plinths}`);
     check(short || await feetLevel(setup), 'both plinths share one baseline at 150% text');
     await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
     await shot(page, 'friend-side');
