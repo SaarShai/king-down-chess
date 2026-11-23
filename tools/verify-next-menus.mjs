@@ -215,8 +215,8 @@ const cases = {
       check(await page.locator('.home-start, .home-topbar').evaluateAll(nodes => nodes.every(n => n.getBoundingClientRect().top >= .34 * Math.max(innerHeight, innerWidth * 9 / 16))), `${label}: the actions stay below the kings`);
       check(await page.locator('.home-start .kd-button, .home-topbar .kd-button:not([hidden])').evaluateAll(nodes => nodes.every(n => {
         const r = n.getBoundingClientRect();
-        return r.height >= 44 && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight;
-      })), `${label}: each Home control is 44 px high or more and inside the window`);
+        return r.height >= 44 && r.width >= 44 && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight;
+      })), `${label}: each Home control is 44 px or more in width and height and inside the window`);
       const guide = page.locator('.home-guide-btn');
       await guide.focus();
       check(await guide.evaluate(n => {

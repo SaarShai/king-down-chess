@@ -69,7 +69,8 @@ function createHome() {
   brand.append(daylightCrown(), title);
   const artwork = el('div', 'home-art');
   hero.append(artwork, brand); home.append(hero);
-  return { element: home, focus: () => title.focus({ preventScroll: true }), reveal: homeReveal(artwork), fit: new ResizeObserver(() => fitHome(home)) };
+  const reveal = homeReveal(artwork), fit = new ResizeObserver(() => fitHome(home));
+  return { element: home, focus: () => title.focus({ preventScroll: true }), reveal: { ...reveal, dispose() { fit.disconnect(); reveal.dispose(); } }, fit };
 }
 /** The wide layout keeps the kings clear: the actions start below them and end inside the window. Else Home splits. */
 function fitHome(home: HTMLElement) {
