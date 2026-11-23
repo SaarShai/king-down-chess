@@ -242,7 +242,7 @@ const cases = {
     await page.evaluate(() => { document.documentElement.style.fontSize = '150%'; });
     const short = page.viewportSize().height <= 500;
     const plinths = await setup.locator('.setup-figure').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).backgroundImage.slice(0, 8)));
-    check(plinths.every(image => image === (short ? 'none' : 'url("da')), `a short landscape has no plinth: ${plinths}`);
+    check(plinths.every(image => image === (short ? 'none' : 'url("dat')), `a short landscape has no plinth: ${plinths}`);
     check(short || await feetLevel(setup), 'both plinths share one baseline at 150% text');
     await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
     await shot(page, 'friend-side');
