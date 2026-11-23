@@ -29,7 +29,7 @@ it('reports a film network failure when Home opens', async () => {
     const page = await browser.newPage();
     const url = 'http://release-check.test/';
     const film = '/interface/reveal/wide.mp4';
-    const { bad } = releaseRequestFailures(page);
+    const bad = releaseRequestFailures(page);
     await page.route(`**${film}`, route => route.abort('connectionreset'));
     await page.route(url, route => route.fulfill({
       contentType: 'text/html',

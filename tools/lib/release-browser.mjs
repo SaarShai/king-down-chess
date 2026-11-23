@@ -83,16 +83,10 @@ export async function releaseContext(browser, url, options) {
 
 export function releaseRequestFailures(page) {
   const bad = [];
-  const films = new Set();
-  let leavingHome = new Set();
-  page.on('request', request => {
-    if (/^\/interface\/reveal\/[^/]+\.mp4$/.test(new URL(request.url()).pathname)) films.add(request);
-  });
-  page.on('requestfinished', request => films.delete(request));
   page.on('requestfailed', request => {
-    films.delete(request);
     const error = request.failure()?.errorText;
-    if (leavingHome.has(request) && (error === 'net::ERR_ABORTED' || error === 'cancelled')) return;
+    // The page cancels its own pending requests when it leaves a screen; a cancel is not a network failure.
+    if (error === 'net::ERR_ABORTED' || error === 'cancelled') return;
     bad.push(`${error} ${new URL(request.url()).pathname}`);
   });
   page.on('response', response => {
@@ -100,14 +94,7 @@ export function releaseRequestFailures(page) {
     if (address.origin === previewOrigin && address.pathname === '/api/status' && status === 403) return;
     if (status >= 400) bad.push(`${status} ${address.pathname}`);
   });
-  return {
-    bad,
-    async leaveHome(action) {
-      leavingHome = new Set(films);
-      try { return await action(); }
-      finally { leavingHome.clear(); }
-    },
-  };
+  return bad;
 }
 
 const button = (scope, name) => scope.getByRole('button', { name, exact: true });
