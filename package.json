@@ -47,7 +47,8 @@
     "online:local:stop": "node tools/online-local.mjs stop",
     "online:local:reset": "node tools/online-local.mjs reset",
     "ios:sync": "bash tools/ios-sync.sh",
-    "check:changed": "node tools/ci-plan.mjs changed"
+    "check:changed": "node tools/ci-plan.mjs changed",
+    "test:changed": "node tools/ci-plan.mjs tests"
   },
   "dependencies": {
     "@capacitor/core": "8.6.0",

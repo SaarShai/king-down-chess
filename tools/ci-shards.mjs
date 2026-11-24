@@ -4,7 +4,7 @@ import { checks } from './lib/registry.mjs';
 
 const board = 'tools/plugin-board';
 const fixtures = ['opening', 'board'];
-const testGlobs = [
+export const testGlobs = [
   'src/**/*.test.ts', 'tools/**/*.test.ts', '.claude/hooks/**/*.test.ts',
   '{docs/2d-first-pieces,src/render/painted}/**/*.test.mjs',
 ];

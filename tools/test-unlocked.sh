@@ -2,6 +2,7 @@
 # test-unlocked: the steps of `npm test`, with no npm process between them and tools/test-lock.sh.
 # Perl in test-lock.sh becomes this shell with the lock files open, and each step inherits them. npm
 # (a Node process) would close them, so a kill above the active step would free the locks.
+# `npm run test:changed` (tools/ci-plan.mjs tests) runs `npm test` with KINGDOWN_TEST_FILE set to the files a change can break.
 set -eu
 root=$(cd "$(dirname "$0")/.." && pwd -P)
 cd "$root"
