@@ -382,7 +382,6 @@
 .play-game .play-own .play-power [data-button-label] { font: 700 .75rem/1.1 var(--cinzel, var(--font-title)); overflow-wrap: normal; }
 .play-game .play-own .play-power small { font-size: 12px; }
 .play-store { flex: none; display: grid; place-items: center; min-width: 24px; height: 24px; border: 1px solid var(--line, var(--divider)); border-radius: 50%; background: var(--raised, var(--surface-raised)); color: var(--soft, var(--text-muted)); font: 700 12px/1 var(--sans, var(--font-reading)); }
-.play-own > .play-store { margin-inline: 0 2px; }
 .play-rival-mark { width: 18px; height: 26px; background-image: url('/ui/cards/back.webp') !important; }
 
 .play-game[data-hand='hand'] { --arm-lift: 18px; --hover-lift: 14px; --card-width: clamp(74px, calc(var(--own) * .67), 89px); }
@@ -454,7 +453,8 @@
 .play-power-copy { display: grid; gap: 0; min-width: 0; }
 .play-game .play-opp .play-power small { font-size: 12px; color: var(--soft, var(--text-muted)); }
 .play-store[data-empty='true'] { display: none; }
-.play-own > .play-store { position: absolute; top: calc(50% + 13px); left: 48px; z-index: 1; }
+/* Your counter has its own place between the power, as wide as its name, and the cards. Beside cards it is small, so each card keeps its name. */
+.play-own:has(> .play-hand) > .play-store { min-width: 20px; height: 20px; margin-inline: -2px -4px; }
 .play-game .play-rival-count { right: 1px; bottom: 4px; }
 .play-game .play-turn .kd-button:first-child { border-radius: 12px; }
 .play-game:not([data-online]) .play-turn [data-turn-state='ready'][data-free='true'] { background: var(--raised, var(--surface-raised)); }
@@ -582,11 +582,18 @@
 @media (max-width: 400px) { .play-game[data-hand='hand'] .play-own .play-card { margin-inline: 0; } }
 /* The same on a landscape phone with a hand row from 260 to 300 px (736x414). */
 @container (max-width: 300px) { .play-game[data-hand='hand'] .play-own .play-card { margin-inline: 0; } }
+/* Your counter takes 6 px from each card: the cards do not overlap and the names take tight letters, so "Fire Starter" stays clear of the next card. */
+@container (max-width: 400px) { .play-game[data-hand='hand'] .play-own:has(> .play-store[data-empty='false']) .play-card { margin-inline: 0; letter-spacing: -.03em; } }
+@container (max-width: 340px) { .play-game[data-hand='hand'] .play-own:has(> .play-store[data-empty='false']) .play-card { font-size: 12px; } }
+@container (max-width: 300px) { .play-own:has(> .play-store[data-empty='false']) .play-hand { padding-inline: 0; } }
+/* A row that shows the coin only has no width left: the counter stands above the coin. */
+@container (max-width: 259px) { .play-own:has(> .play-hand) > .play-store { position: absolute; top: 0; left: 12px; margin: 0; } }
 @media (max-width: 359px) {
   .play-game .play-own .play-power { min-width: 50px; }
   /* Beside four cards, a name such as "Darkness" takes the narrow font, so "Salvation" fits its card. */
   .play-game .play-own:has(.play-hand) .play-power [data-button-label] { font: 700 12px/1.1 var(--sans, var(--font-reading)); letter-spacing: -.03em; }
   .play-hand { padding-inline: 0; }
+  @container (min-width: 301px) { .play-own:has(> .play-hand) > .play-store { margin-inline-end: 0; } }
 }
 
 .play-wordmark { display: none; }

@@ -152,6 +152,8 @@ try {
             try { await target.click({ trial: true, timeout: 1500 }); }
             catch (error) { found.push(`${label} takes no tap: ${/intercepts pointer events/.test(error.message) ? `${error.message.match(/<\w+[^>]*>/g)?.at(-1) ?? 'an element'} covers it` : error.message.split('\n')[0]}`); }
           }
+          // Last: it writes other names and counts in the page.
+          found.push(...await page.evaluate(counterFaults), ...await page.evaluate(cutText), ...await page.evaluate(coveredCards));
         } catch (error) { found.push(error.message.split('\n')[0]); }
         const after = await state?.(false);
         if (state && (after !== before || !after.includes(SENTINEL))) found.push(`the origin's caches and service workers change: ${before} before, ${after} after`);
@@ -313,6 +315,24 @@ function layoutFaults(roles) {
       const bBoxes = clip(b.boxes, b.edge, a.node);
       if (aBoxes.some(box => bBoxes.some(other => overlaps(box, other)))) out.push(`${a.label} overlaps ${b.label}`);
     }
+  }
+  return out;
+}
+
+/** In the page: your capture counter at 1 and 12 captures, with each power name, clears the name, the mark, the notches, the line under the name and the cards. */
+function counterFaults() {
+  const own = document.querySelector('.play-own'), store = own?.querySelector('.play-store'), range = document.createRange(), out = [];
+  if (!own?.checkVisibility({ visibilityProperty: true })) return out;
+  const label = own.querySelector('.play-power [data-button-label]');
+  const text = node => { range.selectNodeContents(node); return range.getBoundingClientRect(); };
+  for (const name of label ? ['Freeze', 'Ice Wall', 'Strike', 'Haste', 'Flight', 'Sacrifice', 'March', 'Leap', 'Holy Light', 'Mercy', 'Death Touch', 'Darkness'] : ['']) for (const count of [1, 12]) {
+    if (label) label.textContent = name;
+    store.dataset.empty = 'false'; store.textContent = String(count);
+    const box = store.getBoundingClientRect(), small = own.querySelector('.play-power small');
+    const parts = [['mark', '.play-seat-ring'], ['notch', '.play-power-notch'], ['card', '.play-card']].flatMap(([part, selector]) => [...own.querySelectorAll(selector)].map(node => [part, node.getBoundingClientRect()]));
+    // A row with no room draws the coin only: the copy is for screen readers.
+    if (label && getComputedStyle(own.querySelector('.play-power-copy')).clipPath !== 'inset(50%)') parts.push(['name', text(label)], ['line', text(small)]);
+    for (const [part, other] of parts) if (Math.min(box.right, other.right) - Math.max(box.left, other.left) > .5 && Math.min(box.bottom, other.bottom) - Math.max(box.top, other.top) > .5) out.push(`the counter "${count}" covers the ${part}${name && ` of ${name}`}`);
   }
   return out;
 }
