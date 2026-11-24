@@ -549,10 +549,10 @@ it('vercel check scans runtime image bytes for metadata', () => {
  } finally {rmSync(dir,{recursive:true,force:true});}
 });
 
-it('vercel check accepts only the Home stills in the solo launch worker', () => {
+it('vercel check accepts only the Home stills and the computer portraits in the solo launch worker', () => {
   const dir = mkdtempSync(join(tmpdir(), 'kingdown-vercel-home-'));
   const web = join(dir, 'static');
-  const stills = ['portrait', 'square', 'wide'].map(variant => `interface/reveal/hero-${variant}.webp`);
+  const stills = [...['portrait', 'square', 'wide'].map(variant => `interface/reveal/hero-${variant}.webp`), ...[1, 2, 3].map(n => `interface/computer-king-${n}-96.webp`)];
   const film = 'interface/reveal/portrait.mp4';
   try {
     mkdirSync(join(dir, 'functions/mcp.func'), { recursive: true });
@@ -584,6 +584,13 @@ it('precaches all Home stills and leaves films on the network', () => {
   const { allowlist, precache } = offlineCacheFiles(bundle, root, [...files, ...stills, ...films, 'interface/reveal/wide.webm'], true);
   expect(precache.filter(file => file.startsWith('interface/reveal/'))).toEqual(stills);
   expect(allowlist.filter(file => file.startsWith('interface/reveal/'))).toEqual(stills);
+});
+
+it('precaches the computer portraits that a saved game draws, and no larger size', () => {
+  const { bundle, files } = fixture();
+  const faces = [1, 2, 3].map(n => `interface/computer-king-${n}-96.webp`);
+  const { allowlist, precache } = offlineCacheFiles(bundle, root, [...files, ...faces, 'interface/computer-king-1-192.webp', 'interface/computer-king-1-384.webp'], true);
+  for (const list of [allowlist, precache]) expect(list.filter(file => file.includes('computer-king'))).toEqual(faces);
 });
 
 it('adds both public pages and the interface graph only for the solo launch', () => {

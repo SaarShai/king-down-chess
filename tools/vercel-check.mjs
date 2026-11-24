@@ -109,6 +109,7 @@ try {
   const fixedPublicFiles = ['./', 'index.html', ...soloLaunch ? [
     'next.html', 'browser-support.js', 'interface/stone-refined-light.webp',
     'interface/reveal/hero-portrait.webp', 'interface/reveal/hero-square.webp', 'interface/reveal/hero-wide.webp',
+    'interface/computer-king-1-96.webp', 'interface/computer-king-2-96.webp', 'interface/computer-king-3-96.webp',
   ] : []];
   for (const file of allowlist) {
     assert(typeof file === 'string' && (fixedPublicFiles.includes(file) || isCharacterRuntimeStartup(file) || /^(?:assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|audio\/armour\/[\w-]+\.wav|manifest\.webmanifest)$/.test(file)), `Public build file: ${file}`);
