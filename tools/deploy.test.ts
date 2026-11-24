@@ -693,12 +693,14 @@ afterEach(() => {
 
 /** The pages of a build: the entry script name is the bundle name. */
 const offlineFiles = ['./', 'index.html', 'assets/style.css', 'assets/lazy.js', 'assets/ai-worker.js', 'fonts/game.woff2', 'icons/game.png', 'ui/board.webp', 'ui/piece.svg', 'manifest.webmanifest'];
+const googleVerification = 'googlea1baf648ae09b150.html';
 const pages = (bundle = 'index-Abc123_x', terms = 'Terms v1') => ({
   'index.html': `<!doctype html><html><head><script type="module" crossorigin src="./assets/${bundle}.js"></script></head><body></body></html>`,
   'privacy.html': '<!doctype html><title>Privacy</title><p>Privacy v1</p>\n',
   'terms.html': `<!doctype html><title>Terms</title><p>${terms}</p>\n`,
   'delete-data.html': '<!doctype html><title>Delete data</title><p>Delete v1</p>\n',
   'support.html': '<!doctype html><title>Support</title><p>Support v1</p>\n',
+  [googleVerification]: `google-site-verification: ${googleVerification}\n`,
   'sw.js': `const VERSION = 'build-v1';\nconst POLICY = 'public-build-v1';\nconst ALLOWLIST = ${JSON.stringify([...offlineFiles, `assets/${bundle}.js`])};\nconst PRECACHE = ${JSON.stringify([...offlineFiles, `assets/${bundle}.js`])};`,
   [`assets/${bundle}.js`]: 'entry-v1',
   'assets/style.css': 'body { color: black; }',
@@ -969,7 +971,7 @@ describe('deploy-live-check.mjs', () => {
     expect(result.seconds).toBeLessThan(3);
   });
 
-  it.each(['sw.js', 'assets/index-Abc123_x.js', 'assets/lazy.js', 'assets/ai-worker.js', 'assets/style.css', 'fonts/game.woff2', 'icons/game.png', 'ui/board.webp', 'ui/piece.svg', 'manifest.webmanifest'])('rejects stale public bytes at %s', async path => {
+  it.each(['sw.js', googleVerification, 'assets/index-Abc123_x.js', 'assets/lazy.js', 'assets/ai-worker.js', 'assets/style.css', 'fonts/game.woff2', 'icons/game.png', 'ui/board.webp', 'ui/piece.svg', 'manifest.webmanifest'])('rejects stale public bytes at %s', async path => {
     const files = pages();
     const live = await site(() => ({ ...files, [path]: 'stale bytes' }));
     const result = await check(buildFolder(files), live.url, 0);

@@ -286,9 +286,14 @@ it('rejects unknown non-empty effect metadata', async () => {
 it('uses real build metadata for the worker, loader, lazy code, CSS and emitted assets', async () => {
   const { dir } = site();
   try {
+    const verification = 'googlea1baf648ae09b150.html';
+    cpSync(resolve('public', verification), join(dir, 'public', verification));
     await compile(dir);
     const output = join(dir, 'dist'), worker = readFileSync(join(output, 'sw.js'), 'utf8');
     const { allowlist, precache } = lists(worker);
+    expect(readFileSync(join(output, verification), 'utf8').replace(/\r?\n$/, '')).toBe(`google-site-verification: ${verification}`);
+    expect(allowlist).not.toContain(verification);
+    expect(precache).not.toContain(verification);
     const assets = readdirSync(join(output, 'assets'));
     const named = (prefix: string, extension = 'js') => `assets/${assets.find(file => file.startsWith(prefix + '-') && file.endsWith('.' + extension))!}`;
     for (const file of [named('index'), named('main'), named('worker'), named('workshop'), named('main', 'css'), named('font', 'woff2'), named('art', 'svg')]) {

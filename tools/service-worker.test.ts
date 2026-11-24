@@ -224,7 +224,7 @@ describe('private safety during installation', () => {
 });
 
 describe('public request boundary', () => {
-  it.each([...privatePaths.flatMap(path => [path, `${path}/child`]), '/api/status', '/api/status?muse=1', '/play.html', '/consent.mjs', '/privacy.html', '/terms.html', '/delete-data.html', '/support.html', '/muse-connector.html', '/assets/unknown.js', '/sw.js'])('bypasses %s with queries and navigation', async path => {
+  it.each([...privatePaths.flatMap(path => [path, `${path}/child`]), '/api/status', '/api/status?muse=1', '/play.html', '/consent.mjs', '/privacy.html', '/terms.html', '/delete-data.html', '/support.html', '/muse-connector.html', '/googlea1baf648ae09b150.html', '/assets/unknown.js', '/sw.js'])('bypasses %s with queries and navigation', async path => {
     const w = worker();
     for (const suffix of ['', '?probe=1']) for (const mode of ['navigate', 'cors'] as const) {
       expect(w.request(path + suffix, { mode }).response).toBeUndefined();

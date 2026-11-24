@@ -7,7 +7,9 @@ import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { extname, join } from 'node:path';
 
-const legalPages = ['privacy.html', 'terms.html', 'delete-data.html', 'support.html'];
+// Google needs this public file to verify site ownership for Google sign-in.
+const googleVerification = 'googlea1baf648ae09b150.html';
+const requiredPages = ['privacy.html', 'terms.html', 'delete-data.html', 'support.html', googleVerification];
 const challenge = '.well-known/openai-apps-challenge';
 // The site routes these to the app shell (tools/plugin-server-build.mjs vercelRoutes); other paths stay 404.
 const appPages = ['/play', '/play/', '/play/profile', '/play/settings', '/g/00000000-0000-4000-8000-000000000000', '/j', '/j/'];
@@ -51,13 +53,14 @@ function workerFiles(worker, name) {
 
 function typesOf(path) {
   if (path === `/${challenge}`) return ['text/plain'];
+  if (path === `/${googleVerification}`) return ['text/html', 'text/plain'];
   const types = { '.js': ['text/javascript', 'application/javascript'], '.mjs': ['text/javascript', 'application/javascript'], '.css': ['text/css'], '.html': ['text/html'], '.json': ['application/json'], '.webmanifest': ['application/manifest+json', 'application/json'], '.woff2': ['font/woff2'], '.svg': ['image/svg+xml'], '.png': ['image/png'], '.webp': ['image/webp'], '.txt': ['text/plain'], '.wasm': ['application/wasm'], '.wav': ['audio/wav'] };
   return path === '/' ? ['text/html'] : types[extname(path)];
 }
 
 const [folder, ...extra] = process.argv.slice(2);
 if (!folder || extra.length) fault('usage: node tools/deploy-live-check.mjs <build folder>');
-for (const name of ['index.html', 'sw.js', ...legalPages]) if (!existsSync(join(folder, name))) fault(`the build has no ${name} in ${folder}`);
+for (const name of ['index.html', 'sw.js', ...requiredPages]) if (!existsSync(join(folder, name))) fault(`the build has no ${name} in ${folder}`);
 const home = existsSync(join(folder, 'solo-launch.json')) ? 'next.html' : 'index.html';
 const legacy = { bytes: readFileSync(join(folder, 'index.html')), types: ['text/html'] };
 // The launch build answers /j with the page that hands the invite to the new page (tools/plugin-server-build.mjs).
@@ -67,7 +70,7 @@ if (!bundle) fault(`the build's index.html has no module script in ${folder}`);
 const worker = readFileSync(join(folder, 'sw.js'), 'utf8');
 const version = /\bconst VERSION = ['"]([^'"]+)['"];/.exec(worker)?.[1], policy = policyOf(worker);
 if (!version || !policy) fault('the build\'s sw.js has no version or policy ID');
-const checkedPages = [...legalPages, ...(existsSync(join(folder, challenge)) ? [challenge] : [])];
+const checkedPages = [...requiredPages, ...(existsSync(join(folder, challenge)) ? [challenge] : [])];
 // Every file under assets/: the build's own files, also lazy chunks that no worker list names, and the
 // files of the previous build that tools/deploy-keep-assets.mjs keeps.
 const assetFiles = existsSync(join(folder, 'assets')) ? readdirSync(join(folder, 'assets'), { recursive: true }).filter(file => statSync(join(folder, 'assets', file)).isFile()).map(file => `/assets/${file}`) : [];
