@@ -263,7 +263,6 @@
 @keyframes play-ink-wipe { to { clip-path: inset(0 100% 0 0); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .play-ink-wipe { animation: none; } }
 :root[data-motion='off'] .play-ink-wipe { animation: none; }
-.play-portrait-idle { object-fit: contain; }
 
 .play-game[data-layout][data-reading] .play-reader[data-floating='true'] :is(.learn-top, .play-head, .play-bhead) { position: sticky; top: 0; z-index: 2; background: var(--surface-raised); }
 

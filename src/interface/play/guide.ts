@@ -8,7 +8,7 @@ import { cardLine, guideTabLabels as tabLabels, pieces, powerLines, text } from 
 import { learningPanel } from './learning-panel';
 import { effectRule, guideFollowUp, newPieces, type LearnSubject } from './learning';
 import { button, icon } from '../ui/kit.js';
-import { tween } from './fx';
+import { reducedMotion, tween } from './fx';
 
 export const guideSections = ['Pieces', 'Kings and powers', 'Cards', 'How a turn works'] as const;
 export interface GuideEntry { id: string; name: string; short: string; full: string; art?: string; kind: string; subject?: LearnSubject }
@@ -198,7 +198,7 @@ export function guidePage(
   const wide = typeof matchMedia === 'function' ? matchMedia('(min-width: 900px)') : undefined;
   const isWide = () => wide?.matches ?? false;
   if (focusTab && (!selected || isWide())) restore(page, tabButtons[activeIndex], 'nearest');
-  let disposeDetail: (() => void) | undefined;
+  let disposeDetail: (() => void) | undefined, figure: HTMLImageElement | undefined;
 
   function mountDetail(item: GuideEntry) {
     shownPage = `${activeSection}/${item.id}`;
@@ -206,7 +206,11 @@ export function guidePage(
     const back = backLink(tabLabels[activeIndex], () => go(activeSection)); back.classList.add('guide-entry-back');
     const heading = node('h2', 'guide-entry-title', item.name); heading.tabIndex = -1;
     body.append(back);
-    if (item.art) { const art = node('div', item.kind.startsWith('Card') ? 'entry-art card-art' : 'entry-art figure-art'); art.append(picture(item.art)); body.append(art); }
+    if (item.art) {
+      const card = item.kind.startsWith('Card'), art = node('div', card ? 'entry-art card-art' : 'entry-art figure-art'), image = picture(item.art);
+      if (!card) figure = image;
+      art.append(image); body.append(art);
+    }
     if (item.kind === 'Piece' && newPieces.has(+item.id)) heading.append(node('span', 'new-tag', 'New'));
     body.append(node('p', 'guide-kind', item.kind), heading, node('p', 'guide-short', item.short));
     if (item.subject) { const demo = learningPanel(item.subject, context, { announce }); body.append(demo.element); disposeDetail = demo.dispose; }
@@ -221,8 +225,16 @@ export function guidePage(
     return heading;
   }
 
+  /** The figure of the entry that the player opened plays one idle clip. The clip code and the figure package load here. */
+  function playFigure(image: HTMLImageElement) {
+    const disposePanel = disposeDetail;
+    let stop: (() => void) | undefined, closed = false;
+    void import('./portrait-idle').then(clip => { if (!closed) stop = clip.portraitIdle(image, reducedMotion, 400); }).catch(() => {});
+    disposeDetail = () => { closed = true; stop?.(); disposePanel?.(); };
+  }
+
   function unmountDetail() {
-    disposeDetail?.(); disposeDetail = undefined;
+    disposeDetail?.(); disposeDetail = figure = undefined;
     body.replaceChildren(); list.querySelector('[aria-current]')?.removeAttribute('aria-current');
   }
 
@@ -246,6 +258,7 @@ export function guidePage(
     if (before !== undefined && before !== shownPage) {
       heading.style.setProperty('--rule', '0');
       tween(180, t => heading.style.setProperty('--rule', String(t)), { done: () => heading.style.removeProperty('--rule') });
+      if (figure && !reducedMotion()) playFigure(figure);
     }
     if (!isWide()) restore(page, heading, 'start', page);
     else if (!focusTab && options.onBack) restore(page, heading, 'nearest');
