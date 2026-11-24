@@ -74,13 +74,14 @@ function createHome() {
 }
 /** The wide layout keeps the kings clear: it has the wide picture, and the actions start below the kings and end inside the window. Else Home splits. */
 function fitHome(home: HTMLElement) {
-  home.classList.remove('home-split');
-  if (!matchMedia(WIDE_HOME).matches) return;
+  // Only the wide layout reads the class. A narrow frame keeps it, so a resize to wide changes no width in the size observer.
+  const frame = home.querySelector<HTMLElement>('.home-art')!.dataset.frame, narrow = !!frame && frame !== 'wide';
+  home.classList.toggle('home-split', narrow);
+  if (narrow || !matchMedia(WIDE_HOME).matches) return;
   // The 16:9 painting covers the window; the kings end at 30% of its height.
   const kings = .34 * Math.max(innerHeight, innerWidth * 9 / 16);
-  const frame = home.querySelector<HTMLElement>('.home-art')!.dataset.frame;
   const bar = home.querySelector('.home-topbar')?.getBoundingClientRect(), start = home.querySelector('.home-start')?.getBoundingClientRect();
-  if (frame && frame !== 'wide' || bar && start && (bar.top < kings || start.bottom > innerHeight)) home.classList.add('home-split');
+  if (bar && start && (bar.top < kings || start.bottom > innerHeight)) home.classList.add('home-split');
 }
 
 export function playScreen(d: PlayData, art: Art, previous?: ReturnType<typeof createHome>) {

@@ -118,14 +118,12 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
   const needsWide = () => !signal.aborted && wide.matches && !!variant && variant !== 'wide';
   wide.addEventListener('change', async () => {
     if (!needsWide()) return;
-    const poster = revealPoster(window.innerWidth, window.innerHeight), picture = new Image();
-    picture.src = poster;
+    const picture = still.cloneNode() as HTMLImageElement;
+    picture.src = revealPoster(window.innerWidth, window.innerHeight);
     try { await picture.decode(); } catch { return; }
     if (!needsWide()) return;
-    variant = 'wide'; still.src = poster; fallback();
-    await still.decode().catch(() => {});
-    if (signal.aborted) return;
-    art.dataset.frame = 'wide'; framed();
+    still.replaceWith(picture); fallback();
+    variant = art.dataset.frame = 'wide'; framed();
   }, { signal });
   document.addEventListener('visibilitychange', sync, { signal });
   window.addEventListener('online', sync, { signal });

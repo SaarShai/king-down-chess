@@ -21,6 +21,7 @@ function save(game: Game, { resigned = null as 0 | 1 | null, player = 0 as 0 | 1
   writer.replace(); expect(writer.game(record, prefs, true)).toBe(true);
   return record;
 }
+const fresh = () => new Game('RNBQKBNR', rulesOf('pieces', [null, null], [[], []]));
 function played(fen: string, from: string, to: string) {
   const game = gameOf(fen), draft = new DraftTurn(game);
   draft.stage(draft.at(parseSq(from), parseSq(to))[0]); draft.commit();
@@ -46,6 +47,23 @@ it.each(ends)('decision 6, narrowed: %s opens its result card again while the ma
   clearResult(); // Home
   expect(markedResult(readStored())).toBeNull();
 });
+it('a resignation before the first move opens its result card again; its kind stays empty', () => {
+  const record = save(fresh(), { resigned: 0 });
+  expect(readStored().kind).toBe('empty');
+  expect(markedResult(readStored())).toBeNull(); // no mark: Home
+  markResult(record);
+  expect(markedResult(readStored())).toMatchObject({ player: 0, finished: { resigned: 0 }, level: 'clever' });
+  clearResult(); save(fresh()); markResult(record); // no move and no resignation
+  expect(markedResult(readStored())).toBeNull();
+});
+it('a later game with the same moves does not open the card of the first game', () => {
+  const record = save(mate()); markResult(record);
+  expect(markedResult(readStored())).not.toBeNull();
+  save(mate()); // another tab
+  expect(markedResult(readStored())).toBeNull();
+  markResult(record); // the first tab shows its card again
+  expect(markedResult(readStored())).toBeNull();
+});
 it('the mark of one game opens no other game', () => {
   markResult(save(mate()));
   save(played('7k/8/8/8/8/8/1q6/K7 w - - 0 1', 'a1', 'b2'));
@@ -58,6 +76,7 @@ it('a staged mate, a kept save and a game of two people stay as they are', () =>
   writer.replace(); writer.game(record, prefs, true); markResult(record);
   expect(readStored().kind).toBe('resume'); expect(markedResult(readStored())).toBeNull();
   for (const change of [{ moves: ['e2-e4', 'e2-e4'] }, { black: 'human' as const }]) {
+    clearResult();
     const other = { ...save(mate()), ...change };
     localStorage.setItem('kingdown.save', JSON.stringify(other)); markResult(other);
     expect(markedResult(readStored())).toBeNull();

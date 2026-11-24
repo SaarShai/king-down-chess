@@ -719,7 +719,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     replySteps = lastReplySteps(game, cpu());
     if (draft.steps.length) lastActions = [...draft.steps];
   }
-  shell.go(onlineActive ? { place: 'online', entry: onlineState!.view!.game_id } : { place: 'game' }, false, !!finished);
+  shell.go(onlineActive ? { place: 'online', entry: onlineState!.view!.game_id } : { place: 'game' }, false);
   leaveHome();
   document.body.dataset.page = 'game';
   screen = el('section', 'play-game');
@@ -2231,16 +2231,20 @@ function closeHomeGuide() {
   root.querySelector<HTMLElement>('.home-guide-btn')?.focus({ preventScroll: true });
 }
 
-function renderPlace(route: Route) {
-  const result = reload; reload = null;
-  if (result) {
-    writer.load(readStored().save);
-    const loading = el('p', 'people-loading', 'Loading your game…');
-    root.replaceChildren(loading);
-    // No board: its code cannot load. Home then opens.
-    void start(result).then(() => { if (root.lastChild === loading) renderPlace(route); loading.remove(); });
-    return;
+/** A reload on the open result card: the board code loads, then one more read of the save. No code or another game: Home. Another route: the restore gives way. */
+async function restoreResult(route: Route) {
+  const loading = el('p', 'people-loading', 'Loading your game…');
+  const slow = setTimeout(() => { if (shell.route === route) root.prepend(loading); }, 300);
+  try { await loadBoardCode(); } catch { announce(text.loadFailed); }
+  if (shell.route === route) {
+    const stored = readStored(), result = boardCode ? markedResult(stored) : null;
+    if (result) { writer.load(stored.save); await start(result); }
+    else shell.go({ place: 'play' }, true, true);
   }
+  clearTimeout(slow); loading.remove();
+}
+function renderPlace(route: Route) {
+  if (reload) { reload = false; void restoreResult(route); return; }
   clearResult();
   homePoll?.update();
   if (route.place !== 'play') clearInviteLinkStatus();
@@ -2273,9 +2277,10 @@ function renderPlace(route: Route) {
     (section, entry) => shell.go({ place: 'guide', ...(section && { section }), ...(entry && { entry }) }),
     announce, { onBack: closeHomeGuide }));
 }
-// A reload keeps the address of the game screen; a new visit to this tab has no #game and opens Home.
-let reload = location.hash === '#game' ? markedResult(readStored()) : null;
+// Only a reload of the game screen opens the marked card again, in the same history entry. A new visit opens Home.
+let reload = location.hash === '#game' && (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type === 'reload' && !!markedResult(readStored());
 const shell = mountShell(root, renderPlace);
+if (reload) shell.go({ place: 'game' }, false, true);
 // Home does not wait for the symbol files (launch decision 45): the small board and the Symbols view take them when they come.
 shell.start();
 homePoll = runPoll(() => document.body.dataset.page === 'home' && shell.route.place === 'play' && people?.signedIn

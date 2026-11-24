@@ -144,13 +144,13 @@ it.each([
 /** Narrow Home with its portrait film; `resize` enters or leaves the wide layout; `answers` settles the wide pictures in turn. */
 async function narrowHome() {
   const page = fakePage('probably'), answers: ((ok: boolean) => Promise<void>)[] = [], framed = vi.fn();
-  vi.stubGlobal('Image', class {
-    src = '';
-    decode() { return new Promise<void>((done, fail) => { answers.push(async ok => { if (ok) done(); else fail(new Error('EncodingError')); for (let i = 0; i < 9; i++) await Promise.resolve(); }); }); }
-  });
+  const decode = () => new Promise<void>((done, fail) => { answers.push(async ok => { if (ok) done(); else fail(new Error('EncodingError')); for (let i = 0; i < 9; i++) await Promise.resolve(); }); });
   const home = await page.show(undefined, [500, 1000], framed);
+  let still = home.still;
+  // Each decode after the first picture waits for its answer.
+  Object.assign(still, { decode, cloneNode: () => Object.assign(Object.create(null), { decode }), replaceWith: (next: typeof still) => { still = next; } });
   const resize = (wide: boolean) => { page.media.matches = wide; page.media.listeners.forEach(listener => listener()); };
-  const shown = () => [home.still.src, home.art.dataset.frame, home.video.src !== undefined];
+  const shown = () => [still.src, home.art.dataset.frame, home.video.src !== undefined];
   return { ...home, resize, answers, framed, shown };
 }
 const PORTRAIT = ['/interface/reveal/hero-portrait.webp', 'portrait', true], WIDE = ['/interface/reveal/hero-wide.webp', 'wide', false];
@@ -161,44 +161,55 @@ it('enters the wide layout when the wide picture is ready: until then the portra
   home.resize(true);
   expect(home.shown()).toEqual(PORTRAIT);
   expect(home.framed).not.toHaveBeenCalled();
+  // The picture, the film and the layout change together: no second decode can leave the wide picture blank.
   await home.answers[0](true);
   expect(home.shown()).toEqual(WIDE);
   expect(home.art.classList.contains('home-art-still')).toBe(true);
   expect(home.framed).toHaveBeenCalledOnce();
+  expect(home.answers).toHaveLength(1);
 });
 it('a resize back to narrow before the load ends changes no picture and no layout', async () => {
   const home = await narrowHome();
-  home.resize(true); home.resize(false); await home.answers[0](true);
+  home.resize(true); home.resize(false);
+  expect(home.shown()).toEqual(PORTRAIT);
+  await home.answers[0](true);
   expect(home.shown()).toEqual(PORTRAIT);
   expect(home.framed).not.toHaveBeenCalled();
 });
 it('two fast resizes into the wide layout frame it once', async () => {
   const home = await narrowHome();
   home.resize(true); home.resize(false); home.resize(true);
+  expect(home.shown()).toEqual(PORTRAIT);
   await home.answers[0](true); await home.answers[1](true);
   expect(home.shown()).toEqual(WIDE);
   expect(home.framed).toHaveBeenCalledOnce();
 });
 it('a wide picture that cannot load leaves the portrait frame; a later resize tries again', async () => {
   const home = await narrowHome();
-  home.resize(true); await home.answers[0](false);
+  home.resize(true);
   expect(home.shown()).toEqual(PORTRAIT);
-  home.resize(false); home.resize(true); await home.answers[1](true);
+  await home.answers[0](false);
+  expect(home.shown()).toEqual(PORTRAIT);
+  home.resize(false); home.resize(true);
+  expect(home.shown()).toEqual(PORTRAIT);
+  await home.answers[1](true);
   expect(home.shown()).toEqual(WIDE);
 });
 it('Home that closes during the load takes no wide picture', async () => {
   const home = await narrowHome();
-  home.resize(true); home.reveal.dispose(); await home.answers[0](true);
-  expect(home.still.src).toBe('/interface/reveal/hero-portrait.webp');
+  home.resize(true);
+  expect(home.shown()).toEqual(PORTRAIT);
+  home.reveal.dispose(); await home.answers[0](true);
+  expect(home.shown()).toEqual(['/interface/reveal/hero-portrait.webp', 'portrait', false]);
   expect(home.framed).not.toHaveBeenCalled();
 });
 it('a film that ended and reduced motion take the wide picture the same way', async () => {
   for (const before of [(home: Awaited<ReturnType<typeof narrowHome>>) => home.video.emit('ended'), async () => { (await import('./fx')).setFxMotion('normal', true); }]) {
     const home = await narrowHome();
     await before(home);
-    home.resize(true); expect(home.still.src).toBe('/interface/reveal/hero-portrait.webp');
+    home.resize(true); expect(home.shown().slice(0, 2)).toEqual(PORTRAIT.slice(0, 2));
     await home.answers[0](true);
-    expect([home.still.src, home.art.dataset.frame]).toEqual(['/interface/reveal/hero-wide.webp', 'wide']);
+    expect(home.shown()).toEqual(WIDE);
   }
 });
 it('Home that opens wide has its wide frame at once', async () => {
