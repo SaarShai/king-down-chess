@@ -141,6 +141,12 @@ it('a mate that the player confirms ends the instruction: the words say Checkmat
   expect([title, primary, secondary].flat()).toEqual(['Checkmate.']);
 });
 
+it('an online mate hold says Checkmate, not that the opponent thinks', () => {
+  const { scope } = screen();
+  Object.assign(scope, model({ ended: true, canFinish: true, length: 0 }), { thinking: true, onlineActive: true, gameWords: (words: string) => words, sentences: () => [], playedCard: () => undefined });
+  const { title, primary, secondary } = (scope.readerModel as () => Model)();
+  expect([title, primary, secondary].flat()).toEqual(['Checkmate.']);
+});
 it('a mate that still needs End turn keeps its instruction', () => {
   const { scope } = screen({ start: false });
   Object.assign(scope, model({ ended: false, canFinish: true, length: 1 }));

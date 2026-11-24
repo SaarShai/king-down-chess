@@ -35,13 +35,13 @@ const rule = (title?: Node) => title!.vars.get('--rule');
 
 it('draws the rule one time when the entry changes, and leaves it whole', () => {
   open('Pieces');
-  const title = open('Pieces', '7');
+  const title = open('Pieces', '8');
   expect(rule(title)).toBe('0');
   pass(30); pass(30); pass(30);
   expect(Number(rule(title))).toBeGreaterThan(0); expect(Number(rule(title))).toBeLessThan(1);
   for (let i = 0; i < 10; i++) pass(30);
   expect(rule(title)).toBeUndefined(); // the rest rule of the style sheet
-  expect(rule(open('Pieces', '8'))).toBe('0'); // Next
+  expect(rule(open('Pieces', '7'))).toBe('0'); // Previous
 });
 it('moves nothing on the first page (a reload), the same entry again, a section, or a resize', () => {
   const first = open('Pieces', '7');
@@ -51,6 +51,14 @@ it('moves nothing on the first page (a reload), the same entry again, a section,
   const page = guide.guidePage('Pieces', undefined, () => {}) as unknown as Node;
   wide.matches = false; wide.run(); wide.matches = true; wide.run();
   expect(rule(page.find('guide-entry-title'))).toBeUndefined();
+});
+it('a wide section that shows an entry already draws nothing when that entry opens; a hidden default entry draws', () => {
+  const [first] = guide.guideEntries('Pieces');
+  open('Cards'); open('Pieces');
+  expect(rule(open('Pieces', first.id))).toBeUndefined();
+  expect(rule(open('Pieces', guide.guideEntries('Pieces')[1].id))).toBe('0');
+  open('Pieces'); wide.matches = false; wide.run(); // the narrow list alone
+  expect(rule(open('Pieces', first.id))).toBe('0');
 });
 it('reduced motion shows the whole rule at once', () => {
   fx.setFxMotion('normal', true);

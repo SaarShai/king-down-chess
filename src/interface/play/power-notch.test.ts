@@ -8,16 +8,18 @@ const page = transformSync('main.ts', parseSync('main.ts', main).program.body
   .filter(node => node.type === 'FunctionDeclaration' && node.id?.name === 'markUses').map(node => main.slice(node.start, node.end)).join('\n')).code;
 /** A power with three uses: its notches and the play screen's real drawing of them. */
 function power({ reduce = false } = {}) {
-  const notches = [0, 1, 2].map(() => ({ dataset: {} as Record<string, string>, animate: vi.fn() }));
+  const notches = [0, 1, 2].map(() => ({ dataset: {} as Record<string, string>, animate: vi.fn((_frames: unknown, _ms: number) => {}) }));
   const scope: Record<string, unknown> = { reducedMotion: () => reduce, time: (ms: number) => ms, getComputedStyle: () => ({ backgroundColor: 'teal' }) };
   runInNewContext(page, scope);
   const mark = (left: number | null, spentNow = false) => (scope.markUses as (...args: unknown[]) => void)({ querySelectorAll: () => notches }, left, spentNow);
-  return { mark, used: () => notches.filter(notch => notch.dataset.used === 'true').length, moved: () => notches.map(notch => notch.animate.mock.calls.length) };
+  return { mark, used: () => notches.filter(notch => notch.dataset.used === 'true').length, moved: () => notches.map(notch => notch.animate.mock.calls.length),
+    motions: () => notches.flatMap(notch => notch.animate.mock.calls.map(call => call[1])) };
 }
 it('a use that the player spends now fills one notch in 180 ms; a redraw moves nothing', () => {
-  const { mark, used, moved } = power();
+  const { mark, used, moved, motions } = power();
   mark(3); expect([used(), moved()]).toEqual([0, [0, 0, 0]]);
   mark(2, true); expect([used(), moved()]).toEqual([1, [0, 0, 1]]);
+  expect(motions()).toEqual([180]);
   mark(2); mark(2); expect([used(), moved()]).toEqual([1, [0, 0, 1]]);
   mark(1, true); expect([used(), moved()]).toEqual([2, [0, 1, 1]]);
 });

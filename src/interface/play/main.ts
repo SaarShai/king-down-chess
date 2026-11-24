@@ -1750,11 +1750,11 @@ function readerModel(): ReaderModel {
     const parts = subjectModel(m, { kind: 'piece', type: typeOf(code) }, colorOf(code));
     m.primary = [...notices, ...checks];
     m.secondary = [parts.short];
-  } else if (thinking) {
+  } else if (ended) m.title = 'Checkmate.'; // the checkmate hold, also when an online game has no draft; a result card has its own words
+  else if (thinking) {
     // The computer chooses: the state alone. The computer acts: the sentence of the step that plays.
     const [first = '', ...rest] = sentences(acting); Object.assign(m, { title: notice || first, secondary: (notice && first ? [first, ...rest] : rest).map(t => line('play-last', t)), art: playedCard(cpu(), playingAction?.move) });
-  } else if (ended) m.title = 'Checkmate.'; // the checkmate hold; a result card has its own words
-  else {
+  } else {
     const idle = selected == null && inspected == null && !draft.armed && !notice && !check.mine && !writer.warning;
     Object.assign(m, { title: notice || (check.mine ? check.lines[0] : ''),
       primary: checks.slice(check.mine && !notice ? 1 : 0), secondary: [line('play-instruction', idle && last || 'Choose a piece.')] });
@@ -1798,10 +1798,12 @@ function renderHistory() {
   const groups = currentHistory(), fresh = freshLine(groups, performance.now()), dry = time(160);
   // The new line goes from brown to ink one time. A redraw builds its node again: the motion goes on from its place.
   const ink = (node: HTMLElement, key: string) => {
-    if (key === fresh.key && fresh.age < dry && !reducedMotion()) node.animate([{ color: 'var(--sage-500)', offset: 0 }], dry).currentTime = fresh.age;
+    if (key === fresh.key && fresh.age < dry && !reducedMotion()) node.animate([{ color: 'var(--text-muted)', offset: 0 }], dry).currentTime = fresh.age;
   };
+  // An open History moves the line only if it showed the line as it came.
+  const inkIn = (view: HTMLElement) => { if (fresh.came) view.dataset.ink = fresh.key; return view.dataset.ink === fresh.key ? ink : undefined; };
   const openHistory = document.querySelector<HTMLElement>('.history-dialog .sheet-body');
-  if (openHistory) openHistory.replaceChildren(...historyRows(groups, ink));
+  if (openHistory) openHistory.replaceChildren(...historyRows(groups, inkIn(openHistory)));
   if (!historyStrip) return;
   historyStrip.hidden = !game.history.length;
   // The closed History is one row: its name and the newest record.
@@ -1812,14 +1814,14 @@ function renderHistory() {
   historyButton.setAttribute('aria-label', `${text.history}: ${preview.map(item => item.line).join(' ') || text.noHistory}`);
   historyButton.setAttribute('aria-expanded', String(scrollOpen === 'history'));
   scrollPanel.hidden = !scrollOpen;
-  if (!scrollOpen) { scrollPanel.dataset.kind = ''; return; }
+  if (!scrollOpen) { scrollPanel.dataset.kind = scrollPanel.dataset.ink = ''; return; }
   const was = scrollPanel.dataset.kind; scrollPanel.dataset.kind = scrollOpen;
   const focused = scrollPanel.contains(document.activeElement);
   const head = el('div', 'play-panel-head'), title = text.history;
   const heading = el('h3', '', title); heading.id = 'play-scroll-title'; scrollPanel.setAttribute('aria-labelledby', heading.id);
   head.append(heading, closeX(`Close ${title.toLowerCase()}`, () => closeFloating()));
   const body = el('div', 'play-panel-body');
-  body.append(...historyRows(groups, ink));
+  body.append(...historyRows(groups, inkIn(scrollPanel)));
   scrollPanel.replaceChildren(head, body);
   if (focused) scrollPanel.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
   if (was !== scrollOpen && !calm() && !matchMedia('(prefers-reduced-motion: reduce)').matches) sheetMotion(scrollPanel, true);

@@ -61,10 +61,14 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
     video.load();
   }
 
+  /** The film gives way to the still: a picture of another shape takes the one of this shape. */
+  const owed = () => { if (art.classList.contains('home-art-whole')) void reframe(); };
+
   function fallback() {
     failed = true;
     art.classList.add('home-art-still');
     release();
+    owed();
   }
 
   function play() {
@@ -82,6 +86,7 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
     play();
   }
 
+  const stillOnly = () => replay || failed || reducedMotion() || !navigator.onLine;
   const layoutShape = () => wide.matches ? 'wide' : revealVariant(art.clientWidth || window.innerWidth, art.clientHeight || window.innerHeight);
 
   // A film or a picture framed for another shape would crop the kings: show the still of the layout, once it is ready.
@@ -90,19 +95,19 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
   // turns) plays its film on, whole, and takes its still after the film.
   async function reframe() {
     if (signal.aborted || !variant) return;
-    const shape = layoutShape(), filmDone = replay || failed || settled || reducedMotion();
+    const shape = layoutShape(), due = () => wide.matches || wasWide || settled || stillOnly();
     art.classList.toggle('home-art-whole', shape !== variant);
-    if (shape === variant || !(wide.matches || wasWide || filmDone)) { loading = undefined; return; }
+    if (shape === variant || !due()) { loading = undefined; return; }
     if (shape === loading?.shape) return;
     const own = loading = { shape }, picture = still.cloneNode() as HTMLImageElement;
     picture.src = revealPoster(shape);
     const ready = await picture.decode().then(() => true, () => false);
     if (loading !== own || signal.aborted) return;
     loading = undefined;
-    if (!ready) return; // The next resize tries again.
-    if (layoutShape() !== shape) { void reframe(); return; }
-    still.replaceWith(picture); still = picture; fallback();
-    variant = art.dataset.frame = shape; art.classList.remove('home-art-whole'); framed();
+    if (!ready) return; // The next resize or sync (the connection returns) tries again.
+    if (layoutShape() !== shape || !due()) { void reframe(); return; }
+    still.replaceWith(picture); still = picture;
+    variant = art.dataset.frame = shape; art.classList.remove('home-art-whole'); fallback(); framed();
   }
 
   function sync() {
@@ -113,8 +118,9 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
       still.src = revealPoster(variant);
       void still.decode().catch(() => {});
     }
-    const useStill = replay || failed || reducedMotion() || !navigator.onLine;
+    const useStill = stillOnly();
     art.classList.toggle('home-art-still', useStill);
+    owed();
     if (settled) return;
     if (useStill || !visible || pageHidden || document.hidden) { video.pause(); return; }
     if (!video.hasAttribute('src')) {
@@ -132,7 +138,7 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
     art.classList.add('home-art-settled');
     // A hidden page or a disabled transition may send no transitionend event.
     releaseTimer = setTimeout(release, 400);
-    if (art.classList.contains('home-art-whole')) void reframe();
+    owed();
   }, { signal });
   video.addEventListener('transitionend', event => {
     if (settled && event.propertyName === 'opacity') release();

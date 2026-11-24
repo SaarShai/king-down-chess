@@ -66,7 +66,7 @@ export const neighbours = (section: string, id: string): { previous?: GuideEntry
 const usesLine = (item: GuideEntry) => item.kind.split(' · ')[1]?.replace(' per game', '') ?? '';
 /** The row that the person left for an entry: Back to its list returns there (launch decision 29). */
 let left: { section: string; entry: string } | null = null;
-/** The section and entry of the last Guide page: the title rule draws only when the next page opens another entry. */
+/** The section and the entry on display: the title rule draws only when another entry opens. */
 let shownPage: string | undefined;
 let focusActiveTab = false;
 let guideId = 0;
@@ -141,7 +141,7 @@ export function guidePage(
   const page = node('section', 'shell-page guide-page');
   const activeSection = guideSections.find(sec => sec === section) ?? 'Pieces';
   const activeIndex = guideSections.indexOf(activeSection);
-  const before = shownPage, now = shownPage = `${activeSection}/${entry ?? ''}`;
+  const before = shownPage; shownPage = `${activeSection}/`;
   const head = node('header', 'guide-head'), top = node('div', 'guide-top'), title = node('h1', '', text.guide);
   title.tabIndex = -1;
   if (options.onBack) top.append(backLink(options.backLabel ?? text.homeLabel, options.onBack));
@@ -201,6 +201,7 @@ export function guidePage(
   let disposeDetail: (() => void) | undefined;
 
   function mountDetail(item: GuideEntry) {
+    shownPage = `${activeSection}/${item.id}`;
     const current = rowFor(item.id); current?.setAttribute('aria-current', 'true');
     const back = backLink(tabLabels[activeIndex], () => go(activeSection)); back.classList.add('guide-entry-back');
     const heading = node('h2', 'guide-entry-title', item.name); heading.tabIndex = -1;
@@ -232,7 +233,7 @@ export function guidePage(
     else {
       const hadFocus = detailFocused || body.contains(document.activeElement);
       const currentId = list.querySelector<HTMLElement>('[aria-current]')?.dataset.entry;
-      unmountDetail();
+      unmountDetail(); shownPage = `${activeSection}/`;
       detailFocused = false;
       if (hadFocus && (!document.activeElement || document.activeElement === document.body || body.contains(document.activeElement))) {
         (currentId ? rowFor(currentId) : tabButtons[activeIndex])?.focus({ preventScroll: true });
@@ -242,7 +243,7 @@ export function guidePage(
   if (selected) {
     left = { section: activeSection, entry: selected.id };
     const heading = mountDetail(selected);
-    if (before !== undefined && before !== now) {
+    if (before !== undefined && before !== shownPage) {
       heading.style.setProperty('--rule', '0');
       tween(180, t => heading.style.setProperty('--rule', String(t)), { done: () => heading.style.removeProperty('--rule') });
     }
