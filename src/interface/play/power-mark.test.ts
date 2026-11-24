@@ -47,11 +47,21 @@ it('the mark is the whole coin: no second ring, and a spent mark is grey', () =>
 it('a check or a win colours the ring of a coin: no ring rule of the mark is stronger or later', () => {
   const css = read('./reading-b.css'), at = (text: string) => css.indexOf(text);
   const own = [...css.matchAll(/^\.play-seat-ring\S*:has\(> \.play-power-coin\)\S* \{[^}]*border-color[^}]*\}/gm)];
-  expect(own).toHaveLength(2);
+  expect(own).toHaveLength(1);
   for (const { 0: rule, index } of own) {
     expect((rule.replace(/:where\(.*?\)+ /, ' ').match(/(\.[\w-]+|\[[^\]]+\])(?=.*\{)/g) ?? []).length).toBe(2); // as strong as [data-check]
     for (const state of [".play-seat-ring[data-check='true'] {", ".play-seat-ring[data-outcome='win'] {"]) expect(at(state)).toBeGreaterThan(index);
   }
+});
+
+it('the name of a power has no break inside a word, grows with the text size, and makes its column wider than the coin', () => {
+  const css = read('./reading-b.css'), at = (text: string) => css.indexOf(text);
+  expect(css).toContain(".play-game .play-own .play-power { flex: none; width: min-content; min-width: 58px; }");
+  expect(css).toMatch(/\.play-own \.play-power \[data-button-label\] \{ font: 700 \.75rem\/1\.1 [^;]+; overflow-wrap: normal; \}/);
+  expect(css.slice(at('min-width: 58px'))).not.toMatch(/\.play-own \.play-power \{ flex-basis/);
+  // The wider column leaves each card its whole name.
+  expect(css).toMatch(/@media \(max-width: 359px\) \{[^@]*:has\(\.play-hand\) \.play-power \[data-button-label\] \{ font: 700 12px/);
+  expect(css).toMatch(/\[data-form='wide'\] \.play-own \.play-card \[data-button-label\] \{ padding-inline: 5px; \}/);
 });
 
 it('a resize runs the fit check of the narrator again: the mark goes when the text leaves the reader, and comes back', () => {

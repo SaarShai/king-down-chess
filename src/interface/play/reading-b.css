@@ -368,11 +368,9 @@
 .play-seat-ring { flex: none; box-sizing: border-box; position: relative; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--line-2, var(--divider)); border-radius: 50%; transform: scale(var(--breath, 1)); }
 .play-seat-ring > :is(.profile-portrait, .play-figure) { width: 100%; height: 100%; min-height: 0; object-fit: contain; border: 0; border-radius: 50%; }
 .play-seat-ring > .play-power-coin { width: 100%; height: 100%; }
-.play-seat-ring[data-turn='true'] { border-color: var(--brass-p, var(--brass)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brass-2, var(--brass)) 25%, transparent); }
-/* The rim of the mark is the ring: the turn shows as the glow alone, and the check below is as strong. The notches hang 4 px below the rim. */
-.play-seat-ring:has(> .play-power-coin) { border-color: transparent; }
-.play-seat-ring[data-turn='true']:where(:has(> .play-power-coin)) { border-color: color-mix(in srgb, var(--brass-2, var(--brass)) 25%, transparent); }
-.play-seat-ring:has(.play-power-notch) { margin-bottom: 4px; }
+.play-seat-ring[data-turn='true'] { border-color: var(--brass-p, var(--brass)); box-shadow: 0 0 0 1px var(--surface-page), 0 0 0 3px color-mix(in srgb, var(--brass), var(--main-edge)); }
+/* The rim of the mark is the ring: the turn edge stands clear of it, and the check below is as strong. The notches hang 4 px below the rim, and the turn edge 3 px. */
+.play-seat-ring:has(> .play-power-coin) { border-color: transparent; margin-bottom: 4px; }
 .play-seat-ring[data-check='true'] { border-color: var(--danger); box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 32%, transparent); }
 .play-seat-ring[data-thinking='true']::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--teal, var(--power-fill)); transform: rotate(var(--arc, 0deg)); }
 :root[data-motion='reduce'] .play-seat-ring::after { display: none; }
@@ -380,8 +378,8 @@
 .play-opponent-group > strong small { font: 400 14px/16px var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); }
 .play-game[data-online] .play-opponent-group .opponent-clock { overflow: visible; text-overflow: clip; white-space: normal; text-wrap: balance; }
 .play-game .play-opp .play-power { flex: 0 1 auto; min-width: 44px; flex-direction: row; gap: 3px; font-size: 13px; height: 44px; padding: 0 4px; color: var(--teal, var(--text)); }
-.play-game .play-own .play-power { flex-basis: 58px; }
-.play-game .play-own .play-power [data-button-label] { font: 700 12px/1.1 var(--cinzel, var(--font-title)); }
+.play-game .play-own .play-power { flex: none; width: min-content; min-width: 58px; }
+.play-game .play-own .play-power [data-button-label] { font: 700 .75rem/1.1 var(--cinzel, var(--font-title)); overflow-wrap: normal; }
 .play-game .play-own .play-power small { font-size: 12px; }
 .play-store { flex: none; display: grid; place-items: center; min-width: 24px; height: 24px; border: 1px solid var(--line, var(--divider)); border-radius: 50%; background: var(--raised, var(--surface-raised)); color: var(--soft, var(--text-muted)); font: 700 12px/1 var(--sans, var(--font-reading)); }
 .play-own > .play-store { margin-inline: 0 2px; }
@@ -406,6 +404,8 @@
 /* The vellum margin and the gilt rule lie over the art edge, so the art and the name keep their size. */
 .play-game[data-hand='hand'] .play-own .play-card::before { content: ''; position: absolute; inset: 0; z-index: 2; border-radius: 9px; pointer-events: none;
   box-shadow: inset 0 0 0 2px var(--armed-edge, var(--stock)), inset 0 0 0 3px var(--stock), inset 0 0 0 4px var(--gilt); }
+/* The next card covers the edge of a wide card: a name such as "Earth Quake" wraps before it goes below that card. */
+.play-game[data-hand='hand'][data-form='wide'] .play-own .play-card [data-button-label] { padding-inline: 5px; }
 /* A long name ("Salvation" at 320 px) runs over the rule: the name stays whole. */
 .play-game[data-hand='hand'] .play-own .play-card [data-button-label] { position: relative; z-index: 3; }
 .play-game[data-hand='hand'] .play-own .play-card::after { display: block; background: linear-gradient(110deg, transparent 22%, white 50%, transparent 78%); background-position: var(--glare-x, 50%) 0; background-size: 170% 100%; opacity: var(--glare, 0); z-index: 1; pointer-events: none; }
@@ -416,7 +416,11 @@
 @media (forced-colors: active) {
   /* The browser drops the shadows: armed is an inner CanvasText edge, focus stays the outer Highlight ring. */
   .play-game[data-hand='hand'] .play-own .play-card[aria-pressed='true']::before { border: 3px solid CanvasText; }
-  .play-game .play-power[aria-pressed='true'] .play-power-coin { outline: 3px solid CanvasText; outline-offset: 1px; }
+  .play-game .play-power[aria-pressed='true'] .play-power-coin { outline: 3px solid CanvasText; outline-offset: 0; }
+  /* Outside the armed edge: a dashed line is the turn, a double line is the check. */
+  .play-seat-ring:is([data-turn='true'], [data-check='true']) { outline-offset: 3px; }
+  .play-seat-ring[data-turn='true'] { outline: 2px dashed CanvasText; }
+  .play-seat-ring[data-check='true'] { outline: 3px double CanvasText; }
   .play-game[data-layout] .play-board { outline: 1px solid CanvasText; }
   .play-game:not([data-review='true']) .play-result { outline: 1px solid CanvasText; outline-offset: -1px; }
 }
@@ -567,7 +571,7 @@
 /* A hand row under 260 px (a landscape phone) gives each card its whole width: the power shows its coin, and the cards
    do not fan or overlap. Under 240 px the names take 12 px tight letters, so "Salvation" fits. */
 @container (max-width: 259px) {
-  .play-game .play-own .play-power { flex-basis: 44px; }
+  .play-game .play-own .play-power { min-width: 44px; }
   .play-game .play-own .play-power-copy { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .play-game[data-hand='hand'] .play-own .play-card { --fan-angle: 0deg !important; --fan-drop: 0px !important; margin-inline: 0; }
   .play-game .play-own .play-card [data-button-label] { padding: 0; }
@@ -578,7 +582,12 @@
 @media (max-width: 400px) { .play-game[data-hand='hand'] .play-own .play-card { margin-inline: 0; } }
 /* The same on a landscape phone with a hand row from 260 to 300 px (736x414). */
 @container (max-width: 300px) { .play-game[data-hand='hand'] .play-own .play-card { margin-inline: 0; } }
-@media (max-width: 359px) { .play-game .play-own .play-power { flex-basis: 50px; } .play-hand { padding-inline: 0; } }
+@media (max-width: 359px) {
+  .play-game .play-own .play-power { min-width: 50px; }
+  /* Beside four cards, a name such as "Darkness" takes the narrow font, so "Salvation" fits its card. */
+  .play-game .play-own:has(.play-hand) .play-power [data-button-label] { font: 700 12px/1.1 var(--sans, var(--font-reading)); letter-spacing: -.03em; }
+  .play-hand { padding-inline: 0; }
+}
 
 .play-wordmark { display: none; }
 .play-game[data-layout='wide'][data-form='wide'] .play-wordmark { display: block; position: absolute; top: 18px; left: 16px; font: 650 12px/1 var(--cinzel, var(--font-title)); text-transform: uppercase; letter-spacing: .1em; color: var(--soft, var(--text-muted)); }

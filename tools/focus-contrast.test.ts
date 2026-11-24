@@ -62,6 +62,19 @@ it('keeps the armed mark and the board edge in forced colours, a focused card un
   expect(css).toMatch(/\.play-result-actions \.kd-button\[data-kind='main'\] \{[^}]*margin-inline: calc\(var\(--focus-width\) \+ var\(--focus-offset\)\)/);
 });
 
+it('keeps the turn edge of a seat ring at 3:1 or more on both papers, with a gap from the rim, and tells turn, armed and check apart in forced colours', () => {
+  const css = readFileSync('src/interface/play/reading-b.css', 'utf8'), daylight = readFileSync('src/interface/ui/tokens.css', 'utf8');
+  const colour = (name: string) => daylight.match(new RegExp(`--${name}: (#[0-9a-f]{6});`))![1];
+  const rgb = (name: string) => colour(name).slice(1).match(/../g)!.map(part => parseInt(part, 16));
+  const edge = /\.play-seat-ring\[data-turn='true'\] \{[^}]*box-shadow: 0 0 0 1px var\(--surface-page\), 0 0 0 3px color-mix\(in srgb, var\(--([\w-]+)\), var\(--([\w-]+)\)\);/.exec(css)!.slice(1).map(rgb);
+  const mixed = '#' + edge[0].map((part, i) => Math.round((part + edge[1][i]) / 2).toString(16).padStart(2, '0')).join('');
+  for (const surface of ['paper-50', 'paper-0']) expect(contrast(mixed, colour(surface)), `turn edge on ${surface}`).toBeGreaterThanOrEqual(3);
+  expect(contrast(mixed, colour('main-edge')), 'turn edge next to the armed edge').toBeGreaterThanOrEqual(1.5);
+  const forced = css.slice(css.indexOf('@media (forced-colors: active)')), outline = (selector: string) => forced.match(new RegExp(`${selector.replace(/[[\].]/g, '\\$&')} \\{ outline: (\\w+ \\w+) CanvasText;`))?.[1];
+  expect([".play-seat-ring[data-turn='true']", ".play-power[aria-pressed='true'] .play-power-coin", ".play-seat-ring[data-check='true']"].map(outline)).toEqual(['2px dashed', '3px solid', '3px double']);
+  expect(forced.indexOf("[data-check='true']")).toBeGreaterThan(forced.indexOf("[data-turn='true']"));
+});
+
 it('keeps each result seal mark at 3:1 or more on every stop of its wax, and the sheet edge in forced colours', () => {
   const css = readFileSync('src/interface/play/reading-b.css', 'utf8'), wax = /--wax: (#[0-9a-f]{6});/.exec(readFileSync('src/interface/ui/tokens.css', 'utf8'))![1];
   const seals = [...css.matchAll(/\.play-result-seal \{[^}]*?color: (#[0-9a-f]{6});\s*background: radial-gradient\(([^;]+)\);/g)];
