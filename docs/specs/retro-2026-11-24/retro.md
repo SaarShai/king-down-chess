@@ -43,7 +43,7 @@ Two cautions. The scan read only the first 600 and the last 300 characters of ea
 
 10. **[Steering] The launch briefs are large.** `runs/launch/decisions.md` is 216 KB and 32 sessions read it. Change: an index with one line per decision; a lane brief names the decision IDs that it needs.
 
-11. **[Tests] Eight test workers save about 200 s, but one test fails under that load. Owner decision.** `vite.config.ts` sets `maxWorkers: 4`; this Mac has 16 cores. Two full runs with 8 workers took 327 s and 312 s, against 525 s. One run failed `tools/plugin-ios-size.test.ts` ("A setup piece keeps its touch drag guard"); the other was green. Change: make that test wait for its state and not for a time, then use 8 workers outside CI. Not built: a suite that fails one run in two is worse than a slow suite.
+11. **[Tests] Eight test workers save about 200 s, but one test fails under that load. Owner decision.** `vite.config.ts` sets `maxWorkers: 4`; this Mac has 16 cores. Two full runs with 8 workers took 327 s and 312 s, against 525 s. One run failed `tools/plugin-ios-size.test.ts` ("keeps the seat and board large at 393 × 852 with host insets 102/118"); the other was green. Change: find why that test fails under load (guess: it reads the layout before the page settles), then use 8 workers outside CI. Not built: a suite that fails one run in two is worse than a slow suite.
 
 ### Low
 
