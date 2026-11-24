@@ -37,7 +37,12 @@ const tree: Record<string, string> = {
   'src/lint-me/one.ts': '',
   'src/lint-me/two.webp': '',
   'public/ui/art.webp': '',
-  'tools/lib/registry.mjs': "export const checks = [{ script: 'tools/verify-a.mjs' }];",
+  'tools/lib/registry.mjs': "export const checks = [{ script: 'tools/verify-a.mjs' }, { script: 'tools/verify-b.mjs' }];",
+  'tools/verify-b.mjs': '',
+  'tools/verify.lint.test.ts': "for (const file of globSync('tools/verify-b*.mjs')) lint(file);",
+  'tools/route.test.ts': "await page.route('**/*', route => route.continue());",
+  '.githooks/pre-push.mjs': '',
+  'tools/hooks.test.ts': "run('node', ['.githooks/pre-push.mjs']);",
   'tools/registry.test.ts': "import { checks } from './lib/registry.mjs';",
   'tools/verify-a.mjs': "import '../src/rules/engine.ts'; // see src/view.ts",
   'tools/site-build.test.ts': "import { build } from 'vite'; await build();",
@@ -58,6 +63,8 @@ it('gives the full suite for a wide file, an unplaced file, a deleted file or no
   expect(select('tools/lib/config-part.mjs')).toMatchObject({ mode: 'full', reason: expect.stringContaining('vite.config.ts') });
   expect(select('src/a.ts', 'src/dead.ts')).toMatchObject({ mode: 'full', reason: expect.stringContaining('src/dead.ts') });
   expect(select('public/ui/art.webp')).toMatchObject({ mode: 'full' });
+  // A file outside src/ and tools/ gives the full suite, also when a test names it: tests load a hook through a built path.
+  expect(select('.githooks/pre-push.mjs')).toMatchObject({ mode: 'full', reason: expect.stringContaining('outside src/ and tools/') });
   expect(select('src/gone.ts')).toMatchObject({ mode: 'full', reason: expect.stringContaining('src/gone.ts') });
   expect(select()).toMatchObject({ mode: 'full' });
 });
@@ -77,8 +84,9 @@ it('follows the files that a test names, a script names and a folder holds (rule
   expect(select('src/lint-me/one.ts').tests).toEqual(['src/b.test.ts', 'src/copy.test.ts', 'tools/lint.test.ts']);
   // A bare folder word counts only in a test that lists or copies folders: not getAttribute('src').
   expect(select('src/a.ts').tests).toEqual(['src/b.test.ts']);
-  // A data list selects the test for a listed file, not for the files that the listed file uses.
-  expect(select('tools/verify-a.mjs').tests).toEqual(['tools/registry.test.ts']);
+  // A data list selects the test for a listed file, not for the files that the listed file uses. It does not place the file.
+  expect(select('tools/verify-b.mjs').tests).toEqual(['tools/registry.test.ts', 'tools/verify.lint.test.ts']);
+  expect(select('tools/verify-a.mjs')).toMatchObject({ mode: 'full' });
   expect(select('src/rules/engine.ts').tests).not.toContain('tools/registry.test.ts');
   // A comment names no file; Vite's build() loads vite.config.ts, and its HTML inputs.
   expect(select('src/view.ts').tests).toEqual(['src/text.test.ts']);

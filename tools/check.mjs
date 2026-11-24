@@ -99,6 +99,8 @@ process.on('exit', () => {
   }
   if (db) {
     postgres.stopPostgres(db.dir, db.pid);
+    // An exit handler cannot wait: when pg_ctl did not stop the server, stop it now, before its folder goes.
+    if (postgres.isAlive(db.pid)) try { process.kill(db.pid, 'SIGKILL'); } catch {}
     rmSync(db.dir, { recursive: true, force: true });
   }
   releaseAll();

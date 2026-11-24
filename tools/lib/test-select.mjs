@@ -4,9 +4,10 @@
 // "names" (a path in the text of a test, of a file under tools/ or of a git hook, outside comments, or in a
 // package.json script that such a file names); "matches" (a glob in such a file, or an import.meta.glob);
 // "holds" (a folder that a test names) and "lists" (a file in a data list). The walk stops at a test, and a
-// "holds" or "lists" edge counts only from the changed file itself. A "holds" edge adds tests but does not place
-// a file. A wide file, a tools/ file of the test config, a deleted file, or a file that no other edge connects
-// to a test gives the full suite.
+// "holds" or "lists" edge counts only from the changed file itself. A "holds" or "lists" edge adds tests but does
+// not place a file. The full suite runs for: a wide file, a tools/ file of the test config, a deleted file that is
+// not a test, a file outside src/ and tools/ (a hook, a migration, a public file: tests load them through paths
+// that the scanner cannot read), and a file that no "imports", "names" or "matches" edge connects to a test.
 import { posix } from 'node:path';
 import { testGlobs } from '../ci-shards.mjs';
 import { pathPlan } from './ci-paths.mjs';
@@ -25,15 +26,16 @@ const scriptRun = /\brun\s+([\w:.-]+)/g;
 const viteApi = /\bfrom\s+['"]vite['"]/; // Vite's build() and createServer() load vite.config.ts, unless configFile is false
 const viteCall = /\b(?:build|createServer|preview)\(/g, noConfig = /configFile:\s*false/g;
 
-// Entries that a build tool hides from the rules above, in the style of localChecks in tools/lib/ci-paths.mjs.
-const extraNames = [
-  { file: 'tools/plugin-ui-build.mjs', names: ['src/plugin/index.html'] }, // its Vite root is src/plugin, and index.html is the page entry
+// Files that a reader loads in a way that the rules above cannot see, in the style of localChecks in tools/lib/ci-paths.mjs.
+const extraImports = [
+  { file: 'tools/plugin-ui-build.mjs', imports: ['src/plugin/index.html'] }, // its Vite root is src/plugin, and index.html is the page entry
+  { file: 'tools/deploy.test.ts', imports: ['tools/staging-config.mjs', 'tools/deploy-plugin-env.mjs'] }, // deploy.sh runs these two with the real node
 ];
 // Lists that name scripts as data: a test reads the list, so a listed file selects it, but what the listed file names does not.
 const dataLists = [
   'tools/lib/registry.mjs', // the browser checks; tools/check.test.ts replaces each listed script with a stub
   'tools/deploy.test.ts', // its strings name stub files in a temporary repository; the scripts under test come in by new URL
-  'tools/deploy.sh', // tools/deploy.test.ts runs it with stub node, npm and npx, so the scripts that it names do not run
+  'tools/deploy.sh', // tools/deploy.test.ts runs it with stub node, npm and npx; extraImports holds the two scripts that run for real
 ];
 
 // Files over 15 s in the full run of 2026-11-24, in seconds. Only the report uses them.
@@ -104,7 +106,8 @@ function testGraph({ files, read }) {
     const strings = [...source.matchAll(quoted)].map(match => match[2]);
     // A glob in a test or a tools file, or an import.meta.glob anywhere.
     const globStrings = names ? strings : [...source.matchAll(/import\.meta\.glob[^)]*/g)].flatMap(match => [...match[0].matchAll(quoted)].map(part => part[2]));
-    for (const glob of globStrings.filter(string => /^!?[\w./{},@-]*\*[\w./*{},@-]*$/.test(string) && /[/.]/.test(string))) {
+    // A glob that starts with ** is a URL route or an ignore pattern ('**/*'): it matches every path, so it names no file.
+    for (const glob of globStrings.filter(string => /^!?[\w./{},@-]*\*[\w./*{},@-]*$/.test(string) && /[/.]/.test(string) && !/^!?\*\*/.test(string))) {
       const pattern = glob.replace(/^!/, '');
       for (const base of pattern.startsWith('.') ? [join(dirname(file), pattern)] : [join(dirname(file), pattern), pattern]) {
         const key = normalize(base);
@@ -113,7 +116,7 @@ function testGraph({ files, read }) {
     }
     if (!names) continue;
     const run = new Set([...strings, ...[...source.matchAll(scriptRun)].map(match => match[1])].filter(name => Object.hasOwn(scripts, name)));
-    const tokens = [...strings, ...source.match(pathToken) ?? [], ...extraNames.filter(row => row.file === file).flatMap(row => row.names)].map(token => [token, file]);
+    const tokens = [...strings, ...source.match(pathToken) ?? []].map(token => [token, file]);
     // Each Vite call without configFile: false loads the config; a file with more calls than such options names it.
     if (viteApi.test(source) && (source.match(viteCall) ?? []).length > (source.match(noConfig) ?? []).length) tokens.push(['vite.config.ts', 'package.json']);
     for (const name of run) {
@@ -132,16 +135,18 @@ function testGraph({ files, read }) {
       edge(key, file, !target.file ? 'holds' : dataLists.includes(file) ? 'lists' : 'names');
     }
   }
+  for (const row of extraImports) for (const to of row.imports) if (has.has(row.file) && has.has(to)) edge(to, row.file, 'imports');
   return { has, back, imports, tests, globs: [...globs].map(([glob, from]) => [globPattern(glob), [...from]]) };
 }
 
 // Walk back from `start`; give each node the step that reached it first, so the shortest reason wins.
+// `folders` adds the edges that select a test but do not place a file: "holds" and "lists".
 function reach(graph, start, folders) {
   const steps = new Map([[start, null]]), queue = [start];
   for (const node of queue) {
     if (node !== start && graph.tests.has(node)) continue; // a test that names a test reads it; it does not run it
     // A folder or list edge ends after one step: the reader reads the listed file, not what it imports or names.
-    const next = (graph.back.get(node) ?? []).filter(([, kind]) => kind !== 'lists' || node === start);
+    const next = (graph.back.get(node) ?? []).filter(([, kind]) => kind !== 'lists' || folders && node === start);
     for (const [glob, from] of graph.globs) if (glob.test(node)) next.push(...from.map(file => [file, 'matches']));
     if (folders && node === start) for (let dir = dirname(node); dir !== '.'; dir = dirname(dir)) next.push(...(graph.back.get(`${dir}/`) ?? []).map(([from]) => [from, 'holds']));
     for (const [from, kind] of next) if (!steps.has(from)) { steps.set(from, [node, kind]); queue.push(from); }
@@ -178,6 +183,7 @@ export function selectTests(changed, repo) {
       if (isTest(file)) continue;
       return { mode: 'full', reason: `${file} is deleted` };
     }
+    if (!isTest(file) && !/^(?:src|tools)\//.test(file)) return { mode: 'full', reason: `${file} is outside src/ and tools/` };
     if (![...reach(graph, file, false).keys()].some(node => graph.tests.has(node))) return { mode: 'full', reason: `no import, name or glob connects ${file} to a test` };
     const steps = reach(graph, file, true);
     for (const node of steps.keys()) if (graph.tests.has(node)) add(node, reason(steps, node));

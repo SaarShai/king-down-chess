@@ -25,5 +25,6 @@ Source: [retro](../retro.md), item 1. Branch `retro-env-checks`, merged into `re
 ## Known limits
 
 - A runner that gets SIGKILL leaves the server and its folder.
+- An interrupt during the one second of `pg_ctl start` can leave a server with no folder. It stops by itself after about one minute.
 - The time limit path has no test of its own. It uses the exit handler that the fail path tests.
 - `web-online` and the plugin checks did not run on the throwaway database in this work.
