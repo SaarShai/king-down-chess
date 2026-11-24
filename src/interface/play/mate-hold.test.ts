@@ -6,7 +6,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 const filename = new URL(process.env.KINGDOWN_MATE_HOLD_SOURCE ?? './main.ts', import.meta.url);
 const source = readFileSync(filename, 'utf8');
 const declarations = parseSync(filename.pathname, source).program.body
-  .filter(node => node.type === 'FunctionDeclaration' && ['showResult', 'holdMate', 'armResult', 'reply', 'setMotion'].includes(node.id?.name ?? ''));
+  .filter(node => node.type === 'FunctionDeclaration' && ['showResult', 'resultLine', 'resultLight', 'holdMate', 'armResult', 'reply', 'setMotion'].includes(node.id?.name ?? ''));
 // Run the play screen's real solo result sequence with stub collaborators and fake timers.
 const page = transformSync(filename.pathname, declarations.map(node => source.slice(node.start, node.end)).join('\n')).code;
 afterEach(() => { vi.useRealTimers(); });
@@ -38,7 +38,7 @@ function screen({ reduce = false, hidden = false, taken = false, start = true } 
     setTimeout: (run: () => void, ms: number) => setTimeout(run, ms), clearTimeout: (timer: number) => clearTimeout(timer),
     update: noop, focusResult: noop, announce: noop, replyText: () => '', endResult: undefined, mateHold: undefined, drawMarks: noop,
     // The computer's mating reply: its playback waits for frames (a hidden page gives none).
-    generation: 1, engine: { think: async () => ({ move: { from: 0, to: 8 } }) }, skillPlan: () => ({ blunder: 0 }), SKILLS: [{}], gameLevel: 0,
+    generation: 1, engine: { think: async () => ({ move: { from: 0, to: 8 } }) }, skillPlan: () => ({ blunder: 0 }), SKILLS: [{}], gameLevel: 0, resigned: null,
     calm: () => true, pieceView: 'figures', save: noop, turnText: () => '', turnActions: () => [], effectEndLines: () => [], sentence: () => '', cards: () => [],
     animate: () => new Promise<void>(() => {}), endReply: null, acting: '', fault: null, player: 0, DraftTurn: class {}, lastReplySteps: () => [], passTurn: noop,
     // Motion settings: the system setting follows the same switch as the app setting here.

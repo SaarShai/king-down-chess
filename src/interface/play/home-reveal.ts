@@ -22,7 +22,8 @@ const codecs = ['av1', 'hevc', 'h264'] as const;
 // The film plays once in each page session: later Home views show the still. A reload starts a new session.
 let played = false;
 
-export function homeReveal(art: HTMLElement) {
+/** `art.dataset.frame`: the shape that the picture and the film are framed for. `framed`: a resize changed it. */
+export function homeReveal(art: HTMLElement, framed: () => void) {
   const replay = played;
   const still = document.createElement('img');
   still.className = 'home-reveal-still';
@@ -84,7 +85,7 @@ export function homeReveal(art: HTMLElement) {
     // Keep the same framing for both layers when the Home controls redraw.
     if (!variant) {
       const width = art.clientWidth || window.innerWidth, height = art.clientHeight || window.innerHeight;
-      variant = revealVariant(width, height);
+      variant = art.dataset.frame = revealVariant(width, height);
       still.src = revealPoster(width, height);
       void still.decode().catch(() => {});
     }
@@ -111,11 +112,18 @@ export function homeReveal(art: HTMLElement) {
   video.addEventListener('transitionend', event => {
     if (settled && event.propertyName === 'opacity') release();
   }, { signal });
-  // A film framed for a narrower window would crop the kings in the wide layout: show the wide still.
+  // A film or a picture framed for a narrower window would crop the kings in the wide layout: show the wide still, once
+  // it is ready. Until then home.ts keeps the split layout.
   const wide = matchMedia(WIDE_HOME);
-  wide.addEventListener('change', () => {
-    if (!wide.matches || !variant || variant === 'wide') return;
-    variant = 'wide'; still.src = revealPoster(window.innerWidth, window.innerHeight); fallback();
+  const needsWide = () => !signal.aborted && wide.matches && !!variant && variant !== 'wide';
+  wide.addEventListener('change', async () => {
+    if (!needsWide()) return;
+    const picture = still.cloneNode() as HTMLImageElement;
+    picture.src = revealPoster(window.innerWidth, window.innerHeight);
+    try { await picture.decode(); } catch { return; }
+    if (!needsWide()) return;
+    still.replaceWith(picture); fallback();
+    variant = art.dataset.frame = 'wide'; framed();
   }, { signal });
   document.addEventListener('visibilitychange', sync, { signal });
   window.addEventListener('online', sync, { signal });
