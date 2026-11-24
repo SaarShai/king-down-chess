@@ -69,17 +69,18 @@ function createHome() {
   brand.append(daylightCrown(), title);
   const artwork = el('div', 'home-art');
   hero.append(artwork, brand); home.append(hero);
-  const reveal = homeReveal(artwork), fit = new ResizeObserver(() => fitHome(home));
+  const reveal = homeReveal(artwork, () => fitHome(home)), fit = new ResizeObserver(() => fitHome(home));
   return { element: home, focus: () => title.focus({ preventScroll: true }), reveal: { ...reveal, dispose() { fit.disconnect(); reveal.dispose(); } }, fit };
 }
-/** The wide layout keeps the kings clear: the actions start below them and end inside the window. Else Home splits. */
+/** The wide layout keeps the kings clear: it has the wide picture, and the actions start below the kings and end inside the window. Else Home splits. */
 function fitHome(home: HTMLElement) {
   home.classList.remove('home-split');
   if (!matchMedia(WIDE_HOME).matches) return;
   // The 16:9 painting covers the window; the kings end at 30% of its height.
   const kings = .34 * Math.max(innerHeight, innerWidth * 9 / 16);
+  const frame = home.querySelector<HTMLElement>('.home-art')!.dataset.frame;
   const bar = home.querySelector('.home-topbar')?.getBoundingClientRect(), start = home.querySelector('.home-start')?.getBoundingClientRect();
-  if (bar && start && (bar.top < kings || start.bottom > innerHeight)) home.classList.add('home-split');
+  if (frame && frame !== 'wide' || bar && start && (bar.top < kings || start.bottom > innerHeight)) home.classList.add('home-split');
 }
 
 export function playScreen(d: PlayData, art: Art, previous?: ReturnType<typeof createHome>) {

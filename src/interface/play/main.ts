@@ -41,6 +41,7 @@ import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, ke
 import { arrowStep, fileLabelRow, rankLabelColumn, sideText, SIDE_CHOICES, SIDE_KEY, squareAt, type SideChoice } from './sides';
 import { changeDraft, createDraft, OPTIONS_KEY, PANEL_KEY, readPanel, readOptions, rulesFor, startOf, type NewGameDraft } from './new-game';
 import { playScreen, type Art } from './home';
+import { clearResult, markedResult, markResult } from './result-mark';
 import { newGamePanel } from './setup-table';
 import { dismissSheet, gameMenu, settingsSheet, type Settings } from './menus';
 import { allowedAvatarUrl } from '../../account/public-config';
@@ -638,8 +639,8 @@ function resumeGame(source: HTMLButtonElement, memory: boolean) {
 }
 const inMemory = () => liveGame && writer.lost && !writer.blocked && (game.history.length > 0 || draft.length > 0 || !!arrangement || game.backRank === '');
 function endEntry() { starting = 0; endVersus?.(); endVersus = null; }
-/** A new game shows Versus. Continue opens the saved board at rest. */
-async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; player: Color; playedMs?: number; arrangement?: Arrangement }, from?: HTMLButtonElement, freshDraft?: NewGameDraft) {
+/** A new game shows Versus. Continue opens the saved board at rest, and a reload opens the result card at rest (`finished`). */
+async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; player: Color; playedMs?: number; arrangement?: Arrangement; finished?: { resigned: Color | null } }, from?: HTMLButtonElement, freshDraft?: NewGameDraft) {
   if (starting) return;
   const progressiveArt = !inApp && (!onlineActive || !!freshDraft);
   // Keep the accepted game identity through the code load. Settings alone do not need a new choice.
@@ -677,6 +678,8 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     if (writer.blocked) { if (shell.route.place === 'play') home(); return; }
     if (onlineActive && freshDraft) { onlineActive = false; onlineState = undefined; people?.stopGame(); }
   }
+  const finished = resumed?.finished;
+  if (!finished) clearResult();
   const fromHome = document.body.dataset.page !== 'game', homeScreen = root.querySelector<HTMLElement>('.play-home');
   gameHelp?.close(); closeGuidePanel();
   endResult?.(); rewind?.finish(); seatFrame?.finish(); boardReplay.cancel(); generation++; const own = generation; engine.cancel(); endEntry(); endCardFlight(); cancelCheckPulse(); endReply = null;
@@ -705,9 +708,9 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   }
   if (!onlineActive && !memory) playedMs = resumed?.playedMs ?? 0;
   enteredAt = undefined; resultReview = false;
-  resources = []; shown = null; replySteps = []; resigned = null; liveGame = true;
-  ended = false; fault = null; thinking = arrangement ? false : onlineActive ? !onlineState?.draft : game.pos.turn === cpu() && game.status === 'playing'; cursor = arrangement ? player ? 63 : 0 : player ? 52 : 12;
-  selected = inspected = null; choice = []; reading = 'normal'; last = ''; lastActions = []; playingAction = null; beat?.cancel(); casting?.cancel(); markFocus = undefined; nextMarksAt = 0; notice = ''; resultCause = '';
+  resources = []; shown = null; replySteps = []; resigned = finished?.resigned ?? null; liveGame = !finished;
+  ended = !!finished; fault = null; thinking = arrangement || finished ? false : onlineActive ? !onlineState?.draft : game.pos.turn === cpu() && game.status === 'playing'; cursor = arrangement ? player ? 63 : 0 : player ? 52 : 12;
+  selected = inspected = null; choice = []; reading = finished ? 'result' : 'normal'; last = ''; lastActions = []; playingAction = null; beat?.cancel(); casting?.cancel(); markFocus = undefined; nextMarksAt = 0; notice = ''; resultCause = finished ? resultLine() : '';
   if (resumed) {
     // The last handed-over turn shows in the reading area and in the marks.
     const h = game.history, side = h.at(-1)?.pos.turn; let i = h.length;
@@ -716,7 +719,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     replySteps = lastReplySteps(game, cpu());
     if (draft.steps.length) lastActions = [...draft.steps];
   }
-  shell.go(onlineActive ? { place: 'online', entry: onlineState!.view!.game_id } : { place: 'game' }, false);
+  shell.go(onlineActive ? { place: 'online', entry: onlineState!.view!.game_id } : { place: 'game' }, false, !!finished);
   leaveHome();
   document.body.dataset.page = 'game';
   screen = el('section', 'play-game');
@@ -793,7 +796,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     gameHelp?.close(); generation++; engine.cancel(); board?.skip(); thinking = false;
     while (draft.length) draft.undo(); draft.armed = null; shown = null; board?.setPosition(game.pos, game.context);
     arrangement = undefined;
-    ended = true; resigned = player; liveGame = false; stopGameTime(); if (save(true)) store(ARRANGE_KEY, 'null'); resultCause = text.resigned; reading = 'result'; update(); focusResult(); announce(`${replyText()} ${resultCause}`);
+    ended = true; resigned = player; liveGame = false; stopGameTime(); if (save(true)) store(ARRANGE_KEY, 'null'); resultCause = resultLine(); reading = 'result'; update(); focusResult(); announce(`${replyText()} ${resultCause}`);
   } });
   historyStrip = el('div', 'play-history-strip'); historyStrip.hidden = true;
   historyButton = button(text.history, { onPress: () => toggleScroll('history', historyButton) });
@@ -838,6 +841,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   if (progressiveArt) applyPieceView();
   board.setPosition(draft.position, game.context);
   if (!progressiveArt) applyPieceView();
+  if (finished && game.status === 'checkmate') { screen.dataset.moment = game.pos.turn === cpu() ? 'win' : 'loss'; resultLight(game.pos.turn === cpu(), 1); }
   layout(); update();
   fit.disconnect(); fit.observe(screen);
   if (!resumed && save(true)) store(ARRANGE_KEY, 'null');
@@ -854,6 +858,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
       if (!versus || progressiveArt) { if (from) setButtonState(from, { busy: true }); await loaded.catch(() => {}); }
       if (own !== generation) return;
       screen.style.visibility = ''; cells[cursor].focus({ preventScroll: true });
+      if (finished) focusResult();
       if (homeScreen) { if (!versus) await screenChange(homeScreen, screen); homeScreen.remove(); }
     } finally { if (starting === own) starting = 0; }
   } else if (!versus) cells[cursor].focus({ preventScroll: true });
@@ -867,7 +872,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     announce([controls.state.textContent, context].filter(Boolean).join(' '));
   }
   // The computer moves first in a Dark game, and after Continue on its turn. Wait for the first board frame.
-  if (own === generation && !onlineActive && !arrangement && !fault && game.pos.turn === cpu() && game.status === 'playing') void reply();
+  if (own === generation && !onlineActive && !arrangement && !fault && !finished && game.pos.turn === cpu() && game.status === 'playing') void reply();
 }
 /** The art cannot load: one safe next step, Try again. The game, its staged steps and its save stay. */
 function artFailed(own: number) {
@@ -1326,12 +1331,21 @@ function riseNarrator() {
   if (!text) return;
   tween(180, t => { text.style.transform = `translateY(${8 * (1 - t)}px)`; text.style.opacity = String(t); }, { curve: ease.EASE });
 }
+function resultLine(): string {
+  const status: Status = game.status;
+  return resigned != null ? text.resigned : status === 'checkmate' ? game.pos.turn === cpu() ? text.win : text.loss : text[status as 'stalemate' | 'draw50' | 'drawRepetition' | 'drawMaterial'];
+}
+/** The board light of a checkmate: `t` 0 at the king's fall, 1 at rest. */
+function resultLight(won: boolean, t: number) {
+  boardBox.style.setProperty('--result-light', String(won ? .26 - .13 * t : .16 * t));
+  if (!won) boardBox.style.setProperty('--result-saturation', String(1 - .5 * t));
+}
 function showResult(deadline = armResult()) {
   gameHelp?.close(); closeStaleDialogs();
   ended = true; thinking = false; liveGame = false; stopGameTime();
   const status: Status = game.status;
   const won = game.pos.turn === cpu();
-  resultCause = status === 'checkmate' ? won ? text.win : text.loss : text[status as 'stalemate' | 'draw50' | 'drawRepetition' | 'drawMaterial'];
+  resultCause = resultLine();
   board?.skip(); board?.setPosition(game.pos, game.context); shown = null;
   const show = () => {
     reading = 'result'; update(); focusResult(); announce(`${replyText()} ${resultCause}`);
@@ -1347,28 +1361,22 @@ function showResult(deadline = armResult()) {
   boardBox.append(skip); skip.focus({ preventScroll: true });
   screen.dataset.moment = won ? 'win' : 'loss'; screen.dataset.state = 'result';
   const cues: Effect[] = [];
-  const ground = boardBox;
-  const light = (t: number) => ground.style.setProperty('--result-light', String(won ? .26 - .13 * t : .16 * t));
   const finish = (showCard: boolean) => {
     if (endResult !== cancel) return;
     endResult = undefined;
     cues.forEach(effect => effect.cancel()); skip.remove(); view?.skip();
-    light(1);
-    if (!won) ground.style.setProperty('--result-saturation', '.5');
+    resultLight(won, 1);
     if (showCard) show();
   };
   const cancel = () => finish(false);
   endResult = cancel;
   const fall = () => {
     cue('impact'); pulse('heavy'); hold(90);
-    shake(ground, { amplitude: 2.5, ms: 240 });
+    shake(boardBox, { amplitude: 2.5, ms: 240 });
     // A taken king has no figure to fall: the light and the sparks play on the square where it was taken.
     const playback = standing >= 0 ? view?.play({ kind: 'fall', square }) : new Promise<void>(done => cues.push(later(won ? 900 : 1100, done)));
     cues.push(later(200, () => {
-      cues.push(tween(won ? 700 : 900, t => {
-        light(t);
-        if (!won) ground.style.setProperty('--result-saturation', String(1 - .5 * t));
-      }, { curve: won ? ease.lin : ease.out2 }));
+      cues.push(tween(won ? 700 : 900, t => resultLight(won, t), { curve: won ? ease.lin : ease.out2 }));
     }));
     cues.push(later(won ? 260 : 300, () => {
       if (won) { cue('arrive'); cue('ting'); pulse('success'); burst('sparks', at(cells[square]), { count: 12, ms: 700 }); }
@@ -1613,6 +1621,7 @@ function renderReader(actions?: HTMLElement) {
     actions.append(resultNewGame(), button(text.home, { onPress: () => shell.go({ place: 'play' }) })); block.append(body, actions); detail.append(block); return;
   }
   if (reading === 'result') {
+    const back = markResult(snapshot(draft, resigned, player));
     const won = game.status === 'checkmate' && game.pos.turn === cpu(), lost = resigned != null || (game.status === 'checkmate' && !won);
     const outcome = won ? 'win' : lost ? 'loss' : 'draw';
     const result = resultText(game.status, resigned != null, game.pos.turn, player);
@@ -1635,7 +1644,7 @@ function renderReader(actions?: HTMLElement) {
     } });
     actions.append(rematch, review, resultNewGame(), button('Home', { onPress: () => home() }));
     card.append(body, actions); detail.append(card); void document.fonts.ready.then(fitResult);
-    if (reducedMotion()) return;
+    if (back || reducedMotion()) return;
     // The seal presses into the sheet once, then the light runs along Rematch.
     seal.animate([{ transform: 'scale(1.16)', opacity: 0 }, { transform: 'scale(.95)', opacity: 1, offset: .7 }, { transform: 'none' }], { duration: time(240), easing: 'cubic-bezier(.3, 0, .2, 1)' })
       .finished.then(() => { if (card.isConnected) edgeLight(rematch, { ms: 420, width: 2.4 }); }, () => {});
@@ -2223,6 +2232,16 @@ function closeHomeGuide() {
 }
 
 function renderPlace(route: Route) {
+  const result = reload; reload = null;
+  if (result) {
+    writer.load(readStored().save);
+    const loading = el('p', 'people-loading', 'Loading your game…');
+    root.replaceChildren(loading);
+    // No board: its code cannot load. Home then opens.
+    void start(result).then(() => { if (root.lastChild === loading) renderPlace(route); loading.remove(); });
+    return;
+  }
+  clearResult();
   homePoll?.update();
   if (route.place !== 'play') clearInviteLinkStatus();
   if (route.place !== 'play' && route.place !== 'you' && route.place !== 'person') leaveHome();
@@ -2254,6 +2273,8 @@ function renderPlace(route: Route) {
     (section, entry) => shell.go({ place: 'guide', ...(section && { section }), ...(entry && { entry }) }),
     announce, { onBack: closeHomeGuide }));
 }
+// A reload keeps the address of the game screen; a new visit to this tab has no #game and opens Home.
+let reload = location.hash === '#game' ? markedResult(readStored()) : null;
 const shell = mountShell(root, renderPlace);
 // Home does not wait for the symbol files (launch decision 45): the small board and the Symbols view take them when they come.
 shell.start();

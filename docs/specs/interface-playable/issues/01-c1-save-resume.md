@@ -84,6 +84,7 @@ The save logic goes in one module with no DOM, so each rule has a unit test. It 
 
 - The old rule: the save keeps the finished game (`resigned`, or a status that is not `playing` with no staged step) until a new game replaces it.
 - `readStored()` gives `finished`; the home shows Play with no Continue and no confirm.
+- One exception (owner, 2026-11-23): a reload while the solo result card is open shows the card again, at rest, and writes nothing. `result-mark.ts` keeps a mark of the game in `sessionStorage` until the player leaves the card. The kind stays `finished`. No mark, or a new visit: Home, as above.
 - Test: "a checkmate, a draw and a resignation read as finished; a staged mate does not".
 
 ### Decision 7: a save that cannot resume

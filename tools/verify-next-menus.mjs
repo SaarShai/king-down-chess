@@ -14,12 +14,15 @@ const { outputFiles: [copy] } = await build({
       export { sideText } from './src/interface/play/sides.ts';
       export { SETTING_ORDER } from './src/interface/play/menus.ts';
       export { POWER_NAME } from './src/powers-ui.ts';
-      export { M, N } from './src/rules/engine.ts';
-      export { rulesOf } from './src/interface/play/saved.ts';`,
+      export { M, N, parseSq } from './src/rules/engine.ts';
+      export { Game } from './src/game.ts';
+      export { DraftTurn } from './src/interface/play/turn.ts';
+      export { gameJSON } from './src/screen/save.ts';
+      export { rulesOf, snapshot } from './src/interface/play/saved.ts';`,
   },
   bundle: true, platform: 'node', format: 'esm', write: false, loader: { '.svg': 'text' },
 });
-const { text, panelText, pieces, homeText, sideText, SETTING_ORDER, POWER_NAME, M, N, rulesOf } =
+const { text, panelText, pieces, homeText, sideText, SETTING_ORDER, POWER_NAME, M, N, parseSq, Game, DraftTurn, gameJSON, rulesOf, snapshot } =
   await import('data:text/javascript;base64,' + Buffer.from(copy.contents).toString('base64'));
 
 const browser = await launch(), out = env('PLAYABLE_OUT');
@@ -168,6 +171,13 @@ const cases = {
     await shot(page, 'code-fault');
     await context.unroute(pattern); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: homeText.startGame, exact: true }).click(); await ready(page);
     check(await page.locator('.home-load-fault').count() === 0, 'a new press clears the fault and opens the game');
+    // A reload on an open result card: Home opens when the board code cannot load.
+    await page.getByRole('button', { name: text.menu, exact: true }).click(); await page.getByRole('button', { name: text.resign, exact: true }).click();
+    await page.locator('dialog[open]').getByRole('button', { name: text.resign, exact: true }).click();
+    await page.waitForSelector('.play-result', { state: 'attached' });
+    await context.route(pattern, r => r.abort()); await page.reload();
+    check(await page.waitForSelector('.play-home h1').then(() => true, () => false) && await page.locator('#boot-fault, .people-loading').count() === 0, 'a result card with no board code opens Home');
+    await context.unroute(pattern);
   },
   async font_fault(page, context, check) {
     await context.route('**/fonts/alegreya-sans-bold-latin.woff2', r => r.abort());
@@ -271,6 +281,70 @@ const cases = {
     await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
     await page.setViewportSize({ width: w, height: Math.round(w / 2.4) });
     await wideLayout('saved, signed in, short window');
+  },
+  // Home opens narrow with a fresh cache, then enters the wide layout during the film: each painted frame of the wide
+  // layout has the wide picture. A resize back, two fast resizes and a failed picture change nothing.
+  async home_resize(page, context, check, size) {
+    if (size !== '1280x720') return;
+    const open = async (label, { reduced = false, ended = false, fail = false } = {}) => {
+      const tab = await (await browser.newContext({ viewport: { width: 500, height: 1000 }, reducedMotion: reduced ? 'reduce' : 'no-preference' })).newPage();
+      let release; const held = new Promise(done => { release = done; }), asked = [];
+      await tab.route('**/hero-wide.webp', async r => { asked.push(r); await held; return fail ? r.abort() : r.continue(); });
+      await tab.goto(NEXT); await tab.waitForSelector('.play-home .home-reveal-still');
+      await tab.waitForFunction(() => document.querySelector('.home-reveal-still').naturalWidth > 0);
+      if (!reduced) await tab.locator('.home-reveal-video[data-ready]').waitFor();
+      if (ended) await tab.evaluate(() => document.querySelector('.home-reveal-video').dispatchEvent(new Event('ended')));
+      // A task after the frame sees the layout that the frame painted: the size observer has run.
+      await tab.evaluate(() => {
+        window.kdFrames = [];
+        const frame = () => requestAnimationFrame(() => { const width = innerWidth; setTimeout(() => {
+          if (width !== innerWidth) { frame(); return; } // a resize after the frame: this layout is not painted
+          const still = document.querySelector('.home-reveal-still'), hero = document.querySelector('.home-hero').getBoundingClientRect();
+          window.kdFrames.push({ wide: getComputedStyle(still).objectFit === 'cover' && innerWidth >= 1200 && hero.width >= innerWidth - 1, picture: still.currentSrc.split('-').at(-1), loaded: still.complete && still.naturalWidth > still.naturalHeight, film: document.querySelector('.home-reveal-video').currentTime > 0 && !!document.querySelector('.home-reveal-video').src });
+          frame();
+        }); });
+        frame();
+      });
+      const frames = () => tab.evaluate(() => window.kdFrames.splice(0));
+      const resize = async (width, height) => { await tab.setViewportSize({ width, height }); await tab.waitForTimeout(250); };
+      return { tab, asked, release, frames, resize, close: () => tab.context().close(),
+        clean: seen => check(seen.every(f => !f.wide || f.picture === 'wide.webp' && f.loaded), `${label}: no frame of the wide layout has another picture: ${JSON.stringify(seen.find(f => f.wide && (f.picture !== 'wide.webp' || !f.loaded)))}`),
+        settled: () => tab.waitForFunction(() => window.kdFrames.at(-1)?.wide, null, { timeout: 4000 }).then(() => true, () => false) };
+    };
+    for (const [label, how] of [['film', {}], ['reduced motion', { reduced: true }], ['film ended', { ended: true }]]) {
+      const home = await open(label, how);
+      await home.resize(1280, 720); await home.resize(1290, 730); await home.resize(1280, 720);
+      const waiting = await home.frames();
+      check(home.asked.length > 0 && waiting.length > 5 && waiting.every(f => !f.wide), `${label}: the split layout stays while the picture loads: ${home.asked.length} ${waiting.length} ${JSON.stringify(waiting.find(f => f.wide))}`);
+      if (label === 'film') await home.tab.screenshot({ path: join(out, 'resize-split-1280.png') });
+      home.release();
+      check(await home.settled(), `${label}: the wide layout comes with the wide picture`);
+      home.clean(await home.frames());
+      if (label === 'film') await home.tab.screenshot({ path: join(out, 'resize-wide-1280.png') });
+      await home.close();
+    }
+    const back = await open('resize back');
+    await back.resize(1280, 720); await back.resize(500, 1000); await back.frames(); back.release(); await back.tab.waitForTimeout(400);
+    check((await back.frames()).every(f => !f.wide && f.picture === 'portrait.webp' && f.film), 'resize back: the portrait picture and film stay');
+    await back.resize(1280, 720); check(await back.settled(), 'resize back: a later resize is wide'); back.clean(await back.frames());
+    await back.close();
+    const failed = await open('load error', { fail: true });
+    await failed.resize(1280, 720); failed.release(); await failed.tab.waitForTimeout(400);
+    const bad = (await failed.frames()).find(f => f.wide || f.picture !== 'portrait.webp');
+    check(!bad, `load error: the split layout stays with its picture: ${JSON.stringify(bad)} ${failed.asked.length}`);
+    await failed.close();
+    // Home that opens wide: the wide layout from its first frame.
+    const wide = await browser.newContext({ viewport: { width: 1280, height: 720 } }), first = await wide.newPage();
+    await first.addInitScript(() => {
+      window.kdSplit = 0; window.kdHome = 0;
+      const frame = () => requestAnimationFrame(() => setTimeout(() => { const home = document.querySelector('.play-home'); if (home) { window.kdHome++; if (home.classList.contains('home-split')) window.kdSplit++; } frame(); }));
+      frame();
+    });
+    for (const visit of ['new', 'cached']) {
+      await first.goto(NEXT); await first.waitForFunction(() => window.kdHome > 20);
+      check(await first.evaluate(() => window.kdSplit === 0), `${visit}: Home that opens wide has no frame of the split layout`);
+    }
+    await wide.close();
   },
   async panel(page, context, check) {
     await page.goto(NEXT); await page.waitForSelector('.play-home');
@@ -584,6 +658,77 @@ const cases = {
     await page.waitForSelector('.play-result', { state: 'attached' });
     check(await page.locator('.play-result-actions .kd-button').evaluateAll(nodes => nodes.every(n => !getComputedStyle(n).textDecorationLine.includes('underline'))), 'result controls have no underline');
   },
+  // A reload on the open result card shows it again, at rest, and writes nothing. Each other way back opens Home.
+  async result_reload(page, context, check, size) {
+    if (!['390x844', '1280x720'].includes(size)) return;
+    const ended = (fen, moves, { player = 0, resigned = null } = {}) => {
+      const game = new Game('RNBQKBNR', rulesOf('pieces', [null, null], [[], []]));
+      game.load(game.context.fromFen(fen));
+      for (const [from, to] of moves) { const draft = new DraftTurn(game); draft.stage(draft.at(parseSq(from), parseSq(to))[0]); draft.commit(); }
+      return { ...snapshot(new DraftTurn(game), resigned, player, 125000), skill: 'casual', sound: true, pace: 'normal', gameAt: 500 };
+    };
+    const MATE = '7k/6pp/8/8/8/R7/8/6K1 w - - 0 1', KEY = 'kingdown.result';
+    const ends = [
+      ['win', ended(MATE, [['a3', 'a8']]), 'You win', 'Checkmate.'],
+      ['loss', ended(MATE, [['a3', 'a8']], { player: 1 }), 'The computer wins', 'Checkmate.'],
+      ['draw', ended('k7/8/8/8/8/8/1p6/K7 w - - 0 1', [['a1', 'b2']]), 'Draw', 'Insufficient material.'],
+      ['resign', ended('7k/7p/8/8/8/8/P7/K7 w - - 0 1', [['a2', 'a3']], { resigned: 0 }), 'The computer wins', 'You resign.'],
+    ];
+    await context.addInitScript(() => {
+      localStorage.setItem('kingdown.solo-launch-seen', '1');
+      window.kdSeen = { writes: [], moments: [] };
+      const set = Storage.prototype.setItem, animate = Element.prototype.animate, start = AudioBufferSourceNode.prototype.start;
+      Storage.prototype.setItem = function (key, value) { if (this === localStorage) window.kdSeen.writes.push(key); return set.call(this, key, value); };
+      Element.prototype.animate = function (...args) { window.kdSeen.moments.push(`animate ${this.className}`); return animate.apply(this, args); };
+      AudioBufferSourceNode.prototype.start = function (...args) { window.kdSeen.moments.push('sound'); return start.apply(this, args); };
+      new MutationObserver(records => { for (const { addedNodes } of records) for (const node of addedNodes) if (node instanceof Element && (node.matches('.play-sequence-skip, .play-versus, .play-home') || node.querySelector('.play-sequence-skip, .play-versus, .play-home'))) window.kdSeen.moments.push(node.className); }).observe(document, { childList: true, subtree: true });
+    });
+    const seed = (save, mark) => page.evaluate(([save, mark, key]) => {
+      localStorage.setItem('kingdown.save', save); sessionStorage.removeItem(key); if (mark) sessionStorage.setItem(key, mark);
+      history.replaceState(null, '', '#game');
+    }, [JSON.stringify(save), mark, KEY]);
+    const card = () => page.locator('.play-game:not([style*="hidden"]) .play-result').waitFor({ state: 'attached' });
+    const home = async label => check(await page.waitForFunction(key => document.body.dataset.page === 'home' && document.querySelector('.play-home h1') && !document.querySelector('.play-result') && sessionStorage.getItem(key) === null, KEY, { timeout: 6000 }).then(() => true, () => false), label);
+    const press = control => control.evaluate(node => node.click()); // the short result layout can hide a control
+    await page.goto(NEXT); await page.waitForSelector('.play-home h1');
+    for (const [name, save, title, cause] of ends) {
+      await seed(save, gameJSON(save)); await page.reload(); await card(); await page.waitForTimeout(800);
+      const words = await page.locator('.play-result').evaluate(n => [n.querySelector('h3').textContent, n.querySelector('.play-result-cause').textContent]);
+      check(words.join('|') === `${title}|${cause}`, `${name}: the card shows its own result: ${words}`);
+      const seen = await page.evaluate(() => window.kdSeen);
+      check(seen.moments.length === 0, `${name}: the card comes at rest, with no Home before it: ${seen.moments}`);
+      check(!seen.writes.some(key => ['kingdown.save', 'kingdown.sync'].includes(key)) && await saved(page) === JSON.stringify(save), `${name}: no second record: ${seen.writes}`);
+      check(await page.evaluate(() => document.activeElement?.closest('.play-result-actions') !== null), `${name}: the first action has the focus`);
+      check((await page.locator('.play-game').getAttribute('data-moment')) === ({ win: 'win', loss: 'loss' }[name] ?? null), `${name}: the board has the light of its result`);
+      if (name === 'win') await page.screenshot({ path: join(out, `reload-result-${size.split('x')[0]}.png`) });
+      await press(page.locator('.play-result-actions .kd-button', { hasText: 'Home' })); await home(`${name}: Home clears the mark`);
+      await page.reload(); await home(`${name}: a reload after Home opens Home`);
+      await seed(save, null); await page.reload(); await home(`${name}: no mark opens Home`);
+      await seed(save, gameJSON(save)); await page.goto(`${NEXT}?visit`); await home(`${name}: a new visit to the tab opens Home`);
+      // Rematch of the restored card: the same level and the other side, as on the first open.
+      await seed(save, gameJSON(save)); await page.reload(); await card();
+      await press(page.locator('.play-result-actions .kd-button').first());
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).resigned === null && !document.querySelector('.play-result'));
+      const next = JSON.parse(await saved(page));
+      check(next.skill === 'casual' && next[save.white === 'human' ? 'black' : 'white'] === 'human', `${name}: Rematch keeps the level and swaps the side: ${next.skill} ${next.white}`);
+      check(await page.evaluate(key => sessionStorage.getItem(key) === null, KEY), `${name}: Rematch clears the mark`);
+    }
+    // The player's own checkmate, then a reload; See the game keeps the mark; Back opens Home.
+    await page.evaluate(save => { localStorage.setItem('kingdown.save', save); location.hash = ''; }, JSON.stringify({ ...ends[0][1], moves: [] }));
+    await page.goto(`${NEXT}?play`); await page.locator('.home-continue').click(); await ready(page);
+    await page.locator('.play-square[data-square="16"]').click(); await page.locator('.play-square[data-square="56"]').click();
+    await page.getByRole('button', { name: text.finish, exact: true }).click(); await card();
+    check(await page.evaluate(key => sessionStorage.getItem(key) !== null, KEY), 'the open card sets the mark');
+    const entries = await page.evaluate(() => history.length);
+    await page.reload(); await card();
+    await press(page.locator('.play-result-actions .kd-button', { hasText: 'See the game' }));
+    check(await page.locator('.play-game[data-review="true"]').count() === 1, 'See the game shows the board');
+    await page.reload(); await card();
+    check(await page.evaluate(() => history.length) === entries, 'a reload adds no history entry');
+    await press(page.locator('.play-result-new')); await page.waitForSelector('dialog.new-game-panel[open]');
+    await page.keyboard.press('Escape'); await page.waitForSelector('dialog[open]', { state: 'detached' });
+    await page.goBack(); await home('Back from the restored card opens Home');
+  },
   async rematch_art(page, context, check) {
     // Rematch must request a king still that the first game does not use.
     await context.addInitScript(() => localStorage.setItem('kingdown.setup', 'powers'));
@@ -613,7 +758,7 @@ try {
     ? ['320x568', '360x640', '390x844', '667x375'] : sizes;
   for (const size of list) for (const [name, run] of Object.entries(cases)) {
     if (only && !only.includes(name)) continue;
-    const [width, height] = size.split('x').map(Number), context = await browser.newContext({ viewport: { width, height }, reducedMotion: ['guide', 'home_art', 'seat_tint'].includes(name) ? 'no-preference' : 'reduce' });
+    const [width, height] = size.split('x').map(Number), context = await browser.newContext({ viewport: { width, height }, reducedMotion: ['guide', 'home_art', 'seat_tint', 'result_reload'].includes(name) ? 'no-preference' : 'reduce' });
     const page = await context.newPage(), failures = [], errors = [];
     page.setDefaultTimeout(12000);
     const trapped = trapErrors(page);
