@@ -86,13 +86,13 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
 
   // A film or a picture framed for another shape would crop the kings: show the still of the layout, once it is ready.
   // Until then home.ts keeps the split layout, and a narrow layout shows the old picture whole. Only a window resize
-  // starts this: a redraw of the controls keeps the framing. So does a window that never enters the wide layout (a
-  // tablet that turns): its film plays on.
+  // starts this: a redraw of the controls keeps the framing. A window that never enters the wide layout (a tablet that
+  // turns) plays its film on, whole, and takes its still after the film.
   async function reframe() {
     if (signal.aborted || !variant) return;
-    const shape = wide.matches || wasWide ? layoutShape() : variant;
+    const shape = layoutShape(), filmDone = replay || failed || settled || reducedMotion();
     art.classList.toggle('home-art-whole', shape !== variant);
-    if (shape === variant) { loading = undefined; return; }
+    if (shape === variant || !(wide.matches || wasWide || filmDone)) { loading = undefined; return; }
     if (shape === loading?.shape) return;
     const own = loading = { shape }, picture = still.cloneNode() as HTMLImageElement;
     picture.src = revealPoster(shape);
@@ -132,6 +132,7 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
     art.classList.add('home-art-settled');
     // A hidden page or a disabled transition may send no transitionend event.
     releaseTimer = setTimeout(release, 400);
+    if (art.classList.contains('home-art-whole')) void reframe();
   }, { signal });
   video.addEventListener('transitionend', event => {
     if (settled && event.propertyName === 'opacity') release();

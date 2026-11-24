@@ -9,6 +9,7 @@ Each motion runs one time after a player action. Reduced motion shows the end st
 - **Power.** A use that the player stages fills its notch with wax in 180 ms (`markUses` in `main.ts`). A full notch is a teal diamond; a spent notch is a round drop of wax. The emblem is grey when the power is spent; the wax keeps its colour. The opponent's notch changes with no motion.
 - **Guide.** A short rule draws under the entry title in 180 ms when the player opens another entry (`guide.ts`, `menus.css`). It stays at rest. The first page, the same entry and a resize draw nothing.
 - **Checkmate text.** A mate that waits for End turn keeps "End turn, or undo." When the game is over, the words are "Checkmate." alone, also after a redraw.
+- **Home after a turn.** A turn of a touch device leaves the film on and shows it whole, with both kings. After the film, the still for the new shape comes (`reframe` in `home-reveal.ts`; `home_resize` in `verify-next-menus.mjs`).
 
 Not built: the portrait idle clip. `portrait-idle.ts` has no caller now, so the clip needs a new caller in a different file and loads the figure package in that place.
 

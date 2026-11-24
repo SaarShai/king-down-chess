@@ -466,7 +466,7 @@ body > .kd-sr { inset: 0 auto auto 0; }
     mask-composite: intersect;
   }
 }
-/* After the wide layout, until the picture of this layout is ready: the old one, with both kings. */
+/* After a resize or a turn, until the picture of this layout is ready: the old one, with both kings. */
 @media (max-aspect-ratio: 5/4) {
   .home-art.home-art-whole :is(img, video) { object-fit: contain; }
   .home-art.home-art-whole, .home-art.home-art-whole video { -webkit-mask-image: none; mask-image: none; }

@@ -345,26 +345,49 @@ it('a narrow film keeps its frame through narrow resizes', async () => {
   expect(home.answers).toHaveLength(0);
   expect(home.shown()).toEqual(PORTRAIT);
 });
-it.each([
-  ['a tablet that turns from a wide shape', false, [1180, 820], [820, 900]],
-  ['a phone in the app that turns from a wide shape', true, [844, 390], [390, 600]],
-  ['a tablet in split view', false, [1024, 700], [500, 900]],
-] as const)('%s keeps its film and its picture', async (_name, app, from, to) => {
-  for (const before of [() => {}, (home: Awaited<ReturnType<typeof openHome>>) => home.video.emit('ended')]) {
-    const home = await openHome(false, [...from], app), plays = home.video.play.mock.calls.length;
-    before(home);
-    home.resize(false, [...to]); home.resize(false, [...from]); home.resize(false, [...to]);
-    expect(home.answers).toHaveLength(0);
-    expect(home.shown()).toEqual(['/interface/reveal/hero-wide.webp', 'wide', true]);
-    expect([home.whole(), home.art.classList.contains('home-art-still'), home.video.play.mock.calls.length]).toEqual([false, false, plays]);
+const turns = [
+  ['a tablet that turns from a wide shape', false, [1180, 820], [820, 900], SQUARE_STILL],
+  ['a phone in the app that turns from a wide shape', true, [844, 390], [390, 600], PORTRAIT_STILL],
+  ['a tablet in split view', false, [1024, 700], [500, 900], PORTRAIT_STILL],
+] as const;
+it.each(turns)('%s keeps its film and shows it whole; the still for its shape comes after the film', async (_name, app, from, to, still) => {
+  const home = await openHome(false, [...from], app), plays = home.video.play.mock.calls.length, film = ['/interface/reveal/hero-wide.webp', 'wide', true];
+  for (const [box, whole] of [[to, true], [from, false], [to, true]] as const) {
+    home.resize(false, [...box]);
+    expect([home.shown(), home.whole(), home.art.classList.contains('home-art-still')]).toEqual([film, whole, false]);
   }
-});
-it('a film that cannot play leaves the first picture through each turn of a touch device', async () => {
-  const home = await openHome(false, [1180, 820]);
-  for (let i = 0; i < 3; i++) home.video.emit('error');
-  home.resize(false, [820, 900]);
   expect(home.answers).toHaveLength(0);
-  expect(home.shown()).toEqual(WIDE);
+  home.video.emit('ended');
+  expect([home.shown(), home.whole()]).toEqual([film, true]);
+  await home.answers[0](true);
+  expect([home.shown(), home.whole(), home.video.play.mock.calls.length]).toEqual([still, false, plays]);
+  home.resize(false, [...from]); await home.answers[1](true);
+  expect([home.shown(), home.whole()]).toEqual([WIDE, false]);
+});
+it.each(turns)('%s after its film ended takes the still for its shape; a load error leaves the wide picture whole', async (_name, app, from, to, still) => {
+  const home = await openHome(false, [...from], app);
+  home.video.emit('ended');
+  expect(home.answers).toHaveLength(0);
+  home.resize(false, [...to]); await home.answers[0](false);
+  expect([home.shown().slice(0, 2), home.whole()]).toEqual([WIDE.slice(0, 2), true]);
+  home.resize(false, [...to]); await home.answers[1](true);
+  expect([home.shown(), home.whole()]).toEqual([still, false]);
+});
+it('a redraw that changes the art box during the film changes no picture at its end', async () => {
+  const home = await openHome(false);
+  Object.assign(home.art, { clientWidth: 500, clientHeight: 450 });
+  home.video.emit('ended');
+  expect([home.answers.length, home.whole()]).toEqual([0, false]);
+});
+it('a film that cannot play and reduced motion take the still for each turn of a touch device', async () => {
+  for (const before of [(home: Awaited<ReturnType<typeof openHome>>) => { for (let i = 0; i < 3; i++) home.video.emit('error'); }, async () => { (await import('./fx')).setFxMotion('normal', true); }]) {
+    const home = await openHome(false, [1180, 820]);
+    await before(home);
+    home.resize(false, [820, 900]);
+    expect(home.whole()).toBe(true);
+    await home.answers[0](true);
+    expect([home.shown(), home.whole()]).toEqual([SQUARE_STILL, false]);
+  }
 });
 it('a window that touches the wide layout and leaves it before the picture came keeps its film in each later resize', async () => {
   const home = await narrowHome();
@@ -372,6 +395,7 @@ it('a window that touches the wide layout and leaves it before the picture came 
   home.resize(false, [860, 760]); home.resize(false, [1150, 798]);
   expect(home.answers).toHaveLength(1);
   expect(home.shown()).toEqual(PORTRAIT);
+  home.resize(false);
   expect(home.whole()).toBe(false);
 });
 it('a wide shape outside the wide layout keeps its film into the wide layout, and takes the narrow still on the way back', async () => {
