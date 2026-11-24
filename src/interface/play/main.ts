@@ -1432,6 +1432,14 @@ function updateArrangement() {
   screen.querySelectorAll<HTMLElement>('.play-own, .play-opp .play-power, .play-opp .play-rival-cards').forEach(part => part.inert = true);
   board?.setPosition(pos, game.context); renderReader(); renderHistory(); placeFloating(); drawMarks();
 }
+/** The filled notches are the uses spent. Only a use that the player spends now moves: its notch fills with wax. */
+function markUses(control: HTMLElement, left: number | null, spentNow: boolean) {
+  control.querySelectorAll<HTMLElement>('.play-power-notch').forEach((notch, i) => {
+    const used = i >= (left ?? 0), fills = spentNow && used && notch.dataset.used === 'false' && !reducedMotion();
+    if (fills) notch.animate([{ backgroundColor: getComputedStyle(notch).backgroundColor, offset: 0 }], time(180));
+    notch.dataset.used = String(used);
+  });
+}
 function update() {
   if (!board || !controls) return;
   const net = onlineActive ? people?.controller?.state() ?? onlineState : undefined;
@@ -1469,7 +1477,7 @@ function update() {
   controls.update({ sent: !fault && (net ? net.phase === 'sending' || net.phase === 'checking' : thinking), staged, silent: silentStage, state: ended ? resultCause : fault ? fault === 'art' ? sideText.artFailed : sideText.computerFailed : net && personTurn(net) || (thinking ? text.thinking : choice.length ? choicePrompt(choice) : draft.armed ? armedStep(draft.armedMoves, draft.now, selected, player) : checked ? text.check : free || (draft.length ? draft.canFinish ? text.draft : text.mustContinue : fresh() && !replySteps.length && !code && !player ? text.first : text.ready)), help,
     undoReason: !onlineActive && writer.blocked ? writer.warning : undoReplayState(draft.length, replySteps.length, thinking || ended || !!fault).enabled ? '' : text.noStep,
     finishReason: !onlineActive && writer.blocked ? writer.warning : ended ? text.final : fault ? fault === 'art' ? sideText.artFailed : sideText.computerFailed : net?.connection === 'auth' ? 'Sign in to send your turn.' : thinking ? net ? personTurn(net) ?? text.wait : text.wait : choice.length ? text.choiceFirst : (net?.canSend ?? draft.canFinish) ? '' : draft.length ? text.mustContinue : text.needMove });
-  staged = silentStage = false;
+  const spentNow = staged; staged = silentStage = false;
   updateSeats();
   const pos = draft.position;
   screen.querySelector<HTMLElement>('.play-grid')!.inert = ended || !!fault || !onlineActive && writer.blocked;
@@ -1489,7 +1497,7 @@ function update() {
     if (coin) {
       res.control.dataset.coin = coin.state;
       res.control.querySelector('small')!.textContent = coin.state === 'always' && res.subject.kind === 'power' ? alwaysOnLabel(res.subject.id) : spent ? readingBText.used : left == null ? text.unlimited : `${left} ${text.left}`;
-      res.control.querySelectorAll<HTMLElement>('.play-power-notch').forEach((notch, i) => { notch.dataset.used = String(i >= (left ?? 0)); });
+      markUses(res.control, left, spentNow);
     } else {
       handChanged ||= res.control.dataset.spent !== undefined && res.control.dataset.spent !== String(spent);
       res.control.querySelector('.play-card-state')!.textContent = spent ? readingBText.used : '';
