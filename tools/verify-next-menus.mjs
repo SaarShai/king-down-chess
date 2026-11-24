@@ -283,13 +283,15 @@ const cases = {
     await wideLayout('saved, signed in, short window');
   },
   // Home opens narrow with a fresh cache, then enters the wide layout during the film: each painted frame of the wide
-  // layout has the wide picture. A resize back, two fast resizes and a failed picture change nothing.
+  // layout has the wide picture. A resize back, two fast resizes and a failed picture change nothing. After the wide
+  // layout, the narrow layout gets its own still: the wide picture stays, whole, until that is ready, and no frame is blank or cuts a king.
   async home_resize(page, context, check, size) {
     if (size !== '1280x720') return;
-    const open = async (label, { reduced = false, ended = false, fail = false } = {}) => {
-      const tab = await (await browser.newContext({ viewport: { width: 500, height: 1000 }, reducedMotion: reduced ? 'reduce' : 'no-preference' })).newPage();
-      let release; const held = new Promise(done => { release = done; }), asked = [];
-      await tab.route('**/hero-wide.webp', async r => { asked.push(r); await held; return fail ? r.abort() : r.continue(); });
+    const open = async (label, { reduced = false, ended = false, fail = false, viewport = { width: 500, height: 1000 } } = {}) => {
+      const tab = await (await browser.newContext({ viewport, reducedMotion: reduced ? 'reduce' : 'no-preference' })).newPage();
+      let release; const held = new Promise(done => { release = done; }), asked = [], state = { fail };
+      // The pictures of the other layout: those that the tab has not loaded yet.
+      await tab.route(viewport.width === 500 ? '**/hero-wide.webp' : /hero-(portrait|square)\.webp$/, async r => { asked.push(r); await held; return state.fail ? r.abort() : r.continue(); });
       await tab.addInitScript(() => { window.kdErrors = []; addEventListener('error', event => { if (event.message) window.kdErrors.push(event.message); }); });
       await tab.goto(NEXT); await tab.waitForSelector('.play-home .home-reveal-still');
       await tab.waitForFunction(() => document.querySelector('.home-reveal-still').naturalWidth > 0);
@@ -305,7 +307,11 @@ const cases = {
           const still = document.querySelector('.home-reveal-still'), film = document.querySelector('.home-reveal-video'), hero = document.querySelector('.home-hero').getBoundingClientRect();
           const visible = node => getComputedStyle(node).opacity > 0, shape = url => /(portrait|square|wide)[^/]*$/.exec(url)?.[1] ?? 'none';
           const playing = film.hasAttribute('src') && (visible(film) || film.matches('.home-art:not(.home-art-still, .home-art-settled) [data-ready]')); // it fades in
-          window.kdFrames.push({ size, wide: getComputedStyle(still).objectFit === 'cover' && innerWidth >= 1200 && hero.width >= innerWidth - 1, film: playing,
+          // A narrow layout cuts the kings of a picture of another shape, unless it is whole and has no edge fade.
+          const art = document.querySelector('.home-art'), aspect = art.clientWidth / art.clientHeight, own = aspect <= .78 ? 'portrait' : aspect <= 1.25 ? 'square' : 'wide';
+          const whole = getComputedStyle(art).maskImage === 'none' && [still, film].every(node => getComputedStyle(node).objectFit === 'contain');
+          const fits = shape => shape === own || whole;
+          window.kdFrames.push({ size, cut: matchMedia('(max-aspect-ratio: 5/4)').matches && !([...(playing ? [film.src] : []), ...(visible(still) ? [still.currentSrc] : [])].every(url => fits(shape(url)))), wide: getComputedStyle(still).objectFit === 'cover' && innerWidth >= 1200 && hero.width >= innerWidth - 1, film: playing,
             layers: [...(playing ? [shape(film.src)] : []), ...(visible(still) ? [still.complete && still.naturalWidth ? shape(still.currentSrc) : 'blank'] : [])] });
         }); });
         frame();
@@ -316,10 +322,43 @@ const cases = {
         await tab.setViewportSize({ width, height });
         await tab.waitForFunction(([before, size]) => window.kdFrames.slice(before).filter(f => f.size === size).length > 2, [before, `${width}x${height}`]);
       };
-      return { tab, asked, release, frames, resize, close: () => tab.context().close(),
+      return { tab, asked, state, release, frames, resize, close: () => tab.context().close(),
         clean: seen => check(seen.every(f => f.layers.length && (!f.wide || f.layers.every(shape => shape === 'wide'))), `${label}: each frame has a picture, and no frame of the wide layout has another picture: ${JSON.stringify(seen.find(f => !f.layers.length || f.wide && f.layers.some(shape => shape !== 'wide')))}`),
         calm: async () => check(!(await tab.evaluate(() => window.kdErrors)).length, `${label}: no error in the window: ${await tab.evaluate(() => window.kdErrors)}`),
         settled: () => tab.waitForFunction(() => window.kdFrames.at(-1)?.wide, null, { timeout: 4000 }).then(() => true, () => false) };
+    };
+    // Each size in turn, to 500x1000; then the wide layout again.
+    const wayBack = async (home, label, sizes = []) => {
+      for (const [w, h] of sizes) await home.resize(w, h);
+      const passed = await home.frames();
+      await home.resize(500, 1000);
+      // Opened wide: the narrow picture is held, so each frame until now has the wide one.
+      if (sizes.length) {
+        passed.push(...await home.frames());
+        check(home.asked.length > 0 && passed.at(-1).size === '500x1000' && passed.every(f => f.layers.join() === 'wide'), `${label}, back to narrow: the wide picture stays while the narrow one loads: ${home.asked.length} ${JSON.stringify(passed.find(f => f.layers.join() !== 'wide'))}`);
+        if (label === 'opened wide, film') await home.tab.screenshot({ path: join(out, 'resize-narrow-held-500.png') });
+      }
+      if (sizes.length && home.state.fail) {
+        // The load fails, then the device is offline: the wide picture stays, whole. A later resize tries again.
+        home.release(); await home.tab.waitForTimeout(400);
+        await home.tab.context().setOffline(true); await home.resize(501, 1000); await home.resize(500, 1000); await home.tab.waitForTimeout(400);
+        passed.push(...await home.frames());
+        check(passed.every(f => f.layers.join() === 'wide') && await home.tab.locator('.home-start').isVisible(), `${label}, back to narrow: the wide picture and the actions stay: ${JSON.stringify(passed.find(f => f.layers.join() !== 'wide'))}`);
+        await home.tab.context().setOffline(false); home.state.fail = false; await home.resize(501, 1000);
+      }
+      home.release();
+      const came = await home.tab.waitForFunction(() => window.kdFrames.at(-1)?.layers.join() === 'portrait', null, { timeout: 4000 }).then(() => true, () => false);
+      if (came) { await home.resize(501, 1000); await home.resize(500, 1000); }
+      const seen = [...passed, ...await home.frames()], own = seen.findIndex(f => f.layers.join() === 'portrait');
+      check(came && own >= 0 && seen.slice(own).every(f => !f.wide && !f.film && f.layers.join() === 'portrait'), `${label}, back to narrow: the portrait still comes and stays, with no film: ${JSON.stringify(seen.at(-1))}`);
+      const blank = seen.find(f => f.layers.length !== 1 || !/^(portrait|square|wide)$/.test(f.layers[0]));
+      check(!blank, `${label}, back to narrow: each frame has one picture: ${JSON.stringify(blank)}`);
+      const cut = seen.find(f => f.cut);
+      check(!cut, `${label}, back to narrow: no frame cuts a king: ${JSON.stringify(cut)}`);
+      if (label === 'film') await home.tab.screenshot({ path: join(out, 'resize-narrow-return-500.png') });
+      await home.resize(1280, 720);
+      check(await home.settled(), `${label}: the wide layout comes again`);
+      home.clean(await home.frames()); await home.calm();
     };
     for (const [label, how] of [['film', {}], ['reduced motion', { reduced: true }], ['film ended', { ended: true }]]) {
       const home = await open(label, how);
@@ -331,6 +370,13 @@ const cases = {
       check(await home.settled(), `${label}: the wide layout comes with the wide picture`);
       home.clean([...waiting, ...await home.frames()]); await home.calm();
       if (label === 'film') await home.tab.screenshot({ path: join(out, 'resize-wide-1280.png') });
+      await wayBack(home, label);
+      await home.close();
+    }
+    // A drag: the wide layout ends at a wide shape, and the window goes on to narrow.
+    for (const [label, how] of [['opened wide, film', {}], ['opened wide, film ended', { ended: true }], ['opened wide, reduced motion', { reduced: true }], ['opened wide, load error', { fail: true }]]) {
+      const home = await open(label, { ...how, viewport: { width: 1280, height: 720 } });
+      await wayBack(home, label, [[1150, 720], [800, 900]]);
       await home.close();
     }
     const back = await open('resize back');

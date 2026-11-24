@@ -20,9 +20,9 @@ it('uses only the MP4 for the selected variant', () => {
 });
 
 it('uses the still that matches the selected variant', () => {
-  expect(revealPoster(390, 844)).toBe('/interface/reveal/hero-portrait.webp');
-  expect(revealPoster(820, 961)).toBe('/interface/reveal/hero-square.webp');
-  expect(revealPoster(1440, 900)).toBe('/interface/reveal/hero-wide.webp');
+  expect(revealPoster('portrait')).toBe('/interface/reveal/hero-portrait.webp');
+  expect(revealPoster('square')).toBe('/interface/reveal/hero-square.webp');
+  expect(revealPoster('wide')).toBe('/interface/reveal/hero-wide.webp');
 });
 
 function fakePage(av1Answer: string, hevcAnswer = av1Answer, app = false) {
@@ -33,7 +33,7 @@ function fakePage(av1Answer: string, hevcAnswer = av1Answer, app = false) {
     const listeners = new Map<string, (event: { propertyName?: string }) => void>();
     return {
       tag, dataset: {} as Record<string, string>, isConnected: true, clientWidth: 1440, clientHeight: 900, paused: true,
-      classList: { add: (name: string) => classes.add(name), contains: (name: string) => classes.has(name), toggle: (name: string, on: boolean) => on ? classes.add(name) : classes.delete(name) },
+      classList: { add: (name: string) => classes.add(name), remove: (name: string) => classes.delete(name), contains: (name: string) => classes.has(name), toggle: (name: string, on: boolean) => on ? classes.add(name) : classes.delete(name) },
       setAttribute: (name: string, value: string) => attributes.set(name, value), hasAttribute: (name: string) => attributes.has(name),
       removeAttribute: (name: string) => attributes.delete(name), get src() { return attributes.get('src'); }, set src(value) { attributes.set('src', value!); },
       append() {}, addEventListener: (type: string, listener: (event: { propertyName?: string }) => void) => listeners.set(type, listener),
@@ -47,14 +47,15 @@ function fakePage(av1Answer: string, hevcAnswer = av1Answer, app = false) {
   };
   const observers: ((entries: { intersectionRatio: number }[]) => void)[] = [];
   vi.stubGlobal('document', { createElement: node, addEventListener() {}, hidden: false });
-  vi.stubGlobal('window', { addEventListener() {}, innerWidth: 1440, innerHeight: 900 });
+  const resized: (() => void)[] = [];
+  vi.stubGlobal('window', { addEventListener(type: string, listener: () => void) { if (type === 'resize') resized.push(listener); }, innerWidth: 1440, innerHeight: 900 });
   vi.stubGlobal('navigator', { onLine: true });
   vi.stubGlobal('location', { protocol: app ? 'capacitor:' : 'https:' });
   const media = { matches: false, listeners: [] as (() => void)[], addEventListener(_type: string, listener: () => void) { media.listeners.push(listener); } };
   vi.stubGlobal('matchMedia', () => media);
   vi.stubGlobal('IntersectionObserver', class { constructor(seen: typeof observers[number]) { observers.push(seen); } observe() {} disconnect() {} });
   return {
-    codecChecks, media,
+    codecChecks, media, resized,
     async show(playError?: DOMException, [clientWidth, clientHeight] = [1440, 900], framed = () => {}) {
       const { homeReveal } = await import('./home-reveal');
       const art = node(), videos: ReturnType<typeof node>[] = [], stills: ReturnType<typeof node>[] = [];
@@ -141,19 +142,30 @@ it.each([
   expect(page.codecChecks.map(type => type.includes('av01') ? 'av01' : 'hvc1')).toEqual(checks);
 });
 
-/** Narrow Home with its portrait film; `resize` enters or leaves the wide layout; `answers` settles the wide pictures in turn. */
-async function narrowHome() {
-  const page = fakePage('probably'), answers: ((ok: boolean) => Promise<void>)[] = [], framed = vi.fn();
+/** Home with its film; `resize` sets the art box and enters or leaves the wide layout; `answers` settles the pictures in turn. */
+async function openHome(wide: boolean, box: [number, number] = wide ? [1280, 720] : [500, 1000], app = false) {
+  const page = fakePage('probably', 'probably', app), answers: ((ok: boolean) => Promise<void>)[] = [], framed = vi.fn();
+  page.media.matches = wide;
   const decode = () => new Promise<void>((done, fail) => { answers.push(async ok => { if (ok) done(); else fail(new Error('EncodingError')); for (let i = 0; i < 9; i++) await Promise.resolve(); }); });
-  const home = await page.show(undefined, [500, 1000], framed);
+  const home = await page.show(undefined, box, framed);
+  type Still = typeof home.still;
   let still = home.still;
-  // Each decode after the first picture waits for its answer.
-  Object.assign(still, { decode, cloneNode: () => Object.assign(Object.create(null), { decode }), replaceWith: (next: typeof still) => { still = next; } });
-  const resize = (wide: boolean) => { page.media.matches = wide; page.media.listeners.forEach(listener => listener()); };
+  // Each decode after the first picture waits for its answer. Only the picture on the page can be replaced.
+  const picture = (node: Still): Still => Object.assign(node, { decode, cloneNode: () => picture(Object.create(null)), replaceWith: (next: Still) => { if (still === node) still = next; } });
+  picture(still);
+  const resize = (wide: boolean, box = wide ? [1280, 720] : [500, 780]) => {
+    const changed = page.media.matches !== wide;
+    page.media.matches = wide; Object.assign(home.art, { clientWidth: box[0], clientHeight: box[1] });
+    page.resized.forEach(listener => listener());
+    if (changed) page.media.listeners.forEach(listener => listener());
+  };
   const shown = () => [still.src, home.art.dataset.frame, home.video.src !== undefined];
-  return { ...home, resize, answers, framed, shown };
+  const whole = () => home.art.classList.contains('home-art-whole');
+  return { ...home, resize, answers, framed, shown, whole };
 }
+const narrowHome = () => openHome(false);
 const PORTRAIT = ['/interface/reveal/hero-portrait.webp', 'portrait', true], WIDE = ['/interface/reveal/hero-wide.webp', 'wide', false];
+const PORTRAIT_STILL = [...PORTRAIT.slice(0, 2), false], SQUARE_STILL = ['/interface/reveal/hero-square.webp', 'square', false];
 
 it('enters the wide layout when the wide picture is ready: until then the portrait film and picture stay', async () => {
   const home = await narrowHome();
@@ -225,4 +237,170 @@ it('a hidden tab takes the wide picture too, and starts no film', async () => {
   await home.answers[0](true); home.reveal.sync();
   expect(home.shown()).toEqual(WIDE);
   expect(home.video.play.mock.calls.length).toBe(plays);
+});
+
+it('a resize out of the wide layout shows the still for its shape when it is ready; the film does not start again', async () => {
+  const home = await narrowHome();
+  const plays = home.video.play.mock.calls.length;
+  home.resize(true); await home.answers[0](true);
+  home.resize(false);
+  expect(home.shown()).toEqual(WIDE);
+  await home.answers[1](true); home.reveal.sync();
+  expect(home.shown()).toEqual(PORTRAIT_STILL);
+  expect(home.art.classList.contains('home-art-still')).toBe(true);
+  // And back: the wide picture comes again, and again only when it is ready.
+  home.resize(true);
+  expect(home.shown()).toEqual(PORTRAIT_STILL);
+  await home.answers[2](true);
+  expect(home.shown()).toEqual(WIDE);
+  home.resize(false, [900, 800]); await home.answers[3](true);
+  expect(home.shown()).toEqual(SQUARE_STILL);
+  expect(home.framed).toHaveBeenCalledTimes(4);
+  expect(home.video.play.mock.calls.length).toBe(plays);
+});
+it('a window that a player drags from wide to narrow ends with the still for its last shape', async () => {
+  const home = await openHome(true);
+  // The wide layout ends while the art box is still a wide shape: the picture fits.
+  home.resize(false, [1150, 798]);
+  expect(home.answers).toHaveLength(0);
+  home.resize(false, [860, 760]); home.resize(false, [850, 760]);
+  expect(home.answers).toHaveLength(1);
+  await home.answers[0](true);
+  expect(home.shown()).toEqual(SQUARE_STILL);
+  home.resize(false); await home.answers[1](true);
+  expect(home.shown()).toEqual(PORTRAIT_STILL);
+});
+it('Home that opens wide takes the narrow still and stops the wide film together', async () => {
+  const home = await openHome(true);
+  expect(home.shown()).toEqual(['/interface/reveal/hero-wide.webp', 'wide', true]);
+  home.resize(false);
+  expect(home.shown()).toEqual(['/interface/reveal/hero-wide.webp', 'wide', true]);
+  await home.answers[0](true);
+  expect(home.shown()).toEqual(PORTRAIT_STILL);
+  expect(home.framed).toHaveBeenCalledOnce();
+});
+it('a narrow decode that ends after another resize changes nothing', async () => {
+  const home = await narrowHome();
+  home.resize(true); await home.answers[0](true);
+  home.resize(false); home.resize(true);
+  await home.answers[1](true);
+  expect(home.shown()).toEqual(WIDE);
+  // Two shapes in turn: the first answer comes last.
+  home.resize(false, [860, 760]); home.resize(false);
+  await home.answers[3](true); await home.answers[2](true);
+  expect(home.shown()).toEqual(PORTRAIT_STILL);
+  expect(home.framed).toHaveBeenCalledTimes(2);
+});
+it('a late error of a stale decode does not drop the decode that replaced it', async () => {
+  const home = await openHome(true);
+  home.resize(false, [860, 760]); home.resize(false);
+  await home.answers[0](false); await home.answers[1](true);
+  expect(home.shown()).toEqual(PORTRAIT_STILL);
+});
+it('a layout that changes shape during the decode without a resize gets the still for its last shape', async () => {
+  const home = await openHome(true);
+  home.resize(false, [860, 760]);
+  Object.assign(home.art, { clientWidth: 500, clientHeight: 780 });
+  await home.answers[0](true);
+  expect(home.shown()).toEqual(['/interface/reveal/hero-wide.webp', 'wide', true]);
+  await home.answers[1](true);
+  expect(home.shown()).toEqual(PORTRAIT_STILL);
+});
+it('a narrow picture that cannot load leaves the wide picture; the next resize tries again', async () => {
+  const home = await narrowHome();
+  home.resize(true); await home.answers[0](true);
+  home.resize(false); await home.answers[1](false);
+  expect(home.shown()).toEqual(WIDE);
+  expect(home.framed).toHaveBeenCalledOnce();
+  home.resize(false, [501, 780]); await home.answers[2](true);
+  expect(home.shown()).toEqual(PORTRAIT_STILL);
+});
+it('Home that closes during the narrow load keeps its wide picture', async () => {
+  const home = await narrowHome();
+  home.resize(true); await home.answers[0](true);
+  home.resize(false); home.reveal.dispose(); await home.answers[1](true);
+  expect(home.shown()).toEqual(WIDE);
+  expect(home.framed).toHaveBeenCalledOnce();
+});
+it.each([
+  ['a film that ended', (home: Awaited<ReturnType<typeof openHome>>) => home.video.emit('ended')],
+  ['reduced motion', async () => { (await import('./fx')).setFxMotion('normal', true); }],
+  ['a hidden tab', () => { (document as { hidden: boolean }).hidden = true; }],
+] as const)('%s takes the narrow still the same way, from narrow and from wide, and starts no film', async (_name, before) => {
+  for (const wide of [false, true]) {
+    const home = await openHome(wide);
+    await before(home);
+    const plays = home.video.play.mock.calls.length;
+    if (!wide) { home.resize(true); await home.answers[0](true); }
+    home.resize(false);
+    expect(home.shown().slice(0, 2)).toEqual(WIDE.slice(0, 2));
+    await home.answers.at(-1)!(true); home.reveal.sync();
+    expect(home.shown()).toEqual(PORTRAIT_STILL);
+    expect(home.video.play.mock.calls.length).toBe(plays);
+  }
+});
+it('a narrow film keeps its frame through narrow resizes', async () => {
+  const home = await narrowHome();
+  home.resize(false, [860, 760]); home.resize(false, [1150, 798]);
+  expect(home.answers).toHaveLength(0);
+  expect(home.shown()).toEqual(PORTRAIT);
+});
+it.each([
+  ['a tablet that turns from a wide shape', false, [1180, 820], [820, 900]],
+  ['a phone in the app that turns from a wide shape', true, [844, 390], [390, 600]],
+  ['a tablet in split view', false, [1024, 700], [500, 900]],
+] as const)('%s keeps its film and its picture', async (_name, app, from, to) => {
+  for (const before of [() => {}, (home: Awaited<ReturnType<typeof openHome>>) => home.video.emit('ended')]) {
+    const home = await openHome(false, [...from], app), plays = home.video.play.mock.calls.length;
+    before(home);
+    home.resize(false, [...to]); home.resize(false, [...from]); home.resize(false, [...to]);
+    expect(home.answers).toHaveLength(0);
+    expect(home.shown()).toEqual(['/interface/reveal/hero-wide.webp', 'wide', true]);
+    expect([home.whole(), home.art.classList.contains('home-art-still'), home.video.play.mock.calls.length]).toEqual([false, false, plays]);
+  }
+});
+it('a film that cannot play leaves the first picture through each turn of a touch device', async () => {
+  const home = await openHome(false, [1180, 820]);
+  for (let i = 0; i < 3; i++) home.video.emit('error');
+  home.resize(false, [820, 900]);
+  expect(home.answers).toHaveLength(0);
+  expect(home.shown()).toEqual(WIDE);
+});
+it('a window that touches the wide layout and leaves it before the picture came keeps its film in each later resize', async () => {
+  const home = await narrowHome();
+  home.resize(true); home.resize(false); await home.answers[0](true);
+  home.resize(false, [860, 760]); home.resize(false, [1150, 798]);
+  expect(home.answers).toHaveLength(1);
+  expect(home.shown()).toEqual(PORTRAIT);
+  expect(home.whole()).toBe(false);
+});
+it('a wide shape outside the wide layout keeps its film into the wide layout, and takes the narrow still on the way back', async () => {
+  const home = await openHome(false, [1150, 798]);
+  home.resize(true);
+  expect(home.shown()).toEqual(['/interface/reveal/hero-wide.webp', 'wide', true]);
+  home.resize(false); await home.answers[0](true);
+  expect(home.shown()).toEqual(PORTRAIT_STILL);
+});
+it('after the wide layout the old picture shows whole until the picture of the layout is ready', async () => {
+  const home = await openHome(true);
+  expect(home.whole()).toBe(false);
+  home.resize(false, [860, 760]);
+  expect(home.whole()).toBe(true);
+  home.resize(true);
+  expect(home.whole()).toBe(false);
+  home.resize(false, [860, 760]); await home.answers[1](true);
+  expect([home.shown(), home.whole()]).toEqual([SQUARE_STILL, false]);
+  home.resize(false);
+  expect(home.whole()).toBe(true);
+  await home.answers[2](true);
+  expect([home.shown(), home.whole()]).toEqual([PORTRAIT_STILL, false]);
+});
+it('a narrow picture that cannot load leaves the wide picture whole, for as long as that lasts', async () => {
+  const home = await openHome(true);
+  home.resize(false); await home.answers[0](false); home.reveal.sync();
+  expect(home.whole()).toBe(true);
+  home.resize(false, [501, 780]); await home.answers[1](false);
+  expect(home.whole()).toBe(true);
+  home.resize(false); await home.answers[2](true);
+  expect([home.shown(), home.whole()]).toEqual([PORTRAIT_STILL, false]);
 });
