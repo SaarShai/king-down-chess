@@ -40,6 +40,16 @@ it('the mark is the whole coin: no second ring, and a spent mark is grey', () =>
   expect(css).toMatch(/\[data-spent='true'\] \.play-power-coin img \{ filter: grayscale\(1\)/);
 });
 
+it('a check or a win colours the ring of a coin: no ring rule of the mark is stronger or later', () => {
+  const css = read('./reading-b.css'), at = (text: string) => css.indexOf(text);
+  const own = [...css.matchAll(/^\.play-seat-ring\S*:has\(> \.play-power-coin\)\S* \{[^}]*border-color[^}]*\}/gm)];
+  expect(own).toHaveLength(2);
+  for (const { 0: rule, index } of own) {
+    expect((rule.replace(/:where\(.*?\)+ /, ' ').match(/(\.[\w-]+|\[[^\]]+\])(?=.*\{)/g) ?? []).length).toBe(2); // as strong as [data-check]
+    for (const state of [".play-seat-ring[data-check='true'] {", ".play-seat-ring[data-outcome='win'] {"]) expect(at(state)).toBeGreaterThan(index);
+  }
+});
+
 it('the reader shows the mark of a power that the player reads, and no picture for the words of a move', async () => {
   class Node { className = ''; dataset = {}; children: unknown[] = []; attributes = new Map<string, string>(); textContent = '';
     append(...nodes: unknown[]) { this.children.push(...nodes); } getAttribute(key: string) { return this.attributes.get(key) ?? null; } removeAttribute(key: string) { this.attributes.delete(key); }

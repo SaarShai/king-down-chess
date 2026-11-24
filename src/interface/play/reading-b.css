@@ -369,9 +369,9 @@
 .play-seat-ring > :is(.profile-portrait, .play-figure) { width: 100%; height: 100%; min-height: 0; object-fit: contain; border: 0; border-radius: 50%; }
 .play-seat-ring > .play-power-coin { width: 100%; height: 100%; }
 .play-seat-ring[data-turn='true'] { border-color: var(--brass-p, var(--brass)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brass-2, var(--brass)) 25%, transparent); }
-/* The rim of the mark is the ring: the turn shows as the glow alone. The notches hang 4 px below the rim. */
+/* The rim of the mark is the ring: the turn shows as the glow alone, and the check below is as strong. The notches hang 4 px below the rim. */
 .play-seat-ring:has(> .play-power-coin) { border-color: transparent; }
-.play-seat-ring[data-turn='true']:has(> .play-power-coin) { border-color: color-mix(in srgb, var(--brass-2, var(--brass)) 25%, transparent); }
+.play-seat-ring[data-turn='true']:where(:has(> .play-power-coin)) { border-color: color-mix(in srgb, var(--brass-2, var(--brass)) 25%, transparent); }
 .play-seat-ring:has(.play-power-notch) { margin-bottom: 4px; }
 .play-seat-ring[data-check='true'] { border-color: var(--danger); box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 32%, transparent); }
 .play-seat-ring[data-thinking='true']::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--teal, var(--power-fill)); transform: rotate(var(--arc, 0deg)); }
