@@ -37,7 +37,7 @@ function fakePage(av1Answer: string, hevcAnswer = av1Answer, app = false) {
       setAttribute: (name: string, value: string) => attributes.set(name, value), hasAttribute: (name: string) => attributes.has(name),
       removeAttribute: (name: string) => attributes.delete(name), get src() { return attributes.get('src'); }, set src(value) { attributes.set('src', value!); },
       append() {}, addEventListener: (type: string, listener: (event: { propertyName?: string }) => void) => listeners.set(type, listener),
-      emit: (type: string) => listeners.get(type)?.({}),
+      emit: (type: string, propertyName?: string) => listeners.get(type)?.({ propertyName }),
       decode: () => Promise.resolve(), play: vi.fn(() => Promise.resolve()), pause() {}, load() {},
       canPlayType: (type: string) => {
         codecChecks.push(type);
@@ -373,6 +373,91 @@ it.each(turns)('%s after its film ended takes the still for its shape; a load er
   expect([home.shown().slice(0, 2), home.whole()]).toEqual([WIDE.slice(0, 2), true]);
   home.resize(false, [...to]); await home.answers[1](true);
   expect([home.shown(), home.whole()]).toEqual([still, false]);
+});
+const settledClass = (home: Home) => home.art.classList.contains('home-art-settled');
+it.each(turns)('%s holds the last film frame until its still is ready, then changes one time', async (_name, app, from, to, still) => {
+  vi.useFakeTimers();
+  try {
+    const home = await openHome(false, [...from], app), film = home.shown();
+    home.resize(false, [...to]); home.video.emit('ended');
+    vi.advanceTimersByTime(1400);
+    expect([settledClass(home), home.shown(), home.whole()]).toEqual([false, film, true]);
+    await home.answers[0](true); home.reveal.sync();
+    expect([home.shown(), home.whole(), home.art.classList.contains('home-art-still')]).toEqual([still, false, true]);
+    expect([home.answers.length, home.framed.mock.calls.length]).toEqual([1, 1]);
+  } finally { vi.useRealTimers(); }
+});
+it.each([
+  ['a still that cannot load', async (home: Home) => { await home.answers[0](false); }],
+  ['a turn back before the still came', (home: Home) => home.resize(false, [1180, 820])],
+  ['a still that comes after the turn back', async (home: Home) => { home.resize(false, [1180, 820]); await home.answers[0](true); }],
+] as const)('%s ends the film on the picture that it has', async (_name, end) => {
+  vi.useFakeTimers();
+  try {
+    const home = await openHome(false, [1180, 820]);
+    home.resize(false, [820, 900]); home.video.emit('ended');
+    expect(settledClass(home)).toBe(false);
+    await end(home);
+    expect([settledClass(home), home.shown()[0]]).toEqual([true, '/interface/reveal/hero-wide.webp']);
+    vi.advanceTimersByTime(400);
+    expect(home.shown()).toEqual(WIDE);
+  } finally { vi.useRealTimers(); }
+});
+it('a second turn during the hold keeps the last frame, and the still of the last shape comes', async () => {
+  const home = await openHome(false, [1180, 820]), film = home.shown();
+  home.resize(false, [820, 900]); home.video.emit('ended'); home.resize(false, [500, 900]);
+  await home.answers[0](true); expect([settledClass(home), home.shown()]).toEqual([false, film]);
+  await home.answers[1](true); expect([home.shown(), home.whole()]).toEqual([PORTRAIT_STILL, false]);
+});
+it('a load with no answer ends the hold after 1.5 s on the still that the page has', async () => {
+  vi.useFakeTimers();
+  try {
+    const home = await openHome(false, [1180, 820]), film = home.shown();
+    home.resize(false, [820, 900]); home.video.emit('ended');
+    home.resize(false, [830, 900]); home.video.emit('transitionend', 'opacity'); // the fade-in of the film ends late
+    vi.advanceTimersByTime(1499);
+    expect([settledClass(home), home.shown()]).toEqual([false, film]);
+    vi.advanceTimersByTime(1);
+    expect([settledClass(home), home.shown()[0]]).toEqual([true, '/interface/reveal/hero-wide.webp']);
+    vi.advanceTimersByTime(400);
+    expect([home.shown(), home.whole()]).toEqual([WIDE, true]);
+    await home.answers[0](true); // late, and still the shape of the screen
+    expect([home.shown(), home.whole()]).toEqual([SQUARE_STILL, false]);
+  } finally { vi.useRealTimers(); }
+});
+it('a late still of another shape is not shown', async () => {
+  vi.useFakeTimers();
+  try {
+    const home = await openHome(false, [1180, 820]);
+    home.resize(false, [820, 900]); home.video.emit('ended');
+    vi.advanceTimersByTime(2000);
+    Object.assign(home.art, { clientWidth: 500, clientHeight: 900 }); // no resize event
+    await home.answers[0](true);
+    expect(home.shown()).toEqual(WIDE);
+    await home.answers[1](true);
+    expect(home.shown()).toEqual(PORTRAIT_STILL);
+  } finally { vi.useRealTimers(); }
+});
+it.each([
+  ['a lost connection', (home: Home) => home.connect(false)],
+  ['Motion Off', (home: Home) => motionOff(true, home)],
+] as const)('%s ends the hold at once; a late still of the same shape comes', async (_name, end) => {
+  vi.useFakeTimers();
+  try {
+    const home = await openHome(false, [1180, 820]);
+    home.resize(false, [820, 900]); home.video.emit('ended');
+    expect(settledClass(home)).toBe(false);
+    await end(home);
+    expect([settledClass(home), home.art.classList.contains('home-art-still'), home.shown()[0]]).toEqual([true, true, '/interface/reveal/hero-wide.webp']);
+    vi.advanceTimersByTime(400);
+    expect([home.shown(), home.whole()]).toEqual([WIDE, true]);
+    await home.answers[0](true);
+    expect([home.shown(), home.whole()]).toEqual([SQUARE_STILL, false]);
+  } finally { vi.useRealTimers(); }
+});
+it('a film that ends with no turn settles at once', async () => {
+  const home = await openHome(false); home.video.emit('ended');
+  expect([settledClass(home), home.answers.length]).toEqual([true, 0]);
 });
 it('a redraw that changes the art box during the film changes no picture at its end', async () => {
   const home = await openHome(false);

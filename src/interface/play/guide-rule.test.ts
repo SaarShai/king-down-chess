@@ -3,6 +3,8 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 vi.mock('../ui/kit.js', () => ({ button: () => document.createElement('button'), icon: () => document.createElement('i') }));
 vi.mock('./learning-panel', () => ({ learningPanel: () => ({ element: document.createElement('section'), dispose() {} }) }));
+const stopClip = vi.fn(), clip = vi.fn((_image: { src: string }, _calm: () => boolean, _delay: number) => stopClip);
+vi.mock('./portrait-idle', () => ({ portraitIdle: clip }));
 // A page of plain nodes: the Guide builds its real page and the fx clock runs on this time.
 let now = 0, frames: FrameRequestCallback[] = [], wide: { matches: boolean; run: () => void };
 const pass = (ms: number) => { now += ms; for (const run of frames.splice(0)) run(now); };
@@ -19,6 +21,7 @@ class Node {
 }
 let guide: typeof import('./guide'), fx: typeof import('./fx');
 beforeEach(async () => {
+  stopClip.mockClear(); clip.mockClear();
   now = 0; frames = []; wide = { matches: true, run: () => {} };
   vi.resetModules();
   vi.stubGlobal('document', { createElement: () => new Node(), createElementNS: () => new Node(), body: new Node() });
@@ -71,4 +74,34 @@ it('the rule lies out of the text flow and only its own small box scales', () =>
   const box = css.match(/\.guide-entry-title::after \{([^}]*)\}/)?.[1] ?? '';
   for (const part of ['position: absolute', 'width: 48px', 'height: 2px', 'transform: scaleX(var(--rule, 1))']) expect(box).toContain(part);
   expect(css.match(/\.guide-entry-title[^{]*\{[^}]*(opacity|visibility)/)).toBeNull();
+});
+const loaded = () => new Promise(done => { setTimeout(done, 20); });
+it('the figure of a piece or a king entry plays its clip when the player opens it, and stops when the entry closes', async () => {
+  open('Pieces'); await loaded(); expect(clip).not.toHaveBeenCalled(); // the list and the wide default entry
+  open('Pieces', '8'); await loaded();
+  expect(clip.mock.calls.map(([image, calm, delay]) => [image.src, calm(), delay])).toEqual([[guide.guideEntries('Pieces').find(item => item.id === '8')!.art, false, 400]]);
+  open('Pieces', '8'); await loaded(); // the same entry again
+  expect([clip.mock.calls.length, stopClip.mock.calls.length]).toEqual([1, 1]);
+  const [power] = guide.guideEntries('Kings and powers');
+  open('Kings and powers', power.id); await loaded();
+  expect(clip.mock.lastCall![0].src).toBe(power.art);
+  guide.closeGuidePanel(); expect(stopClip).toHaveBeenCalledTimes(2);
+});
+it('a card, a turn step, reduced motion and a closed entry play no clip', async () => {
+  open('Cards'); await loaded(); open('Cards', guide.guideEntries('Cards')[1].id); await loaded();
+  open('How a turn works', 'move'); await loaded(); expect(clip).not.toHaveBeenCalled();
+  open('Pieces'); open('Pieces', '8'); guide.closeGuidePanel(); // closed before the code came
+  fx.setFxMotion('normal', true);
+  open('Pieces'); await loaded(); open('Pieces', '7'); await loaded();
+  expect(clip).not.toHaveBeenCalled();
+});
+it('the first open of the entry that the wide preview shows plays its clip one time; a preview and a reload stay still', async () => {
+  const [first, second] = guide.guideEntries('Pieces');
+  open('Pieces', first.id); await loaded(); // a reload
+  open('Pieces'); await loaded(); wide.run(); await loaded(); expect(clip).not.toHaveBeenCalled();
+  const title = open('Pieces', first.id); await loaded();
+  expect([clip.mock.calls.length, rule(title)]).toEqual([1, undefined]);
+  open('Pieces', first.id); await loaded(); expect(clip).toHaveBeenCalledOnce();
+  open('Kings and powers'); open('Pieces'); open('Pieces', second.id); await loaded(); open('Pieces', first.id); await loaded();
+  expect(clip).toHaveBeenCalledTimes(3); // the other entry, then back
 });

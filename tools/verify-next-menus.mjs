@@ -403,6 +403,9 @@ const cases = {
       const came = await home.tab.waitForFunction(own => window.kdFrames.at(-1)?.layers.join() === own, own, { timeout: 4000 }).then(() => true, () => false);
       const seen = await home.frames(), cut = seen.find(f => f.cut || !f.layers.length || f.layers.includes('blank'));
       check(came && !cut, `${label}: the ${own} still comes after the film, and no frame cuts a king: ${JSON.stringify(cut ?? seen.at(-1))}`);
+      // The last film frame, then the still for this shape: one change.
+      const at = seen.findIndex(f => !f.film), wrong = seen.find((f, i) => f.layers.join() !== (at < 0 || i < at ? 'wide' : own) || f.film !== (at < 0 || i < at));
+      check(at > 5 && !wrong, `${label}: the last film frame stays until the ${own} still: ${at} ${JSON.stringify(wrong)}`);
       await home.tab.screenshot({ path: join(out, `turn-still-${h}.png`) });
       await home.calm(); await home.close();
     }

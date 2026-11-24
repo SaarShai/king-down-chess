@@ -71,6 +71,16 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
     owed();
   }
 
+  /** After a turn, the last film frame stays until the still for the new shape is ready, cannot come, or takes more than 1.5 s. */
+  const held = () => settled && !art.classList.contains('home-art-settled');
+  function settle() {
+    if (!held()) return;
+    clearTimeout(releaseTimer);
+    art.classList.add('home-art-settled');
+    // A hidden page or a disabled transition may send no transitionend event.
+    releaseTimer = setTimeout(release, 400);
+  }
+
   function play() {
     const attempt = source;
     void video.play().catch((error: DOMException) => {
@@ -97,14 +107,14 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
     if (signal.aborted || !variant) return;
     const shape = layoutShape(), due = () => wide.matches || wasWide || settled || stillOnly();
     art.classList.toggle('home-art-whole', shape !== variant);
-    if (shape === variant || !due()) { loading = undefined; return; }
+    if (shape === variant || !due()) { loading = undefined; settle(); return; }
     if (shape === loading?.shape) return;
     const own = loading = { shape }, picture = still.cloneNode() as HTMLImageElement;
     picture.src = revealPoster(shape);
     const ready = await picture.decode().then(() => true, () => false);
     if (loading !== own || signal.aborted) return;
     loading = undefined;
-    if (!ready) return; // The next resize or sync (the connection returns) tries again.
+    if (!ready) { settle(); return; } // The next resize or sync (the connection returns) tries again.
     if (layoutShape() !== shape || !due()) { void reframe(); return; }
     still.replaceWith(picture); still = picture;
     variant = art.dataset.frame = shape; art.classList.remove('home-art-whole'); fallback(); framed();
@@ -119,7 +129,8 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
       void still.decode().catch(() => {});
     }
     const useStill = stillOnly();
-    art.classList.toggle('home-art-still', useStill);
+    if (useStill) settle(); // The hold ends when the connection or the motion goes.
+    if (!held()) art.classList.toggle('home-art-still', useStill);
     owed();
     if (settled) return;
     if (useStill || !visible || pageHidden || document.hidden) { video.pause(); return; }
@@ -135,13 +146,12 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
   video.addEventListener('error', () => nextFilm(), { signal });
   video.addEventListener('ended', () => {
     settled = true;
-    art.classList.add('home-art-settled');
-    // A hidden page or a disabled transition may send no transitionend event.
-    releaseTimer = setTimeout(release, 400);
-    owed();
+    if (!art.classList.contains('home-art-whole')) { settle(); return; }
+    releaseTimer = setTimeout(settle, 1500);
+    sync();
   }, { signal });
   video.addEventListener('transitionend', event => {
-    if (settled && event.propertyName === 'opacity') release();
+    if (settled && !held() && event.propertyName === 'opacity') release();
   }, { signal });
   wide.addEventListener('change', () => { wasWide ||= !wide.matches && variant === 'wide'; void reframe(); }, { signal });
   window.addEventListener('resize', reframe, { signal });

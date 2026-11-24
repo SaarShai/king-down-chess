@@ -24,7 +24,8 @@ function fixture() {
   const output = [
     chunk('assets/root.js', join(root, 'index.html'), [], ['assets/main.js', 'assets/web-entry.js']),
     chunk('assets/main.js', join(root, 'src/main.ts'), ['assets/shared.js'], ['assets/workshop.js', 'assets/client.js'], ['assets/main.css'], ['assets/worker.js']),
-    chunk('assets/shared.js', null, ['assets/main.js']),
+    chunk('assets/shared.js', null, ['assets/main.js'], ['assets/portrait-idle.js']),
+    chunk('assets/portrait-idle.js', join(root, 'src/interface/play/portrait-idle.ts'), ['assets/clip-data.js']), chunk('assets/clip-data.js', null),
     chunk('assets/workshop.js', join(root, 'src/workshop/ground.ts'), [], ['assets/lesson.js']),
     chunk('assets/lesson.js', join(root, 'src/screen/lesson.ts')),
     chunk('assets/play.js', join(root, 'play.html'), ['assets/shared.js'], ['assets/account.js']),
@@ -39,7 +40,7 @@ function fixture() {
   ];
   const bundle = Object.fromEntries(output.map(file => [file.fileName, file])) as OutputBundle;
   const files = [...Object.keys(bundle), 'index.html', 'sw.js', 'manifest.webmanifest',
-    'ui/pawn.webp', 'ui/icons/pawn.svg', 'fonts/cinzel.woff2', 'icons/icon-192.png',
+    'ui/pawn.webp', 'ui/emblems/frost.webp', 'ui/powers/ice-wall.webp', 'ui/icons/pawn.svg', 'fonts/cinzel.woff2', 'icons/icon-192.png',
     'privacy.html', 'terms.html', 'support.html', 'delete-data.html',
     'ui/consent.mjs', 'ui/private.html', 'fonts/license.txt', 'icons/account.json',
     '.well-known/openai-apps-challenge', '.well-known/oauth-protected-resource', 'consent.mjs', 'auth/callback.html'];
@@ -52,10 +53,21 @@ it('selects the local loader, static and dynamic graph, AI worker, CSS and asset
   expect(precache).toEqual(['./', ...[
     'assets/root.js', 'assets/main.js', 'assets/shared.js', 'assets/workshop.js', 'assets/lesson.js',
     'assets/worker.js', 'assets/main.css', 'assets/font.woff2', 'assets/local.webp',
-    'ui/pawn.webp', 'ui/icons/pawn.svg', 'fonts/cinzel.woff2', 'icons/icon-192.png', 'manifest.webmanifest',
+    'ui/pawn.webp', 'ui/emblems/frost.webp', 'ui/powers/ice-wall.webp', 'ui/icons/pawn.svg', 'fonts/cinzel.woff2', 'icons/icon-192.png', 'manifest.webmanifest',
   ].sort()]);
   expect(allowlist).toEqual(['./', 'index.html', ...precache.slice(1)]);
   expect(precache.every(file => allowlist.includes(file))).toBe(true);
+});
+
+it('leaves the Guide clip code and what only it needs out of the install', () => {
+  const { bundle, files } = fixture();
+  for (const solo of [false, true]) {
+    const { allowlist, precache } = offlineCacheFiles(bundle, root, files, solo);
+    for (const file of ['assets/portrait-idle.js', 'assets/clip-data.js']) { expect(precache).not.toContain(file); expect(allowlist).not.toContain(file); }
+  }
+  // Code that the board needs too stays in the install.
+  (bundle['assets/shared.js'] as OutputChunk).imports.push('assets/clip-data.js');
+  expect(offlineCacheFiles(bundle, root, files).precache).toContain('assets/clip-data.js');
 });
 
 it('excludes other entries, account-only output, maps, metadata, auth and legal files', () => {

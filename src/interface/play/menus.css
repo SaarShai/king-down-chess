@@ -164,6 +164,7 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .king-title img { width: 100px; height: 150px; object-fit: contain; }
 .guide-page .king-title h2 { margin: 0; font-size: 1.25rem; text-align: center; overflow-wrap: normal; }
 .king-powers .guide-row.list-row { min-height: 88px; }
+.king-powers strong img { display: inline-block; width: 24px; height: 24px; margin-inline-end: 7px; vertical-align: -5px; }
 .king-powers .guide-row:last-child { border-bottom: 0; }
 .uses { display: block; font-size: .875rem; color: var(--text-muted); }
 /* Two columns, or one when a column is narrower than the longest one-word title at the user's text size. */
@@ -181,7 +182,9 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .turn-steps .step-short { font-weight: 650; margin-bottom: 6px; }
 .guide-entry-back { margin: -10px 0 4px -8px; }
 .entry-art { display: flex; justify-content: center; margin: 0 auto 16px; }
+.figure-art { position: relative; }
 .figure-art img { height: 220px; width: 170px; object-fit: contain; }
+.play-portrait-idle { position: absolute; pointer-events: none; }
 .card-art img { width: 100%; max-width: 480px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 12px; box-shadow: var(--card-edge); }
 .guide-page .guide-entry-title { position: relative; margin: 2px 0 0; font-size: 1.75rem; }
 .guide-entry-title::after { content: ''; position: absolute; left: 0; bottom: -7px; width: 48px; height: 2px; background: var(--brass); transform: scaleX(var(--rule, 1)); transform-origin: 0 50%; }

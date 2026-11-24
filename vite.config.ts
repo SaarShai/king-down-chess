@@ -20,8 +20,8 @@ const walk = (dir: string): string[] => readdirSync(dir).flatMap(name => {
   return statSync(path).isDirectory() ? walk(path) : [path];
 });
 
-/** Code a player may never need: the Supabase client (only for an account). */
-const onDemand = /\/src\/(?:account\/client|online\/entry)\.ts$/;
+/** Code a player may never need: the Supabase client (only for an account) and the figure clips of the Guide. */
+const onDemand = /\/src\/(?:account\/client|online\/entry|interface\/play\/portrait-idle)\.ts$/;
 
 /** Select the local graph and the public art, fonts and icons that it uses. */
 export function offlineCacheFiles(bundle: OutputBundle, root: string, files: string[], solo = false) {
