@@ -47,15 +47,15 @@ function fakePage(av1Answer: string, hevcAnswer = av1Answer, app = false) {
   };
   const observers: ((entries: { intersectionRatio: number }[]) => void)[] = [];
   vi.stubGlobal('document', { createElement: node, addEventListener() {}, hidden: false });
-  const resized: (() => void)[] = [];
-  vi.stubGlobal('window', { addEventListener(type: string, listener: () => void) { if (type === 'resize') resized.push(listener); }, innerWidth: 1440, innerHeight: 900 });
+  const resized: (() => void)[] = [], heard = new Map<string, () => void>();
+  vi.stubGlobal('window', { addEventListener(type: string, listener: () => void) { if (type === 'resize') resized.push(listener); else heard.set(type, listener); }, innerWidth: 1440, innerHeight: 900 });
   vi.stubGlobal('navigator', { onLine: true });
   vi.stubGlobal('location', { protocol: app ? 'capacitor:' : 'https:' });
   const media = { matches: false, listeners: [] as (() => void)[], addEventListener(_type: string, listener: () => void) { media.listeners.push(listener); } };
   vi.stubGlobal('matchMedia', () => media);
   vi.stubGlobal('IntersectionObserver', class { constructor(seen: typeof observers[number]) { observers.push(seen); } observe() {} disconnect() {} });
   return {
-    codecChecks, media, resized,
+    codecChecks, media, resized, heard,
     async show(playError?: DOMException, [clientWidth, clientHeight] = [1440, 900], framed = () => {}) {
       const { homeReveal } = await import('./home-reveal');
       const art = node(), videos: ReturnType<typeof node>[] = [], stills: ReturnType<typeof node>[] = [];
@@ -161,7 +161,8 @@ async function openHome(wide: boolean, box: [number, number] = wide ? [1280, 720
   };
   const shown = () => [still.src, home.art.dataset.frame, home.video.src !== undefined];
   const whole = () => home.art.classList.contains('home-art-whole');
-  return { ...home, resize, answers, framed, shown, whole };
+  const connect = (onLine: boolean) => { (navigator as { onLine: boolean }).onLine = onLine; page.heard.get(onLine ? 'online' : 'offline')!(); };
+  return { ...home, resize, answers, framed, shown, whole, connect };
 }
 const narrowHome = () => openHome(false);
 const PORTRAIT = ['/interface/reveal/hero-portrait.webp', 'portrait', true], WIDE = ['/interface/reveal/hero-wide.webp', 'wide', false];
@@ -345,26 +346,49 @@ it('a narrow film keeps its frame through narrow resizes', async () => {
   expect(home.answers).toHaveLength(0);
   expect(home.shown()).toEqual(PORTRAIT);
 });
-it.each([
-  ['a tablet that turns from a wide shape', false, [1180, 820], [820, 900]],
-  ['a phone in the app that turns from a wide shape', true, [844, 390], [390, 600]],
-  ['a tablet in split view', false, [1024, 700], [500, 900]],
-] as const)('%s keeps its film and its picture', async (_name, app, from, to) => {
-  for (const before of [() => {}, (home: Awaited<ReturnType<typeof openHome>>) => home.video.emit('ended')]) {
-    const home = await openHome(false, [...from], app), plays = home.video.play.mock.calls.length;
-    before(home);
-    home.resize(false, [...to]); home.resize(false, [...from]); home.resize(false, [...to]);
-    expect(home.answers).toHaveLength(0);
-    expect(home.shown()).toEqual(['/interface/reveal/hero-wide.webp', 'wide', true]);
-    expect([home.whole(), home.art.classList.contains('home-art-still'), home.video.play.mock.calls.length]).toEqual([false, false, plays]);
+const turns = [
+  ['a tablet that turns from a wide shape', false, [1180, 820], [820, 900], SQUARE_STILL],
+  ['a phone in the app that turns from a wide shape', true, [844, 390], [390, 600], PORTRAIT_STILL],
+  ['a tablet in split view', false, [1024, 700], [500, 900], PORTRAIT_STILL],
+] as const;
+it.each(turns)('%s keeps its film and shows it whole; the still for its shape comes after the film', async (_name, app, from, to, still) => {
+  const home = await openHome(false, [...from], app), plays = home.video.play.mock.calls.length, film = ['/interface/reveal/hero-wide.webp', 'wide', true];
+  for (const [box, whole] of [[to, true], [from, false], [to, true]] as const) {
+    home.resize(false, [...box]);
+    expect([home.shown(), home.whole(), home.art.classList.contains('home-art-still')]).toEqual([film, whole, false]);
   }
-});
-it('a film that cannot play leaves the first picture through each turn of a touch device', async () => {
-  const home = await openHome(false, [1180, 820]);
-  for (let i = 0; i < 3; i++) home.video.emit('error');
-  home.resize(false, [820, 900]);
   expect(home.answers).toHaveLength(0);
-  expect(home.shown()).toEqual(WIDE);
+  home.video.emit('ended');
+  expect([home.shown(), home.whole()]).toEqual([film, true]);
+  await home.answers[0](true);
+  expect([home.shown(), home.whole(), home.video.play.mock.calls.length]).toEqual([still, false, plays]);
+  home.resize(false, [...from]); await home.answers[1](true);
+  expect([home.shown(), home.whole()]).toEqual([WIDE, false]);
+});
+it.each(turns)('%s after its film ended takes the still for its shape; a load error leaves the wide picture whole', async (_name, app, from, to, still) => {
+  const home = await openHome(false, [...from], app);
+  home.video.emit('ended');
+  expect(home.answers).toHaveLength(0);
+  home.resize(false, [...to]); await home.answers[0](false);
+  expect([home.shown().slice(0, 2), home.whole()]).toEqual([WIDE.slice(0, 2), true]);
+  home.resize(false, [...to]); await home.answers[1](true);
+  expect([home.shown(), home.whole()]).toEqual([still, false]);
+});
+it('a redraw that changes the art box during the film changes no picture at its end', async () => {
+  const home = await openHome(false);
+  Object.assign(home.art, { clientWidth: 500, clientHeight: 450 });
+  home.video.emit('ended');
+  expect([home.answers.length, home.whole()]).toEqual([0, false]);
+});
+it('a film that cannot play and reduced motion take the still for each turn of a touch device', async () => {
+  for (const before of [(home: Awaited<ReturnType<typeof openHome>>) => { for (let i = 0; i < 3; i++) home.video.emit('error'); }, async () => { (await import('./fx')).setFxMotion('normal', true); }]) {
+    const home = await openHome(false, [1180, 820]);
+    await before(home);
+    home.resize(false, [820, 900]);
+    expect(home.whole()).toBe(true);
+    await home.answers[0](true);
+    expect([home.shown(), home.whole()]).toEqual([SQUARE_STILL, false]);
+  }
 });
 it('a window that touches the wide layout and leaves it before the picture came keeps its film in each later resize', async () => {
   const home = await narrowHome();
@@ -372,6 +396,7 @@ it('a window that touches the wide layout and leaves it before the picture came 
   home.resize(false, [860, 760]); home.resize(false, [1150, 798]);
   expect(home.answers).toHaveLength(1);
   expect(home.shown()).toEqual(PORTRAIT);
+  home.resize(false);
   expect(home.whole()).toBe(false);
 });
 it('a wide shape outside the wide layout keeps its film into the wide layout, and takes the narrow still on the way back', async () => {
@@ -403,4 +428,40 @@ it('a narrow picture that cannot load leaves the wide picture whole, for as long
   expect(home.whole()).toBe(true);
   home.resize(false); await home.answers[2](true);
   expect([home.shown(), home.whole()]).toEqual([PORTRAIT_STILL, false]);
+});
+type Home = Awaited<ReturnType<typeof openHome>>;
+const motionOff = async (off: boolean, home: Home) => { (await import('./fx')).setFxMotion('normal', off); home.reveal.sync(); };
+it.each([
+  ['a film that fails', (home: Home) => { for (let i = 0; i < 3; i++) home.video.emit('error'); }],
+  ['Motion Off', (home: Home) => motionOff(true, home)],
+  ['no connection', (home: Home) => home.connect(false)],
+] as const)('after a turn during the film, %s takes the still for the new shape', async (_name, stop) => {
+  const home = await openHome(false, [1180, 820]), plays = home.video.play.mock.calls.length;
+  home.resize(false, [820, 900]);
+  expect(home.answers).toHaveLength(0);
+  await stop(home);
+  expect([home.answers.length, home.whole()]).toEqual([1, true]);
+  const tries = home.video.play.mock.calls.length;
+  await home.answers[0](true); home.reveal.sync();
+  expect([home.shown(), home.whole(), home.answers.length]).toEqual([SQUARE_STILL, false, 1]);
+  expect(home.framed).toHaveBeenCalledOnce();
+  expect(home.video.play.mock.calls.length).toBe(tries);
+  expect(plays).toBe(1);
+});
+it('a film that goes on before its still is ready keeps its frame, and takes the still at its end', async () => {
+  const home = await openHome(false, [1180, 820]), film = ['/interface/reveal/hero-wide.webp', 'wide', true];
+  home.resize(false, [820, 900]);
+  await motionOff(true, home); await motionOff(false, home);
+  await home.answers[0](true);
+  expect([home.shown(), home.whole(), home.art.classList.contains('home-art-still')]).toEqual([film, true, false]);
+  home.video.emit('ended'); await home.answers[1](true);
+  expect([home.shown(), home.whole()]).toEqual([SQUARE_STILL, false]);
+});
+it('a still that failed to load comes when the connection returns', async () => {
+  const home = await openHome(false, [1180, 820]);
+  home.video.emit('ended'); home.resize(false, [820, 900]);
+  home.connect(false); await home.answers[0](false);
+  expect(home.whole()).toBe(true);
+  home.connect(true); await home.answers[1](true);
+  expect([home.shown(), home.whole()]).toEqual([SQUARE_STILL, false]);
 });

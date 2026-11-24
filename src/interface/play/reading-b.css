@@ -127,12 +127,14 @@
 .play-power-coin img { width: 85%; height: 85%; object-fit: contain; }
 .play-power-notches { position: absolute; display: flex; gap: 5px; bottom: 3px; }
 .play-power-notch { width: 6px; height: 6px; rotate: 45deg; background: var(--power-ink); box-shadow: 0 0 0 1px #1d3f41; }
-/* On the paper coin of the seat ring a full pip is teal; a spent pip keeps a dark outline on both coins. */
+/* On the paper coin of the seat ring a full pip is a teal diamond; a spent pip is a round drop of wax. */
 .play-seat-ring .play-power-notch { background: var(--power-fill); }
-.play-power-notch[data-used='true'] { background: transparent; box-shadow: 0 0 0 1px var(--text), inset 0 0 0 1.5px var(--power-ink); }
+.play-power-notch[data-used='true'] { background: var(--wax); border-radius: 50%; box-shadow: 0 0 0 1px var(--text); }
 .play-game .play-power[data-coin='always'] .play-power-coin { box-shadow: inset 0 0 0 1px #a87935; }
-.play-game .play-power[data-spent='true'] .play-power-coin { box-shadow: inset 0 1px #efffef; filter: grayscale(1); opacity: .55; }
-.play-game .play-power[data-spent='true'] { color: var(--text-muted); }
+.play-game .play-power[data-spent='true'] .play-power-coin { box-shadow: inset 0 1px #efffef; }
+.play-game .play-power[data-spent='true'] .play-power-coin img { filter: grayscale(1); opacity: .55; }
+/* The emblem is grey when it is spent; the wax keeps its colour. */
+.play-game .play-power[data-spent='true'] { color: var(--text-muted); filter: none; }
 .play-game .play-power[aria-pressed='true'] { animation: none; outline: none; filter: none; background: transparent; box-shadow: none; color: var(--text); }
 .play-game .play-power[aria-pressed='true'] .play-power-coin { box-shadow: inset 0 0 0 2px var(--brass), inset 0 0 0 3px var(--main-edge), var(--power-depth); }
 .play-hand { display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0; height: 100%; padding-inline: 4px; }
@@ -321,7 +323,7 @@
 .play-game[data-layout='wide'] .play-history-strip { top: calc(var(--reader-y) + var(--reader) + 32px); height: 48px; border-block: 1px solid color-mix(in srgb, var(--gilt, var(--divider)) 50%, transparent); }
 .play-game[data-layout='wide'] .play-history-toggle [data-button-label] { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 12px; }
 /* The newest record is a one-line preview with an ellipsis (line 219); the open History and the button's name hold it in full. */
-.play-game[data-layout='wide'] .play-history-record { text-align: end; }
+.play-game[data-layout='wide'] .play-history-record { text-align: end; color: var(--ink, var(--text)); }
 .play-game[data-layout='wide'] .play-history-name { flex: none; color: var(--ink, var(--text)); }
 .play-game[data-layout='wide'] .play-history-toggle svg { display: block; width: 14px; rotate: -90deg; transition: rotate 160ms ease-out; }
 .play-game[data-layout='wide'] .play-history-toggle[aria-expanded='true'] svg { rotate: 0deg; }

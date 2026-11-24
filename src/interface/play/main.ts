@@ -5,7 +5,7 @@ import './shell.css';
 import './sides.css';
 import './menus.css';
 import './reading-b.css';
-import { historyGroups } from './history';
+import { historyGroups, newLine } from './history';
 import { mountShell, type Route } from './shell';
 import { guidePage, closeGuidePanel } from './guide';
 import { button, closeX, icon, confirmDialog, errorState, liveRegion, setButtonState, targetChoice } from '../ui/kit.js';
@@ -141,6 +141,7 @@ let cells: HTMLButtonElement[] = [], choiceCancel: HTMLButtonElement, struck: { 
 let menuButton: HTMLButtonElement;
 let historyStrip: HTMLElement, historyButton: HTMLButtonElement, historyCompact: HTMLElement, scrollPanel: HTMLElement;
 let scrollOpen: 'history' | null = null, floatingSource: HTMLElement | null = null, swallowedPointer = false;
+let freshLine = newLine();
 let seatFrame: Effect | undefined, rewind: Effect | undefined;
 let seatRings: [HTMLElement, HTMLElement], stores: [HTMLElement, HTMLElement];
 let counts: [number, number] = [0, 0];
@@ -708,6 +709,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   }
   if (!onlineActive && !memory) playedMs = resumed?.playedMs ?? 0;
   enteredAt = undefined; resultReview = false;
+  freshLine = newLine();
   resources = []; shown = null; replySteps = []; resigned = finished?.resigned ?? null; liveGame = !finished;
   ended = !!finished; fault = null; thinking = arrangement || finished ? false : onlineActive ? !onlineState?.draft : game.pos.turn === cpu() && game.status === 'playing'; cursor = arrangement ? player ? 63 : 0 : player ? 52 : 12;
   selected = inspected = null; choice = []; reading = finished ? 'result' : 'normal'; last = ''; lastActions = []; playingAction = null; beat?.cancel(); casting?.cancel(); markFocus = undefined; nextMarksAt = 0; notice = ''; resultCause = finished ? resultLine() : '';
@@ -1352,7 +1354,7 @@ function showResult(deadline = armResult()) {
   };
   if (status !== 'checkmate') { deadline.stop(); cue('arrive'); pulse('light'); show(); return; }
   const title = detail.querySelector('.play-narrator .play-title');
-  if (title) { title.textContent = 'Checkmate.'; riseNarrator(); }
+  if (title) { title.textContent = 'Checkmate.'; detail.querySelector('.play-narrator .play-step')?.remove(); riseNarrator(); }
   const standing = findKing(game.pos.board, game.pos.turn), square = standing >= 0 ? standing : kingSquare(game.history, game.pos.turn);
   const view = board, skip = button('Skip result animation', { onPress: () => finish(true) });
   skip.classList.add('play-sequence-skip');
@@ -1430,6 +1432,14 @@ function updateArrangement() {
   screen.querySelectorAll<HTMLElement>('.play-own, .play-opp .play-power, .play-opp .play-rival-cards').forEach(part => part.inert = true);
   board?.setPosition(pos, game.context); renderReader(); renderHistory(); placeFloating(); drawMarks();
 }
+/** The filled notches are the uses spent. Only a use that the player spends now moves: its notch fills with wax. */
+function markUses(control: HTMLElement, left: number | null, spentNow: boolean) {
+  control.querySelectorAll<HTMLElement>('.play-power-notch').forEach((notch, i) => {
+    const used = i >= (left ?? 0), fills = spentNow && used && notch.dataset.used === 'false' && !reducedMotion();
+    if (fills) notch.animate([{ backgroundColor: getComputedStyle(notch).backgroundColor, offset: 0 }], time(180));
+    notch.dataset.used = String(used);
+  });
+}
 function update() {
   if (!board || !controls) return;
   const net = onlineActive ? people?.controller?.state() ?? onlineState : undefined;
@@ -1467,7 +1477,7 @@ function update() {
   controls.update({ sent: !fault && (net ? net.phase === 'sending' || net.phase === 'checking' : thinking), staged, silent: silentStage, state: ended ? resultCause : fault ? fault === 'art' ? sideText.artFailed : sideText.computerFailed : net && personTurn(net) || (thinking ? text.thinking : choice.length ? choicePrompt(choice) : draft.armed ? armedStep(draft.armedMoves, draft.now, selected, player) : checked ? text.check : free || (draft.length ? draft.canFinish ? text.draft : text.mustContinue : fresh() && !replySteps.length && !code && !player ? text.first : text.ready)), help,
     undoReason: !onlineActive && writer.blocked ? writer.warning : undoReplayState(draft.length, replySteps.length, thinking || ended || !!fault).enabled ? '' : text.noStep,
     finishReason: !onlineActive && writer.blocked ? writer.warning : ended ? text.final : fault ? fault === 'art' ? sideText.artFailed : sideText.computerFailed : net?.connection === 'auth' ? 'Sign in to send your turn.' : thinking ? net ? personTurn(net) ?? text.wait : text.wait : choice.length ? text.choiceFirst : (net?.canSend ?? draft.canFinish) ? '' : draft.length ? text.mustContinue : text.needMove });
-  staged = silentStage = false;
+  const spentNow = staged; staged = silentStage = false;
   updateSeats();
   const pos = draft.position;
   screen.querySelector<HTMLElement>('.play-grid')!.inert = ended || !!fault || !onlineActive && writer.blocked;
@@ -1487,7 +1497,7 @@ function update() {
     if (coin) {
       res.control.dataset.coin = coin.state;
       res.control.querySelector('small')!.textContent = coin.state === 'always' && res.subject.kind === 'power' ? alwaysOnLabel(res.subject.id) : spent ? readingBText.used : left == null ? text.unlimited : `${left} ${text.left}`;
-      res.control.querySelectorAll<HTMLElement>('.play-power-notch').forEach((notch, i) => { notch.dataset.used = String(i >= (left ?? 0)); });
+      markUses(res.control, left, spentNow);
     } else {
       handChanged ||= res.control.dataset.spent !== undefined && res.control.dataset.spent !== String(spent);
       res.control.querySelector('.play-card-state')!.textContent = spent ? readingBText.used : '';
@@ -1740,11 +1750,12 @@ function readerModel(): ReaderModel {
     const parts = subjectModel(m, { kind: 'piece', type: typeOf(code) }, colorOf(code));
     m.primary = [...notices, ...checks];
     m.secondary = [parts.short];
-  } else if (thinking) {
+  } else if (ended) m.title = 'Checkmate.'; // the checkmate hold, also when an online game has no draft; a result card has its own words
+  else if (thinking) {
     // The computer chooses: the state alone. The computer acts: the sentence of the step that plays.
     const [first = '', ...rest] = sentences(acting); Object.assign(m, { title: notice || first, secondary: (notice && first ? [first, ...rest] : rest).map(t => line('play-last', t)), art: playedCard(cpu(), playingAction?.move) });
   } else {
-    const idle = selected == null && inspected == null && !draft.armed && !ended && !notice && !check.mine && !writer.warning;
+    const idle = selected == null && inspected == null && !draft.armed && !notice && !check.mine && !writer.warning;
     Object.assign(m, { title: notice || (check.mine ? check.lines[0] : ''),
       primary: checks.slice(check.mine && !notice ? 1 : 0), secondary: [line('play-instruction', idle && last || 'Choose a piece.')] });
   }
@@ -1770,41 +1781,47 @@ function currentHistory() {
   return historyGroups(game.history, [], (before, move) => gameWords(sentence(before, move, before.turn !== player, cards(before.turn))),
     (turn, side) => `${Math.ceil(turn / 2)} · ${side === player ? text.you : onlineActive ? 'Opponent' : text.computer}`, text.stagedTurn);
 }
-function historyRows(groups: ReturnType<typeof currentHistory>): HTMLElement[] {
+function historyRows(groups: ReturnType<typeof currentHistory>, ink?: (node: HTMLElement, key: string) => void): HTMLElement[] {
   if (!groups.length) return [line('', text.noHistory)];
   return groups.map(group => {
     const section = el('section', 'play-history-turn');
     section.append(el('h4', '', group.title));
     for (const item of group.lines) {
-      const ink = line('play-history-line', item.line);
-      ink.dataset.historyKey = item.key;
-      section.append(ink);
+      const row = line('play-history-line', item.line);
+      row.dataset.historyKey = item.key; ink?.(row, item.key);
+      section.append(row);
     }
     return section;
   });
 }
 function renderHistory() {
-  const groups = currentHistory();
+  const groups = currentHistory(), fresh = freshLine(groups, performance.now()), dry = time(160);
+  // The new line goes from brown to ink one time. A redraw builds its node again: the motion goes on from its place.
+  const ink = (node: HTMLElement, key: string) => {
+    if (key === fresh.key && fresh.age < dry && !reducedMotion()) node.animate([{ color: 'var(--text-muted)', offset: 0 }], dry).currentTime = fresh.age;
+  };
+  // An open History moves the line only if it showed the line as it came.
+  const inkIn = (view: HTMLElement) => { if (fresh.came) view.dataset.ink = fresh.key; return view.dataset.ink === fresh.key ? ink : undefined; };
   const openHistory = document.querySelector<HTMLElement>('.history-dialog .sheet-body');
-  if (openHistory) openHistory.replaceChildren(...historyRows(groups));
+  if (openHistory) openHistory.replaceChildren(...historyRows(groups, inkIn(openHistory)));
   if (!historyStrip) return;
   historyStrip.hidden = !game.history.length;
   // The closed History is one row: its name and the newest record.
   const preview = groups.flatMap(group => group.lines).slice(0, 1);
-  const records = preview.map(item => { const record = el('span', 'play-history-record', item.line); record.dataset.historyKey = item.key; return record; });
+  const records = preview.map(item => { const record = el('span', 'play-history-record', item.line); record.dataset.historyKey = item.key; ink(record, item.key); return record; });
   historyButton.querySelector('[data-button-label]')!.replaceChildren(el('span', 'play-history-name', text.history), ...(records.length ? records : [el('span', 'play-history-record', text.noHistory)]));
   historyCompact.replaceChildren(...records.map(record => record.cloneNode(true)));
   historyButton.setAttribute('aria-label', `${text.history}: ${preview.map(item => item.line).join(' ') || text.noHistory}`);
   historyButton.setAttribute('aria-expanded', String(scrollOpen === 'history'));
   scrollPanel.hidden = !scrollOpen;
-  if (!scrollOpen) { scrollPanel.dataset.kind = ''; return; }
+  if (!scrollOpen) { scrollPanel.dataset.kind = scrollPanel.dataset.ink = ''; return; }
   const was = scrollPanel.dataset.kind; scrollPanel.dataset.kind = scrollOpen;
   const focused = scrollPanel.contains(document.activeElement);
   const head = el('div', 'play-panel-head'), title = text.history;
   const heading = el('h3', '', title); heading.id = 'play-scroll-title'; scrollPanel.setAttribute('aria-labelledby', heading.id);
   head.append(heading, closeX(`Close ${title.toLowerCase()}`, () => closeFloating()));
   const body = el('div', 'play-panel-body');
-  body.append(...historyRows(groups));
+  body.append(...historyRows(groups, inkIn(scrollPanel)));
   scrollPanel.replaceChildren(head, body);
   if (focused) scrollPanel.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
   if (was !== scrollOpen && !calm() && !matchMedia('(prefers-reduced-motion: reduce)').matches) sheetMotion(scrollPanel, true);

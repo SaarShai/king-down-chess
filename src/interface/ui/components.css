@@ -33,6 +33,10 @@ p { font-size: var(--type-body); }
 .kd-button { display: inline-flex; gap: var(--space-2); align-items: center; justify-content: center; font-weight: var(--weight-strong); box-shadow: var(--raise, none); }
 .kd-button[data-kind='main'] { background: var(--main-fill); color: var(--main-ink); border-color: var(--main-edge); border-radius: var(--radius-plate); box-shadow: var(--main-depth); font-family: var(--font-title); font-weight: 600; letter-spacing: var(--tracking-title); }
 .kd-button[data-kind='main']:not(:disabled, [aria-disabled='true']):active { box-shadow: var(--main-pressed); }
+/* The press moves the lower edge of the plate only; the button box and its focus ring stay. Reduced motion keeps the plain press. */
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion='reduce']) .kd-button[data-kind='main']:not(:disabled, [aria-disabled='true']):active { box-shadow: inset 0 -2px 0 #f7e3b0, inset 0 -4px 0 #9a6f2c, 0 1px 2px -1px #3c280a8c, var(--main-pressed); transition: box-shadow 90ms ease-out; }
+}
 .kd-button[data-kind='danger'] { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
 /* No underline on a control (launch decision 24). Hover styles only where a pointer can hover (decision 37). */
 @media (hover: hover) { .kd-button:not([aria-disabled='true']):hover, .kd-choice:hover, .kd-segment:not([aria-checked='true']):hover, .kd-switch:hover, .kd-game-row:hover { filter: brightness(.97); } }

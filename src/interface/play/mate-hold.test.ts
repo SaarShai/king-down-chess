@@ -6,7 +6,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 const filename = new URL(process.env.KINGDOWN_MATE_HOLD_SOURCE ?? './main.ts', import.meta.url);
 const source = readFileSync(filename, 'utf8');
 const declarations = parseSync(filename.pathname, source).program.body
-  .filter(node => node.type === 'FunctionDeclaration' && ['showResult', 'resultLine', 'resultLight', 'holdMate', 'armResult', 'reply', 'setMotion'].includes(node.id?.name ?? ''));
+  .filter(node => node.type === 'FunctionDeclaration' && ['showResult', 'resultLine', 'resultLight', 'holdMate', 'armResult', 'reply', 'setMotion', 'readerModel'].includes(node.id?.name ?? ''));
 // Run the play screen's real solo result sequence with stub collaborators and fake timers.
 const page = transformSync(filename.pathname, declarations.map(node => source.slice(node.start, node.end)).join('\n')).code;
 afterEach(() => { vi.useRealTimers(); });
@@ -15,6 +15,8 @@ function screen({ reduce = false, hidden = false, taken = false, start = true } 
   vi.useFakeTimers();
   const noop = () => {}, effect = () => ({ cancel: noop, finish: noop }), motion = { reduce };
   const play = vi.fn(() => new Promise<void>(() => {})), closeIn = vi.fn(effect);
+  const narrator: Record<string, { textContent?: string; remove(): void }> = {
+    '.play-narrator .play-title': { textContent: 'Check.', remove: noop }, '.play-narrator .play-step': { remove: vi.fn() } };
   const listeners = new Set<() => void>(), skips: unknown[] = [];
   const document = {
     hidden,
@@ -27,11 +29,11 @@ function screen({ reduce = false, hidden = false, taken = false, start = true } 
   const scope: Record<string, unknown> = {
     gameHelp: undefined, closeStaleDialogs: noop, stopGameTime: noop, ended: false, thinking: false, liveGame: true, reading: 'normal', shown: null,
     game, cpu: () => 1, text: { win: 'You win', loss: 'You lose' },
-    board: { skip: noop, setPosition: noop, play, setMotion: noop }, detail: { querySelector: () => null },
+    board: { skip: noop, setPosition: noop, play, setMotion: noop }, detail: { querySelector: (selector: string) => narrator[selector] ?? null },
     findKing: () => taken ? -1 : 60, kingSquare: () => 60,
     button: () => { const skip = { classList: { add: noop }, addEventListener: noop, focus: noop, remove: noop }; skips.push(skip); return skip; },
     screen: { append: vi.fn(), dataset: {}, isConnected: false }, boardBox: { append: vi.fn(), style: { setProperty: noop } },
-    cue: noop, pulse: noop, hold: noop, ease: { lin: (t: number) => t, out2: (t: number) => t }, shake: effect, burst: effect, at: noop, tween: effect,
+    cue: noop, pulse: noop, riseNarrator: noop, hold: noop, ease: { lin: (t: number) => t, out2: (t: number) => t }, shake: effect, burst: effect, at: noop, tween: effect,
     later: (ms: number, run: () => void) => { const timer = setTimeout(run, ms); return { cancel: () => clearTimeout(timer), finish: noop }; },
     cells: Array.from({ length: 64 }, () => ({ getBoundingClientRect: () => ({ left: 0, top: 0, width: 80, height: 80 }) })),
     closeIn, reducedMotion: () => motion.reduce, document, AbortController,
@@ -47,8 +49,17 @@ function screen({ reduce = false, hidden = false, taken = false, start = true } 
   runInNewContext(page, scope, { filename: filename.pathname });
   if (start) (scope.showResult as () => void)();
   const hide = () => { document.hidden = true; listeners.forEach(run => run()); };
-  return { scope, play, closeIn, motion, hide, skips, listeners, card: () => scope.reading === 'result' };
+  return { scope, narrator, play, closeIn, motion, hide, skips, listeners, card: () => scope.reading === 'result' };
 }
+
+interface Model { title: string; primary: string[]; secondary: string[] }
+/** The collaborators of the reading area: white gives mate with the Rook on a8. */
+const model = ({ ended, length, canFinish }: { ended: unknown; length: number; canFinish: boolean }) => ({
+  ended, thinking: false, arrangement: undefined, choice: [], playingAction: null, notice: '', selected: null, inspected: null, shown: null, form: 'tall', onlineActive: false, last: 'Your Rook moves from a3 to a8.',
+  draft: { length, canFinish, position: { board: [] }, armed: null }, armedResource: () => undefined, controls: { help: { textContent: '' } }, writer: { blocked: false, warning: '' },
+  checkLines: () => ({ mine: false, lines: ['Check: your Rook on a8 attacks the computer’s King on h8.'] }), turnState: () => 'Your turn.', freeText: () => '', stepLines: () => ['Your Rook moves from a3 to a8.'],
+  line: (_: string, words: string) => words, text: { win: 'You win', loss: 'You lose', finish: 'End turn', ready: 'Your turn.' },
+});
 
 it('holds a checkmate 600 ms with the threat lines and one beat on the mated king, then the fall; the card comes even if the fall never ends', () => {
   const { scope, play, closeIn, card } = screen();
@@ -119,4 +130,26 @@ it('reduced motion turned on during the hold ends the hold and shows the card', 
   (scope.setMotion as () => void)();
   expect(card()).toBe(true);
   expect(play).not.toHaveBeenCalled();
+});
+
+it('a mate that the player confirms ends the instruction: the words say Checkmate alone, also after a redraw (a turned phone)', () => {
+  const { scope, narrator } = screen();
+  expect(narrator['.play-narrator .play-title'].textContent).toBe('Checkmate.');
+  expect(narrator['.play-narrator .play-step'].remove).toHaveBeenCalledOnce();
+  Object.assign(scope, model({ ended: scope.ended, canFinish: true, length: 0 }));
+  const { title, primary, secondary } = (scope.readerModel as () => Model)();
+  expect([title, primary, secondary].flat()).toEqual(['Checkmate.']);
+});
+
+it('an online mate hold says Checkmate, not that the opponent thinks', () => {
+  const { scope } = screen();
+  Object.assign(scope, model({ ended: true, canFinish: true, length: 0 }), { thinking: true, onlineActive: true, gameWords: (words: string) => words, sentences: () => [], playedCard: () => undefined });
+  const { title, primary, secondary } = (scope.readerModel as () => Model)();
+  expect([title, primary, secondary].flat()).toEqual(['Checkmate.']);
+});
+it('a mate that still needs End turn keeps its instruction', () => {
+  const { scope } = screen({ start: false });
+  Object.assign(scope, model({ ended: false, canFinish: true, length: 1 }));
+  const { title, primary } = (scope.readerModel as () => Model)();
+  expect([title, ...primary]).toEqual(['Check.', 'End turn, or undo.']);
 });

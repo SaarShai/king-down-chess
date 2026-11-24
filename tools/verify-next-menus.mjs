@@ -287,8 +287,8 @@ const cases = {
   // layout, the narrow layout gets its own still: the wide picture stays, whole, until that is ready, and no frame is blank or cuts a king.
   async home_resize(page, context, check, size) {
     if (size !== '1280x720') return;
-    const open = async (label, { reduced = false, ended = false, fail = false, viewport = { width: 500, height: 1000 } } = {}) => {
-      const tab = await (await browser.newContext({ viewport, reducedMotion: reduced ? 'reduce' : 'no-preference' })).newPage();
+    const open = async (label, { reduced = false, ended = false, fail = false, touch = false, viewport = { width: 500, height: 1000 } } = {}) => {
+      const tab = await (await browser.newContext({ viewport, hasTouch: touch, reducedMotion: reduced ? 'reduce' : 'no-preference' })).newPage();
       let release; const held = new Promise(done => { release = done; }), asked = [], state = { fail };
       // The pictures of the other layout: those that the tab has not loaded yet.
       await tab.route(viewport.width === 500 ? '**/hero-wide.webp' : /hero-(portrait|square)\.webp$/, async r => { asked.push(r); await held; return state.fail ? r.abort() : r.continue(); });
@@ -390,6 +390,22 @@ const cases = {
     const bad = (await failed.frames()).find(f => f.wide || f.layers.join() !== 'portrait');
     check(!bad, `load error: the split layout stays with its picture: ${JSON.stringify(bad)} ${failed.asked.length}`);
     await failed.close();
+    // A touch device turns: its wide film plays on, whole, and the still for its shape comes after the film.
+    for (const [w, h, own] of [[1024, 768, 'square'], [844, 390, 'portrait']]) {
+      const label = `touch turn ${w}x${h}`, home = await open(label, { touch: true, viewport: { width: w, height: h } });
+      await home.resize(h, w);
+      const film = await home.frames(), bad = film.find(f => f.size === `${h}x${w}` && (f.cut || !f.film || f.layers.join() !== 'wide'));
+      check(film.at(-1)?.size === `${h}x${w}` && !bad && !home.asked.length, `${label}: the film plays on, whole: ${home.asked.length} ${JSON.stringify(bad)}`);
+      await home.tab.screenshot({ path: join(out, `turn-film-${h}.png`) });
+      await home.tab.evaluate(() => document.querySelector('.home-reveal-video').dispatchEvent(new Event('ended')));
+      await home.tab.waitForTimeout(500); await home.tab.screenshot({ path: join(out, `turn-held-${h}.png`) });
+      home.release();
+      const came = await home.tab.waitForFunction(own => window.kdFrames.at(-1)?.layers.join() === own, own, { timeout: 4000 }).then(() => true, () => false);
+      const seen = await home.frames(), cut = seen.find(f => f.cut || !f.layers.length || f.layers.includes('blank'));
+      check(came && !cut, `${label}: the ${own} still comes after the film, and no frame cuts a king: ${JSON.stringify(cut ?? seen.at(-1))}`);
+      await home.tab.screenshot({ path: join(out, `turn-still-${h}.png`) });
+      await home.calm(); await home.close();
+    }
     // Home that opens wide: the wide layout from its first frame.
     const wide = await browser.newContext({ viewport: { width: 1280, height: 720 } }), first = await wide.newPage();
     await first.addInitScript(() => {

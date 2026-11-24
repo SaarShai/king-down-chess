@@ -1,6 +1,9 @@
-import { expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
+import { parseSync, transformSync } from 'rolldown/utils';
+import { afterEach, expect, it, vi } from 'vitest';
 import { Game } from '../../game';
-import { historyGroups, historyPreview, removedHistoryLine } from './history';
+import { historyGroups, historyPreview, newLine, removedHistoryLine } from './history';
 import { gameLayout, panelBox } from './layout';
 import { sentence } from './texts';
 const game = new Game('RNBQKBNR', { kings: [null, null] });
@@ -38,4 +41,86 @@ it('the open History in the wide rail covers the turn text and stops 8 px above 
     const l = gameLayout(w, h, 'both');
     expect(panelBox(l.actionY, l.readerY, l.readerY)).toEqual({ top: l.readerY, height: 306 });
   }
+});
+
+const main = readFileSync(new URL('./main.ts', import.meta.url), 'utf8');
+const page = transformSync('main.ts', parseSync('main.ts', main).program.body
+  .filter(node => node.type === 'FunctionDeclaration' && ['historyRows', 'renderHistory', 'openGameHistory', 'toggleScroll'].includes(node.id?.name ?? ''))
+  .map(node => main.slice(node.start, node.end)).join('\n')).code;
+afterEach(() => { vi.useRealTimers(); });
+/** The play screen's real History drawing with stub nodes: `ink` holds each line that moves and its place in the 160 ms. */
+function historyScreen({ reduce = false } = {}) {
+  vi.useFakeTimers({ now: 0, toFake: ['performance'] });
+  const ink: [string, number][] = [], colors = new Set<string>(), dialog: { body: unknown } = { body: null };
+  const node = (className = '', words = '') => ({
+    className, textContent: words, dataset: {} as Record<string, string>, hidden: false, tabIndex: 0, id: '',
+    append() {}, replaceChildren() {}, setAttribute() {}, cloneNode() { return node(); }, querySelector: (): unknown => node(), contains: () => false, focus() {},
+    animate: ([{ color }]: { color: string }[]) => { colors.add(color); const motion = { set currentTime(ms: number) { ink.push([words, ms]); } }; return motion; },
+  });
+  const game = { history: [] as string[] };
+  const scope: Record<string, unknown> = {
+    document: { querySelector: (selector: string) => selector === '.history-dialog .sheet-body' ? dialog.body : null, activeElement: null }, performance, historyStrip: node(), historyButton: node(), historyCompact: node(), scrollPanel: node(), scrollOpen: null,
+    game, text: { history: 'History', noHistory: 'No moves.' }, el: (_: string, name: string, words: string) => node(name, words), line: node, icon: node, closeX: node, calm: () => true, matchMedia: () => ({ matches: true }),
+    currentHistory: () => game.history.map((words, i) => ({ key: `t${i}`, title: `Turn ${i}`, lines: [{ key: `h${i}`, line: words }] })).reverse(),
+    reducedMotion: () => reduce, time: (ms: number) => ms, freshLine: newLine(), closeFloating() {}, placeFloating() {}, showGameDialog() {}, closeGameDialog() {},
+  };
+  runInNewContext(page, scope);
+  return { ink, colors, dialog, node, game, scope, draw: scope.renderHistory as () => void, wait: (ms: number) => vi.advanceTimersByTime(ms) };
+}
+it('only the new history line takes its ink, one time; a redraw keeps its place in the 160 ms and starts nothing again', () => {
+  const { ink, game, draw, wait } = historyScreen();
+  game.history.push('e2 to e4'); draw(); // the first draw of a game: Continue, a reload
+  expect(ink).toEqual([]);
+  game.history.push('e7 to e5'); draw();
+  expect(ink).toEqual([['e7 to e5', 0]]);
+  wait(60); draw(); // a resize or a notice in the 160 ms
+  expect(ink.slice(1)).toEqual([['e7 to e5', 60]]);
+  wait(100); draw(); wait(5000); draw(); // Replay, a resize, a notice later
+  expect(ink).toHaveLength(2);
+});
+it('an opened History shows its lines still; a line that comes while it is open takes its ink there too', () => {
+  const { ink, game, draw, wait, scope } = historyScreen();
+  game.history.push('e2 to e4'); draw(); game.history.push('e7 to e5'); draw(); wait(200); ink.length = 0;
+  (scope.openGameHistory as () => void)(); (scope.toggleScroll as (kind: string, source: unknown) => void)('history', scope.historyButton);
+  expect(scope.scrollOpen).toBe('history');
+  expect(ink).toEqual([]);
+  game.history.push('g1 to f3'); draw();
+  expect(ink).toEqual([['g1 to f3', 0], ['g1 to f3', 0]]); // the strip and the open panel
+});
+it('a History that opens in the 160 ms shows no motion, also in a redraw; only the view that showed the line keeps it', () => {
+  const { ink, dialog, node, game, draw, wait, scope } = historyScreen(), toggle = scope.toggleScroll as (kind: string, source: unknown) => void;
+  scope.closeFloating = () => { scope.scrollOpen = null; draw(); };
+  draw(); game.history.push('e2 to e4'); draw(); ink.length = 0;
+  toggle('history', scope.historyButton); dialog.body = node(); draw(); // the same millisecond
+  wait(60); draw();
+  expect(new Set(ink.map(([, ms]) => ms))).toEqual(new Set([0, 60]));
+  expect(ink.filter(([, ms]) => ms === 60)).toHaveLength(1); // the strip alone
+  expect(ink.filter(([, ms]) => ms === 0)).toHaveLength(3); // the strip: the close, the open and the redraw
+  game.history.push('e7 to e5'); ink.length = 0; draw();
+  expect(ink).toHaveLength(3); // the strip, the panel and the dialog are open
+  toggle('history', scope.historyButton); dialog.body = null; toggle('history', scope.historyButton); ink.length = 0;
+  wait(60); draw();
+  expect(ink).toEqual([['e7 to e5', 60]]); // a History that closes and opens again
+});
+it('the new line starts in a brown that has a contrast of 4.5:1 or more on paper', () => {
+  const { colors, game, draw } = historyScreen();
+  draw(); game.history.push('e2 to e4'); draw();
+  const tokens = readFileSync(new URL('../ui/tokens.css', import.meta.url), 'utf8');
+  const value = (name: string): string => { const word = tokens.match(new RegExp(`${name}: ([^;]+);`))![1]; return word.startsWith('var(') ? value(word.slice(4, -1)) : word; };
+  const light = (hex: string) => [1, 3, 5].map(at => parseInt(hex.slice(at, at + 2), 16) / 255).map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4).reduce((sum, c, i) => sum + c * [.2126, .7152, .0722][i], 0);
+  expect(colors.size).toBe(1);
+  const ink = light(value([...colors][0].slice(4, -1)));
+  for (const paper of ['--paper-50', '--paper-0']) expect((light(value(paper)) + .05) / (ink + .05)).toBeGreaterThanOrEqual(4.5);
+});
+it('reduced motion and a shorter history move no line', () => {
+  const still = historyScreen({ reduce: true });
+  still.draw(); still.game.history.push('e2 to e4'); still.draw();
+  expect(still.ink).toEqual([]);
+  vi.useRealTimers();
+  const back = historyScreen();
+  back.game.history.push('e2 to e4', 'e7 to e5'); back.draw(); back.game.history.pop(); back.draw();
+  expect(back.ink).toEqual([]);
+});
+it('a game that opens starts with no new line', () => {
+  expect(main.slice(main.indexOf('async function start('), main.indexOf('historyStrip = el('))).toContain('freshLine = newLine();');
 });
