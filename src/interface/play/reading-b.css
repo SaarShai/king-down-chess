@@ -321,7 +321,7 @@
 .play-game[data-layout='wide'] .play-history-strip { top: calc(var(--reader-y) + var(--reader) + 32px); height: 48px; border-block: 1px solid color-mix(in srgb, var(--gilt, var(--divider)) 50%, transparent); }
 .play-game[data-layout='wide'] .play-history-toggle [data-button-label] { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 12px; }
 /* The newest record is a one-line preview with an ellipsis (line 219); the open History and the button's name hold it in full. */
-.play-game[data-layout='wide'] .play-history-record { text-align: end; }
+.play-game[data-layout='wide'] .play-history-record { text-align: end; color: var(--ink, var(--text)); }
 .play-game[data-layout='wide'] .play-history-name { flex: none; color: var(--ink, var(--text)); }
 .play-game[data-layout='wide'] .play-history-toggle svg { display: block; width: 14px; rotate: -90deg; transition: rotate 160ms ease-out; }
 .play-game[data-layout='wide'] .play-history-toggle[aria-expanded='true'] svg { rotate: 0deg; }

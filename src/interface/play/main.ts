@@ -5,7 +5,7 @@ import './shell.css';
 import './sides.css';
 import './menus.css';
 import './reading-b.css';
-import { historyGroups } from './history';
+import { historyGroups, newLine } from './history';
 import { mountShell, type Route } from './shell';
 import { guidePage, closeGuidePanel } from './guide';
 import { button, closeX, icon, confirmDialog, errorState, liveRegion, setButtonState, targetChoice } from '../ui/kit.js';
@@ -141,6 +141,7 @@ let cells: HTMLButtonElement[] = [], choiceCancel: HTMLButtonElement, struck: { 
 let menuButton: HTMLButtonElement;
 let historyStrip: HTMLElement, historyButton: HTMLButtonElement, historyCompact: HTMLElement, scrollPanel: HTMLElement;
 let scrollOpen: 'history' | null = null, floatingSource: HTMLElement | null = null, swallowedPointer = false;
+let freshLine = newLine();
 let seatFrame: Effect | undefined, rewind: Effect | undefined;
 let seatRings: [HTMLElement, HTMLElement], stores: [HTMLElement, HTMLElement];
 let counts: [number, number] = [0, 0];
@@ -708,6 +709,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   }
   if (!onlineActive && !memory) playedMs = resumed?.playedMs ?? 0;
   enteredAt = undefined; resultReview = false;
+  freshLine = newLine();
   resources = []; shown = null; replySteps = []; resigned = finished?.resigned ?? null; liveGame = !finished;
   ended = !!finished; fault = null; thinking = arrangement || finished ? false : onlineActive ? !onlineState?.draft : game.pos.turn === cpu() && game.status === 'playing'; cursor = arrangement ? player ? 63 : 0 : player ? 52 : 12;
   selected = inspected = null; choice = []; reading = finished ? 'result' : 'normal'; last = ''; lastActions = []; playingAction = null; beat?.cancel(); casting?.cancel(); markFocus = undefined; nextMarksAt = 0; notice = ''; resultCause = finished ? resultLine() : '';
@@ -1771,28 +1773,32 @@ function currentHistory() {
   return historyGroups(game.history, [], (before, move) => gameWords(sentence(before, move, before.turn !== player, cards(before.turn))),
     (turn, side) => `${Math.ceil(turn / 2)} · ${side === player ? text.you : onlineActive ? 'Opponent' : text.computer}`, text.stagedTurn);
 }
-function historyRows(groups: ReturnType<typeof currentHistory>): HTMLElement[] {
+function historyRows(groups: ReturnType<typeof currentHistory>, ink?: (node: HTMLElement, key: string) => void): HTMLElement[] {
   if (!groups.length) return [line('', text.noHistory)];
   return groups.map(group => {
     const section = el('section', 'play-history-turn');
     section.append(el('h4', '', group.title));
     for (const item of group.lines) {
-      const ink = line('play-history-line', item.line);
-      ink.dataset.historyKey = item.key;
-      section.append(ink);
+      const row = line('play-history-line', item.line);
+      row.dataset.historyKey = item.key; ink?.(row, item.key);
+      section.append(row);
     }
     return section;
   });
 }
 function renderHistory() {
-  const groups = currentHistory();
+  const groups = currentHistory(), fresh = freshLine(groups, performance.now()), dry = time(160);
+  // The new line goes from brown to ink one time. A redraw builds its node again: the motion goes on from its place.
+  const ink = (node: HTMLElement, key: string) => {
+    if (key === fresh.key && fresh.age < dry && !reducedMotion()) node.animate([{ color: 'var(--sage-500)', offset: 0 }], dry).currentTime = fresh.age;
+  };
   const openHistory = document.querySelector<HTMLElement>('.history-dialog .sheet-body');
-  if (openHistory) openHistory.replaceChildren(...historyRows(groups));
+  if (openHistory) openHistory.replaceChildren(...historyRows(groups, ink));
   if (!historyStrip) return;
   historyStrip.hidden = !game.history.length;
   // The closed History is one row: its name and the newest record.
   const preview = groups.flatMap(group => group.lines).slice(0, 1);
-  const records = preview.map(item => { const record = el('span', 'play-history-record', item.line); record.dataset.historyKey = item.key; return record; });
+  const records = preview.map(item => { const record = el('span', 'play-history-record', item.line); record.dataset.historyKey = item.key; ink(record, item.key); return record; });
   historyButton.querySelector('[data-button-label]')!.replaceChildren(el('span', 'play-history-name', text.history), ...(records.length ? records : [el('span', 'play-history-record', text.noHistory)]));
   historyCompact.replaceChildren(...records.map(record => record.cloneNode(true)));
   historyButton.setAttribute('aria-label', `${text.history}: ${preview.map(item => item.line).join(' ') || text.noHistory}`);
@@ -1805,7 +1811,7 @@ function renderHistory() {
   const heading = el('h3', '', title); heading.id = 'play-scroll-title'; scrollPanel.setAttribute('aria-labelledby', heading.id);
   head.append(heading, closeX(`Close ${title.toLowerCase()}`, () => closeFloating()));
   const body = el('div', 'play-panel-body');
-  body.append(...historyRows(groups));
+  body.append(...historyRows(groups, ink));
   scrollPanel.replaceChildren(head, body);
   if (focused) scrollPanel.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
   if (was !== scrollOpen && !calm() && !matchMedia('(prefers-reduced-motion: reduce)').matches) sheetMotion(scrollPanel, true);

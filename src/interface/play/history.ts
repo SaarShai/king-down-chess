@@ -21,3 +21,14 @@ export const removedHistoryLine = (before: readonly HistoryGroup[], after: reado
 /** The closed scroll keeps the newest two records, across turn boundaries. */
 export const historyPreview = (groups: readonly HistoryGroup[], erased?: HistoryLine): HistoryLine[] =>
   [...(erased ? [erased] : []), ...groups.flatMap(group => group.lines)].slice(0, 2);
+
+/** One watch for each open game: the line that came last and its age. The lines of the first draw are old. */
+export function newLine() {
+  let last: number | undefined, key = '', since = 0;
+  return (groups: readonly HistoryGroup[], now: number) => {
+    const newest = groups[0]?.lines[0]?.key ?? '', at = newest ? +newest.slice(1) : -1;
+    if (last !== undefined && at !== last) { key = at > last ? newest : ''; since = now; }
+    last = at;
+    return { key, age: now - since };
+  };
+}
