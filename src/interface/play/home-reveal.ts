@@ -13,7 +13,7 @@ export function revealVariant(width: number, height: number): RevealVariant {
 export const WIDE_HOME = '(min-width: 1200px) and (min-aspect-ratio: 3/2) and (hover: hover) and (pointer: fine)';
 
 export const revealVideo = (variant: RevealVariant, codec: 'av1' | 'hevc' | 'h264' = 'h264') => `/interface/reveal/${variant}${codec === 'h264' ? '' : `-${codec}`}.mp4`;
-export const revealPoster = (width: number, height: number) => `/interface/reveal/hero-${revealVariant(width, height)}.webp`;
+export const revealPoster = (variant: RevealVariant) => `/interface/reveal/hero-${variant}.webp`;
 
 // AV1 is smallest. HEVC is next. H.264 plays on the remaining browsers.
 const av1 = 'video/mp4; codecs="av01.0.08M.08"';
@@ -25,7 +25,7 @@ let played = false;
 /** `art.dataset.frame`: the shape that the picture and the film are framed for. `framed`: a resize changed it. */
 export function homeReveal(art: HTMLElement, framed: () => void) {
   const replay = played;
-  const still = document.createElement('img');
+  let still = document.createElement('img');
   still.className = 'home-reveal-still';
   still.alt = '';
   still.decoding = 'async';
@@ -45,7 +45,8 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
   art.append(still, video);
 
   const events = new AbortController(), { signal } = events;
-  let variant: RevealVariant | undefined;
+  const wide = matchMedia(WIDE_HOME);
+  let variant: RevealVariant | undefined, loading: { shape: RevealVariant } | undefined;
   let source = -1;
   let visible = false, pageHidden = false, failed = false, settled = false;
   let releaseTimer: ReturnType<typeof setTimeout> | undefined;
@@ -80,13 +81,33 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
     play();
   }
 
+  const layoutShape = () => wide.matches ? 'wide' : revealVariant(art.clientWidth || window.innerWidth, art.clientHeight || window.innerHeight);
+
+  // A film or a picture framed for another shape would crop the kings: show the still of the layout, once it is ready.
+  // Until then home.ts keeps the split layout. Only a window resize starts this: a redraw of the controls keeps the
+  // framing. A narrow film keeps it too, until the wide layout.
+  async function reframe() {
+    if (signal.aborted || !variant) return;
+    const shape = wide.matches || variant === 'wide' || failed ? layoutShape() : variant;
+    if (shape === variant) { loading = undefined; return; }
+    if (shape === loading?.shape) return;
+    const own = loading = { shape }, picture = still.cloneNode() as HTMLImageElement;
+    picture.src = revealPoster(shape);
+    const ready = await picture.decode().then(() => true, () => false);
+    if (loading !== own || signal.aborted) return;
+    loading = undefined;
+    if (!ready) return; // The next resize tries again.
+    if (layoutShape() !== shape) { void reframe(); return; }
+    still.replaceWith(picture); still = picture; fallback();
+    variant = art.dataset.frame = shape; framed();
+  }
+
   function sync() {
     if (!art.isConnected || signal.aborted) return;
     // Keep the same framing for both layers when the Home controls redraw.
     if (!variant) {
-      const width = art.clientWidth || window.innerWidth, height = art.clientHeight || window.innerHeight;
-      variant = art.dataset.frame = revealVariant(width, height);
-      still.src = revealPoster(width, height);
+      variant = art.dataset.frame = layoutShape();
+      still.src = revealPoster(variant);
       void still.decode().catch(() => {});
     }
     const useStill = replay || failed || reducedMotion() || !navigator.onLine;
@@ -112,19 +133,8 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
   video.addEventListener('transitionend', event => {
     if (settled && event.propertyName === 'opacity') release();
   }, { signal });
-  // A film or a picture framed for a narrower window would crop the kings in the wide layout: show the wide still, once
-  // it is ready. Until then home.ts keeps the split layout.
-  const wide = matchMedia(WIDE_HOME);
-  const needsWide = () => !signal.aborted && wide.matches && !!variant && variant !== 'wide';
-  wide.addEventListener('change', async () => {
-    if (!needsWide()) return;
-    const picture = still.cloneNode() as HTMLImageElement;
-    picture.src = revealPoster(window.innerWidth, window.innerHeight);
-    try { await picture.decode(); } catch { return; }
-    if (!needsWide()) return;
-    still.replaceWith(picture); fallback();
-    variant = art.dataset.frame = 'wide'; framed();
-  }, { signal });
+  wide.addEventListener('change', reframe, { signal });
+  window.addEventListener('resize', reframe, { signal });
   document.addEventListener('visibilitychange', sync, { signal });
   window.addEventListener('online', sync, { signal });
   window.addEventListener('offline', sync, { signal });
