@@ -39,7 +39,7 @@ function fixture() {
   ];
   const bundle = Object.fromEntries(output.map(file => [file.fileName, file])) as OutputBundle;
   const files = [...Object.keys(bundle), 'index.html', 'sw.js', 'manifest.webmanifest',
-    'ui/pawn.webp', 'ui/icons/pawn.svg', 'fonts/cinzel.woff2', 'icons/icon-192.png',
+    'ui/pawn.webp', 'ui/emblems/frost.webp', 'ui/powers/ice-wall.webp', 'ui/icons/pawn.svg', 'fonts/cinzel.woff2', 'icons/icon-192.png',
     'privacy.html', 'terms.html', 'support.html', 'delete-data.html',
     'ui/consent.mjs', 'ui/private.html', 'fonts/license.txt', 'icons/account.json',
     '.well-known/openai-apps-challenge', '.well-known/oauth-protected-resource', 'consent.mjs', 'auth/callback.html'];
@@ -52,7 +52,7 @@ it('selects the local loader, static and dynamic graph, AI worker, CSS and asset
   expect(precache).toEqual(['./', ...[
     'assets/root.js', 'assets/main.js', 'assets/shared.js', 'assets/workshop.js', 'assets/lesson.js',
     'assets/worker.js', 'assets/main.css', 'assets/font.woff2', 'assets/local.webp',
-    'ui/pawn.webp', 'ui/icons/pawn.svg', 'fonts/cinzel.woff2', 'icons/icon-192.png', 'manifest.webmanifest',
+    'ui/pawn.webp', 'ui/emblems/frost.webp', 'ui/powers/ice-wall.webp', 'ui/icons/pawn.svg', 'fonts/cinzel.woff2', 'icons/icon-192.png', 'manifest.webmanifest',
   ].sort()]);
   expect(allowlist).toEqual(['./', 'index.html', ...precache.slice(1)]);
   expect(precache.every(file => allowlist.includes(file))).toBe(true);

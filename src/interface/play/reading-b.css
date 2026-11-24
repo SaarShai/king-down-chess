@@ -122,21 +122,20 @@
 .play-game .play-own .play-power { flex: 0 0 72px; height: 100%; min-height: 44px; padding: 0; }
 .play-game .play-power [data-button-label] { max-width: 100%; }
 .play-game .play-power small { font: 400 14px/16px var(--font-reading); white-space: nowrap; }
-.play-power-coin { position: relative; display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 50%; background: var(--power-fill); box-shadow: var(--power-depth); }
-.play-opp .play-power-coin { width: 28px; height: 28px; background: var(--rival-fill); box-shadow: var(--rival-depth); }
-.play-power-coin img { width: 85%; height: 85%; object-fit: contain; }
-.play-power-notches { position: absolute; display: flex; gap: 5px; bottom: 3px; }
+/* The mark is the whole coin: a disc with its own brass rim, 2% inside its picture. */
+.play-power-coin { position: relative; display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 50%; }
+.play-opp .play-power-coin { width: 28px; height: 28px; }
+.play-power-coin img { width: 100%; height: 100%; object-fit: contain; scale: 1.04; }
+.play-power-notches { position: absolute; display: flex; gap: 5px; bottom: -3px; }
 .play-power-notch { width: 6px; height: 6px; rotate: 45deg; background: var(--power-ink); box-shadow: 0 0 0 1px #1d3f41; }
-/* On the paper coin of the seat ring a full pip is a teal diamond; a spent pip is a round drop of wax. */
+/* On the rim of the mark, clear of its symbol, a full pip is a teal diamond; a spent pip is a round drop of wax. */
 .play-seat-ring .play-power-notch { background: var(--power-fill); }
 .play-power-notch[data-used='true'] { background: var(--wax); border-radius: 50%; box-shadow: 0 0 0 1px var(--text); }
-.play-game .play-power[data-coin='always'] .play-power-coin { box-shadow: inset 0 0 0 1px #a87935; }
-.play-game .play-power[data-spent='true'] .play-power-coin { box-shadow: inset 0 1px #efffef; }
 .play-game .play-power[data-spent='true'] .play-power-coin img { filter: grayscale(1); opacity: .55; }
-/* The emblem is grey when it is spent; the wax keeps its colour. */
+/* The mark is grey when it is spent; the wax keeps its colour. */
 .play-game .play-power[data-spent='true'] { color: var(--text-muted); filter: none; }
 .play-game .play-power[aria-pressed='true'] { animation: none; outline: none; filter: none; background: transparent; box-shadow: none; color: var(--text); }
-.play-game .play-power[aria-pressed='true'] .play-power-coin { box-shadow: inset 0 0 0 2px var(--brass), inset 0 0 0 3px var(--main-edge), var(--power-depth); }
+.play-game .play-power[aria-pressed='true'] .play-power-coin { box-shadow: 0 0 0 2px var(--main-edge), var(--power-depth); }
 .play-hand { display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0; height: 100%; padding-inline: 4px; }
 .play-game[data-hand='hand'] .play-own .play-card { transform: translateY(var(--fan-drop)) rotate(var(--fan-angle)); }
 .play-game .play-own .play-card { position: relative; display: grid; grid-template-rows: 34px minmax(0, 1fr); flex: 1 1 0; min-width: 44px; max-width: 98px; height: 100%; min-height: 44px; padding: 0; margin-inline: -2px; gap: 0; align-items: stretch; justify-items: stretch; color: var(--text); background: var(--surface-raised); box-shadow: var(--card-edge); border: 0; border-radius: 7px; font: 650 14px/16px var(--font-reading); letter-spacing: 0; hyphens: none; overflow-wrap: normal; text-align: center; transform: translateY(var(--fan-drop)) rotate(var(--fan-angle)); transform-origin: 50% 100%; }
@@ -356,6 +355,8 @@
 
 .play-narrator { display: flex; align-items: flex-start; gap: 6px; min-height: 52px; color: var(--ink, var(--text)); }
 .play-narr-copy { min-width: 0; flex: 1; }
+.play-narrator > .play-art { flex: none; width: 64px; height: 64px; object-fit: contain; }
+.play-game[data-form='compact'] .play-narrator > .play-art { display: none; }
 .play-game .play-narrator h2 { font: 700 17px/1.15 var(--sans, var(--font-reading)); margin: 0 0 2px; letter-spacing: normal; }
 .play-game[data-form='wide'] .play-narrator h2 { font-size: 20px; }
 .play-game .play-narrator p { font: 400 15px/1.22 var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); margin: 0; }
@@ -366,8 +367,12 @@
 
 .play-seat-ring { flex: none; box-sizing: border-box; position: relative; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--line-2, var(--divider)); border-radius: 50%; transform: scale(var(--breath, 1)); }
 .play-seat-ring > :is(.profile-portrait, .play-figure) { width: 100%; height: 100%; min-height: 0; object-fit: contain; border: 0; border-radius: 50%; }
-.play-seat-ring > .play-power-coin { width: 100%; height: 100%; background: var(--surface-raised); }
+.play-seat-ring > .play-power-coin { width: 100%; height: 100%; }
 .play-seat-ring[data-turn='true'] { border-color: var(--brass-p, var(--brass)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brass-2, var(--brass)) 25%, transparent); }
+/* The rim of the mark is the ring: the turn shows as the glow alone. The notches hang 4 px below the rim. */
+.play-seat-ring:has(> .play-power-coin) { border-color: transparent; }
+.play-seat-ring[data-turn='true']:has(> .play-power-coin) { border-color: color-mix(in srgb, var(--brass-2, var(--brass)) 25%, transparent); }
+.play-seat-ring:has(.play-power-notch) { margin-bottom: 4px; }
 .play-seat-ring[data-check='true'] { border-color: var(--danger); box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 32%, transparent); }
 .play-seat-ring[data-thinking='true']::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--teal, var(--power-fill)); transform: rotate(var(--arc, 0deg)); }
 :root[data-motion='reduce'] .play-seat-ring::after { display: none; }

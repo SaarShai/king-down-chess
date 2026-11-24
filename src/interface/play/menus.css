@@ -164,6 +164,7 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .king-title img { width: 100px; height: 150px; object-fit: contain; }
 .guide-page .king-title h2 { margin: 0; font-size: 1.25rem; text-align: center; overflow-wrap: normal; }
 .king-powers .guide-row.list-row { min-height: 88px; }
+.king-powers strong img { display: inline-block; width: 24px; height: 24px; margin-inline-end: 7px; vertical-align: -5px; }
 .king-powers .guide-row:last-child { border-bottom: 0; }
 .uses { display: block; font-size: .875rem; color: var(--text-muted); }
 /* Two columns, or one when a column is narrower than the longest one-word title at the user's text size. */

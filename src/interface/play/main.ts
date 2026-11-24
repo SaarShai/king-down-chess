@@ -26,6 +26,7 @@ import { S, K, PLAIN_KINGS, colorOf, findKing, sqName, typeOf, TAG_POWER, type C
 import { toFen } from '../../rules/setup';
 import { RELEASED_CARDS } from '../../content/cards';
 import { POWER_NAME, POWER_TAG, cardName, coinState, usesAllowed } from '../../powers-ui';
+import { powerMark } from './power-mark';
 import { DraftTurn, isDirect, armKey } from './turn';
 import { Arrangement, ARRANGE_KEY } from './arrange';
 import type { PlainMarks } from '../../render/plain-marks';
@@ -1682,7 +1683,7 @@ function renderReader(actions?: HTMLElement) {
   const full = arrangement || choice.length || shown?.card === -1 || model.tools.length;
   const view = full ? readerView(model, form, nodes) : narratorView(model, nodes);
   if (!onlineActive && writer.blocked && !arrangement) view.classList.add('play-save-blocked');
-  detail.append(view); if (full) fitReader(view, model);
+  detail.append(view); if (full) fitReader(view, model); else if (detail.scrollHeight > detail.clientHeight) nodes.art.remove();
 }
 function resultNewGame() {
   const newGameBtn = button(text.newGame, { onPress: () => openNewGame(newGameBtn, { fromResult: true }) });
@@ -1886,7 +1887,7 @@ function rivalCardsModel(m: ReaderModel, res: Resource) {
 function subjectModel(m: ReaderModel, subject: LearnSubject, side: Color, action?: HTMLButtonElement) {
   const entry = learningEntry(subject, game.context, draft.position, side);
   gameHelp?.setTopic(subject, game.context, side);
-  Object.assign(m, { title: entry.name, named: true, headTools: [
+  Object.assign(m, { title: entry.name, named: true, ...(subject.kind === 'power' ? { art: powerMark(subject.id) } : {}), headTools: [
     ...(gameHelp ? [gameHelp.infoButton] : []), ...(action ? [action] : []),
   ] });
   return { owner: subject.kind === 'power' ? line('learn-owner', `${side === cpu() ? readingText.computerPower : readingText.yourPower} · ${entry.uses}`) : null,
@@ -1905,10 +1906,10 @@ function addPower(side: Color, parent: HTMLElement) {
   if (!king) return;
   const uses = usesAllowed(king.power, r);
   const res: Resource = { subject: { kind: 'power', id: king.power }, side, key: uses ? POWER_TAG[king.power] ?? null : null, name: POWER_NAME[king.power], short: powerLines[king.power] ?? '', card: null, control: button(POWER_NAME[king.power], { onPress: () => pressResource(res) }) };
-  const coin = el('span', 'play-power-coin'), emblem = decorativeImage(el('img'), `/ui/emblems/${king.king.toLowerCase()}.webp`);
+  const coin = el('span', 'play-power-coin'), mark = decorativeImage(el('img'), powerMark(king.power));
   const notches = el('span', 'play-power-notches'); notches.setAttribute('aria-hidden', 'true');
   for (let i = 0; i < (uses ?? 0); i++) notches.append(el('i', 'play-power-notch'));
-  coin.append(emblem, notches);
+  coin.append(mark, notches);
   res.control.classList.add('play-power');
   const label = res.control.querySelector('[data-button-label]')!;
   const copy = el('span', 'play-power-copy'); copy.append(label, el('small'));

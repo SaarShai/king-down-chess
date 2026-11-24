@@ -40,7 +40,7 @@ for (const [name, type] of [['chromium', chromium], ['webkit', webkit]]) {
       await page.waitForFunction(() => document.querySelector('.play-game')?.dataset.state === 'ready' && !document.querySelector('.play-versus'));
       const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')));
       assert.deepEqual(saved.rules.kings[0], { king: 'Stratus', power: 'Flight' });
-      assert.equal(await page.locator('.play-own .play-power-coin img').getAttribute('src'), '/ui/emblems/stratus.webp');
+      assert.equal(await page.locator('.play-own .play-power-coin img').getAttribute('src'), '/ui/powers/flight.webp');
       assert.match(await page.locator('.play-own .play-power').innerText(), /Flight/);
       await cleanWords(page); await shot(page, name, 'sky-game');
       await page.goto(next + '#guide');

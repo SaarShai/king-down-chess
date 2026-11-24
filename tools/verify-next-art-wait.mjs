@@ -9,7 +9,7 @@ import { P, R, parseSq, releaseContext, releaseDriver, squareLabel, text } from 
 
 const out = env('PLAYABLE_OUT');
 mkdirSync(out, { recursive: true });
-const art = /\/(?:interface\/(?:stone-refined-light|computer-king-[^/]+)\.webp|ui\/(?:pieces\/[^/]+\.webp|icons\/[^/]+\.svg|(?:cards|emblems)\/[^?]+)|assets\/[^/]+\.webp|docs\/2d-first-pieces\/[^?]+\.webp|character-runtime\/[^?]+)(?:\?.*)?$/;
+const art = /\/(?:interface\/(?:stone-refined-light|computer-king-[^/]+)\.webp|ui\/(?:pieces\/[^/]+\.webp|icons\/[^/]+\.svg|(?:cards|emblems|powers)\/[^?]+)|assets\/[^/]+\.webp|docs\/2d-first-pieces\/[^?]+\.webp|character-runtime\/[^?]+)(?:\?.*)?$/;
 const rookSheet = /\/(?:assets\/rook-[^/]+|docs\/2d-first-pieces\/rook\/rook)\.webp(?:\?.*)?$/;
 const home = new URL('/next.html', env('PLAYABLE_URL')).href;
 const board = '.play-board-host canvas';

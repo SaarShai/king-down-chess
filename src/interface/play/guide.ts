@@ -1,9 +1,10 @@
 import { kingDisplayName } from '../../king-label';
 import { GameRules } from '../../game-rules';
-import { A, B, G, K, KINGS, L, M, N, O, P, Q, R, S, type PieceType } from '../../rules/engine';
+import { A, B, G, K, KINGS, L, M, N, O, P, Q, R, S, type PieceType, type PowerName } from '../../rules/engine';
 import { RELEASED_CARDS } from '../../content/cards';
 import { POWER_NAME, usesAllowed } from '../../powers-ui';
 import { rulesOf } from './saved';
+import { powerMark } from './power-mark';
 import { cardLine, guideTabLabels as tabLabels, pieces, powerLines, text } from './texts';
 import { learningPanel } from './learning-panel';
 import { effectRule, guideFollowUp, newPieces, type LearnSubject } from './learning';
@@ -97,7 +98,7 @@ function sectionList(section: string, go: (section?: string, entry?: string) => 
     const box = node('section', 'king-block'), title = node('div', 'king-title'), name = node('h2', '', `${kingDisplayName(block.king)} King`);
     title.append(picture(block.art), name); box.setAttribute('aria-label', `${kingDisplayName(block.king)} King`);
     const powers = node('div', 'king-powers');
-    powers.append(...block.powers.map(item => { const row = entryRow({ ...item, art: undefined }, open(item.id)); row.querySelector('strong')!.after(node('span', 'uses', usesLine(item))); return row; }));
+    powers.append(...block.powers.map(item => { const row = entryRow({ ...item, art: undefined }, open(item.id)); row.querySelector('strong')!.after(node('span', 'uses', usesLine(item))); row.querySelector('strong')!.prepend(picture(powerMark(item.id as PowerName))); return row; }));
     box.append(title, powers); list.append(box);
   } else if (section === 'Cards') { const grid = node('div', 'card-grid'); grid.append(...guideEntries('Cards').map(item => cardTile(item, open(item.id)))); list.append(grid); }
   return list;
