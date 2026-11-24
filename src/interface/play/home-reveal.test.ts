@@ -33,7 +33,7 @@ function fakePage(av1Answer: string, hevcAnswer = av1Answer, app = false) {
     const listeners = new Map<string, (event: { propertyName?: string }) => void>();
     return {
       tag, dataset: {} as Record<string, string>, isConnected: true, clientWidth: 1440, clientHeight: 900, paused: true,
-      classList: { add: (name: string) => classes.add(name), contains: (name: string) => classes.has(name), toggle: (name: string, on: boolean) => on ? classes.add(name) : classes.delete(name) },
+      classList: { add: (name: string) => classes.add(name), remove: (name: string) => classes.delete(name), contains: (name: string) => classes.has(name), toggle: (name: string, on: boolean) => on ? classes.add(name) : classes.delete(name) },
       setAttribute: (name: string, value: string) => attributes.set(name, value), hasAttribute: (name: string) => attributes.has(name),
       removeAttribute: (name: string) => attributes.delete(name), get src() { return attributes.get('src'); }, set src(value) { attributes.set('src', value!); },
       append() {}, addEventListener: (type: string, listener: (event: { propertyName?: string }) => void) => listeners.set(type, listener),
@@ -143,11 +143,11 @@ it.each([
 });
 
 /** Home with its film; `resize` sets the art box and enters or leaves the wide layout; `answers` settles the pictures in turn. */
-async function openHome(wide: boolean) {
-  const page = fakePage('probably'), answers: ((ok: boolean) => Promise<void>)[] = [], framed = vi.fn();
+async function openHome(wide: boolean, box: [number, number] = wide ? [1280, 720] : [500, 1000], app = false) {
+  const page = fakePage('probably', 'probably', app), answers: ((ok: boolean) => Promise<void>)[] = [], framed = vi.fn();
   page.media.matches = wide;
   const decode = () => new Promise<void>((done, fail) => { answers.push(async ok => { if (ok) done(); else fail(new Error('EncodingError')); for (let i = 0; i < 9; i++) await Promise.resolve(); }); });
-  const home = await page.show(undefined, wide ? [1280, 720] : [500, 1000], framed);
+  const home = await page.show(undefined, box, framed);
   type Still = typeof home.still;
   let still = home.still;
   // Each decode after the first picture waits for its answer. Only the picture on the page can be replaced.
@@ -160,7 +160,8 @@ async function openHome(wide: boolean) {
     if (changed) page.media.listeners.forEach(listener => listener());
   };
   const shown = () => [still.src, home.art.dataset.frame, home.video.src !== undefined];
-  return { ...home, resize, answers, framed, shown };
+  const whole = () => home.art.classList.contains('home-art-whole');
+  return { ...home, resize, answers, framed, shown, whole };
 }
 const narrowHome = () => openHome(false);
 const PORTRAIT = ['/interface/reveal/hero-portrait.webp', 'portrait', true], WIDE = ['/interface/reveal/hero-wide.webp', 'wide', false];
@@ -343,4 +344,63 @@ it('a narrow film keeps its frame through narrow resizes', async () => {
   home.resize(false, [860, 760]); home.resize(false, [1150, 798]);
   expect(home.answers).toHaveLength(0);
   expect(home.shown()).toEqual(PORTRAIT);
+});
+it.each([
+  ['a tablet that turns from a wide shape', false, [1180, 820], [820, 900]],
+  ['a phone in the app that turns from a wide shape', true, [844, 390], [390, 600]],
+  ['a tablet in split view', false, [1024, 700], [500, 900]],
+] as const)('%s keeps its film and its picture', async (_name, app, from, to) => {
+  for (const before of [() => {}, (home: Awaited<ReturnType<typeof openHome>>) => home.video.emit('ended')]) {
+    const home = await openHome(false, [...from], app), plays = home.video.play.mock.calls.length;
+    before(home);
+    home.resize(false, [...to]); home.resize(false, [...from]); home.resize(false, [...to]);
+    expect(home.answers).toHaveLength(0);
+    expect(home.shown()).toEqual(['/interface/reveal/hero-wide.webp', 'wide', true]);
+    expect([home.whole(), home.art.classList.contains('home-art-still'), home.video.play.mock.calls.length]).toEqual([false, false, plays]);
+  }
+});
+it('a film that cannot play leaves the first picture through each turn of a touch device', async () => {
+  const home = await openHome(false, [1180, 820]);
+  for (let i = 0; i < 3; i++) home.video.emit('error');
+  home.resize(false, [820, 900]);
+  expect(home.answers).toHaveLength(0);
+  expect(home.shown()).toEqual(WIDE);
+});
+it('a window that touches the wide layout and leaves it before the picture came keeps its film in each later resize', async () => {
+  const home = await narrowHome();
+  home.resize(true); home.resize(false); await home.answers[0](true);
+  home.resize(false, [860, 760]); home.resize(false, [1150, 798]);
+  expect(home.answers).toHaveLength(1);
+  expect(home.shown()).toEqual(PORTRAIT);
+  expect(home.whole()).toBe(false);
+});
+it('a wide shape outside the wide layout keeps its film into the wide layout, and takes the narrow still on the way back', async () => {
+  const home = await openHome(false, [1150, 798]);
+  home.resize(true);
+  expect(home.shown()).toEqual(['/interface/reveal/hero-wide.webp', 'wide', true]);
+  home.resize(false); await home.answers[0](true);
+  expect(home.shown()).toEqual(PORTRAIT_STILL);
+});
+it('after the wide layout the old picture shows whole until the picture of the layout is ready', async () => {
+  const home = await openHome(true);
+  expect(home.whole()).toBe(false);
+  home.resize(false, [860, 760]);
+  expect(home.whole()).toBe(true);
+  home.resize(true);
+  expect(home.whole()).toBe(false);
+  home.resize(false, [860, 760]); await home.answers[1](true);
+  expect([home.shown(), home.whole()]).toEqual([SQUARE_STILL, false]);
+  home.resize(false);
+  expect(home.whole()).toBe(true);
+  await home.answers[2](true);
+  expect([home.shown(), home.whole()]).toEqual([PORTRAIT_STILL, false]);
+});
+it('a narrow picture that cannot load leaves the wide picture whole, for as long as that lasts', async () => {
+  const home = await openHome(true);
+  home.resize(false); await home.answers[0](false); home.reveal.sync();
+  expect(home.whole()).toBe(true);
+  home.resize(false, [501, 780]); await home.answers[1](false);
+  expect(home.whole()).toBe(true);
+  home.resize(false); await home.answers[2](true);
+  expect([home.shown(), home.whole()]).toEqual([PORTRAIT_STILL, false]);
 });

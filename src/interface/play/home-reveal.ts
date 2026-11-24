@@ -48,6 +48,7 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
   const wide = matchMedia(WIDE_HOME);
   let variant: RevealVariant | undefined, loading: { shape: RevealVariant } | undefined;
   let source = -1;
+  let wasWide = false; // The window left the wide layout, with its picture.
   let visible = false, pageHidden = false, failed = false, settled = false;
   let releaseTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -84,11 +85,13 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
   const layoutShape = () => wide.matches ? 'wide' : revealVariant(art.clientWidth || window.innerWidth, art.clientHeight || window.innerHeight);
 
   // A film or a picture framed for another shape would crop the kings: show the still of the layout, once it is ready.
-  // Until then home.ts keeps the split layout. Only a window resize starts this: a redraw of the controls keeps the
-  // framing. A narrow film keeps it too, until the wide layout.
+  // Until then home.ts keeps the split layout, and a narrow layout shows the old picture whole. Only a window resize
+  // starts this: a redraw of the controls keeps the framing. So does a window that never enters the wide layout (a
+  // tablet that turns): its film plays on.
   async function reframe() {
     if (signal.aborted || !variant) return;
-    const shape = wide.matches || variant === 'wide' || failed ? layoutShape() : variant;
+    const shape = wide.matches || wasWide ? layoutShape() : variant;
+    art.classList.toggle('home-art-whole', shape !== variant);
     if (shape === variant) { loading = undefined; return; }
     if (shape === loading?.shape) return;
     const own = loading = { shape }, picture = still.cloneNode() as HTMLImageElement;
@@ -99,7 +102,7 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
     if (!ready) return; // The next resize tries again.
     if (layoutShape() !== shape) { void reframe(); return; }
     still.replaceWith(picture); still = picture; fallback();
-    variant = art.dataset.frame = shape; framed();
+    variant = art.dataset.frame = shape; art.classList.remove('home-art-whole'); framed();
   }
 
   function sync() {
@@ -133,7 +136,7 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
   video.addEventListener('transitionend', event => {
     if (settled && event.propertyName === 'opacity') release();
   }, { signal });
-  wide.addEventListener('change', reframe, { signal });
+  wide.addEventListener('change', () => { wasWide ||= !wide.matches && variant === 'wide'; void reframe(); }, { signal });
   window.addEventListener('resize', reframe, { signal });
   document.addEventListener('visibilitychange', sync, { signal });
   window.addEventListener('online', sync, { signal });
