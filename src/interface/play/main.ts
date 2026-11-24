@@ -1352,7 +1352,7 @@ function showResult(deadline = armResult()) {
   };
   if (status !== 'checkmate') { deadline.stop(); cue('arrive'); pulse('light'); show(); return; }
   const title = detail.querySelector('.play-narrator .play-title');
-  if (title) { title.textContent = 'Checkmate.'; riseNarrator(); }
+  if (title) { title.textContent = 'Checkmate.'; detail.querySelector('.play-narrator .play-step')?.remove(); riseNarrator(); }
   const standing = findKing(game.pos.board, game.pos.turn), square = standing >= 0 ? standing : kingSquare(game.history, game.pos.turn);
   const view = board, skip = button('Skip result animation', { onPress: () => finish(true) });
   skip.classList.add('play-sequence-skip');
@@ -1743,8 +1743,9 @@ function readerModel(): ReaderModel {
   } else if (thinking) {
     // The computer chooses: the state alone. The computer acts: the sentence of the step that plays.
     const [first = '', ...rest] = sentences(acting); Object.assign(m, { title: notice || first, secondary: (notice && first ? [first, ...rest] : rest).map(t => line('play-last', t)), art: playedCard(cpu(), playingAction?.move) });
-  } else {
-    const idle = selected == null && inspected == null && !draft.armed && !ended && !notice && !check.mine && !writer.warning;
+  } else if (ended) m.title = 'Checkmate.'; // the checkmate hold; a result card has its own words
+  else {
+    const idle = selected == null && inspected == null && !draft.armed && !notice && !check.mine && !writer.warning;
     Object.assign(m, { title: notice || (check.mine ? check.lines[0] : ''),
       primary: checks.slice(check.mine && !notice ? 1 : 0), secondary: [line('play-instruction', idle && last || 'Choose a piece.')] });
   }
