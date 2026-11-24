@@ -3,13 +3,23 @@ import { expect, test } from 'vitest';
 import { pieces, powerLines } from '../src/interface/play/texts';
 import { DEAL_CARDS, DEFAULT_OPTIONS, draw, switches } from '../src/match/setup';
 import { POWER_NAME } from '../src/powers-ui';
-import { NAMES } from '../src/rules/engine';
+import { LETTERS, NAMES } from '../src/rules/engine';
+import { CLASSIC_CHESS, POOL } from '../src/rules/setup';
+import { learningNotes } from '../src/interface/play/learning-content';
 
 // The web game, the plugin and the Muse connector each hold some names and rule facts as written
 // text. These tests fail when one form changes and another does not (docs/FORMS.md).
 
+// The released pieces: the pawn, the classic army and the draw pool. NAMES also holds the lab pieces (docs/MATRIX.md).
+const released = [...new Set(['P', ...CLASSIC_CHESS, ...POOL])].map(letter => LETTERS.indexOf(letter)).sort((a, b) => a - b);
+
 test('the web piece names are the engine names', () => {
-  for (const [type, { name }] of Object.entries(pieces)) expect(name.toLowerCase()).toBe(NAMES[Number(type)]);
+  expect(Object.keys(pieces).map(Number).sort((a, b) => a - b), 'texts.ts pieces: one entry for each released piece').toEqual(released);
+  for (const type of released) expect(pieces[type]?.name.toLowerCase(), `texts.ts pieces: ${NAMES[type]}`).toBe(NAMES[type]);
+});
+
+test('the Guide has notes for each released piece', () => {
+  for (const type of released) expect(learningNotes[pieces[type]?.name], `learning-content.ts learningNotes: ${NAMES[type]}`).toBeDefined();
 });
 
 test('the web game has one short line for each king power and each dealt card', () => {

@@ -2,7 +2,7 @@ import { GameRules } from '../../game-rules';
 import { pieceGuide } from '../../read';
 import { A, G, K, KINGS, L, M, O, P, S, type Color, type PieceType, type PowerName, type Position } from '../../rules/engine';
 import type { CardName } from '../../rules/rules';
-import { RELEASED_CARDS } from '../../content/cards';
+import { RELEASED_CARDS, type ReleasedCardId } from '../../content/cards';
 import { cardName, cardText, powerText, POWER_NAME, usesAllowed } from '../../powers-ui';
 import { cardLine, pieces, powerLines, text } from './texts';
 import type { DraftTurn } from './turn';
@@ -94,5 +94,5 @@ const steps: Record<string, string> = {
   Vault: 'Tap a ringed Rook, Bishop or Queen, then a target beyond exactly one piece.',
   Curse: 'Tap a ringed enemy piece, then an empty square next to it.',
   SkyLift: 'Tap one ringed piece, then the other piece to swap. They must have different types.',
-};
+} satisfies Record<ReleasedCardId, string>;
 export const stepLine = (subject: LearnSubject) => subject.kind === 'piece' ? '' : steps[subject.id] ?? '';

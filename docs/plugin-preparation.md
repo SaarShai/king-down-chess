@@ -23,7 +23,7 @@ npm run check:vercel
 npm run check:browser plugin-oauth plugin-ui plugin-ui-http
 ```
 
-`plugin:db:init-test` accepts only a loopback database whose name ends in `_test`. It makes a minimal stand-in for Supabase identity and applies the match migration twice. The database tests use independent connections and separate Node processes, check transaction rollback, test seat access and invite races, and remove their generated accounts afterward. The HTTP check copies the artifact outside the checkout, then opens, moves, plays the computer, retries, restarts the service, resumes, and joins a friend through that source-free copy.
+`npm run check:browser` does not need the `export` line: when `PLUGIN_TEST_DATABASE_URL` is not set, it starts a throwaway PostgreSQL for a check that needs the database, and removes it when the run ends. `plugin:db:init-test` accepts only a loopback database whose name ends in `_test`. It makes a minimal stand-in for Supabase identity and applies the match migration twice. The database tests use independent connections and separate Node processes, check transaction rollback, test seat access and invite races, and remove their generated accounts afterward. The HTTP check copies the artifact outside the checkout, then opens, moves, plays the computer, retries, restarts the service, resumes, and joins a friend through that source-free copy.
 
 The OAuth check needs Playwright Chromium (`npx playwright install chromium` if missing). It exercises the compiled consent page with the actual Supabase SDK against a local provider mock: social sign-in with PKCE, the return to the original authorization request, approval, denial, unapproved clients and escaped client names. It also executes the audience hook in PostgreSQL inside a rolled-back transaction, including ordinary website, anonymous, service-role, spoofed-metadata and refresh cases. This verifies our integration contract; the actual provider remains a separate check.
 
@@ -42,7 +42,7 @@ npm run check:browser plugin-oauth plugin-ui-http
 
 Each check builds the plugin in a temporary folder. The fixture and HTTP checks start their own harness on a free loopback port. The HTTP check also starts the compiled server on a free port and makes two disposable users in `PLUGIN_TEST_DATABASE_URL`. Each check closes its servers and browser, removes its temporary build, and deletes the HTTP test users and their games. Logs and screenshots use the shared runner's output folder. No hand-started server is needed.
 
-`plugin-ui` checks move choices, Haste, recovery, computer play, a terminal board, remounting, display mode, friend replies, and a 390-pixel viewport. `plugin-ui-http` checks the board through the compiled HTTP server and real PostgreSQL. `plugin-oauth` checks consent, PKCE and the audience hook. The last two need the disposable database from the local setup above. These checks run only by name; the normal website checks need no plugin database.
+`plugin-ui` checks move choices, Haste, recovery, computer play, a terminal board, remounting, display mode, friend replies, and a 390-pixel viewport. `plugin-ui-http` checks the board through the compiled HTTP server and real PostgreSQL. `plugin-oauth` checks consent, PKCE and the audience hook. The last two need the disposable database: the runner uses `PLUGIN_TEST_DATABASE_URL` when it is set, else it starts a throwaway one. These checks run only by name; the normal website checks need no plugin database.
 
 To play the fixture by hand, build the plugin and start the harness:
 

@@ -12,6 +12,7 @@ import type { Rematch } from '../people/controller';
 import type { CardName, KingName } from '../../rules/rules';
 import { POWER_NAME, cardName, usesAllowed } from '../../powers-ui';
 import type { PowerName } from '../../rules/engine';
+import type { ReleasedCardId } from '../../content/cards';
 
 // The copy table supplies short lines. The shared current content supplies full rules.
 const pieceContext = new GameRules();
@@ -50,7 +51,7 @@ export const powerLines: Partial<Record<CardName, string>> = {
   MorphP: 'Change your pawn into a Knight or Bishop; it stays here.', Mimic: 'Use another own type to move, not capture; no pawn or king.',
   Vault: 'Jump exactly one piece with a Rook, Bishop or Queen.', Curse: 'Move an enemy to an empty square; no king or last-rank pawn.',
   SkyLift: 'Swap two different own types; no pawn or king.',
-};
+} satisfies Record<PowerName | ReleasedCardId, string>;
 export const cardLine = (card: CardName): string => card === 'March'
   ? 'A pawn off its start rank can move two empty squares ahead.' : powerLines[card] ?? '';
 /** The result line of an online rematch. A rematch swaps the sides (src/match/service.ts); seat 0 plays White. */
@@ -241,7 +242,7 @@ export const opponentLines: Partial<Record<PowerName, string>> = {
   March: 'The computer’s pawns can move two squares from any rank; the path stays clear.', Leap: 'The computer’s Rook, Bishop or Queen can jump own pawns, not other pieces.',
   HolyLight: 'The computer protects pieces beside the king, not on its diagonals.', Mercy: 'The computer’s king jumps; its shelter stops captures except by pawns. The king captures only an adjacent pawn or Guard.',
   DeathTouch: 'The computer’s king can capture beside it or two ahead or back; these captures never move the king.', Darkness: 'The computer’s pawns step diagonally too, but capture only straight ahead.',
-};
+} satisfies Record<PowerName, string>;
 /** A short label for one choice of several actions at one square. */
 export function choiceLabel(before: Position, move: Move, card = false): string {
   if (move.promo) return pieces[move.promo].name;

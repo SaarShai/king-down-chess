@@ -49,4 +49,4 @@ The game screen makes its list of moves with the engine of the installed build (
 
 ## The check
 
-`tools/forms-drift.test.ts` runs in `npm test`. It fails when the web piece names differ from the engine names, when a king power or a dealt card has no short line with text in the web game, or when the plugin tool text states a hand size or a switch count that the code does not have.
+`tools/forms-drift.test.ts` runs in `npm test`. It fails when a released piece has no web name equal to its engine name or no Guide note, when a king power or a dealt card has no short line with text in the web game, or when the plugin tool text states a hand size or a switch count that the code does not have.

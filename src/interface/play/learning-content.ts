@@ -1,5 +1,10 @@
 // Limits and counter advice from the approved teaching content, corrected for the launch rules.
-export const learningNotes: Record<string, readonly [string, string]> = {
+import type { ReleasedCardId } from '../../content/cards';
+import type { PowerName } from '../../rules/rules';
+
+type Note = readonly [string, string];
+// Each king power and released card needs a note (type check). Each released piece needs one by its name (tools/forms-drift.test.ts).
+export const learningNotes: Record<string, Note> = {
   "Pawn": [
     "The path must be empty. Choose a type from the promotion choices on the last rank. No en passant in this game.",
     "Block its forward path. Attack it from the side."
@@ -148,4 +153,4 @@ export const learningNotes: Record<string, readonly [string, string]> = {
     "Neither piece can be a pawn or king. Your king must stay safe. A frozen piece cannot swap.",
     "Attack the possible final positions."
   ]
-};
+} satisfies Record<PowerName | ReleasedCardId, Note> & Record<string, Note>;

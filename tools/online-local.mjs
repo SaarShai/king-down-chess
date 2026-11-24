@@ -5,82 +5,22 @@
  */
 import { execFileSync, spawn } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { createServer } from 'node:net';
 import { request as httpRequest } from 'node:http';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { readLocalAccounts } from './online-local-auth.mjs';
 import { testDatabase } from './plugin-db-config.mjs';
+import { isAlive, readPostmasterPid, reservePorts, startPostgres, stopPid, stopPostgres } from './lib/postgres.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BASE_DIR = join(ROOT, '.local-online');
 const PG_DATA = join(BASE_DIR, 'pg');
 const LOG_DIR = join(BASE_DIR, 'logs');
 const PIDS_PATH = join(BASE_DIR, 'pids.json');
-const PG_BIN = process.env.PG_BIN || '/opt/homebrew/bin';
 const DB_NAME = 'local_online_test';
 const PUBLISHABLE_KEY = 'sb_publishable_local_online_test';
 const INTERNAL_SECRET = 'kingdown-local-online-internal-secret-01';
-
-function pgTool(name) {
-  const path = join(PG_BIN, name);
-  if (!existsSync(path)) throw new Error(`Missing PostgreSQL tool at ${path}`);
-  return path;
-}
-
-function isAlive(pid) {
-  if (!Number.isInteger(pid) || pid <= 0) return false;
-  try { process.kill(pid, 0); return true; } catch { return false; }
-}
-
-async function stopPid(pid) {
-  if (!isAlive(pid)) return;
-  try { process.kill(pid, 'SIGTERM'); } catch { return; }
-  const deadline = Date.now() + 3000;
-  while (Date.now() < deadline && isAlive(pid)) await new Promise(r => setTimeout(r, 100));
-  if (isAlive(pid)) {
-    try { process.kill(pid, 'SIGKILL'); } catch { /* exited */ }
-  }
-}
-
-async function reservePorts(count) {
-  const servers = [];
-  const ports = [];
-  try {
-    for (let i = 0; i < count; i++) {
-      const server = createServer();
-      await new Promise((resolvePort, reject) => {
-        server.once('error', reject);
-        server.listen(0, '127.0.0.1', resolvePort);
-      });
-      servers.push(server);
-      ports.push(server.address().port);
-    }
-  } finally {
-    await Promise.all(servers.map(server => new Promise(done => server.close(done))));
-  }
-  return ports;
-}
-
-function readPostmasterPid(dataDir = PG_DATA) {
-  const path = join(dataDir, 'postmaster.pid');
-  if (!existsSync(path)) return null;
-  const line = readFileSync(path, 'utf8').split('\n')[0]?.trim();
-  const pid = Number(line);
-  return Number.isInteger(pid) && pid > 0 ? pid : null;
-}
-
-function stopPostgres(dataDir = PG_DATA, knownPid = null) {
-  const pid = knownPid ?? readPostmasterPid(dataDir);
-  if (existsSync(join(dataDir, 'postmaster.pid'))) {
-    try {
-      execFileSync(pgTool('pg_ctl'), ['-D', dataDir, 'stop', '-m', 'fast'], { stdio: 'pipe' });
-      return;
-    } catch { /* fall through to exact PID check */ }
-  }
-  if (pid && isAlive(pid)) return stopPid(pid);
-}
 
 function spawnDaemon(cmd, args, env, logFile) {
   const fd = openSync(logFile, 'a');
@@ -227,27 +167,8 @@ export async function startLocalStack() {
   try {
     const childEnv = { ...process.env };
     delete childEnv.VITE_KINGDOWN_STAGE;
-    const pgEnv = { ...childEnv, LC_ALL: 'C', LANG: 'C' };
-    if (!existsSync(join(PG_DATA, 'PG_VERSION'))) {
-      execFileSync(pgTool('initdb'), ['-D', PG_DATA, '-U', 'postgres', '--auth=trust', '-E', 'UTF8', '--locale=C'], { env: pgEnv, stdio: 'pipe' });
-    }
-    writeFileSync(
-      join(PG_DATA, 'postgresql.auto.conf'),
-      `listen_addresses = '127.0.0.1'\nport = ${pgPort}\nunix_socket_directories = ''\n`,
-    );
-    try {
-      execFileSync(pgTool('pg_ctl'), [
-        '-D', PG_DATA,
-        '-l', join(LOG_DIR, 'pg.log'),
-        'start',
-      ], { env: pgEnv, stdio: 'pipe' });
-    } catch (error) {
-      const log = join(LOG_DIR, 'pg.log');
-      const tail = existsSync(log) ? readFileSync(log, 'utf8').split('\n').slice(-20).join('\n') : '';
-      throw new Error(`pg_ctl start failed: ${error instanceof Error ? error.message : String(error)}${tail ? `\n${tail}` : ''}`);
-    }
+    const pgPid = startPostgres(PG_DATA, pgPort, join(LOG_DIR, 'pg.log'), childEnv);
     pgStarted = true;
-    const pgPid = readPostmasterPid(PG_DATA);
 
     const adminPool = new pg.Pool({ connectionString: adminDbUrl, max: 1, ssl: false });
     try {
