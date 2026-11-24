@@ -206,3 +206,12 @@ it('Home that opens wide has its wide frame at once', async () => {
   const home = await page.show();
   expect([home.still.src, home.art.dataset.frame]).toEqual(['/interface/reveal/hero-wide.webp', 'wide']);
 });
+it('a hidden tab takes the wide picture too, and starts no film', async () => {
+  const home = await narrowHome();
+  (document as { hidden: boolean }).hidden = true;
+  const plays = home.video.play.mock.calls.length;
+  home.resize(true); expect(home.shown()).toEqual(PORTRAIT);
+  await home.answers[0](true); home.reveal.sync();
+  expect(home.shown()).toEqual(WIDE);
+  expect(home.video.play.mock.calls.length).toBe(plays);
+});
