@@ -26,6 +26,10 @@ await withReleaseSite(origin, async url => {
       try {
         await driver.openHome();
         ok('Home is the redesign', await driver.redesignedHome());
+        ok('Home has one visible and accessible level-one heading named King Down',
+          await page.locator('h1:visible').count() === 1 &&
+          await page.getByRole('heading', { level: 1 }).count() === 1 &&
+          await page.getByRole('heading', { level: 1, name: 'King Down', exact: true }).count() === 1);
         await picture('1-home');
         ok('Home Sign in opens the sign-in choices', await driver.openSignIn());
         ok('no Facebook without ?facebook=1', !await driver.hasFacebook());
