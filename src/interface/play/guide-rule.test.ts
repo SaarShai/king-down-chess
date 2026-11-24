@@ -88,9 +88,20 @@ it('the figure of a piece or a king entry plays its clip when the player opens i
   guide.closeGuidePanel(); expect(stopClip).toHaveBeenCalledTimes(2);
 });
 it('a card, a turn step, reduced motion and a closed entry play no clip', async () => {
-  open('Cards'); open('Cards', guide.guideEntries('Cards')[0].id); open('How a turn works', 'move');
+  open('Cards'); await loaded(); open('Cards', guide.guideEntries('Cards')[1].id); await loaded();
+  open('How a turn works', 'move'); await loaded(); expect(clip).not.toHaveBeenCalled();
   open('Pieces'); open('Pieces', '8'); guide.closeGuidePanel(); // closed before the code came
   fx.setFxMotion('normal', true);
-  open('Pieces'); open('Pieces', '7'); await loaded();
+  open('Pieces'); await loaded(); open('Pieces', '7'); await loaded();
   expect(clip).not.toHaveBeenCalled();
+});
+it('the first open of the entry that the wide preview shows plays its clip one time; a preview and a reload stay still', async () => {
+  const [first, second] = guide.guideEntries('Pieces');
+  open('Pieces', first.id); await loaded(); // a reload
+  open('Pieces'); await loaded(); wide.run(); await loaded(); expect(clip).not.toHaveBeenCalled();
+  const title = open('Pieces', first.id); await loaded();
+  expect([clip.mock.calls.length, rule(title)]).toEqual([1, undefined]);
+  open('Pieces', first.id); await loaded(); expect(clip).toHaveBeenCalledOnce();
+  open('Kings and powers'); open('Pieces'); open('Pieces', second.id); await loaded(); open('Pieces', first.id); await loaded();
+  expect(clip).toHaveBeenCalledTimes(3); // the other entry, then back
 });

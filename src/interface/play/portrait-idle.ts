@@ -11,7 +11,8 @@ export function portraitIdle(image: HTMLImageElement, calm: () => boolean, delay
   const canvas = document.createElement('canvas'), due = performance.now() + delay;
   canvas.className = 'play-portrait-idle'; canvas.setAttribute('aria-hidden', 'true');
   const ctx = canvas.getContext('2d'), query = matchMedia('(prefers-reduced-motion: reduce)');
-  const runtime = createCharacterRuntime();
+  const requests = new AbortController();
+  const runtime = createCharacterRuntime({ fetcher: url => fetch(url, { signal: requests.signal }) });
   let disposed = false, frame = 0, start = 0, clip = '', timer: ReturnType<typeof setTimeout>;
   function draw(now: number) {
     if (disposed) return;
@@ -31,7 +32,7 @@ export function portraitIdle(image: HTMLImageElement, calm: () => boolean, delay
   function stop() {
     if (disposed) return;
     disposed = true; clearTimeout(timer); cancelAnimationFrame(frame); query.removeEventListener('change', stop);
-    runtime.dispose(); canvas.remove(); image.style.visibility = '';
+    runtime.dispose(); requests.abort(); canvas.remove(); image.style.visibility = '';
   }
   query.addEventListener('change', stop);
   void runtime.ready().then(() => runtime.warm(character, army, true)).then(() => {

@@ -4,8 +4,8 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 type Body = { image: object; pivot: number[]; bank: string; canvasSize: number[] };
 const body = (bank: string): Body => ({ image: {}, pivot: [192, 350], bank, canvasSize: [384, 384] });
 const runtime = { ready: vi.fn(async () => {}), warm: vi.fn(async () => {}), rest: vi.fn((): Body | null => body('one')), idleDuration: () => 2000, dispose: vi.fn() };
-const create = vi.fn(() => runtime);
-vi.mock('../../render/painted/character-runtime.mjs', () => ({ createCharacterRuntime: () => create() }));
+const create = vi.fn((_options: { fetcher: typeof fetch }) => runtime);
+vi.mock('../../render/painted/character-runtime.mjs', () => ({ createCharacterRuntime: (options: { fetcher: typeof fetch }) => create(options) }));
 vi.mock('../../render/painted/piece-stills.mjs', () => ({ PIECE_STILLS: { archer: { white: { size: [184, 326], pivot: [97, 323] } } } }));
 const { portraitIdle } = await import('./portrait-idle');
 
@@ -75,6 +75,15 @@ it('a close before the start or in the clip, a hidden page, and reduced motion i
     expect(shows(image)).toEqual([false, '', 1]);
     stop(); expect(runtime.dispose).toHaveBeenCalledOnce();
   }
+});
+it('a close stops the requests of the figure that still run', async () => {
+  const request = vi.fn((_url: string, _options?: RequestInit) => new Promise<Response>(() => {}));
+  vi.stubGlobal('fetch', request);
+  const { stop } = play();
+  void create.mock.lastCall![0].fetcher('/character-runtime/index.json');
+  const signal = request.mock.lastCall![1]!.signal!;
+  expect([request.mock.lastCall![0], signal.aborted]).toEqual(['/character-runtime/index.json', false]);
+  stop(); expect(signal.aborted).toBe(true);
 });
 it('only the Guide asks for the clip, and only when a figure entry opens', () => {
   const guide = readFileSync(new URL('./guide.ts', import.meta.url), 'utf8');

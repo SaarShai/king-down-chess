@@ -69,6 +69,8 @@ const usesLine = (item: GuideEntry) => item.kind.split(' · ')[1]?.replace(' per
 let left: { section: string; entry: string } | null = null;
 /** The section and the entry on display: the title rule draws only when another entry opens. */
 let shownPage: string | undefined;
+/** The entry that the wide layout shows before the player opens one. */
+let previewed: string | undefined;
 let focusActiveTab = false;
 let guideId = 0;
 
@@ -142,7 +144,7 @@ export function guidePage(
   const page = node('section', 'shell-page guide-page');
   const activeSection = guideSections.find(sec => sec === section) ?? 'Pieces';
   const activeIndex = guideSections.indexOf(activeSection);
-  const before = shownPage; shownPage = `${activeSection}/`;
+  const before = shownPage, preview = previewed; shownPage = `${activeSection}/`; previewed = undefined;
   const head = node('header', 'guide-head'), top = node('div', 'guide-top'), title = node('h1', '', text.guide);
   title.tabIndex = -1;
   if (options.onBack) top.append(backLink(options.backLabel ?? text.homeLabel, options.onBack));
@@ -242,7 +244,7 @@ export function guidePage(
   let detailFocused = false;
   page.addEventListener('focusin', event => { detailFocused = body.contains(event.target as Node); });
   const updateDefaultDetail = () => {
-    if (isWide() && entries[0]) mountDetail(entries[0]);
+    if (isWide() && entries[0]) { mountDetail(entries[0]); previewed = shownPage; }
     else {
       const hadFocus = detailFocused || body.contains(document.activeElement);
       const currentId = list.querySelector<HTMLElement>('[aria-current]')?.dataset.entry;
@@ -256,11 +258,12 @@ export function guidePage(
   if (selected) {
     left = { section: activeSection, entry: selected.id };
     const heading = mountDetail(selected);
-    if (before !== undefined && before !== shownPage) {
+    const opened = before !== undefined && before !== shownPage;
+    if (opened) {
       heading.style.setProperty('--rule', '0');
       tween(180, t => heading.style.setProperty('--rule', String(t)), { done: () => heading.style.removeProperty('--rule') });
-      if (figure && !reducedMotion()) playFigure(figure);
     }
+    if ((opened || preview === shownPage) && figure && !reducedMotion()) playFigure(figure);
     if (!isWide()) restore(page, heading, 'start', page);
     else if (!focusTab && options.onBack) restore(page, heading, 'nearest');
     queueMicrotask(() => {
