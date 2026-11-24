@@ -6,12 +6,14 @@
 // site (true: a plugin check that also opens the site at PLAYABLE_URL, so the runner builds and serves it),
 // exclusive (true: the check asserts time or shares the test database, so it runs with every machine slot
 // and no other check beside it; after-redesign/01),
+// db (true: the check needs the disposable test database in PLUGIN_TEST_DATABASE_URL; when it is not set, the runner
+// starts a throwaway one),
 // gpu (true: the check asserts frame times, so it needs a machine with a GPU. The CI runner draws in software at about
 // 10 frames a second: the CI job runs all with `--no-gpu`, which leaves the check out, and `--gpu` selects only these
 // checks. tools/deploy.sh runs them with `--gpu` when CI stands for the other default checks).
 // CI runs non-GPU default checks and named checks with a ci group. webkit adds a second browser.
 // The standalone group gives each check its own job. ciBrowsers lists the browsers that its script opens.
-// ciTestPages enables the test pages for that job's build.
+// ciTestPages enables the test pages for that job's build, and for the build of a local run that selects the check.
 // ciSeconds is the median observed duration when the time limit is a poor estimate.
 // The default checks and the self-test run when no name is given. The selftest-* entries after them are planned
 // faults that prove the runner: selftest-dirty writes a scratch file into the checkout, selftest-fail
@@ -79,12 +81,12 @@ export const checks = [
   { name: 'workshop-cast', script: 'tools/verify-workshop-cast.mjs', limit: 180, byName: true },
   { name: 'qa', ciSeconds: 358, script: 'tools/qa.mjs', limit: 900, channel: 'chromium', exclusive: true },
   { name: 'selftest', ciSeconds: 1, script: 'tools/check-selftest.mjs', limit: 120 },
-  // Plugin checks build their own artifact; OAuth and HTTP checks need local PostgreSQL.
-  { name: 'plugin-oauth', ci: 'plugin', script: 'tools/plugin-browser-check.mjs', args: ['oauth'], limit: 240, channel: 'chromium', byName: true, exclusive: true },
-  { name: 'plugin-privacy', script: 'tools/plugin-browser-check.mjs', args: ['privacy'], limit: 120, channel: 'chromium', byName: true, exclusive: true },
+  // Plugin checks build their own artifact; OAuth and HTTP checks need local PostgreSQL (db).
+  { name: 'plugin-oauth', ci: 'plugin', script: 'tools/plugin-browser-check.mjs', args: ['oauth'], limit: 240, channel: 'chromium', byName: true, exclusive: true, db: true },
+  { name: 'plugin-privacy', script: 'tools/plugin-browser-check.mjs', args: ['privacy'], limit: 120, channel: 'chromium', byName: true, exclusive: true, db: true },
   { name: 'w6-parts', script: 'tools/verify-w6-parts.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'search-worker', script: 'tools/verify-search-worker.mjs', limit: 180, channel: 'chromium', byName: true },
-  { name: 'plugin-skylift', script: 'tools/plugin-browser-check.mjs', args: ['skylift'], limit: 180, channel: 'chromium', byName: true, exclusive: true },
+  { name: 'plugin-skylift', script: 'tools/plugin-browser-check.mjs', args: ['skylift'], limit: 180, channel: 'chromium', byName: true, exclusive: true, db: true },
   // CI WebKit (limit x 3) took 1130-1218 s of 1260 s; New game's open Cards section draws its paintings in each setup step
   // (+30-90 s), and run 40253834383 passed the old limit near the end. 480 s gives 1440 s there.
   { name: 'plugin-ui', ci: 'fixture', script: 'tools/plugin-browser-check.mjs', args: ['fixture'], limit: 480, channel: 'chromium', byName: true },
@@ -96,20 +98,20 @@ export const checks = [
   { name: 'gui-board-a15', script: 'tools/plugin-browser-check.mjs', args: ['preview', 'A15'], limit: 180, channel: 'chromium', byName: true, site: true },
   { name: 'gui-board-a18', script: 'tools/plugin-browser-check.mjs', args: ['preview', 'A18'], limit: 180, channel: 'chromium', byName: true, site: true },
   { name: 'gui-board-y3', script: 'tools/plugin-browser-check.mjs', args: ['preview', 'Y3'], limit: 180, channel: 'chromium', byName: true },
-  { name: 'plugin-ui-http', ci: 'plugin', script: 'tools/plugin-browser-check.mjs', args: ['http'], limit: 480, channel: 'chromium', byName: true, exclusive: true },
-  { name: 'web-game', ci: 'journey', ciSeconds: 175, script: 'tools/web-game-check.mjs', limit: 480, channel: 'chromium', byName: true, exclusive: true },
+  { name: 'plugin-ui-http', ci: 'plugin', script: 'tools/plugin-browser-check.mjs', args: ['http'], limit: 480, channel: 'chromium', byName: true, exclusive: true, db: true },
+  { name: 'web-game', ci: 'journey', ciSeconds: 175, script: 'tools/web-game-check.mjs', limit: 480, channel: 'chromium', byName: true, exclusive: true, db: true },
   // The same two checks on a staging build: they run the Ranked flows that production hides (staging-first-game/67).
-  { name: 'plugin-ui-http-staging', script: 'tools/plugin-browser-check.mjs', args: ['http'], env: { VITE_KINGDOWN_STAGE: 'staging' }, limit: 480, channel: 'chromium', byName: true, exclusive: true },
-  { name: 'web-game-staging', script: 'tools/web-game-check.mjs', env: { VITE_KINGDOWN_STAGE: 'staging' }, limit: 480, channel: 'chromium', byName: true, exclusive: true },
-  { name: 'account-discovery', script: 'tools/web-game-check.mjs', args: ['discovery'], limit: 240, channel: 'chromium', byName: true, exclusive: true },
-  { name: 'staging-login', script: 'tools/web-game-check.mjs', args: ['staging-login'], limit: 240, channel: 'chromium', byName: true, exclusive: true },
-  { name: 'signin-speed', ci: 'journey', webkit: true, ciSeconds: 42, script: 'tools/web-game-check.mjs', args: ['signin-speed'], limit: 180, channel: 'chromium', byName: true, exclusive: true },
-  { name: 'desktop-performance', script: 'tools/web-game-check.mjs', args: ['desktop'], limit: 600, channel: 'chromium', byName: true, exclusive: true },
+  { name: 'plugin-ui-http-staging', script: 'tools/plugin-browser-check.mjs', args: ['http'], env: { VITE_KINGDOWN_STAGE: 'staging' }, limit: 480, channel: 'chromium', byName: true, exclusive: true, db: true },
+  { name: 'web-game-staging', script: 'tools/web-game-check.mjs', env: { VITE_KINGDOWN_STAGE: 'staging' }, limit: 480, channel: 'chromium', byName: true, exclusive: true, db: true },
+  { name: 'account-discovery', script: 'tools/web-game-check.mjs', args: ['discovery'], limit: 240, channel: 'chromium', byName: true, exclusive: true, db: true },
+  { name: 'staging-login', script: 'tools/web-game-check.mjs', args: ['staging-login'], limit: 240, channel: 'chromium', byName: true, exclusive: true, db: true },
+  { name: 'signin-speed', ci: 'journey', webkit: true, ciSeconds: 42, script: 'tools/web-game-check.mjs', args: ['signin-speed'], limit: 180, channel: 'chromium', byName: true, exclusive: true, db: true },
+  { name: 'desktop-performance', script: 'tools/web-game-check.mjs', args: ['desktop'], limit: 600, channel: 'chromium', byName: true, exclusive: true, db: true },
   { name: 'production-comparison', script: 'tools/production-comparison.mjs', limit: 360, channel: 'chromium', byName: true, exclusive: true },
-  { name: 'shared-mechanics', script: 'tools/web-game-check.mjs', args: ['mechanics'], limit: 480, channel: 'chromium', byName: true, exclusive: true },
-  { name: 'recovery-consumers', script: 'tools/web-game-check.mjs', args: ['recovery'], limit: 480, channel: 'chromium', byName: true, exclusive: true },
+  { name: 'shared-mechanics', script: 'tools/web-game-check.mjs', args: ['mechanics'], limit: 480, channel: 'chromium', byName: true, exclusive: true, db: true },
+  { name: 'recovery-consumers', script: 'tools/web-game-check.mjs', args: ['recovery'], limit: 480, channel: 'chromium', byName: true, exclusive: true, db: true },
   { name: 'cache-registration', script: 'tools/cache-registration-check.mjs', limit: 45, channel: 'chromium', byName: true, exclusive: true },
-  { name: 'web-online', ci: 'journey', webkit: true, ciSeconds: 152, script: 'tools/web-online-check.mjs', limit: 480, byName: true, exclusive: true },
+  { name: 'web-online', ci: 'journey', webkit: true, ciSeconds: 152, script: 'tools/web-online-check.mjs', limit: 480, byName: true, exclusive: true, db: true },
   // The live page (next.html): its save wiring (interface-playable issue 01).
   { name: 'king-labels', script: 'tools/verify-king-labels.mjs', limit: 300, channel: 'chromium', byName: true },
   { name: 'next-save', ci: 'journey', ciSeconds: 5.4, script: 'tools/verify-next-save.mjs', limit: 180, channel: 'chromium', byName: true },
@@ -119,7 +121,7 @@ export const checks = [
   { name: 'selftest-fail', script: 'tools/check-selftest-dirty.mjs', args: ['fail'], limit: 30, byName: true },
   { name: 'selftest-hang', script: 'tools/check-selftest-dirty.mjs', args: ['hang'], limit: 5, byName: true },
   { name: 'selftest-hold', script: 'tools/check-selftest-dirty.mjs', args: ['hold'], limit: 60, byName: true },
-  // The play screen scenes at four sizes and two text scales; the page is in the build only with KINGDOWN_TEST_PAGES=1.
+  // The play screen scenes at four sizes and two text scales; the runner builds the page in for it (ciTestPages).
   { name: 'play-scenes', ci: 'standalone', ciTestPages: true, ciSeconds: 260, script: 'tools/verify-play-scenes.mjs', limit: 300, channel: 'chromium', byName: true },
 ];
 
