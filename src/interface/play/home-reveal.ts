@@ -71,10 +71,11 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
     owed();
   }
 
-  /** After a turn, the last film frame stays until the still for the new shape is ready or cannot come. */
+  /** After a turn, the last film frame stays until the still for the new shape is ready, cannot come, or takes more than 1.5 s. */
   const held = () => settled && !art.classList.contains('home-art-settled');
   function settle() {
     if (!held()) return;
+    clearTimeout(releaseTimer);
     art.classList.add('home-art-settled');
     // A hidden page or a disabled transition may send no transitionend event.
     releaseTimer = setTimeout(release, 400);
@@ -128,6 +129,7 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
       void still.decode().catch(() => {});
     }
     const useStill = stillOnly();
+    if (useStill) settle(); // The hold ends when the connection or the motion goes.
     if (!held()) art.classList.toggle('home-art-still', useStill);
     owed();
     if (settled) return;
@@ -144,7 +146,9 @@ export function homeReveal(art: HTMLElement, framed: () => void) {
   video.addEventListener('error', () => nextFilm(), { signal });
   video.addEventListener('ended', () => {
     settled = true;
-    if (art.classList.contains('home-art-whole')) void reframe(); else settle();
+    if (!art.classList.contains('home-art-whole')) { settle(); return; }
+    releaseTimer = setTimeout(settle, 1500);
+    sync();
   }, { signal });
   video.addEventListener('transitionend', event => {
     if (settled && !held() && event.propertyName === 'opacity') release();

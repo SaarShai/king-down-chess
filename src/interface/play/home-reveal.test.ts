@@ -380,7 +380,7 @@ it.each(turns)('%s holds the last film frame until its still is ready, then chan
   try {
     const home = await openHome(false, [...from], app), film = home.shown();
     home.resize(false, [...to]); home.video.emit('ended');
-    vi.advanceTimersByTime(5000);
+    vi.advanceTimersByTime(1400);
     expect([settledClass(home), home.shown(), home.whole()]).toEqual([false, film, true]);
     await home.answers[0](true); home.reveal.sync();
     expect([home.shown(), home.whole(), home.art.classList.contains('home-art-still')]).toEqual([still, false, true]);
@@ -409,13 +409,51 @@ it('a second turn during the hold keeps the last frame, and the still of the las
   await home.answers[0](true); expect([settledClass(home), home.shown()]).toEqual([false, film]);
   await home.answers[1](true); expect([home.shown(), home.whole()]).toEqual([PORTRAIT_STILL, false]);
 });
-it('a lost connection or Motion Off during the hold keeps the last frame, also when the fade-in of the film ends late', async () => {
-  const home = await openHome(false, [1180, 820]), film = home.shown();
-  home.resize(false, [820, 900]); home.video.emit('ended');
-  home.connect(false); await motionOff(true, home); home.video.emit('transitionend', 'opacity');
-  expect([settledClass(home), home.shown(), home.art.classList.contains('home-art-still')]).toEqual([false, film, false]);
-  await home.answers[0](true);
-  expect([home.shown(), home.whole(), home.art.classList.contains('home-art-still')]).toEqual([SQUARE_STILL, false, true]);
+it('a load with no answer ends the hold after 1.5 s on the still that the page has', async () => {
+  vi.useFakeTimers();
+  try {
+    const home = await openHome(false, [1180, 820]), film = home.shown();
+    home.resize(false, [820, 900]); home.video.emit('ended');
+    home.resize(false, [830, 900]); home.video.emit('transitionend', 'opacity'); // the fade-in of the film ends late
+    vi.advanceTimersByTime(1499);
+    expect([settledClass(home), home.shown()]).toEqual([false, film]);
+    vi.advanceTimersByTime(1);
+    expect([settledClass(home), home.shown()[0]]).toEqual([true, '/interface/reveal/hero-wide.webp']);
+    vi.advanceTimersByTime(400);
+    expect([home.shown(), home.whole()]).toEqual([WIDE, true]);
+    await home.answers[0](true); // late, and still the shape of the screen
+    expect([home.shown(), home.whole()]).toEqual([SQUARE_STILL, false]);
+  } finally { vi.useRealTimers(); }
+});
+it('a late still of another shape is not shown', async () => {
+  vi.useFakeTimers();
+  try {
+    const home = await openHome(false, [1180, 820]);
+    home.resize(false, [820, 900]); home.video.emit('ended');
+    vi.advanceTimersByTime(2000);
+    Object.assign(home.art, { clientWidth: 500, clientHeight: 900 }); // no resize event
+    await home.answers[0](true);
+    expect(home.shown()).toEqual(WIDE);
+    await home.answers[1](true);
+    expect(home.shown()).toEqual(PORTRAIT_STILL);
+  } finally { vi.useRealTimers(); }
+});
+it.each([
+  ['a lost connection', (home: Home) => home.connect(false)],
+  ['Motion Off', (home: Home) => motionOff(true, home)],
+] as const)('%s ends the hold at once; a late still of the same shape comes', async (_name, end) => {
+  vi.useFakeTimers();
+  try {
+    const home = await openHome(false, [1180, 820]);
+    home.resize(false, [820, 900]); home.video.emit('ended');
+    expect(settledClass(home)).toBe(false);
+    await end(home);
+    expect([settledClass(home), home.art.classList.contains('home-art-still'), home.shown()[0]]).toEqual([true, true, '/interface/reveal/hero-wide.webp']);
+    vi.advanceTimersByTime(400);
+    expect([home.shown(), home.whole()]).toEqual([WIDE, true]);
+    await home.answers[0](true);
+    expect([home.shown(), home.whole()]).toEqual([SQUARE_STILL, false]);
+  } finally { vi.useRealTimers(); }
 });
 it('a film that ends with no turn settles at once', async () => {
   const home = await openHome(false); home.video.emit('ended');
