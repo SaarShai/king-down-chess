@@ -37,7 +37,7 @@ function fakePage(av1Answer: string, hevcAnswer = av1Answer, app = false) {
       setAttribute: (name: string, value: string) => attributes.set(name, value), hasAttribute: (name: string) => attributes.has(name),
       removeAttribute: (name: string) => attributes.delete(name), get src() { return attributes.get('src'); }, set src(value) { attributes.set('src', value!); },
       append() {}, addEventListener: (type: string, listener: (event: { propertyName?: string }) => void) => listeners.set(type, listener),
-      emit: (type: string) => listeners.get(type)?.({}),
+      emit: (type: string, propertyName?: string) => listeners.get(type)?.({ propertyName }),
       decode: () => Promise.resolve(), play: vi.fn(() => Promise.resolve()), pause() {}, load() {},
       canPlayType: (type: string) => {
         codecChecks.push(type);
@@ -373,6 +373,53 @@ it.each(turns)('%s after its film ended takes the still for its shape; a load er
   expect([home.shown().slice(0, 2), home.whole()]).toEqual([WIDE.slice(0, 2), true]);
   home.resize(false, [...to]); await home.answers[1](true);
   expect([home.shown(), home.whole()]).toEqual([still, false]);
+});
+const settledClass = (home: Home) => home.art.classList.contains('home-art-settled');
+it.each(turns)('%s holds the last film frame until its still is ready, then changes one time', async (_name, app, from, to, still) => {
+  vi.useFakeTimers();
+  try {
+    const home = await openHome(false, [...from], app), film = home.shown();
+    home.resize(false, [...to]); home.video.emit('ended');
+    vi.advanceTimersByTime(5000);
+    expect([settledClass(home), home.shown(), home.whole()]).toEqual([false, film, true]);
+    await home.answers[0](true); home.reveal.sync();
+    expect([home.shown(), home.whole(), home.art.classList.contains('home-art-still')]).toEqual([still, false, true]);
+    expect([home.answers.length, home.framed.mock.calls.length]).toEqual([1, 1]);
+  } finally { vi.useRealTimers(); }
+});
+it.each([
+  ['a still that cannot load', async (home: Home) => { await home.answers[0](false); }],
+  ['a turn back before the still came', (home: Home) => home.resize(false, [1180, 820])],
+  ['a still that comes after the turn back', async (home: Home) => { home.resize(false, [1180, 820]); await home.answers[0](true); }],
+] as const)('%s ends the film on the picture that it has', async (_name, end) => {
+  vi.useFakeTimers();
+  try {
+    const home = await openHome(false, [1180, 820]);
+    home.resize(false, [820, 900]); home.video.emit('ended');
+    expect(settledClass(home)).toBe(false);
+    await end(home);
+    expect([settledClass(home), home.shown()[0]]).toEqual([true, '/interface/reveal/hero-wide.webp']);
+    vi.advanceTimersByTime(400);
+    expect(home.shown()).toEqual(WIDE);
+  } finally { vi.useRealTimers(); }
+});
+it('a second turn during the hold keeps the last frame, and the still of the last shape comes', async () => {
+  const home = await openHome(false, [1180, 820]), film = home.shown();
+  home.resize(false, [820, 900]); home.video.emit('ended'); home.resize(false, [500, 900]);
+  await home.answers[0](true); expect([settledClass(home), home.shown()]).toEqual([false, film]);
+  await home.answers[1](true); expect([home.shown(), home.whole()]).toEqual([PORTRAIT_STILL, false]);
+});
+it('a lost connection or Motion Off during the hold keeps the last frame, also when the fade-in of the film ends late', async () => {
+  const home = await openHome(false, [1180, 820]), film = home.shown();
+  home.resize(false, [820, 900]); home.video.emit('ended');
+  home.connect(false); await motionOff(true, home); home.video.emit('transitionend', 'opacity');
+  expect([settledClass(home), home.shown(), home.art.classList.contains('home-art-still')]).toEqual([false, film, false]);
+  await home.answers[0](true);
+  expect([home.shown(), home.whole(), home.art.classList.contains('home-art-still')]).toEqual([SQUARE_STILL, false, true]);
+});
+it('a film that ends with no turn settles at once', async () => {
+  const home = await openHome(false); home.video.emit('ended');
+  expect([settledClass(home), home.answers.length]).toEqual([true, 0]);
 });
 it('a redraw that changes the art box during the film changes no picture at its end', async () => {
   const home = await openHome(false);
