@@ -10,7 +10,7 @@ export interface ReleasedCard {
 }
 
 /** The released deal order (Q20). Mechanics and contextual rule text stay in their own modules. */
-export const RELEASED_CARDS: readonly ReleasedCard[] = [
+export const RELEASED_CARDS = [
   { id: 'Freeze', name: 'Freeze', availability: 'released', art: 'ui/cards/freeze.webp', fixtureId: 'card-freeze' },
   { id: 'IceWall', name: 'Ice Wall', availability: 'released', art: 'ui/cards/icewall.webp', fixtureId: 'card-icewall' },
   { id: 'Strike', name: 'Strike', availability: 'released', art: 'ui/cards/strike.webp', fixtureId: 'card-strike' },
@@ -32,4 +32,6 @@ export const RELEASED_CARDS: readonly ReleasedCard[] = [
   { id: 'Vault', name: 'Hop', availability: 'released', art: 'ui/cards/vault.webp', fixtureId: 'card-vault' },
   { id: 'Curse', name: 'Curse', availability: 'released', art: 'ui/cards/curse.webp', fixtureId: 'card-curse' },
   { id: 'SkyLift', name: 'Sky Lift', availability: 'released', art: 'ui/cards/skylift.webp', fixtureId: 'card-skylift' },
-];
+] as const satisfies readonly ReleasedCard[];
+/** The ID of a released card. A table typed by this key fails the type check when a new card has no entry. */
+export type ReleasedCardId = (typeof RELEASED_CARDS)[number]['id'];

@@ -115,7 +115,8 @@ export function cardText(card: CardName, r: Rules = DEFAULT_RULES): string {
     case 'MorphP': return 'one of your pawns becomes a knight or a bishop where it stands';
     case 'MorphS': return 'two of your pieces (not pawns or the king, not of one kind) swap places';
   }
-  return card;
+  // Only a king power gets here (`powerText` above). A card with no case fails the type check.
+  return card satisfies PowerName;
 }
 
 /** The move tag each spendable power leaves (`Move.power`). */

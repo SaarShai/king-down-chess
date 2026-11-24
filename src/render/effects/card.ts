@@ -1,5 +1,5 @@
 import type { GameRules } from '../../game-rules';
-import { TAG_POWER, colorOf, typeOf, K, L, N, P, type Move, type Position } from '../../rules/engine';
+import { TAG_POWER, colorOf, typeOf, K, L, N, P, type Move, type Position, type CardName } from '../../rules/engine';
 import { RELEASED_CARDS } from '../../content/cards';
 import type { PaintedScene, SceneEffect } from '../painted/scene.mjs';
 import { HEROES, drawFreezeCast, drawHero, quakeJolt } from './card-hero';
@@ -10,7 +10,7 @@ import { drawFreeze, drawIceWall, drawFirewall } from './materials';
 import { needsPower } from './special-overlays';
 import type { CardFrame, CardLayer } from './card-types';
 
-const released = new Set(RELEASED_CARDS.map(card => card.id));
+const released = new Set<CardName>(RELEASED_CARDS.map(card => card.id));
 /**
  * The local release (motion concepts, ticket 86): Freeze and Firewall prepare at their card for CAST_PREPARE_MS, then the
  * approved material grows on the board where it acts. No light crosses the board, so the cast never reads as an attack.
