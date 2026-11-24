@@ -1683,7 +1683,13 @@ function renderReader(actions?: HTMLElement) {
   const full = arrangement || choice.length || shown?.card === -1 || model.tools.length;
   const view = full ? readerView(model, form, nodes) : narratorView(model, nodes);
   if (!onlineActive && writer.blocked && !arrangement) view.classList.add('play-save-blocked');
-  detail.append(view); if (full) fitReader(view, model); else if (detail.scrollHeight > detail.clientHeight) nodes.art.remove();
+  detail.append(view); if (full) fitReader(view, model); else fitNarrator();
+}
+/** The mark of a power goes when it pushes the narrator's text below the reader. */
+function fitNarrator() {
+  const view = detail.querySelector('.play-narrator');
+  if (view && !nodes.art.isConnected && nodes.art.getAttribute('src')) view.prepend(nodes.art);
+  if (view && detail.scrollHeight > detail.clientHeight) nodes.art.remove();
 }
 function resultNewGame() {
   const newGameBtn = button(text.newGame, { onPress: () => openNewGame(newGameBtn, { fromResult: true }) });
@@ -2011,7 +2017,7 @@ function layout() {
     'reader-y': l.readerY, 'hand-y': l.handY, 'action-y': l.actionY };
   for (const [name, value] of Object.entries(values)) screen.style.setProperty(`--${name}`, `${value}px`);
   // A rotation or a resize keeps the draft, the selection and the save; only the places change.
-  if (changed) { resetFit(); update(); } else fitResult();
+  if (changed) { resetFit(); update(); } else { fitResult(); fitNarrator(); }
 }
 // The layout runs again when the game box changes size: a resize, a rotation, or safe-area values that arrive or change (iOS need P3).
 const fit = new ResizeObserver(() => layout());

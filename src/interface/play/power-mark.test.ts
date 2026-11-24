@@ -14,9 +14,13 @@ it('each power has its own mark, so the two powers of a king differ, and no file
   expect(new Set(powers.map(powerMark)).size).toBe(12);
   for (const pair of Object.values(KINGS)) expect(powerMark(pair[0])).not.toBe(powerMark(pair[1]));
   expect(powers.map(id => powerMark(id).replace('/ui/powers/', '')).sort()).toEqual(readdirSync(art).sort());
-  expect(powerMark('HolyLight')).toBe('/ui/powers/holy-light.webp');
   expect(readdirSync(art).reduce((sum, file) => sum + statSync(new URL(file, art)).size, 0)).toBeLessThan(400_000);
 });
+
+it.each([
+  ['Freeze', 'freeze'], ['IceWall', 'ice-wall'], ['Strike', 'strike'], ['Haste', 'haste'], ['Flight', 'flight'], ['Sacrifice', 'sacrifice'],
+  ['March', 'march'], ['Leap', 'leap'], ['HolyLight', 'holy-light'], ['Mercy', 'mercy'], ['DeathTouch', 'death-touch'], ['Darkness', 'darkness'],
+] as const)('the mark of %s is %s.webp', (power, file) => { expect(powerMark(power)).toBe(`/ui/powers/${file}.webp`); });
 
 it.each([0, 1])('the hand coin of side %i shows the mark of its power', side => {
   const main = read('./main.ts'), page = transformSync('main.ts', parseSync('main.ts', main).program.body
@@ -48,6 +52,26 @@ it('a check or a win colours the ring of a coin: no ring rule of the mark is str
     expect((rule.replace(/:where\(.*?\)+ /, ' ').match(/(\.[\w-]+|\[[^\]]+\])(?=.*\{)/g) ?? []).length).toBe(2); // as strong as [data-check]
     for (const state of [".play-seat-ring[data-check='true'] {", ".play-seat-ring[data-outcome='win'] {"]) expect(at(state)).toBeGreaterThan(index);
   }
+});
+
+it('a resize runs the fit check of the narrator again: the mark goes when the text leaves the reader, and comes back', () => {
+  const main = read('./main.ts'), body = parseSync('main.ts', main).program.body;
+  const source = (name: string) => { const node = body.find(node => node.type === 'FunctionDeclaration' && node.id?.name === name)!; return main.slice(node.start, node.end); };
+  let room = true;
+  const art = { src: '/ui/powers/freeze.webp' as string | null, isConnected: true, getAttribute: () => art.src, remove() { art.isConnected = false; } };
+  const view = { prepend(node: typeof art) { node.isConnected = true; } };
+  const detail = { querySelector: () => view as typeof view | null, get scrollHeight() { return room || !art.isConnected ? 76 : 96; }, clientHeight: 76 };
+  const scope: Record<string, unknown> = { detail, nodes: { art } };
+  runInNewContext(transformSync('main.ts', source('fitNarrator')).code, scope);
+  const fit = () => { (scope.fitNarrator as () => void)(); return art.isConnected; };
+  expect(fit()).toBe(true);
+  room = false; expect(fit()).toBe(false); // narrower
+  expect(fit()).toBe(false);
+  room = true; expect(fit()).toBe(true);
+  art.isConnected = false; art.src = null; expect(fit()).toBe(false); // the words of a move have no mark
+  art.src = '/ui/powers/freeze.webp'; detail.querySelector = () => null; expect(fit()).toBe(false); // no narrator
+  expect(source('layout')).toMatch(/else \{ fitResult\(\); fitNarrator\(\); \}/);
+  expect(source('renderReader')).toContain('else fitNarrator();');
 });
 
 it('the reader shows the mark of a power that the player reads, and no picture for the words of a move', async () => {
