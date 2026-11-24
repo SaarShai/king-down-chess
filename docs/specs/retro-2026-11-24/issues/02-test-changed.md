@@ -20,7 +20,7 @@ The full `npm test` takes 525 s on this Mac. `tools/**` takes 83% of the test ti
 
 - `KINGDOWN_TEST_FILE=tools/lib/test-select.test.ts npm test`: 5 tests pass, one fixture tree for each rule and each way back to the full suite. The tree holds a catch-all route glob, a git hook that a test names, and a listed script with no other test.
 - A real run with one changed line in `src/interface/play/main.ts`: 45 of 441 files, 1,085 tests pass, 44 s.
-- History: 150 commits on main that change a test and a source file together. The selection holds 253 of the 260 changed tests. The 7 others: a test that pins a list for a file that did not change (2), an import that today's tree no longer has (1), a test that changed only itself (4).
+- History: 150 commits on main that change a test and a source file together. With the repaired selector, 46 commits give the full suite and 104 give a selection. Of the 260 changed tests, 6 are not in a selection: a test that pins a list for a file that did not change (1), an import that today's tree no longer has (1), a test that changed only itself (4). The repairs add no miss: the 6 are among the 7 of the first audit, and the seventh commit now gives the full suite.
 - The selector takes about 3 s.
 - An independent review found two false skips: a catch-all glob (`'**/*'`, a browser route) connected every file to 11 tests, so the full suite never ran for an unplaced file; a migration and a git hook selected tests that do not load them. The area rule and the glob rule repair both. On the real tree, `.githooks/pre-push.mjs`, a migration, a public image and `.gitignore` each give the full suite.
 
