@@ -1,6 +1,6 @@
 # The routes of fault reports
 
-Status: done on branch seam-reports; reviewed, repaired and checked; waits for the staging pass and the publish.
+Status: done and merged (PR 472; the last batch came with the pull request of tickets 01 to 04); waits for the staging pass and the publish.
 
 Class: C. Size: S. Needs a two-account pass on staging and a publish.
 
@@ -83,3 +83,4 @@ Not verified:
   - `KINGDOWN_TEST_FILE=src/diagnostics/data.test.ts npm test`: 36 passed, 3 s (`green3.log`).
   - `npm run test:docs`: 19 files passed; 199 tests passed, 1 skipped; 2 s (`docs7.log`).
   - No `test:changed` run: the batch changes the type of one test table and the ticket.
+- Check of this batch, by the same reviewer, on head `c67077f4c`: the repair holds; no blocker. The commit was not in PR 472; it goes to main with the pull request of tickets 01 to 04.
