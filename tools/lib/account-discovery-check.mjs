@@ -31,12 +31,15 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     };
   }, settingsUrl);
   local.on('request', request => { if (new URL(request.url()).origin !== origin && request.url() !== settingsUrl) requests.push('external request'); if (request.method() !== 'GET') requests.push(request.method() + ' ' + new URL(request.url()).pathname); });
-  // Offline, the board asks for character art that the worker does not keep, and it draws the plain figure (vite.config.ts:51).
-  // Only that art may fail in the page; any other failed page request goes to `requests`. The worker's own
-  // network tries fail offline too, and it then answers from its cache.
+  // The worker does not keep character frames, and the runtime asks for no art offline (src/render/painted/character-runtime.mjs:91;
+  // docs/specs/ship-character-runtime/issues/01-webp-package.md:65). A frame load that is in flight at the switch fails.
+  // So offline, no frame load may start, and only a frame may fail in the page. The worker's own network tries fail too,
+  // and it then answers from its cache.
   let offline = false;
-  local.on('requestfailed', request => { if (offline && !request.serviceWorker() && !/^\/character-runtime\/assets\/[0-9a-f]{64}\.webp$/.test(new URL(request.url()).pathname)) requests.push('offline failure ' + new URL(request.url()).pathname); });
-  const page = await local.newPage(); errors.push(trapErrors(page, [{ pattern: '^Failed to load resource: net::ERR_INTERNET_DISCONNECTED$', reason: 'optional character art offline; the requestfailed rule above limits it' }])); page.setDefaultTimeout(15_000);
+  const frame = request => /^\/character-runtime\/assets\/[0-9a-f]{64}\.webp$/.test(new URL(request.url()).pathname);
+  local.on('request', request => { if (offline && frame(request)) requests.push('offline frame request'); });
+  local.on('requestfailed', request => { if (offline && !request.serviceWorker() && !frame(request)) requests.push('offline failure ' + new URL(request.url()).pathname); });
+  const page = await local.newPage(); errors.push(trapErrors(page, [{ pattern: '^Failed to load resource: net::ERR_INTERNET_DISCONNECTED$', reason: 'a frame load in flight at the offline switch; the rules above limit it' }])); page.setDefaultTimeout(15_000);
   async function checkLayout(label) {
     for (const viewport of [{ width: 390, height: 844 }, { width: 390, height: 640 }, { width: 844, height: 390 }, { width: 1440, height: 900 }]) {
       await page.setViewportSize(viewport);
