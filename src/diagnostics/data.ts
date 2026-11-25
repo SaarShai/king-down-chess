@@ -81,19 +81,20 @@ export function errorName(value: unknown): string {
 }
 
 const fixedRoutes = new Set([
- '/', '/play', '/play/profile', '/play/settings', '/g/:game', '/j', '/other',
- '/api/status', '/api/client-errors', '/api/games', '/api/games/find', '/api/lobby',
+ '/', '/index.html', '/play', '/play/friend', '/play/profile', '/play/settings', '/g/:game', '/j', '/other',
+ '/api/status', '/api/client-errors', '/api/games', '/api/games/find', '/api/lobby', '/api/friends',
  '/api/invites/preview', '/api/invites/redeem', '/api/me/games', '/api/me/profile',
  '/api/me/settings', '/api/me/handle', '/api/me/record', '/api/blocks',
  '/api/me/deletion', '/api/me/notifications', '/api/relations', '/api/reports',
 ]);
 
-/** Use only the patterns in online/routes.ts and api/http.ts. Drop all other paths. */
+/** Use only the patterns in online/routes.ts and api/http.ts, and the old board page. Drop all other paths. */
 export function errorRoute(path: string): string {
  const clean = path.split(/[?#]/, 1)[0].replace(/\/$/, '') || '/';
  if (clean === '/next.html') return '/next.html';
  if (fixedRoutes.has(clean)) return clean;
  if (/^\/g\/[^/]+$/.test(clean)) return '/g/:game';
+ if (/^\/api\/invites\/[^/]+\/decline$/.test(clean)) return '/api/invites/:invite/decline';
  const game = /^\/api\/games\/[^/]+(\/(?:accept|cancel|preview|seen|commands|invite))?$/.exec(clean);
  return game ? '/api/games/:game' + (game[1] ?? '') : '/other';
 }
