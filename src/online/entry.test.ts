@@ -12,6 +12,7 @@ vi.mock('../account/client', () => ({ connect: vi.fn(() => ({ readSession, signO
 vi.mock('./client', () => ({ onlineClient: vi.fn(() => ({})) }));
 vi.mock('./runtime', () => ({ createBrowserRuntime: vi.fn(() => ({ dispose })) }));
 vi.mock('../account-game/runtime', () => ({}));
+vi.mock('./launch', () => ({ installLocalSolo: vi.fn(), installAccountControls: vi.fn() }));
 
 class Element {
   children: Element[] = [];
@@ -242,6 +243,21 @@ it('puts Log out last in Settings only and sends one logout before returning to 
   expect(replace).not.toHaveBeenCalled();
   finish(); await pending;
   expect(replace).toHaveBeenCalledExactlyOnceWith('/play/');
+});
+
+it('keeps web solo games on the device before the runtime starts, and adds the account controls after Log out', async () => {
+  vi.mocked(readWebAccountAccess).mockResolvedValue({ enabled: true, expiresAt: 5000 });
+  const session = { userId: 'test-user', accessToken: 'test-token' };
+  readSession.mockResolvedValue(session);
+  const { installLocalSolo, installAccountControls } = await import('./launch');
+  let before: string[] = [];
+  vi.mocked(installAccountControls).mockImplementation(async () => { before = settings.querySelectorAll('button').map(button => button.textContent); });
+  await import('./entry');
+  expect(before).toEqual(['Log out']);
+  const api = vi.mocked(onlineClient).mock.results[0].value;
+  expect(installLocalSolo).toHaveBeenCalledExactlyOnceWith(api, 'test-user');
+  expect(vi.mocked(installLocalSolo).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(createBrowserRuntime).mock.invocationCallOrder[0]);
+  expect(installAccountControls).toHaveBeenCalledExactlyOnceWith(vi.mocked(connect).mock.results[0].value, session);
 });
 
 it('keeps Log out available after an error and shows a plain retry message', async () => {

@@ -25,7 +25,6 @@ import { createAdmission } from '../src/api/admission.ts';
 import { createErrorWriter } from '../src/diagnostics/server.ts';
 import { createCurrentUserCheck } from '../src/api/current-user.ts';
 import { CHATGPT_PLUGIN } from './chatgpt-plugin.mjs';
-import { soloLaunch } from './solo-launch.mjs';
 import { MUSE_CONNECTOR, MUSE_PATHS } from './muse-connector.mjs';
 
 // A build sets KINGDOWN_CHATGPT (tools/plugin-server-build.mjs); the source follows the switch in tools/chatgpt-plugin.mjs.
@@ -185,7 +184,8 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
   } catch (error) { serveMuse = false; console.error('King Down Muse startup failed', { build, ...diagnostic(error) }); }
   // The deletion notice needs both mail settings (tools/deploy-plugin-env.mjs sets both or neither).
   const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET, send: env.RESEND_API_KEY && env.KINGDOWN_MAIL_FROM ? resendSender(env) : undefined });
-  const localSolo = typeof __KINGDOWN_SOLO_LAUNCH__ === 'boolean' ? __KINGDOWN_SOLO_LAUNCH__ : soloLaunch(env.KINGDOWN_SOLO_LAUNCH);
+  // tools/plugin-server-build.mjs sets this for a build with a site; the server from source keeps web solo games.
+  const localSolo = typeof __KINGDOWN_SOLO_LAUNCH__ === 'boolean' && __KINGDOWN_SOLO_LAUNCH__;
   const api = createApiHandler({ games, accounts: new AccountService(store), safety: new SafetyService(store), players: service, publicOrigin,
     ...(import.meta.env?.KINGDOWN_ERROR_RECORDER !== false && { recordError: createErrorWriter(pool, typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : ''), build: typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : '' }),
     localSolo, muse: serveMuse, admit: createAdmission(),

@@ -5,12 +5,9 @@ import { runInNewContext } from 'node:vm';
 import { expect, it } from 'vitest';
 import { parseAccountRoute } from '../src/online/routes';
 import { siteRoute } from './lib/site-route.mjs';
-import { soloLaunch } from './solo-launch.mjs';
 import { vercelRoutes } from './plugin-server-build.mjs';
 
-it('requires an explicit launch flag and leaves the default root route unchanged', () => {
-  expect(soloLaunch('')).toBe(false); expect(soloLaunch('0')).toBe(false); expect(soloLaunch('1')).toBe(true);
-  expect(() => soloLaunch('true')).toThrow('0 or 1');
+it('gives the new page at / only for a tree with the launch marker', () => {
   const site = mkdtempSync(join(tmpdir(), 'platform-routes-'));
   try {
     expect(vercelRoutes(site).some(route => route.src === '^/$')).toBe(false);
@@ -55,7 +52,7 @@ it('keeps the launch legal facts and the old in-app deletion path', () => {
   expect(legal('delete-data')).toContain('Settings → Account');
 });
 it('names King Down in the launch HTML before script execution', () => {
-  const html = readFileSync('tools/solo-launch/next.html', 'utf8');
+  const html = readFileSync('next.html', 'utf8');
   expect(Array.from(html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi), ([, title]) => title.trim())).toEqual(['King Down']);
   expect(html).toMatch(/<section id="browser-support" hidden\b/);
   for (const text of [
@@ -67,7 +64,7 @@ it('names King Down in the launch HTML before script execution', () => {
 
 it('uses the Daylight page colour before the styles load and in the launch manifest', () => {
   const paper = /--paper-50: (#[0-9a-f]{6});/.exec(readFileSync('src/interface/ui/tokens.css', 'utf8'))![1];
-  for (const file of ['next.html', 'tools/solo-launch/next.html', 'people.html']) {
+  for (const file of ['next.html', 'people.html']) {
     const html = readFileSync(file, 'utf8');
     expect(html, file).toContain(`name="theme-color" content="${paper}"`);
     expect(html, file).toContain(`html { background: ${paper}; }`);
@@ -87,24 +84,6 @@ it('gives each launch legal link a 44 px target on a light page', () => {
   expect(html, page).toMatch(/nav a \{[^}]*display: inline-flex;[^}]*min-height: 44px;/);
   expect(html, page).toContain('body { margin: 0; background: #f7f5ed;');
  }
-});
-
-it('strips the new-page recorder route in the off build and stops when that line changes', async () => {
- const { launchSource } = await import('./solo-launch.mjs');
- const source = readFileSync('src/diagnostics/data.ts', 'utf8'), id = '/src/diagnostics/data.ts';
- expect(source).toContain("return '/next.html';");
- expect(launchSource(source, id, true)).toBe(source);
- expect(launchSource(source, id, false)).not.toContain("'/next.html'");
- expect(() => launchSource(source.replace("return '/next.html';", "return '/next.html'; "), id, false)).toThrow('Launch recorder route has changed');
-});
-
-it('keeps the original entries off and attaches the launch controls to the actual online entry', async () => {
- const { launchSource } = await import('./solo-launch.mjs');
- const source = readFileSync('src/online/entry.ts', 'utf8');
- expect(launchSource(source, '/src/online/entry.ts', false)).toBeUndefined();
- const launch = launchSource(source, '/src/online/entry.ts', true)!;
- expect(launch).toContain('installLocalSolo(api, session.userId);'); expect(launch).toContain('installAccountControls(auth, session);');
- expect(launch.indexOf('installLocalSolo(api, session.userId);')).toBeLessThan(launch.indexOf('const host = createBrowserRuntime'));
 });
 
 it('reads a page route only where the host serves that page', async () => {

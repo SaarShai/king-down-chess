@@ -6,7 +6,6 @@ import { pluginSymbols } from './tools/lib/plugin-symbols.mjs';
 import { siteRoute } from './tools/lib/site-route.mjs';
 import { JOIN_PAGE, vercelRoutes } from './tools/plugin-server-build.mjs';
 import { buildWorker } from './tools/plugin-runtime-build.mjs';
-import { launchSource, soloLaunch } from './tools/solo-launch.mjs';
 import { configDefaults, defineConfig, type Plugin } from 'vitest/config';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -15,7 +14,6 @@ import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { OutputBundle } from 'rolldown';
 
-const launch = soloLaunch();
 // Vite 8's default target, pinned: the iOS app floor (IPHONEOS_DEPLOYMENT_TARGET 16.4) depends on it. Raise both together.
 export const buildTarget = ['chrome111', 'edge111', 'firefox114', 'safari16.4', 'ios16.4'];
 
@@ -28,9 +26,8 @@ const walk = (dir: string): string[] => readdirSync(dir).flatMap(name => {
 const onDemand = /\/src\/(?:account\/client|online\/entry|interface\/play\/portrait-idle)\.ts$/;
 
 /** Select the local graph and the public art, fonts and icons that it uses. */
-export function offlineCacheFiles(bundle: OutputBundle, root: string, files: string[], solo = false) {
-  const local = new Set(['src/main.ts', 'src/entry.ts', 'index.html'].map(file => resolve(root, file).replaceAll('\\', '/')));
-  if (solo) for (const file of ['next.html', 'src/interface/entry.ts', 'src/interface/launch-entry.ts']) local.add(resolve(root, file).replaceAll('\\', '/'));
+export function offlineCacheFiles(bundle: OutputBundle, root: string, files: string[]) {
+  const local = new Set(['src/main.ts', 'src/entry.ts', 'index.html', 'next.html', 'src/interface/entry.ts'].map(file => resolve(root, file).replaceAll('\\', '/')));
   const graph = new Set<string>();
   const visit = (name: string) => {
     if (graph.has(name) || name.endsWith('.map')) return;
@@ -51,8 +48,8 @@ export function offlineCacheFiles(bundle: OutputBundle, root: string, files: str
   const launchArt = /^interface\/(?:stone-refined-light|computer-king-[123]-96|reveal\/hero-(?:portrait|square|wide))\.webp$/;
   // Optional clips load only with motion; the offline board can use the plain figures.
   const publicFiles = files.filter(file => !/^assets\/(?:tap|slam)-[\w-]+\.webp$/.test(file)
-    && (graph.has(file) || solo && (file === 'browser-support.js' || launchArt.test(file)) || isCharacterRuntimeStartup(file) || /^(?:audio\/armour\/[\w-]+\.wav|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file))).sort();
-  return { allowlist: ['./', 'index.html', ...solo ? ['next.html'] : [], ...publicFiles], precache: ['./', ...solo ? ['index.html', 'next.html'] : [], ...publicFiles] };
+    && (graph.has(file) || (file === 'browser-support.js' || launchArt.test(file)) || isCharacterRuntimeStartup(file) || /^(?:audio\/armour\/[\w-]+\.wav|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file))).sort();
+  return { allowlist: ['./', 'index.html', 'next.html', ...publicFiles], precache: ['./', 'index.html', 'next.html', ...publicFiles] };
 }
 
 /** Copy public files and set the exact offline lists and content version. */
@@ -63,9 +60,9 @@ function offlineBuild(): Plugin {
     apply: 'build',
     configResolved(config) { publicDir = config.publicDir; root = config.root; outDir = resolve(root, config.build.outDir); },
     transformIndexHtml: { order: 'post', handler(_html, context) {
-      if (launch && context.path === '/next.html') return [{ tag: 'link', attrs: { rel: 'manifest', href: '/manifest.webmanifest' }, injectTo: 'head' }]; 
+      if (context.path === '/next.html') return [{ tag: 'link', attrs: { rel: 'manifest', href: '/manifest.webmanifest' }, injectTo: 'head' }]; 
       // Start the offline cache after the board is ready.
-      return [{ tag: 'script', injectTo: 'head', children: `if (${launch ? "['/', '/index.html'].includes(location.pathname)" : "location.pathname === '/'"} && 'serviceWorker' in navigator) addEventListener('load', async () => {
+      return [{ tag: 'script', injectTo: 'head', children: `if (['/', '/index.html'].includes(location.pathname) && 'serviceWorker' in navigator) addEventListener('load', async () => {
   for (let t = 0; !window.view && t < 300; t++) await new Promise(r => setTimeout(r, 200));
   await Promise.race([window.view?.ready(), new Promise(r => setTimeout(r, 60000))]);
   navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }).catch(() => {});
@@ -79,7 +76,7 @@ function offlineBuild(): Plugin {
       } });
       // These two pages ship from tools/solo-launch/: public/privacy.html has Muse text that never shipped, and
       // public/support.html gives the head of public/muse-connector.html. The owner decides their text (ticket 07).
-      if (launch) for (const file of ['privacy.html', 'support.html']) cpSync(join(root, 'tools/solo-launch', file), join(outDir, file));
+      for (const file of ['privacy.html', 'support.html']) cpSync(fileURLToPath(new URL(`./tools/solo-launch/${file}`, import.meta.url)), join(outDir, file));
       // The beam is the only effect that reads metadata at runtime.
       const effects = join(outDir, 'character-runtime/effects');
       if (existsSync(effects)) for (const path of walk(effects).filter(path => path.endsWith('/effect.json'))) {
@@ -92,12 +89,11 @@ function offlineBuild(): Plugin {
       // The game loads the index and the parts of its figures, not the whole manifest (tools/lib/character-runtime-split.mjs).
       const manifest = join(outDir, 'character-runtime/manifest.json');
       if (existsSync(manifest)) writeRuntimeParts(join(outDir, 'character-runtime'), validateManifest(JSON.parse(readFileSync(manifest, 'utf8'))));
-      if (launch) {
-        writeFileSync(join(outDir, 'solo-launch.json'), JSON.stringify({ soloLaunch: true }) + '\n');
-        const manifest = JSON.parse(readFileSync(join(outDir, 'manifest.webmanifest'), 'utf8'));
-        Object.assign(manifest, { name: 'King Down', description: 'Chess with new pieces, king powers and cards. Play on this device, or play a person online.', background_color: '#f5f0e4', theme_color: '#f5f0e4' });
-        writeFileSync(join(outDir, 'manifest.webmanifest'), JSON.stringify(manifest, null, 2) + '\n');
-      }
+      // The app router of the installed iOS build, the host routes and the checks read this marker.
+      writeFileSync(join(outDir, 'solo-launch.json'), JSON.stringify({ soloLaunch: true }) + '\n');
+      const webManifest = JSON.parse(readFileSync(join(outDir, 'manifest.webmanifest'), 'utf8'));
+      Object.assign(webManifest, { name: 'King Down', description: 'Chess with new pieces, king powers and cards. Play on this device, or play a person online.', background_color: '#f5f0e4', theme_color: '#f5f0e4' });
+      writeFileSync(join(outDir, 'manifest.webmanifest'), JSON.stringify(webManifest, null, 2) + '\n');
       const files = walk(outDir).map(path => relative(outDir, path).split(sep).join('/')).filter(f => f !== 'sw.js' && !f.startsWith('.well-known/')).sort();
       for (const file of files.filter(file => file.startsWith('character-runtime/'))) {
         const contents = readFileSync(join(outDir, file));
@@ -108,7 +104,7 @@ function offlineBuild(): Plugin {
       const template = readFileSync(join(publicDir, 'sw.js'), 'utf8');
       const hash = createHash('sha256').update(template); // a change to the worker itself is a new version too
       for (const f of files.filter(file => !file.startsWith('character-runtime/') || isCharacterRuntimeStartup(file) || file === 'character-runtime/manifest.json')) hash.update(f).update(readFileSync(join(outDir, f)));
-      const { allowlist, precache } = offlineCacheFiles(bundle, root, files, launch);
+      const { allowlist, precache } = offlineCacheFiles(bundle, root, files);
       if (!precache.every(file => allowlist.includes(file))) throw new Error('Offline file is not public');
       let sw = template;
       for (const [marker, value] of [["const VERSION = 'dev';", `const VERSION = '${hash.digest('hex').slice(0, 12)}';`], ['const ALLOWLIST = [];', `const ALLOWLIST = ${JSON.stringify(allowlist)};`], ['const PRECACHE = [];', `const PRECACHE = ${JSON.stringify(precache)};`]]) {
@@ -153,7 +149,7 @@ export function sharedSeatSelectors() {
 
 export default defineConfig(({ command }) => {
   if (command === 'build' && process.env.KINGDOWN_LOCAL_ONLINE === '1') throw new Error('Local online stack refuses builds');
-  const localOnline = command === 'serve' && process.env.KINGDOWN_LOCAL_ONLINE === '1' && !launch;
+  const localOnline = command === 'serve' && process.env.KINGDOWN_LOCAL_ONLINE === '1';
   if (localOnline) {
     if (process.env.NODE_ENV === 'production' || process.env.KINGDOWN_STAGE || process.env.VITE_KINGDOWN_STAGE) throw new Error('Local online stack refuses production or staging mode');
     const urls = [new URL(process.env.VITE_SUPABASE_URL ?? ''), new URL(process.env.KINGDOWN_LOCAL_API_ORIGIN ?? '')];
@@ -164,10 +160,7 @@ export default defineConfig(({ command }) => {
   return {
   // Account routes share the site root; their assets must not resolve below /play/ or /g/.
   base: '/',
-  define: { __KINGDOWN_SOLO_LAUNCH__: JSON.stringify(launch), __KINGDOWN_CHARACTER_RUNTIME__: JSON.stringify(existsSync(new URL('./public/character-runtime/manifest.json', import.meta.url))), __KINGDOWN_ERROR_FORMS__: JSON.stringify(sourceErrorForms().filter(parts => launch || ![
-      'Solo games run on this device.', 'The computer plays on this device.', 'This game cannot open on this device.',
-      'This game needs the online page.', 'This game version cannot open on this device. Your online game stays saved.', 'Your online game stays saved.',
-    ].includes(parts.join('')))), __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()),
+  define: { __KINGDOWN_CHARACTER_RUNTIME__: JSON.stringify(existsSync(new URL('./public/character-runtime/manifest.json', import.meta.url))), __KINGDOWN_ERROR_FORMS__: JSON.stringify(sourceErrorForms()), __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()),
     __KINGDOWN_LOCAL_ONLINE__: JSON.stringify(localOnline) },
   // Both servers listen on 127.0.0.1, the address that the checks call; a `--host` flag overrides it.
   server: { host: '127.0.0.1', port: +(process.env.PORT || 5173), strictPort: true, ...(localOnline && { proxy: { '/api': { target: process.env.KINGDOWN_LOCAL_API_ORIGIN!, changeOrigin: false } } }) },
@@ -196,7 +189,7 @@ export default defineConfig(({ command }) => {
     return [...files].map(name => ({ tag: 'link', attrs: name.endsWith('.css')
       ? { rel: 'preload', as: 'style', crossorigin: '', href: '/' + name }
       : { rel: 'modulepreload', crossorigin: '', href: '/' + name }, injectTo: 'head' as const }));
-  } } }, { name: 'solo-launch-source', apply: 'build', enforce: 'pre', transform(code, id) { return launchSource(code, id, launch); }, transformIndexHtml: { order: 'pre', handler(html, context) { return launch && context.path === '/next.html' ? readFileSync(join(fileURLToPath(new URL('.', import.meta.url)), 'tools/solo-launch/next.html'), 'utf8').replace('/src/interface/entry.ts', '/src/interface/launch-entry.ts') : html; } } }, { name: 'solo-launch-preview', configurePreviewServer(server) {
+  } } }, { name: 'solo-launch-preview', configurePreviewServer(server) {
     const site = resolve(server.config.root, server.config.build.outDir);
     if (!existsSync(resolve(site, 'solo-launch.json'))) return;
     // The page routes of the host. The preview has no server, so a path of /api, /internal or a connector answers as a missing file.

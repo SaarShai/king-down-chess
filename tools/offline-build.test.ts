@@ -50,21 +50,19 @@ function fixture() {
 it('selects the local loader, static and dynamic graph, AI worker, CSS and assets', () => {
   const { bundle, files } = fixture();
   const { allowlist, precache } = offlineCacheFiles(bundle, root, files);
-  expect(precache).toEqual(['./', ...[
+  expect(precache).toEqual(['./', 'index.html', 'next.html', ...[
     'assets/root.js', 'assets/main.js', 'assets/shared.js', 'assets/workshop.js', 'assets/lesson.js',
     'assets/worker.js', 'assets/main.css', 'assets/font.woff2', 'assets/local.webp',
     'ui/pawn.webp', 'ui/emblems/frost.webp', 'ui/powers/ice-wall.webp', 'ui/icons/pawn.svg', 'fonts/cinzel.woff2', 'icons/icon-192.png', 'manifest.webmanifest',
   ].sort()]);
-  expect(allowlist).toEqual(['./', 'index.html', ...precache.slice(1)]);
+  expect(allowlist).toEqual(precache);
   expect(precache.every(file => allowlist.includes(file))).toBe(true);
 });
 
 it('leaves the Guide clip code and what only it needs out of the install', () => {
   const { bundle, files } = fixture();
-  for (const solo of [false, true]) {
-    const { allowlist, precache } = offlineCacheFiles(bundle, root, files, solo);
-    for (const file of ['assets/portrait-idle.js', 'assets/clip-data.js']) { expect(precache).not.toContain(file); expect(allowlist).not.toContain(file); }
-  }
+  const { allowlist, precache } = offlineCacheFiles(bundle, root, files);
+  for (const file of ['assets/portrait-idle.js', 'assets/clip-data.js']) { expect(precache).not.toContain(file); expect(allowlist).not.toContain(file); }
   // Code that the board needs too stays in the install.
   (bundle['assets/shared.js'] as OutputChunk).imports.push('assets/clip-data.js');
   expect(offlineCacheFiles(bundle, root, files).precache).toContain('assets/clip-data.js');
@@ -72,7 +70,7 @@ it('leaves the Guide clip code and what only it needs out of the install', () =>
 
 it('excludes other entries, account-only output, maps, metadata, auth and legal files', () => {
   const { bundle, files } = fixture();
-  const { allowlist, precache } = offlineCacheFiles(bundle, root, files);
+  const { allowlist } = offlineCacheFiles(bundle, root, files);
   const excluded = files.filter(file => !allowlist.includes(file));
   expect(excluded).toEqual(expect.arrayContaining([
     'assets/web-entry.js', 'assets/private-runtime.js', 'assets/play.js', 'assets/account.js', 'assets/account.css', 'assets/account.webp', 'assets/client.js', 'assets/vendor.js',
@@ -80,7 +78,6 @@ it('excludes other entries, account-only output, maps, metadata, auth and legal 
     'privacy.html', 'terms.html', 'support.html', 'delete-data.html', 'ui/consent.mjs', 'ui/private.html', 'fonts/license.txt', 'icons/account.json',
     '.well-known/openai-apps-challenge', '.well-known/oauth-protected-resource',
   ]));
-  expect(precache).not.toContain('index.html');
 });
 
 it('F7: the offline install does not fetch optional clip sheets', () => {
@@ -98,16 +95,14 @@ it('F7: the offline install does not fetch optional clip sheets', () => {
   expect(precache).toContain('assets/knight-Abcd1234.webp');
 });
 
-it('precaches character sounds in both build modes without caching other audio files', () => {
+it('precaches character sounds without caching other audio files', () => {
   const { bundle, files } = fixture();
   const sounds = ['audio/armour/select-flame-r10-A.wav', 'audio/armour/select-guard-r10-C.wav'];
   const excluded = ['audio/armour/private.json', 'audio/other.wav', 'audio/armour/nested/file.wav'];
   files.push(...sounds, ...excluded);
-  for (const solo of [false, true]) {
-    const { allowlist, precache } = offlineCacheFiles(bundle, root, files, solo);
-    for (const sound of sounds) { expect(allowlist).toContain(sound); expect(precache).toContain(sound); }
-    for (const file of excluded) { expect(allowlist).not.toContain(file); expect(precache).not.toContain(file); }
-  }
+  const { allowlist, precache } = offlineCacheFiles(bundle, root, files);
+  for (const sound of sounds) { expect(allowlist).toContain(sound); expect(precache).toContain(sound); }
+  for (const file of excluded) { expect(allowlist).not.toContain(file); expect(precache).not.toContain(file); }
 });
 
 it('precaches the index, the parts and the startup effect modules but no frames, whole manifest or optional runtime files', () => {
@@ -123,17 +118,15 @@ it('precaches the index, the parts and the startup effect modules but no frames,
   for (const file of excluded) { expect(isCharacterRuntimePublic(file)).toBe(false); expect(allowlist).not.toContain(file); expect(precache).not.toContain(file); }
 });
 
-it('leaves the painted sheets, index and demo outside both install graphs', () => {
+it('leaves the painted sheets, index and demo outside the install graph', () => {
   const { bundle, files } = fixture();
   const moments = chunk('assets/moments.js', join(root, 'moments.html'));
   bundle[moments.fileName] = moments;
   const optional = ['moments/painted.json', 'moments/painted/collapse-pawn-white.webp', 'moments/painted/bow-frost-black.webp', 'moments.html', moments.fileName];
-  for (const solo of [false, true]) {
-    const { allowlist, precache } = offlineCacheFiles(bundle, root, [...files, ...optional], solo);
-    for (const file of optional) {
-      expect(allowlist).not.toContain(file);
-      expect(precache).not.toContain(file);
-    }
+  const { allowlist, precache } = offlineCacheFiles(bundle, root, [...files, ...optional]);
+  for (const file of optional) {
+    expect(allowlist).not.toContain(file);
+    expect(precache).not.toContain(file);
   }
 });
 
@@ -165,9 +158,15 @@ function site() {
   };
   mkdirSync(join(dir, 'public'));
   cpSync(resolve('public/sw.js'), join(dir, 'public/sw.js'), { recursive: true });
+  // The build writes the King Down name into the web manifest.
+  write('public/manifest.webmanifest', '{}');
   write('public/ui/pawn.webp', 'public art');
   write('index.html', '<!doctype html><html><head><script type="module" src="/src/entry.ts"></script></head><body><svg><symbol id="piece"><path d="M0 0h1v1z"/></symbol><use href="#piece"/></svg><img src="/ui/pawn.webp"/><a href="/privacy.html">Privacy</a></body></html>');
   write('play.html', '<script type="module" src="/src/private.ts"></script>');
+  // The worker installs the new page too; the build needs its home chunk (vite.config.ts).
+  write('next.html', '<!doctype html><html><head><script type="module" src="/src/interface/entry.ts"></script></head><body></body></html>');
+  write('src/interface/entry.ts', "await import('./play/main');");
+  write('src/interface/play/main.ts', 'console.log("new page");');
   write('src/entry.ts', "await import('./main');");
   write('src/main.ts', "import './local.css'; import './shared'; new Worker(new URL('./ai/worker.ts', import.meta.url), { type: 'module' }); window.publicArt = import.meta.env.BASE_URL + 'ui/pawn.webp'; window.openWorkshop = () => import('./workshop'); window.signIn = () => import('./account/client');");
   write('src/local.css', '@font-face { font-family: Local; src: url(./font.woff2); } body { background-image: url(./art.svg); }');
@@ -188,7 +187,7 @@ const userConfig = (await loadConfigFromFile({ command: 'build', mode: 'producti
 // The fixture names its own pages: the config's page inputs (index.html, next.html) point into the repository.
 const compile = (root: string) => build(mergeConfig({ ...userConfig, build: { ...userConfig.build, rollupOptions: {} } }, {
   configFile: false, root, envFile: false, logLevel: 'silent',
-  build: { assetsInlineLimit: 0, rollupOptions: { input: { index: join(root, 'index.html'), play: join(root, 'play.html') } } },
+  build: { assetsInlineLimit: 0, rollupOptions: { input: { index: join(root, 'index.html'), next: join(root, 'next.html'), play: join(root, 'play.html') } } },
 }));
 const lists = (worker: string) => ({
   allowlist: JSON.parse(/const ALLOWLIST = (\[.*\]);/.exec(worker)![1]) as string[],
@@ -307,7 +306,8 @@ it('uses real build metadata for the worker, loader, lazy code, CSS and emitted 
     expect(allowlist).not.toContain(verification);
     expect(precache).not.toContain(verification);
     const assets = readdirSync(join(output, 'assets'));
-    const named = (prefix: string, extension = 'js') => `assets/${assets.find(file => file.startsWith(prefix + '-') && file.endsWith('.' + extension))!}`;
+    // The home chunk of the new page is a main-* file too.
+    const named = (prefix: string, extension = 'js') => `assets/${assets.find(file => file.startsWith(prefix + '-') && file.endsWith('.' + extension) && !readFileSync(join(output, 'assets', file), 'utf8').includes('new page'))!}`;
     for (const file of [named('index'), named('main'), named('worker'), named('workshop'), named('main', 'css'), named('font', 'woff2'), named('art', 'svg')]) {
       expect(file).not.toContain('undefined'); expect(precache).toContain(file);
       expect(readFileSync(join(output, file)).length).toBeGreaterThan(0);
@@ -581,7 +581,7 @@ it('precaches all Home stills and leaves films on the network', () => {
   const variants = ['portrait', 'square', 'wide'];
   const stills = variants.map(variant => `interface/reveal/hero-${variant}.webp`);
   const films = variants.map(variant => `interface/reveal/${variant}.mp4`);
-  const { allowlist, precache } = offlineCacheFiles(bundle, root, [...files, ...stills, ...films, 'interface/reveal/wide.webm'], true);
+  const { allowlist, precache } = offlineCacheFiles(bundle, root, [...files, ...stills, ...films, 'interface/reveal/wide.webm']);
   expect(precache.filter(file => file.startsWith('interface/reveal/'))).toEqual(stills);
   expect(allowlist.filter(file => file.startsWith('interface/reveal/'))).toEqual(stills);
 });
@@ -589,11 +589,11 @@ it('precaches all Home stills and leaves films on the network', () => {
 it('precaches the computer portraits that a saved game draws, and no larger size', () => {
   const { bundle, files } = fixture();
   const faces = [1, 2, 3].map(n => `interface/computer-king-${n}-96.webp`);
-  const { allowlist, precache } = offlineCacheFiles(bundle, root, [...files, ...faces, 'interface/computer-king-1-192.webp', 'interface/computer-king-1-384.webp'], true);
+  const { allowlist, precache } = offlineCacheFiles(bundle, root, [...files, ...faces, 'interface/computer-king-1-192.webp', 'interface/computer-king-1-384.webp']);
   for (const list of [allowlist, precache]) expect(list.filter(file => file.includes('computer-king'))).toEqual(faces);
 });
 
-it('adds both public pages and the interface graph only for the solo launch', () => {
+it('adds both public pages and the interface graph', () => {
   const { bundle, files } = fixture();
   const next = chunk('assets/next-page.js', join(root, 'src/interface/entry.ts'), [], ['assets/new-main.js']);
   const fonts = ['cinzel', 'alegreya-sans-regular', 'alegreya-sans-italic', 'alegreya-sans-bold'].map(name => `fonts/${name}-latin.woff2`);
@@ -601,8 +601,7 @@ it('adds both public pages and the interface graph only for the solo launch', ()
   bundle['assets/new-main.js'] = chunk('assets/new-main.js', join(root, 'src/interface/play/main.ts'), [], [], ['assets/new-main.css']);
   bundle['assets/new-main.css'] = asset('assets/new-main.css');
   files.push('next.html', next.fileName, 'assets/new-main.js', 'assets/new-main.css', 'browser-support.js', 'interface/stone-refined-light.webp', ...fonts);
-  expect(offlineCacheFiles(bundle, root, files).allowlist).not.toContain('next.html');
-  const { allowlist, precache } = offlineCacheFiles(bundle, root, files, true);
+  const { allowlist, precache } = offlineCacheFiles(bundle, root, files);
   for (const file of ['index.html', 'next.html', next.fileName, 'assets/new-main.js', 'assets/new-main.css', 'browser-support.js', 'interface/stone-refined-light.webp', ...fonts]) {
     expect(allowlist, file).toContain(file); expect(precache, file).toContain(file);
   }

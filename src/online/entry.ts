@@ -1,3 +1,4 @@
+import { installLocalSolo, installAccountControls } from './launch';
 import { accountData } from '../account/data';
 import { AUTH_KEY, sessionKey } from '../account/session';
 import { emailCodeForm } from '../account/email-code';
@@ -93,6 +94,7 @@ try {
       const parsed = new DOMParser().parseFromString(template, 'text/html'); parsed.querySelectorAll('script').forEach(script => script.remove());
       document.body.replaceChildren(...Array.from(parsed.body.childNodes));
       const api = onlineClient({ origin: apiOrigin, token: async () => { const current = await auth.readSession(); return current?.userId === session.userId && sessionKey(current) === sessionKey(session) ? current.accessToken : null; } });
+      installLocalSolo(api, session.userId);
       const host = createBrowserRuntime(api, session.userId);
       host.onAccessLost = () => {
         const main = message('This game is not available to this account. You can open your own games.');
@@ -118,6 +120,7 @@ try {
         } catch { logoutPending = false; logoutGroup.disabled = false; logout.disabled = false; logout.removeAttribute('aria-busy'); logoutError.hidden = false; }
       };
       document.querySelector('#settings-sheet .new-game-body')!.append(logoutError, logoutGroup);
+      installAccountControls(auth, session);
       await import('../account-game/runtime');
       auth.onSession(current => {
         if (current?.user.id === session.userId) {
