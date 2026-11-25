@@ -1,6 +1,6 @@
 // The test lock (tools/test-lock.sh): one `npm test` at a time in all worktrees of a clone.
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,12 +43,12 @@ async function hold(cwd: string): Promise<{ run: ChildProcess; child: number }> 
   return { run: held, child };
 }
 
-it('a run in a second worktree waits while another holds the lock, then gives up with exit 75', async () => {
+it('a run in a second worktree waits while another holds the lock, names the holder, then gives up with exit 75', async () => {
   const { main, side } = clone();
-  await hold(main);
+  const { run: held } = await hold(main);
   const start = Date.now();
   const second = run(side, ['echo', 'ran'], { KINGDOWN_TEST_LOCK_WAIT: '2' });
-  expect(second.stderr).toContain('waiting for the test lock');
+  expect(second.stderr).toContain(`waiting for the test lock (${realpathSync(main)}/.git/kingdown-test.lock; held by pid ${held.pid}, ${realpathSync(main)})`);
   expect([second.status, second.stdout]).toEqual([75, '']);
   expect(Date.now() - start).toBeGreaterThan(1500);
 });
@@ -58,7 +58,10 @@ it('the processes of a run keep the lock after the run itself is killed; then it
   const { run: held, child } = await hold(main);
   held.kill('SIGKILL');
   await new Promise(done => held.once('exit', done));
-  expect(run(side, ['echo', 'ran'], { KINGDOWN_TEST_LOCK_WAIT: '1' }).status).toBe(75);
+  const waiting = run(side, ['echo', 'ran'], { KINGDOWN_TEST_LOCK_WAIT: '1' });
+  expect(waiting.status).toBe(75);
+  // The record names the killed run, which no longer runs: the line must not call it the holder.
+  expect(waiting.stderr).toContain(`old record: pid ${held.pid}, ${realpathSync(main)}, ended)`);
   process.kill(child);
   await new Promise(done => setTimeout(done, 300));
   const after = run(side, ['sh', '-c', 'echo "$KINGDOWN_TEST_LOCKED"']);
@@ -73,4 +76,16 @@ it('a nested run takes no lock; a run outside git runs with none', async () => {
   const outside = mkdtempSync(join(tmpdir(), 'kingdown-test-lock-out-'));
   dirs.push(outside);
   expect(run(outside, ['echo', 'outside'], { GIT_CEILING_DIRECTORIES: tmpdir() }).stdout.trim()).toBe('outside');
+});
+
+it('a holder record that cannot be written or read does not stop a run', async () => {
+  const { main, side } = clone();
+  mkdirSync(join(main, '.git/kingdown-test.lock.holder'));
+  const { run: held, child } = await hold(main);
+  const waiting = run(side, ['echo', 'ran'], { KINGDOWN_TEST_LOCK_WAIT: '1' });
+  expect([waiting.status, waiting.stderr]).toEqual([75, `test-lock: waiting for the test lock (${realpathSync(main)}/.git/kingdown-test.lock)\n`]);
+  process.kill(child);
+  await new Promise(done => held.once('exit', done));
+  const after = run(side, ['echo', 'ran']);
+  expect([after.status, after.stdout, after.stderr]).toEqual([0, 'ran\n', '']);
 });

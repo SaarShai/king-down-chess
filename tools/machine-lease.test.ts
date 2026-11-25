@@ -1,6 +1,6 @@
 // Real runners use two independent repositories and one test user's home.
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { chmodSync, closeSync, existsSync, fstatSync, openSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, closeSync, existsSync, fstatSync, openSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
 import { tempRepo } from './lib/temp-repo.mjs';
@@ -78,6 +78,8 @@ it.each([['tests', tests], ['browser checks', browser]])('%s in another reposito
   await until(() => existsSync(heavy.started), heavy);
   const publish = run(1, deploy);
   await until(() => publish.output().includes('waiting for the machine lease'), publish);
+  expect(publish.output()).toMatch(/waiting for the machine lease \(.*; held by pid \d+, /);
+  expect(publish.output()).toContain(`, ${realpathSync(copies[0].dir)})`);
   expect(publish.ended()).toBe(false);
   writeFileSync(release, 'release');
   expect(await heavy.done).toBe(0);
