@@ -90,8 +90,9 @@ describe('plugin-checks workflow', () => {
   it('marks each check that a workflow step runs by name with ciStep, and each ciStep has its step', () => {
     const steps = readdirSync(new URL('../.github/workflows/', import.meta.url))
       .flatMap(file => read(`.github/workflows/${file}`).split(/\n\s+- /));
-    const run = steps.flatMap(step => [...step.matchAll(/npm run check:browser ([a-z][\w-]*)/g)]
-      .map(m => `${m[1]} ${step.match(/matrix\.name == '([^']+)'/)?.[1] ?? '(no matrix name)'}`));
+    const run = steps.flatMap(step => [...step.matchAll(/npm run check:browser((?: [a-z][\w-]*)+)/g)]
+      .flatMap(m => m[1].trim().split(' '))
+      .map(name => `${name} ${step.match(/matrix\.name == '([^']+)'/)?.[1] ?? '(no matrix name)'}`));
     const marked = checks.filter(c => 'ciStep' in c).map(c => `${c.name} ${c.ciStep}`);
     expect(run.sort()).toEqual(marked.sort());
   });
