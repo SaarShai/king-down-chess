@@ -15,7 +15,10 @@ const testSeconds = new Map([
   ['ios-size', 278], ['races', 259], ['motion', 238], ['lobby', 213], ['setup-owner', 110],
   ['profile', 86], ['real-host', 76], ['menus', 67], ['join-review', 62], ['motion-concepts', 61],
 ].map(([name, seconds]) => [`tools/plugin-${name}.test.ts`, seconds]));
-testSeconds.set('tools/deploy.test.ts', 180);
+// The deploy test files: a run of the seven files alone with 4 workers, 2026-11-25.
+for (const [name, seconds] of [['sh', 62], ['slow-link', 56], ['sh-release', 49], ['publish', 36], ['live-check', 24], ['plugin-live-check', 10], ['keep-assets', 9]]) {
+  testSeconds.set(`tools/deploy-${name}.test.ts`, seconds);
+}
 testSeconds.set('tools/painted-attack-package.test.ts', 88);
 testSeconds.set('src/ai/search.test.ts', 84);
 testSeconds.set('src/interface/people/screens/pages.test.ts', 79);

@@ -29,18 +29,22 @@ const viteCall = /\b(?:build|createServer|preview)\(/g, noConfig = /configFile:\
 // Files that a reader loads in a way that the rules above cannot see, in the style of localChecks in tools/lib/ci-paths.mjs.
 const extraImports = [
   { file: 'tools/plugin-ui-build.mjs', imports: ['src/plugin/index.html'] }, // its Vite root is src/plugin, and index.html is the page entry
-  { file: 'tools/deploy.test.ts', imports: ['tools/staging-config.mjs', 'tools/deploy-plugin-env.mjs'] }, // deploy.sh runs these two with the real node
+  // Its deploy.sh runs these three from the real tools/ folder: two with the real node, and the shell sources the third.
+  { file: 'tools/lib/deploy-test-kit.ts', imports: ['tools/staging-config.mjs', 'tools/deploy-plugin-env.mjs', 'tools/release/frame-checks.sh'] },
 ];
 // Lists that name scripts as data: a test reads the list, so a listed file selects it, but what the listed file names does not.
 const dataLists = [
   'tools/lib/registry.mjs', // the browser checks; tools/check.test.ts replaces each listed script with a stub
-  'tools/deploy.test.ts', // its strings name stub files in a temporary repository; the scripts under test come in by new URL
-  'tools/deploy.sh', // tools/deploy.test.ts runs it with stub node, npm and npx; extraImports holds the two scripts that run for real
+  // The deploy tests and their two kits: their strings name stub files in a temporary repository and files of a local site;
+  // the scripts under test come in by new URL.
+  ...['sh', 'sh-release', 'publish', 'slow-link', 'live-check', 'keep-assets', 'plugin-live-check'].map(name => `tools/deploy-${name}.test.ts`),
+  'tools/lib/deploy-test-kit.ts', 'tools/lib/deploy-site-kit.ts',
+  'tools/deploy.sh', // tools/lib/deploy-test-kit.ts runs it with stub node, npm and npx; extraImports holds the three scripts that run for real
 ];
 
 // Files over 15 s in the full run of 2026-11-24, in seconds. Only the report uses them.
 export const slowTests = new Map([
-  ['tools/deploy.test.ts', 235], ['tools/plugin-app.test.ts', 217], ['tools/plugin-board.test.ts', 133],
+  ['tools/plugin-app.test.ts', 217], ['tools/plugin-board.test.ts', 133],
   ['tools/plugin-board-drafts.test.ts', 104], ['tools/plugin-board-input.test.ts', 80], ['tools/plugin-motion.test.ts', 80],
   ['src/ai/search.test.ts', 78], ['tools/plugin-races.test.ts', 74], ['tools/plugin-ios-size.test.ts', 65],
   ['src/interface/people/screens/pages.test.ts', 64], ['tools/plugin-lobby.test.ts', 61], ['tools/gate.test.ts', 48],
@@ -50,6 +54,9 @@ export const slowTests = new Map([
   ['tools/check.test.ts', 20], ['tools/plugin-join-review.test.ts', 20], ['tools/plugin-motion-concepts.test.ts', 20],
   ['tools/plugin-screen-lifecycle.test.ts', 20], ['src/match/match.test.ts', 19], ['tools/machine-lease.test.ts', 17],
   ['tools/plugin-menus.test.ts', 17],
+  // The deploy files over 15 s: a run of the seven deploy files alone with 4 workers, 2026-11-25.
+  ['tools/deploy-sh.test.ts', 62], ['tools/deploy-slow-link.test.ts', 56], ['tools/deploy-sh-release.test.ts', 49],
+  ['tools/deploy-publish.test.ts', 36], ['tools/deploy-live-check.test.ts', 24],
 ]);
 
 const isTest = file => testGlobs.some(glob => matchesGlob(file, glob));
