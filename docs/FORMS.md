@@ -23,7 +23,7 @@ One publish puts the web app and the two servers live together. The iOS app chan
 Copy these lines into the pull request text. Write `changed`, `no change` or `later: <ticket>` on each line.
 
 - Web game screen (`src/interface/play`):
-- Plugin board screen (`src/plugin`): the two screens are separate code, so a change to one does not reach the other.
+- Plugin board screen (`src/plugin`): the two screens are separate code, so a change to one does not reach the other. The account pages of the website (`/play`, `/g/<id>`) run the plugin screens (`src/online/entry.ts` loads them with the browser host of `src/online/runtime.ts`), so a change to a plugin screen reaches these pages too.
 - Tool text (`src/plugin/server.ts`, `src/muse/tools.ts`): written by hand.
 - iOS app: does the run need a new build or new App Store screenshots?
 - ChatGPT listing (`docs/submission/package`): the text, the skills and the pictures.
