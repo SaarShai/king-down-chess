@@ -3,6 +3,7 @@
  * now" (S11), in the design project's `runs/account/account-spec.md`. The host gives the sign-in service
  * and the server; the sheet changes no data itself. After sign-in the task goes on by itself (`done`).
  */
+import { apiOrigin } from '../../../platform';
 import { button, setButtonState } from '../../ui/kit.js';
 import { text } from '../../play/texts';
 import { WAYS, recoveryText, signInText, type Way } from './copy';
@@ -69,7 +70,7 @@ export function signInSheet(sheet: PeopleSheet, host: SignInHost, purpose: Purpo
   // The links have their own line: with 44 px targets, a link that wraps inside the sentence leaves a gap.
   const small = node('p', 'people-small', signInText.private), legal = node('p', 'people-small people-legal');
   const privacy = node('a', '', signInText.privacy), terms = node('a', '', signInText.terms);
-  privacy.href = '/privacy.html'; terms.href = '/terms.html'; privacy.target = terms.target = '_blank';
+  privacy.href = apiOrigin + '/privacy.html'; terms.href = apiOrigin + '/terms.html'; privacy.target = terms.target = '_blank';
   legal.append(privacy, ' · ', terms);
   if (note) say(status, signInText[note]);
   const loading = node('p');

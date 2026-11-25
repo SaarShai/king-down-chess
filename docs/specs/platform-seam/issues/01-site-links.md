@@ -1,6 +1,6 @@
 # Site links in the app
 
-Status: needs-triage. Waits for the owner's approval of [the spec](../spec.md).
+Status: done on branch seam-guards; waits for the review.
 
 Class: B. Size: S. The sign-in sheet is part of the account flow, and the merge tool takes no lead read for these paths.
 
@@ -35,3 +35,11 @@ Scan 1 is red at `sign-in.ts:72` and at no other place.
 - A link that the code builds from parts passes the scan.
 - The repair reaches the app only with a new build and App Review (decision 2 of the spec).
 - Before the build: confirm the fault in the simulator with the current build (a tap on Privacy in the sign-in sheet). If the link opens, this ticket keeps only its guard.
+
+## Work record
+
+- Change: `src/interface/people/screens/sign-in.ts` imports `apiOrigin` and sets the two links to `apiOrigin + '/privacy.html'` and `apiOrigin + '/terms.html'`. New test `tools/api-origin.test.ts` with the three scans of the non-test `.ts`, `.mjs`, `.js` and `.html` files of `src/`, and one case that fails when it reads 100 files or fewer. Scan 2 permits only the beacon line of `src/diagnostics/browser.ts` and fails when that line changes. `docs/IOS.md` names the test beside the `/api` rule, the `onlineClient` rule and the link rule.
+- Red: `KINGDOWN_TEST_FILE=tools/api-origin.test.ts npm test`: 1 failed, 3 passed. Scan 1 found `src/interface/people/screens/sign-in.ts:72: /privacy.html` and `src/interface/people/screens/sign-in.ts:72: /terms.html`, and no other place. Scans 2 and 3 passed.
+- Green: `KINGDOWN_TEST_FILE="{tools/api-origin.test.ts,src/interface/people/**/*.test.ts}" npm test`, with the type check: 16 files, 287 tests passed, 65 s of tests (1237 s in all with the wait for the machine lease).
+- The website: no browser pass. On the website `apiOrigin` is `''`, so the two links have the same `href` at run time. The bundle is not byte-equal: the sheet has a new import.
+- Not verified: the links in the simulator or on a device (the fault and the repair); a browser pass of the sign-in sheet.
