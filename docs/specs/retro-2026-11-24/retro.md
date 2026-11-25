@@ -60,7 +60,7 @@ The values come from commit `96ba0f0f6`, before the merge of 161 newer commits o
 - `tools/forms-drift.test.ts`: the piece name test could not fail for a missing piece. Repaired in item 3.
 - `src/interface/play/learning.ts:59` reads a Guide note with no fallback, so a missing note throws. The new test of item 3 prevents the missing note.
 - `src/render/effects/power-overlays.ts:179` casts an action ID to a kind with no check. Open.
-- `src/card-symbol.ts:44`: the comment says that a released card can have no painting; all 21 cards have one. Open.
+- `src/card-symbol.ts:45`: the comment says that a released card can have no painting; all 21 cards have one. Open.
 - `tools/verify-motion-concepts.mjs:45` gives the balanced readings for kings only, but it sets hands (guess: stale since decision 188). Open.
 - The hand size 4 is in two dealers (`src/match/setup.ts:58`, `src/interface/play/new-game.ts:124`). Correct now; it can drift. Open.
 

@@ -202,6 +202,7 @@ if (postgres) {
     db.pid = postgres.startPostgres(db.dir, port, log);
     execFileSync(postgres.pgTool('createdb'), ['-h', '127.0.0.1', '-p', String(port), '-U', 'postgres', 'kingdown_check_test'], { stdio: 'pipe' });
   } catch (error) {
+    await new Promise(resolve => setImmediate(resolve)); // a signal handler runs only when the event loop turns
     exitIfInterrupted(); // an interrupt stops the child too; give the signal's code, not a database fault
     report(false, 'database', (Date.now() - start) / 1000, error.message.split('\n')[0], log);
     process.exit(1);

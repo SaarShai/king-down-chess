@@ -40,5 +40,6 @@ The engine (`src/rules`), art and fixtures, the plugin and Muse tool text, `docs
 - First review: an agent that did not build the change read head `a8c0b4183`. It found two false skips in the test selector and three smaller faults. Commit `1175061f7` repairs them.
 - Main then moved 161 commits. Merge `9965586b0` resolves three conflicts: `package.json`, the check list, and the header of the play scenes check. The full suite passes on the merge: 410 files, 8,031 tests.
 - Second review: five agents that did not build the change read head `9965586b0`, one for each area and one for the repairs and the merge. A skeptic tried to refute each blocking finding. Four findings stand and are repaired in one batch: for this ticket, the guard of `steps` covered the released cards only, but the hint of a king power reads the table too.
+- Repair check: the reviewer of the repairs and the merge read commit `e4faf165e`. The repair holds. The full suite passes on that commit: 410 files, 8,031 tests.
 - Open findings: none that block. The notes are in "Known limits".
 
