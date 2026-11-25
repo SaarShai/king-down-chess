@@ -16,7 +16,7 @@ Class: B. Size: S. Needs decision 3 of the spec for the Apple switch.
 
 ## Change
 
-All tests go into `tools/ios-app.test.ts`: CI runs that file for a change under `ios/`.
+All tests go into `tools/ios-app.test.ts`, except the check that builds the server: CI runs that file for a change under `ios/`.
 
 - `capacitor.config.json` has no `server.hostname`, `server.iosScheme` or `server.url`, and no `capacitor.config.ts` or `.js` exists.
 - `vite.config.ts` exports its build target. Each `IPHONEOS_DEPLOYMENT_TARGET` of `project.pbxproj` equals its `ios` and `safari` version.

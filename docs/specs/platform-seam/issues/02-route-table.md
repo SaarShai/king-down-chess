@@ -16,7 +16,7 @@ Class: B. Size: M.
 
 The host list is the table. `vercelRoutes` in `tools/plugin-server-build.mjs` already gives it, and `tools/ios-app.test.ts` already reads it.
 
-- The preview middleware of `vite.config.ts` routes each path through `vercelRoutes` of the built tree (with the two servers off) and `tools/lib/site-route.mjs`. Its own copy of the pattern goes.
+- The preview middleware of `vite.config.ts` routes each path through `vercelRoutes` of the built tree (with the two servers off) and `tools/lib/site-route.mjs`. Its own copy of the pattern goes. The preview uses only the page destinations of the list (`index.html`, `join.html`, `next.html`). It has no `/mcp` and no `/internal`, so each other destination answers as a missing file does today. The preview tells the route function which files the built tree has, and it keeps its early return for a tree with no launch marker.
 - The text of the join page, now inline at `plugin-server-build.mjs:137`, becomes an exported constant. The built tree has no `join.html` (the host build writes it into its own output), so the preview answers `/join.html` with this constant.
 - The body of `vercelRoutes` does not change. Thus the class is B: the routes of the live host are the same function with the same output, and test 1 holds this.
 - The Swift router, the worker, the AASA file and `src/online/routes.ts` do not change.

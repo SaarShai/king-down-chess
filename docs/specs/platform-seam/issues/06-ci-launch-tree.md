@@ -28,7 +28,7 @@ Class: B (check scripts, tests and CI only). Size: M, or L if many checks need m
 
 ## Test that fails first
 
-In `tools/check.test.ts`, the test of the site build of the runner ("browser check site build", line 81): its stand-in build records the build environment. The new assertion wants `KINGDOWN_SOLO_LAUNCH=1` there. It is red today.
+In `tools/check.test.ts`, the test of the site build of the runner ("browser check site build", line 81): its stand-in build records the build environment. The new assertion wants `KINGDOWN_SOLO_LAUNCH=1` there. It is red today. The stand-in records only the `VITE_*` values and `KINGDOWN_TEST_PAGES` (`check.test.ts:23`), so it must record the switch too.
 
 ## Checks
 
