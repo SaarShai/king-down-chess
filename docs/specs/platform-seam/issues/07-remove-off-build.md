@@ -186,3 +186,10 @@ One batch repairs them:
 Red line: `KINGDOWN_TEST_FILE=tools/release/release.test.ts KINGDOWN_TEST_NAME='no launch marker'`: `× refuses a build with no launch marker before it publishes` with `staging: publish-preview-target failed. Expecting value: line 1 column 1 (char 0)` (the old tool went to the publish step). 1 failed, 38 skipped.
 
 Green runs: `KINGDOWN_TEST_FILE=tools/release/release.test.ts npm test`: 39 passed, 11.6 s. `npm run typecheck`: exit 0. `npm run test:docs`: 19 files, 199 passed, 1 skipped. No product code and no build output change, so no full suite and no `dist/` comparison.
+
+## Reconcile with main (the lead)
+
+- After the repair check, the lead merged `origin/main` (pull requests 475, 476 and 477) into the branch. The merge had no conflict.
+- Pull request 477 brings `tools/build-flags.mjs`, a list of each build option that a file reads. The list named `KINGDOWN_SOLO_LAUNCH`. This ticket removes the last read of it, so the name goes from the list, as that guard asks.
+- Pull request 476 split `tools/deploy.test.ts` into seven files. This branch did not change that file. A search of the merged tree for the fork-point words finds only the server constant that the build takes from the marker (`tools/plugin-server-build.mjs:103`, `tools/plugin-server.mjs:188`), which stays.
+- Runs on the merged head: `npm run typecheck`, exit 0; the full suite (`npm test`), 435 files passed, 8118 tests passed, 387 skipped. The case of `tools/git-hooks/pre-commit.test.ts` that failed one time in the builder's full run passed.
