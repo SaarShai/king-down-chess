@@ -230,7 +230,7 @@ for (const c of selected) {
     const before = treeStatus(root);
     const result = await run(process.execPath, [c.script, ...(c.args ?? [])], {
       log, limit: c.limit * STEP,
-      extraEnv: { ...c.env, ...(url ? { PLAYABLE_URL: url } : {}), PLAYABLE_OUT: join(runDir, c.name), PLAYABLE_BROWSER: process.env.PLAYABLE_BROWSER || c.channel || env('PLAYABLE_BROWSER') },
+      extraEnv: { ...c.env, ...(url && !c.external ? { PLAYABLE_URL: url } : {}), PLAYABLE_OUT: join(runDir, c.name), PLAYABLE_BROWSER: process.env.PLAYABLE_BROWSER || c.channel || env('PLAYABLE_BROWSER') },
     });
     exitIfInterrupted();
     return { result, changed: changedPaths(before, treeStatus(root)) };

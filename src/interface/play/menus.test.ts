@@ -83,3 +83,19 @@ it('keeps iOS safe areas and has no persistent shell bar', () => {
   expect(shell + source('play/menus.css')).not.toContain('--daylight-bar');
   expect(shell + source('play/shell.ts')).not.toContain('shell-nav');
 });
+it('staging 2026-11-22: an online game names the opponent, not the computer, in the square descriptions', () => {
+  expect(source('play/main.ts')).toContain("cell.setAttribute('aria-description', gameWords(descriptions.join(' ')))");
+});
+
+it('a press moves only the lower brass edge of the main button: no box, outline, transform or layout change, no reduced motion, no disabled button', () => {
+  const components = source('ui/components.css');
+  const block = components.match(/@media \(prefers-reduced-motion: no-preference\) \{\n\s*(:root[^{]*)\{([^}]*)\}\n\}/);
+  expect(block?.[1].trim()).toBe(":root:not([data-motion='reduce']) .kd-button[data-kind='main']:not(:disabled, [aria-disabled='true']):active");
+  const [edges, moves] = block![2].trim().replace(/;$/, '').split('; ');
+  // The 2 px bronze edge of --main-depth rises 2 px, over a light lip; the pressed top shade stays.
+  expect(edges).toBe('box-shadow: inset 0 -2px 0 #f7e3b0, inset 0 -4px 0 #9a6f2c, 0 1px 2px -1px #3c280a8c, var(--main-pressed)');
+  expect(moves).toBe('transition: box-shadow 90ms ease-out');
+  // The plain press stays for reduced motion, and the disabled plate has no depth.
+  expect(components).toContain(".kd-button[data-kind='main']:not(:disabled, [aria-disabled='true']):active { box-shadow: var(--main-pressed); }");
+  expect(components).toMatch(/\.kd-button\[data-kind='main'\]:is\(:disabled, \[aria-disabled='true'\]\) \{[^}]*box-shadow: none/);
+});

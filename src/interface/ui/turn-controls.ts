@@ -1,5 +1,5 @@
 import { button, setButtonState } from './kit.js';
-import { ease, later, onFrame, pulse, reducedMotion, shake, sound, Spring, tween, type Effect } from '../play/fx';
+import { ease, onFrame, pulse, reducedMotion, shake, sound, Spring, tween, type Effect } from '../play/fx';
 
 /** Keep one position for each action as its state changes. */
 export function turnControls(labels: { undo: string; finish: string }, actions: { undo(): void; finish(): void; refusedFinish?(): void }) {
@@ -13,7 +13,7 @@ export function turnControls(labels: { undo: string; finish: string }, actions: 
   const dots = document.createElement('span'); dots.className = 'play-wait-dots'; dots.setAttribute('aria-hidden', 'true');
   dots.append(...Array.from({ length: 3 }, () => document.createElement('i')));
   finish.append(dots); element.append(undo, finish);
-  let sheen: Effect | undefined, press: Effect | undefined, waiting: Effect | undefined, shade: Effect | undefined, shadeDelay: Effect | undefined;
+  let sheen: Effect | undefined, press: Effect | undefined, waiting: Effect | undefined;
   const sink = new Spring(1, 620, 22);
   const animatePress = () => {
     if (press || reducedMotion()) return;
@@ -53,13 +53,6 @@ export function turnControls(labels: { undo: string; finish: string }, actions: 
           finish.style.setProperty('--sheen-opacity', String(Math.sin(Math.PI * t) * .52));
         }, { curve: ease.io3 });
       }
-    }
-    if (finish.dataset.turnState !== mode) {
-      shadeDelay?.cancel(); shade?.cancel();
-      finish.style.removeProperty('--wait-shade');
-      if (mode === 'wait') shadeDelay = later(150, () => {
-        shade = tween(300, t => { finish.style.setProperty('--wait-shade', String(.28 * t)); }, { curve: ease.out2 });
-      });
     }
     finish.dataset.turnState = mode;
     if (mode !== 'wait') waiting?.finish();

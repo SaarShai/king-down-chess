@@ -1028,6 +1028,14 @@ export function followSq(m: Move, s: number): number {
   return m.swap && s === m.to ? m.from : s;
 }
 
+/** Test on the board before the move. A pawn that enters by a drop does not reset the count. */
+export function resetsHalfmove(board: Uint8Array, m: Move): boolean {
+  if (isStill(m)) return false;
+  if (m.captures.length || (m.shove && typeOf(board[m.shove.from]) === P)) return true;
+  if (m.pushes) return m.pushes.some(p => typeOf(board[p.from]) === P);
+  return !m.drop && (typeOf(board[m.from]) === P || (m.swap === true && typeOf(board[m.to]) === P));
+}
+
 export function makeMove(pos: Position, m: Move): Position {
   const c = pos.turn;
   const board = new Uint8Array(pos.board);
@@ -1051,9 +1059,7 @@ export function makeMove(pos: Position, m: Move): Position {
       if (m.castle) { board[m.castle.to] = board[m.castle.from]; board[m.castle.from] = 0; }
     }
   }
-  // A pushed pawn resets the clock, as a cursed one does (a pawn's step is the clock's measure). A spawn
-  // does not (owner, 2026-10-06): `mover` is then the new pawn, so a drop is left out by name.
-  const reset = !still && (m.captures.length > 0 || (m.pushes ? m.pushes.some(p => typeOf(pos.board[p.from]) === P) : !m.drop && typeOf(mover) === P));
+  const reset = resetsHalfmove(pos.board, m);
   // The turn holds after Black's first move under `secondPlayerDoubleFirstTurn` (see the rule's
   // comment in ./rules.ts for why that is a ply check), after the first move of a Haste or a Rage,
   // after a free mark and after a GrowthB.
@@ -2016,37 +2022,54 @@ export function legalMoves(pos: Position, mode: GenMode = 'all'): Move[] {
   });
 }
 
-/**
- * Conservative dead draw: no side keeps material that can force mate.
- * Mating material = P, R, Q, A, M, S, or two minors (N/B). Guards and paladins never count:
- * a guard captures nothing and a paladin cannot capture a king, so neither can ever mate (K+G+L vs K is a draw).
- * The two lab toggles that hand either piece a king (`guardCaptures: 'any'`, `paladinChecks`) take it back.
- */
+/** A material draw needs proof that no legal sequence can give mate. */
 export function insufficientMaterial(board: Uint8Array): boolean {
-  const minors = [0, 0];
+  // `pieces` counts the minors. A guard, a paladin or a no-capture ogre (`others`) never gives check.
+  let sides = 0, pieces = 0, bishops = 0, bishopColor = -1;
+  const others = [0, 0];
   for (let s = 0; s < 64; s++) {
     const p = board[s];
     if (!p) continue;
     const t = typeOf(p);
-    // The ogre is a commoner, so it mates with a king — except under `ogreNoCapture`, where it can
-    // never give check and K+O vs K is exact, not conservative. The catapult needs a screen it
-    // cannot make for itself, but a single enemy piece is screen enough, so it counts too — this
-    // test is meant to be conservative, and declaring a live game drawn is the expensive direction
-    // to be wrong in.
+    if (t === K) continue;
+    // Leave catapult endings open. An enemy piece can serve as its screen.
     if (t === P || t === R || t === Q || t === A || t === M || t === S || t === C || t === T) return false;
     if (t === O && !RULES.ogreNoCapture) return false;
     if (t === G && RULES.guardCaptures === 'any') return false; // a commoner guard mates with a king; a pawn-only guard cannot
     if (t === L && RULES.paladinChecks) return false; // a paladin that may take a king can mate with one
-    if (t === N || t === B || t === V) minors[colorOf(p)]++; // a lone leaper cannot mate: K+V vs K is drawn
+    if (t !== B && t !== N && t !== V) { others[colorOf(p)]++; continue; }
+    sides |= 1 << colorOf(p);
+    pieces++;
+    if (t === B) {
+      const color = (file(s) + rank(s)) & 1;
+      if (bishopColor !== -1 && bishopColor !== color) return false;
+      bishopColor = color;
+      bishops++;
+    }
+    if (sides === 0b11 && bishops !== pieces) return false;
   }
-  return minors[WHITE] <= 1 && minors[BLACK] <= 1;
+  if (bishops !== pieces && pieces > 1) return false;
+  // A guard, a paladin or an ogre can block an escape square, and a Freeze or an Ice Wall can keep
+  // it there (K+N vs K+L, K+N+G vs K). With a minor, it plays on.
+  if (pieces && (others[WHITE] || others[BLACK])) return false;
+
+  const white = powerOf(WHITE), black = powerOf(BLACK);
+  // These readings change which squares a king can attack, so the usual mate proof no longer holds.
+  if (!RULES.mercyCaptures && (white === 'Mercy' || black === 'Mercy')) return false;
+  if (RULES.deathTouchReach && (white === 'DeathTouch' || black === 'DeathTouch')) return false;
+  if (RULES.darknessKingStep2 && RULES.darknessKingStepTakes && (white === 'Darkness' || black === 'Darkness')) return false;
+  if (bishops > 1) {
+    // These moves can change a bishop's square colour. The board alone cannot prove the draw.
+    if (white === 'Flight' || black === 'Flight' || anyDeck('Flight') || anyDeck('Curse') || anyDeck('EarthQuake') || anyDeck('EarthQuakeB')) return false;
+  }
+  return true;
 }
 
 /**
  * Material draw under the active rules; an unspent Strike can still change mating potential, and so
  * can a piece that may still enter: a Salvation card with a returnable piece in the reserve
  * (`lost`; conservative, whatever the piece), or a waiting guard (`waiting`) when guards mate
- * (`guardCaptures: 'any'`), and so can a Morph or MorphB card while the side has a piece to morph
+ * (`guardCaptures: 'any'`) or, beside a minor, when the reserve lets it enter as a blocker, and so can a Morph or MorphB card while the side has a piece to morph
  * (conservative: any piece but the king), and an unplayed Spawn card of any reading (a new pawn can
  * still promote; conservative: whether or not a square is free now). A card counts while a Mirror may copy it (the opponent
  * played it last, `last`) or a Growth may still draw it from the pile (`drawn`). The other card-only
@@ -2059,6 +2082,8 @@ export function materialDraw(board: Uint8Array, used?: readonly [number, number]
   // The board first: it is the cheap test (a pawn or a rook ends it), and the search asks at every node.
   if (!RULES.insufficientMaterial || !insufficientMaterial(board)) return false;
   if (RULES.guardCaptures === 'any' && !!waiting && (waiting[0] > 0 || waiting[1] > 0)) return false;
+  // A guard that may still enter can block a king beside a minor, as one on the board can (`insufficientMaterial`).
+  if (RULES.guardReserve !== 'off' && !!waiting && (waiting[0] > 0 || waiting[1] > 0) && board.some(p => typeOf(p) === B || typeOf(p) === N || typeOf(p) === V)) return false;
   return !liveCard(board, WHITE, used?.[0] ?? 0, drawn?.[0] ?? 0, lost, last?.[1]) && !liveCard(board, BLACK, used?.[1] ?? 0, drawn?.[1] ?? 0, lost, last?.[0]);
 }
 

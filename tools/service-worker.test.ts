@@ -101,6 +101,7 @@ describe.each(['../public/sw.js', './solo-launch/sw.js'])('media bypass (%s)', p
   it.each([
     ['ui/pawn.webp', { Range: 'bytes=0-1' }],
     ['interface/reveal/wide.mp4', {}],
+    ['interface/reveal/wide-hevc.mp4', {}],
     ['interface/reveal/wide.webm', {}],
   ] as const)('leaves %s to the browser even on the allowlist', (file, headers) => {
     const w = worker(storage(), version, [...files, file], undefined, readFileSync(new URL(path, import.meta.url), 'utf8'));
@@ -223,7 +224,7 @@ describe('private safety during installation', () => {
 });
 
 describe('public request boundary', () => {
-  it.each([...privatePaths.flatMap(path => [path, `${path}/child`]), '/api/status', '/api/status?muse=1', '/play.html', '/consent.mjs', '/privacy.html', '/terms.html', '/delete-data.html', '/support.html', '/muse-connector.html', '/assets/unknown.js', '/sw.js'])('bypasses %s with queries and navigation', async path => {
+  it.each([...privatePaths.flatMap(path => [path, `${path}/child`]), '/api/status', '/api/status?muse=1', '/play.html', '/consent.mjs', '/privacy.html', '/terms.html', '/delete-data.html', '/support.html', '/muse-connector.html', '/googlea1baf648ae09b150.html', '/assets/unknown.js', '/sw.js'])('bypasses %s with queries and navigation', async path => {
     const w = worker();
     for (const suffix of ['', '?probe=1']) for (const mode of ['navigate', 'cors'] as const) {
       expect(w.request(path + suffix, { mode }).response).toBeUndefined();

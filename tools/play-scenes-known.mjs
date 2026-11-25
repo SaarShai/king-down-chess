@@ -22,4 +22,6 @@ export const KNOWN = new Map([
     'control "FRIEND" overlaps control "Powers"',
     'control "Powers" overlaps text "Friend"',
   ], 'at 568x320 with 150% text the opponent choice covers part of the Powers tile'],
+  [cases(['setup-friend'], ['568x320'], [150]),
+    ['word "Random" breaks over two lines in strong'], 'at 568x320 with 150% text the seat is 86 px and "Random" needs 94 px; unbroken, it covers VS'],
 ].flatMap(([places, lines, reason]) => places.flatMap(place => lines.map(line => [`${place}: ${line}`, reason]))));

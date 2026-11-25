@@ -1,23 +1,81 @@
-// Check the play scenes at four portrait and desktop sizes, two landscape phone sizes (game screen; at 667x375 the new-game panel too) and two text scales. Find cut and split text, horizontal
+// Check the play scenes at four portrait and desktop sizes, four compact landscape sizes (game screen; at 667x375 and 568x320 the new-game panel too) and two text scales. Find cut and split text, horizontal
 // viewport and scroll box overflow, reader text and controls that a scroll box hides at rest, overlap, card names that another card covers, controls that cannot take a tap, and network requests.
 // The page is in a build only with KINGDOWN_TEST_PAGES=1:
 //   npm run check:browser play-scenes (the runner sets it for this check)
+// Check the result sheet at eight sizes and three text sizes.
 // Save pictures of faults, 320x568 at 150%, and 390x844 and 1280x800 at 100% in PLAYABLE_OUT.
-import { env, launch, shot } from './lib/checks.mjs';
+import assert from 'node:assert/strict';
+import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { KNOWN } from './play-scenes-known.mjs';
+import { cutText } from './lib/cut-text.mjs';
+import { pauseClock } from './lib/page-clock.mjs';
 
 // Landscape phones check the game screen and the new-game panel: online-loss cuts its 20-letter test
 // name with an ellipsis, as the known mark at 320 px allows.
 const gameScreen = scene => /^(online|solo)-/.test(scene) && !['online-loss', 'online-loss-offer'].includes(scene);
 const withPanel = scene => gameScreen(scene) || ['new-game', 'setup-friend'].includes(scene);
-const SIZES = [[320, 568], [360, 640], [390, 844], [667, 375, withPanel], [568, 320, withPanel], [1280, 800]], SCALES = [100, 150];
+const SIZES = [[320, 568], [360, 640], [390, 844], [667, 375, withPanel], [568, 320, withPanel], [736, 414, gameScreen], [900, 600, gameScreen], [1280, 800]], SCALES = [100, 150];
 const ROLES = ['button', 'link', 'switch', 'radio', 'checkbox', 'tab', 'menuitem', 'option', 'slider', 'textbox', 'combobox'];
 const SENTINEL = 'kingdown-scene-sentinel';
 
 const base = new URL('play-scenes.html', env('PLAYABLE_URL'));
+const textSize = (context, scale) => scale !== 100 && context.addInitScript(scale => new MutationObserver((_, watch) => {
+  if (document.documentElement) { document.documentElement.style.fontSize = `${scale}%`; watch.disconnect(); }
+}).observe(document, { childList: true }), scale);
 const browser = await launch();
 const faults = [], known = [], used = new Set();
 let links, cases = 0;
+
+async function openScene(page, scene) {
+  await page.goto(`${base.href}?scene=${scene}`);
+  await page.waitForFunction(scene => document.body.dataset.sceneReady === scene, scene, { timeout: 15_000 });
+}
+
+async function checkKingCapture(reducedMotion) {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion, serviceWorkers: 'block' });
+  const errors = trapErrors(page);
+  try {
+    page.setDefaultTimeout(10_000);
+    await page.clock.install();
+    await openScene(page, 'home-saved');
+    const button = name => page.getByRole('button', { name, exact: true });
+    const square = name => page.getByRole('gridcell', { name, exact: true });
+    await button('Account and settings').click();
+    await page.getByRole('radiogroup', { name: 'Motion speed' }).getByRole('radio', { name: 'Normal', exact: true }).click();
+    await button('Close settings').click();
+    // Home reads the scene's memory save again when Continue is pressed.
+    await page.evaluate(() => {
+      const save = JSON.parse(localStorage.getItem('kingdown.save'));
+      localStorage.setItem('kingdown.save', JSON.stringify({ ...save, back: '', fen: 'k7/6pp/8/8/8/R7/8/6MK w - - 0 1', moves: [] }));
+    });
+    await button('Continue').click();
+    await square('a3 Light Rook').click();
+    await square('a8 Dark King').click();
+    await square('a8 Light Rook').waitFor();
+    const end = page.locator('.play-turn button').filter({ has: page.getByText('End turn', { exact: true }) });
+    const endActive = async () => await end.isVisible() && await end.isEnabled();
+    const card = page.locator('.play-result[data-outcome="win"]');
+    const skip = button('Skip result animation');
+    await pauseClock(page);
+    await end.click();
+    const light = () => page.locator('.play-game[data-moment="win"] .play-board').evaluate(board => Number(getComputedStyle(board, '::after').opacity));
+    if (reducedMotion === 'no-preference') {
+      assert(await skip.isVisible() && !await card.isVisible(), 'The win effect starts before the result card');
+      assert(!await endActive(), 'End turn is inactive during the win effect');
+      await page.clock.runFor(400);
+      assert(await light() > 0 && !await card.isVisible(), 'The board lights up during the win effect');
+      await page.clock.runFor(1000);
+    } else {
+      assert(await card.isVisible() && await light() > 0, 'Reduced motion shows the win at once');
+    }
+    await card.getByRole('heading', { name: 'You win', exact: true }).waitFor();
+    assert(!await skip.isVisible(), 'The result ends the effect');
+    assert(!await endActive(), 'End turn stays inactive after the result');
+    assertNoErrors(errors);
+    await shot(page, `king-capture-${reducedMotion}`);
+  } finally { await page.close(); }
+}
+
 try {
   for (const [width, height, only] of SIZES) for (const scale of SCALES) {
     const context = await browser.newContext({
@@ -41,9 +99,7 @@ try {
           return top;
         };
       });
-      if (scale !== 100) await context.addInitScript(scale => new MutationObserver((_, watch) => {
-        if (document.documentElement) { document.documentElement.style.fontSize = `${scale}%`; watch.disconnect(); }
-      }).observe(document, { childList: true }), scale);
+      await textSize(context, scale);
       let state;
       if (!links) {
         // Cache and worker state depends only on the scene, so check it in the first context.
@@ -79,8 +135,7 @@ try {
         context.on('request', onRequest);
         page.on('pageerror', error => found.push(`page error: ${error.message}`));
         try {
-          await page.goto(`${base.href}?scene=${scene}`);
-          await page.waitForFunction(scene => document.body.dataset.sceneReady === scene, scene, { timeout: 15_000 });
+          await openScene(page, scene);
           found.push(...await page.evaluate(cutText), ...await page.evaluate(foldFaults, scale === 100), ...await page.evaluate(layoutFaults, ROLES), ...await page.evaluate(coveredCards));
           if (found.length || width === 320 && scale === 150 || scale === 100 && (width === 390 || width === 1280)) {
             await shot(page, picture);
@@ -97,6 +152,8 @@ try {
             try { await target.click({ trial: true, timeout: 1500 }); }
             catch (error) { found.push(`${label} takes no tap: ${/intercepts pointer events/.test(error.message) ? `${error.message.match(/<\w+[^>]*>/g)?.at(-1) ?? 'an element'} covers it` : error.message.split('\n')[0]}`); }
           }
+          // Last: it writes other names and counts in the page.
+          found.push(...await page.evaluate(counterFaults), ...await page.evaluate(cutText), ...await page.evaluate(coveredCards));
         } catch (error) { found.push(error.message.split('\n')[0]); }
         const after = await state?.(false);
         if (state && (after !== before || !after.includes(SENTINEL))) found.push(`the origin's caches and service workers change: ${before} before, ${after} after`);
@@ -108,6 +165,43 @@ try {
         if (lines.length) (reasons.every(Boolean) ? known : faults).push(`${where}:\n    ${lines.map((line, i) => reasons[i] ? `${line} (known: ${reasons[i]})` : line).join('\n    ')}`);
       }
     } finally { await context.close(); }
+  }
+  // The result sheet at eight sizes and three text sizes: the outcome, the cause, Rematch and the row stay inside the reader,
+  // and a rematch offer keeps the height of the card.
+  const sheets = ['solo-win', 'online-loss', 'online-loss-offer'];
+  for (const [width, height] of [[320, 568], [360, 640], [390, 844], [568, 320], [844, 390], [1024, 768], [1280, 800], [1440, 900]]) for (const scale of [100, 150, 200]) {
+    const context = await browser.newContext({ viewport: { width, height }, colorScheme: 'light', reducedMotion: 'reduce', serviceWorkers: 'block', hasTouch: width < 1000 });
+    await textSize(context, scale);
+    const heights = {};
+    for (const scene of sheets) {
+      cases++;
+      const page = await context.newPage(), where = `${scene} ${width}x${height} ${scale}%`;
+      try {
+        await openScene(page, scene);
+        const sheet = await page.evaluate(() => {
+          const edge = document.querySelector('.play-reader').getBoundingClientRect(), out = [];
+          for (const node of document.querySelectorAll('.play-result-body h3, .play-result-cause, .play-result-actions button')) {
+            const box = node.getBoundingClientRect(), name = `"${node.textContent.trim().slice(0, 20)}"`;
+            if (!node.checkVisibility({ visibilityProperty: true })) out.push(`${name} is hidden`);
+            else if (box.top < edge.top - 1 || box.bottom > edge.bottom + 1 || box.left < edge.left - 1 || box.right > edge.right + 1) out.push(`${name} leaves the reader`);
+          }
+          return { out, height: Math.round(document.querySelector('.play-result').getBoundingClientRect().height) };
+        });
+        heights[scene] = sheet.height;
+        faults.push(...sheet.out.map(line => `${where}: ${line}`));
+      } catch (error) { faults.push(`${where}: ${error.message.split('\n')[0]}`); }
+      await page.close();
+    }
+    if (heights['online-loss'] !== heights['online-loss-offer']) faults.push(`online-loss-offer ${width}x${height} ${scale}%: a rematch offer changes the card height from ${heights['online-loss']} to ${heights['online-loss-offer']} px`);
+    await context.close();
+  }
+  for (const motion of ['no-preference', 'reduce']) {
+    cases++;
+    const label = motion === 'reduce' ? 'reduced motion' : 'normal motion';
+    try {
+      await checkKingCapture(motion);
+      console.log(`ok king capture with ${label}: the win shows and End turn is inactive`);
+    } catch (error) { faults.push(`king capture with ${label}: ${error.message}`); }
   }
 } finally { await browser.close(); }
 for (const mark of KNOWN.keys()) if (!used.has(mark)) faults.push(`known mark matches no fault: ${mark}`);
@@ -225,6 +319,36 @@ function layoutFaults(roles) {
   return out;
 }
 
+/** In the page: your capture counter at 1 and 12 captures, with each power name, clears the name, the mark, the notches, the line under the name and the cards. Each card stays on the screen and takes a tap on 44 px. */
+function counterFaults() {
+  const own = document.querySelector('.play-own'), store = own?.querySelector('.play-store'), range = document.createRange(), out = [];
+  if (!own?.checkVisibility({ visibilityProperty: true })) return out;
+  const label = own.querySelector('.play-power [data-button-label]');
+  const text = node => { range.selectNodeContents(node); return range.getBoundingClientRect(); };
+  for (const name of label ? ['Freeze', 'Ice Wall', 'Strike', 'Haste', 'Flight', 'Sacrifice', 'March', 'Leap', 'Holy Light', 'Mercy', 'Death Touch', 'Darkness'] : ['']) for (const count of [1, 12]) {
+    if (label) label.textContent = name;
+    store.dataset.empty = 'false'; store.textContent = String(count);
+    const box = store.getBoundingClientRect(), small = own.querySelector('.play-power small');
+    const parts = [['mark', '.play-seat-ring'], ['notch', '.play-power-notch'], ['card', '.play-card']].flatMap(([part, selector]) => [...own.querySelectorAll(selector)].map(node => [part, node.getBoundingClientRect()]));
+    // A row with no room draws the coin only: the copy is for screen readers.
+    if (label && getComputedStyle(own.querySelector('.play-power-copy')).clipPath !== 'inset(50%)') parts.push(['name', text(label)], ['line', text(small)]);
+    const at = `at counter "${count}"${name && ` with ${name}`}`;
+    for (const [part, other] of parts) if (Math.min(box.right, other.right) - Math.max(box.left, other.left) > .5 && Math.min(box.bottom, other.bottom) - Math.max(box.top, other.top) > .5) out.push(`the counter "${count}" covers the ${part}${name && ` of ${name}`}`);
+    if (own.closest('[inert]') || window.playSceneModal()) continue;
+    for (const card of own.querySelectorAll('.play-card')) {
+      const edge = card.getBoundingClientRect();
+      if (!edge.width) continue;
+      const called = `card "${card.querySelector('[data-button-label]')?.textContent.trim()}"`;
+      if (edge.left < -.5 || edge.right > innerWidth + .5) out.push(`${called} passes the screen edge ${at}`);
+      // The hit test can start up to 1 px outside the box.
+      let tap = 0;
+      for (let x = edge.left - 1; x < edge.right + 1; x += .5) if (document.elementFromPoint(x, edge.top + edge.height / 2)?.closest('.play-card') === card) tap += .5;
+      if (tap < 44) out.push(`${called} takes a tap on ${tap} px ${at}`);
+    }
+  }
+  return out;
+}
+
 /** In the page: a card name in the hand that another card covers. The fanned card boxes can overlap; their names cannot. */
 function coveredCards() {
   const out = [], range = document.createRange(), name = card => card.querySelector('[data-button-label]')?.textContent.trim();
@@ -287,45 +411,6 @@ function foldFaults(full) {
       else if (full) out.push(`${label} is below the fold of ${name(box)}`);
       break;
     }
-  }
-  return out;
-}
-
-/** In the page: text that a clipping box cuts, and words that break over two lines. A scroll box can show its text. */
-function cutText(suffix = '') {
-  const out = [], modal = window.playSceneModal(), walk = document.createTreeWalker(modal ?? document.body, NodeFilter.SHOW_TEXT), range = document.createRange();
-  const name = node => `${node.tagName.toLowerCase()}${node.className && typeof node.className === 'string' ? `.${node.className.trim().split(/\s+/).join('.')}` : ''}`;
-  textNodes: for (let text; (text = walk.nextNode());) {
-    const host = text.parentElement, words = text.textContent.trim();
-    if (!words || host.closest('[inert], [aria-hidden="true"], script, style') || modal && !modal.contains(host) || !host.checkVisibility({ visibilityProperty: true })) continue;
-    range.selectNodeContents(text);
-    // Each line, less a quarter of its height at the top and the bottom: a tall font box may pass its line box.
-    let lines = [...range.getClientRects()].filter(r => r.width >= 2 && r.height >= 2).map(r => ({ left: r.left, right: r.right, top: r.top + r.height / 4, bottom: r.bottom - r.height / 4 }));
-    if (!lines.length) continue;
-    for (let node = host; node && node !== document.body; node = node.parentElement) {
-      const style = getComputedStyle(node), edge = node.getBoundingClientRect();
-      if (edge.width <= 2 && edge.height <= 2 && style.clipPath === 'inset(50%)') continue textNodes;
-      if (edge.width <= 2 || edge.height <= 2) break; // a text for screen readers only
-      if (/auto|scroll/.test(style.overflowX + style.overflowY)) { lines = [edge]; continue; }
-      // A box that draws an ellipsis cuts its text at the first part of a pixel.
-      const slack = style.textOverflow === 'ellipsis' ? .05 : 1;
-      if (/hidden|clip/.test(style.overflowX + style.overflowY) && lines.some(box => box.left < edge.left - slack || box.right > edge.right + slack || box.top < edge.top - 1 || box.bottom > edge.bottom + 1)) { out.push(`text "${words.slice(0, 40)}" is cut by ${name(node)}${suffix}`); break; }
-    }
-    // The browser can wrap at a hyphen. Check the parts between legal breaks.
-    for (const word of text.textContent.matchAll(/[^\s\u00ad\u2010-]+/g)) {
-      range.setStart(text, word.index); range.setEnd(text, word.index + word[0].length);
-      if (new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round(r.top / 4))).size > 1) {
-        const king = host.closest('.king-block')?.getAttribute('aria-label');
-        out.push(`word "${word[0]}" breaks over two lines in ${name(host)}${king ? ` (${king})` : ''}${suffix}`);
-      }
-    }
-  }
-  // A capture count in the opponent bar leaves room for a two-digit count (10 or more) without cutting the name or the count.
-  const store = !suffix && document.querySelector('.play-opp .play-store[data-empty="false"]');
-  if (store) {
-    const before = store.textContent;
-    try { store.textContent = '10'; out.push(...cutText(' with 10 captures')); }
-    finally { store.textContent = before; }
   }
   return out;
 }

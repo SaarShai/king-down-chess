@@ -86,6 +86,7 @@ def main():
     profile = TOOLS / 'release/profile.sh'
     test_pages = ['KINGDOWN_TEST_PAGES=1'] if args.preview else ['-u', 'KINGDOWN_TEST_PAGES']
     build = ['env', *test_pages, 'bash', '-c', '. "$1"; exec npm run build:vercel', 'staging-build', str(profile)]
+    machine = [] if args.preview else ['bash', 'tools/test-lock.sh', '--machine']
     key_command = ['node', str(TOOLS / 'release/publishable-key.mjs'), STAGING]
     gate = 'release/ci-pr-green.mjs' if args.pr_head else 'ci-green.mjs'
     ci = (['node', str(TOOLS / gate)] if args.ci_passed
@@ -110,11 +111,11 @@ def main():
         if not args.preview:
             stub([*ci, ref, *ci_options])
         stub(['npm', 'ls', '--depth=0'], root)
-        stub(['npm', 'ci', '(if packages are missing or linked)'], root)
+        stub([*machine, 'npm', 'ci', '(if packages are missing or linked)'], root)
         stub(key_command)
         if args.preview:
             stub(['npm', 'run', 'typecheck'], root)
-        stub(['KINGDOWN_STAGE=staging', 'VITE_KINGDOWN_STAGE=staging', 'VITE_SUPABASE_URL=' + STAGING_SUPABASE_URL, *build], root)
+        stub(['KINGDOWN_STAGE=staging', 'VITE_KINGDOWN_STAGE=staging', 'VITE_SUPABASE_URL=' + STAGING_SUPABASE_URL, *machine, *build], root)
         stub(['KINGDOWN_RELEASE_SITE_ROOT=' + str(root), *SITE_CHECK] if args.preview else ['npm', 'run', 'check:vercel'], root)
         stub(GUARD)
         stub(publish)
@@ -167,7 +168,7 @@ def main():
             (root / 'node_modules').unlink()
         if subprocess.run(['npm', 'ls', '--depth=0'], cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
             phase('npm-ci')
-            run(['npm', 'ci'], 'npm-ci')
+            run([*machine, 'npm', 'ci'], 'npm-ci')
 
         key = subprocess.check_output(key_command, text=True).strip()
         env = dict(os.environ, KINGDOWN_STAGE='staging', VITE_KINGDOWN_STAGE='staging',
@@ -176,7 +177,7 @@ def main():
             phase('typecheck')
             run(['npm', 'run', 'typecheck'], 'typecheck', env)
         phase('build')
-        run(build, 'build', env)
+        run([*machine, *build], 'build', env)
         engine_dir = out / 'functions/mcp.func/runtime/engines'
         built = sorted(p.name for p in engine_dir.glob('*.mjs'))
         committed = sorted(p.name for p in (root / 'engines').glob('*.mjs'))

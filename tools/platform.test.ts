@@ -50,9 +50,15 @@ it('keeps the launch legal facts and the old in-app deletion path', () => {
   for (const page of ['terms', 'support', 'delete-data']) expect(readFileSync(`tools/solo-launch/${page}.html`, 'utf8')).toContain('href="/play"');
   expect(readFileSync('tools/solo-launch/delete-data.html', 'utf8')).toContain('Settings → Account');
 });
-it('sets the new-page title and share preview before script execution', () => {
+it('names King Down in the launch HTML before script execution', () => {
   const html = readFileSync('tools/solo-launch/next.html', 'utf8');
-  for (const text of ['<title>King Down</title>', 'property="og:title" content="King Down"', 'property="og:image"', 'name="description"', 'id="browser-support"']) expect(html).toContain(text);
+  expect(Array.from(html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi), ([, title]) => title.trim())).toEqual(['King Down']);
+  expect(html).toMatch(/<section id="browser-support" hidden\b/);
+  for (const text of [
+    '<title>King Down</title>', 'name="application-name" content="King Down"',
+    'property="og:site_name" content="King Down"', 'property="og:title" content="King Down"',
+    'property="og:image"', 'name="description"',
+  ]) expect(html).toContain(text);
 });
 
 it('uses the Daylight page colour before the styles load and in the launch manifest', () => {

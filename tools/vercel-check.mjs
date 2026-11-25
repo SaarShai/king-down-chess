@@ -109,6 +109,7 @@ try {
   const fixedPublicFiles = ['./', 'index.html', ...soloLaunch ? [
     'next.html', 'browser-support.js', 'interface/stone-refined-light.webp',
     'interface/reveal/hero-portrait.webp', 'interface/reveal/hero-square.webp', 'interface/reveal/hero-wide.webp',
+    'interface/computer-king-1-96.webp', 'interface/computer-king-2-96.webp', 'interface/computer-king-3-96.webp',
   ] : []];
   for (const file of allowlist) {
     assert(typeof file === 'string' && (fixedPublicFiles.includes(file) || isCharacterRuntimeStartup(file) || /^(?:assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|audio\/armour\/[\w-]+\.wav|manifest\.webmanifest)$/.test(file)), `Public build file: ${file}`);
@@ -149,7 +150,13 @@ try {
       const { dest, headers, status } = siteRoute(config, path, present);
       for (const [name, value] of Object.entries(headers)) res.setHeader(name, value);
       const file = join(tree, 'static', dest.endsWith('/') ? `${dest}index.html` : dest);
-      if (['GET', 'HEAD'].includes(req.method) && (await exists(file))?.isFile()) { if (status) res.statusCode = status; served.add(`static ${path.startsWith('/plugin-art/') ? '/plugin-art/*' : path}`); res.end(req.method === 'HEAD' ? undefined : await readFile(file)); return; }
+      if (['GET', 'HEAD'].includes(req.method) && (await exists(file))?.isFile()) {
+        if (status) res.statusCode = status;
+        if (file.endsWith('.html') && !res.hasHeader('Content-Type')) res.setHeader('Content-Type', 'text/html');
+        served.add(`static ${path.startsWith('/plugin-art/') ? '/plugin-art/*' : path}`);
+        res.end(req.method === 'HEAD' ? undefined : await readFile(file));
+        return;
+      }
       // Vercel gives the function the original request path, also after a route.
       if (await exists(join(tree, 'functions', `${dest}.func`))) { served.add(`function ${path}`); await app.handler(req, res); return; }
       res.writeHead(404).end();
@@ -181,7 +188,9 @@ try {
     assert.equal((await fetch(origin + path, { method: 'POST' })).status, 404);
   }
   assert((await (await fetch(origin)).text()).includes('<html'));
-  const publicPaths = ['/muse-connector.html', ...allowlist.map(file => new URL(file, origin + '/').pathname)];
+  // Google needs this public file to verify site ownership for Google sign-in.
+  const googleVerification = 'googlea1baf648ae09b150.html';
+  const publicPaths = ['/muse-connector.html', `/${googleVerification}`, ...allowlist.map(file => new URL(file, origin + '/').pathname)];
   for (const path of publicPaths) {
     const response = await fetch(origin + path, { redirect: 'manual' });
     assert.equal(response.status, 200, path);
@@ -194,6 +203,13 @@ try {
     assert.deepEqual(Buffer.from(await response.arrayBuffer()), musePage);
     assert.equal((await fetch(origin + '/muse-connector.html' + query, { method: 'HEAD' })).status, 200);
   }
+  const verification = await fetch(`${origin}/${googleVerification}`, { credentials: 'omit', redirect: 'manual' });
+  assert.deepEqual({
+    status: verification.status,
+    location: verification.headers.get('location'),
+    text: /^text\/(?:plain|html)(?:\s*;|$)/i.test(verification.headers.get('content-type') ?? ''),
+    body: (await verification.text()).replace(/\r?\n$/, ''),
+  }, { status: 200, location: null, text: true, body: `google-site-verification: ${googleVerification}` }, googleVerification);
   const challenge = '/.well-known/openai-apps-challenge';
   const challengeFile = join(tree, 'static', challenge);
   const hasChallenge = (await exists(challengeFile))?.isFile();

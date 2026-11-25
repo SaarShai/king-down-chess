@@ -3,7 +3,9 @@
  * truth: the copy changes only by the moves that the server logs, and each change is checked against the view's FEN.
  */
 import { Game } from '../../game';
+import { needsServerPreview } from '../../account-game/engine-identity';
 import type { LoggedCommand, View } from '../../match/protocol';
+import { replayHistory } from '../../plugin/screens/board-model';
 import type { Move, Position } from '../../rules/engine';
 import { toFen } from '../../rules/setup';
 import type { DraftTurn } from '../play/turn';
@@ -19,8 +21,21 @@ export function replicaOf(view: View): Game | undefined {
   try {
     const game = new Game(undefined, view.rules);
     game.load(game.context.fromFen(view.history.initial_fen));
-    if (game.playLan(view.history.actions) !== view.history.actions.length) return;
-    return toFen(game.pos) === view.fen ? game : undefined;
+    if (game.playLan(view.history.actions) === view.history.actions.length && toFen(game.pos) === view.fen) return game;
+    if (!view.engine_fingerprint || !needsServerPreview(view.engine_fingerprint)) return;
+    const steps = replayHistory(view, view.rules);
+    if (!steps?.length) return;
+    game.load(steps[0].pre);
+    for (const { move, pos } of steps) {
+      if (game.status !== 'playing') return;
+      game.play(move);
+      if (game.pos.halfmove === pos.halfmove) continue;
+      // The count changes the 50-move draw. It does not change the repetition key.
+      game.pos.halfmove = pos.halfmove;
+      const status = game.context.status(game.pos);
+      if (status !== 'playing') game.status = status;
+    }
+    return game;
   } catch { return; }
 }
 
@@ -92,7 +107,7 @@ export function turnActions(draft: DraftTurn): string[] | undefined {
     if (!move) return;
     lans.push(context.toLan(pos, move)); pos = context.makeMove(pos, move);
   }
-  if (pos.turn === draft.base.turn) {
+  if (pos.turn === draft.base.turn && context.status(pos) === 'playing') {
     const pass = context.legalMoves(pos).find(m => m.pass);
     if (pass) lans.push(context.toLan(pos, pass));
   }

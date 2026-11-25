@@ -143,6 +143,17 @@ step() {
   echo "deploy: time $name $((SECONDS - began))s"
 }
 
+site_browser_checks() (
+  if [ -z "$frame_history" ] || [ -z "$record" ]; then
+    node tools/check.mjs "$@"
+    return
+  fi
+  set -o pipefail
+  node tools/check.mjs "$@" | tee "$base/frame-checks.log" || return
+  write_frame_record "$(dirname "$record")/frame-checks-$tree.pass" "$tree" "$base/frame-checks.log" ||
+    echo 'deploy: could not save the frame-time pass record' >&2
+)
+
 # The build archives a new engine in engines/; a release needs it committed on origin/main.
 engines_committed() {
   local changed
@@ -285,19 +296,22 @@ else
   step 'npm test' bash tools/test-lock.sh bash tools/test-unlocked.sh
 fi
 if [ "$target" = website ]; then
+  . "$script_dir/release/frame-checks.sh"
+  tree=$(git rev-parse "$commit^{tree}")
   record=${KINGDOWN_FRAME_CHECKS_RECORD:-}
+  frame_history=${KINGDOWN_FRAME_CHECKS_HISTORY:-}
   # The pass record is local to this Mac and has the same trust as a check run at publish time.
-  if [ -f "$record" ] && tree=$(git rev-parse "$commit^{tree}") && passed_at=$(LC_ALL=C awk -v tree="$tree" '
-    NR == 1 && $0 == "pass " tree " " $3 " king-effects painted-game" &&
-      $3 ~ /^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z$/ { time=$3 }
-    END { if (NR != 1 || !time) exit 1; print time }
-  ' 2>/dev/null < "$record"); then
+  passed_at=$(frame_passed_at "$record" "$tree") || passed_at=
+  if [ -z "$passed_at" ] && [ -n "$frame_history" ] && saved=$(find_frame_record "$frame_history" "$tree"); then
+    passed_at=$(frame_passed_at "$saved" "$tree") || passed_at=
+  fi
+  if [ -n "$passed_at" ]; then
     echo "deploy: skipped frame-time browser checks for tree $tree (passed at $passed_at)"
     if [ "$ci_browser" = no ]; then step 'browser checks' node tools/check.mjs --no-gpu; fi
   elif [ "$ci_browser" = yes ]; then
-    step 'frame-time browser checks' node tools/check.mjs --gpu
+    step 'frame-time browser checks' site_browser_checks --gpu
   else
-    step 'browser checks' node tools/check.mjs
+    step 'browser checks' site_browser_checks
   fi
   # shellcheck disable=SC2086 # site_env holds two checked words without spaces.
   step 'site artifact' env $site_env npm run build:vercel

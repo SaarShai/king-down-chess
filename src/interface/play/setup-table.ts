@@ -119,17 +119,23 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
       ? draft.game.context.rules.kings[own ? draft.player : draft.player ^ 1] : null;
     const name = own ? panelText.yourKing : panelText.opponent;
     const node = friend ? el('div', 'setup-seat setup-seat-static') : openControl(name, own ? 'king' : 'opponent', 'setup-seat');
+    // A friend game with Powers off has no side: both seats show one grey king.
+    const randomSide = !king && opponent === 'person' && (own || !hasPowers(draft.setup));
+    // A known king gets its house tint only with Powers on. The tint sits on the lasting row, so a change can fade.
+    match.dataset[own ? 'own' : 'opponent'] = king && hasPowers(draft.setup) ? king.king.toLowerCase() : '';
     const figure = art.figure(K, side, { kings: [null, null] }); figure.alt = '';
     if (king) figure.src = `/ui/kings/${king.king.toLowerCase()}${side ? '-b' : ''}.webp`;
+    else if (randomSide) figure.src = '/ui/pieces/king-shadow-w.webp';
     else if (!own) figure.src = `/ui/pieces/king-shadow-${side ? 'b' : 'w'}.webp`;
-    const stage = el('span', 'setup-figure'); stage.append(figure);
+    const stage = el('span', randomSide ? 'setup-figure setup-figure-random' : 'setup-figure'); stage.append(figure);
     const copy = el('span', 'setup-seat-copy'), power = el('span', 'setup-seat-power');
     if (king) power.append(emblem(king.king));
     power.append(king ? POWER_NAME[king.power] : friend || hasPowers(draft.setup) && !own ? '' : 'No power');
     const caption = el('span', 'setup-seat-edit');
     if (!own && opponent === 'computer') caption.append(portrait(draft.level));
     caption.append(own ? name : friend ? 'A friend' : text.computer);
-    const title = !king && !own && hasPowers(draft.setup) ? (friend ? "Friend's king" : panelText.randomKing) : kingLabel(king?.king, side);
+    const title = !king && !own && hasPowers(draft.setup) ? (friend ? "Friend's king" : panelText.randomKing)
+      : randomSide ? 'Random side' : kingLabel(king?.king, side);
     const kingName = el('strong', '', title);
     kingName.id = own ? 'setup-own-king' : 'setup-opponent-king';
     power.id = own ? 'setup-own-power' : 'setup-opponent-power';

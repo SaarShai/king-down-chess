@@ -14,12 +14,15 @@ const { outputFiles: [copy] } = await build({
       export { sideText } from './src/interface/play/sides.ts';
       export { SETTING_ORDER } from './src/interface/play/menus.ts';
       export { POWER_NAME } from './src/powers-ui.ts';
-      export { M, N } from './src/rules/engine.ts';
-      export { rulesOf } from './src/interface/play/saved.ts';`,
+      export { M, N, parseSq } from './src/rules/engine.ts';
+      export { Game } from './src/game.ts';
+      export { DraftTurn } from './src/interface/play/turn.ts';
+      export { gameJSON } from './src/screen/save.ts';
+      export { rulesOf, snapshot } from './src/interface/play/saved.ts';`,
   },
   bundle: true, platform: 'node', format: 'esm', write: false, loader: { '.svg': 'text' },
 });
-const { text, panelText, pieces, homeText, sideText, SETTING_ORDER, POWER_NAME, M, N, rulesOf } =
+const { text, panelText, pieces, homeText, sideText, SETTING_ORDER, POWER_NAME, M, N, parseSq, Game, DraftTurn, gameJSON, rulesOf, snapshot } =
   await import('data:text/javascript;base64,' + Buffer.from(copy.contents).toString('base64'));
 
 const browser = await launch(), out = env('PLAYABLE_OUT');
@@ -82,6 +85,10 @@ async function signedIn(context, invites, redeem, polls = {}) {
 // `reopen` presses New game again while the Back is held: the panel waits, and the game route goes first.
 const openSetup = page => page.locator('.home-summary:visible, .home-side-new:visible').first();
 const backHome = () => text.backTo(text.homeLabel);
+// The house tint of each seat (own, opponent), and the feet line: both figure boxes end on the same line.
+const seatTints = setup => setup.locator('.setup-figures').evaluate(node => `${node.dataset.own ?? ''},${node.dataset.opponent ?? ''}`);
+const tintTime = setup => setup.locator('.setup-figures').evaluate(node => getComputedStyle(node).transitionDuration);
+const feetLevel = setup => setup.locator('.setup-figure').evaluateAll(nodes => nodes.length === 2 && Math.abs(nodes[0].getBoundingClientRect().bottom - nodes[1].getBoundingClientRect().bottom) < 1);
 async function panelRace(page, context, check, action, game, { preload = false, reopen = false } = {}) {
   const invites = [{ ...invite('i1', 'ada'), game_id: game }], polls = {};
   let release; const held = new Promise(done => { release = done; });
@@ -164,6 +171,13 @@ const cases = {
     await shot(page, 'code-fault');
     await context.unroute(pattern); await page.locator(MAIN).click(); if (await page.locator('dialog.new-game-panel[open]').count()) await page.getByRole('button', { name: homeText.startGame, exact: true }).click(); await ready(page);
     check(await page.locator('.home-load-fault').count() === 0, 'a new press clears the fault and opens the game');
+    // A reload on an open result card: Home opens when the board code cannot load.
+    await page.getByRole('button', { name: text.menu, exact: true }).click(); await page.getByRole('button', { name: text.resign, exact: true }).click();
+    await page.locator('dialog[open]').getByRole('button', { name: text.resign, exact: true }).click();
+    await page.waitForSelector('.play-result', { state: 'attached' });
+    await context.route(pattern, r => r.abort()); await page.reload();
+    check(await page.waitForSelector('.play-home h1').then(() => true, () => false) && await page.locator('#boot-fault, .people-loading').count() === 0, 'a result card with no board code opens Home');
+    await context.unroute(pattern);
   },
   async font_fault(page, context, check) {
     await context.route('**/fonts/alegreya-sans-bold-latin.woff2', r => r.abort());
@@ -193,6 +207,221 @@ const cases = {
     check(await unbroken(page, '.pool-row > span'), 'piece names keep whole words');
     await shot(page, 'home-art');
   },
+  async home_wide(page, context, check, size) {
+    // A desktop window (1200 px or wider, 3:2 or wider, a mouse) whose panel fits below the kings: the painting fills the
+    // window and the actions sit on it. Phones, tablets, touch screens, short windows and large text keep the split layout.
+    const filled = async () => {
+      const { width: w, height: h } = page.viewportSize(), hero = await page.locator('.home-hero').boundingBox();
+      const fit = await page.locator('.home-reveal-still').evaluate(n => getComputedStyle(n).objectFit);
+      return Math.abs(hero.x) < 1 && Math.abs(hero.y) < 1 && Math.abs(hero.width - w) < 1 && hero.height >= h - 1 && fit === 'cover';
+    };
+    // The kings stand in the top third of the painting: in the wide layout no control reaches them, and each control is
+    // 44 px high or more and inside the window. The utilities have a solid fill, no blur, and an inset focus ring at 3:1.
+    const wideLayout = async label => {
+      await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
+      const wide = await filled();
+      if (!wide) return false;
+      // The painting (16:9) covers the window; the kings end at 30% of its height.
+      check(await page.locator('.home-start, .home-topbar').evaluateAll(nodes => nodes.every(n => n.getBoundingClientRect().top >= .34 * Math.max(innerHeight, innerWidth * 9 / 16))), `${label}: the actions stay below the kings`);
+      check(await page.locator('.home-start .kd-button, .home-topbar .kd-button:not([hidden])').evaluateAll(nodes => nodes.every(n => {
+        const r = n.getBoundingClientRect();
+        return r.height >= 44 && r.width >= 44 && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight;
+      })), `${label}: each Home control is 44 px or more in width and height and inside the window`);
+      const guide = page.locator('.home-guide-btn');
+      await guide.focus();
+      check(await guide.evaluate(n => {
+        const rgb = value => { const c = document.createElement('canvas').getContext('2d'); c.fillStyle = value; c.fillRect(0, 0, 1, 1); return [...c.getImageData(0, 0, 1, 1).data]; };
+        const lum = ([r, g, b]) => [r, g, b].map(v => { v /= 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }).reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i], 0);
+        const style = getComputedStyle(n), fill = rgb(style.backgroundColor), ring = rgb(style.outlineColor), [a, b] = [lum(fill), lum(ring)].sort((x, y) => y - x);
+        return n.matches(':focus-visible') && fill[3] === 255 && style.backdropFilter === 'none' && parseFloat(style.outlineOffset) < 0 && (a + .05) / (b + .05) >= 3;
+      }), `${label}: the utilities have a solid fill, no blur, and an inset focus ring at 3:1`);
+      return true;
+    };
+    const [w, h] = size.split('x').map(Number), gate = w >= 1200 && w / h >= 1.5;
+    await page.goto(NEXT); await page.waitForSelector('.play-home .home-reveal-still');
+    check(await filled() === gate, `the Home painting ${gate ? 'fills' : 'does not fill'} the window`);
+    if (gate) await wideLayout('new');
+    // Focus order: the title, then the utilities.
+    await page.locator('.home-brand h1').focus(); await page.keyboard.press('Tab');
+    check(await page.evaluate(() => !!document.activeElement?.closest('.home-topbar')), 'the first Tab after the title goes to the utilities');
+    if (size !== '1280x800' && size !== '1920x1080') return;
+    // Both gate edges, at this height.
+    for (const [edge, wide] of [[[1199, 799], false], [[1200, 800], true], [[1200, 801], false]]) {
+      await page.setViewportSize({ width: edge[0], height: edge[1] });
+      check(await filled() === wide, `${edge.join('x')}: the Home painting ${wide ? 'fills' : 'does not fill'} the window`);
+    }
+    // A resize into the wide layout loads the wide still.
+    await page.setViewportSize({ width: 500, height: 1000 }); await page.reload(); await page.waitForSelector('.play-home .home-reveal-still');
+    await page.setViewportSize({ width: w, height: h });
+    check(await page.waitForFunction(() => document.querySelector('.home-reveal-still')?.src.endsWith('hero-wide.webp'), null, { timeout: 3000 }).then(() => true, () => false), 'a resize into the wide layout loads the wide still');
+    // Touch input keeps the split layout.
+    const touch = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true, isMobile: false }), tapped = await touch.newPage();
+    await tapped.goto(NEXT); await tapped.waitForSelector('.play-home .home-reveal-still');
+    check(!(await tapped.locator('.home-hero').evaluate(n => getComputedStyle(n.querySelector('.home-reveal-still')).objectFit === 'cover' && n.getBoundingClientRect().width >= innerWidth - 1)), 'a touch screen keeps the split layout');
+    await touch.close();
+    // A saved game keeps the wide layout. Continue grows a copy of the card with the card's own padding.
+    const save = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'ai', sound: false };
+    await context.addInitScript(s => localStorage.setItem('kingdown.save', s), JSON.stringify(save));
+    await page.goto(NEXT); await page.waitForSelector('.home-continue');
+    check(await wideLayout('saved'), 'a saved game keeps the wide layout');
+    await shot(page, 'home-wide-saved');
+    await page.emulateMedia({ reducedMotion: 'no-preference' }); await page.reload(); await page.waitForSelector('.home-continue');
+    const source = await page.locator('.home-start .home-card').evaluate(n => new Promise(done => requestAnimationFrame(() => done(getComputedStyle(n).padding))));
+    await page.locator('.home-continue').click();
+    const copy = await page.waitForSelector('.home-growing-card', { timeout: 2000 }).then(n => n.evaluate(c => getComputedStyle(c).padding), () => null);
+    check(copy === source, `the growing card keeps the card padding: ${copy} for ${source}`);
+    // Signed-in rows, at 100% and 150% text, and in a short window: wide only where all fits below the kings.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await signedIn(context, [invite('i1', 'ada'), invite('i2', 'bo'), invite('i3', 'cy'), invite('i4', 'di')]);
+    await page.goto(NEXT); await page.waitForSelector('.home-continue'); await page.waitForSelector('.home-invite-row');
+    await wideLayout('saved, signed in');
+    await shot(page, 'home-wide-signed-in');
+    await page.evaluate(() => { document.documentElement.style.fontSize = '150%'; });
+    await wideLayout('saved, signed in, 150% text');
+    await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
+    await page.setViewportSize({ width: w, height: Math.round(w / 2.4) });
+    await wideLayout('saved, signed in, short window');
+  },
+  // Home opens narrow with a fresh cache, then enters the wide layout during the film: each painted frame of the wide
+  // layout has the wide picture. A resize back, two fast resizes and a failed picture change nothing. After the wide
+  // layout, the narrow layout gets its own still: the wide picture stays, whole, until that is ready, and no frame is blank or cuts a king.
+  async home_resize(page, context, check, size) {
+    if (size !== '1280x720') return;
+    const open = async (label, { reduced = false, ended = false, fail = false, touch = false, viewport = { width: 500, height: 1000 } } = {}) => {
+      const tab = await (await browser.newContext({ viewport, hasTouch: touch, reducedMotion: reduced ? 'reduce' : 'no-preference' })).newPage();
+      let release; const held = new Promise(done => { release = done; }), asked = [], state = { fail };
+      // The pictures of the other layout: those that the tab has not loaded yet.
+      await tab.route(viewport.width === 500 ? '**/hero-wide.webp' : /hero-(portrait|square)\.webp$/, async r => { asked.push(r); await held; return state.fail ? r.abort() : r.continue(); });
+      await tab.addInitScript(() => { window.kdErrors = []; addEventListener('error', event => { if (event.message) window.kdErrors.push(event.message); }); });
+      await tab.goto(NEXT); await tab.waitForSelector('.play-home .home-reveal-still');
+      await tab.waitForFunction(() => document.querySelector('.home-reveal-still').naturalWidth > 0);
+      if (!reduced) await tab.locator('.home-reveal-video[data-ready]').waitFor();
+      if (ended) await tab.evaluate(() => document.querySelector('.home-reveal-video').dispatchEvent(new Event('ended')));
+      // A task after the frame sees the layout that the frame painted: the size observer has run. A resize between the
+      // two gives no sample: resize() waits for a later frame of its window. A visible layer is the film or the still.
+      await tab.evaluate(() => {
+        window.kdFrames = [];
+        const frame = () => requestAnimationFrame(() => { const size = `${innerWidth}x${innerHeight}`; setTimeout(() => {
+          frame();
+          if (size !== `${innerWidth}x${innerHeight}`) return;
+          const still = document.querySelector('.home-reveal-still'), film = document.querySelector('.home-reveal-video'), hero = document.querySelector('.home-hero').getBoundingClientRect();
+          const visible = node => getComputedStyle(node).opacity > 0, shape = url => /(portrait|square|wide)[^/]*$/.exec(url)?.[1] ?? 'none';
+          const playing = film.hasAttribute('src') && (visible(film) || film.matches('.home-art:not(.home-art-still, .home-art-settled) [data-ready]')); // it fades in
+          // A narrow layout cuts the kings of a picture of another shape, unless it is whole and has no edge fade.
+          const art = document.querySelector('.home-art'), aspect = art.clientWidth / art.clientHeight, own = aspect <= .78 ? 'portrait' : aspect <= 1.25 ? 'square' : 'wide';
+          const whole = getComputedStyle(art).maskImage === 'none' && [still, film].every(node => getComputedStyle(node).objectFit === 'contain');
+          const fits = shape => shape === own || whole;
+          window.kdFrames.push({ size, cut: matchMedia('(max-aspect-ratio: 5/4)').matches && !([...(playing ? [film.src] : []), ...(visible(still) ? [still.currentSrc] : [])].every(url => fits(shape(url)))), wide: getComputedStyle(still).objectFit === 'cover' && innerWidth >= 1200 && hero.width >= innerWidth - 1, film: playing,
+            layers: [...(playing ? [shape(film.src)] : []), ...(visible(still) ? [still.complete && still.naturalWidth ? shape(still.currentSrc) : 'blank'] : [])] });
+        }); });
+        frame();
+      });
+      const frames = () => tab.evaluate(() => window.kdFrames.splice(0));
+      const resize = async (width, height) => {
+        const before = await tab.evaluate(() => window.kdFrames.length);
+        await tab.setViewportSize({ width, height });
+        await tab.waitForFunction(([before, size]) => window.kdFrames.slice(before).filter(f => f.size === size).length > 2, [before, `${width}x${height}`]);
+      };
+      return { tab, asked, state, release, frames, resize, close: () => tab.context().close(),
+        clean: seen => check(seen.every(f => f.layers.length && (!f.wide || f.layers.every(shape => shape === 'wide'))), `${label}: each frame has a picture, and no frame of the wide layout has another picture: ${JSON.stringify(seen.find(f => !f.layers.length || f.wide && f.layers.some(shape => shape !== 'wide')))}`),
+        calm: async () => check(!(await tab.evaluate(() => window.kdErrors)).length, `${label}: no error in the window: ${await tab.evaluate(() => window.kdErrors)}`),
+        settled: () => tab.waitForFunction(() => window.kdFrames.at(-1)?.wide, null, { timeout: 4000 }).then(() => true, () => false) };
+    };
+    // Each size in turn, to 500x1000; then the wide layout again.
+    const wayBack = async (home, label, sizes = []) => {
+      for (const [w, h] of sizes) await home.resize(w, h);
+      const passed = await home.frames();
+      await home.resize(500, 1000);
+      // Opened wide: the narrow picture is held, so each frame until now has the wide one.
+      if (sizes.length) {
+        passed.push(...await home.frames());
+        check(home.asked.length > 0 && passed.at(-1).size === '500x1000' && passed.every(f => f.layers.join() === 'wide'), `${label}, back to narrow: the wide picture stays while the narrow one loads: ${home.asked.length} ${JSON.stringify(passed.find(f => f.layers.join() !== 'wide'))}`);
+        if (label === 'opened wide, film') await home.tab.screenshot({ path: join(out, 'resize-narrow-held-500.png') });
+      }
+      if (sizes.length && home.state.fail) {
+        // The load fails, then the device is offline: the wide picture stays, whole. A later resize tries again.
+        home.release(); await home.tab.waitForTimeout(400);
+        await home.tab.context().setOffline(true); await home.resize(501, 1000); await home.resize(500, 1000); await home.tab.waitForTimeout(400);
+        passed.push(...await home.frames());
+        check(passed.every(f => f.layers.join() === 'wide') && await home.tab.locator('.home-start').isVisible(), `${label}, back to narrow: the wide picture and the actions stay: ${JSON.stringify(passed.find(f => f.layers.join() !== 'wide'))}`);
+        await home.tab.context().setOffline(false); home.state.fail = false; await home.resize(501, 1000);
+      }
+      home.release();
+      const came = await home.tab.waitForFunction(() => window.kdFrames.at(-1)?.layers.join() === 'portrait', null, { timeout: 4000 }).then(() => true, () => false);
+      if (came) { await home.resize(501, 1000); await home.resize(500, 1000); }
+      const seen = [...passed, ...await home.frames()], own = seen.findIndex(f => f.layers.join() === 'portrait');
+      check(came && own >= 0 && seen.slice(own).every(f => !f.wide && !f.film && f.layers.join() === 'portrait'), `${label}, back to narrow: the portrait still comes and stays, with no film: ${JSON.stringify(seen.at(-1))}`);
+      const blank = seen.find(f => f.layers.length !== 1 || !/^(portrait|square|wide)$/.test(f.layers[0]));
+      check(!blank, `${label}, back to narrow: each frame has one picture: ${JSON.stringify(blank)}`);
+      const cut = seen.find(f => f.cut);
+      check(!cut, `${label}, back to narrow: no frame cuts a king: ${JSON.stringify(cut)}`);
+      if (label === 'film') await home.tab.screenshot({ path: join(out, 'resize-narrow-return-500.png') });
+      await home.resize(1280, 720);
+      check(await home.settled(), `${label}: the wide layout comes again`);
+      home.clean(await home.frames()); await home.calm();
+    };
+    for (const [label, how] of [['film', {}], ['reduced motion', { reduced: true }], ['film ended', { ended: true }]]) {
+      const home = await open(label, how);
+      await home.resize(1280, 720); await home.resize(1290, 730); await home.resize(1280, 720);
+      const waiting = await home.frames();
+      check(home.asked.length > 0 && waiting.length > 5 && waiting.every(f => !f.wide), `${label}: the split layout stays while the picture loads: ${home.asked.length} ${waiting.length} ${JSON.stringify(waiting.find(f => f.wide))}`);
+      if (label === 'film') await home.tab.screenshot({ path: join(out, 'resize-split-1280.png') });
+      home.release();
+      check(await home.settled(), `${label}: the wide layout comes with the wide picture`);
+      home.clean([...waiting, ...await home.frames()]); await home.calm();
+      if (label === 'film') await home.tab.screenshot({ path: join(out, 'resize-wide-1280.png') });
+      await wayBack(home, label);
+      await home.close();
+    }
+    // A drag: the wide layout ends at a wide shape, and the window goes on to narrow.
+    for (const [label, how] of [['opened wide, film', {}], ['opened wide, film ended', { ended: true }], ['opened wide, reduced motion', { reduced: true }], ['opened wide, load error', { fail: true }]]) {
+      const home = await open(label, { ...how, viewport: { width: 1280, height: 720 } });
+      await wayBack(home, label, [[1150, 720], [800, 900]]);
+      await home.close();
+    }
+    const back = await open('resize back');
+    await back.resize(1280, 720); await back.resize(500, 1000); back.release(); await back.tab.waitForTimeout(400);
+    const stayed = await back.frames();
+    check(stayed.every(f => !f.wide && f.layers.join() === 'portrait') && stayed.at(-1).film, `resize back: the portrait film stays: ${JSON.stringify(stayed.find(f => f.wide || f.layers.join() !== 'portrait'))}`);
+    await back.resize(1280, 720); check(await back.settled(), 'resize back: a later resize is wide'); back.clean(await back.frames()); await back.calm();
+    await back.close();
+    const failed = await open('load error', { fail: true });
+    await failed.resize(1280, 720); failed.release(); await failed.tab.waitForTimeout(400);
+    const bad = (await failed.frames()).find(f => f.wide || f.layers.join() !== 'portrait');
+    check(!bad, `load error: the split layout stays with its picture: ${JSON.stringify(bad)} ${failed.asked.length}`);
+    await failed.close();
+    // A touch device turns: its wide film plays on, whole, and the still for its shape comes after the film.
+    for (const [w, h, own] of [[1024, 768, 'square'], [844, 390, 'portrait']]) {
+      const label = `touch turn ${w}x${h}`, home = await open(label, { touch: true, viewport: { width: w, height: h } });
+      await home.resize(h, w);
+      const film = await home.frames(), bad = film.find(f => f.size === `${h}x${w}` && (f.cut || !f.film || f.layers.join() !== 'wide'));
+      check(film.at(-1)?.size === `${h}x${w}` && !bad && !home.asked.length, `${label}: the film plays on, whole: ${home.asked.length} ${JSON.stringify(bad)}`);
+      await home.tab.screenshot({ path: join(out, `turn-film-${h}.png`) });
+      await home.tab.evaluate(() => document.querySelector('.home-reveal-video').dispatchEvent(new Event('ended')));
+      await home.tab.waitForTimeout(500); await home.tab.screenshot({ path: join(out, `turn-held-${h}.png`) });
+      home.release();
+      const came = await home.tab.waitForFunction(own => window.kdFrames.at(-1)?.layers.join() === own, own, { timeout: 4000 }).then(() => true, () => false);
+      const seen = await home.frames(), cut = seen.find(f => f.cut || !f.layers.length || f.layers.includes('blank'));
+      check(came && !cut, `${label}: the ${own} still comes after the film, and no frame cuts a king: ${JSON.stringify(cut ?? seen.at(-1))}`);
+      // The last film frame, then the still for this shape: one change.
+      const at = seen.findIndex(f => !f.film), wrong = seen.find((f, i) => f.layers.join() !== (at < 0 || i < at ? 'wide' : own) || f.film !== (at < 0 || i < at));
+      check(at > 5 && !wrong, `${label}: the last film frame stays until the ${own} still: ${at} ${JSON.stringify(wrong)}`);
+      await home.tab.screenshot({ path: join(out, `turn-still-${h}.png`) });
+      await home.calm(); await home.close();
+    }
+    // Home that opens wide: the wide layout from its first frame.
+    const wide = await browser.newContext({ viewport: { width: 1280, height: 720 } }), first = await wide.newPage();
+    await first.addInitScript(() => {
+      window.kdSplit = 0; window.kdHome = 0;
+      const frame = () => requestAnimationFrame(() => setTimeout(() => { const home = document.querySelector('.play-home'); if (home) { window.kdHome++; if (home.classList.contains('home-split')) window.kdSplit++; } frame(); }));
+      frame();
+    });
+    for (const visit of ['new', 'cached']) {
+      await first.goto(NEXT); await first.waitForFunction(() => window.kdHome > 20);
+      check(await first.evaluate(() => window.kdSplit === 0), `${visit}: Home that opens wide has no frame of the split layout`);
+    }
+    await wide.close();
+  },
   async panel(page, context, check) {
     await page.goto(NEXT); await page.waitForSelector('.play-home');
     const before = await saved(page), choices = await page.locator('.home-summary').innerText();
@@ -208,6 +437,53 @@ const cases = {
     await page.waitForFunction(() => !history.state?.layer);
     check(await saved(page) === before && await page.locator('.home-summary').innerText() === choices, 'Close keeps the save and choices');
     await shot(page, 'panel-closed');
+  },
+  async friend_side(page, context, check) {
+    // Play a friend: sides are random, so the seats name no side with Powers and Cards off.
+    await page.goto(NEXT); await page.waitForSelector('.play-home');
+    await page.getByRole('button', { name: text.friend, exact: true }).click();
+    const setup = page.locator('dialog.new-game-panel[open]');
+    for (const name of ['Powers', text.cards]) {
+      const toggle = setup.getByRole('switch', { name, exact: true });
+      if (await toggle.getAttribute('aria-checked') === 'true') await toggle.click();
+    }
+    const seats = await setup.locator('.setup-figures').innerText();
+    check(!/Light|Dark/.test(seats), `the friend seats name no side: ${seats.replace(/\s+/g, ' ')}`);
+    // A random side shows no side: both seats show the same grey figure.
+    const figures = await setup.locator('.setup-figure').evaluateAll(nodes => nodes.map(node =>
+      ({ src: node.querySelector('img')?.getAttribute('src') ?? '', random: node.classList.contains('setup-figure-random') })));
+    check(figures.length === 2 && figures.every(figure => figure.src === '/ui/pieces/king-shadow-w.webp'), `both friend seats show the same side-less king: ${JSON.stringify(figures)}`);
+    check(figures.every(figure => figure.random), 'both friend seat figures are grey');
+    check(await seatTints(setup) === ',', 'a random side has no house tint');
+    // A tint layer paints its full box on each frame of a sheet slide (WebKit CI, no GPU): no tint, no layer.
+    const tintLayers = await setup.locator('.setup-figures').evaluate(node => ['::before', '::after'].map(part => getComputedStyle(node, part).content).join() + ' ' + getComputedStyle(node).isolation);
+    check(tintLayers === 'none,none auto', `no tint draws no tint layer: ${tintLayers}`);
+    // Each extra layer under the slide costs the same CPU-only WebKit: plinths and crest are backgrounds, the row is static.
+    const stone = await setup.locator('.setup-figures, .setup-figure, .setup-vs').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).position + ' ' + getComputedStyle(node, '::before').content).join());
+    check(stone === 'static none,relative none,static none,relative none', `plinths and crest draw no layer: ${stone}`);
+    check(/^0s/.test(await tintTime(setup)), 'reduced motion: the tint has no transition');
+    check(await feetLevel(setup), 'both plinths share one baseline');
+    // At 150% text "Random side" wraps in one seat only: the plinths still share one line. A short landscape has none.
+    await page.evaluate(() => { document.documentElement.style.fontSize = '150%'; });
+    const short = page.viewportSize().height <= 500;
+    const plinths = await setup.locator('.setup-figure').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).backgroundImage.slice(0, 8)));
+    check(plinths.every(image => image === (short ? 'none' : 'url("dat')), `a short landscape has no plinth: ${plinths}`);
+    check(short || await feetLevel(setup), 'both plinths share one baseline at 150% text');
+    await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
+    await shot(page, 'friend-side');
+  },
+  async seat_tint(page, context, check) {
+    // A known king has a quiet house tint only with Powers on. The tint changes in 180 ms (friend_side: reduced motion has none).
+    await page.goto(NEXT); await page.waitForSelector('.play-home');
+    await openSetup(page).click();
+    const setup = page.locator('dialog.new-game-panel[open]'), powers = setup.getByRole('switch', { name: 'Powers', exact: true });
+    if (await powers.getAttribute('aria-checked') !== 'true') await powers.click();
+    const own = await setup.locator('#setup-own-king').innerText();
+    check(new RegExp(await seatTints(setup).then(t => t.split(',')[0]), 'i').test(own) && /^\w+,$/.test(await seatTints(setup)), `Powers on tints the known king only: ${await seatTints(setup)} for ${own}`);
+    check(await feetLevel(setup), 'both plinths share one baseline');
+    check(/^0\.18s/.test(await tintTime(setup)), `the tint changes in 180 ms: ${await tintTime(setup)}`);
+    await powers.click();
+    check(await seatTints(setup) === ',', 'Powers off removes the tint');
   },
   async panel_refresh(page, context, check) {
     // A signed-in player opens New game; a new invite arrives through the home poll and redraws Play. The open panel,
@@ -458,6 +734,130 @@ const cases = {
     await page.waitForSelector('.play-result', { state: 'attached' });
     check(await page.locator('.play-result-actions .kd-button').evaluateAll(nodes => nodes.every(n => !getComputedStyle(n).textDecorationLine.includes('underline'))), 'result controls have no underline');
   },
+  // A reload on the open result card shows it again, at rest, and writes nothing. Each other way back opens Home.
+  async result_reload(page, context, check, size) {
+    if (!['390x844', '1280x720'].includes(size)) return;
+    const ended = (fen, moves, { player = 0, resigned = null } = {}) => {
+      const game = new Game('RNBQKBNR', rulesOf('pieces', [null, null], [[], []]));
+      if (fen) game.load(game.context.fromFen(fen));
+      for (const [from, to] of moves) { const draft = new DraftTurn(game); draft.stage(draft.at(parseSq(from), parseSq(to))[0]); draft.commit(); }
+      return { ...snapshot(new DraftTurn(game), resigned, player, 125000), skill: 'casual', sound: true, pace: 'normal', gameAt: 500 };
+    };
+    const MATE = '7k/6pp/8/8/8/R7/8/6K1 w - - 0 1', KEY = 'kingdown.result';
+    const ends = [
+      ['win', ended(MATE, [['a3', 'a8']]), 'You win', 'Checkmate.'],
+      ['loss', ended(MATE, [['a3', 'a8']], { player: 1 }), 'The computer wins', 'Checkmate.'],
+      ['draw', ended('k7/8/8/8/8/8/1p6/K7 w - - 0 1', [['a1', 'b2']]), 'Draw', 'Insufficient material.'],
+      ['resign', ended('7k/7p/8/8/8/8/P7/K7 w - - 0 1', [['a2', 'a3']], { resigned: 0 }), 'The computer wins', 'You resign.'],
+      ['resign before a move', ended(null, [], { resigned: 0 }), 'The computer wins', 'You resign.'],
+    ];
+    const markOf = save => `${save.gameAt}|${gameJSON(save)}`;
+    await context.addInitScript(() => {
+      localStorage.setItem('kingdown.solo-launch-seen', '1');
+      window.kdSeen = { writes: [], moments: [] };
+      const get = Storage.prototype.getItem;
+      Storage.prototype.getItem = function (key) { if (key === 'kingdown.result') window.kdRead ??= performance.now(); return get.call(this, key); };
+      // The first frame that shows the loading line, in ms after the page reads the mark.
+      const line = () => requestAnimationFrame(() => { if (document.querySelector('.people-loading')) window.kdLine ??= performance.now() - window.kdRead; line(); });
+      line();
+      const set = Storage.prototype.setItem, animate = Element.prototype.animate, start = AudioBufferSourceNode.prototype.start;
+      Storage.prototype.setItem = function (key, value) { if (this === localStorage) window.kdSeen.writes.push(key); return set.call(this, key, value); };
+      Element.prototype.animate = function (...args) { window.kdSeen.moments.push(`animate ${this.className}`); return animate.apply(this, args); };
+      AudioBufferSourceNode.prototype.start = function (...args) { window.kdSeen.moments.push('sound'); return start.apply(this, args); };
+      new MutationObserver(records => { for (const { addedNodes } of records) for (const node of addedNodes) if (node instanceof Element && (node.matches('.play-sequence-skip, .play-versus, .play-home') || node.querySelector('.play-sequence-skip, .play-versus, .play-home'))) window.kdSeen.moments.push(node.className); }).observe(document, { childList: true, subtree: true });
+    });
+    const seed = (save, mark) => page.evaluate(([save, mark, key]) => {
+      localStorage.setItem('kingdown.save', save); sessionStorage.removeItem(key); if (mark) sessionStorage.setItem(key, mark);
+      history.replaceState(null, '', '#game');
+    }, [JSON.stringify(save), mark, KEY]);
+    const card = () => page.locator('.play-game:not([style*="hidden"]) .play-result').waitFor({ state: 'attached' });
+    const home = async label => check(await page.waitForFunction(key => document.body.dataset.page === 'home' && document.querySelector('.play-home h1') && !document.querySelector('.play-result') && sessionStorage.getItem(key) === null, KEY, { timeout: 6000 }).then(() => true, () => false), label);
+    const press = control => control.evaluate(node => node.click()); // the short result layout can hide a control
+    await page.goto(NEXT); await page.waitForSelector('.play-home h1');
+    for (const [name, save, title, cause] of ends) {
+      await seed(save, markOf(save)); await page.reload(); await card(); await page.waitForTimeout(800);
+      const words = await page.locator('.play-result').evaluate(n => [n.querySelector('h3').textContent, n.querySelector('.play-result-cause').textContent]);
+      check(words.join('|') === `${title}|${cause}`, `${name}: the card shows its own result: ${words}`);
+      const seen = await page.evaluate(() => window.kdSeen);
+      check(seen.moments.length === 0, `${name}: the card comes at rest, with no Home before it: ${seen.moments}`);
+      check(!seen.writes.some(key => ['kingdown.save', 'kingdown.sync'].includes(key)) && await saved(page) === JSON.stringify(save), `${name}: no second record: ${seen.writes}`);
+      check(await page.evaluate(() => !(window.kdLine < 250)), `${name}: the loading line does not flash: ${await page.evaluate(() => window.kdLine)} ms`);
+      check(await page.evaluate(() => document.activeElement?.closest('.play-result-actions') !== null), `${name}: the first action has the focus`);
+      check((await page.locator('.play-game').getAttribute('data-moment')) === ({ win: 'win', loss: 'loss' }[name] ?? null), `${name}: the board has the light of its result`);
+      if (name === 'win') await page.screenshot({ path: join(out, `reload-result-${size.split('x')[0]}.png`) });
+      await press(page.locator('.play-result-actions .kd-button', { hasText: 'Home' })); await home(`${name}: Home clears the mark`);
+      await page.reload(); await home(`${name}: a reload after Home opens Home`);
+      await seed(save, null); await page.reload(); await home(`${name}: no mark opens Home`);
+      await seed(save, markOf(save)); await page.goto(`${NEXT}?visit`); await home(`${name}: a new visit to the tab opens Home`);
+      // Rematch of the restored card: the same level and the other side, as on the first open.
+      await seed(save, markOf(save)); await page.reload(); await card();
+      await press(page.locator('.play-result-actions .kd-button').first());
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).resigned === null && !document.querySelector('.play-result'));
+      const next = JSON.parse(await saved(page));
+      check(next.skill === 'casual' && next[save.white === 'human' ? 'black' : 'white'] === 'human', `${name}: Rematch keeps the level and swaps the side: ${next.skill} ${next.white}`);
+      check(await page.evaluate(key => sessionStorage.getItem(key) === null, KEY), `${name}: Rematch clears the mark`);
+    }
+    // The player's own checkmate, then a reload; See the game keeps the mark; Back opens Home.
+    await page.evaluate(save => { localStorage.setItem('kingdown.save', save); location.hash = ''; }, JSON.stringify({ ...ends[0][1], moves: [] }));
+    await page.goto(`${NEXT}?play`); await page.locator('.home-continue').click(); await ready(page);
+    await page.locator('.play-square[data-square="16"]').click(); await page.locator('.play-square[data-square="56"]').click();
+    await page.getByRole('button', { name: text.finish, exact: true }).click(); await card();
+    check(await page.evaluate(key => sessionStorage.getItem(key) !== null, KEY), 'the open card sets the mark');
+    const entries = await page.evaluate(() => history.length);
+    await page.reload(); await card();
+    await press(page.locator('.play-result-actions .kd-button', { hasText: 'See the game' }));
+    check(await page.locator('.play-game[data-review="true"]').count() === 1, 'See the game shows the board');
+    await page.reload(); await card();
+    check(await page.evaluate(() => history.length) === entries, 'a reload adds no history entry');
+    await press(page.locator('.play-result-new')); await page.waitForSelector('dialog.new-game-panel[open]');
+    await page.keyboard.press('Escape'); await page.waitForSelector('dialog[open]', { state: 'detached' });
+    await page.goBack(); await home('Back from the restored card opens Home');
+    if (size !== '1280x720') return;
+    // The restore waits for the board code: `reload` returns while the code is held, and `free` lets it load.
+    const [, win] = ends[0], BOARD = /\/assets\/board-api-[\w-]+\.js$/;
+    let asked, free;
+    const held = async (pattern, run) => {
+      const open = new Promise(done => { free = done; });
+      asked = 0;
+      await context.route(pattern, async route => { asked++; await open; await route.continue().catch(() => {}); });
+      await run(); free(); await context.unroute(pattern);
+    };
+    const reload = async () => {
+      const before = asked; await page.reload({ waitUntil: 'commit' });
+      const end = Date.now() + 8000; while (asked === before && Date.now() < end) await page.waitForTimeout(20);
+      check(asked > before, 'the reload asks for the board code');
+      check(await page.waitForFunction(() => window.kdRead, null, { timeout: 2000 }).then(() => true, () => false), 'the reload reads the mark');
+    };
+    const card2 = async label => check(await page.locator('.play-game:not([style*="hidden"]) .play-result').waitFor({ state: 'attached', timeout: 6000 }).then(() => true, () => false), label);
+    await held(BOARD, async () => {
+      await seed(win, markOf(win)); await reload();
+      check(await page.locator('.people-loading').waitFor({ timeout: 3000 }).then(() => true, () => false), 'a slow load shows the loading line');
+      check(await page.evaluate(() => location.hash) === '#game', 'the address of the game stays during the load');
+      await reload(); check(await page.evaluate(() => location.hash) === '#game', 'a second reload keeps the address');
+    });
+    await card2('a second reload during the load shows the card'); check(await page.locator('.people-loading').count() === 0, 'the loading line goes when the board opens');
+    // Another tab replaces the save during the load; the same moves at another time are another game.
+    const again = { ...win, gameAt: win.gameAt + 1 };
+    await held(BOARD, async () => { await seed(win, markOf(win)); await reload(); await page.evaluate(save => localStorage.setItem('kingdown.save', save), JSON.stringify(again)); });
+    await home('a save that another tab replaces during the load opens Home');
+    await seed(again, markOf(win)); await page.reload(); await home('the same moves in a later game open Home');
+    // Back during the load: Home stays, and its entry does too.
+    await page.goto(`${NEXT}?back`); await page.waitForSelector('.play-home h1');
+    await held(BOARD, async () => {
+      await seed(win, null); await page.evaluate(([mark, key]) => { history.replaceState({ shell: { place: 'play' }, key: 'home' }, '', location.pathname); history.pushState({ shell: { place: 'game' }, key: 'game' }, '', '#game'); sessionStorage.setItem(key, mark); }, [markOf(win), KEY]);
+      await reload(); await page.evaluate(() => history.back()); await page.waitForFunction(() => location.hash !== '#game');
+    });
+    await page.waitForTimeout(600); await home('Back during the load opens Home'); check(await page.evaluate(() => location.hash !== '#game' && history.state.key === 'home'), 'Back during the load keeps the Home entry');
+    // A new visit with a copied mark is not a reload.
+    await seed(win, markOf(win)); await page.goto(`${NEXT}?copied#game`); await home('a new visit with a copied mark opens Home');
+    // An invite link that opens during the load keeps its route, also when its own page is slow.
+    await seed(win, markOf(win)); let letGo; const slow = new Promise(done => { letGo = done; });
+    await context.route(/\/assets\/landing-[\w-]+\.js$/, async route => { await slow; await route.continue(); });
+    await held(BOARD, async () => { await reload(); await page.evaluate(() => { location.hash = '#join=abcdefgh'; }); });
+    await page.waitForTimeout(600);
+    check(await page.evaluate(() => location.hash) === '#join=abcdefgh', `an invite link that opens during the load keeps its route: ${await page.evaluate(() => location.hash)}`);
+    letGo(); check(await page.waitForFunction(() => document.body.dataset.page === 'join' && !document.querySelector('.people-loading, .play-home, .play-result')).then(() => true, () => false), 'the invite page opens after the load');
+  },
   async rematch_art(page, context, check) {
     // Rematch must request a king still that the first game does not use.
     await context.addInitScript(() => localStorage.setItem('kingdown.setup', 'powers'));
@@ -487,7 +887,7 @@ try {
     ? ['320x568', '360x640', '390x844', '667x375'] : sizes;
   for (const size of list) for (const [name, run] of Object.entries(cases)) {
     if (only && !only.includes(name)) continue;
-    const [width, height] = size.split('x').map(Number), context = await browser.newContext({ viewport: { width, height }, reducedMotion: ['guide', 'home_art'].includes(name) ? 'no-preference' : 'reduce' });
+    const [width, height] = size.split('x').map(Number), context = await browser.newContext({ viewport: { width, height }, reducedMotion: ['guide', 'home_art', 'seat_tint', 'result_reload'].includes(name) ? 'no-preference' : 'reduce' });
     const page = await context.newPage(), failures = [], errors = [];
     page.setDefaultTimeout(12000);
     const trapped = trapErrors(page);

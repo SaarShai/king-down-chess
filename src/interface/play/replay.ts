@@ -18,7 +18,7 @@ export function replayController() {
   return {
     get running() { return !!stop; },
     cancel() { token++; const cancel = stop; stop = undefined; cancel?.(); },
-    async play(steps: readonly ReplayStep[], board: Board, rules: GameRules, current: () => boolean, restore: () => void, frame: (pos: Position, step?: ReplayStep) => void): Promise<void> {
+    async play(steps: readonly ReplayStep[], board: Board, rules: GameRules, current: () => boolean, restore: () => void, frame: (pos: Position, step?: ReplayStep) => void, land?: (step: ReplayStep) => void): Promise<void> {
       if (stop || !steps.length) return;
       const own = ++token;
       const finish = () => { board.skip(); if (current()) restore(); };
@@ -28,7 +28,7 @@ export function replayController() {
         for (const step of steps) {
           if (own !== token || !current()) return;
           frame(step.before, step);
-          if (!step.move.pass) await board.play(step.move, step.after);
+          if (!step.move.pass) await board.play(step.move, step.after, land && (() => land(step)));
           else board.setPosition(step.after, rules);
           if (own !== token || !current()) return;
           frame(step.after);

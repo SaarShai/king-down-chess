@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { chromium, webkit } from 'playwright';
@@ -43,16 +46,22 @@ export async function withReleaseSite(url, check) {
   }
   const built = process.env.KINGDOWN_RELEASE_SITE_ROOT;
   const root = built || repo;
-  if (!built) {
-    const profile = fileURLToPath(new URL('../release/profile.sh', import.meta.url));
-    execFileSync('bash', ['-c', '. "$1"; exec npm run build', 'release-site', profile], {
-      cwd: root, stdio: 'inherit', env: { ...process.env, ...CHECK_SITE_ENV },
-    });
+  // A combined run keeps serving the shared build while the release check uses its own build.
+  const outDir = built ? undefined : await mkdtemp(join(tmpdir(), 'kingdown-release-site-'));
+  try {
+    if (outDir) {
+      const profile = fileURLToPath(new URL('../release/profile.sh', import.meta.url));
+      execFileSync('bash', ['-c', '. "$1"; exec npm run build -- --outDir "$2"', 'release-site', profile, outDir], {
+        cwd: root, stdio: 'inherit', env: { ...process.env, ...CHECK_SITE_ENV },
+      });
+    }
+    const { preview } = await import('vite');
+    const server = await preview({ root, ...(outDir ? { build: { outDir } } : {}), logLevel: 'silent', preview: { host: '127.0.0.1', port: 0, strictPort: true, open: false } });
+    try { await check(server.resolvedUrls.local[0]); }
+    finally { await server.close(); }
+  } finally {
+    if (outDir) await rm(outDir, { recursive: true, force: true });
   }
-  const { preview } = await import('vite');
-  const server = await preview({ root, logLevel: 'silent', preview: { host: '127.0.0.1', port: 0, strictPort: true, open: false } });
-  try { await check(server.resolvedUrls.local[0]); }
-  finally { await server.close(); }
 }
 
 export async function releaseContext(browser, url, options) {
@@ -70,6 +79,22 @@ export async function releaseContext(browser, url, options) {
   await answerCheckHost(context);
   await context.addInitScript(() => localStorage.setItem('kingdown.solo-launch-seen', '1'));
   return context;
+}
+
+export function releaseRequestFailures(page) {
+  const bad = [];
+  page.on('requestfailed', request => {
+    const error = request.failure()?.errorText;
+    // The page cancels its own pending requests when it leaves a screen; a cancel is not a network failure.
+    if (error === 'net::ERR_ABORTED' || error === 'cancelled') return;
+    bad.push(`${error} ${new URL(request.url()).pathname}`);
+  });
+  page.on('response', response => {
+    const address = new URL(response.url()), status = response.status();
+    if (address.origin === previewOrigin && address.pathname === '/api/status' && status === 403) return;
+    if (status >= 400) bad.push(`${status} ${address.pathname}`);
+  });
+  return bad;
 }
 
 const button = (scope, name) => scope.getByRole('button', { name, exact: true });
@@ -92,7 +117,15 @@ export function releaseDriver(page, url, touch = false) {
   const waitHome = () => button(page, text.friend).waitFor();
 
   return {
-    async openHome() { await page.goto(url); await waitHome(); },
+    async openHome() {
+      const start = performance.now();
+      try { await page.goto(url, { waitUntil: 'domcontentloaded' }); }
+      finally {
+        const elapsed = performance.now() - start;
+        if (elapsed > 5_000) console.warn(`WARN navigation ${new URL(url).pathname} took ${(elapsed / 1_000).toFixed(2)} s`);
+      }
+      await waitHome();
+    },
     async redesignedHome() {
       await play.waitFor();
       return !await page.locator('.shell-nav').count() &&

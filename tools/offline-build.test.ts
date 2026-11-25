@@ -24,7 +24,8 @@ function fixture() {
   const output = [
     chunk('assets/root.js', join(root, 'index.html'), [], ['assets/main.js', 'assets/web-entry.js']),
     chunk('assets/main.js', join(root, 'src/main.ts'), ['assets/shared.js'], ['assets/workshop.js', 'assets/client.js'], ['assets/main.css'], ['assets/worker.js']),
-    chunk('assets/shared.js', null, ['assets/main.js']),
+    chunk('assets/shared.js', null, ['assets/main.js'], ['assets/portrait-idle.js']),
+    chunk('assets/portrait-idle.js', join(root, 'src/interface/play/portrait-idle.ts'), ['assets/clip-data.js']), chunk('assets/clip-data.js', null),
     chunk('assets/workshop.js', join(root, 'src/workshop/ground.ts'), [], ['assets/lesson.js']),
     chunk('assets/lesson.js', join(root, 'src/screen/lesson.ts')),
     chunk('assets/play.js', join(root, 'play.html'), ['assets/shared.js'], ['assets/account.js']),
@@ -39,7 +40,7 @@ function fixture() {
   ];
   const bundle = Object.fromEntries(output.map(file => [file.fileName, file])) as OutputBundle;
   const files = [...Object.keys(bundle), 'index.html', 'sw.js', 'manifest.webmanifest',
-    'ui/pawn.webp', 'ui/icons/pawn.svg', 'fonts/cinzel.woff2', 'icons/icon-192.png',
+    'ui/pawn.webp', 'ui/emblems/frost.webp', 'ui/powers/ice-wall.webp', 'ui/icons/pawn.svg', 'fonts/cinzel.woff2', 'icons/icon-192.png',
     'privacy.html', 'terms.html', 'support.html', 'delete-data.html',
     'ui/consent.mjs', 'ui/private.html', 'fonts/license.txt', 'icons/account.json',
     '.well-known/openai-apps-challenge', '.well-known/oauth-protected-resource', 'consent.mjs', 'auth/callback.html'];
@@ -52,10 +53,21 @@ it('selects the local loader, static and dynamic graph, AI worker, CSS and asset
   expect(precache).toEqual(['./', ...[
     'assets/root.js', 'assets/main.js', 'assets/shared.js', 'assets/workshop.js', 'assets/lesson.js',
     'assets/worker.js', 'assets/main.css', 'assets/font.woff2', 'assets/local.webp',
-    'ui/pawn.webp', 'ui/icons/pawn.svg', 'fonts/cinzel.woff2', 'icons/icon-192.png', 'manifest.webmanifest',
+    'ui/pawn.webp', 'ui/emblems/frost.webp', 'ui/powers/ice-wall.webp', 'ui/icons/pawn.svg', 'fonts/cinzel.woff2', 'icons/icon-192.png', 'manifest.webmanifest',
   ].sort()]);
   expect(allowlist).toEqual(['./', 'index.html', ...precache.slice(1)]);
   expect(precache.every(file => allowlist.includes(file))).toBe(true);
+});
+
+it('leaves the Guide clip code and what only it needs out of the install', () => {
+  const { bundle, files } = fixture();
+  for (const solo of [false, true]) {
+    const { allowlist, precache } = offlineCacheFiles(bundle, root, files, solo);
+    for (const file of ['assets/portrait-idle.js', 'assets/clip-data.js']) { expect(precache).not.toContain(file); expect(allowlist).not.toContain(file); }
+  }
+  // Code that the board needs too stays in the install.
+  (bundle['assets/shared.js'] as OutputChunk).imports.push('assets/clip-data.js');
+  expect(offlineCacheFiles(bundle, root, files).precache).toContain('assets/clip-data.js');
 });
 
 it('excludes other entries, account-only output, maps, metadata, auth and legal files', () => {
@@ -286,9 +298,14 @@ it('rejects unknown non-empty effect metadata', async () => {
 it('uses real build metadata for the worker, loader, lazy code, CSS and emitted assets', async () => {
   const { dir } = site();
   try {
+    const verification = 'googlea1baf648ae09b150.html';
+    cpSync(resolve('public', verification), join(dir, 'public', verification));
     await compile(dir);
     const output = join(dir, 'dist'), worker = readFileSync(join(output, 'sw.js'), 'utf8');
     const { allowlist, precache } = lists(worker);
+    expect(readFileSync(join(output, verification), 'utf8').replace(/\r?\n$/, '')).toBe(`google-site-verification: ${verification}`);
+    expect(allowlist).not.toContain(verification);
+    expect(precache).not.toContain(verification);
     const assets = readdirSync(join(output, 'assets'));
     const named = (prefix: string, extension = 'js') => `assets/${assets.find(file => file.startsWith(prefix + '-') && file.endsWith('.' + extension))!}`;
     for (const file of [named('index'), named('main'), named('worker'), named('workshop'), named('main', 'css'), named('font', 'woff2'), named('art', 'svg')]) {
@@ -532,10 +549,10 @@ it('vercel check scans runtime image bytes for metadata', () => {
  } finally {rmSync(dir,{recursive:true,force:true});}
 });
 
-it('vercel check accepts only the Home stills in the solo launch worker', () => {
+it('vercel check accepts only the Home stills and the computer portraits in the solo launch worker', () => {
   const dir = mkdtempSync(join(tmpdir(), 'kingdown-vercel-home-'));
   const web = join(dir, 'static');
-  const stills = ['portrait', 'square', 'wide'].map(variant => `interface/reveal/hero-${variant}.webp`);
+  const stills = [...['portrait', 'square', 'wide'].map(variant => `interface/reveal/hero-${variant}.webp`), ...[1, 2, 3].map(n => `interface/computer-king-${n}-96.webp`)];
   const film = 'interface/reveal/portrait.mp4';
   try {
     mkdirSync(join(dir, 'functions/mcp.func'), { recursive: true });
@@ -567,6 +584,13 @@ it('precaches all Home stills and leaves films on the network', () => {
   const { allowlist, precache } = offlineCacheFiles(bundle, root, [...files, ...stills, ...films, 'interface/reveal/wide.webm'], true);
   expect(precache.filter(file => file.startsWith('interface/reveal/'))).toEqual(stills);
   expect(allowlist.filter(file => file.startsWith('interface/reveal/'))).toEqual(stills);
+});
+
+it('precaches the computer portraits that a saved game draws, and no larger size', () => {
+  const { bundle, files } = fixture();
+  const faces = [1, 2, 3].map(n => `interface/computer-king-${n}-96.webp`);
+  const { allowlist, precache } = offlineCacheFiles(bundle, root, [...files, ...faces, 'interface/computer-king-1-192.webp', 'interface/computer-king-1-384.webp'], true);
+  for (const list of [allowlist, precache]) expect(list.filter(file => file.includes('computer-king'))).toEqual(faces);
 });
 
 it('adds both public pages and the interface graph only for the solo launch', () => {

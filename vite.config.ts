@@ -20,8 +20,8 @@ const walk = (dir: string): string[] => readdirSync(dir).flatMap(name => {
   return statSync(path).isDirectory() ? walk(path) : [path];
 });
 
-/** Code a player may never need: the Supabase client (only for an account). */
-const onDemand = /\/src\/(?:account\/client|online\/entry)\.ts$/;
+/** Code a player may never need: the Supabase client (only for an account) and the figure clips of the Guide. */
+const onDemand = /\/src\/(?:account\/client|online\/entry|interface\/play\/portrait-idle)\.ts$/;
 
 /** Select the local graph and the public art, fonts and icons that it uses. */
 export function offlineCacheFiles(bundle: OutputBundle, root: string, files: string[], solo = false) {
@@ -44,7 +44,7 @@ export function offlineCacheFiles(bundle: OutputBundle, root: string, files: str
   for (const file of graph) {
     if (!emitted.has(file) || !/^assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)$/.test(file)) throw new Error(`Invalid offline graph file: ${file}`);
   }
-  const launchArt = /^interface\/(?:stone-refined-light|reveal\/hero-(?:portrait|square|wide))\.webp$/;
+  const launchArt = /^interface\/(?:stone-refined-light|computer-king-[123]-96|reveal\/hero-(?:portrait|square|wide))\.webp$/;
   // Optional clips load only with motion; the offline board can use the plain figures.
   const publicFiles = files.filter(file => !/^assets\/(?:tap|slam)-[\w-]+\.webp$/.test(file)
     && (graph.has(file) || solo && (file === 'browser-support.js' || launchArt.test(file)) || isCharacterRuntimeStartup(file) || /^(?:audio\/armour\/[\w-]+\.wav|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file))).sort();

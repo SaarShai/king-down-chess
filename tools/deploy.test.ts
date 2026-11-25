@@ -95,7 +95,7 @@ function setup() {
     `case "$1" in tools/engines-check.mjs) ${behave.join('; ')}; exit 0 ;; esac`,
     // STUB_CI_PASS: CI passed on the commit (exit 0); otherwise the check answers pending (exit 1).
     `case "$1" in tools/ci-green.mjs) ${record}; if [ -n "$STUB_CI_PASS" ]; then exit 0; fi; exit 1 ;; esac`,
-    `case "$1" in tools/check.mjs) ${behave.join('; ')}; if [ $# -eq 1 ] && [ -n "$STUB_DIST" ]; then cp -R "$STUB_DIST" dist; fi; exit 0 ;; esac`,
+    `case "$1" in tools/check.mjs) ${behave.join('; ')}; if [ $# -eq 1 ] && [ -n "$STUB_DIST" ]; then cp -R "$STUB_DIST" dist; fi; if [ "$2" = --gpu ] && [ -n "$STUB_FRAME_PASS" ]; then printf 'ok king-effects\\nok painted-game\\n'; fi; exit 0 ;; esac`,
     `exec "${process.execPath}" "$@"`,
   ]);
   stub(join(bin, 'npx'), [...behave,
@@ -587,6 +587,28 @@ describe('deploy.sh', () => {
     },
   );
 
+  it('reuses a completed frame-time run for the merge tree after a later deploy gate fails', () => {
+    const { repo, deploy, calls } = setup();
+    repo.write('.github/workflows/plugin-checks.yml', '      - run: npm run check:browser -- --no-gpu\n');
+    repo.git('add', '.');
+    repo.git('commit', '-qm', 'workflow');
+    repo.git('push', '-q', 'origin', 'main');
+    const history = join(repo.root, 'evidence');
+    const live = join(history, `release-1-${'a'.repeat(40)}`, 'live');
+    mkdirSync(live, { recursive: true });
+    const record = join(live, 'frame-checks.pass');
+    writeFileSync(record, `pass ${head(repo, 'HEAD~1^{tree}')} 2026-11-23T10:00:00Z king-effects painted-game\n`);
+    const config = { STUB_CI_PASS: '1', STUB_FRAME_PASS: '1', KINGDOWN_FRAME_CHECKS_RECORD: record, KINGDOWN_FRAME_CHECKS_HISTORY: history };
+    const failed = deploy([], { ...config, STUB_FAIL: 'build:vercel' });
+    expect(failed.status, failed.stdout + failed.stderr).toBe(1);
+    expect(calls().filter(line => line.startsWith('node tools/check.mjs --gpu'))).toHaveLength(1);
+    const retry = deploy([], config);
+    expect(retry.status, retry.stdout + retry.stderr).toBe(0);
+    expect(retry.stdout).toContain(`skipped frame-time browser checks for tree ${head(repo, 'HEAD^{tree}')}`);
+    expect(calls().filter(line => line.startsWith('node tools/check.mjs --gpu'))).toHaveLength(1);
+    expect(readFileSync(record, 'utf8')).toContain(head(repo, 'HEAD~1^{tree}'));
+  });
+
   it('runs the plugin target without the CI check', () => {
     const { deploy, calls } = setup();
     const result = deploy(['--target', 'plugin'], { PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', STUB_CI_PASS: '1' });
@@ -671,12 +693,14 @@ afterEach(() => {
 
 /** The pages of a build: the entry script name is the bundle name. */
 const offlineFiles = ['./', 'index.html', 'assets/style.css', 'assets/lazy.js', 'assets/ai-worker.js', 'fonts/game.woff2', 'icons/game.png', 'ui/board.webp', 'ui/piece.svg', 'manifest.webmanifest'];
+const googleVerification = 'googlea1baf648ae09b150.html';
 const pages = (bundle = 'index-Abc123_x', terms = 'Terms v1') => ({
   'index.html': `<!doctype html><html><head><script type="module" crossorigin src="./assets/${bundle}.js"></script></head><body></body></html>`,
   'privacy.html': '<!doctype html><title>Privacy</title><p>Privacy v1</p>\n',
   'terms.html': `<!doctype html><title>Terms</title><p>${terms}</p>\n`,
   'delete-data.html': '<!doctype html><title>Delete data</title><p>Delete v1</p>\n',
   'support.html': '<!doctype html><title>Support</title><p>Support v1</p>\n',
+  [googleVerification]: `google-site-verification: ${googleVerification}\n`,
   'sw.js': `const VERSION = 'build-v1';\nconst POLICY = 'public-build-v1';\nconst ALLOWLIST = ${JSON.stringify([...offlineFiles, `assets/${bundle}.js`])};\nconst PRECACHE = ${JSON.stringify([...offlineFiles, `assets/${bundle}.js`])};`,
   [`assets/${bundle}.js`]: 'entry-v1',
   'assets/style.css': 'body { color: black; }',
@@ -947,7 +971,7 @@ describe('deploy-live-check.mjs', () => {
     expect(result.seconds).toBeLessThan(3);
   });
 
-  it.each(['sw.js', 'assets/index-Abc123_x.js', 'assets/lazy.js', 'assets/ai-worker.js', 'assets/style.css', 'fonts/game.woff2', 'icons/game.png', 'ui/board.webp', 'ui/piece.svg', 'manifest.webmanifest'])('rejects stale public bytes at %s', async path => {
+  it.each(['sw.js', googleVerification, 'assets/index-Abc123_x.js', 'assets/lazy.js', 'assets/ai-worker.js', 'assets/style.css', 'fonts/game.woff2', 'icons/game.png', 'ui/board.webp', 'ui/piece.svg', 'manifest.webmanifest'])('rejects stale public bytes at %s', async path => {
     const files = pages();
     const live = await site(() => ({ ...files, [path]: 'stale bytes' }));
     const result = await check(buildFolder(files), live.url, 0);
@@ -1236,6 +1260,7 @@ describe('deploy-keep-assets.mjs', () => {
 async function pluginSite(fault = '', files?: Record<string, string> | (() => Record<string, string>)) {
   const requests: { path: string; method?: string; cookie?: string; authorization?: string }[] = [];
   let url = '';
+  const supabase = fault === 'staging' ? 'https://puhspsyjyzaghmgtkzqd.supabase.co' : 'https://utqzovjmclfyojedmwok.supabase.co';
   const server = createServer(async (req, res) => {
     const path = req.url ?? '/';
     requests.push({ path, method: req.method, cookie: req.headers.cookie, authorization: req.headers.authorization });
@@ -1246,9 +1271,10 @@ async function pluginSite(fault = '', files?: Record<string, string> | (() => Re
     // parked: the live site without the ChatGPT plugin (tools/chatgpt-plugin.mjs) answers 404 for each plugin path.
     else if (fault === 'parked') { if (!(served && siteRoute(req, res, path, served, 'closed'))) res.writeHead(404).end(); }
     // muse and both: the Muse connector serves its resource; muse parks each ChatGPT path but the consent page.
-    else if (['muse', 'both'].includes(fault) && path === '/.well-known/oauth-protected-resource/muse/mcp') res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ resource: `${url}/muse/mcp`, authorization_servers: ['https://utqzovjmclfyojedmwok.supabase.co/auth/v1'], scopes_supported: ['openid'] }));
-    else if (['muse', 'both'].includes(fault) && path === '/muse/mcp') res.writeHead(401, { 'www-authenticate': `Bearer resource_metadata="${url}/.well-known/oauth-protected-resource/muse/mcp", scope="openid"` }).end('{}');
-    else if (fault === 'muse' && (/^\/(mcp|plugin-art\/|\.well-known\/)/.test(path))) res.writeHead(404).end();
+    // staging: the staging Muse connector, with the staging account issuer.
+    else if (['muse', 'both', 'staging'].includes(fault) && path === '/.well-known/oauth-protected-resource/muse/mcp') res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ resource: `${url}/muse/mcp`, authorization_servers: [`${supabase}/auth/v1`], scopes_supported: ['openid'] }));
+    else if (['muse', 'both', 'staging'].includes(fault) && path === '/muse/mcp') res.writeHead(401, { 'www-authenticate': `Bearer resource_metadata="${url}/.well-known/oauth-protected-resource/muse/mcp", scope="openid"` }).end('{}');
+    else if (['muse', 'staging'].includes(fault) && (/^\/(mcp|plugin-art\/|\.well-known\/)/.test(path))) res.writeHead(404).end();
     else if (path === '/.well-known/oauth-protected-resource/mcp' || path === '/.well-known/oauth-protected-resource') {
       if (fault === 'metadata-root' && path === '/.well-known/oauth-protected-resource') { res.writeHead(404).end(); return; }
       res.setHeader('content-type', 'application/json');
@@ -1258,11 +1284,15 @@ async function pluginSite(fault = '', files?: Record<string, string> | (() => Re
     } else if (path.split('?')[0] === '/authorize') {
       if (fault === 'query' && path.includes('?')) { res.writeHead(307, { location: '/authorize' }).end(); return; }
       res.setHeader('content-type', 'text/html');
-      res.end('<script type="application/json" id="kingdown-consent-config">{"supabaseUrl":"https://utqzovjmclfyojedmwok.supabase.co"}</script><script type="module" src="/consent.mjs"></script>');
+      res.end(`<script type="application/json" id="kingdown-consent-config">{"supabaseUrl":"${supabase}"}</script><script type="module" src="/consent.mjs"></script>`);
     } else if (path === '/plugin-art/test-art.webp') {
       const headers: Record<string, string> = { ...artHeaders };
       if (fault === 'csp') headers['Content-Security-Policy'] = "default-src 'none'";
-      if (fault === 'cors') delete headers['Access-Control-Allow-Origin'];
+      if (fault === 'cors') {
+        delete headers['Access-Control-Allow-Origin'];
+        // This reply takes longer than the old 250 ms deadline.
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
       if (fault === 'charset') {
         headers['Content-Type'] += '; charset=utf-8';
         await new Promise(resolve => setTimeout(resolve, 1600));
@@ -1325,6 +1355,34 @@ describe('deploy-plugin-live-check.mjs', () => {
     expect(old.status, old.stderr).toBe(0);
     expect(old.stdout).toContain('2 parked paths answer 404 to GET and POST');
     expect(old.stdout).not.toContain('Muse connector:');
+    expect(old.stdout).toContain('Muse connector parked');
+  });
+
+  /** A staging Muse build: the build records the staging account (tools/plugin-server-build.mjs). */
+  const stagingFolder = () => {
+    const folder = museFolder(false);
+    writeFileSync(join(folder, '../../staging.json'), JSON.stringify({ stage: 'staging', supabaseUrl: 'https://puhspsyjyzaghmgtkzqd.supabase.co' }));
+    return folder;
+  };
+
+  it('checks a staging Muse build against the staging issuer from the staging record', async () => {
+    const result = await runAsync(process.execPath, [pluginLiveCheck, stagingFolder(), (await pluginSite('staging')).url], { env: passingEnv });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain('Muse connector: metadata and unsigned challenge');
+  });
+
+  it('rejects a staging Muse endpoint that answers 404 or names the production issuer', async () => {
+    for (const [fault, reason] of [['parked', 'Muse metadata must be served on staging'], ['muse', '/muse/mcp discovery issuer']]) {
+      const result = await runAsync(process.execPath, [pluginLiveCheck, stagingFolder(), (await pluginSite(fault)).url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '250' } });
+      expect(result.status, fault).toBe(1);
+      expect(result.stderr).toContain(`plugin-live-check: FAIL: ${reason}`);
+    }
+    // A staging build without the Muse route fails, though the server parks each path.
+    const folder = parkedFolder();
+    writeFileSync(join(folder, '../../staging.json'), JSON.stringify({ stage: 'staging', supabaseUrl: 'https://puhspsyjyzaghmgtkzqd.supabase.co' }));
+    const result = await runAsync(process.execPath, [pluginLiveCheck, folder, (await pluginSite('parked')).url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '250' } });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('plugin-live-check: FAIL: Muse must be built on staging');
   });
 
   it('checks that each parked plugin path answers 404 when the build has no consent script', async () => {
@@ -1364,7 +1422,8 @@ describe('deploy-plugin-live-check.mjs', () => {
   it('rejects missing metadata, a lost consent query, unsigned access and stale scripts or art policies', async () => {
     for (const fault of ['issuer', 'challenge', 'script', 'metadata-root', 'query', 'art', 'csp', 'cors']) {
       const live = await pluginSite(fault);
-      const result = await runAsync(process.execPath, [pluginLiveCheck, pluginFolder(), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '250' } });
+      const timeoutMs = fault === 'cors' ? '2000' : '250';
+      const result = await runAsync(process.execPath, [pluginLiveCheck, pluginFolder(), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: timeoutMs } });
       expect(result.status, fault).toBe(1);
       expect(result.stderr).toContain('plugin-live-check: FAIL');
       // The report names the check that failed, not the last short request.

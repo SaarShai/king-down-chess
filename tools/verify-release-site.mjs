@@ -1,5 +1,5 @@
 import { env, shot, trapErrors, assertNoErrors } from './lib/checks.mjs';
-import { previewOrigin, releaseContext, releaseDriver, releaseEngines, withReleaseSite } from './lib/release-browser.mjs';
+import { releaseContext, releaseDriver, releaseEngines, releaseRequestFailures, withReleaseSite } from './lib/release-browser.mjs';
 
 const [address, pictures] = process.argv.slice(2);
 if (pictures) process.env.PLAYABLE_OUT = pictures;
@@ -17,18 +17,19 @@ await withReleaseSite(origin, async url => {
         { viewport: { width: 1280, height: 800 } });
       const page = await context.newPage();
       page.setDefaultTimeout(10_000);
-      const errors = trapErrors(page), bad = [];
-      page.on('response', response => {
-        const address = new URL(response.url()), status = response.status();
-        if (address.origin === previewOrigin && address.pathname === '/api/status' && status === 403) return;
-        if (status >= 400) bad.push(`${status} ${address.pathname}`);
-      });
+      page.setDefaultNavigationTimeout(20_000);
+      const errors = trapErrors(page);
+      const bad = releaseRequestFailures(page);
       const driver = releaseDriver(page, url, touch);
       const ok = (point, pass, detail) => check(`${device} ${point}`, pass, detail);
-      const picture = name => shot(page, `${device}-${name}`, { animations: 'disabled' });
+      const picture = name => shot(page, `${device}-${name}`, { animations: 'disabled', timeout: 20_000 });
       try {
         await driver.openHome();
         ok('Home is the redesign', await driver.redesignedHome());
+        ok('Home has one visible and accessible level-one heading named King Down',
+          await page.locator('h1:visible').count() === 1 &&
+          await page.getByRole('heading', { level: 1 }).count() === 1 &&
+          await page.getByRole('heading', { level: 1, name: 'King Down', exact: true }).count() === 1);
         await picture('1-home');
         ok('Home Sign in opens the sign-in choices', await driver.openSignIn());
         ok('no Facebook without ?facebook=1', !await driver.hasFacebook());

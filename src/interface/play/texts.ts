@@ -175,6 +175,11 @@ export function resultText(status: string, resigned: boolean, losingSide: number
   const cause = resigned ? 'You resign.' : status === 'checkmate' ? 'Checkmate.' : ({ stalemate: 'No legal action and no check.', draw50: 'No progress for 100 actions.', drawRepetition: 'The same position occurs three times.', drawMaterial: 'Insufficient material.' } as Record<string, string>)[status] ?? '';
   return { title, cause };
 }
+/** The solo result sheet: both players, the side of the rematch (the sides swap) and the numbers of the game. */
+export const resultSheet = (facts: { moves: number; captures: number; playedMs: number }, player: Color, level: string) => ({
+  players: `You · ${player ? 'Dark' : 'Light'} / Computer · ${level}`, next: `Play ${player ? 'Light' : 'Dark'}`,
+  facts: [[String(facts.moves), 'Moves'], [String(facts.captures), 'Captures'], [String(Math.floor(facts.playedMs / 60000)), 'Minutes']],
+});
 
 // Stage "reading": the reading area of the game screen (launch decisions 17 to 22). The viewer is the player's side.
 export const readingText = {

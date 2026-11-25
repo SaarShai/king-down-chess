@@ -62,9 +62,10 @@ it('holds the contact frame and supplies the victim geometry to the interface', 
   expect(contact).toHaveBeenCalledExactlyOnceWith(9, true);
   expect(victim).toHaveBeenCalledExactlyOnceWith(9, 'pawn', 'black', expect.any(Number), new Rect(82, 404, 56, 56), expect.any(Function));
   expect(sound).toHaveBeenCalledExactlyOnceWith(true);
-  expect(hold).toHaveBeenCalledExactlyOnceWith(55);
+  // The capture beat's hold: at most 45 ms (docs/specs/gui-fx/issues/02-capture-beat.md).
+  expect(hold).toHaveBeenCalledExactlyOnceWith(45);
   const at = scene.actionElapsed;
-  clock.advance(55);
+  clock.advance(45);
   expect(scene.actionElapsed).toBe(at);
   expect(scene.animating).toBe(true);
   const replace = victim.mock.calls[0][5], frames = scene.frames;

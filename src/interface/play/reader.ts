@@ -15,7 +15,7 @@ export interface ReaderModel {
   isNew?: boolean;
   /** A shorter headline (the actor's name) when the sentence does not fit; the sentence then opens the subject. */
   short?: string;
-  /** Subject art: a figure or a card painting (option f1, joy item 5). */
+  /** Subject art: the mark of a power or a card painting (option f1, joy item 5). */
   art?: string;
   /** ? and Cancel or Close: beside the name (option e1). */
   headTools: HTMLElement[];
@@ -48,18 +48,21 @@ function headline(m: ReaderModel, nodes: ReaderNodes) {
 let shortened = '';
 export const resetFit = () => { shortened = ''; };
 const lastLine = (line: string) => { const p = document.createElement('p'); p.className = 'play-last'; p.textContent = line; return p; };
+function subjectArt(src: string | undefined, { art }: ReaderNodes): HTMLImageElement | null {
+  if (!src) { art.removeAttribute('src'); return null; }
+  if (art.getAttribute('src') !== src) {
+    art.src = src;
+    // The painting fades in over 120 ms with no travel (joy item 5, Direct pip); Fast halves it, Off and reduced motion show it at once.
+    if (!calm()) art.animate([{ opacity: 0 }, { opacity: 1 }], { duration: time(120), easing: 'linear' });
+  }
+  return art;
+}
 /** Build the normal reading area. Tall and wide: state, headline row, subject, summary. Compact: one pinned 44 px header, then the body. */
 export function readerView(m: ReaderModel, form: Form, nodes: ReaderNodes): HTMLElement {
   const short = form !== 'compact' && !!m.short && !m.named && m.title === shortened;
   swapText(nodes.state, m.state); swapText(nodes.title, short ? m.short! : m.title);
   const box = div('play-b'); box.dataset.form = form;
-  const art = m.art ? nodes.art : null;
-  if (art && art.getAttribute('src') !== m.art) {
-    art.src = m.art!;
-    // The painting fades in over 120 ms with no travel (joy item 5, Direct pip); Fast halves it, Off and reduced motion show it at once.
-    if (!calm()) art.animate([{ opacity: 0 }, { opacity: 1 }], { duration: time(120), easing: 'linear' });
-  }
-  if (!m.art) nodes.art.removeAttribute('src');
+  const art = subjectArt(m.art, nodes);
   const primary = div('play-primary', short ? lastLine(m.title) : null, ...m.primary), secondary = div('play-secondary', ...m.secondary);
   if (form === 'compact') {
     // Show again shares the header when no name tools are there; the summary goes to the header when it has room.
@@ -102,11 +105,11 @@ export function fitReader(box: HTMLElement, m: ReaderModel) {
   while (primary && secondary && primary.childElementCount > 1 && primary.scrollHeight > primary.clientHeight + 1) secondary.prepend(primary.lastElementChild!);
 }
 
-/** The narrator has one headline and one rule or instruction. */
+/** The narrator has one headline and one rule or instruction; a power also has its mark. */
 export function narratorView(m: ReaderModel, nodes: ReaderNodes): HTMLElement {
   const title = m.title || m.state;
   nodes.title.textContent = title;
   const line = m.primary[0] ?? m.secondary[0];
   const tools = div('play-narr-tools', ...m.headTools);
-  return div('play-narrator', div('play-narr-copy', headline({ ...m, isNew: false }, nodes), line), tools);
+  return div('play-narrator', subjectArt(m.named ? m.art : undefined, nodes), div('play-narr-copy', headline({ ...m, isNew: false }, nodes), line), tools);
 }

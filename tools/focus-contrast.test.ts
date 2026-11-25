@@ -30,3 +30,55 @@ it('keeps the Daylight focus ring visible on both paper surfaces', () => {
   const colour = (name: string) => daylight.match(new RegExp(`--${name}: (#[0-9a-f]{6});`))![1];
   for (const surface of ['paper-50', 'paper-0']) expect(contrast(colour(fill), colour(surface))).toBeGreaterThanOrEqual(3);
 });
+
+it('keeps text on the brass plate, the vellum card, the stone slot and the wax stamp at 4.5:1 or more', () => {
+  const daylight = readFileSync('src/interface/ui/tokens.css', 'utf8');
+  const colour = (name: string) => daylight.match(new RegExp(`--${name}: (#[0-9a-f]{6});`))![1];
+  for (const [ink, ground] of [['ink-900', 'brass'], ['ink-900', 'stock'], ['sage-700', 'stone'], ['paper-0', 'wax']]) {
+    expect(contrast(colour(ink), colour(ground)), `${ink} on ${ground}`).toBeGreaterThanOrEqual(4.5);
+  }
+});
+
+it('keeps each switch, pool box and spent pip state at 3:1 or more against what is next to it', () => {
+  const daylight = readFileSync('src/interface/ui/tokens.css', 'utf8'), components = readFileSync('src/interface/ui/components.css', 'utf8');
+  const colour = (name: string) => daylight.match(new RegExp(`--${name}: (#[0-9a-f]{6});`))![1];
+  const offKnob = /\.kd-switch-knob \{[^}]*radial-gradient\(circle at 35% 30%, (#[0-9a-f]{6}), var\(--main-edge\)/.exec(components)![1];
+  const onTrack = /\.kd-switch\[aria-checked='true'\] \.kd-switch-track \{ background: linear-gradient\((#[0-9a-f]{6}), (#[0-9a-f]{6})\)/.exec(components)!.slice(1);
+  expect(components).toMatch(/\.kd-switch\[aria-checked='true'\] \.kd-switch-knob \{ background: radial-gradient\([^;]*var\(--paper-0\)/);
+  const pairs = [[offKnob, colour('stone')], [colour('main-edge'), colour('stone')], ...onTrack.map(track => [colour('paper-0'), track]),
+    [colour('sage-500'), colour('paper-0')], [colour('ink-900'), colour('paper-0')]];
+  for (const [a, b] of pairs) expect(contrast(a, b), `${a} next to ${b}`).toBeGreaterThanOrEqual(3);
+  expect(readFileSync('src/interface/play/menus.css', 'utf8')).toMatch(/\.pool-check \{[^}]*border: 1px solid var\(--border\)/);
+  expect(readFileSync('src/interface/play/reading-b.css', 'utf8')).toMatch(/\.play-power-notch\[data-used='true'\] \{[^}]*0 0 0 1px var\(--text\)/);
+});
+
+it('keeps the armed mark and the board edge in forced colours, a focused card undimmed and the Rematch ring whole', () => {
+  const css = readFileSync('src/interface/play/reading-b.css', 'utf8');
+  const forced = css.slice(css.indexOf('@media (forced-colors: active)'));
+  expect(forced).toMatch(/\.play-card\[aria-pressed='true'\]::before \{ border: 3px solid CanvasText; \}/);
+  expect(forced).toMatch(/\.play-power\[aria-pressed='true'\] \.play-power-coin \{ outline: 3px solid CanvasText;/);
+  expect(forced).toMatch(/\.play-board \{ outline: 1px solid CanvasText; \}/);
+  expect(css).toMatch(/\.play-card:not\(\[aria-pressed='true'\], :focus-visible\) \{ opacity: \.6; \}/);
+  expect(css).toMatch(/\.play-result-actions \.kd-button\[data-kind='main'\] \{[^}]*margin-inline: calc\(var\(--focus-width\) \+ var\(--focus-offset\)\)/);
+});
+
+it('keeps the turn edge of a seat ring at 3:1 or more on both papers, with a gap from the rim, and tells turn, armed and check apart in forced colours', () => {
+  const css = readFileSync('src/interface/play/reading-b.css', 'utf8'), daylight = readFileSync('src/interface/ui/tokens.css', 'utf8');
+  const colour = (name: string) => daylight.match(new RegExp(`--${name}: (#[0-9a-f]{6});`))![1];
+  const rgb = (name: string) => colour(name).slice(1).match(/../g)!.map(part => parseInt(part, 16));
+  const edge = /\.play-seat-ring\[data-turn='true'\] \{[^}]*box-shadow: 0 0 0 1px var\(--surface-page\), 0 0 0 3px color-mix\(in srgb, var\(--([\w-]+)\), var\(--([\w-]+)\)\);/.exec(css)!.slice(1).map(rgb);
+  const mixed = '#' + edge[0].map((part, i) => Math.round((part + edge[1][i]) / 2).toString(16).padStart(2, '0')).join('');
+  for (const surface of ['paper-50', 'paper-0']) expect(contrast(mixed, colour(surface)), `turn edge on ${surface}`).toBeGreaterThanOrEqual(3);
+  expect(contrast(mixed, colour('main-edge')), 'turn edge next to the armed edge').toBeGreaterThanOrEqual(1.5);
+  const forced = css.slice(css.indexOf('@media (forced-colors: active)')), outline = (selector: string) => forced.match(new RegExp(`${selector.replace(/[[\].]/g, '\\$&')} \\{ outline: (\\w+ \\w+) CanvasText;`))?.[1];
+  expect([".play-seat-ring[data-turn='true']", ".play-power[aria-pressed='true'] .play-power-coin", ".play-seat-ring[data-check='true']"].map(outline)).toEqual(['2px dashed', '3px solid', '3px double']);
+  expect(forced.indexOf("[data-check='true']")).toBeGreaterThan(forced.indexOf("[data-turn='true']"));
+});
+
+it('keeps each result seal mark at 3:1 or more on every stop of its wax, and the sheet edge in forced colours', () => {
+  const css = readFileSync('src/interface/play/reading-b.css', 'utf8'), wax = /--wax: (#[0-9a-f]{6});/.exec(readFileSync('src/interface/ui/tokens.css', 'utf8'))![1];
+  const seals = [...css.matchAll(/\.play-result-seal \{[^}]*?color: (#[0-9a-f]{6});\s*background: radial-gradient\(([^;]+)\);/g)];
+  expect(seals).toHaveLength(3);
+  for (const [, mark, stops] of seals) for (const stop of stops.replace('var(--wax)', wax).match(/#[0-9a-f]{6}/g)!) expect(contrast(mark, stop), `${mark} on ${stop}`).toBeGreaterThanOrEqual(3);
+  expect(css.slice(css.indexOf('@media (forced-colors: active)'))).toMatch(/\.play-result \{ outline: 1px solid CanvasText;/);
+});

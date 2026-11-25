@@ -5,7 +5,7 @@ import {
 } from './engine';
 import { parseLan } from '../sim/tune';
 import { CLASSIC_CHESS, POOL, fromFen, randomBackRank, startPosition, toFen, toLan } from './setup';
-import { DEFAULT_RULES, RULES, RULES_2017, RULES_2021, Rules, parseKing, parseKings, parseRule, ruleDiff, setRules } from './rules';
+import { DEFAULT_RULES, POWERS_BALANCED, RULES, RULES_2017, RULES_2021, Rules, parseKing, parseKings, parseRule, ruleDiff, setRules } from './rules';
 import { Game } from '../game';
 import { resetSearchState, search, searchLegal } from '../ai/search';
 
@@ -259,7 +259,6 @@ describe('draws', () => {
   it('counts only material that can mate; guards and paladins never can', () => {
     expect(insuf('7k/8/8/8/8/8/8/K7 w - - 0 1')).toBe(true); // K vs K
     expect(insuf('7k/8/8/8/8/8/8/KN6 w - - 0 1')).toBe(true); // K+N vs K
-    expect(insuf('6nk/8/8/8/8/8/8/KB6 w - - 0 1')).toBe(true); // K+B vs K+N
     expect(insuf('7k/8/8/8/8/8/8/KGL5 w - - 0 1')).toBe(true); // K+G+L vs K
     expect(insuf('7k/8/8/8/8/8/8/KM6 w - - 0 1')).toBe(false);
     expect(insuf('7k/8/8/8/8/8/8/KA6 w - - 0 1')).toBe(false);
@@ -269,6 +268,118 @@ describe('draws', () => {
   });
   it('reports a material draw while legal moves remain', () => {
     expect(status(fromFen('7k/8/8/8/8/8/8/KG6 w - - 0 1'))).toBe('drawMaterial');
+  });
+  it.each([
+    ['k7/n1K5/B7/8/8/8/8/8 w', 'Ba6-b7'],
+    ['8/8/8/8/8/b7/N1k5/K7 b', 'Ba3-b2'],
+  ])('lets the bishop give mate from %s', (fen, mate) => {
+    const game = new Game(CLASSIC_CHESS);
+    game.load(game.context.fromFen(fen));
+    expect(game.status).toBe('playing');
+    expect(game.playLan([mate])).toBe(1);
+    expect(game.status).toBe('checkmate');
+  });
+  it.each([
+    ['7k/8/8/8/8/8/8/K7 w', 'drawMaterial'],
+    ['7k/8/8/8/8/8/8/KB6 w', 'drawMaterial'],
+    ['7k/8/8/8/8/8/8/KN6 w', 'drawMaterial'],
+    ['7k/8/8/8/4b3/8/2B5/KB6 w', 'drawMaterial'],
+    ['7k/8/8/8/3b4/8/8/KB6 w', 'playing'],
+    ['6nk/8/8/8/8/8/8/KN6 w', 'playing'],
+    ['6nk/8/8/8/8/8/8/KB6 w', 'playing'],
+    ['6nk/8/8/8/8/8/8/KV6 w', 'playing'],
+  ])('sets the material result for %s to %s', (fen, result) => {
+    const game = new Game(CLASSIC_CHESS);
+    game.load(game.context.fromFen(fen));
+    expect(game.status).toBe(result);
+  });
+  // A guard or a paladin never gives check. A mate search finds no mate on these boards, but finds
+  // mates for K+N or K+B against K+G: the enemy guard blocks its own king.
+  const swapColours = (fen: string) => fen.replace(/[a-z]/gi, ch => ch === ch.toLowerCase() ? ch.toUpperCase() : ch.toLowerCase()).replace(/ W$/, ' b').replace(/ B$/, ' w');
+  it.each([
+    ['6gk/8/8/8/8/8/8/KG6 w', 'drawMaterial'], // K+G vs K+G
+    ['6lk/8/8/8/8/8/8/KG6 w', 'drawMaterial'], // K+G vs K+L
+    ['6lk/8/8/8/8/8/8/KL6 w', 'drawMaterial'], // K+L vs K+L
+    ['7k/8/8/8/8/8/8/KNG5 w', 'playing'], // K+N+G vs K: an Ice Wall on the guard can make a mate
+    ['7k/8/8/8/8/8/8/KBL5 w', 'playing'], // K+B+L vs K
+    ['6lk/8/8/8/8/8/8/KN6 w', 'playing'], // K+N vs K+L: a Freeze on the paladin can make a mate
+    ['6lk/8/8/8/8/8/8/KB6 w', 'playing'], // K+B vs K+L
+    ['6gk/8/8/8/8/8/8/KN6 w', 'playing'], // K+N vs K+G
+    ['6gk/8/8/8/8/8/8/KB6 w', 'playing'], // K+B vs K+G
+  ].flatMap(([fen, result]) => [[fen, result], [swapColours(fen), result]]))('counts guards and paladins for %s as %s', (fen, result) => {
+    const game = new Game(CLASSIC_CHESS);
+    game.load(game.context.fromFen(fen));
+    expect(game.status).toBe(result);
+  });
+  it.each([
+    ['none,spirit:mercy', 'k7/2K5/8/8/8/8/8/8 w', 'Kc7-b7'],
+    ['shadow:deathtouch,none', 'k7/2B5/8/K7/8/8/8/8 w', 'Ka5-a6'],
+    ['stratus:flight,none', '8/8/8/8/2B5/8/2K5/kB6 w', 'Bb1~b2'],
+  ])('lets %s play a mate that needs a king power', (kings, fen, mate) => {
+    const game = new Game(CLASSIC_CHESS, { ...POWERS_BALANCED, kings: parseKings(kings) });
+    game.load(game.context.fromFen(fen));
+    expect(game.status).toBe('playing');
+    expect(game.playLan([mate])).toBe(1);
+    expect(game.status).toBe('checkmate');
+  });
+  // A minor with a guard or a paladin plays on: a mark can stop a king that takes or escapes.
+  it.each(([
+    ['Freeze', '8/8/8/8/8/8/l7/k1K1N3 w', ['!F:a2', 'Ne1-c2']],
+    ['Freeze', '5B2/8/8/8/8/8/l7/k1K5 w', ['!F:a2', 'Bf8-g7']],
+    ['IceWall', 'k7/G1K5/8/3N4/8/8/8/8 w', ['!W:a7', 'Nd5-b6']],
+    ['IceWall', 'k7/L1K5/8/8/8/8/8/5B2 w', ['!W:a7', 'Bf1-g2']],
+  ] as const).flatMap(([power, fen, lan]) => [[power, fen, lan], [power, swapColours(fen), lan]] as const))('lets %s mate on %s', (power, fen, lan) => {
+    const white = fen.endsWith(' w');
+    const king = { king: 'Frost', power } as const;
+    const game = new Game(CLASSIC_CHESS, { ...POWERS_BALANCED, kings: white ? [king, null] : [null, king] });
+    game.load(game.context.fromFen(fen));
+    expect(game.status).toBe('playing');
+    expect(game.playLan([...lan])).toBe(2);
+    expect(game.status).toBe('checkmate');
+  });
+  it('lets Curse move a bishop to the other colour in a bishops-only ending', () => {
+    const game = new Game(CLASSIC_CHESS, { hands: [['Curse'], []] });
+    game.load(game.context.fromFen('k7/6b1/8/8/8/8/1B6/7K w'));
+    expect(game.status).toBe('playing');
+    expect(game.playLan(['!C:g7-g6'])).toBe(1);
+    expect(game.status).toBe('playing');
+  });
+  it.each([
+    ['k7/2K5/B7/8/8/8/8/8 b - - 0 1 g0.1', ['G@a7', 'Ba6-b7']],
+    ['8/8/8/8/8/b7/2k5/K7 w - - 0 1 g1.0', ['G@a2', 'Ba3-b2']],
+  ])('lets a waiting Guard block for mate from %s', (fen, lan) => {
+    const game = new Game(CLASSIC_CHESS, { guardReserve: 'rank12', guardCaptures: 'none' });
+    game.load(game.context.fromFen(fen));
+    expect(game.status).toBe('playing');
+    expect(game.playLan(lan)).toBe(2);
+    expect(game.status).toBe('checkmate');
+  });
+  it.each(['k7/8/8/8/8/8/8/K7 w - - 0 1 g1.1', 'k7/8/8/8/8/8/8/KG6 b - - 0 1 g0.1'])('keeps the material draw with no minor piece while a Guard waits: %s', fen => {
+    const game = new Game(CLASSIC_CHESS, { guardReserve: 'rank12', guardCaptures: 'none' });
+    game.load(game.context.fromFen(fen));
+    expect(game.status).toBe('drawMaterial');
+  });
+  it.each([
+    ['7k/8/8/8/3P4/3M4/8/K7 w - - 99 50', 'Md3<>d4'],
+    ['k7/8/3m4/3p4/8/8/8/7K b - - 99 50', 'Md6<>d5'],
+  ])('resets the 50-move count when a Maester swaps a pawn from %s', (fen, swap) => {
+    const game = new Game(CLASSIC_CHESS);
+    game.load(game.context.fromFen(fen));
+    expect(game.playLan([swap])).toBe(1);
+    expect({ halfmove: game.pos.halfmove, status: game.status }).toEqual({ halfmove: 0, status: 'playing' });
+  });
+  it.each([
+    ['7k/8/8/8/3p4/3O4/8/4K3 w - - 99 50', 'Od3>d4-d5', 'd5', P, 0, 'playing'],
+    ['4k3/8/3o4/3P4/8/8/8/7K b - - 99 50', 'Od6>d5-d4', 'd4', P, 0, 'playing'],
+    ['7k/3P4/3O4/8/8/8/8/K7 w - - 99 50', 'Od6>d7-d8', 'd8', P, 0, 'playing'],
+    ['7k/8/8/8/3n4/3O4/8/4K3 w - - 99 50', 'Od3>d4-d5', 'd5', N, 100, 'draw50'],
+  ])('sets the 50-move count on an Ogre push from %s', (fen, shove, to, pushed, halfmove, status) => {
+    const game = new Game(CLASSIC_CHESS);
+    game.load(game.context.fromFen(fen));
+    expect(game.status).toBe('playing');
+    expect(game.playLan([shove])).toBe(1);
+    expect(typeOf(at(game.pos, to))).toBe(pushed);
+    expect({ halfmove: game.pos.halfmove, status: game.status }).toEqual({ halfmove, status });
   });
   it('draws a game on the third occurrence of the start position', () => {
     const game = new Game(CLASSIC_CHESS);

@@ -122,17 +122,20 @@
 .play-game .play-own .play-power { flex: 0 0 72px; height: 100%; min-height: 44px; padding: 0; }
 .play-game .play-power [data-button-label] { max-width: 100%; }
 .play-game .play-power small { font: 400 14px/16px var(--font-reading); white-space: nowrap; }
-.play-power-coin { position: relative; display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 50%; background: var(--power-fill); box-shadow: var(--power-depth); }
-.play-opp .play-power-coin { width: 28px; height: 28px; background: var(--rival-fill); box-shadow: var(--rival-depth); }
-.play-power-coin img { width: 85%; height: 85%; object-fit: contain; }
-.play-power-notches { position: absolute; display: flex; gap: 3px; bottom: 2px; }
-.play-power-notch { width: 4px; height: 5px; border-radius: 1px; background: var(--power-ink); }
-.play-power-notch[data-used='true'] { opacity: .2; }
-.play-game .play-power[data-coin='always'] .play-power-coin { box-shadow: inset 0 0 0 1px #a87935; }
-.play-game .play-power[data-spent='true'] .play-power-coin { box-shadow: inset 0 1px #efffef; filter: grayscale(1); opacity: .55; }
-.play-game .play-power[data-spent='true'] { color: var(--text-muted); }
+/* The mark is the whole coin: a disc with its own brass rim, 2% inside its picture. */
+.play-power-coin { position: relative; display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 50%; }
+.play-opp .play-power-coin { width: 28px; height: 28px; }
+.play-power-coin img { width: 100%; height: 100%; object-fit: contain; scale: 1.04; }
+.play-power-notches { position: absolute; display: flex; gap: 5px; bottom: -3px; }
+.play-power-notch { width: 6px; height: 6px; rotate: 45deg; background: var(--power-ink); box-shadow: 0 0 0 1px #1d3f41; }
+/* On the rim of the mark, clear of its symbol, a full pip is a teal diamond; a spent pip is a round drop of wax. */
+.play-seat-ring .play-power-notch { background: var(--power-fill); }
+.play-power-notch[data-used='true'] { background: var(--wax); border-radius: 50%; box-shadow: 0 0 0 1px var(--text); }
+.play-game .play-power[data-spent='true'] .play-power-coin img { filter: grayscale(1); opacity: .55; }
+/* The mark is grey when it is spent; the wax keeps its colour. */
+.play-game .play-power[data-spent='true'] { color: var(--text-muted); filter: none; }
 .play-game .play-power[aria-pressed='true'] { animation: none; outline: none; filter: none; background: transparent; box-shadow: none; color: var(--text); }
-.play-game .play-power[aria-pressed='true'] .play-power-coin { outline: 3px solid var(--selection-line); outline-offset: 1px; }
+.play-game .play-power[aria-pressed='true'] .play-power-coin { box-shadow: 0 0 0 2px var(--main-edge), var(--power-depth); }
 .play-hand { display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0; height: 100%; padding-inline: 4px; }
 .play-game[data-hand='hand'] .play-own .play-card { transform: translateY(var(--fan-drop)) rotate(var(--fan-angle)); }
 .play-game .play-own .play-card { position: relative; display: grid; grid-template-rows: 34px minmax(0, 1fr); flex: 1 1 0; min-width: 44px; max-width: 98px; height: 100%; min-height: 44px; padding: 0; margin-inline: -2px; gap: 0; align-items: stretch; justify-items: stretch; color: var(--text); background: var(--surface-raised); box-shadow: var(--card-edge); border: 0; border-radius: 7px; font: 650 14px/16px var(--font-reading); letter-spacing: 0; hyphens: none; overflow-wrap: normal; text-align: center; transform: translateY(var(--fan-drop)) rotate(var(--fan-angle)); transform-origin: 50% 100%; }
@@ -259,7 +262,6 @@
 @keyframes play-ink-wipe { to { clip-path: inset(0 100% 0 0); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .play-ink-wipe { animation: none; } }
 :root[data-motion='off'] .play-ink-wipe { animation: none; }
-.play-portrait-idle { object-fit: contain; }
 
 .play-game[data-layout][data-reading] .play-reader[data-floating='true'] :is(.learn-top, .play-head, .play-bhead) { position: sticky; top: 0; z-index: 2; background: var(--surface-raised); }
 
@@ -310,10 +312,22 @@
 .play-game[data-layout]:not([data-reading='result']) .play-reader:not([data-floating='true']) { top: var(--reader-y); height: auto; min-height: var(--reader); max-height: calc(var(--hand-y) - var(--reader-y) - 8px); padding: 0; }
 .play-game[data-layout] .play-own { top: var(--hand-y); height: var(--own); display: flex; padding: 0; }
 .play-game[data-layout] .play-turn { top: var(--action-y); bottom: auto; height: var(--fin); padding: 0; gap: 8px; }
-.play-game[data-layout] .play-board { outline: 1px solid var(--ink, var(--text)); border-radius: 4px; box-shadow: var(--shadow, var(--raise)); }
+/* A stone slab: a hard edge, a lit top-left face, a darker front lip, a soft ground shadow. */
+.play-game[data-layout] .play-board { outline: 0; border-radius: 4px; box-shadow: 0 0 0 1px #6f6656, -1px -1px 0 1px #fffaf0, 1px 3px 0 1px #8b8170, 0 12px 20px -8px #3c280a66; }
 .play-game [data-file]::after, .play-game [data-rank]::before { font-size: 12px; }
 .play-game[data-layout='portrait'] .play-history-strip, .play-game[data-layout='wide'][data-form='compact'] .play-history-strip { display: none; }
-.play-game[data-layout='wide'] .play-history-strip { top: calc(var(--reader-y) + var(--reader) + 32px); height: 70px; }
+/* The wide rail is one group from the board top (layout.ts). History is one 48 px row between two gilt hairlines; the hand
+   follows 18 px later. The open History has a cap and scrolls (main.ts), so the tray stays in view. */
+.play-game[data-layout='wide'] .play-history-strip { top: calc(var(--reader-y) + var(--reader) + 32px); height: 48px; border-block: 1px solid color-mix(in srgb, var(--gilt, var(--divider)) 50%, transparent); }
+.play-game[data-layout='wide'] .play-history-toggle [data-button-label] { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 12px; }
+/* The newest record is a one-line preview with an ellipsis (line 219); the open History and the button's name hold it in full. */
+.play-game[data-layout='wide'] .play-history-record { text-align: end; color: var(--ink, var(--text)); }
+.play-game[data-layout='wide'] .play-history-name { flex: none; color: var(--ink, var(--text)); }
+.play-game[data-layout='wide'] .play-history-toggle svg { display: block; width: 14px; rotate: -90deg; transition: rotate 160ms ease-out; }
+.play-game[data-layout='wide'] .play-history-toggle[aria-expanded='true'] svg { rotate: 0deg; }
+:root[data-motion='reduce'] .play-game[data-layout='wide'] .play-history-toggle svg { transition: none; }
+/* The result keeps its full rail height: its bottom is the board's bottom, not the raised tray. */
+.play-game[data-layout='wide'][data-form='wide'][data-reading='result'] .play-reader { --action-y: calc(var(--rail-top) + var(--rail-h) - var(--fin)); }
 .play-game[data-layout='wide'][data-form='wide'] .play-reader:not([data-floating='true']):not(:has(.play-result)) { max-height: calc(var(--reader) + 28px); }
 .play-game .play-history-strip::before, .play-game .play-history-strip::after { display: none; }
 .play-game .play-history-toggle.kd-button { background: transparent; border: 0; box-shadow: none; justify-content: flex-start; padding-inline: 0; color: var(--soft, var(--text-muted)); }
@@ -341,6 +355,8 @@
 
 .play-narrator { display: flex; align-items: flex-start; gap: 6px; min-height: 52px; color: var(--ink, var(--text)); }
 .play-narr-copy { min-width: 0; flex: 1; }
+.play-narrator > .play-art { flex: none; width: 64px; height: 64px; object-fit: contain; }
+.play-game[data-form='compact'] .play-narrator > .play-art { display: none; }
 .play-game .play-narrator h2 { font: 700 17px/1.15 var(--sans, var(--font-reading)); margin: 0 0 2px; letter-spacing: normal; }
 .play-game[data-form='wide'] .play-narrator h2 { font-size: 20px; }
 .play-game .play-narrator p { font: 400 15px/1.22 var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); margin: 0; }
@@ -351,8 +367,10 @@
 
 .play-seat-ring { flex: none; box-sizing: border-box; position: relative; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--line-2, var(--divider)); border-radius: 50%; transform: scale(var(--breath, 1)); }
 .play-seat-ring > :is(.profile-portrait, .play-figure) { width: 100%; height: 100%; min-height: 0; object-fit: contain; border: 0; border-radius: 50%; }
-.play-seat-ring > .play-power-coin { width: 100%; height: 100%; background: var(--surface-raised); }
-.play-seat-ring[data-turn='true'] { border-color: var(--brass-p, var(--brass)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brass-2, var(--brass)) 25%, transparent); }
+.play-seat-ring > .play-power-coin { width: 100%; height: 100%; }
+.play-seat-ring[data-turn='true'] { border-color: var(--brass-p, var(--brass)); box-shadow: 0 0 0 1px var(--surface-page), 0 0 0 3px color-mix(in srgb, var(--brass), var(--main-edge)); }
+/* The rim of the mark is the ring: the turn edge stands clear of it, and the check below is as strong. The notches hang 4 px below the rim, and the turn edge 3 px. */
+.play-seat-ring:has(> .play-power-coin) { border-color: transparent; margin-bottom: 4px; }
 .play-seat-ring[data-check='true'] { border-color: var(--danger); box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 32%, transparent); }
 .play-seat-ring[data-thinking='true']::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--teal, var(--power-fill)); transform: rotate(var(--arc, 0deg)); }
 :root[data-motion='reduce'] .play-seat-ring::after { display: none; }
@@ -360,11 +378,10 @@
 .play-opponent-group > strong small { font: 400 14px/16px var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); }
 .play-game[data-online] .play-opponent-group .opponent-clock { overflow: visible; text-overflow: clip; white-space: normal; text-wrap: balance; }
 .play-game .play-opp .play-power { flex: 0 1 auto; min-width: 44px; flex-direction: row; gap: 3px; font-size: 13px; height: 44px; padding: 0 4px; color: var(--teal, var(--text)); }
-.play-game .play-own .play-power { flex-basis: 58px; }
-.play-game .play-own .play-power [data-button-label] { font: 700 12px/1.1 var(--cinzel, var(--font-title)); }
+.play-game .play-own .play-power { flex: none; width: min-content; min-width: 58px; }
+.play-game .play-own .play-power [data-button-label] { font: 700 .75rem/1.1 var(--cinzel, var(--font-title)); overflow-wrap: normal; }
 .play-game .play-own .play-power small { font-size: 12px; }
 .play-store { flex: none; display: grid; place-items: center; min-width: 24px; height: 24px; border: 1px solid var(--line, var(--divider)); border-radius: 50%; background: var(--raised, var(--surface-raised)); color: var(--soft, var(--text-muted)); font: 700 12px/1 var(--sans, var(--font-reading)); }
-.play-own > .play-store { margin-inline: 0 2px; }
 .play-rival-mark { width: 18px; height: 26px; background-image: url('/ui/cards/back.webp') !important; }
 
 .play-game[data-hand='hand'] { --arm-lift: 18px; --hover-lift: 14px; --card-width: clamp(74px, calc(var(--own) * .67), 89px); }
@@ -372,8 +389,8 @@
 .play-game[data-hand='hand'][data-form='compact'] { --arm-lift: 6px; --hover-lift: 6px; --arm-scale: .04; --card-width: 60px; }
 .play-game[data-hand='hand'] .play-own .play-card {
   grid-template-rows: minmax(0, 1fr) 28px; height: calc(var(--own) - 6px); max-width: var(--card-width);
-  margin-inline: -2px; border: 1px solid var(--line-2, var(--divider)); border-radius: 10px;
-  background: var(--raised, var(--surface-raised)); box-shadow: var(--shadow, var(--raise));
+  margin-inline: -2px; border: 1px solid #8b765280; border-radius: 10px;
+  background: var(--stock); box-shadow: var(--shadow, var(--raise));
   font: 700 13px/13px var(--sans, var(--font-reading)); transform-origin: center;
   --arm: var(--arm-progress, var(--armed, 0));
   transform: translateY(calc((var(--fan-drop) - min(var(--hover-lift), var(--pointer-lift, 0px))) * (1 - var(--arm)) - var(--arm-lift) * var(--arm)))
@@ -382,17 +399,38 @@
 }
 .play-game[data-hand='hand'] .play-own .play-card img { grid-row: 1; object-position: center; }
 .play-game[data-hand='hand'] .play-own .play-card [data-button-label] { grid-row: 2; }
-.play-game[data-hand='hand'] .play-own .play-card .play-card-state { grid-row: 1; font: 700 12px/1.4 var(--sans, var(--font-reading)); }
+.play-game[data-hand='hand'] .play-own .play-card .play-card-state { grid-row: 1; font: 700 12px/1.4 var(--sans, var(--font-reading)); background: var(--stock); }
+/* The vellum margin and the gilt rule lie over the art edge, so the art and the name keep their size. */
+.play-game[data-hand='hand'] .play-own .play-card::before { content: ''; position: absolute; inset: 0; z-index: 2; border-radius: 9px; pointer-events: none;
+  box-shadow: inset 0 0 0 2px var(--armed-edge, var(--stock)), inset 0 0 0 3px var(--stock), inset 0 0 0 4px var(--gilt); }
+/* The next card covers the edge of a wide card: a name such as "Earth Quake" wraps before it goes below that card. */
+.play-game[data-hand='hand'][data-form='wide'] .play-own .play-card [data-button-label] { padding-inline: 5px; }
+/* A long name ("Salvation" at 320 px) runs over the rule: the name stays whole. */
+.play-game[data-hand='hand'] .play-own .play-card [data-button-label] { position: relative; z-index: 3; }
 .play-game[data-hand='hand'] .play-own .play-card::after { display: block; background: linear-gradient(110deg, transparent 22%, white 50%, transparent 78%); background-position: var(--glare-x, 50%) 0; background-size: 170% 100%; opacity: var(--glare, 0); z-index: 1; pointer-events: none; }
-.play-game[data-hand='hand'] .play-own .play-card[aria-pressed='true'] { --armed: 1; outline: 2px solid var(--brass-p, var(--brass)); }
+.play-game[data-hand='hand'] .play-own .play-card[aria-pressed='true'] { --armed: 1; --armed-edge: var(--brass); }
+.play-game[data-hand='hand'] .play-own .play-card[aria-pressed='true']:not(:focus-visible) { outline: none; }
+/* Two channels: armed is the inlay inside, keyboard focus is the outer ring. Both show together. */
+.play-game .play-own :is(.play-card, .play-power):focus-visible { outline: var(--focus-width) solid var(--focus-ring); outline-offset: var(--focus-offset); }
+@media (forced-colors: active) {
+  /* The browser drops the shadows: armed is an inner CanvasText edge, focus stays the outer Highlight ring. */
+  .play-game[data-hand='hand'] .play-own .play-card[aria-pressed='true']::before { border: 3px solid CanvasText; }
+  .play-game .play-power[aria-pressed='true'] .play-power-coin { outline: 3px solid CanvasText; outline-offset: 0; }
+  /* Outside the armed edge: a dashed line is the turn, a double line is the check. */
+  .play-seat-ring:is([data-turn='true'], [data-check='true']) { outline-offset: 3px; }
+  .play-seat-ring[data-turn='true'] { outline: 2px dashed CanvasText; }
+  .play-seat-ring[data-check='true'] { outline: 3px double CanvasText; }
+  .play-game[data-layout] .play-board { outline: 1px solid CanvasText; }
+  .play-game:not([data-review='true']) .play-result { outline: 1px solid CanvasText; outline-offset: -1px; }
+}
 .play-game[data-hand='hand'] .play-own .play-card[data-frost='true'] { --arm-lift: 6px; --arm-scale: 0; }
-.play-game[data-hand='hand'] .play-own .play-card[data-frost='true'][aria-pressed='true'] { outline-color: var(--frost, var(--info)); }
-.play-game[data-hand='hand'] .play-hand:has([aria-pressed='true']) .play-card:not([aria-pressed='true']) { opacity: .6; }
+.play-game[data-hand='hand'] .play-own .play-card[data-frost='true'][aria-pressed='true'] { --armed-edge: var(--frost, var(--info)); }
+.play-game[data-hand='hand'] .play-hand:has([aria-pressed='true']) .play-card:not([aria-pressed='true'], :focus-visible) { opacity: .6; }
 .play-game[data-hand='hand'] .play-hand .play-card:has(~ [aria-pressed='true']) { translate: -3px; }
 .play-game[data-hand='hand'] .play-hand [aria-pressed='true'] ~ .play-card { translate: 3px; }
 .play-game .play-own .play-card[data-spent='true'] { flex-grow: .65; }
 
-.play-game .play-turn .kd-button { height: 100%; border: 1px solid var(--line, var(--divider)); border-radius: 999px; }
+.play-game .play-turn .kd-button { height: 100%; border: 1px solid var(--line, var(--divider)); border-radius: var(--radius-plate); }
 .play-game[data-form] .play-turn .kd-button:first-child { min-width: var(--fin); width: var(--fin); padding: 0; }
 .play-game[data-form] .play-turn .kd-button[data-mode='replay'] { width: auto; padding-inline: 12px; gap: 6px; }
 @media (max-width: 370px) {
@@ -400,7 +438,9 @@
   .play-replay-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 }
 .play-game .play-turn .kd-button[aria-disabled='true'], .play-game .play-turn [data-turn-state='wait'] { border-style: solid; background: var(--raised, var(--surface-raised)); color: var(--soft, var(--text-muted)); opacity: 1; }
-.play-game .play-turn [data-turn-state='ready'] { position: relative; overflow: hidden; background: var(--main-fill); }
+.play-game .play-turn [data-turn-state='ready'] { position: relative; overflow: hidden; background: var(--main-fill); border-color: var(--main-edge); }
+/* Nothing to end: a slot carved in the stone, not a plate. */
+.play-game .play-turn .kd-button[data-turn-state='dormant'] { background: var(--stone); border-color: #8b765259; box-shadow: var(--stone-in); }
 .play-turn [data-turn-state='ready']::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(105deg, transparent 32%, white 51%, transparent 68%) var(--sheen-x, 0%) 0 / 240% 100%; opacity: var(--sheen-opacity, 0); }
 .play-game .play-rewind { position: fixed; pointer-events: none; z-index: 5; transform: translate(-50%, -66%); object-fit: contain; }
 .play-game .kd-card-fly { position: absolute; pointer-events: none; z-index: 8; padding: 0; overflow: hidden; }
@@ -413,7 +453,8 @@
 .play-power-copy { display: grid; gap: 0; min-width: 0; }
 .play-game .play-opp .play-power small { font-size: 12px; color: var(--soft, var(--text-muted)); }
 .play-store[data-empty='true'] { display: none; }
-.play-own > .play-store { position: absolute; top: calc(50% + 13px); left: 48px; z-index: 1; }
+/* Your counter has its own place between the power, as wide as its name, and the cards. Beside cards it is small, so each card keeps its name. */
+.play-own:has(> .play-hand) > .play-store { min-width: 20px; height: 20px; margin-inline: -2px -4px; }
 .play-game .play-rival-count { right: 1px; bottom: 4px; }
 .play-game .play-turn .kd-button:first-child { border-radius: 12px; }
 .play-game:not([data-online]) .play-turn [data-turn-state='ready'][data-free='true'] { background: var(--raised, var(--surface-raised)); }
@@ -427,26 +468,68 @@
   top: calc(var(--reader-y) - 8px); padding: 0; height: calc(var(--action-y) + var(--fin) - var(--reader-y) + 8px); overflow: hidden;
 }
 .play-game[data-reading='result'] .play-detail:has(.play-result) { height: 100%; padding: 0; overflow: hidden; background: transparent; }
-.play-game .play-result { display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; height: 100%; gap: 4px; padding: 2px 0; animation: none; }
-.play-result-seat { display: flex; align-items: center; gap: 10px; min-height: 39px; border-bottom: 1px solid var(--line-2, var(--divider)); padding-bottom: 4px; }
-.play-result-seat .play-seat-ring { width: 34px; height: 34px; overflow: hidden; }
-.play-result-seat strong { font: 650 12px/1.2 var(--cinzel, var(--font-title)); text-transform: uppercase; }
+/* The result is one gilt sheet of vellum: a gilt top edge and two inner rules, one seal, one brass action. */
+.play-game .play-result { position: relative; display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; height: 100%; gap: 4px; padding: 12px 10px 4px; animation: none;
+  background: var(--vellum, #fbf7ee); box-shadow: inset 0 2px var(--gilt), inset 0 -1px #c9b996, 0 2px 6px #59462c14; }
+.play-game .play-result::before, .play-game .play-result::after { content: ''; position: absolute; inset: 4px 10px auto; height: 1px; background: #d9c89f; pointer-events: none; }
+.play-game .play-result::after { inset: auto 10px 3px; }
 .play-game .play-result-body { display: grid; gap: 4px; text-align: center; }
-.play-game .play-result-body h3 { font: 650 clamp(24px, 6vw, 36px)/1.05 var(--cinzel, var(--font-title)); margin: 0; text-wrap: balance; }
+.play-game .play-result-body h3 { font: 650 28px/1.05 var(--cinzel, var(--font-title)); margin: 0; text-wrap: balance; }
+/* Wax red for a win, muted brown for a loss, stone for a draw. The words carry the result; the seal is a second cue. */
+.play-result-seal { display: grid; place-items: center; width: 40px; height: 40px; margin: 0 auto; border-radius: 46% 49% 45% 48%; color: #f3d39c;
+  background: radial-gradient(ellipse at 35% 25%, #b25a46, var(--wax) 68%, #753426); box-shadow: inset 0 0 0 4px #9d4937, inset 0 0 0 5px #cf8061, 0 2px 5px #57302330; }
+.play-result-seal svg { width: 50%; height: auto; }
+.play-result[data-outcome='loss'] .play-result-seal { color: #fff5de; background: radial-gradient(ellipse at 35% 25%, #a2815a, #896b4e); box-shadow: inset 0 0 0 4px #997d59, inset 0 0 0 5px #cdbb99, 0 2px 5px #57302325; }
+.play-result[data-outcome='draw'] .play-result-seal { color: #4e4638; background: radial-gradient(ellipse at 35% 25%, #e4dcc8, #b8ac91); box-shadow: inset 0 0 0 4px #c4b79b, inset 0 0 0 5px #ece4d4, 0 2px 5px #57302320; }
+.play-game .play-result-players { font: 400 13px/1.2 var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); margin: 0; }
+/* Moves, Captures and Minutes in one ruled strip. */
+.play-result-numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-block: 1px solid #d9cdb4; padding-block: 4px; }
+.play-result-numbers p { display: grid; margin: 0; }
+.play-result-numbers p + p { border-left: 1px solid #d9cdb4; }
+.play-result-numbers strong { font: 500 20px/1.15 var(--cinzel, var(--font-title)); font-variant-numeric: tabular-nums; }
+.play-result-numbers small { font: 400 12px/1.2 var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); }
+.play-result-side { white-space: nowrap; }
 .play-game .play-result-body:has(.play-result-winner) { container-type: inline-size; }
 .play-result-winner { white-space: nowrap; font-size: min(1em, 100cqi / var(--name, 1)); }
-.play-game .play-result[data-outcome='win'] h3 { color: color-mix(in srgb, var(--brass) 46%, var(--text)); font-size: clamp(30px, 9vw, 54px); }
 .play-game .play-result-body :is(.play-result-cause, .play-result-facts) { font: 400 15px/1.1 var(--sans, var(--font-reading)); margin: 0; }
 .play-game .play-result-facts { color: var(--soft, var(--text-muted)); }
 .play-game .play-result .play-result-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; }
 .play-game .play-result-actions .kd-button { min-width: 44px; min-height: 44px; padding: 0 4px; text-align: center; }
-.play-game .play-result-actions .kd-button[data-kind='main'] { grid-column: 1 / -1; min-height: 48px; border-radius: 999px; font-family: var(--cinzel, var(--font-title)); }
+/* The reader clips its sides: the margin keeps the whole focus ring of Rematch in view. */
+.play-game .play-result-actions .kd-button[data-kind='main'] { grid-column: 1 / -1; min-height: 48px; margin-inline: calc(var(--focus-width) + var(--focus-offset)); border-radius: var(--radius-plate); font-family: var(--cinzel, var(--font-title)); }
 .play-game .play-result-actions .kd-button:not([data-kind='main']) { border: 0; background: transparent; box-shadow: none; }
+.play-game[data-review='true'] .play-result { background: none; box-shadow: none; }
+.play-game[data-review='true'] .play-result::before, .play-game[data-review='true'] .play-result::after,
 .play-game[data-review='true'] .play-result > :not(.play-result-actions),
 .play-game[data-review='true'] .play-result-actions > :not([aria-pressed='true']) { visibility: hidden; }
-.play-game[data-form='compact'] .play-result-seat { display: none; }
 .play-game[data-form='compact'] .play-result-body h3 { font-size: 26px; }
-.play-game[data-form='compact'] .play-result[data-outcome='win'] h3 { font-size: 35px; }
+/* A short screen sets a small seal beside the outcome and leaves out the players line. */
+.play-game[data-form='compact']:not([data-online]) .play-result-body { grid-template-columns: auto auto; justify-content: center; align-items: center; column-gap: 10px; }
+.play-game[data-form='compact']:not([data-online]) .play-result-body > :not(.play-result-seal, h3) { grid-column: 1 / -1; }
+.play-game[data-form='compact'] .play-result-seal { width: 28px; height: 28px; }
+.play-game[data-form='compact'] .play-result-players { display: none; }
+.play-game[data-form='compact']:not([data-online]) .play-result { padding: 8px 4px 2px; }
+.play-game[data-form='compact']:not([data-online]) .play-result-body h3 { font-size: 20px; }
+.play-game[data-form='compact'] .play-result-numbers p { display: block; }
+.play-game[data-form='compact'] .play-result-numbers strong { font-size: 16px; }
+.play-game[data-form='compact'] .play-result-numbers small { display: inline; }
+/* Online on a phone, a short screen or a rematch offer (five controls) leaves no room for the seal. */
+.play-game[data-form='compact'][data-online] .play-result-seal,
+.play-game[data-form='tall'][data-online] .play-result:has(.play-result-actions > :nth-child(5)) .play-result-seal { display: none; }
+/* The desktop rail has room: the full sheet sits at the top of the rail at the size of the design. */
+.play-game[data-form='wide'][data-reading='result'] .play-result:has(.play-result-seal) { gap: 22px; padding: 26px 22px 16px; }
+/* Online keeps the height of the reader, so a rematch offer does not change the card. */
+.play-game[data-form='wide'][data-reading='result']:not([data-online]) .play-result { height: auto; justify-content: start; }
+.play-game[data-form='wide'] .play-result-body { gap: 10px; }
+.play-game[data-form='wide'] .play-result-seal { width: 68px; height: 68px; margin-bottom: 12px; }
+.play-game[data-form='wide'] .play-result-cause { font-size: 18px; }
+.play-game[data-form='wide'] .play-result-players { font-size: 14px; margin-top: 8px; }
+.play-game[data-form='wide'] .play-result-numbers { padding-block: 14px; margin-top: 8px; }
+.play-game[data-form='wide'] .play-result-numbers strong { font-size: 26px; }
+.play-game[data-form='wide'] .play-result-numbers small { font-size: 14px; }
+/* A short reader leaves out the numbers, then the players line, then takes a small seal (fitResult in main.ts). */
+.play-result[data-fit~='numbers'] .play-result-numbers, .play-result[data-fit~='players'] .play-result-players { display: none; }
+.play-game .play-result[data-fit~='seal'] .play-result-seal { width: 28px; height: 28px; margin-bottom: 0; }
 .play-game[data-moment='win'] .play-board::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: var(--brass-1, var(--brass)); mix-blend-mode: screen; opacity: var(--result-light, 0); }
 .play-game[data-moment='loss'] .play-board { filter: saturate(var(--result-saturation, 1)) brightness(calc(1 - var(--result-light, 0))); }
 .play-game[data-layout='portrait'][data-reading='result'] .play-reader:not([data-floating='true']):has(.play-result) {
@@ -466,9 +549,6 @@
 @media (max-width: 340px) {
   .play-game[data-online] .play-result[data-outcome='loss'] h3 { font-size: 20px; }
 }
-.play-result-name { display: grid; }
-.play-result-name small { font: 400 12px/1.1 var(--sans, var(--font-reading)); color: var(--soft, var(--text-muted)); }
-.play-result-seat:has([data-outcome='win']) .play-result-name strong { color: var(--brass-p, var(--text)); }
 .play-game[data-hand='hand'] .play-own .play-card[data-spent='true'] { display: none; }
 .play-game .play-turn .play-wait-dots { display: none; align-items: center; gap: 4px; }
 .play-game .play-turn [data-turn-state='wait'] .play-wait-dots[data-step] { display: inline-flex; }
@@ -491,7 +571,7 @@
 /* A hand row under 260 px (a landscape phone) gives each card its whole width: the power shows its coin, and the cards
    do not fan or overlap. Under 240 px the names take 12 px tight letters, so "Salvation" fits. */
 @container (max-width: 259px) {
-  .play-game .play-own .play-power { flex-basis: 44px; }
+  .play-game .play-own .play-power { min-width: 44px; }
   .play-game .play-own .play-power-copy { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .play-game[data-hand='hand'] .play-own .play-card { --fan-angle: 0deg !important; --fan-drop: 0px !important; margin-inline: 0; }
   .play-game .play-own .play-card [data-button-label] { padding: 0; }
@@ -502,7 +582,27 @@
 @media (max-width: 400px) { .play-game[data-hand='hand'] .play-own .play-card { margin-inline: 0; } }
 /* The same on a landscape phone with a hand row from 260 to 300 px (736x414). */
 @container (max-width: 300px) { .play-game[data-hand='hand'] .play-own .play-card { margin-inline: 0; } }
-@media (max-width: 359px) { .play-game .play-own .play-power { flex-basis: 50px; } .play-hand { padding-inline: 0; } }
+/* Your counter takes 6 px from each card: the cards do not overlap and the names take tight letters, so "Fire Starter" stays clear of the next card. */
+@container (max-width: 400px) { .play-game[data-hand='hand'] .play-own:has(> .play-store[data-empty='false']) .play-card { margin-inline: 0; letter-spacing: -.03em; } }
+@container (max-width: 340px) { .play-game[data-hand='hand'] .play-own:has(> .play-store[data-empty='false']) .play-card { font-size: 12px; } }
+@container (max-width: 300px) { .play-own:has(> .play-store[data-empty='false']) .play-hand { padding-inline: 0; } }
+/* A row that shows the coin only has no width left: the counter stands above the coin. */
+@container (max-width: 259px) { .play-own:has(> .play-hand) > .play-store { position: absolute; top: 0; left: 12px; margin: 0; } }
+/* A landscape row up to 300 px (736x414, 900x600) has no room for the power name, the counter and four cards: it shows the coin only, and the cards do not fan. */
+@container (max-width: 300px) {
+  .play-game[data-layout='wide'] .play-own:has(> .play-hand) > .play-power { min-width: 44px; }
+  .play-game[data-layout='wide'] .play-own:has(> .play-hand) .play-power-copy { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .play-game[data-layout='wide'] .play-own:has(> .play-hand) > .play-store { position: absolute; top: 0; left: 12px; margin: 0; }
+  .play-game[data-hand='hand'][data-layout='wide'] .play-own .play-card { --fan-angle: 0deg !important; --fan-drop: 0px !important; }
+  .play-game[data-layout='wide'] .play-hand { padding-inline: 0; }
+}
+@media (max-width: 359px) {
+  .play-game .play-own .play-power { min-width: 50px; }
+  /* Beside four cards, a name such as "Darkness" takes the narrow font, so "Salvation" fits its card. */
+  .play-game .play-own:has(.play-hand) .play-power [data-button-label] { font: 700 12px/1.1 var(--sans, var(--font-reading)); letter-spacing: -.03em; }
+  .play-hand { padding-inline: 0; }
+  @container (min-width: 301px) { .play-own:has(> .play-hand) > .play-store { margin-inline-end: 0; } }
+}
 
 .play-wordmark { display: none; }
 .play-game[data-layout='wide'][data-form='wide'] .play-wordmark { display: block; position: absolute; top: 18px; left: 16px; font: 650 12px/1 var(--cinzel, var(--font-title)); text-transform: uppercase; letter-spacing: .1em; color: var(--soft, var(--text-muted)); }
@@ -518,5 +618,8 @@
   font: 700 15px/1 var(--sans, var(--font-reading)); text-transform: none; letter-spacing: 0;
 }
 .play-game[data-online] .play-turn [data-turn-state='wait'] { position: relative; overflow: hidden; }
-.play-turn [data-turn-state='wait']::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: var(--surface-raised); opacity: var(--wait-shade, 0); }
-.play-turn [data-turn-state='wait'] :is([data-button-label], .play-wait-dots) { position: relative; z-index: 1; }
+.play-turn [data-turn-state='wait']::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: var(--stone); opacity: var(--wait-shade, 1); }
+.play-turn :is([data-turn-state='wait'], [data-sealed]) :is([data-button-label], .play-wait-dots) { position: relative; z-index: 1; }
+/* The commit seal owns the plate: brass in each state, then the stone shade at 300-420 ms (main.ts passTurn). */
+.play-game .play-turn .kd-button[data-sealed] { position: relative; overflow: hidden; background: var(--main-fill); border-color: var(--main-edge); color: var(--main-ink); box-shadow: none; }
+.play-turn [data-sealed]::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: var(--stone); opacity: var(--wait-shade, 0); }

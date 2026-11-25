@@ -26,7 +26,7 @@ for (const [name, type] of [['chromium', chromium], ['webkit', webkit]]) {
       await context.addInitScript(() => localStorage.setItem('kingdown.solo-launch-seen', '1'));
       const page = await context.newPage(), errors = [];
       page.on('pageerror', error => errors.push(error.message));
-      await page.goto(next); await page.locator('.home-hero-new').click();
+      await page.goto(next); await page.locator('.home-summary').click();
       const panel = page.locator('dialog.new-game-panel[open]'); await panel.waitFor();
       await panel.getByRole('switch', { name: 'Powers', exact: true }).click();
       await panel.getByRole('button', { name: 'Powers', exact: true }).click();
@@ -40,7 +40,7 @@ for (const [name, type] of [['chromium', chromium], ['webkit', webkit]]) {
       await page.waitForFunction(() => document.querySelector('.play-game')?.dataset.state === 'ready' && !document.querySelector('.play-versus'));
       const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')));
       assert.deepEqual(saved.rules.kings[0], { king: 'Stratus', power: 'Flight' });
-      assert.equal(await page.locator('.play-own .play-power-coin img').getAttribute('src'), '/ui/emblems/stratus.webp');
+      assert.equal(await page.locator('.play-own .play-power-coin img').getAttribute('src'), '/ui/powers/flight.webp');
       assert.match(await page.locator('.play-own .play-power').innerText(), /Flight/);
       await cleanWords(page); await shot(page, name, 'sky-game');
       await page.goto(next + '#guide');

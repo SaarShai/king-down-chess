@@ -504,7 +504,7 @@ for (const engine of [chromium, webkit]) {
       if(name==='result-board-tap') {
        const live=await page.evaluate(()=>[...document.querySelectorAll('body > [role=status]')].map(n=>n.textContent));
        check(live.some(t=>t.endsWith('The computer wins. Checkmate.')),`${label}: no later step replaces the result announcement: ${JSON.stringify(live)}`);
-       check(kept.focus==='Rematch',`${label}: the focus stays on Rematch: ${JSON.stringify(kept)}`);
+       check(kept.focus?.startsWith('Rematch'),`${label}: the focus stays on Rematch: ${JSON.stringify(kept)}`);
       }
      }
      await page.locator('.play-result').waitFor({timeout:45000});

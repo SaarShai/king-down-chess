@@ -3,10 +3,11 @@ import { describeMove } from '../../move-text';
 import { GameRules } from '../../game-rules';
 import type { Draft } from '../client';
 import type { DraftPosition, DraftPreview, View } from '../../match/protocol';
-import { TAG_POWER, type CardName, type Color, type Move, type Position, type Rules } from '../../rules/engine';
+import { P, TAG_POWER, typeOf, type CardName, type Color, type Move, type Position, type Rules } from '../../rules/engine';
 import { toFen, toLan } from '../../rules/setup';
 import { turnLine, turnOf, type Mode } from '../../turn';
 import { pendingHere, staleRead, type Page } from '../../account-game/state';
+import { needsServerPreview } from '../../account-game/engine-identity';
 import type { ReportCategory } from '../../account/profile';
 import type { ToolResult } from '../queue';
 
@@ -137,40 +138,51 @@ export function committedPreview(before: View, next: View, preview: DraftPreview
   return [...steps, { pre, pos, move: pass, lan: '--', words: describeMove(context, pre, pass, true) }];
 }
 
+function replayActions(initial: string, actions: readonly string[], next: View, rules: Partial<Rules>): BoardMove[] | undefined {
+  try {
+    const start = new GameRules(rules).fromFen(initial);
+    let pawnPush = false, pawnSwap = false;
+    const replay = (oldSwap: boolean, oldPush = false) => {
+      let pos = start;
+      const steps: BoardMove[] = [];
+      for (const lan of actions) {
+        const step = applyLan(pos, lan, rules);
+        if (!step) return;
+        const { shove, swap, from, to } = step.move;
+        const pushesPawn = shove && typeOf(pos.board[shove.from]) === P;
+        const swapsPawn = swap && typeOf(pos.board[to]) === P && typeOf(pos.board[from]) !== P;
+        if (pushesPawn) pawnPush = true;
+        if (swapsPawn) pawnSwap = true;
+        if ((oldPush && pushesPawn) || (oldSwap && swapsPawn)) step.pos.halfmove = pos.halfmove + 1;
+        steps.push(step); pos = step.pos;
+      }
+      return toFen(pos) === next.fen ? steps : undefined;
+    };
+    const current = replay(false);
+    if (current || !next.engine_fingerprint || !needsServerPreview(next.engine_fingerprint)) return current;
+    // Ogre pawn pushes began to reset the count before pawn swaps did.
+    return (pawnSwap ? replay(true) : undefined) ?? (pawnPush ? replay(true, true) : undefined);
+  } catch { return; }
+}
+
 export function replayLans(before: Pick<View, 'game_id' | 'revision' | 'fen'>, next: View, rules: Partial<Rules>): BoardMove[] | undefined {
   try {
     if (before.game_id !== next.game_id || !before.fen || next.revision < before.revision) return;
-    const context = new GameRules(rules);
-    let pos = context.fromFen(before.fen), revision = before.revision;
-    const steps: BoardMove[] = [];
+    const actions: string[] = [];
+    let revision = before.revision;
     for (const command of next.last_commands.filter(command => command.seq > before.revision)) {
       if (command.seq !== ++revision) return;
       const action = command.action;
       if (action.type !== 'turn' && action.type !== 'computer') continue;
       if (!('actions' in action)) return;
-      for (const lan of action.actions) {
-        const step = applyLan(pos, lan, rules);
-        if (!step) return;
-        steps.push(step); pos = step.pos;
-      }
+      actions.push(...action.actions);
     }
-    return revision === next.revision && toFen(pos) === next.fen ? steps : undefined;
+    if (revision === next.revision) return replayActions(before.fen, actions, next, rules);
   } catch { return; }
 }
 
 export function replayHistory(next: View, rules: Partial<Rules>): BoardMove[] | undefined {
-  try {
-    if (!next.history) return;
-    const context = new GameRules(rules);
-    let pos = context.fromFen(next.history.initial_fen);
-    const steps: BoardMove[] = [];
-    for (const lan of next.history.actions) {
-      const step = applyLan(pos, lan, rules);
-      if (!step) return;
-      steps.push(step); pos = step.pos;
-    }
-    return toFen(pos) === next.fen ? steps : undefined;
-  } catch { return; }
+  if (next.history) return replayActions(next.history.initial_fen, next.history.actions, next, rules);
 }
 
 /** Take the last complete turn of the opponent from history that reaches the current view. */

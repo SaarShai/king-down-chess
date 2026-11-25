@@ -5,7 +5,7 @@ import './shell.css';
 import './sides.css';
 import './menus.css';
 import './reading-b.css';
-import { historyGroups } from './history';
+import { historyGroups, newLine } from './history';
 import { mountShell, type Route } from './shell';
 import { guidePage, closeGuidePanel } from './guide';
 import { button, closeX, icon, confirmDialog, errorState, liveRegion, setButtonState, targetChoice } from '../ui/kit.js';
@@ -26,19 +26,23 @@ import { S, K, PLAIN_KINGS, colorOf, findKing, sqName, typeOf, TAG_POWER, type C
 import { toFen } from '../../rules/setup';
 import { RELEASED_CARDS } from '../../content/cards';
 import { POWER_NAME, POWER_TAG, cardName, coinState, usesAllowed } from '../../powers-ui';
+import { powerMark } from './power-mark';
 import { DraftTurn, isDirect, armKey } from './turn';
 import { Arrangement, ARRANGE_KEY } from './arrange';
-import { actorMarks, mergeMarks, previewMarks, resultMarks, stateMarks, type MarkAction } from './marks';
-import { cardLine, pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, kingLabel, rematchLine, resultText } from './texts';
+import type { PlainMarks } from '../../render/plain-marks';
+import { actorMarks, kingSquare, mergeMarks, previewMarks, resultMarks, stateMarks, type MarkAction } from './marks';
+import { castOf } from './cast';
+import { cardLine, pieces, powerLines, text, sentence, draftSentences, squareLabel, effectEndLines, stateDescriptions, routeLine, versusLine, kingLabel, rematchLine, resultSheet, resultText } from './texts';
 import { readingText, checkLines, armedStep, cancelLine, freeLine, opponentLines, choiceLabel, choicePrompt, spentName, readingBText, arrangeText } from './texts';
 import { armCard, calm, cardFly, disarm, screenChange, setInterfaceMotion, sheetMotion, trackCard, time } from './motion';
-import { at, burst, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, tween, type Effect } from './fx';
-import { gameLayout, type Form } from './layout';
+import { at, burst, castIn, closeIn, ease, edgeLight, hold, later, onFrame, pulse, reducedMotion, seal, SEAL_MS, setFxMotion, setVibration as setFxVibration, setPauseHook, shake, sound as cue, Spring, startFx, streak, strike, tween, type Effect } from './fx';
+import { gameLayout, panelBox, type Form } from './layout';
 import { fitReader, narratorView, readerNodes, readerView, resetFit, sentences, type ReaderModel } from './reader';
 import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, gameFacts, savedPlayTime, storeChoice as store, storedChoice as stored, storedGameType, storedVibration, storeVibration, type GameType as Setup, type KeptOffer, type Level } from './saved';
 import { arrowStep, fileLabelRow, rankLabelColumn, sideText, SIDE_CHOICES, SIDE_KEY, squareAt, type SideChoice } from './sides';
 import { changeDraft, createDraft, OPTIONS_KEY, PANEL_KEY, readPanel, readOptions, rulesFor, startOf, type NewGameDraft } from './new-game';
 import { playScreen, type Art } from './home';
+import { clearResult, markedResult, markResult } from './result-mark';
 import { newGamePanel } from './setup-table';
 import { dismissSheet, gameMenu, settingsSheet, type Settings } from './menus';
 import { allowedAvatarUrl } from '../../account/public-config';
@@ -46,6 +50,7 @@ import { computerPortrait, profilePortrait } from '../people/host/portrait';
 import type { OnlineHost } from '../people/host/index';
 import { ObsoleteAction } from '../people/server';
 import type { PeopleState } from '../people/controller';
+import { lastTurnOf } from '../people/replica';
 import { seatKingUnsaved } from '../people/seat-king';
 import { homeInvite, personGame, personTurn, personWords } from '../people/host/games';
 import { timeWords } from '../people/words';
@@ -117,9 +122,9 @@ let selected: number | null = null, inspected: number | null = null, cursor = 12
 let thinking = false, ended = false, generation = 0, reading: 'normal' | 'result' = 'normal';
 // End active sequences when the player leaves the game.
 let endResult: (() => void) | undefined, endReply: (() => void) | null = null, starting = 0, endVersus: (() => void) | null = null;
-let endCardFlight = () => {}, checkFrame: Effect | undefined, checkPulse: { square: number; progress: number } | null = null;
+let endCardFlight = () => {}, checkFrame: Effect | undefined, checkPulse: { square: number; threats: PlainMarks['threats']; progress: number } | null = null, mateHold: Effect | undefined;
 let playedMs = 0, enteredAt: number | undefined, resultReview = false;
-let lastActions: MarkAction[] = [], playingAction: MarkAction | null = null, markFocus: number | undefined, nextMarksAt = 0;
+let lastActions: MarkAction[] = [], playingAction: (MarkAction & { landed?: Position }) | null = null, markFocus: number | undefined, nextMarksAt = 0;
 // The last input was a key: only keyboard focus on a square gives the candidate sentence (reading decision 22).
 let keyed = false;
 document.addEventListener('keydown', () => { keyed = true; }, true); document.addEventListener('pointerdown', () => { keyed = false; }, true);
@@ -131,12 +136,13 @@ let last = '', notice = '', resultCause = '', choice: Move[] = [], choiceSquare 
 
 // Stage "readingb": the form of the layout, the persistent reader nodes, the open effects summary (its subject key),
 // the computer's card group, and the computer's text while its reply plays.
-let form: Form = 'tall', nodes = readerNodes(), rivalGroup: Resource | null = null, acting = '';
+let sealing: Effect[] = [], form: Form = 'tall', nodes = readerNodes(), rivalGroup: Resource | null = null, acting = '';
 let screen: HTMLElement, boardBox: HTMLElement, boardHost: HTMLElement, reader: HTMLElement, detail: HTMLElement, choiceBox: HTMLElement;
-let cells: HTMLButtonElement[] = [], choiceCancel: HTMLButtonElement;
+let cells: HTMLButtonElement[] = [], choiceCancel: HTMLButtonElement, struck: { square: number; height: number } | undefined, beat: Effect | undefined, casting: Effect | undefined;
 let menuButton: HTMLButtonElement;
 let historyStrip: HTMLElement, historyButton: HTMLButtonElement, historyCompact: HTMLElement, scrollPanel: HTMLElement;
 let scrollOpen: 'history' | null = null, floatingSource: HTMLElement | null = null, swallowedPointer = false;
+let freshLine = newLine();
 let seatFrame: Effect | undefined, rewind: Effect | undefined;
 let seatRings: [HTMLElement, HTMLElement], stores: [HTMLElement, HTMLElement];
 let counts: [number, number] = [0, 0];
@@ -223,7 +229,7 @@ const signInRetry = 'Sign-in does not finish. Try again.';
 const showHomeSignIn = () => peopleStatus !== 'checking' && !people?.signedIn;
 let homePoll: ReturnType<typeof runPoll> | undefined;
 function gameWords(line: string) { return onlineActive ? personWords(line) : line; }
-let mountingOnline = false, shownRevision = -1, onlineNote = '';
+let mountingOnline = false, shownRevision = -1, onlineNote = '', onlineReconnecting = false;
 const inviteLinkStatus = el('p', 'home-status');
 let inviteLinkTimer: ReturnType<typeof setTimeout> | undefined;
 function clearInviteLinkStatus() {
@@ -341,7 +347,7 @@ function personFlow(source: HTMLElement | null = null, resumeInviteAction = fals
 }
 async function openOnline(id: string) {
   if (onlineGameNotice?.id !== id) onlineGameNotice = undefined;
-  onlineActive = true; onlineState = undefined; shownRevision = -1; arrangement = undefined; arrangementGame = '';
+  onlineActive = true; onlineState = undefined; shownRevision = -1; onlineReconnecting = false; arrangement = undefined; arrangementGame = '';
   endResult?.(); rewind?.finish(); seatFrame?.finish(); boardReplay.cancel(); generation++; engine.cancel(); endEntry(); board?.dispose(); board = undefined;
   document.body.dataset.page = 'game'; root.replaceChildren(el('p', 'people-loading', 'Loading your game…'));
   try { const host = await loadPeople(); if (!onlineActive || shell.route.entry !== id) return; await host.open(id, receiveOnline); }
@@ -350,6 +356,10 @@ async function openOnline(id: string) {
 function receiveOnline(state: PeopleState) {
   if (!onlineActive) return;
   const previousStatus = onlineState?.view?.status;
+  if (state.connection !== 'online') onlineReconnecting = true;
+  const liveOnline = !onlineReconnecting && previousStatus === 'playing';
+  // The online event can come before the server answers the first read.
+  if (state.connection === 'online' && state.view && state.view !== onlineState?.view) onlineReconnecting = false;
   onlineState = state;
   if (previousStatus === 'setup' && state.view?.status === 'playing' && board) {
     board.dispose(); board = undefined; shownRevision = -1;
@@ -362,7 +372,7 @@ function receiveOnline(state: PeopleState) {
   } else { arrangement = undefined; arrangementGame = ''; }
   if (state.view?.status === 'aborted') {
     if (gameDialog) closeGameDialog(); // an open Menu or History would cover the end page
-    endEntry(); board?.dispose(); board = undefined; liveGame = false; ended = true; thinking = false;
+    endEntry(); boardReplay.cancel(); board?.dispose(); board = undefined; liveGame = false; ended = true; thinking = false;
     const page = el('section', 'people-landing'), title = el('h1', '', onlineResult(state)); title.tabIndex = -1;
     page.append(title, button(text.home, { kind: 'main', onPress: () => shell.go({ place: 'play' }) }));
     if (people && humanOpponent(state.view)) page.append(...playerSafety(people.safety, { game_id: state.view.game_id }, () => { void people?.refresh(); }));
@@ -392,16 +402,38 @@ function receiveOnline(state: PeopleState) {
   const wasEnded = ended; ended = state.phase === 'over'; liveGame = false;
   if (ended && !wasEnded) closeStaleDialogs();
   if ((changed || ended) && document.querySelector('[data-help-sheet="promotion"]')) gameHelp?.close();
+  let playback: Promise<void> | undefined, liveRevision = false;
   if (changed) {
-    shownRevision = state.view.revision; selected = inspected = null; shown = null; clearChoice(); skipBoard();
-    board.setPosition(draft.position, game.context); replySteps = state.received?.steps ?? lastReplySteps(game, cpu());
+    shownRevision = state.view.revision; selected = inspected = null; shown = null; clearChoice(); skipBoard(); endResult?.();
+    replySteps = state.received?.steps ?? lastReplySteps(game, cpu());
     const h = game.history; let i = h.length; const side = h.at(-1)?.pos.turn; while (i > 0 && h[i - 1].pos.turn === side) i--;
     lastActions = draft.length ? [...draft.steps] : turnActions(i); last = turnText(i, side !== player);
+    if (!inApp && liveOnline && previousRevision >= 0) {
+      const commands = state.view.last_commands.filter(command => command.seq > previousRevision);
+      const turns = commands.filter(({ action }) => action.type === 'turn' || action.type === 'computer');
+      liveRevision = commands.length === shownRevision - previousRevision && turns.length <= 1;
+      const turn = turns[0];
+      if (liveRevision && turn && turn.seat !== player && pieceView !== 'symbols' && replyMotion()) {
+        const reply = state.received ?? lastTurnOf(game, state.view);
+        if (reply?.seq === turn.seq && reply.steps.length) playback = playReply(reply.steps, board, true);
+      }
+    }
+    if (!playback) board.setPosition(draft.position, game.context);
   }
-  if (ended) { resultCause = onlineResult(state); reading = 'result'; if (changed) detail.dataset.mode = ''; }
+  // A live checkmate holds the result card (holdMate) until the threat lines and the beat have shown.
+  const mate = changed && previousRevision >= 0 && ended && !wasEnded && state.view.result?.reason === 'checkmate' && (inApp || liveRevision);
+  // A held checkmate keeps the card back also for a repeated revision or a lost connection.
+  if (ended) { resultCause = onlineResult(state); reading = mate || endResult ? 'normal' : 'result'; if (changed) detail.dataset.mode = ''; }
   else if (reading === 'result') reading = 'normal';
   update();
-  if (changed && previousRevision >= 0 && ended && !wasEnded && state.view.result?.reason === 'checkmate') playOnlineKingResult();
+  if (mate) {
+    // One hold for this revision: exit and a newer revision cancel it (endResult); the deadline opens the card.
+    let hold: Effect | undefined;
+    const deadline = armResult(() => { endResult = undefined; hold?.cancel(); boardReplay.cancel(); reading = 'result'; update(); playOnlineKingResult(); });
+    const stop = endResult = () => { endResult = undefined; hold?.cancel(); deadline.stop(); };
+    const held = () => { if (endResult !== stop) return; const king = findKing(game.pos.board, game.pos.turn); if (king < 0) deadline.go(); else hold = holdMate(king, deadline.go); };
+    if (!playback) held(); else void playback.then(held);
+  }
   if (changed && previousRevision >= 0 && wasWaiting && !thinking && !ended && !arrangement) passTurn(false);
   if (changed && previousRevision >= 0) announce(arrangementWaiting() ? arrangeText.wait : ended ? resultCause : state.draft ? `${replyText()} Your turn.` : state.sent ? 'Turn sent. Your opponent now plays.' : 'The game changes.');
   void onlineRecovery(state);
@@ -473,7 +505,7 @@ function home(newArmy = false) {
   }
   onlineActive = false; onlineState = undefined; people?.stopGame();
   gameHelp?.close(); closeGuidePanel();
-  endResult?.(); rewind?.finish(); seatFrame?.finish(); boardReplay.cancel(); generation++; engine.cancel(); endEntry(); endCardFlight(); cancelCheckPulse(); endReply = null;
+  endResult?.(); rewind?.finish(); seatFrame?.finish(); boardReplay.cancel(); generation++; engine.cancel(); endEntry(); endCardFlight(); cancelCheckPulse(); casting?.cancel(); endReply = null;
   // The game screen slides away over the home screen; its board goes when it has left.
   board?.skip();
   const old = root.querySelector<HTMLElement>('.play-game'), oldBoard = board; board = undefined;
@@ -609,8 +641,8 @@ function resumeGame(source: HTMLButtonElement, memory: boolean) {
 }
 const inMemory = () => liveGame && writer.lost && !writer.blocked && (game.history.length > 0 || draft.length > 0 || !!arrangement || game.backRank === '');
 function endEntry() { starting = 0; endVersus?.(); endVersus = null; }
-/** A new game shows Versus. Continue opens the saved board at rest. */
-async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; player: Color; playedMs?: number; arrangement?: Arrangement }, from?: HTMLButtonElement, freshDraft?: NewGameDraft) {
+/** A new game shows Versus. Continue opens the saved board at rest, and a reload opens the result card at rest (`finished`). */
+async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; player: Color; playedMs?: number; arrangement?: Arrangement; finished?: { resigned: Color | null } }, from?: HTMLButtonElement, freshDraft?: NewGameDraft) {
   if (starting) return;
   const progressiveArt = !inApp && (!onlineActive || !!freshDraft);
   // Keep the accepted game identity through the code load. Settings alone do not need a new choice.
@@ -648,6 +680,8 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     if (writer.blocked) { if (shell.route.place === 'play') home(); return; }
     if (onlineActive && freshDraft) { onlineActive = false; onlineState = undefined; people?.stopGame(); }
   }
+  const finished = resumed?.finished;
+  if (!finished) clearResult();
   const fromHome = document.body.dataset.page !== 'game', homeScreen = root.querySelector<HTMLElement>('.play-home');
   gameHelp?.close(); closeGuidePanel();
   endResult?.(); rewind?.finish(); seatFrame?.finish(); boardReplay.cancel(); generation++; const own = generation; engine.cancel(); endEntry(); endCardFlight(); cancelCheckPulse(); endReply = null;
@@ -676,9 +710,10 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   }
   if (!onlineActive && !memory) playedMs = resumed?.playedMs ?? 0;
   enteredAt = undefined; resultReview = false;
-  resources = []; shown = null; replySteps = []; resigned = null; liveGame = true;
-  ended = false; fault = null; thinking = arrangement ? false : onlineActive ? !onlineState?.draft : game.pos.turn === cpu() && game.status === 'playing'; cursor = arrangement ? player ? 63 : 0 : player ? 52 : 12;
-  selected = inspected = null; choice = []; reading = 'normal'; last = ''; lastActions = []; playingAction = null; markFocus = undefined; nextMarksAt = 0; notice = ''; resultCause = '';
+  freshLine = newLine();
+  resources = []; shown = null; replySteps = []; resigned = finished?.resigned ?? null; liveGame = !finished;
+  ended = !!finished; fault = null; thinking = arrangement || finished ? false : onlineActive ? !onlineState?.draft : game.pos.turn === cpu() && game.status === 'playing'; cursor = arrangement ? player ? 63 : 0 : player ? 52 : 12;
+  selected = inspected = null; choice = []; reading = finished ? 'result' : 'normal'; last = ''; lastActions = []; playingAction = null; beat?.cancel(); casting?.cancel(); markFocus = undefined; nextMarksAt = 0; notice = ''; resultCause = finished ? resultLine() : '';
   if (resumed) {
     // The last handed-over turn shows in the reading area and in the marks.
     const h = game.history, side = h.at(-1)?.pos.turn; let i = h.length;
@@ -764,7 +799,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     gameHelp?.close(); generation++; engine.cancel(); board?.skip(); thinking = false;
     while (draft.length) draft.undo(); draft.armed = null; shown = null; board?.setPosition(game.pos, game.context);
     arrangement = undefined;
-    ended = true; resigned = player; liveGame = false; stopGameTime(); if (save(true)) store(ARRANGE_KEY, 'null'); resultCause = text.resigned; reading = 'result'; update(); focusResult(); announce(`${replyText()} ${resultCause}`);
+    ended = true; resigned = player; liveGame = false; stopGameTime(); if (save(true)) store(ARRANGE_KEY, 'null'); resultCause = resultLine(); reading = 'result'; update(); focusResult(); announce(`${replyText()} ${resultCause}`);
   } });
   historyStrip = el('div', 'play-history-strip'); historyStrip.hidden = true;
   historyButton = button(text.history, { onPress: () => toggleScroll('history', historyButton) });
@@ -784,11 +819,17 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     onArtError: progressiveArt ? undefined : onArtError,
     sceneHooks: {
       hold,
+      // The scene reports the struck figure's height just before its contact.
+      onCaptureVictim: (square: number, _kind: string, _army: string, height: number) => { struck = { square, height }; },
       onCaptureContact: (square: number, animated: boolean) => {
-        const victim = playingAction?.before.board[square];
-        if (!victim) return false;
+        const victim = playingAction?.before.board[square], move = playingAction?.move;
+        if (!victim || !move) return false;
         cue('impact');
-        if (animated) { shake(seatRings[colorOf(victim) === player ? 0 : 1], { amplitude: 4, ms: 260 }); pulse('medium'); }
+        if (animated) {
+          shake(seatRings[colorOf(victim) === player ? 0 : 1], { amplitude: 4, ms: 260 }); pulse('medium');
+          beat?.cancel();
+          beat = strike(cells[square].getBoundingClientRect(), { from: at(cells[move.from]), height: struck?.square === square ? struck.height : undefined, ranged: move.from === move.to });
+        }
         return true;
       },
       onKingImpact: () => { if (endResult || onlineActive) { cue('knock', { pitch: .7, volume: .7 * .85 }); pulse('medium'); } },
@@ -803,6 +844,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
   if (progressiveArt) applyPieceView();
   board.setPosition(draft.position, game.context);
   if (!progressiveArt) applyPieceView();
+  if (finished && game.status === 'checkmate') { screen.dataset.moment = game.pos.turn === cpu() ? 'win' : 'loss'; resultLight(game.pos.turn === cpu(), 1); }
   layout(); update();
   fit.disconnect(); fit.observe(screen);
   if (!resumed && save(true)) store(ARRANGE_KEY, 'null');
@@ -819,6 +861,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
       if (!versus || progressiveArt) { if (from) setButtonState(from, { busy: true }); await loaded.catch(() => {}); }
       if (own !== generation) return;
       screen.style.visibility = ''; cells[cursor].focus({ preventScroll: true });
+      if (finished) focusResult();
       if (homeScreen) { if (!versus) await screenChange(homeScreen, screen); homeScreen.remove(); }
     } finally { if (starting === own) starting = 0; }
   } else if (!versus) cells[cursor].focus({ preventScroll: true });
@@ -832,7 +875,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     announce([controls.state.textContent, context].filter(Boolean).join(' '));
   }
   // The computer moves first in a Dark game, and after Continue on its turn. Wait for the first board frame.
-  if (own === generation && !onlineActive && !arrangement && !fault && game.pos.turn === cpu() && game.status === 'playing') void reply();
+  if (own === generation && !onlineActive && !arrangement && !fault && !finished && game.pos.turn === cpu() && game.status === 'playing') void reply();
 }
 /** The art cannot load: one safe next step, Try again. The game, its staged steps and its save stay. */
 function artFailed(own: number) {
@@ -922,7 +965,7 @@ function versusCard(loaded: Promise<unknown>): Promise<void> {
 }
 
 /** End any board playback; a computer reply that only waits for its playback ends with it. */
-function skipBoard() { rewind?.finish(); boardReplay.cancel(); endCardFlight(); cancelCheckPulse(); board?.skip(); playingAction = null; endReply?.(); }
+function skipBoard() { beat?.cancel(); casting?.cancel(); rewind?.finish(); boardReplay.cancel(); endCardFlight(); cancelCheckPulse(); board?.skip(); playingAction = null; endReply?.(); }
 function moveCursor(square: number) { cells[cursor].tabIndex = -1; cursor = square; cells[cursor].tabIndex = 0; cells[cursor].focus({ preventScroll: true }); }
 document.addEventListener('keydown', event => {
   if (event.defaultPrevented) return;
@@ -958,8 +1001,16 @@ function key(event: KeyboardEvent) {
 }
 function clearChoice() { choice = []; choiceBox.replaceChildren(); }
 function fitResult() {
+  const card = detail?.querySelector<HTMLElement>('.play-result'), row = card?.querySelector('.play-result-actions');
+  if (!card || !row) return;
+  // A short reader leaves out the numbers, then the players line, then takes a small seal: the outcome, the cause and the controls stay.
+  card.dataset.fit = '';
+  for (const part of ['numbers', 'players', 'seal']) {
+    if (row.getBoundingClientRect().bottom <= detail.getBoundingClientRect().bottom + 1) break;
+    card.dataset.fit += ` ${part}`;
+  }
   if (!onlineActive || reading !== 'result') return;
-  const body = detail?.querySelector<HTMLElement>('.play-result-body');
+  const body = card.querySelector<HTMLElement>('.play-result-body');
   if (!body) return;
   // A long name takes a smaller size to stay whole on one line (reading-b.css). --name is its width in em: no screen size changes it.
   const name = body.querySelector<HTMLElement>('.play-result-winner'), width = name?.getBoundingClientRect().width;
@@ -970,7 +1021,7 @@ function fitResult() {
 }
 function tap(square: number) {
   if (fault === 'art' || !onlineActive && writer.blocked) return; // a fault waits for recovery
-  const wasEnded = ended; skipBoard();
+  const wasEnded = ended; skipBoard(); endSeal();
   cells.forEach(cell => cell.classList.remove('square-error')); // a new tap ends the red edge of an earlier refusal
   if (ended && !wasEnded) return; // the last reply can end the game inside skipBoard: the result and its announcement keep their place (decision 129)
   lastActions = []; notice = ''; onlineGameNotice = undefined;
@@ -1050,12 +1101,13 @@ function afterStage(before: Position, move: Move) {
 function animate(before: Position, move: Move, after: Position): Promise<unknown> {
   if (!board) return Promise.resolve();
   nextMarksAt = 0;
-  checkShown = false;
-  const action = playingAction = { before, move };
-  board.setPosition(before, game.context);
-  const check = !move.pass && before.turn !== after.turn && game.context.inCheck(after);
-  const checked = check && game.context.legalMoves(after).length > 0;
-  const done = board.play(move, after, checked ? () => finalCheckCue(after) : undefined).catch(error => { refuse(String(error)); }).finally(() => {
+  checkShown = false; cancelCheckPulse();
+  const action: NonNullable<typeof playingAction> = playingAction = { before, move }; endSeal();
+  beat?.cancel(); casting?.cancel(); board.setPosition(before, game.context);
+  const turned = !move.pass && before.turn !== after.turn && game.context.inCheck(after);
+  const checkCue = turned ? game.context.legalMoves(after).length > 0 ? finalCheckCue : drawCheckIn : !move.pass && newCheck(before, after) ? drawCheckIn : undefined;
+  // The marks follow the landed move: a check that ends or starts shows at the landing.
+  const done = board.play(move, after, () => { action.landed = after; checkCue?.(after); drawMarks(); if (playingAction === action) castBeat(move, before); }).catch(error => { refuse(String(error)); }).finally(() => {
     if (playingAction === action) {
       playingAction = null;
 
@@ -1072,13 +1124,32 @@ function undoOrReplay() {
   if (!board || boardReplay.running) return;
   closeFloating(false);
   lastActions = replySteps.map(({ before, move }) => ({ before, move }));
-  if (calm() || motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) { drawMarks(); announce(text.replay); return; }
-  const own = generation, view = board;
-  screen.dataset.replaying = 'true';
-  void boardReplay.play(replySteps, view, game.context, () => own === generation && board === view,
+  if (!replyMotion()) { drawMarks(); announce(text.replay); return; }
+  void playReply(replySteps, board);
+}
+function replyMotion() { return !calm() && motion !== 'off' && !matchMedia('(prefers-reduced-motion: reduce)').matches; }
+/** Live playback draws a new check in; a manual Replay shows it at once. */
+function playReply(steps: readonly ReplayStep[], view: Board, live = false) {
+  const own = generation;
+  beat?.cancel(); casting?.cancel(); endSeal(); screen.dataset.replaying = 'true';
+  return boardReplay.play(steps, view, game.context, () => own === generation && board === view,
     () => { playingAction = null; view.setPosition(draft.position, game.context); screen.dataset.replaying = 'false'; drawMarks(); },
-    (pos, step) => { playingAction = step ? { before: pos, move: step.move } : null; drawMarks(); })
+    (pos, step) => { if (step) casting?.cancel(); playingAction = step ? { before: pos, move: step.move } : null; drawMarks(); },
+    step => { if (playingAction) playingAction.landed = step.after; if (live && newCheck(step.before, step.after)) drawCheckIn(step.after); drawMarks(); if (playingAction?.move === step.move && pieceView !== 'symbols') castBeat(step.move, step.before); })
     .catch(error => refuse(String(error)));
+}
+/** A card's finale where it changed the board, for both players (cast.ts); none on a hidden page or after the game end. */
+function castBeat(move: Move, before: Position) {
+  casting?.cancel();
+  const cast = document.hidden || ended ? undefined : castOf(move, before);
+  casting = cast && castIn(cast.family, cast.squares.map(square => cells[square]), () => [...detail.querySelectorAll('.play-turn-state'), nodes.title]);
+}
+/** A page that becomes hidden ends the beat: a quick tab switch does not resume it part drawn. */
+function castHidden() { if (document.hidden) casting?.cancel(); }
+/** A move gives a new check: also on the side that does not move now (Haste). */
+function newCheck(before: Position, after: Position) {
+  const king = stateMarks(game.context, after).check;
+  return king != null && king !== stateMarks(game.context, before).check;
 }
 function undo() {
   if (!draft.length || thinking || ended || !onlineActive && writer.blocked) return;
@@ -1154,14 +1225,16 @@ async function finish() {
     if (game.pos.turn === cpu()) void reply(); else announce(text.ready);
     return;
   }
-  if (onlineActive) { if (draft.canFinish && !choice.length && !thinking && !ended) { selected = inspected = null; passTurn(true); await people?.controller?.send(); } return; }
+  // The seal is for a turn that keeps the game going and is more than a free action (a game end has its own moment).
+  const sealed = !freeText() && game.context.status(draft.position) === 'playing';
+  if (onlineActive) { if (draft.canFinish && !choice.length && !thinking && !ended) { selected = inspected = null; casting?.cancel(); playingAction = null; passTurn(true, sealed); await people?.controller?.send(); } return; }
   if (!draft.canFinish || choice.length || thinking || ended || !onlineActive && writer.blocked) return;
   const checkWasInFlight = playingAction && game.context.inCheck(draft.position);
   skipBoard(); const mine = game.history.length; if (draft.commit().at(-1)!.pass) board?.setPosition(game.pos, game.context); last = turnText(mine, false); lastActions = turnActions(mine); selected = inspected = null; notice = ''; shown = null;
   clearChoice(); save(true);
   if (game.status !== 'playing') { showResult(); return; }
   if (checkWasInFlight && game.inCheck && !checkShown) finalCheckCue(game.pos);
-  passTurn(true); void reply(); announce(text.sent);
+  passTurn(true, sealed); void reply(); announce(text.sent);
 }
 /** The computer's turn: after End turn, or after Continue when the computer is to move. */
 async function reply() {
@@ -1185,16 +1258,17 @@ async function reply() {
       // The whole reply is saved before its playback ends: a reload then shows it as done.
       if (game.pos.turn !== cpu() || game.status !== 'playing') save(false);
       // A pass changes no square: show its end of marks at once.
-      if (m.pass) { board?.setPosition(game.pos, game.context); played = Promise.resolve(); } else played = animate(before, m, game.pos);
+      if (m.pass) { casting?.cancel(); board?.setPosition(game.pos, game.context); played = Promise.resolve(); } else played = animate(before, m, game.pos);
       // The computer acts: the reading area follows the step that plays (design section 4).
       if (!m.pass) { acting = [...effectEndLines(game.context, before, m, game.pos, player), sentence(before, m, true, cards(cpu()))].join(' '); update(); }
     }
     if (own !== generation) return;
+    const deadline = game.status !== 'playing' ? armResult(() => { if (own === generation) endReply?.(); }) : undefined;
     // The status changes when the board has shown the reply, not before (fault C2). A board tap ends both at once.
     endReply = () => {
       endReply = null; if (own !== generation) return;
       thinking = false; acting = ''; notice = ''; draft = new DraftTurn(game); replySteps = lastReplySteps(game, cpu());
-      if (game.status !== 'playing') { showResult(); return; }
+      if (game.status !== 'playing') { showResult(deadline); return; }
       passTurn(false); update(); announce(`${replyText()} ${game.inCheck ? text.check : text.ready}`);
     };
     await played; endReply?.();
@@ -1208,18 +1282,51 @@ function cancelCheckPulse() { checkFrame?.cancel(); checkFrame = undefined; chec
 let checkShown = false;
 function finalCheckCue(pos: Position) {
   checkShown = true;
-  cancelCheckPulse();
-  const square = findKing(pos.board, pos.turn);
   const ring = seatRings[pos.turn === player ? 0 : 1];
   ring.dataset.check = 'true';
   cue('check'); pulse('warn');
   update();
   riseNarrator();
   shake(ring, { amplitude: 5, ms: 340 }); burst('sparks', at(ring), { count: 8, ms: 400 });
-  checkPulse = { square, progress: 0 };
-  checkFrame = tween(160, t => { if (checkPulse) checkPulse.progress = t; drawMarks(); }, {
+  drawCheckIn(pos);
+}
+/** The check mark and its threat lines draw in (200 ms; at once in reduced motion). */
+function drawCheckIn(pos: Position) {
+  cancelCheckPulse();
+  const marks = stateMarks(game.context, pos);
+  checkPulse = { square: marks.check!, threats: marks.threats, progress: 0 };
+  checkFrame = tween(200, t => { if (checkPulse) checkPulse.progress = t; drawMarks(); }, {
     curve: ease.EASE, done: () => { checkPulse = null; drawMarks(); },
   });
+}
+/**
+ * The checkmate hold: the threat lines stand and the mated king takes one beat, then `then` runs (600 ms; reduced
+ * motion: a plain 300 ms pause). A timer, not the effect clock, ends it: it also ends on a hidden page.
+ */
+function holdMate(square: number, then: () => void): Effect {
+  const reduce = reducedMotion(), beat = reduce ? undefined : closeIn(cells[square].getBoundingClientRect());
+  if (!reduce) cue('check');
+  const end = () => { clearTimeout(timer); beat?.cancel(); if (mateHold === hold) mateHold = undefined; };
+  const timer = setTimeout(() => hold.finish(), reduce ? 300 : 600);
+  const hold: Effect = mateHold = { cancel: end, finish: () => { end(); then(); } };
+  return hold;
+}
+/**
+ * A game end: the card opens by 3 s after the game detects it, and at once on a hidden page, where playback waits for
+ * frames that do not come. `open` can change; `late` says that the deadline came.
+ */
+function armResult(open = () => {}) {
+  const listen = new AbortController(), timer = setTimeout(() => deadline.go(), document.hidden ? 0 : 3000);
+  const deadline = { open, late: false, stop() { clearTimeout(timer); listen.abort(); }, go() { deadline.stop(); deadline.late = true; deadline.open(); } };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) deadline.go(); }, { signal: listen.signal });
+  return deadline;
+}
+/** The seal marks: a crown for a win, a broken crown for a loss, two equal lines for a draw. */
+const SEAL = { win: 'm4 8 4 4 4-7 4 7 4-4-2 11H6L4 8ZM7 22h10', loss: 'm5 7 4 4 3-6 3 6 4-4-2 10H7L5 7ZM7 21h10M4 4l16 19', draw: 'M5 9h14M5 16h14' };
+function sealOf(outcome: keyof typeof SEAL) {
+  const seal = el('span', 'play-result-seal');
+  seal.innerHTML = `<svg aria-hidden="true" viewBox="0 0 24 26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${SEAL[outcome]}"/></svg>`;
+  return seal;
 }
 const focusResult = () => detail.querySelector<HTMLButtonElement>('.play-result-actions .kd-button')?.focus({ preventScroll: true });
 function riseNarrator() {
@@ -1227,56 +1334,67 @@ function riseNarrator() {
   if (!text) return;
   tween(180, t => { text.style.transform = `translateY(${8 * (1 - t)}px)`; text.style.opacity = String(t); }, { curve: ease.EASE });
 }
-function showResult() {
+function resultLine(): string {
+  const status: Status = game.status;
+  return resigned != null ? text.resigned : status === 'checkmate' ? game.pos.turn === cpu() ? text.win : text.loss : text[status as 'stalemate' | 'draw50' | 'drawRepetition' | 'drawMaterial'];
+}
+/** The board light of a checkmate: `t` 0 at the king's fall, 1 at rest. */
+function resultLight(won: boolean, t: number) {
+  boardBox.style.setProperty('--result-light', String(won ? .26 - .13 * t : .16 * t));
+  if (!won) boardBox.style.setProperty('--result-saturation', String(1 - .5 * t));
+}
+function showResult(deadline = armResult()) {
   gameHelp?.close(); closeStaleDialogs();
   ended = true; thinking = false; liveGame = false; stopGameTime();
   const status: Status = game.status;
   const won = game.pos.turn === cpu();
-  resultCause = status === 'checkmate' ? won ? text.win : text.loss : text[status as 'stalemate' | 'draw50' | 'drawRepetition' | 'drawMaterial'];
+  resultCause = resultLine();
   board?.skip(); board?.setPosition(game.pos, game.context); shown = null;
   const show = () => {
     reading = 'result'; update(); focusResult(); announce(`${replyText()} ${resultCause}`);
   };
-  if (status !== 'checkmate') { cue('arrive'); pulse('light'); show(); return; }
+  if (status !== 'checkmate') { deadline.stop(); cue('arrive'); pulse('light'); show(); return; }
   const title = detail.querySelector('.play-narrator .play-title');
-  if (title) { title.textContent = 'Checkmate.'; riseNarrator(); }
-  const square = findKing(game.pos.board, game.pos.turn);
+  if (title) { title.textContent = 'Checkmate.'; detail.querySelector('.play-narrator .play-step')?.remove(); riseNarrator(); }
+  const standing = findKing(game.pos.board, game.pos.turn), square = standing >= 0 ? standing : kingSquare(game.history, game.pos.turn);
   const view = board, skip = button('Skip result animation', { onPress: () => finish(true) });
   skip.classList.add('play-sequence-skip');
   skip.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); finish(true); } });
-  screen.append(skip); skip.focus({ preventScroll: true });
+  // The skip covers the board only: Menu and Back to home stay free.
+  boardBox.append(skip); skip.focus({ preventScroll: true });
   screen.dataset.moment = won ? 'win' : 'loss'; screen.dataset.state = 'result';
   const cues: Effect[] = [];
-  const ground = boardBox;
-  const light = (t: number) => ground.style.setProperty('--result-light', String(won ? .26 - .13 * t : .16 * t));
-  const hidden = new AbortController(); // a hidden page gives no frames: the result must not wait for the bow
   const finish = (showCard: boolean) => {
     if (endResult !== cancel) return;
-    endResult = undefined; hidden.abort();
+    endResult = undefined;
     cues.forEach(effect => effect.cancel()); skip.remove(); view?.skip();
-    light(1);
-    if (!won) ground.style.setProperty('--result-saturation', '.5');
+    resultLight(won, 1);
     if (showCard) show();
   };
   const cancel = () => finish(false);
   endResult = cancel;
-  cue('impact'); pulse('heavy'); hold(90);
-  shake(ground, { amplitude: 2.5, ms: 240 });
-  const playback = view?.play({ kind: 'fall', square });
-  cues.push(later(200, () => {
-    cues.push(tween(won ? 700 : 900, t => {
-      light(t);
-      if (!won) ground.style.setProperty('--result-saturation', String(1 - .5 * t));
-    }, { curve: won ? ease.lin : ease.out2 }));
-  }));
-  cues.push(later(won ? 260 : 300, () => {
-    if (won) { cue('arrive'); cue('ting'); pulse('success'); burst('sparks', at(cells[square]), { count: 12, ms: 700 }); }
-    else { cue('no', { pitch: .65 }); pulse('error'); }
-  }));
-  const finished = Promise.resolve(playback).catch(() => {});
-  document.addEventListener('visibilitychange', () => { if (document.hidden) finish(true); }, { signal: hidden.signal });
-  if (reducedMotion() || document.hidden) finish(true);
-  else void finished.then(() => finish(true));
+  const fall = () => {
+    cue('impact'); pulse('heavy'); hold(90);
+    shake(boardBox, { amplitude: 2.5, ms: 240 });
+    // A taken king has no figure to fall: the light and the sparks play on the square where it was taken.
+    const playback = standing >= 0 ? view?.play({ kind: 'fall', square }) : new Promise<void>(done => cues.push(later(won ? 900 : 1100, done)));
+    cues.push(later(200, () => {
+      cues.push(tween(won ? 700 : 900, t => resultLight(won, t), { curve: won ? ease.lin : ease.out2 }));
+    }));
+    cues.push(later(won ? 260 : 300, () => {
+      if (won) { cue('arrive'); cue('ting'); pulse('success'); burst('sparks', at(cells[square]), { count: 12, ms: 700 }); }
+      else { cue('no', { pitch: .65 }); pulse('error'); }
+    }));
+    void Promise.resolve(playback).catch(() => {}).then(() => finish(true));
+  };
+  // The card comes in any case: a fall that never ends meets the hard end, a hidden page shows the card at once.
+  deadline.open = () => finish(true);
+  cues.push({ cancel: deadline.stop, finish() {} });
+  if (document.hidden || deadline.late) finish(true);
+  // A mate (not a taken king, which has its own moment) holds first; reduced motion then shows the card.
+  else if (standing >= 0) cues.push(holdMate(square, () => reducedMotion() ? finish(true) : fall()));
+  else if (reducedMotion()) finish(true);
+  else fall();
 }
 function playOnlineKingResult() {
   const view = board;
@@ -1315,6 +1433,14 @@ function updateArrangement() {
   screen.querySelectorAll<HTMLElement>('.play-own, .play-opp .play-power, .play-opp .play-rival-cards').forEach(part => part.inert = true);
   board?.setPosition(pos, game.context); renderReader(); renderHistory(); placeFloating(); drawMarks();
 }
+/** The filled notches are the uses spent. Only a use that the player spends now moves: its notch fills with wax. */
+function markUses(control: HTMLElement, left: number | null, spentNow: boolean) {
+  control.querySelectorAll<HTMLElement>('.play-power-notch').forEach((notch, i) => {
+    const used = i >= (left ?? 0), fills = spentNow && used && notch.dataset.used === 'false' && !reducedMotion();
+    if (fills) notch.animate([{ backgroundColor: getComputedStyle(notch).backgroundColor, offset: 0 }], time(180));
+    notch.dataset.used = String(used);
+  });
+}
 function update() {
   if (!board || !controls) return;
   const net = onlineActive ? people?.controller?.state() ?? onlineState : undefined;
@@ -1352,7 +1478,7 @@ function update() {
   controls.update({ sent: !fault && (net ? net.phase === 'sending' || net.phase === 'checking' : thinking), staged, silent: silentStage, state: ended ? resultCause : fault ? fault === 'art' ? sideText.artFailed : sideText.computerFailed : net && personTurn(net) || (thinking ? text.thinking : choice.length ? choicePrompt(choice) : draft.armed ? armedStep(draft.armedMoves, draft.now, selected, player) : checked ? text.check : free || (draft.length ? draft.canFinish ? text.draft : text.mustContinue : fresh() && !replySteps.length && !code && !player ? text.first : text.ready)), help,
     undoReason: !onlineActive && writer.blocked ? writer.warning : undoReplayState(draft.length, replySteps.length, thinking || ended || !!fault).enabled ? '' : text.noStep,
     finishReason: !onlineActive && writer.blocked ? writer.warning : ended ? text.final : fault ? fault === 'art' ? sideText.artFailed : sideText.computerFailed : net?.connection === 'auth' ? 'Sign in to send your turn.' : thinking ? net ? personTurn(net) ?? text.wait : text.wait : choice.length ? text.choiceFirst : (net?.canSend ?? draft.canFinish) ? '' : draft.length ? text.mustContinue : text.needMove });
-  staged = silentStage = false;
+  const spentNow = staged; staged = silentStage = false;
   updateSeats();
   const pos = draft.position;
   screen.querySelector<HTMLElement>('.play-grid')!.inert = ended || !!fault || !onlineActive && writer.blocked;
@@ -1372,7 +1498,7 @@ function update() {
     if (coin) {
       res.control.dataset.coin = coin.state;
       res.control.querySelector('small')!.textContent = coin.state === 'always' && res.subject.kind === 'power' ? alwaysOnLabel(res.subject.id) : spent ? readingBText.used : left == null ? text.unlimited : `${left} ${text.left}`;
-      res.control.querySelectorAll<HTMLElement>('.play-power-notch').forEach((notch, i) => { notch.dataset.used = String(i >= (left ?? 0)); });
+      markUses(res.control, left, spentNow);
     } else {
       handChanged ||= res.control.dataset.spent !== undefined && res.control.dataset.spent !== String(spent);
       res.control.querySelector('.play-card-state')!.textContent = spent ? readingBText.used : '';
@@ -1410,9 +1536,24 @@ function update() {
   renderReader(actions); renderHistory(); placeFloating(); fitResult();
   drawMarks();
 }
-function passTurn(out: boolean) {
+/** End the commit seal: its marks and the brass plate go, and the plate shows its true state on the next frame. */
+function endSeal() {
+  for (const effect of sealing) effect.cancel();
+  sealing = []; delete controls.finish.dataset.sealed; controls.finish.style.removeProperty('--wait-shade');
+}
+function passTurn(out: boolean, sealed = false) {
   const from = out ? controls.finish : seatRings[1], to = seatRings[out ? 1 : 0];
-  if (out) { edgeLight(from, { width: 2.4, ms: 420 }); cue('ting'); pulse('medium'); }
+  endSeal();
+  if (out) { cue('ting'); pulse('medium'); }
+  // The own End turn is one moment: a seal on the plate, then a brass line to the turn text (gui-commit).
+  if (sealed) {
+    later(60, () => cue('pass')); from.dataset.sealed = '';
+    // The turn text is in the online status panel when it shows (a draw offer), else in the reader.
+    sealing = [seal(from, () => [...detail.querySelectorAll('.play-turn-state'), nodes.title], { onArrive: () => cue('arrive') }),
+      tween(SEAL_MS, (_, p) => { from.style.setProperty('--wait-shade', String(ease.out2(Math.max(0, p * SEAL_MS - 300) / 120))); }, { done: endSeal })];
+    return;
+  }
+  if (out) edgeLight(from, { width: 2.4, ms: 420 });
   later(out ? 60 : 0, () => {
     if (!from.isConnected) return;
     cue('pass', { pitch: out ? 1 : .82 });
@@ -1479,7 +1620,7 @@ function renderReader(actions?: HTMLElement) {
     block.dataset.outcome = winner == null ? 'draw' : winner === state.view?.seat ? 'win' : 'loss';
     const heading = el('h3', '', onlineResult(state)), handle = state.opponent?.handle;
     if (block.dataset.outcome === 'loss' && handle) { heading.replaceChildren(el('span', 'play-result-winner', handle), ' wins.'); void document.fonts.ready.then(fitResult); }
-    body.append(heading, el('p', 'play-result-cause', state.view?.result?.reason === 'resignation' ? 'The game ends by resignation.' : state.view?.result?.reason === 'agreement' ? 'Both players agree to a draw.' : state.view?.result?.reason === 'timeout' ? 'The move time ends.' : state.view?.result?.reason === 'checkmate' ? 'Checkmate.' : 'The game ends.'));
+    body.append(sealOf(block.dataset.outcome as keyof typeof SEAL), heading, el('p', 'play-result-cause', state.view?.result?.reason === 'resignation' ? 'The game ends by resignation.' : state.view?.result?.reason === 'agreement' ? 'Both players agree to a draw.' : state.view?.result?.reason === 'timeout' ? 'The move time ends.' : state.view?.result?.reason === 'checkmate' ? 'Checkmate.' : 'The game ends.'));
     const rematch = state.view ? rematchLine(state.rematch, state.view.seat) : '';
     if (rematch) body.append(el('p', 'play-result-facts', rematch));
     if (state.rematch === 'theirs') actions.append(button('Accept rematch', { kind: 'main', onPress: () => { void people!.controller!.rematch('accept'); } }), button('Decline', { onPress: () => { void people!.controller!.rematch('decline'); } }));
@@ -1491,37 +1632,33 @@ function renderReader(actions?: HTMLElement) {
     actions.append(resultNewGame(), button(text.home, { onPress: () => shell.go({ place: 'play' }) })); block.append(body, actions); detail.append(block); return;
   }
   if (reading === 'result') {
+    const back = markResult(snapshot(draft, resigned, player));
     const won = game.status === 'checkmate' && game.pos.turn === cpu(), lost = resigned != null || (game.status === 'checkmate' && !won);
     const outcome = won ? 'win' : lost ? 'loss' : 'draw';
     const result = resultText(game.status, resigned != null, game.pos.turn, player);
-    const seats = el('div', 'play-result-seat'), ring = el('span', 'play-seat-ring');
-    ring.append(figure(kingFile(player))); ring.dataset.outcome = outcome;
-    const identity = el('div', 'play-result-name');
-    identity.append(el('strong', '', kingLabel(game.context.rules.kings[player]?.king, player)), el('small', '', text.you));
-    seats.append(ring, identity);
     screen.querySelector<HTMLElement>('.play-opp .play-seat-ring')!.dataset.outcome = won ? 'loss' : lost ? 'win' : 'draw';
-    const card = el('section', 'play-result'), body = el('div', 'play-result-body');
+    const card = el('section', 'play-result'), body = el('div', 'play-result-body'), seal = sealOf(outcome), numbers = el('div', 'play-result-numbers');
     card.dataset.outcome = outcome;
-    const facts = gameFacts(game, elapsedGame());
-    body.append(el('h3', '', result.title), el('p', 'play-result-cause', result.cause),
-      el('p', 'play-result-facts', `${facts.moves} ${facts.moves === 1 ? 'move' : 'moves'} · ${facts.captures} ${facts.captures === 1 ? 'capture' : 'captures'} · ${Math.floor(facts.playedMs / 60000)} min · Rematch as ${player ? 'Light' : 'Dark'}`));
+    const sheet = resultSheet(gameFacts(game, elapsedGame()), player, text[gameLevel]);
+    for (const [value, label] of sheet.facts) { const cell = el('p'); cell.append(el('strong', '', value), ' ', el('small', '', label)); numbers.append(cell); }
+    body.append(seal, el('h3', '', result.title), el('p', 'play-result-cause', result.cause), el('p', 'play-result-players', sheet.players), numbers);
     const actions = el('div', 'play-result-actions');
     const rematch = button(text.rematch, { kind: 'main', onPress: () => { void start(); } });
+    // The side shows on the plate; the name stays "Rematch" and the side is its description.
+    const side = el('span', 'play-result-side', ` · ${sheet.next}`);
+    side.id = 'play-result-side'; side.setAttribute('aria-hidden', 'true');
+    rematch.querySelector('[data-button-label]')!.append(side); rematch.setAttribute('aria-describedby', side.id);
     const review = button('See the game', { onPress: () => {
       resultReview = !resultReview; screen.dataset.review = String(resultReview);
       review.querySelector('[data-button-label]')!.textContent = resultReview ? 'Show result' : 'See the game';
       review.setAttribute('aria-pressed', String(resultReview));
     } });
-    actions.append(rematch, resultNewGame(),
-      review, button('Home', { onPress: () => home() }));
-    card.append(seats, body, actions); detail.append(card);
-    const rise = () => edgeLight(rematch, { ms: 420, width: 2.4 });
-    if (reducedMotion()) return;
-    if (won) {
-      const spring = new Spring(1, 360, 22); spring.to = 0;
-      const paint = () => { card.style.transform = `translateY(${20 * spring.x}px)`; card.style.opacity = String(1 - spring.x); };
-      paint(); onFrame(dt => { spring.step(dt); paint(); if (spring.still || !card.isConnected) return false; }, () => { if (card.isConnected) rise(); });
-    } else tween(560, t => { card.style.opacity = String(t); card.style.transform = `translateY(${12 * (1 - t)}px)`; }, { curve: ease.out2, done: () => { if (card.isConnected) rise(); } });
+    actions.append(rematch, review, resultNewGame(), button('Home', { onPress: () => home() }));
+    card.append(body, actions); detail.append(card); void document.fonts.ready.then(fitResult);
+    if (back || reducedMotion()) return;
+    // The seal presses into the sheet once, then the light runs along Rematch.
+    seal.animate([{ transform: 'scale(1.16)', opacity: 0 }, { transform: 'scale(.95)', opacity: 1, offset: .7 }, { transform: 'none' }], { duration: time(240), easing: 'cubic-bezier(.3, 0, .2, 1)' })
+      .finished.then(() => { if (card.isConnected) edgeLight(rematch, { ms: 420, width: 2.4 }); }, () => {});
     return;
   }
   // The fault sits on the board, which waits: the reader has no room on a short screen.
@@ -1546,7 +1683,13 @@ function renderReader(actions?: HTMLElement) {
   const full = arrangement || choice.length || shown?.card === -1 || model.tools.length;
   const view = full ? readerView(model, form, nodes) : narratorView(model, nodes);
   if (!onlineActive && writer.blocked && !arrangement) view.classList.add('play-save-blocked');
-  detail.append(view); if (full) fitReader(view, model);
+  detail.append(view); if (full) fitReader(view, model); else fitNarrator();
+}
+/** The mark of a power goes when it pushes the narrator's text below the reader. */
+function fitNarrator() {
+  const view = detail.querySelector('.play-narrator');
+  if (view && !nodes.art.isConnected && nodes.art.getAttribute('src')) view.prepend(nodes.art);
+  if (view && detail.scrollHeight > detail.clientHeight) nodes.art.remove();
 }
 function resultNewGame() {
   const newGameBtn = button(text.newGame, { onPress: () => openNewGame(newGameBtn, { fromResult: true }) });
@@ -1614,11 +1757,12 @@ function readerModel(): ReaderModel {
     const parts = subjectModel(m, { kind: 'piece', type: typeOf(code) }, colorOf(code));
     m.primary = [...notices, ...checks];
     m.secondary = [parts.short];
-  } else if (thinking) {
+  } else if (ended) m.title = 'Checkmate.'; // the checkmate hold, also when an online game has no draft; a result card has its own words
+  else if (thinking) {
     // The computer chooses: the state alone. The computer acts: the sentence of the step that plays.
     const [first = '', ...rest] = sentences(acting); Object.assign(m, { title: notice || first, secondary: (notice && first ? [first, ...rest] : rest).map(t => line('play-last', t)), art: playedCard(cpu(), playingAction?.move) });
   } else {
-    const idle = selected == null && inspected == null && !draft.armed && !ended && !notice && !check.mine && !writer.warning;
+    const idle = selected == null && inspected == null && !draft.armed && !notice && !check.mine && !writer.warning;
     Object.assign(m, { title: notice || (check.mine ? check.lines[0] : ''),
       primary: checks.slice(check.mine && !notice ? 1 : 0), secondary: [line('play-instruction', idle && last || 'Choose a piece.')] });
   }
@@ -1644,40 +1788,47 @@ function currentHistory() {
   return historyGroups(game.history, [], (before, move) => gameWords(sentence(before, move, before.turn !== player, cards(before.turn))),
     (turn, side) => `${Math.ceil(turn / 2)} · ${side === player ? text.you : onlineActive ? 'Opponent' : text.computer}`, text.stagedTurn);
 }
-function historyRows(groups: ReturnType<typeof currentHistory>): HTMLElement[] {
+function historyRows(groups: ReturnType<typeof currentHistory>, ink?: (node: HTMLElement, key: string) => void): HTMLElement[] {
   if (!groups.length) return [line('', text.noHistory)];
   return groups.map(group => {
     const section = el('section', 'play-history-turn');
     section.append(el('h4', '', group.title));
     for (const item of group.lines) {
-      const ink = line('play-history-line', item.line);
-      ink.dataset.historyKey = item.key;
-      section.append(ink);
+      const row = line('play-history-line', item.line);
+      row.dataset.historyKey = item.key; ink?.(row, item.key);
+      section.append(row);
     }
     return section;
   });
 }
 function renderHistory() {
-  const groups = currentHistory();
+  const groups = currentHistory(), fresh = freshLine(groups, performance.now()), dry = time(160);
+  // The new line goes from brown to ink one time. A redraw builds its node again: the motion goes on from its place.
+  const ink = (node: HTMLElement, key: string) => {
+    if (key === fresh.key && fresh.age < dry && !reducedMotion()) node.animate([{ color: 'var(--text-muted)', offset: 0 }], dry).currentTime = fresh.age;
+  };
+  // An open History moves the line only if it showed the line as it came.
+  const inkIn = (view: HTMLElement) => { if (fresh.came) view.dataset.ink = fresh.key; return view.dataset.ink === fresh.key ? ink : undefined; };
   const openHistory = document.querySelector<HTMLElement>('.history-dialog .sheet-body');
-  if (openHistory) openHistory.replaceChildren(...historyRows(groups));
+  if (openHistory) openHistory.replaceChildren(...historyRows(groups, inkIn(openHistory)));
   if (!historyStrip) return;
   historyStrip.hidden = !game.history.length;
-  const preview = groups.flatMap(group => group.lines).slice(0, 3);
-  const records = preview.map(item => { const record = el('span', 'play-history-record', item.line); record.dataset.historyKey = item.key; return record; });
-  historyButton.querySelector('[data-button-label]')!.replaceChildren(...(records.length ? records : [el('span', 'play-history-record', text.noHistory)]));
+  // The closed History is one row: its name and the newest record.
+  const preview = groups.flatMap(group => group.lines).slice(0, 1);
+  const records = preview.map(item => { const record = el('span', 'play-history-record', item.line); record.dataset.historyKey = item.key; ink(record, item.key); return record; });
+  historyButton.querySelector('[data-button-label]')!.replaceChildren(el('span', 'play-history-name', text.history), ...(records.length ? records : [el('span', 'play-history-record', text.noHistory)]));
   historyCompact.replaceChildren(...records.map(record => record.cloneNode(true)));
   historyButton.setAttribute('aria-label', `${text.history}: ${preview.map(item => item.line).join(' ') || text.noHistory}`);
   historyButton.setAttribute('aria-expanded', String(scrollOpen === 'history'));
   scrollPanel.hidden = !scrollOpen;
-  if (!scrollOpen) { scrollPanel.dataset.kind = ''; return; }
+  if (!scrollOpen) { scrollPanel.dataset.kind = scrollPanel.dataset.ink = ''; return; }
   const was = scrollPanel.dataset.kind; scrollPanel.dataset.kind = scrollOpen;
   const focused = scrollPanel.contains(document.activeElement);
   const head = el('div', 'play-panel-head'), title = text.history;
   const heading = el('h3', '', title); heading.id = 'play-scroll-title'; scrollPanel.setAttribute('aria-labelledby', heading.id);
   head.append(heading, closeX(`Close ${title.toLowerCase()}`, () => closeFloating()));
   const body = el('div', 'play-panel-body');
-  body.append(...historyRows(groups));
+  body.append(...historyRows(groups, inkIn(scrollPanel)));
   scrollPanel.replaceChildren(head, body);
   if (focused) scrollPanel.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
   if (was !== scrollOpen && !calm() && !matchMedia('(prefers-reduced-motion: reduce)').matches) sheetMotion(scrollPanel, true);
@@ -1697,11 +1848,13 @@ function placeFloating() {
     const box = screen.getBoundingClientRect(), at = anchor.getBoundingClientRect();
     const rail = screen.dataset.layout === 'wide', left = rail ? parseFloat(screen.style.getPropertyValue('--board-x')) + parseFloat(screen.style.getPropertyValue('--board')) + parseFloat(screen.style.getPropertyValue('--gap')) : Math.max(4, at.left - box.left);
     const width = Math.min(rail ? parseFloat(screen.style.getPropertyValue('--rail')) : 380, box.width - 8);
-    const below = at.bottom - box.top, above = at.top - box.top;
-    const top = box.height - below < 220 ? Math.max(4, above - 380) : Math.max(4, below);
+    // The wide rail keeps its command tray in view; History opens over the turn text, below the opponent bar.
+    const wide = screen.dataset.form === 'wide', readerY = parseFloat(screen.style.getPropertyValue('--reader-y'));
+    const history = wide && panel === scrollPanel, { top, height } = panelBox(wide ? parseFloat(screen.style.getPropertyValue('--action-y')) : box.height,
+      history ? readerY : at.top - box.top, history ? readerY : at.bottom - box.top);
     panel.style.setProperty('--panel-left', `${Math.min(left, box.width - width - 4)}px`);
     panel.style.setProperty('--panel-top', `${top}px`); panel.style.setProperty('--panel-width', `${width}px`);
-    panel.style.setProperty('--panel-height', `${Math.max(88, box.height - below < 220 ? above - top : box.height - top - 8)}px`);
+    panel.style.setProperty('--panel-height', `${height}px`);
   };
   if (source) { place(reader, source); if (!wasFloating && keyed) detail.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true }); }
   if (scrollOpen) place(scrollPanel, historyButton);
@@ -1740,7 +1893,7 @@ function rivalCardsModel(m: ReaderModel, res: Resource) {
 function subjectModel(m: ReaderModel, subject: LearnSubject, side: Color, action?: HTMLButtonElement) {
   const entry = learningEntry(subject, game.context, draft.position, side);
   gameHelp?.setTopic(subject, game.context, side);
-  Object.assign(m, { title: entry.name, named: true, headTools: [
+  Object.assign(m, { title: entry.name, named: true, ...(subject.kind === 'power' ? { art: powerMark(subject.id) } : {}), headTools: [
     ...(gameHelp ? [gameHelp.infoButton] : []), ...(action ? [action] : []),
   ] });
   return { owner: subject.kind === 'power' ? line('learn-owner', `${side === cpu() ? readingText.computerPower : readingText.yourPower} · ${entry.uses}`) : null,
@@ -1759,10 +1912,10 @@ function addPower(side: Color, parent: HTMLElement) {
   if (!king) return;
   const uses = usesAllowed(king.power, r);
   const res: Resource = { subject: { kind: 'power', id: king.power }, side, key: uses ? POWER_TAG[king.power] ?? null : null, name: POWER_NAME[king.power], short: powerLines[king.power] ?? '', card: null, control: button(POWER_NAME[king.power], { onPress: () => pressResource(res) }) };
-  const coin = el('span', 'play-power-coin'), emblem = decorativeImage(el('img'), `/ui/emblems/${king.king.toLowerCase()}.webp`);
+  const coin = el('span', 'play-power-coin'), mark = decorativeImage(el('img'), powerMark(king.power));
   const notches = el('span', 'play-power-notches'); notches.setAttribute('aria-hidden', 'true');
   for (let i = 0; i < (uses ?? 0); i++) notches.append(el('i', 'play-power-notch'));
-  coin.append(emblem, notches);
+  coin.append(mark, notches);
   res.control.classList.add('play-power');
   const label = res.control.querySelector('[data-button-label]')!;
   const copy = el('span', 'play-power-copy'); copy.append(label, el('small'));
@@ -1834,6 +1987,7 @@ function setMotion() {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   setInterfaceMotion(motion, reduce);
   setFxMotion(motion, reduce);
+  if (reducedMotion()) mateHold?.finish();
   homeView?.reveal.sync();
   if (screen?.isConnected && seatRings) updateSeats();
   const pace = reduce || pieceView === 'symbols' ? 'off' : motion;
@@ -1863,7 +2017,7 @@ function layout() {
     'reader-y': l.readerY, 'hand-y': l.handY, 'action-y': l.actionY };
   for (const [name, value] of Object.entries(values)) screen.style.setProperty(`--${name}`, `${value}px`);
   // A rotation or a resize keeps the draft, the selection and the save; only the places change.
-  if (changed) { resetFit(); update(); } else fitResult();
+  if (changed) { resetFit(); update(); } else { fitResult(); fitNarrator(); }
 }
 // The layout runs again when the game box changes size: a resize, a rotation, or safe-area values that arrive or change (iOS need P3).
 const fit = new ResizeObserver(() => layout());
@@ -1877,7 +2031,7 @@ function drawMarks() {
   const options = !playingAction && performance.now() < nextMarksAt ? [] : playingAction ? [playingAction.move] : picked ? draft.options(source) : !thinking && !ended ? draft.armedMoves : [];
   const pos = playingAction?.before ?? (thinking ? game.pos : draft.position);
   const chooseActor = !playingAction && source == null && !!draft.armed && !options.every(isDirect);
-  const preview = chooseActor ? actorMarks(draft.now, options, markFocus) : previewMarks(game.context, playingAction?.before ?? draft.now, options, markFocus, playingAction ? [] : draft.captures, picked ? draft.captures.at(-1) ?? source : undefined);
+  const preview = chooseActor ? actorMarks(draft.now, options, markFocus) : previewMarks(game.context, playingAction?.before ?? draft.now, options, markFocus, playingAction ? [] : draft.captures, picked ? draft.captures.at(-1) ?? source : undefined, !playingAction);
   const focus = preview.rings.find(r => r.role === 'focus')?.square;
   const hits = options.filter(m => m.captures.includes(focus!) || (m.shove?.from ?? m.to) === focus);
   // A square with a later choice (a new piece, a returned piece, capture or push) has no one result to name (check "play" fault 4).
@@ -1896,13 +2050,15 @@ function drawMarks() {
     const descriptions = states.filter(state => state.squares.includes(square)).map(state => state.line);
     if (moves.length) descriptions.push(chooseActor ? `Choose this piece for ${armedResource()?.name}.` : `${readingText.possible} ${moves.map(m => sentence(draft.now, m, false, cards(player))).join(' ')}`);
     if (route && preview.steps.some(step => step.square === square)) descriptions.push(route);
-    if (descriptions.length) cell.setAttribute('aria-description', descriptions.join(' '));
+    if (descriptions.length) cell.setAttribute('aria-description', gameWords(descriptions.join(' ')));
     else cell.removeAttribute('aria-description');
   }
   // Playback holds its target. The next board input clears the opponent cue.
-  const marks = mergeMarks(resultMarks(pos, (playingAction ? lastActions.slice(0, -1) : lastActions).filter(action => action.before.turn === cpu())), preview, ...(ended ? [] : [stateMarks(game.context, pos)]));
+  // A finished game keeps the check marks of its last position; a landed move shows its own.
+  const state = stateMarks(game.context, playingAction?.landed ?? pos);
+  const marks = mergeMarks(resultMarks(pos, (playingAction ? lastActions.slice(0, -1) : lastActions).filter(action => action.before.turn === cpu())), preview, ended ? { ...state, rings: [] } : state);
   if (checkPulse) {
-    marks.check = checkPulse.square;
+    marks.check = checkPulse.square; marks.threats = checkPulse.threats;
     marks.checkProgress = checkPulse.progress;
   }
   board.mark(marks);
@@ -2010,7 +2166,9 @@ function shutGameDialog(history: boolean) {
 }
 function closeGameDialog() { shutGameDialog(true); }
 /** At a game end, Menu (Offer draw, Resign) and the Resign confirm are stale and cover the result. The Guide and History stay. */
+/** A game end closes what the last turn left open: the menus, the resign dialog and the commit seal. */
 function closeStaleDialogs() {
+  endSeal(); casting?.cancel();
   if (gameDialog?.classList.contains('game-menu-dialog')) closeGameDialog();
   // The cancel event takes the path of Escape: the confirm gives back its history layer.
   if (resignDialog?.element.open) { resignDialog.element.dispatchEvent(new Event('cancel')); resignDialog.element.close(); }
@@ -2097,7 +2255,21 @@ function closeHomeGuide() {
   root.querySelector<HTMLElement>('.home-guide-btn')?.focus({ preventScroll: true });
 }
 
+/** A reload on the open result card: the board code loads, then one more read of the save. No code or another game: Home. Another route: the restore gives way. */
+async function restoreResult(route: Route) {
+  const loading = el('p', 'people-loading', 'Loading your game…');
+  const slow = setTimeout(() => { if (shell.route === route) root.prepend(loading); }, 300);
+  try { await loadBoardCode(); } catch { announce(text.loadFailed); }
+  if (shell.route === route) {
+    const stored = readStored(), result = boardCode ? markedResult(stored) : null;
+    if (result) { writer.load(stored.save); await start(result); }
+    else shell.go({ place: 'play' }, true, true);
+  }
+  clearTimeout(slow); loading.remove();
+}
 function renderPlace(route: Route) {
+  if (reload) { reload = false; void restoreResult(route); return; }
+  clearResult();
   homePoll?.update();
   if (route.place !== 'play') clearInviteLinkStatus();
   if (route.place !== 'play' && route.place !== 'you' && route.place !== 'person') leaveHome();
@@ -2123,13 +2295,16 @@ function renderPlace(route: Route) {
     openSettings(homeSettingsButton() ?? root);
     return;
   }
-  endResult?.(); rewind?.finish(); seatFrame?.finish(); boardReplay.cancel(); generation++; engine.cancel(); endEntry(); endCardFlight(); cancelCheckPulse(); board?.dispose(); board = undefined; endReply = null;
+  endResult?.(); rewind?.finish(); seatFrame?.finish(); boardReplay.cancel(); generation++; engine.cancel(); endEntry(); endCardFlight(); cancelCheckPulse(); casting?.cancel(); board?.dispose(); board = undefined; endReply = null;
   document.body.dataset.page = route.place;
   if (route.place === 'guide') root.replaceChildren(guidePage(route.section, route.entry,
     (section, entry) => shell.go({ place: 'guide', ...(section && { section }), ...(entry && { entry }) }),
     announce, { onBack: closeHomeGuide }));
 }
+// Only a reload of the game screen opens the marked card again, in the same history entry. A new visit opens Home.
+let reload = location.hash === '#game' && (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type === 'reload' && !!markedResult(readStored());
 const shell = mountShell(root, renderPlace);
+if (reload) shell.go({ place: 'game' }, false, true);
 // Home does not wait for the symbol files (launch decision 45): the small board and the Symbols view take them when they come.
 shell.start();
 homePoll = runPoll(() => document.body.dataset.page === 'home' && shell.route.place === 'play' && people?.signedIn
@@ -2139,4 +2314,5 @@ const idle = (task: () => void) => 'requestIdleCallback' in window ? requestIdle
 idle(() => { loadBoardCode().catch(() => {}); void loadPeople().catch(() => {}); });
 setInterval(() => { if (onlineActive && onlineState) update(); }, 30_000);
 addEventListener('pagehide', () => people?.stopGame());
+document.addEventListener('visibilitychange', castHidden);
 void symbolsReady.then(() => { applyPieceView(); document.querySelectorAll<HTMLImageElement>('.mini-board:not(.mini-painted) .mini-glyph[data-code]').forEach(img => { img.src = symbol(Number(img.dataset.code)); }); });

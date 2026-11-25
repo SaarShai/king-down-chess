@@ -1226,7 +1226,7 @@ function drawEncounter(a,t) {
    }
    if(!a.contacted){a.contacted=true;a.onContact?.(soundHandled);onStatus('Hit. Recovering…');}
    if(animation!==a)return;
-   if(daylight.hold)daylight.hold(55);
+   if(daylight.hold)daylight.hold(45);
    else {pause();contactTimer=setTimeout(endContactHold,55);}
   }finally{contactFrame=null;}
  }
