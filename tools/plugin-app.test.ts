@@ -1994,8 +1994,8 @@ it('opens the game of a chat result while the end screen of the last game still 
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
-/** Sets the offline state, then waits until a fetch from the host page gets that state. The browser can apply the state
- * after setOffline returns, and a tool call at that time then gets the old state (ticket 07 of retro-2026-11-24). */
+/** Sets the offline state, then waits until a fetch from the host page gets that state. If the browser applies the state
+ * after setOffline returns, a tool call at that time gets the old state (forced in ticket 07 of retro-2026-11-24). */
 async function network(page: Page, online: boolean) {
   await page.context().setOffline(!online);
   await expect.poll(() => page.evaluate(() => fetch('/', { cache: 'no-store' }).then(() => true, () => false))).toBe(online);
