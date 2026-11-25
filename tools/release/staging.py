@@ -46,9 +46,8 @@ def get(url):
 
 def verify_alias(out, origin, attempts=12):
     static = out / 'static'
-    home = 'next.html' if (static / 'solo-launch.json').is_file() else 'index.html'
     live = {}
-    for path, file in [('/', home), ('/play/', 'index.html'), ('/sw.js', 'sw.js')]:
+    for path, file in [('/', 'next.html'),('/play/', 'index.html'), ('/sw.js', 'sw.js')]:
         expected = (static / file).read_bytes()
         for attempt in range(attempts):
             status, data, redirect = get(origin + path)
@@ -177,6 +176,8 @@ def main():
             run(['npm', 'run', 'typecheck'], 'typecheck', env)
         phase('build')
         run([*machine, *build], 'build', env)
+        # A ref from before the single tree builds the off tree when no switch is set.
+        assert (out / 'static/solo-launch.json').is_file(), 'The build has no launch marker (static/solo-launch.json). Update the PR to main.'
         engine_dir = out / 'functions/mcp.func/runtime/engines'
         built = sorted(p.name for p in engine_dir.glob('*.mjs'))
         committed = sorted(p.name for p in (root / 'engines').glob('*.mjs'))

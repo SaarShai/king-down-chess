@@ -1,6 +1,6 @@
 # Remove the launch switch and the off build
 
-Status: done on branch seam-switch (cut from seam-ci, ticket 06); waits for the review, CI and the staging pass. The owner approved [the spec](../spec.md) and decision 1 on 2026-11-25. The staging pass and the publish need the owner's word.
+Status: done on branch seam-switch (cut from seam-ci, ticket 06); reviewed, and one batch repairs the findings; waits for the repair check, CI and the staging pass. The owner approved [the spec](../spec.md) and decision 1 on 2026-11-25. The staging pass and the publish need the owner's word.
 
 Blocked by: 06
 
@@ -69,6 +69,12 @@ The list comes from a search. Before the first edit, the builder searches for ea
 - The second worker commit makes each client fill its cache again, one time.
 - The old board stays: the site still sends account solo games to it (`src/online/launch.ts:53`).
 - No iOS build is necessary. The installed build keeps its bundle, and the next build gets the same page.
+- Two legal pages keep two copies. The build ships `tools/solo-launch/privacy.html` and `support.html` (`vite.config.ts:77-79`). `public/privacy.html` holds the Muse paragraph and ships to no player, but the Muse case of `tools/privacy-policy.docs.test.ts` checks it. `tools/muse-tool-docs.ts:223` reads the head of `public/support.html`. Follow-up ticket: the owner decides the privacy text and the support style; then one copy goes to `public/`, the copy line at `vite.config.ts:79` goes, and `muse:docs` runs again.
+- `tools/online-local-smoke.mjs` is stale, and it was stale on the base: it waits for "Play a person" and `.people-sheet`. Follow-up ticket: use "Play a friend" and "Send invite link", and remove the wait for `.people-sheet`.
+- Two stale comments stay: `src/online/launch.ts:1` (this lane may not edit the file) and `next.html:37` (the file ships, and the ticket permits no other change). A later change that may edit these files corrects them.
+- The dev server registers the raw `public/sw.js` (version `dev`, empty lists) and shows the returning-player notice at `/next.html`. The worker passes each request to the network. If a local-stack run shows a stale page, unregister the worker in the dev browser.
+- The local online stack now has local solo and the account controls in the client; the server from source keeps `localSolo` off. No local solo hand-off ran on the stack. The two-account staging pass covers it.
+- One full-suite case failed only in the full run (`tools/git-hooks/pre-commit.test.ts`, "lets a commit through the real pre-commit hook"); the file alone passes. A full CI run must pass before the merge. If CI fails on this case too, print the gate's stderr and compare with a full run on seam-ci.
 
 ## Fork points: the search before the first edit
 
@@ -162,3 +168,21 @@ Not verified:
 - One full CI run.
 - The installed iOS build: no iOS build ran. The app bundle keeps its own bytes; the next build gets the same page.
 - The pre-commit hook case of the full suite in a run with no load (it passed alone).
+
+## Review
+
+Kind: two agents that did not build the change, each with its own lens (one for what a player and an installed app get, one for the build, tests, CI and release tools). Head read: `51bdbcbd81abaef7fc292ef2bc38d3ce57c7db95`.
+
+Findings: one blocker (the staging tool can publish the off tree of a PR that is behind ticket 07, and the staging checks pass on it) and twelve notes (two legal-page copies, the stale smoke, stale comments, the dev worker, the stack hand-off, the full-suite case, two spec lines; three need no repair).
+
+One batch repairs them:
+
+- `tools/release/staging.py`: after the build, the tool stops when `static/solo-launch.json` does not exist, with "Update the PR to main". `verify_alias` always compares `/` with `next.html` (the fallback to `index.html` is removed). A guard, not a step back: a step back puts the removed switch into a release tool again, and it keeps the off tree possible.
+- `tools/release/release.test.ts`: a new case runs `staging.py --preview` on a commit whose stub build writes no marker. It expects exit 1, the marker message and no publish call. The verify_alias case writes no marker now.
+- `docs/HOSTING.md`: the staging paragraph names the marker stop.
+- `docs/specs/interface-ios/spec.md`: one line says that the switch is gone and links to the launch tree.
+- Known limits get the notes that this lane may not repair: the legal pages, the smoke, two comments, the dev worker, the stack hand-off and the full-suite case.
+
+Red line: `KINGDOWN_TEST_FILE=tools/release/release.test.ts KINGDOWN_TEST_NAME='no launch marker'`: `× refuses a build with no launch marker before it publishes` with `staging: publish-preview-target failed. Expecting value: line 1 column 1 (char 0)` (the old tool went to the publish step). 1 failed, 38 skipped.
+
+Green runs: `KINGDOWN_TEST_FILE=tools/release/release.test.ts npm test`: 39 passed, 11.6 s. `npm run typecheck`: exit 0. `npm run test:docs`: 19 files, 199 passed, 1 skipped. No product code and no build output change, so no full suite and no `dist/` comparison.

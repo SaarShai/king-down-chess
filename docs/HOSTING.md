@@ -88,8 +88,9 @@ ci → staging → staging-checks → merge → main-ci → engines → publish 
 - `release-staging` and `release-live` each use their own packages.
   `python3 tools/release/staging.py [ref]` waits for CI on the exact commit.
   Use `--pr-head` to use the PR check rule. Use `--ci-passed` to check once.
-  The build names `next.html` for the home page. The alias check compares
-  `/` with that file, `/play/` with `index.html`, and the worker with `sw.js`.
+  The tool stops before it publishes when the build has no launch marker
+  (`static/solo-launch.json`): a ref from before the single tree. Update that PR to main.
+  The alias check compares `/` with `next.html`, `/play/` with `index.html`, and the worker with `sw.js`.
 - For direct use, `tools/release/merge.sh <pr> <head> <reviewed head> [note]`
   records an independent review and merges on green.
   `tools/release/live.sh check|engines|publish` uses a fresh `origin/main`.
