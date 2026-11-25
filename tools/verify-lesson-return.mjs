@@ -3,11 +3,11 @@
 // Output in PLAYABLE_OUT: lesson-return-desktop.png and lesson-return-phone.png.
 import assert from 'node:assert/strict';
 import { lessonPath, startLesson, setPace, waitForLinkReplay, waitForUi } from './app-ui.mjs';
-import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, launch, oldBoard, shot, trapErrors } from './lib/checks.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
 import { checkButtonContent } from './lib/plugin-tablet-check.mjs';
 
-const base = env('PLAYABLE_URL');
+const base = oldBoard();
 const browser = await launch();
 try {
   for (const phone of [false, true]) {

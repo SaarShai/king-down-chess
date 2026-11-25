@@ -5,9 +5,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { pressMenu, workshopCopyLink } from './app-ui.mjs';
-import { assertNoErrors, env, imageIs, launch, shot, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, env, imageIs, launch, oldBoard, shot, trapErrors } from './lib/checks.mjs';
 
-const base = env('PLAYABLE_URL');
+const base = oldBoard();
 const cast = JSON.parse(readFileSync(new URL('../docs/visual-design/workshop/cast.json', import.meta.url), 'utf8'));
 const saved = page => page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.workshop')).designs[0]);
 const fig = '.pg-figure img';

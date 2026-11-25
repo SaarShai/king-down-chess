@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { answerCheckHost, env, noRunningAnimations, noSidewaysScroll } from '../../../tools/lib/checks.mjs';
+import { answerCheckHost, env, noRunningAnimations, oldBoard, noSidewaysScroll } from '../../../tools/lib/checks.mjs';
 import { pressMenu } from '../../../tools/app-ui.mjs';
 
 const browser = await chromium.launch({ headless: true });
@@ -61,7 +61,7 @@ try {
     });
     await answerCheckHost(context);
     const page = await context.newPage(); page.on('pageerror', error => errors.push(error.message));
-    await page.goto(env('PLAYABLE_URL')); await ready(page); await settled(page);
+    await page.goto(oldBoard()); await ready(page); await settled(page);
     const names = await page.locator('.title-lineup li').evaluateAll(items => items.map(item => {
       const text = item.querySelector('span'), box = text.getBoundingClientRect();
       return { size: parseFloat(getComputedStyle(text).fontSize), left: box.left, right: box.right, top: box.top };
@@ -102,7 +102,7 @@ try {
     await capture(page, 'new-game');
     await page.locator('#start-game').click(); await ready(page);
     assert.ok(!(await page.locator('#context-text').innerText()).includes('Tap a piece to read.'));
-    await page.goto(`${env('PLAYABLE_URL')}?${fixture}`); await ready(page); await settled(page);
+    await page.goto(`${oldBoard()}?${fixture}`); await ready(page); await settled(page);
     const labels = await page.locator('#board canvas').evaluate(canvas => {
       const ctx = canvas.getContext('2d'), scale = canvas.width / 960;
       return Array.from({ length: 8 }, (_, i) => [[15, 64 + 32 + (i + .5) * 112], [32 + (i + .5) * 112, 64 + 944]])
@@ -145,13 +145,13 @@ try {
       await page.locator('#menu-close').click();
     }
     if (width < 400 || width === 852) {
-      await page.goto(`${env('PLAYABLE_URL')}?${fixture}`); await ready(page); await tap(page, 52);
+      await page.goto(`${oldBoard()}?${fixture}`); await ready(page); await tap(page, 52);
       const spacing = await page.locator('#context-text > span + span').evaluate(e => parseFloat(getComputedStyle(e).lineHeight));
       assert.ok(spacing >= 19.5); await fit(page, '#context-line', height);
       await capture(page, 'piece-text');
     }
     if (width < 400) {
-      await page.goto(`${env('PLAYABLE_URL')}?${fixture}`); await ready(page);
+      await page.goto(`${oldBoard()}?${fixture}`); await ready(page);
       await tap(page,12); await tap(page,28); await enlarge(page); await settled(page);
       const moves = await rect(page, '#moves-line'), words = await rect(page, '#last-move'), bar = await fit(page, '#table-bar', height);
       assert.ok(moves.height > 48 && words.y + words.height <= moves.y + moves.height && moves.y + moves.height <= bar.y + 1);
@@ -160,7 +160,7 @@ try {
     }
     if (width === 375) {
       const friend = await context.newPage();
-      await friend.goto(`${env('PLAYABLE_URL')}?${fixture}`); await ready(friend);
+      await friend.goto(`${oldBoard()}?${fixture}`); await ready(friend);
       await pressMenu(friend, 'New game');
       await friend.getByRole('link', { name: 'A friend', exact: true }).focus();
       await friend.keyboard.press('Enter');
@@ -169,7 +169,7 @@ try {
       assert.equal(await friend.locator('#new-game').count(), 0, 'A friend leaves local setup');
       await friend.close();
     }
-    await page.goto(`${env('PLAYABLE_URL')}?${fixture}`); await ready(page);
+    await page.goto(`${oldBoard()}?${fixture}`); await ready(page);
     await pressMenu(page, 'Settings');
     await largeText(page, async () => {
       await textFits(page, '#menu-title');
@@ -203,7 +203,7 @@ try {
         sessionStorage.removeItem('kingdown.title-seen');
       });
       returning.on('pageerror', error => errors.push(error.message));
-      await returning.goto(env('PLAYABLE_URL')); await ready(returning);
+      await returning.goto(oldBoard()); await ready(returning);
       await returning.locator('#home-new').click(); await settled(returning);
       assert.match(await returning.locator('#new-game-warn').innerText(), /This ends your game/);
       await textFits(returning, '#new-game .mode-text, #new-game .level-stops > span, #level-line');

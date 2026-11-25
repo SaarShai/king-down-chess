@@ -1,7 +1,7 @@
 // W5: the check marks at landing, staged words, and Undo through real board input.
 import assert from 'node:assert/strict';
 import { contextText, contextWordsInView, endTurn, lanMoves } from './app-ui.mjs';
-import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, launch, oldBoard, trapErrors } from './lib/checks.mjs';
 
 const browser = await launch();
 const fen = '4k3/8/8/8/8/8/7r/4K3 b - - 0 1';
@@ -15,7 +15,7 @@ try {
     });
     const page = await context.newPage(); trapErrors(page);
     const open = async () => {
-      await page.goto(new URL(`?fen=${encodeURIComponent(fen)}&players=human,human`, env('PLAYABLE_URL')).href);
+      await page.goto(new URL(`?fen=${encodeURIComponent(fen)}&players=human,human`, oldBoard()).href);
       await page.waitForFunction(() => window.view?.ready);
       await page.evaluate(() => window.view.ready());
     };
@@ -67,7 +67,7 @@ try {
       Worker.prototype.postMessage = () => {};
     }, save);
     const page = await context.newPage(); trapErrors(page);
-    await page.goto(env('PLAYABLE_URL')); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
+    await page.goto(oldBoard()); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
     const cause = viewer === turn ? 'Their rook attacks your king.' : 'Your rook attacks their king.';
     assert.ok((await contextText(page)).includes(cause), `${mode}, viewer ${viewer}, checked side ${turn}: ${cause}`);
     assert.equal(await page.evaluate(() => window.view.marks.check), turn === 0 ? 4 : 60, 'the checked king keeps its ring while the computer thinks');

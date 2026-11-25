@@ -20,6 +20,8 @@ export async function checkSigninSpeed({ browser, origin, accountOrigin, actors,
     if (mode !== 'sign-in') await context.addInitScript(({ origin, session }) => {
       if (location.origin === origin && !localStorage.getItem('kingdown.auth')) localStorage.setItem('kingdown.auth', JSON.stringify(session));
     }, { origin, session });
+    // The launch page greets a returning player once; this check measures the visits after that notice.
+    await context.addInitScript(() => localStorage.setItem('kingdown.solo-launch-seen', '1'));
     const requests = [], auth = [], unexpected = []; let start = Date.now();
     context.on('request', request => requests.push({ path: new URL(request.url()).pathname, at_ms: Date.now() - start }));
     setAccountRequest(async (request, response) => {
@@ -63,7 +65,7 @@ export async function checkSigninSpeed({ browser, origin, accountOrigin, actors,
     const row = { entry, mode, requests, auth }; rows.push(row);
     try {
       if (entry === 'home') {
-        await page.goto(origin + '/');
+        await page.goto(origin + '/index.html');
         await page.waitForFunction(() => {
           void navigator.serviceWorker.getRegistration('/').then(registration => { window.__signinRegistration = registration; });
           return !!window.__signinRegistration?.installing;
@@ -104,7 +106,7 @@ export async function checkSigninSpeed({ browser, origin, accountOrigin, actors,
       row.elapsed_ms = Date.now() - start;
       if (entry === 'home') row.installing_on_ready = await page.evaluate(async () => !!(await navigator.serviceWorker.getRegistration('/'))?.installing);
       console.log(`signin-speed ${env('PLAYABLE_BROWSER')} ${entry} ${mode}: list ready in ${row.elapsed_ms} ms; ${JSON.stringify(requests.filter(row => row.path.startsWith('/api/')))}`);
-      assert.equal(await page.evaluate(() => navigator.serviceWorker.getRegistration('/').then(Boolean)), entry === 'home', 'Only home entry starts the offline install');
+      assert.equal(await page.evaluate(() => navigator.serviceWorker.getRegistration('/').then(Boolean)), entry !== 'direct', 'Only the two home pages start the offline install');
       assert.deepEqual(auth, mode === 'restore' ? [] : [mode === 'refresh' ? 'refresh_token' : 'pkce']);
       assert.deepEqual(unexpected, []); assertNoErrors(errors);
       await shot(page, `signin-speed-${entry}-${mode}`);

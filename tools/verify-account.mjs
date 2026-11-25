@@ -6,9 +6,9 @@
 // Run: npm run check:browser account (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
 import { arriveContinue, closeMenu, contextText, lanMoves, openAccount, pressMenu, waitForUi } from './app-ui.mjs';
-import { assertNoErrors, CHECK_SITE_ENV, env, launch, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, CHECK_SITE_ENV, launch, oldBoard, trapErrors } from './lib/checks.mjs';
 
-const base = env('PLAYABLE_URL');
+const base = oldBoard();
 // The check site's account project and key (tools/check.mjs builds the site with them).
 const { VITE_SUPABASE_URL: SUPABASE, VITE_SUPABASE_PUBLISHABLE_KEY: KEY } = CHECK_SITE_ENV;
 const browser = await launch();
@@ -49,6 +49,8 @@ async function open({ query = '', stored = null, row = null, down = false, phone
     if (v) localStorage.setItem('kingdown.auth-code-verifier', JSON.stringify('the-verifier'));
   }, [stored, verifier, title, saved]);
   const server = { row, requests: [], errors: null, scripts: [], phone };
+  // The check site has no API. The launch preview answers 404 there; a closed status is what a closed API gives.
+  await ctx.route(url => url.pathname === '/api/status', r => r.fulfill({ json: { account_access: 'closed', valid_for_ms: 0 } }));
   await ctx.route('https://avatars.example/**', r => r.fulfill({ contentType: 'image/png', body: PNG }));
   await ctx.route(`${SUPABASE}/**`, async r => {
     const req = r.request(), url = new URL(req.url());
@@ -301,7 +303,7 @@ try {
     // /play/ has its own page shell: the form fills it, and the code step survives a reload.
     const { page, close } = await open({ email: true, phone: true });
     await page.route('**/api/status', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ account_access: 'open', valid_for_ms: 5000 }) }));
-    await page.goto(base + 'play/');
+    await page.goto(new URL('/play/', base).href);
     await page.fill('input[name=email]', 'player@example.com');
     await page.click('text=Email me a sign-in code');
     await page.locator('input[name=code]').waitFor();

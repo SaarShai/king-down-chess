@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { recordBoardText, boardText } from './board-ink-check.mjs';
 import { rulesAt, usePower, contextWordsInView, endTurn, openMoves } from './app-ui.mjs';
-import { assertNoErrors, env, insideViewport, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, insideViewport, launch, minTarget, noSidewaysScroll, oldBoard, shot, trapErrors } from './lib/checks.mjs';
 const browser = await launch();
 const visibleWords = async (page, words) => assert.ok(await contextWordsInView(page, words), `the drawn context shows ${words}`);
 const FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1';
@@ -15,7 +15,7 @@ try {
     }, FEN);
     const page = await context.newPage(); trapErrors(page);
     await recordBoardText(page);
-    await page.goto(env('PLAYABLE_URL')); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
+    await page.goto(oldBoard()); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
     const boxes = () => page.evaluate(() => ['board', 'undo', 'menu-btn', 'end-turn'].filter(id => document.getElementById(id)).map(id => ({ id, ...document.getElementById(id).getBoundingClientRect().toJSON() })));
     const rest = await boxes();
     const fixedRows = () => page.evaluate(() => ['strip-them', 'strip-me', 'context-line', 'moves-line', 'table-bar'].map(id => ({ id, ...document.getElementById(id).getBoundingClientRect().toJSON() })));
@@ -92,12 +92,12 @@ try {
   }
   const opened = async (save, query = '', width = 390, height = 844) => {
     // The save holds the URL's rules, so the URL replays it (a save with no rules is a default-rules game).
-    if (query) save = { ...save, rules: await rulesAt(browser, new URL(query, env('PLAYABLE_URL')).href) };
+    if (query) save = { ...save, rules: await rulesAt(browser, new URL(query, oldBoard()).href) };
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' });
     await context.addInitScript(save => { sessionStorage.setItem('kingdown.title-seen', '1'); localStorage.setItem('kingdown.save', JSON.stringify({ sound: false, pace: 'off', white: 'human', black: 'human', ...save })); }, save);
     const page = await context.newPage(); trapErrors(page);
     await recordBoardText(page);
-    await page.goto(new URL(query, env('PLAYABLE_URL')).href); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
+    await page.goto(new URL(query, oldBoard()).href); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
     return { page, context };
   };
   {

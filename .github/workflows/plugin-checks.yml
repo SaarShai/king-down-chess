@@ -82,8 +82,11 @@ jobs:
           npm run plugin:server:check
           npm run plugin:smoke
           npm run plugin:check:protocol
-          npm run build:vercel
+          KINGDOWN_SOLO_LAUNCH=1 npm run build:vercel
           test ! -e dist/play-scenes.html
+          npm run check:vercel
+          # The off tree is the rollback path until spec platform-seam ticket 07 removes it.
+          KINGDOWN_SOLO_LAUNCH=0 npm run build:vercel
           npm run check:vercel
 
       - if: needs.reuse.outputs.mode == 'full' && needs.reuse.outputs.verify_tests != ''

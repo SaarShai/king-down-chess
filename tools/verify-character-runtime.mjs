@@ -5,7 +5,7 @@ import { once } from 'node:events';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {checkCharacterEffects} from './lib/character-effects-game-check.mjs';
-import { env, launch, shot, trapErrors, assertNoErrors } from './lib/checks.mjs';
+import { env, launch, oldBoard, shot, trapErrors, assertNoErrors } from './lib/checks.mjs';
 const browser=await launch(),checks=[];
 function runtimeNetwork(page){const records=[],pending=[];page.on('response',response=>{if(response.url().includes('/character-runtime/'))pending.push(response.body().then(bytes=>records.push({url:response.url(),bytes:bytes.length})).catch(()=>{}));});return async()=>{await Promise.all(pending);return {requests:records.length,bytes:records.reduce((n,r)=>n+r.bytes,0),frameBytes:records.filter(r=>/\/character-runtime\/assets\//.test(r.url)).reduce((n,r)=>n+r.bytes,0),manifestBytes:records.filter(r=>/\/character-runtime\/manifest\.json/.test(r.url)).reduce((n,r)=>n+r.bytes,0)};};}
 // Serve the game through a shared link. Browser routing misses image requests in WebKit.
@@ -40,7 +40,7 @@ try {
  ]){
   const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
-  const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');
+  const url=new URL(oldBoard());url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');
   await page.goto(url.href);await page.waitForFunction(sq=>window.view?.scene?.characterFrames?.some(f=>f.square===sq),from);await page.evaluate(()=>view.ready());
   const rest=await page.evaluate(sq=>view.scene.characterFrames.find(f=>f.square===sq),from);
   await page.evaluate(()=>{window.walkTrace=[];window.walkTraceOn=true;const take=()=>{if(walkTraceOn){walkTrace.push(...view.scene.characterFrames);requestAnimationFrame(take);}};take();});
@@ -67,7 +67,7 @@ try {
   const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
   const network=runtimeNetwork(page);
   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
-  const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');
+  const url=new URL(oldBoard());url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');
   await page.goto(url.href);await page.waitForFunction(from=>window.view?.scene?.characterFrames?.some(f=>f.square===from),from);
   await page.evaluate(()=>window.view.ready());
   if(flipped)await page.evaluate(()=>view.flip(true));
@@ -123,7 +123,7 @@ try {
   const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
   try{
    await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
-   const url=new URL(proxy.url);url.searchParams.set('fen','7k/8/8/2Pr4/8/8/8/K7 b - - 0 1');url.searchParams.set('players','human,human');
+   const url=new URL('index.html',proxy.url);url.searchParams.set('fen','7k/8/8/2Pr4/8/8/8/K7 b - - 0 1');url.searchParams.set('players','human,human');
    await page.goto(url.href);await page.waitForFunction(()=>window.view?.scene?.characterFrames?.some(f=>f.square===35));await page.evaluate(()=>view.ready());
    proxy.set(kbps,latency);
    await page.evaluate(()=>{window.captureTrace=[];window.captureTracing=true;const tick=()=>{if(!captureTracing)return;captureTrace.push(...view.scene.characterFrames.filter(f=>f.square===35).map(f=>({bank:f.bank,sha:f.sourceSha256,time:f.time})));requestAnimationFrame(tick);};tick();});
@@ -146,7 +146,7 @@ try {
   const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
   try{
    await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
-   const url=new URL(proxy.url);url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');
+   const url=new URL('index.html',proxy.url);url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');
    await page.goto(url.href);await page.waitForFunction(sq=>window.view?.scene?.characterFrames?.some(f=>f.square===sq),from);await page.evaluate(()=>view.ready());
    proxy.set(4000,100);
    await page.evaluate(()=>{window.moveTrace=[];window.moveTracing=true;const tick=()=>{if(!moveTracing)return;moveTrace.push(...view.scene.characterFrames.map(f=>({bank:f.bank,sha:f.sourceSha256})));requestAnimationFrame(tick);};tick();});
@@ -171,7 +171,7 @@ try {
   const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
   const network=runtimeNetwork(page);
   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
-  const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');if(kings)url.searchParams.set('kings',kings);
+  const url=new URL(oldBoard());url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');if(kings)url.searchParams.set('kings',kings);
   await page.goto(url.href);await page.waitForFunction(count=>window.view?.scene?.characterFrames?.length===count,count);await page.evaluate(()=>view.ready());await page.waitForTimeout(1000);
   await shot(page,label);const memory=await page.evaluate(()=>view.scene.characterMemory);assert(memory.peakBytes<=64*1024*1024,'ready cast decoded cache stays within 64 MiB');const initialNetwork=await network();assert(initialNetwork.requests<=40&&initialNetwork.bytes<=8*1024*1024,'full board only loads its runtime stills and ambient texture');checks.push({label,initialNetwork,memory,frames:await page.evaluate(()=>view.scene.characterFrames)});assertNoErrors(errors);await page.close();
  }
@@ -179,7 +179,7 @@ try {
  {
   const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
-  const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen','rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');url.searchParams.set('players','human,human');
+  const url=new URL(oldBoard());url.searchParams.set('fen','rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');url.searchParams.set('players','human,human');
   await page.goto(url.href);
   const pack=await page.evaluate(async()=>(await(await fetch('/character-runtime/manifest.json')).json())),urls=pack.banks.flatMap(bank=>bank.frames.map(frame=>frame.url));
   assert.equal(pack.sourceToRuntimeScale,0.5);assert(pack.banks.length>=478,'the ready package carries every selected bank');assert(urls.every(url=>/^assets\/[a-f0-9]{64}\.webp$/.test(url)),'every runtime frame is content-named WebP');
@@ -201,7 +201,7 @@ try {
  ]){
   const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page),label=`${character}-${army}-${to}`;
   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
-  const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');if(kings)url.searchParams.set('kings',kings);
+  const url=new URL(oldBoard());url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');if(kings)url.searchParams.set('kings',kings);
   await page.goto(url.href);await page.waitForFunction(from=>window.view?.scene?.characterFrames?.some(f=>f.square===from),from);await page.evaluate(()=>view.ready());
   const turns=await page.evaluate(async([character,army])=>(await(await fetch('/character-runtime/manifest.json')).json()).banks.filter(b=>b.character===character&&b.army===army&&b.kind==='turn'),[character,army]);
   let joins=0;
@@ -248,7 +248,7 @@ try {
  // A new position cancels a load or action; a late decoded frame must not replace the new position.
  const page=await browser.newPage({viewport:{width:390,height:844},reducedMotion:'reduce'}),errors=trapErrors(page);
  await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
- const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen','7k/8/8/3p4/4P3/8/8/K7 w - - 0 1');url.searchParams.set('players','human,human');
+ const url=new URL(oldBoard());url.searchParams.set('fen','7k/8/8/3p4/4P3/8/8/K7 w - - 0 1');url.searchParams.set('players','human,human');
  await page.goto(url.href);await page.waitForFunction(()=>window.view?.scene?.characterFrames?.length>0);await page.evaluate(()=>window.view.ready());
  await page.evaluate(()=>{const pos=view.pos;void view.scene.play({from:28,to:35,captures:[35]});view.sync(pos);});
  await page.waitForTimeout(300);assert.equal(await page.evaluate(()=>view.scene.animating),false);

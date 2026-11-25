@@ -71,7 +71,8 @@ export async function checkDaylightSave(browser, origin) {
   const page = await browser.newPage({ viewport: { width: 844, height: 390 }, reducedMotion: 'reduce', serviceWorkers: 'block' });
   const save = JSON.stringify({ back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'ai', rules: { kings: [null, null], hands: [[], []] }, pace: 'off' });
   try {
-    await page.addInitScript(save => { if (!localStorage.getItem('kingdown.save')) localStorage.setItem('kingdown.save', save); }, save);
+    // The launch page greets a returning player once; this check starts after that notice.
+    await page.addInitScript(save => { localStorage.setItem('kingdown.solo-launch-seen', '1'); if (!localStorage.getItem('kingdown.save')) localStorage.setItem('kingdown.save', save); }, save);
     await page.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
     await page.goto(origin + '/next.html');
     await page.getByRole('button', { name: 'Continue', exact: true }).waitFor();
