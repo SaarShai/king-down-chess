@@ -263,7 +263,7 @@ Branch: guard-tools, from origin/main d781512ed. Worktree: worktree guard-tools.
    - Commit: 08e7d6db0.
 3. Muse tool names as a type, and a counter decision per tool (type plus behaviour test).
    - Files: src/muse/tools.ts (export type `MuseTool`; `tool(name: MuseTool)`; COUNTERS `satisfies Partial<Record<MuseTool, ...>>`), tools/muse-tool-docs.ts (EFFECTS `Record<MuseTool, string>`), new tools/muse-tool-counters.test.ts (COUNTER `satisfies Record<MuseTool, keyof TOOL_LIMITS | 'none'>`).
-   - Red (typecheck, fake tool call): `src/muse/tools.ts(260,8): error TS2345: Argument of type '"kingdown_fake"' is not assignable to parameter of type 'MuseTool'.`
+   - Red (typecheck, fake tool call): `src/muse/tools.ts(262,8): error TS2345: Argument of type '"kingdown_fake"' is not assignable to parameter of type 'MuseTool'.`
    - Red (typecheck, fake name in MuseTool): `tools/muse-tool-counters.test.ts(11,3): error TS2741: Property 'kingdown_fake' is missing ...` and `tools/muse-tool-docs.ts(17,7): error TS2741: Property 'kingdown_fake' is missing ...`.
    - Red (npm test, COUNTERS.kingdown_move set to kingdown_create): `Muse tool kingdown_move: COUNTER in tools/muse-tool-counters.test.ts says kingdown_computer; set COUNTERS.kingdown_move in src/muse/tools.ts to the same TOOL_LIMITS key (or remove it for 'none')`.
    - Green: same focused run as guard 2 (`Tests  3 passed (3)`, 394 ms).
@@ -285,7 +285,7 @@ Not holes, left as they are: src/plugin/server.db.test.ts:594 count (DB opt-in),
 ### Notes (what is not verified, and decisions)
 
 - The base is origin/main d781512ed, not 80b855489 (main moved before this branch started).
-- Decision: the doc fix for kingdown_report follows the server. The server (visibility ['app']), the CI table of tools/plugin-protocol-check.ts and SKILL.md agree that the tool is for the board only. But its description starts with "Use this when", which is the style of a model-visible tool. The lead must confirm which side is correct.
+- Decision: the doc fix for kingdown_report follows the server. The server (visibility ['app']) and the CI table of tools/plugin-protocol-check.ts agree that the tool is for the board only. SKILL.md does not name the tool. Its description starts with "Use this when", which is the style of a model-visible tool. The server stays the source: a change of the description or of the visibility is a product change and is out of scope here.
 - The COUNTER rows of tools/plugin-tool-table.test.ts come from a read of src/plugin/server.ts:74, not from tool calls (ticket tools-03).
 - tools/plugin-protocol-check.ts did not run on this branch (CI only). Its TABLE is unchanged and still agrees with the listing (the dump of the listing matched it).
 - One green run used `KINGDOWN_TEST_DOCS=1 npx vitest run <file>` directly, against the machine rule. All later runs used `npm run test:docs` or `npm test` with KINGDOWN_TEST_FILE.
@@ -351,10 +351,10 @@ Test selection: commit 632cd008d makes the test pass the quoted folders 'src/' a
 ### Limits of the new guards
 
 - The scan sees only names with the prefix KINGDOWN_ or VITE_. It does not see RESEND_API_KEY, SUPABASE_URL or other server names.
-- It sees a read in the forms import.meta.env.X, process.env.X, env.X, $X, ${X}, a quoted 'X' or "X", and a shell assignment X=. It does not see a name that the code builds from parts.
+- It sees a read in the forms import.meta.env.X, import.meta.env['X'], process.env.X, env.X, $X, ${X}, a quoted 'X' or "X", and a shell assignment X=. It does not see a name that the code builds from parts, or a destructured read such as `const { VITE_X } = import.meta.env`.
 - It does not scan test files, ios/, .github/ or docs/. KINGDOWN_TEST_OUT is in the list only because package.json:50 and tools/ios-release.sh:24 set it.
-- Guard 3 checks only the 'tests' mode call. The 'changed' mode call has the hole of ticket 04.
-- Guard 2 checks define text, not the built bundle (ticket 02).
+- Guard 3 checks only the 'tests' mode call. The 'changed' mode call has the hole of ticket [38](38-build-flag-env-check-changed-test-filters.md).
+- Guard 2 checks define text, not the built bundle (ticket [36](36-build-flag-env-define-behaviour-check.md)).
 - The scan reads the folders, not the git index. An ignored local file in src/ or tools/ with a KINGDOWN_ name can make the test red in a local checkout. CI has no such file.
 - Ticket 04 rests on run() at tools/ci-plan.mjs:28-29, which merges process.env into the child env (read). The leak itself is not run.
 
@@ -397,7 +397,7 @@ Branch guard-error-text, from origin/main d781512ed (the task names 80b855489; o
 2. Key types of the refusal tables
    - Files: src/muse/tools.ts:37 and src/plugin/server.ts:30 (type-only). Kind: type.
    - Fake: key WRONG_TRUN in Muse REFUSED, key STALE_REVISON in plugin REFUSED.
-   - Red: `src/muse/tools.ts(39,3): error TS2561: Object literal may only specify known properties, but 'WRONG_TRUN' does not exist in type 'Partial<Record<ErrorCode, string>>'. Did you mean to write 'WRONG_TURN'?` and `src/plugin/server.ts(30,55): error TS2561: ... 'STALE_REVISON' does not exist in type 'Partial<Record<ErrorCode, string>>'. Did you mean to write 'STALE_REVISION'?`
+   - Red: `src/muse/tools.ts(42,3): error TS2561: Object literal may only specify known properties, but 'WRONG_TRUN' does not exist in type 'Partial<Record<ErrorCode, string>>'. Did you mean to write 'WRONG_TURN'?` and `src/plugin/server.ts(31,55): error TS2561: ... 'STALE_REVISON' does not exist in type 'Partial<Record<ErrorCode, string>>'. Did you mean to write 'STALE_REVISION'?`
    - Green: npm run typecheck passes (1.8 s).
    - Commit: c13a53df2. The lookup at src/muse/tools.ts:116 uses `REFUSED[code as ErrorCode]`; the run-time value does not change.
 3. Connector codes in the Muse docs
@@ -405,7 +405,7 @@ Branch guard-error-text, from origin/main d781512ed (the task names 80b855489; o
    - Fake A: 'GAME_LOCKED' added to MuseLayerCode. Red: `tools/muse-tool-docs.ts(42,7): error TS2741: Property 'GAME_LOCKED' is missing in type '{ NO_GAME: string; PERSON_GAME: string; NOT_STARTED: string; INTERNAL_ERROR: string; }' but required in type 'Record<"INTERNAL_ERROR" | MuseLayerCode, string>'.`
    - Fake B: `throw new Refusal('GAME_LOCKED', ...)` with no type change. Red: `src/muse/tools.ts(141,134): error TS2345: Argument of type '"GAME_LOCKED"' is not assignable to parameter of type 'ErrorCode | MuseLayerCode'.`
    - Green: npm run typecheck passes (1.8 s). npm run test:docs -- tools/muse-tool-docs.docs.test.ts passes: 2 tests, 472 ms. Thus the generated text does not change.
-   - Commits: e7bfecd9e, then 94e582745. The second commit moves the MuseLayerCode import into the LAYER annotation (an inline import type), so the import line at tools/muse-tool-docs.ts:11 does not change. After it, the fake A red line is the same (tools/muse-tool-docs.ts(42,7) TS2741), typecheck passes, and the Muse docs test passes: 2 tests, 495 ms.
+   - Commits: e7bfecd9e on the builder branch, then 94e582745, which moved the MuseLayerCode import into the LAYER annotation. On change-guards, 94e582745 is not used: the import line at tools/muse-tool-docs.ts:11 carries `type MuseLayerCode` next to the names of the tools guard (one merged import line). After it, the fake A red line is the same (tools/muse-tool-docs.ts(42,7) TS2741), typecheck passes, and the Muse docs test passes: 2 tests, 495 ms.
 
 ### Holes that stay
 
@@ -473,7 +473,7 @@ Branch guard-history, worktree worktree guard-history, from origin/main 80b85548
 3. Migration places (cost of a miss: medium for the apply lines, low for the lists and ranges)
    - File: tools/plugin-db/migration-places.docs.test.ts. Kind: source-text test (the places are a list in code, log strings and prose). It takes the cases from the folder supabase/migrations: each list, each range string, and the apply lines of each migration from 0020 on. 0026 needs no staging line, with the reason in the file.
    - Fake: supabase/migrations/0027_fake_guard.sql.
-   - Red (6 of 12 cases):
+   - Red (6 of 13 cases):
      - `tools/plugin-db/bootstrap-test.mjs: add each new migration file at the end of its migration list`
      - `tools/plugin-db/migrate.ts: add each new migration file at the end of its migration list`
      - `tools/plugin-db/bootstrap-test.mjs: change the range to end at 0027: "(migrations 0001-0027)"`
@@ -500,7 +500,28 @@ npm run typecheck is green after each guard.
 
 ## Review
 
-Not started.
+Two independent reviewers (neither built a guard) read head 87975d8f7 on 2026-11-25. Each put the faults that each guard names into a scratch copy and ran the guard. Result: blocking 0, notes 16. Each guard goes red on its named fault, and each red and green line in tickets 10, 11 and 12 agrees with their runs. The product files `src/plugin/server.ts`, `src/plugin/client.ts`, `src/interface/people/receipt.ts`, `src/muse/tools.ts` and `src/account-game/runtime.ts` give the same JavaScript as on origin/main (an esbuild compile of both).
+
+One repair batch (the commit after 87975d8f7):
+
+| Note | Repair |
+|---|---|
+| child-timeouts: the text says "add { timeout }" when a shared options variable holds it; a renamed file gets two texts with no link | The texts say that the timeout goes in the options of the call, and that a renamed file moves its line |
+| child-timeouts: no scan of ios/, of more than three levels of parentheses, of aliased imports; the table has 44 calls, not 42 | Limits and repair in ticket [47](47-lessons-child-timeouts-frozen-files.md); 44 in tickets 12 and 47 |
+| build-flags: `import.meta.env['X']` passes the define test | The read pattern takes the bracket form as a client read. The destructured form is a limit in ticket 10 |
+| build-flags: two expects with no text | Each names the place to change |
+| api-route-client: only `:id` parameters | Each `:name` parameter |
+| migration places: a hyphen in a file name; the apply text does not name `noStagingLine`; 13 cases, not 12 | `[\w-]+`; the text names `noStagingLine`; "6 of 13" |
+| hash-width: one table with a hi half from its lo half stays green, because the large table gives rank 52 alone | A second test asks for rank 52 for each table with 128 keys or more (a smaller table cannot show the fault) |
+| game-boundary: no `.tsx`/`.jsx`; a comment in tsconfig.json gives a raw SyntaxError; the fixed paths text does not name the cause | `.tsx` and `.jsx` are scanned; the parse error names the cause; the text names the two paths. `require()`, `extends` and the short alias form are limits in ticket [45](45-guards-a-boundary-scan-limits.md) |
+| tool-names-in-text: no subfolders of docs/submission | A recursive read of docs/submission (.md and .json) |
+| ticket 10: stale positions, a commit that is not on the branch, a false SKILL.md claim, two draft ticket numbers | Corrected |
+
+Notes with no change: an ignored local file can make the build-flags scan red in a local checkout (CI has none; the red text names the file); two worktrees that run `npm run ios:check` at the same time share one output folder (this was so before this change); `npm run typecheck` stops after the first `tsc` when `src` has errors, so a tools type guard shows only after the `src` error is repaired.
+
+After the batch: `npm run typecheck` passes; the five changed guard files pass (16 tests, 472 ms); `npm run test:docs` passes (215 passed, 1 skipped, 1.82 s).
+
+Repair check: REPAIR_CHECK
 
 ## Work record
 

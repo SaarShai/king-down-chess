@@ -8,7 +8,7 @@ const root = join(import.meta.dirname, '../..');
 const read = (file: string) => readFileSync(join(root, file), 'utf8');
 const files = readdirSync(join(root, 'supabase/migrations')).filter(name => /^\d{4}_.*\.sql$/.test(name)).sort();
 const last = files.at(-1)!.slice(0, 4);
-const listed = (file: string) => [...read(file).matchAll(/'(\d{4}_\w+\.sql)'/g)].map(match => match[1]);
+const listed = (file: string) => [...read(file).matchAll(/'(\d{4}_[\w-]+\.sql)'/g)].map(match => match[1]);
 
 it.each([
   ['tools/plugin-db/bootstrap-test.mjs', files],
@@ -35,6 +35,6 @@ it.each(released)('gives migration %s its apply lines in supabase/README.md', nu
   const stages = number in noStagingLine ? ['production'] : ['staging', 'production'];
   for (const stage of stages) {
     expect(readme, `supabase/README.md: migration ${number} has no ${stage} step; add `
-      + `"Apply ${number} on ${stage} before ..." under its section`).toContain(`Apply ${number} on ${stage} before`);
+      + `"Apply ${number} on ${stage} before ..." under its section, or add ${number} to noStagingLine in tools/plugin-db/migration-places.docs.test.ts with the reason`).toContain(`Apply ${number} on ${stage} before`);
   }
 });

@@ -87,7 +87,7 @@ Branch guard-lessons, worktree worktree guard-lessons, from origin/main 80b85548
    - Green: 2 tests pass.
    - Time: 13 ms for the file.
    - Commit: 4f44ee647.
-3. tools/child-timeouts-ratchet.test.ts. Kind: source-text test with a ratchet. It reads every *.test.ts under src/, tools/ and .claude/hooks/ (readdirSync, no child process) and counts execFileSync, spawnSync and execSync calls with no timeout. 22 files with 42 calls keep a frozen count that can only go down. Every other file must have 0.
+3. tools/child-timeouts-ratchet.test.ts. Kind: source-text test with a ratchet. It reads every *.test.ts under src/, tools/ and .claude/hooks/ (readdirSync, no child process) and counts execFileSync, spawnSync and execSync calls with no timeout. 22 files with 44 calls keep a frozen count that can only go down. Every other file must have 0.
    - Fault: an untracked tools/fake-child.test.ts with one bare spawnSync (removed).
    - Red: `"tools/fake-child.test.ts: 1 execFileSync/spawnSync/execSync call(s) without a timeout; add { timeout: <ms below the test limit> }"`
    - Green: 2 tests pass.
@@ -115,7 +115,7 @@ Green run: KINGDOWN_TEST_FILE='{src/ai/nnue/pool-net.test.ts,tools/hash-width.te
 
 ## Review
 
-Not started.
+See the review section of ticket [10](10-change-rehearsals.md): one review of the whole branch, one repair batch, one repair check.
 
 ## Work record
 

@@ -16,7 +16,7 @@ const blocked: Record<string, Set<string>> = Object.fromEntries(Object.entries({
 
 // Private rule owners and their helper implementations are not product entry points.
 // TypeScript and Vite resolve './engine.js' and './engine.mjs' to engine.ts, so each source extension names the same module.
-const sourceExtension = /\.(?:[cm]?ts|[cm]?js)$/;
+const sourceExtension = /\.(?:[cm]?ts|[cm]?js|tsx|jsx)$/;
 const internal = new Set([
   'src/game-rules.ts', 'src/match/worker.ts', 'src/match/search-worker.ts',
 ]);
@@ -82,7 +82,9 @@ describe('product game boundary', () => {
     expect(violations('src/render/painted/example.mjs', "import { legalMoves } from '/src/rules/engine.ts';")).toHaveLength(1);
   });
   it('sees each import path into src: no alias or tsconfig path maps a bare name to a source file', () => {
-    const options = JSON.parse(readFileSync(resolve(root, 'tsconfig.json'), 'utf8')).compilerOptions;
+    let options: Record<string, unknown>;
+    try { options = JSON.parse(readFileSync(resolve(root, 'tsconfig.json'), 'utf8')).compilerOptions; }
+    catch (error) { throw new Error('tsconfig.json is not plain JSON (a comment or a trailing comma?): read it with a JSONC parser in tools/game-boundary.test.ts', { cause: error }); }
     expect.soft([options.paths, options.baseUrl, options.rootDirs], 'tsconfig.json maps bare names into src: teach check() in tools/game-boundary.test.ts to resolve them first').toEqual([undefined, undefined, undefined]);
     expect.soft(readFileSync(resolve(root, 'vite.config.ts'), 'utf8').match(/^.*\balias\s*:.*$/m)?.[0], 'vite.config.ts has a resolve alias: teach check() in tools/game-boundary.test.ts to resolve it first').toBeUndefined();
   });
@@ -108,7 +110,7 @@ describe('product game boundary', () => {
   });
   it('keeps ambient engine and helper operations inside the owned boundary', () => {
     const product = files('src').filter(file => !internal.has(file) && !/^src\/(rules|ai|sim)\//.test(file));
-    expect(product, 'files() must also scan the plain JavaScript product files').toEqual(expect.arrayContaining(['src/interface/ui/kit.js', 'src/render/painted/scene.mjs']));
+    expect(product, 'files() must also scan the plain JavaScript product files src/interface/ui/kit.js and src/render/painted/scene.mjs. If one of them has a new name or became .ts, change the two paths in tools/game-boundary.test.ts').toEqual(expect.arrayContaining(['src/interface/ui/kit.js', 'src/render/painted/scene.mjs']));
     expect(product.flatMap(file => violations(file, readFileSync(resolve(root, file), 'utf8')))).toEqual([]);
   });
 });

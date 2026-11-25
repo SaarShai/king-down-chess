@@ -27,7 +27,7 @@ it('sends each client call to a route key of src/api/http.ts', async () => {
   const http = readFileSync(new URL('../src/api/http.ts', import.meta.url), 'utf8');
   const keys = [...http.matchAll(/^  '([A-Z]+ \/api[^']*)':/gm)].map(match => match[1]);
   expect(keys.length, 'the route key scan of src/api/http.ts finds no key; update this test').toBeGreaterThan(0);
-  const routes = keys.map(key => { const [method, path] = key.split(' '); return { method, pattern: new RegExp(`^${path.replaceAll(':id', '[^/]+')}$`) }; });
+  const routes = keys.map(key => { const [method, path] = key.split(' '); return { method, pattern: new RegExp(`^${path.replace(/:\w+/g, '[^/]+')}$`) }; });
   const sent: string[] = [];
   const client = onlineClient({ token: async () => 'jwt', tries: 1, fetch: async (url, init) => { sent.push(`${init?.method} ${String(url).split('?')[0]}`); return new Response('{}', { status: 200 }); } });
   const missed: string[] = [];

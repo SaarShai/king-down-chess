@@ -76,10 +76,10 @@ describe('synchronous child limits in every test file', () => {
     const grown: string[] = [], shrunk: string[] = [];
     for (const file of files) {
       const found = unboundedCalls(readFileSync(join(root, file), 'utf8')).length, allowed = UNBOUNDED[file] ?? 0;
-      if (found > allowed) grown.push(`${file}: ${found - allowed} execFileSync/spawnSync/execSync call(s) without a timeout; add { timeout: <ms below the test limit> }`);
+      if (found > allowed) grown.push(`${file}: ${found - allowed} execFileSync/spawnSync/execSync call(s) without a timeout; write timeout: <ms below the test limit> in the options of each call (a shared options variable does not count). A renamed file: move its UNBOUNDED line to the new name`);
       if (found < allowed) shrunk.push(`${file}: ${found} unbounded call(s) now; lower its UNBOUNDED count in tools/child-timeouts-ratchet.test.ts to ${found}`);
     }
-    for (const file of Object.keys(UNBOUNDED)) if (!files.includes(file)) shrunk.push(`${file}: no such test file; remove it from UNBOUNDED`);
+    for (const file of Object.keys(UNBOUNDED)) if (!files.includes(file)) shrunk.push(`${file}: no such test file; remove it from UNBOUNDED, or move its line to the new name of the file`);
     expect(grown).toEqual([]);
     expect(shrunk).toEqual([]);
   });

@@ -40,8 +40,7 @@ it.each([['plugin', 'src/plugin/server.ts', pluginTools], ['Muse', 'src/muse/too
 it('the submission texts name only listed plugin tools', async () => {
   const listed = new Set((await pluginTools()).map(tool => tool.name));
   const files = ['docs/submission/package/skills/play-king-down/SKILL.md', 'docs/plugin-preparation.md',
-    ...readdirSync('docs/submission/package').filter(file => file.endsWith('.json')).map(file => join('docs/submission/package', file)),
-    ...readdirSync('docs/submission').filter(file => file.endsWith('.md')).map(file => join('docs/submission', file))];
+    ...readdirSync('docs/submission', { recursive: true, encoding: 'utf8' }).filter(file => /\.(?:md|json)$/.test(file)).map(file => join('docs/submission', file))];
   for (const file of files) for (const name of names(readFileSync(file, 'utf8')))
     expect(listed.has(name), `${file} names ${name}, which is not a listed plugin tool: change the text (a database name goes in NOT_TOOLS of tools/tool-names-in-text.docs.test.ts)`).toBe(true);
 });

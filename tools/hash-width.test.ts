@@ -11,8 +11,8 @@ type Table = Int32Array | number;
 const tables = keys as unknown as Record<string, Table>;
 
 /** The [lo, hi] values of each key, from each exported table pair. */
-function keyPairs(): { pairs: [number, number][]; names: string[]; unpaired: string[] } {
-  const pairs: [number, number][] = [], names: string[] = [], unpaired: string[] = [];
+function keyPairs(): { pairs: [number, number][]; names: string[]; unpaired: string[]; each: Map<string, [number, number][]> } {
+  const pairs: [number, number][] = [], names: string[] = [], unpaired: string[] = [], each = new Map<string, [number, number][]>();
   for (const name of Object.keys(tables).filter(n => /^Z(_.+)?_LO$/.test(n))) {
     const partner = name.replace(/_LO$/, '_HI');
     const lo = tables[name], hi = tables[partner];
@@ -20,12 +20,14 @@ function keyPairs(): { pairs: [number, number][]; names: string[]; unpaired: str
     names.push(name);
     const los = typeof lo === 'number' ? [lo] : [...lo], his = typeof hi === 'number' ? [hi] : [...hi];
     if (los.length !== his.length) { unpaired.push(name); continue; }
-    los.forEach((l, i) => pairs.push([l >>> 0, his[i] >>> 0]));
+    const own = los.map((l, i): [number, number] => [l >>> 0, his[i] >>> 0]);
+    each.set(name, own);
+    pairs.push(...own);
   }
   for (const name of Object.keys(tables).filter(n => /^Z(_.+)?_HI$/.test(n))) {
     if (!(name.replace(/_HI$/, '_LO') in tables)) unpaired.push(name);
   }
-  return { pairs, names, unpaired };
+  return { pairs, names, unpaired, each };
 }
 
 /** Rank over GF(2) of the 52-bit vectors hi(20) . lo(32). */
@@ -55,5 +57,11 @@ describe('position key width', () => {
     const { pairs } = keyPairs();
     const r = rank(pairs);
     expect(r, `position key carries ${r} bits, not 52: draw the hi half from its own generator (nextHi in src/rules/position-key.ts), not from the lo stream`).toBe(52);
+  });
+
+  it('each large table carries 52 independent bits of its own', () => {
+    // 128 random keys or more have rank 52 with a chance of failure below 2^-70; a smaller table cannot show the fault.
+    const short = [...keyPairs().each].filter(([, own]) => own.length >= 128).map(([name, own]) => [name, rank(own)] as const).filter(([, r]) => r !== 52);
+    expect(short.map(([name, r]) => `${name}/${name.replace(/_LO$/, '_HI')} carries ${r} bits, not 52: draw its hi half with nextHi() in src/rules/position-key.ts, not from its lo half`)).toEqual([]);
   });
 });

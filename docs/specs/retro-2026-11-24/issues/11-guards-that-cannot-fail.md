@@ -207,7 +207,7 @@ Logs:
 
 ## Review
 
-Not started.
+See the review section of ticket [10](10-change-rehearsals.md): one review of the whole branch, one repair batch, one repair check.
 
 ## Work record
 

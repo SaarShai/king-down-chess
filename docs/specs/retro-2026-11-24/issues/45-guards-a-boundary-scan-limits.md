@@ -17,5 +17,7 @@ Resolve each bare specifier with the real resolver of the build in place of the 
 ## Known limits
 vite.config.ts is a file that no commit of the guard lanes may change; the test may only read it. Loading the Vite config in a test can be slow; measure it first. A package in node_modules that re-exports the engine stays out of scope.
 
+Found in the review of 2026-11-25: the scan does not read `require()` calls (a `.cjs` file). It reads `.tsx` and `.jsx` files since that review. The tsconfig tripwire does not follow `extends`, and the Vite alias regex does not see `resolve: { alias }` in its short form or an alias from an imported module.
+
 ## Work record
 Not started.

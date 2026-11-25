@@ -53,7 +53,7 @@ describe('KINGDOWN_TEST_* names', () => {
   };
 
   it('finds the clear list of the child npm test', () => {
-    expect(cleared.has('KINGDOWN_TEST_FILE')).toBe(true);
+    expect(cleared.has('KINGDOWN_TEST_FILE'), "tools/build-flags.test.ts finds no clear list in the run(['test'], ...) call of the 'tests' mode in tools/ci-plan.mjs; update its reader of that call").toBe(true);
   });
 
   it('clears each name in the child npm test, or keeps it for a reason', () => {
@@ -61,6 +61,6 @@ describe('KINGDOWN_TEST_* names', () => {
     const open = names.filter(name => !cleared.has(name) && !(name in KEPT))
       .map(name => `${firstPlace(name)} reads ${name}. Add ${name}: '' to the run(['test'], ...) call of the 'tests' mode in tools/ci-plan.mjs, or add it to KEPT in tools/build-flags.test.ts with the reason that it can pass to the child npm test`);
     expect(open).toEqual([]);
-    expect(Object.keys(KEPT).filter(name => !names.includes(name) || cleared.has(name))).toEqual([]);
+    expect(Object.keys(KEPT).filter(name => !names.includes(name) || cleared.has(name)), 'remove these names from KEPT in tools/build-flags.test.ts: no file reads them now, or tools/ci-plan.mjs clears them').toEqual([]);
   });
 });
