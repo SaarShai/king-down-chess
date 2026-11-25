@@ -16,10 +16,10 @@ Source: ticket [10](10-red-by-name-checks.md), the `next-menus` cases of the lan
 
 ## Evidence
 
-- A diagnostic run on the launch tree (`KINGDOWN_TEST_PAGES=1 MENUS_CASES=code_fault npm run check:browser next-menus`, service workers blocked, 2026-11-25 11:48) recorded the page after the reload. At 11 of 17 sizes: `.play-home h1` is there, `#boot-fault` count is 1, `.people-loading` count is 0. At the other 6 sizes `#boot-fault` count is 0. So it is a race.
+- A diagnostic run on the launch tree (`KINGDOWN_TEST_PAGES=1 MENUS_CASES=code_fault npm run check:browser next-menus`, service workers blocked, 2026-11-25 11:48) recorded the page after the reload. At 10 of 17 sizes: `.play-home h1` is there, `#boot-fault` count is 1, `.people-loading` count is 0. At the other 7 sizes `#boot-fault` count is 0. So it is a race.
 - The likely cause, from a read of the code only: the boot fault of `next.html:13-33` shows on a failed script or module preload until `window.kdBooted` is true. On the launch tree `src/interface/launch-entry.ts:9-12` sets `kdBooted` only after `startPlatform()` ends, and `startPlatform()` waits for the main module and for the first child of `#app` (`src/interface/platform.ts:42-45`). The result restore starts the board code load before that (`main.ts:2262`), so a failed board file can come first.
 - Not known if the off tree has the fault: there `src/interface/entry.ts:6` sets `kdBooted` right after the main module loads. No off-tree run exists.
 
 ## How a player reaches it
 
-Finish a game, keep the result card open, and reload the page on a network that fails to send the board code file.
+Finish a game, keep the result card open, and reload the page on a network that fails to send the board code file, in a browser where no worker controls the page: the worker is not supported, blocked, or not yet installed (`src/interface/platform.ts:46` registers it after the first start). When the launch worker controls the page, it answers the board code from its cache, and the fault does not show.
