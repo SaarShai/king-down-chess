@@ -2,7 +2,7 @@
 
 Status: ready-for-review
 
-Source: [retro](../retro.md), item 6. The section "Faults found on the way".
+Source: [retro](../retro.md), the section "Faults found on the way". The first fault is of the kind that item 6 describes.
 
 ## Problem
 
@@ -24,12 +24,18 @@ The retro lists four open small faults:
 
 - Red first: `slice(0, 4)` changed to `slice(0, 3)` in `new-game.ts` locally. `KINGDOWN_TEST_FILE=src/match/one-reading.test.ts KINGDOWN_TEST_NO_TYPECHECK=1 npm test`: 2 failed, 4 passed. `AssertionError: expected [ 3, 3 ] to deeply equal [ 4, 4 ]` at `one-reading.test.ts:37`. The number is back to 4.
 - `KINGDOWN_TEST_FILE=src/match/one-reading.test.ts KINGDOWN_TEST_NO_TYPECHECK=1 npm test`: 6 passed.
-- `npm run check:browser motion-concepts`: passed (50.4 s). It also ran once before, but that run failed because files changed in the checkout while it ran.
+- `npm run check:browser motion-concepts`: passed (50.4 s). It also ran once before, but that run failed because files changed in the checkout while it ran. The check loads only the Freeze fixture. With the balanced readings, the Freeze mark is free, so the turn stays with the side that casts it: the frames now show the state that the game shows.
 - `npm run typecheck`: passed.
 - `npm run test:docs`: passed.
 
 ## Known limits
 
 - The cast in `power-overlays.ts` stays. A new ID in `WALKS` in `card.ts` that is not in `Kind` gets past the type check. The `TAIL` and `SPACING` tables then give `undefined`. A type on `WALKS` can prevent this, but that is not a five-line guard with a test, so it is not done here.
-- `src/workshop/ground.ts` shows `cardPicture` for a card with no painting. That case does not occur for a released card. The rule is not to edit `src/workshop/**`, so the code stays.
-- The full suite did not run.
+- `src/workshop/ground.ts` has its own list of 13 paintings and shows `cardPicture`, with its loop, for each other card. Nine released cards are not in that list (MirrorB, Firewall, EarthQuake, Burn, FireStarter, Control, Rally, MorphP, Curse): they are the nine keys of the `motion` table. So the workshop still uses the table, and the new comment stays true. The rule is not to edit `src/workshop/**`, so the code stays.
+- `src/interface/play/new-game.ts` has a third `4`: the check of a saved game near line 86 (`h.length === … 4`). No test fails when only that number differs.
+- The builder did not run the full suite; the lead runs it on the integration branch.
+
+## Review
+
+- Review: an agent that did not build the change read head `4bbbda682`. It found no blocking fault. One batch repairs its notes in this ticket: the source line, the statement on the workshop, the third `4`, and the Freeze frames.
+- Open findings: none that block.

@@ -1,6 +1,6 @@
 // The test lock (tools/test-lock.sh): one `npm test` at a time in all worktrees of a clone.
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -61,7 +61,7 @@ it('the processes of a run keep the lock after the run itself is killed; then it
   const waiting = run(side, ['echo', 'ran'], { KINGDOWN_TEST_LOCK_WAIT: '1' });
   expect(waiting.status).toBe(75);
   // The record names the killed run, which no longer runs: the line must not call it the holder.
-  expect(waiting.stderr).toContain(`old record: pid ${held.pid}, ${realpathSync(main)}, ended)`);
+  expect(waiting.stderr).toContain(`holder unknown, last record: pid ${held.pid}, ${realpathSync(main)}, ended)`);
   process.kill(child);
   await new Promise(done => setTimeout(done, 300));
   const after = run(side, ['sh', '-c', 'echo "$KINGDOWN_TEST_LOCKED"']);
@@ -88,4 +88,17 @@ it('a holder record that cannot be written or read does not stop a run', async (
   await new Promise(done => held.once('exit', done));
   const after = run(side, ['echo', 'ran']);
   expect([after.status, after.stdout, after.stderr]).toEqual([0, 'ran\n', '']);
+});
+
+it('a named pipe or a link in place of the holder record does not stop a run, and the link target stays', () => {
+  const { main, side } = clone(), record = join(main, '.git/kingdown-test.lock.holder'), target = join(main, 'target.txt');
+  // An open of a named pipe waits for the other end: the run must not open it.
+  expect(spawnSync('mkfifo', [record]).status).toBe(0);
+  const piped = spawnSync('bash', [script, 'echo', 'ran'], { cwd: side, encoding: 'utf8', env: env(), timeout: 10_000 });
+  expect([piped.status, piped.stdout, piped.stderr]).toEqual([0, 'ran\n', '']);
+  rmSync(record);
+  writeFileSync(target, 'keep');
+  symlinkSync(target, record);
+  const linked = run(side, ['echo', 'ran']);
+  expect([linked.status, linked.stdout, readFileSync(target, 'utf8')]).toEqual([0, 'ran\n', 'keep']);
 });

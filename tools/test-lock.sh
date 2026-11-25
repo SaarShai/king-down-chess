@@ -18,7 +18,8 @@
 # for. The line names the holder: its PID and its folder. After a run takes a lock, it writes them to
 # <lock>.holder (never to the lock file, whose dev:ino is the lease ID). The record stays after the run.
 # When its PID ended (the children of a killed run, or an old script, hold the lock), the line says
-# "old record". A failed write or read of the record changes nothing else. KINGDOWN_TEST_LOCK_WAIT
+# "holder unknown" and gives the last record. A failed write or read of the record changes nothing
+# else, and the script does not open a record that is not a regular file. KINGDOWN_TEST_LOCK_WAIT
 # is the limit in seconds for each wait (default 7200); timeout exits 75.
 # Child commands reuse KINGDOWN_MACHINE_LEASED and KINGDOWN_TEST_LOCKED, so they cannot wait on
 # themselves. Only test mode sets KINGDOWN_TEST_LOCKED for the vitest guard.
@@ -43,23 +44,25 @@ exec perl -MFcntl=:flock -MTime::HiRes=time,sleep -MCwd -e '
   my ($machine, $test, $wait) = (shift, shift, shift);
   $^F = 255; # keep the lock file open across exec
   my @files;
+  # The record is used only as a regular file: an open of a named pipe waits, and a link leads the write to its target.
+  my $plain = sub { !-l $_[0] && (!-e $_[0] || -f $_[0]) };
   for my $entry ([$machine, "machine lease"], [$test, "test lock"]) {
     my ($lock, $name) = @$entry;
     next unless length $lock;
     open(my $f, ">>", $lock) or die "test-lock: cannot open $lock: $!\n";
     unless (flock($f, LOCK_EX | LOCK_NB)) {
       my $holder = "";
-      if (open(my $h, "<", "$lock.holder")) {
+      if ($plain->("$lock.holder") && open(my $h, "<", "$lock.holder")) {
         my $line = <$h> // "";
         if ($line =~ /^([1-9][0-9]*) (.+)$/) {
-          $holder = (kill(0, $1) || $!{EPERM}) ? "; held by pid $1, $2" : "; old record: pid $1, $2, ended";
+          $holder = (kill(0, $1) || $!{EPERM}) ? "; held by pid $1, $2" : "; holder unknown, last record: pid $1, $2, ended";
         }
       }
       print STDERR "test-lock: waiting for the $name ($lock$holder)\n";
       my $end = time + $wait;
       until (flock($f, LOCK_EX | LOCK_NB)) { exit 75 if time >= $end; sleep 1; }
     }
-    if (open(my $h, ">", "$lock.holder")) { print $h "$$ ", Cwd::getcwd() // "unknown folder", "\n"; close $h; }
+    if ($plain->("$lock.holder") && open(my $h, ">", "$lock.holder")) { print $h "$$ ", Cwd::getcwd() // "unknown folder", "\n"; close $h; }
     if ($lock eq $machine) {
       my @id = stat($f);
       $ENV{KINGDOWN_MACHINE_LEASE_FD} = fileno($f);
