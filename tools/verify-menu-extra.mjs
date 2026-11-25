@@ -158,6 +158,21 @@ try {
       await pressMenu(page, item);
       assert.equal(await page.locator('#menu-sheet').isVisible(), false, `${item}: Menu closes first`);
       await page.locator({ Guide: '#rules', 'New game': '#new-game' }[item]).waitFor({ state: 'visible' });
+      if (item === 'Guide') {
+        // From the parked lessons check (ecfdfb3c1): the Guide frame is live on the old board.
+        assert.equal(await page.evaluate(() => {
+          const close = document.querySelector('.lesson-guide-head button'), box = close.getBoundingClientRect();
+          const lead = document.getElementById('rules-lead').getBoundingClientRect();
+          const body = document.querySelector('.lesson-guide-body').getBoundingClientRect();
+          return box.width === 44 && box.height === 44 && parseFloat(getComputedStyle(close).fontSize) === 24 && lead.top + 20 < body.bottom;
+        }), true, 'Guide shows Close and the first rule line');
+        await noSidewaysScroll(page);
+        const guideHead = await page.locator('.lesson-guide-head').boundingBox();
+        await page.locator('.lesson-guide-body').evaluate(el => { el.scrollTop = el.scrollHeight; });
+        const guideTop = await page.locator('.lesson-guide-body').evaluate(el => el.scrollTop);
+        assert.ok(guideTop > 0, `Guide body scrolls at ${width}×${height} (scrollTop ${guideTop})`);
+        assert.deepEqual(await page.locator('.lesson-guide-head').boundingBox(), guideHead, 'Guide head stays in place when rules scroll');
+      }
       await page.keyboard.press('Escape');
     }
     await openMenu(page); await page.locator('[data-go="resign"]').click();

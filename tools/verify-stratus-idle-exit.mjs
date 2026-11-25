@@ -110,7 +110,8 @@ try {
   await page.keyboard.press('z');await page.waitForFunction(()=>!view.scene.animating&&view.pos.board[35]&&!view.pos.board[43],null,{timeout:10000});
   assert.equal(await page.evaluate(()=>glideRewinds),1,`${when}: Undo uses retained rewind`);assertNoErrors(errors);results.push({case:`undo-${when}`});await page.close();
  }
- // Hold a turn endpoint, cancel during preparation, then deliver it after Undo.
+ // Hold a turn endpoint from the selection, cancel during preparation, then deliver it after Undo. The selection asks for
+ // each file of a quiet move first (src/render/painted/scene.mjs:1380), so the hold comes before the move.
  {
   const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
   const url=new URL(oldBoard());url.searchParams.set('fen','6k1/p7/8/3K4/8/8/P7/8 w - - 0 1');url.searchParams.set('players','human,human');url.searchParams.set('kings','stratus:flight,stratus:flight');
@@ -118,7 +119,7 @@ try {
   const blocked=route.flatMap(p=>[p.bank.frames[0],p.bank.frames.at(-1)]).find(f=>f.url!==rest.frames[0].url);assert(blocked);
   let release,hit;const gate=new Promise(resolve=>{release=resolve;}),held=new Promise(resolve=>{hit=resolve;});await page.route(new URL(blocked.url,new URL('/character-runtime/manifest.json',url)).href,async route=>{hit();await gate;await route.continue().catch(()=>{});});
   await page.goto(url.href);await page.waitForFunction(()=>window.view?.scene?.characterFrames?.some(f=>f.square===35));await page.evaluate(()=>view.ready());
-  const click=async sq=>{const p=await page.evaluate(s=>view.screenOf(s),sq);await page.mouse.click(p.x,p.y);};await click(35);await page.waitForFunction(()=>{const f=view.scene.characterFrames.find(f=>f.square===35);return f?.time>=1900&&f.time<=2085;});await click(43);await Promise.race([held,page.waitForTimeout(3000).then(()=>{throw Error('turn endpoint was not held');})]);
+  const click=async sq=>{const p=await page.evaluate(s=>view.screenOf(s),sq);await page.mouse.click(p.x,p.y);};await click(35);await Promise.race([held,page.waitForTimeout(3000).then(()=>{throw Error('turn endpoint was not held');})]);await click(43);
   assert.equal(await page.evaluate(()=>view.scene.animating),true);await page.keyboard.press('z');await page.waitForFunction(()=>!view.scene.animating&&view.pos.board[35]&&!view.pos.board[43]);release();await page.waitForTimeout(1200);assert.equal(await page.evaluate(()=>view.scene.animating),false);
   // A different selection cannot consume the old king's captured body.
   await click(35);await page.waitForFunction(()=>{const f=view.scene.characterFrames.find(f=>f.square===35);return f?.time>=1900&&f.time<=2085;});await click(8);await click(16);
