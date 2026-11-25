@@ -226,8 +226,6 @@ export async function main() {
     if (process.env.KINGDOWN_WEB_RECOVERY_OUTPUT) recovery = await recoveryOutput(process.env.KINGDOWN_WEB_RECOVERY_OUTPUT);
     else {
       const site = join(work, 'recovery-site');
-      // The release tree is the launch tree of the runner (tools/check.mjs), so the recovery tree is one too.
-      process.env.KINGDOWN_SOLO_LAUNCH = '1';
       await build({ envDir: false, build: { outDir: site }, plugins: [{ name: 'recovery-fixture', transformIndexHtml: html => html.replace('</head>', '<!-- Recovery fixture -->\n</head>') }] });
       const output = await buildPluginServer(join(work, 'recovery'), { site });
       recovery = await recoveryOutput(output);

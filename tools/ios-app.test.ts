@@ -30,13 +30,10 @@ it('routes the pages in the app as the host does, from the same build marker', (
   } finally { rmSync(site, { recursive: true, force: true }); }
 });
 
-it('builds the app with the new page whatever the website cutover is', () => {
+it('builds the app with no stage value from the caller\'s shell', () => {
   const sync = read('tools/ios-sync.sh');
   const build = sync.indexOf('\nnpm run build');
   expect(build).toBeGreaterThan(0);
-  // Set after the stage settings and before the build, so no caller value of the website switch reaches the app.
-  expect(sync.slice(0, build).trimEnd().split('\n').at(-1)).toBe('export KINGDOWN_SOLO_LAUNCH=1');
-  expect(sync.slice(build)).not.toContain('KINGDOWN_SOLO_LAUNCH');
   // A store archive takes no test page and no production Apple sign-in from the caller's shell (decision 3 of
   // docs/specs/platform-seam/spec.md). The Apple release changes the production line on purpose.
   const stages = sync.slice(sync.indexOf('\ncase '), sync.indexOf('\nesac\n'));

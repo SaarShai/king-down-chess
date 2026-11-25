@@ -301,7 +301,6 @@ frame_checks() (
   if [ -L node_modules ]; then rm node_modules || return; fi
   npm ci || return
   check_worktree "$PWD" "$head" || return
-  . "$tools/release/profile.sh" || return
   unset KINGDOWN_STAGE VITE_KINGDOWN_STAGE KINGDOWN_TEST_PAGES VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY
   node tools/check.mjs --gpu | tee "$run/frame-checks.log" || return
   check_worktree "$PWD" "$head"

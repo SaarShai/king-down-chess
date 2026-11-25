@@ -83,9 +83,8 @@ def main():
     ref = args.ref or 'origin/staging/first-game'
     origin = PREVIEW if args.preview else STAGING
     host = urlsplit(origin).hostname
-    profile = TOOLS / 'release/profile.sh'
     test_pages = ['KINGDOWN_TEST_PAGES=1'] if args.preview else ['-u', 'KINGDOWN_TEST_PAGES']
-    build = ['env', *test_pages, 'bash', '-c', '. "$1"; exec npm run build:vercel', 'staging-build', str(profile)]
+    build = ['env', *test_pages, 'npm', 'run', 'build:vercel']
     machine = [] if args.preview else ['bash', 'tools/test-lock.sh', '--machine']
     key_command = ['node', str(TOOLS / 'release/publishable-key.mjs'), STAGING]
     gate = 'release/ci-pr-green.mjs' if args.pr_head else 'ci-green.mjs'

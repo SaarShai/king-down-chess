@@ -277,7 +277,7 @@ checks() { [ -f "$run/staging-ran" ] && touch "$run/staging-checked"; }
 node() {
   [[ "$1" != */deploy-plugin-live-check.mjs ]] || return 0
   [ "$OUTCOME" != reuse ] && [ "$*" = 'tools/check.mjs --gpu' ] && [ -d node_modules ] &&
-    [ "$(git rev-parse HEAD)" = "$head" ] && [ "$KINGDOWN_SOLO_LAUNCH" = 1 ] || return 82
+    [ "$(git rev-parse HEAD)" = "$head" ] || return 82
   for ((i = 0; i < 100; i++)); do
     if [ -f "$run/ci-started" ]; then
       touch "$run/gpu-started"

@@ -19,7 +19,6 @@ evidence=${KINGDOWN_RELEASE_EVIDENCE:-$main/../evidence/production-release}
 secrets=${KINGDOWN_SECRETS_ENV:-$main/../.secrets/kingdown-mvp.env}
 expected=${KINGDOWN_RELEASE_COMMIT:-}
 case "$mode" in check|engines|publish) ;; *) echo 'usage: tools/release/live.sh check|engines|publish' >&2; exit 2 ;; esac
-. "$tools/release/profile.sh"
 [ -d "$repo/.git" ] || [ -f "$repo/.git" ] || { echo "live: $repo is not a worktree; make it with tools/wt.sh add release-live" >&2; exit 2; }
 mkdir -p "$evidence"
 evidence=$(cd "$evidence" && pwd -P)

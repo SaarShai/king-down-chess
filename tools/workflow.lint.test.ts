@@ -78,12 +78,12 @@ describe('plugin-checks workflow', () => {
     const browser = job('checks').split('      - run: npm run check:browser -- --no-gpu\n')[1].split('\n      - ')[0];
     expect(browser).toContain("KINGDOWN_TEST_PAGES: ${{ matrix.testPages && '1' || '' }}");
     expect(workflow.match(/KINGDOWN_TEST_PAGES/g)).toHaveLength(1);
-    expect(job('verify')).toContain('KINGDOWN_SOLO_LAUNCH=1 npm run build:vercel\n          test ! -e dist/play-scenes.html\n          npm run check:vercel\n');
+    expect(job('verify')).toContain('npm run plugin:check:protocol\n          npm run build:vercel\n          test ! -e dist/play-scenes.html\n          npm run check:vercel\n');
   });
 
-  it('checks the launch tree that ships and keeps one build and route check of the off tree', () => {
-    expect(job('verify')).toContain('KINGDOWN_SOLO_LAUNCH=0 npm run build:vercel\n          npm run check:vercel\n');
-    expect(workflow.match(/KINGDOWN_SOLO_LAUNCH/g)).toHaveLength(2);
+  it('builds and checks the one tree that ships, once', () => {
+    expect(job('verify').match(/npm run build:vercel/g)).toHaveLength(1);
+    expect(job('verify').match(/npm run check:vercel/g)).toHaveLength(1);
   });
 
   it('keeps the release and sample instructions in line with the CI and push gates', () => {

@@ -14,9 +14,6 @@ esac
 # overrides a .env file (decision 3 of docs/specs/platform-seam/spec.md). A staging build takes the Apple switch from the shell.
 unset KINGDOWN_TEST_PAGES
 VITE_SUPABASE_PUBLISHABLE_KEY=$(node tools/release/publishable-key.mjs "$site"); export VITE_SUPABASE_PUBLISHABLE_KEY
-# The app always opens the new page, whatever the website's cutover switch is (decision 83): the build writes the
-# launch marker solo-launch.json, and AppRouter sends / to next.html.
-export KINGDOWN_SOLO_LAUNCH=1
 npm run build
 # The app uses its bundled H.264 films. Keep the browser-only AV1 and HEVC files out of the app.
 rm -f dist/interface/reveal/*-av1.mp4 dist/interface/reveal/*-hevc.mp4
