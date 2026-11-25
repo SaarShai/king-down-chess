@@ -40,13 +40,14 @@ Change:
 
 Red: `KINGDOWN_TEST_FILE=src/diagnostics/data.test.ts npm test`, 1 failed, 35 passed. The failing list held exactly the four paths of the ticket: `/api/friends`, `/api/invites/<id>/decline`, `/play/friend`, `/index.html`.
 
-Green:
+Runs after the change:
 - `KINGDOWN_TEST_FILE=src/diagnostics/data.test.ts npm test`: 36 passed, 15 s.
 - `KINGDOWN_TEST_FILE=tools/platform.test.ts npm test`: 18 passed, 3 s. This test reads the `/next.html` line of the off build.
-- `npm run test:changed`: both type checks passed; 135 files selected; 128 files passed, 1 skipped, 6 failed; 3064 tests passed, 58 skipped, 42 failed; 761 s. All 42 failures are Playwright timeouts in six plugin harness files (`plugin-app`, `plugin-board`, `plugin-board-drafts`, `plugin-board-input`, `plugin-motion`, `plugin-ios-size`). When the run ended, the 5-minute load average of the Mac was 42.
+- `npm run test:changed`: red as one run, exit 1. The runner starts the tests only after both type checks pass, so the type checks passed. 135 files selected; 128 files passed, 1 skipped, 6 failed; 3064 tests passed, 58 skipped, 42 failed; 761 s. All 42 failures are Playwright timeouts in six plugin harness files (`plugin-app`, `plugin-board`, `plugin-board-drafts`, `plugin-board-input`, `plugin-motion`, `plugin-ios-size`). When the run ended, the 5-minute load average of the Mac was 42.
 - The six files again, with the same head and no type check: `tools/plugin-ios-size.test.ts` 33 passed, 56 s; the other five together 386 passed, 1 skipped, 201 s.
 - `npm run test:docs`: 19 files passed; 199 tests passed, 1 skipped; 2 s.
 
 Not verified:
 - The two-account pass on staging and the stored route of a report from `/play/friend`. No staging deploy ran.
+- The database tests of the server path. `src/diagnostics/server.db.test.ts` skips when `PLUGIN_TEST_DATABASE_URL` is not set, and the log does not show that it ran. Its one `/other` case sends a made-up `/play/profile/...` path, so the change does not touch it.
 - A full-suite run. CI runs it.
