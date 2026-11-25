@@ -1,6 +1,6 @@
 # The worker tests run on the worker that ships
 
-Status: needs-triage. Waits for the owner's approval of [the spec](../spec.md).
+Status: done on branch seam-guards; waits for the review.
 
 Class: B (tests only). Size: S.
 
@@ -21,3 +21,13 @@ Remove one private path from `tools/solo-launch/sw.js` only. The tests are green
 ## Known limits
 
 If [ticket 07](07-remove-off-build.md) comes first, this ticket is not necessary: one worker stays, and the tests point at it.
+
+## Work record
+
+- `tools/service-worker.test.ts`: the groups "private safety during installation" and "public request boundary" run on `public/sw.js` and on `tools/solo-launch/sw.js` (`describe.each`). No worker line changes.
+- Not as the ticket says: the parametrization alone does not give the red line. A path that is not on the allowlist gets no cache key, also when the private list does not match it, so the two groups did not read the private list. The bypass case and the forbidden-key case now put their private paths on the allowlist (`listed`). Only the private list of the worker keeps them out.
+- Two differences of the launch worker on purpose, each named in its case: a navigation to an online page (`/play…`, `/g/<id>`, `/j`) goes to the network with the offline page as the fallback; `index.html` is the old page with a key of its own, so the install-shell case runs on `/` only for that worker.
+- Green: `KINGDOWN_TEST_FILE=tools/service-worker.test.ts npm test`, with the type check: 228 tests passed, 0.5 s of tests (86 s in all).
+- Red: `mcp` removed from `PRIVATE` in `tools/solo-launch/sw.js` only, `KINGDOWN_TEST_NO_TYPECHECK=1 KINGDOWN_TEST_FILE=tools/service-worker.test.ts npm test`: 2 failed, 226 passed: "public request boundary (tools/solo-launch/sw.js) > bypasses /mcp" and "… /mcp/child".
+- Probe: the same removal with no private path on the allowlist: 228 passed. This shows that the allowlist step is necessary.
+- The worker file is back to its committed text (`git diff` shows only the test file).
