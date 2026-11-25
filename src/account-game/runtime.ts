@@ -73,6 +73,9 @@ const router = createRouter(call, navigate, next => {
 export const { routeView, start } = router;
 // A new Screen gives TS2741 here until it has a renderer, or until it joins the list of screens with no renderer.
 const screens: Record<Exclude<Screen, 'home' | 'board' | 'collection' | 'settings' | 'handle'>, () => void> = { play: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen };
+type Listed<T extends never> = T;
+// The screens that app.onResult gives to enterRead after a mount. A new ReadRoute screen gives TS2344 here until it joins that list.
+export type ReadScreensListed = Listed<Exclude<ReadRoute['screen'], 'game' | 'play' | 'profile' | 'settings'>>;
 export const memory = { ...createHallMemory(), dirty: false, kind: 'solo' as 'solo' | 'friend' | 'random', code: '', blockNotice: '', settings: undefined as PlayerSettings | undefined, me: undefined as { handle: string | null; icon: Icon | null } | undefined, preview: undefined as JoinPreview | undefined, joinError: undefined as { code: string; message: string } | undefined, get view() { return view; } };
 let enterRead: ((route: ReadRoute) => void) | undefined;
 const pageHost: PageHost = {
