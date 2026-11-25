@@ -33,6 +33,8 @@ it.each([['pieces', false, false], ['powers', true, false], ['cards', false, tru
       expect(server.hands.some(hand => hand.length)).toBe(cards);
       expect(server.kings.some(Boolean)).toBe(kingPowers);
       expect(handOver.hands).toEqual(server.hands);
+      // The match dealer and the solo dealer deal the same hand size.
+      expect(solo.hands?.map(hand => hand.length)).toEqual(server.hands.map(hand => hand.length));
       expect(flags(server)).toEqual(type === 'pieces' ? PRINTED : BALANCED);
       expect(flags(handOver)).toEqual(flags(server));
       expect(flags(solo)).toEqual(flags(server));

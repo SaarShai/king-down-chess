@@ -42,7 +42,7 @@ export function cardSymbol(card: CardName): string {
 const pawn = (x: number, dark = false, y = 16) => `<g data-piece="pawn" transform="translate(${x} ${y})" fill="${dark ? '#514638' : '#fff5da'}" stroke="#514638" stroke-width="1.2"><circle cx="8" cy="4" r="3"/><path d="M5 7h6l-1 6 3 3H3l3-3z"/></g>`;
 const knight = (x: number, dark = false) => `<g data-piece="knight" transform="translate(${x} 14)" fill="${dark ? '#514638' : '#fff5da'}" stroke="#514638" stroke-width="1.2"><path d="M1 18h15c0-8-1-14-8-17l1 3-7 6 5 2 3-3-3 5z"/></g>`;
 const arrow = '<path d="M33 24h13m-4-4 4 4-4 4"/>';
-/** The one quiet loop of each released card with no painting (card-symbol.css). No other card moves. */
+/** The one quiet loop of these cards in the rule picture (card-symbol.css). No other card moves. */
 const motion: Partial<Record<CardName, string>> = { MirrorB: 'breathe', Firewall: 'arc', EarthQuake: 'pulse', Burn: 'flicker', FireStarter: 'flicker', Control: 'breathe', Rally: 'rise', MorphP: 'nudge', Curse: 'dim' };
 /** A small rule picture. The text remains the full rule. */
 export function cardPicture(card: CardName): string {
