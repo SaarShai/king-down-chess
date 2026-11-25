@@ -16,7 +16,7 @@
 ## Tests and checks
 - Run tests with `npm test` only; `npm run test:docs` runs doc lints. No bare vitest, `node --test`, or piping through tail or grep.
 - Diagnose with `KINGDOWN_TEST_FILE` and optional `KINGDOWN_TEST_NAME` (name regex). Record selected cases; a focused pass is not a full-suite pass.
-- While you build, run `npm run test:changed`: the tests that the change can reach. It is not a full-suite pass.
+- While you build, run `npm run test:changed`: the tests that the change can reach. A selection is not a full-suite pass.
 - Run a browser check with `npm run check:browser <name>`.
 - Run commands over two minutes detached, with an end report and log; no wait loop.
 - Prefer a test, lint, hook or browser check to prose. Merge corrections into existing rules; add no dated note.

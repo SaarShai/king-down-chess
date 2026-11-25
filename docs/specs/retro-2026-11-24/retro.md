@@ -1,6 +1,6 @@
 # Retro, 2026-11-24: slow runs, repeated faults and the shape of the code
 
-Status: for the owner. Three items are built and merged (PR 464). The other items wait for the owner's decision.
+Status: for the owner. Items 1, 2 and 3 are built and merged (PR 464). Items 12 and 15 are built (PR 465). The section "Decisions after the merge" holds the decision on each other item.
 
 Method. One helper read the session records of the last 12 days: 144 sessions (85 worktree lanes) and 327 helper records. It counted tool wait time, repeated errors and owner complaints with scripts. One helper read the code for the cost of a change: where the core lives, how each form uses it, and how many places one new card touches. The lead measured the test suite on this Mac and read the check and CI tools. Each number below comes from those sources. A guess has the label "guess".
 
@@ -33,7 +33,7 @@ The values come from commit `96ba0f0f6`, before the merge of 161 newer commits o
 
 ### Medium
 
-5. **[Hooks] The tool gate refuses the form that its own message recommends. Owner decision.** About 17 of 20 `ps` refusals use `ps -o pid=,command= -p $pid` or a comma list of PIDs. The rule accepts only one literal number (`.claude/hooks/tool-gate.mjs`, `oneProcess`). Change: accept a list of numbers. A variable is a wider change. The lead did not edit a safety hook without the owner's word.
+5. **[Hooks] The tool gate refuses the form that its own message recommends. Decided: no change.** About 17 of 20 `ps` refusals use `ps -o pid=,command= -p $pid` or a comma list of PIDs. The rule accepts only one literal number (`.claude/hooks/tool-gate.mjs`, `oneProcess`). Change: accept a list of numbers. A variable is a wider change. The lead did not edit a safety hook without the owner's word.
 
 6. **[Code] The readings rule lives in at least six builders.** "A game with a power or a hand gets the balanced readings" is written out in `src/main.ts:65`, `src/new-game.ts:204`, `src/interface/play/saved.ts:38`, `src/online/launch.ts:25`, `src/screen/play.ts:690` and `src/match/service.ts:199`. Decision 188 edited five of them. Change: one function gives the readings for kings and hands; each builder calls it. A test of each builder comes first. The worker copy moves with the next engine pair, because the worker source is part of the save fingerprint.
 
@@ -45,7 +45,7 @@ The values come from commit `96ba0f0f6`, before the merge of 161 newer commits o
 
 10. **[Steering] The launch briefs are large.** `runs/launch/decisions.md` is 216 KB and 32 sessions read it. Change: an index with one line per decision; a lane brief names the decision IDs that it needs.
 
-11. **[Tests] Eight test workers save about 200 s, but one test fails under that load. Owner decision.** `vite.config.ts` sets `maxWorkers: 4`; this Mac has 16 cores. Two full runs with 8 workers took 327 s and 312 s, against 525 s. One run failed `tools/plugin-ios-size.test.ts` ("keeps the seat and board large at 393 × 852 with host insets 102/118"); the other was green. Change: find why that test fails under load (guess: it reads the layout before the page settles), then use 8 workers outside CI. Not built: a suite that fails one run in two is worse than a slow suite.
+11. **[Tests] Eight test workers save about 200 s, but one test fails under that load. Decided: 4 workers stay.** `vite.config.ts` sets `maxWorkers: 4`; this Mac has 16 cores. Two full runs with 8 workers took 327 s and 312 s, against 525 s. One run failed `tools/plugin-ios-size.test.ts` ("keeps the seat and board large at 393 × 852 with host insets 102/118"); the other was green. Change: find why that test fails under load (guess: it reads the layout before the page settles), then use 8 workers outside CI. Not built: a suite that fails one run in two is worse than a slow suite.
 
 ### Low
 
@@ -63,10 +63,10 @@ The owner gave these decisions to the lead ("you decide what is best").
 - Item 5: no change. The lead does not edit the hook that controls its own tools, and the cost is small: about 17 refusals in 12 days.
 - Item 11: the suite keeps 4 workers until the cause of the failed test is known.
 - Items 12 and 15: built. `docs/COMPUTE.md` holds the zsh line, and `.ignore` keeps `engines/` out of a search.
-- Item 6 is the next build. Item 9 follows it.
-- Items 7 and 8 wait for the GUI redesign, because they change the same files.
-- Items 4, 10 and 13 wait: they change the launch briefs under `runs/`, which this retro did not read in full.
-- Items 14 and 16 stay open.
+- Item 6 waits for its own spec. It changes online play and the server (`src/online/launch.ts`, `src/match/service.ts`), so it is a class C change: it needs a two-account pass on staging, and a staging deploy needs the owner's word. Item 9 follows it.
+- Items 7 and 8 wait: a different session of the owner works on the GUI, and these items change the same files (`src/interface/play/main.ts` and the turn modules).
+- Items 4 and 10 wait: they change the launch briefs under `runs/`, which this retro did not read in full.
+- Items 13, 14 and 16 stay open.
 
 ## Faults found on the way
 

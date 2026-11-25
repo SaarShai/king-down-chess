@@ -1,6 +1,6 @@
 # One command runs the tests that a change can break
 
-Status: done (PR 464 merged)
+Status: done (PR 464 merged; the AGENTS.md line comes with PR 465)
 
 Source: [retro](../retro.md), item 2. Branch `retro-env`. Merged with PR 464. AGENTS.md names the command in "Tests and checks" (the owner said "add it").
 
@@ -39,5 +39,6 @@ The full `npm test` takes 525 s on this Mac. `tools/**` takes 83% of the test ti
 - Main then moved 161 commits. Merge `9965586b0` resolves three conflicts: `package.json`, the check list, and the header of the play scenes check. The full suite passes on the merge: 410 files, 8,031 tests.
 - Second review: five agents that did not build the change read head `9965586b0`, one for each area and one for the repairs and the merge. A skeptic tried to refute each blocking finding. Four findings stand and are repaired in one batch: for this ticket, a test that lists its own folder (`src/workshop/css.test.ts`, `src/render/legend.test.ts`, `src/interface/people/controller.test.ts`) was skipped for a change in that folder, and four shell variables could narrow a run that the command called full.
 - Repair check: the reviewer of the repairs and the merge read commit `e4faf165e`. The repair holds. The full suite passes on that commit: 410 files, 8,031 tests.
+- Review of the AGENTS.md line (PR 465): an agent that did not build the change read head `417f9d7ff`. It found no blocking fault. One batch repairs its notes: the line says "A selection is not a full-suite pass", because the command runs the full suite when it cannot place a file.
 - Open findings: none that block. The notes are in "Known limits".
 
