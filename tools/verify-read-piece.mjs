@@ -44,6 +44,8 @@ try {
     return head.top >= sheet.top && head.bottom <= sheet.bottom && focus.matches('.piece-card')
       && getComputedStyle(focus).outlineStyle === 'solid';
   }), true, 'All rules keeps the full Guide head and outlines the card');
+  const rulesTop = await page.locator('.lesson-guide-body').evaluate(el => el.scrollTop);
+  assert.ok(rulesTop > 0, `All rules scrolls the Guide body to the card (scrollTop ${rulesTop})`);
   await page.keyboard.press('Escape'); await pressMenu(page, 'Guide');
   assert.equal(await page.locator('.lesson-guide-body').evaluate(el => el.scrollTop), 0, 'Menu Guide opens at the top after All rules');
   console.log('read-piece: 3 cases pass; I, toggle and All rules pass');

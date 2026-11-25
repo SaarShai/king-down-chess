@@ -169,6 +169,8 @@ try {
         await noSidewaysScroll(page);
         const guideHead = await page.locator('.lesson-guide-head').boundingBox();
         await page.locator('.lesson-guide-body').evaluate(el => { el.scrollTop = el.scrollHeight; });
+        const guideTop = await page.locator('.lesson-guide-body').evaluate(el => el.scrollTop);
+        assert.ok(guideTop > 0, `Guide body scrolls at ${width}×${height} (scrollTop ${guideTop})`);
         assert.deepEqual(await page.locator('.lesson-guide-head').boundingBox(), guideHead, 'Guide head stays in place when rules scroll');
       }
       await page.keyboard.press('Escape');
