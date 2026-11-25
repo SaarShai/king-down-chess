@@ -15,6 +15,7 @@ import { settingsSchema } from './settings';
 import { ending } from './ending';
 import { commandLimit, handleSchema, TOOL_LIMITS } from './service';
 import type { PluginService } from './service';
+import type { PluginTool } from './tool-names';
 
 /** The plugin build writes this origin before each art file (tools/plugin-ui-build.mjs); the server swaps in its own. */
 export const ART_ORIGIN = 'https://kingdown-art.invalid';
@@ -63,7 +64,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     return handler(request, extra);
   });
   const command = { game_id: gameId, command_id: z.string().min(1).max(200), expected_revision: z.number().int().min(0).max(MAX_REVISION) };
-  function register<T extends z.ZodRawShape>(name: string, description: string, shape: T, { visibility, readOnly = false, openWorld = false, destructive = false, idempotent = true, meta, output }: Hints, run: (args: z.infer<z.ZodObject<T>>) => Promise<Reply>) {
+  function register<T extends z.ZodRawShape>(name: PluginTool, description: string, shape: T, { visibility, readOnly = false, openWorld = false, destructive = false, idempotent = true, meta, output }: Hints, run: (args: z.infer<z.ZodObject<T>>) => Promise<Reply>) {
     const inputSchema = z.object(shape).strict(); inputs.set(name, inputSchema);
     // Only kingdown_open carries the board: a template on every tool makes ChatGPT redraw the board too often.
     // The Muse connector installs the v2 MCP SDK, so ext-apps types now name v2's server; this plugin stays on v1 and runs the same.

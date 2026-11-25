@@ -9,13 +9,14 @@ import { accountData } from '../../account/data';
 import { browserLocks, type LockManager } from '../../account/data';
 export { browserLocks, type LockManager } from '../../account/data';
 import type { Action } from '../../match/protocol';
+import type { PluginTool } from '../../plugin/tool-names';
 
 export const receiptKey = (userId: string) => `kingdown.account-command.${userId}`;
 /** The old page's receipt: its tool name and its arguments. */
 export interface Receipt { name: string; args: { game_id: string; command_id: string; expected_revision: number } & Record<string, unknown> }
 
 /** The old page's tool name for each command (`commandAction` in `src/online/runtime.ts`). */
-const NAMES: Partial<Record<Action['type'], string>> = {
+const NAMES: Partial<Record<Action['type'], PluginTool>> = {
   turn: 'kingdown_move', choose: 'kingdown_choose', draw: 'kingdown_draw', rematch: 'kingdown_rematch',
   resign: 'kingdown_resign', abort: 'kingdown_abort', claim: 'kingdown_claim', say: 'kingdown_say', computer: 'kingdown_computer',
 };
