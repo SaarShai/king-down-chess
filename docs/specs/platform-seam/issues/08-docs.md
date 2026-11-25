@@ -1,6 +1,6 @@
 # The docs say what the code does
 
-Status: done on branch seam-docs; waits for the review
+Status: done on branch seam-docs; reviewed, repaired and checked.
 
 Class: B (a doc of a rollback path gets an independent read). Size: S.
 
@@ -74,3 +74,4 @@ Tests that read the changed docs: a search of the test files under `tools/`, `sr
 - Head: `df914296fe7325a1d283bc9034f24dc631ab5f03`.
 - Findings: no blocking finding; five notes (stale PR 473 state, a rollback step for today, a too-wide 404 sentence, the count of compared iOS paths, two sentences that were not ASD-STE100).
 - One batch repairs them: the retro and the work record say that PR 473 is merged; HOSTING.md gives the rollback of today under a `### Rollback` heading, says when the direct off publish is permitted, and names the function paths before the 404 route; IOS.md says 9 compared paths; the work record uses the active voice. This batch found each note true in the code.
+- Check of the batch, by the same reviewer, on head `fa19f52eb`: each repair holds; no blocking finding. Two notes. First: the rollback text told the reader to give a direct off publish the shell values of `tools/release/live.sh`, but those values set the launch option on. The lead removed that sentence: HOSTING.md now calls the direct off publish a hazard, not a rollback step. Second: this ticket's Status line was old; it now says that the review is done.

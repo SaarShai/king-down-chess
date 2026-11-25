@@ -193,7 +193,7 @@ No build switch authorizes a deploy.
 Today, a rollback of a code fault is a revert on main and a release (`tools/release/release.sh`).
 `tools/deploy.sh` builds only a fresh `origin/main` and takes no ref.
 The off build exists today, but the release tools cannot build it: `profile.sh` sets the option to 1
-with no condition. A direct `tools/deploy.sh --publish` with no option is the only way to publish the off build.
-Use it only with the owner's word, and give it the shell values that `tools/release/live.sh` sets.
+with no condition. A direct `tools/deploy.sh --publish` from a shell that does not set the option is the only way
+to publish the off build. This is a hazard, not a rollback step: no release tool does it, and it needs the owner's word, as each deploy does.
 Ticket 07 of [the platform seam spec](specs/platform-seam/spec.md) removes the option and the off build (decision 1).
 After ticket 07, the off build goes, and a revert on main and a release is the only rollback.
