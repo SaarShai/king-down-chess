@@ -4,7 +4,6 @@
  * install tries it once, and the asset handler loads and keeps a missing one later.
  */
 const VERSION = 'dev';
-const SOLO_LAUNCH = true;
 const ALLOWLIST = [];
 const PRECACHE = [];
 const POLICY = 'public-build-v1';
@@ -34,7 +33,7 @@ function publicKey(request) {
   url.hash = '';
   const plain = new URL(url); plain.search = '';
   if (!PUBLIC.has(plain.href) && !isPainted(plain.href)) return null;
-  if (plain.href === START || !SOLO_LAUNCH && plain.href === INDEX) return START;
+  if (plain.href === START) return START;
   return url.search ? null : plain.href;
 }
 
@@ -196,6 +195,6 @@ self.addEventListener('fetch', event => {
     }
     return;
   }
-  event.respondWith(key === START || SOLO_LAUNCH && (key === INDEX || key === NEXT) ? page(event.request, event)
+  event.respondWith(key === START || key === INDEX || key === NEXT ? page(event.request, event)
     : FRESH.has(key) ? fresh(event.request, event) : asset(event.request));
 });
