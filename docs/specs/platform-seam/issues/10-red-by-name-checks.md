@@ -99,6 +99,8 @@ Not verified:
 
 Results of the nine checks: `layout-title` repaired; `stratus-registration` repaired (ticket 12 for the art); `stratus-idle-exit` repaired; `account-discovery` repaired; `lessons`, `lesson-return`, `workshop-cast`, `link-game` removed; `workshop` stays red (parked, its docs lint reads the script).
 
+Final runs (second builder, 11:49 to 11:59): `npm run typecheck` exit 0; `npm run test:docs` 199 passed, 1 skipped; `KINGDOWN_TEST_FILE='tools/{checks.lint,check,workflow.lint}.test.ts' npm test` 3 files, 62 passed (24.2 s); `npm run test:changed` 417 files passed, 19 skipped, 8,123 tests passed, 387 skipped (480.8 s), and 115 of 115 node tests passed.
+
 Not verified (second builder):
 
 - WebKit for any of these checks, and the hosted staging block of `account-discovery`.
