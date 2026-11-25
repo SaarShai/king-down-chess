@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { browserFamily, errorFingerprint, errorName, errorRoute, errorMessage, scrub } from './data';
 import { fromFen } from '../rules/setup';
+import { accountPath, type AccountEntryRoute } from '../online/routes';
 
 describe('fault report data', () => {
  it('removes private values before the 300-character cut', () => {
@@ -111,6 +113,19 @@ it('rejects variable text outside the bounded native forms', () => {
   'can\'t access property "{privateValue:12345}", x is null',
   "invalid assignment to const '12345'", 'JSON.parse: unexpected character at line 1 column 12345 of the JSON data',
  ]) expect(errorMessage(raw)).toBe('Unlisted message');
+});
+
+it('names each API route, each account path and the old board, with no ID', () => {
+ // The same key scan as tools/plugin-server-build.test.ts.
+ const http = readFileSync(new URL('../api/http.ts', import.meta.url), 'utf8');
+ const keys = [...http.matchAll(/^  '([A-Z]+ \/api[^']*)':/gm)].map(match => match[1]);
+ expect(keys.length).toBeGreaterThan(0);
+ const id = 'd137864c-e174-4f38-9277-6bdd0a4289dc', key = 'ABC234';
+ const screens: AccountEntryRoute[] = [{ screen: 'play' }, { screen: 'profile' }, { screen: 'settings' }, { screen: 'new-friend' }, { screen: 'game', gameId: id }, { screen: 'join', key: null }, { screen: 'join', key }];
+ // A server fault gives the key path itself (src/api/http.ts), so test that form too.
+ const paths = [...keys.map(name => name.split(' ')[1]).flatMap(path => [path, path.replace(/:[a-z]+/g, id)]), ...screens.map(accountPath), '/index.html'];
+ // The server reduces the route of the browser again, so a kept route must reduce to itself.
+ expect(paths.filter(path => { const route = errorRoute(path); return route === '/other' || route.includes(id) || route.includes(key) || errorRoute(route) !== route; })).toEqual([]);
 });
 
 it('recognizes the new page without retaining its query or fragment', () => {
