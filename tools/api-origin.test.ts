@@ -13,8 +13,9 @@ const hits = (pattern: RegExp) => sources.flatMap(({ file, text }) => text.split
 it('reads the source files', () => expect(sources.length).toBeGreaterThan(100));
 
 it('gives no site page link a relative path: a link from the app to a site page uses apiOrigin', () => {
+  expect(hits(/\bhref\s*[=:]/g).length).toBeGreaterThan(0);
   // next.html and index.html are pages of the bundle.
-  const links = hits(/href\s*=\s*(['"`])(\/[^'"`#?]*\.html)[^'"`]*\1/g)
+  const links = hits(/href\s*[=:]\s*(['"`])(\/[^'"`#?]*\.html)[^'"`]*\1/g)
     .filter(({ match }) => !['/next.html', '/index.html'].includes(match[2])).map(({ where, match }) => `${where}: ${match[2]}`);
   expect(links).toEqual([]);
 });

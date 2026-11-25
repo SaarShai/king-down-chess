@@ -1,6 +1,6 @@
 # One page route table
 
-Status: done on branch seam-guards; waits for the review.
+Status: done on branch seam-guards; the review repairs are in; waits for the repair check.
 
 Class: B. Size: M.
 
@@ -39,6 +39,7 @@ The host list is the table. `vercelRoutes` in `tools/plugin-server-build.mjs` al
 
 - The Swift copy and the worker copy stay copies. A test makes a difference fail; it does not remove the copy. A generated Swift file needs a new iOS build, and a filled worker changes the worker bytes for each client.
 - Until ticket 06, the preview serves a launch tree only in a release run and by hand.
+- Test 5 loads `src/interface/platform.ts` through a path in a variable, so `launchRoute` has the type `any` there. The tools type check does not see a change of its signature. Change it to a static import when the tools type check accepts the board files.
 
 ## Work record
 
@@ -50,10 +51,20 @@ The host list is the table. `vercelRoutes` in `tools/plugin-server-build.mjs` al
 - Test 4 (`tools/service-worker.test.ts`): the launch worker gives its offline page for a navigation exactly where the host pattern matches, on 13 paths.
 - Test 5 (`tools/platform.test.ts`): `parseAccountRoute` gives a route only where the host gives `index.html` or `join.html`; `launchRoute` gives home exactly where the host gives `next.html` with no 404. The test loads `src/interface/platform.ts` through a path in a variable: a static import puts the whole board (its dynamic import of `play/main`) into the tools type check, and that check fails on files of `src/` (`never[]` with `noImplicitAny` off).
 - Red: `KINGDOWN_TEST_FILE="tools/{plugin-server-build,ios-app,service-worker,platform}.test.ts" npm test`: 1 failed (test 2), 269 passed, 4.8 s of tests (7 s in all). The log does not show whether the type check ran.
-- Tests 3, 4 and 5 have no recorded red line. They passed on the first run.
+- Tests 3, 4 and 5 passed on their first run. Their red lines come from the probe of the review batch (temporary edits, not committed, files restored from HEAD; log `probe-review.log`): `KINGDOWN_TEST_NO_TYPECHECK=1 KINGDOWN_TEST_FILE="tools/{api-origin,ios-app,service-worker,platform}.test.ts" npm test` with five mutations in one run: 10 failed, 253 passed, 0.8 s of tests (971 s in all with the wait for the machine lease).
+  - Test 3: `|j/?` removed from the Swift pattern (`ios/App/App/SceneDelegate.swift:62`). Red: `expected '^/(?:play(?:/.*)?|g/[^/]+/?)$' to be '^/(?:play(?:/.*)?|g/[^/]+/?|j/?)$'`.
+  - Test 4: `|j\/?` removed from the offline pattern of `tools/solo-launch/sw.js:194`. Red: `/j: expected false to be true`. The same edit also turns "bypasses /j" of the boundary group and "recovers an offline online-page navigation" red.
+  - Test 5: `launchRoute` accepts `/play` (`src/interface/platform.ts:17`). Red: `/play: expected true to be false`.
 - Green: `KINGDOWN_TEST_FILE="tools/{plugin-server-build,ios-app,service-worker,platform,offline-build,dev-settings}.test.ts" npm test`, with the type check: 6 files, 341 tests passed, 4.8 s of tests (31 s in all). `offline-build` loads the config from its file; `dev-settings` imports it.
 - Test 1 before the change: no log of the first build shows it. Probe (temporary, not committed): `tools/plugin-server-build.mjs` and `vite.config.ts` taken from de9ddec20, the commit before this ticket; `KINGDOWN_TEST_NO_TYPECHECK=1 KINGDOWN_TEST_FILE=tools/plugin-server-build.test.ts npm test` (with `tools/ios-app.test.ts` in the same run): test 1 and the join page text are green; test 2 is red with the same `/j` line as above. The files are back to HEAD.
 - `git diff origin/main -- tools/plugin-server-build.mjs` shows only `JOIN_PAGE`: the body of `vercelRoutes` does not change.
 - Cost: `vite.config.ts` now imports `tools/plugin-server-build.mjs`. That file and its imports are now in the import graph of the config, so a local `npm run test:changed` runs the full suite when one of them changes.
 - Final run on head f68ec5c9a: `npm run test:changed`, with the type checks. It ran the full suite: 430 files, 411 passed and 19 skipped; 8119 tests passed and 387 skipped; the node tests 115 passed; 610 s of tests (622 s in all). An earlier run on this head had no home folder and could not stop Chromium, so it is void.
 - Not verified: `npm run check:vercel` on a launch tree (no launch tree was built); a real `vite preview` of a launch tree in a browser.
+- "With the type check" means that the command did not set `KINGDOWN_TEST_NO_TYPECHECK`. No log shows a type-check line, because `tsc --noEmit` writes nothing when it passes (`tools/test-unlocked.sh:12-13`). The elapsed times agree with a type check.
+
+## Review
+
+- Kind: a review by an agent that did not build the change. Head: `82780d5f5a15bc40e8cf4d55ef05d7b5c233f942`.
+- Findings: no blocking finding. For this ticket, three notes: tests 3, 4 and 5 had no recorded red line; test 5 loads `platform.ts` through a path in a variable, so the tools type check does not see `launchRoute`; the logs of the green runs show no type-check line.
+- One batch repairs them. A probe run gives the red lines of tests 3, 4 and 5 (see the work record). The dynamic import is under "Known limits". The record says what "with the type check" means. No code of this ticket changes.
