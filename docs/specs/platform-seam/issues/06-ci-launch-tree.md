@@ -48,10 +48,12 @@ The list comes from `tools/lib/registry.mjs` and a read of each script. Each one
 - Checks that CI runs by name: `web-online` (each visit of the old board, and `/` for the offline install), `signin-speed` (the home entry). `web-game` opens no root page; its join and solo parts change (see below).
 - The by-name modes of `tools/web-game-check.mjs`, which now build the launch tree too: `account-discovery` opens `/` for the old board. `staging-login` opens an own solo game, which the launch tree hands to the local board. `shared-mechanics`, `recovery-consumers`, `desktop-performance` and `web-game-staging` open no root page.
 - Checks that run only by name: `painted-leaps` (the script of `leap-start`), `layout-title` and `layout-zoom` (`tools/verify-layout.mjs`), `ui-review-samples`, `king-capture-facing`, `stratus-idle-exit`, `stratus-registration`, `character-runtime` (also through its throttle proxy, and `tools/lib/character-effects-game-check.mjs`), `motion-concepts`. The parked checks (docs/PARKED.md): `lessons`, `link-game`, `lesson-return`, `workshop`, `workshop-cast`.
+- Plugin checks that also open the site (`site: true`): `gui-board-preview`, `gui-board-a8`, `gui-board-a15`, `gui-board-a18` open the old board through `docs/specs/gui-previews-2026-10-19/capture.mjs`. It now opens `index.html` on the check site or on a saved web build.
+- `tools/lib/error-recorder-check.mjs` (the default mode of `web-game`) opens `/` on purpose: it tests the error recorder of the root page, which is now the new page that players get at `/`.
 - Already at `/index.html` before this ticket: the GPU checks `king-effects` and `painted-game`, and `king-labels`. They keep their own address.
-- Not moved, because they do not open the runner's site: `movement-runtime`, `cache-registration`, `effects-states`, `effects-game`, `production-comparison`, `owner-playtest-b`, `w6-parts`, `search-worker`. They start their own server. The `play/friend` visit of `ui-review-samples` is not the root, so it stays.
+- Not moved, because they do not open the runner's site: `movement-runtime`, `effects-states` and `effects-game` start a Vite dev server of the source; `cache-registration` serves its own fixture page; `production-comparison` serves the two trees that its caller names; `owner-playtest-b`, `w6-parts` and `search-worker` start their own server. The `play/friend` visit of `ui-review-samples` is not the root, so it stays.
 
-In all, 39 registry entries open the old board. This ticket moves 36: 33 to the helper, and `web-online`, `signin-speed` and `account-discovery` to `/index.html` on the server that they start themselves. The other 3 had their own address before. The first step of the ticket estimated about 18; the 19 default checks are near that estimate, and the by-name checks are the rest.
+In all, 43 registry entries open the old board. This ticket moves 40: 33 to the helper, `web-online`, `signin-speed` and `account-discovery` to `/index.html` on the server that they start themselves, and the 4 board previews to `index.html` in their capture script. The other 3 had their own address before. The first step of the ticket estimated about 18; the 19 default checks are near that estimate, and the by-name checks are the rest.
 
 ## Work record
 
@@ -72,7 +74,8 @@ In all, 39 registry entries open the old board. This ticket moves 36: 33 to the 
 - The change of the workflow file puts `tools/ci-plan.mjs` in full mode, so every shard runs.
 - Job `verify`: it now builds the site two times. `check:vercel` finds the tree from `static/solo-launch.json` (`tools/vercel-check.mjs:97`), so the first call checks the launch tree and the second the off tree. Here the pair took about 100 s. The off tree stays in `dist` and `.vercel/output` after the step; the tests of that job (`tools/plugin-board.test.ts`, `tools/plugin-board-drafts.test.ts`) read `plugin-server-dist`, not these folders.
 - Jobs `browser-default (1)` to `(3)`: the runner site is now the launch tree. The shards balance by `ciSeconds` of the registry, which come from off-tree runs. The times here are near them, but `qa` was 232 s against 358 s.
-- Job `browser-webkit-board (input)` runs `web-online` and `signin-speed` on WebKit, and the default shards run `next-art-wait` and `daylight-tabs` on WebKit as well (`ciBrowsers`). No WebKit run was made here: this is the first test of the launch tree on WebKit in a pull request. Look first at the offline install of `web-online` and at the new `signin-speed` rule that `next.html` also installs the worker.
+- Job `browser-webkit-board (input)` runs `web-online` and `signin-speed` on WebKit. No WebKit run of them was made here: this is their first test of the launch tree on WebKit in a pull request. Look first at the offline install of `web-online` and at the new `signin-speed` rule that `next.html` also installs the worker. (`next-art-wait` and `daylight-tabs` open WebKit themselves, so the runs here covered WebKit for them.)
+- `leap-start` asserts time and is a default check. It failed once here on one case (see below). Watch it in the default shards.
 - Job `play-scenes`: it builds the launch tree with the test pages. It passed here (408.5 s; the limit in CI is 420 s × 2).
 - The test shards still build the off tree in `tools/openai-challenge.test.ts` and `tools/offline-build.test.ts`, because the workflow does not set the switch for the job. Ticket 07 moves them.
 
@@ -90,7 +93,7 @@ In all, 39 registry entries open the old board. This ticket moves 36: 33 to the 
 
 ### Red and green
 
-- Red (2026-11-25 06:54): `KINGDOWN_TEST_FILE=tools/check.test.ts npm test` with the new assertion and the stand-in that records the switch. 1 failed: "builds the site as a production launch build with the fake account project, whatever the shell holds", `expected '0' to be '1'` at `tools/check.test.ts:142`.
+- Red (2026-11-25 06:54, a run of the first builder of this lane): `KINGDOWN_TEST_FILE=tools/check.test.ts npm test` with the new assertion and the stand-in that records the switch. 1 failed: "builds the site as a production launch build with the fake account project, whatever the shell holds", `expected '0' to be '1'` at `tools/check.test.ts:142`.
 - Green (08:39): `npm test` with `KINGDOWN_TEST_FILE` = `tools/check.test.ts`, `tools/checks.lint.test.ts`, `tools/workflow.lint.test.ts`, `tools/web-online-check.test.ts`, `tools/lib/removed-checks.test.ts`: 5 files, 115 tests passed, 33.45 s. `npm run test:docs`: 19 files, 199 passed, 1 skipped.
 - The CI verify step, run here with a throwaway PostgreSQL as the runner starts one: `KINGDOWN_SOLO_LAUNCH=1 npm run build:vercel` (22.7 s), `test ! -e dist/play-scenes.html`, `npm run check:vercel` (21.7 s, launch worker 787d05582578, 363 offline URLs), `KINGDOWN_SOLO_LAUNCH=0 npm run build:vercel` (29.6 s), `npm run check:vercel` (24.8 s, off worker dbec0deb2ec8, 322 offline URLs). All exit 0.
 
@@ -108,18 +111,20 @@ Browser checks on the launch tree, one run each, in sequence (`npm run check:bro
 | web-game, web-online, signin-speed | ok | 75.1, 142.6, 47.4 s |
 | shared-mechanics, web-game-staging, desktop-performance, staging-login | ok | 143.5, 97.0, 100.0, 24.2 s |
 | play-scenes (alone, with the test pages, as CI runs it) | ok | 408.5 s |
+| gui-board-preview | ok | 175.1 s |
 | layout-title, stratus-idle-exit, stratus-registration, lessons, link-game, lesson-return, workshop, workshop-cast | fail; old faults | see below |
 | account-discovery | fail | see below |
 | recovery-consumers | not run | needs an outside `KINGDOWN_WEB_RECOVERY_OUTPUT` |
 
-- The first run of `leap-start` failed because this ticket file changed during the run (the runner refuses a changed checkout). The second run failed once on time ("knight white SE warm: 1317 ms, limit 150 ms"; the other 15 cases passed). The third run passed. The check asserts time, so the one slow case is most likely machine load. Not proven.
+- The first run of `leap-start` failed because this ticket file changed during the run (the runner refuses a changed checkout). The second run failed once on time ("knight white SE warm: 1317 ms, limit 150 ms"; the other 15 cases passed). The third run passed. In the first run the same case took 9 ms. The check asserts time, so the one slow case is most likely machine load. Not proven.
 - Old faults: the 8 by-name checks also fail on an off-tree build of this worktree (`KINGDOWN_SOLO_LAUNCH=0`, the same scripts, the old board at `/index.html`): the same assertion or time-out in each. `stratus-idle-exit` fails with a time-out on the launch tree and with "exit changes the pose" on the off tree. Five of them are parked (docs/PARKED.md). So these are not faults of the launch tree. They are moved, and they stay red as before.
 - `account-discovery` is moved only in part: the first visit uses `/index.html`, and the offline step expects `/index.html`. It then fails at `tools/lib/account-discovery-check.mjs:81`: the "Play on this device" link of the sign-in page goes to `/` (`src/online/entry.ts:67`), which is the new page on the launch tree, and the check waits for the old board there. The rest of the journey needs a launch-tree design; it is not an address change. See "Found fault".
 - `staging-login`: its own solo game now opens the hand-over dialog of the old page, not the board (`tools/lib/staging-login-check.mjs:58`).
 
 ### Not verified
 
-- WebKit. CI runs `web-online`, `signin-speed`, `next-art-wait` and `daylight-tabs` also on WebKit. All runs here are Chromium.
+- WebKit for `web-online` and `signin-speed`. CI runs them also on WebKit; the runs here are Chromium.
+- `gui-board-a8`, `gui-board-a15`, `gui-board-a18` one by one. `gui-board-preview` covers their screens (A8, A15, A18, A39) and passed (175.1 s).
 - The CI run itself. It needs the lead.
 - `recovery-consumers` (it needs an outside output) and `account-discovery` past line 81.
 - The cause of the one slow `leap-start` case.
