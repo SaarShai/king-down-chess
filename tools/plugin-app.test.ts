@@ -1994,8 +1994,17 @@ it('opens the game of a chat result while the end screen of the last game still 
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
+/** Sets the offline state, then waits until a fetch from the host page gets that state. The browser can apply the state
+ * after setOffline returns, and a tool call at that time then gets the old state (ticket 07 of retro-2026-11-24). */
+async function network(page: Page, online: boolean) {
+  await page.context().setOffline(!online);
+  await expect.poll(() => page.evaluate(() => fetch('/', { cache: 'no-store' }).then(() => true, () => false))).toBe(online);
+}
+
 it('keeps two failed polls silent, resets the count on a good read, and locks after three failures', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
+  // The page state for a failed assertion: the message line and the last tool calls.
+  const state = async () => `#error "${await frame.locator('#error').textContent()}", calls: ${await page.evaluate(() => (window as any).harnessCalls.slice(-8).map((c: any) => c.name).join(' '))}`;
   try {
     // White, this player, moves next: the timed poll waits 30 s, so only the reads below run.
     await friendGame(page);
@@ -2006,7 +2015,7 @@ it('keeps two failed polls silent, resets the count on a good read, and locks af
     await frame.locator('#board').press('ArrowUp'); await frame.locator('#board').press('Enter');
     expect(await frame.locator('#choices button').count()).toBe(2);
     const poll = () => frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true); });
-    await page.context().setOffline(true);
+    await network(page, false);
     for (let n = 0; n < 2; n++) {
       await poll();
       expect(await frame.locator('#status').textContent()).toBe('White Pawn.');
@@ -2014,15 +2023,16 @@ it('keeps two failed polls silent, resets the count on a good read, and locks af
       expect(await frame.locator('#error').textContent()).toBe('');
       expect(await frame.locator('#retry').isVisible()).toBe(false);
     }
-    await page.context().setOffline(false); await poll();
-    await page.context().setOffline(true);
+    await network(page, true); await poll();
+    expect(await frame.locator('#error').textContent(), await state()).toBe('');
+    await network(page, false);
     await poll(); await poll();
-    expect(await frame.locator('#retry').isVisible()).toBe(false);
+    expect(await frame.locator('#retry').isVisible(), await state()).toBe(false);
     await poll();
     await frame.locator('#status').filter({hasText:'Not current'}).waitFor();
     expect(await frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
     expect(await frame.locator('#retry').isVisible()).toBe(true);
-    await page.context().setOffline(false);
+    await network(page, true);
     await poll();
     await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
     expect(await frame.locator('#error').textContent()).toBe('');
