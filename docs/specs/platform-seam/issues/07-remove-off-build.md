@@ -173,11 +173,11 @@ Not verified:
 
 Kind: two agents that did not build the change, each with its own lens (one for what a player and an installed app get, one for the build, tests, CI and release tools). Head read: `51bdbcbd81abaef7fc292ef2bc38d3ce57c7db95`.
 
-Findings: one blocker (the staging tool can publish the off tree of a PR that is behind ticket 07, and the staging checks pass on it) and twelve notes (two legal-page copies, the stale smoke, stale comments, the dev worker, the stack hand-off, the full-suite case, two spec lines; three need no repair).
+Findings: one blocker (the staging tool can publish the off tree of a PR that is behind ticket 07, and the staging checks pass on it) and thirteen notes on nine faults (two legal-page copies, the stale smoke, stale comments, the dev worker and notice, the stack hand-off, the full-suite case, stale spec lines; the removed-check trailer and the account source test need no repair).
 
 One batch repairs them:
 
-- `tools/release/staging.py`: after the build, the tool stops when `static/solo-launch.json` does not exist, with "Update the PR to main". `verify_alias` always compares `/` with `next.html` (the fallback to `index.html` is removed). A guard, not a step back: a step back puts the removed switch into a release tool again, and it keeps the off tree possible.
+- `tools/release/staging.py`: after the build, the tool stops when `static/solo-launch.json` does not exist, with "Update the PR to main". `verify_alias` always compares `/` with `next.html` (the fallback to `index.html` is removed). A guard, not a step back: a step back puts the removed switch into a release tool again, and it keeps the off tree possible. A marker from an earlier build cannot pass the guard: `tools/plugin-server-build.mjs:82` removes the output folder before each build (the same on `0e1998312`). The default ref `origin/staging/first-game` (`04a08ce85`) is older than the launch switch, so the tool now refuses it; it built the off tree before this change too.
 - `tools/release/release.test.ts`: a new case runs `staging.py --preview` on a commit whose stub build writes no marker. It expects exit 1, the marker message and no publish call. The verify_alias case writes no marker now.
 - `docs/HOSTING.md`: the staging paragraph names the marker stop.
 - `docs/specs/interface-ios/spec.md`: one line says that the switch is gone and links to the launch tree.
