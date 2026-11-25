@@ -2,7 +2,7 @@
 
 Status: needs-triage. Waits for the owner's approval of [the spec](../spec.md).
 
-Class: A. Size: S.
+Class: B. Size: S. The sign-in sheet is part of the account flow, and the merge tool takes no lead read for these paths.
 
 ## Problem
 
@@ -16,8 +16,8 @@ Class: A. Size: S.
 - `sign-in.ts:72`: `privacy.href = apiOrigin + '/privacy.html'; terms.href = apiOrigin + '/terms.html';`. On the website `apiOrigin` is `''`, so the web output does not change.
 - A new test file in `tools/` with three narrow scans of the non-test files of `src/`. Each scan names the rule that it guards and fails when it finds nothing to scan.
   1. No `href` gets a literal that starts with `/` and ends in `.html`, except `next.html` and `index.html` (pages in the bundle).
-  2. No `fetch(` or `sendBeacon(` call has a literal first argument that starts with `/api`. One line is permitted: the beacon behind `if (!apiOrigin)` in `src/diagnostics/browser.ts`.
-  3. Each `onlineClient({` call has `origin: apiOrigin`, and there is at least one call.
+  2. No `fetch(` or `sendBeacon(` call has a literal first argument that starts with `/api`. The scan also matches the optional call `sendBeacon?.(`. One line is permitted: the beacon behind `if (!apiOrigin)` in `src/diagnostics/browser.ts:34`.
+  3. Each `onlineClient({` call has `origin: apiOrigin`, and there is at least one call. The definition at `src/online/client.ts:33` is not a call.
 - IOS.md names the test beside each of the three rules.
 
 ## Test that fails first

@@ -7,17 +7,18 @@ Class: C. Size: S. Needs a two-account pass on staging and a publish.
 ## Problem
 
 - `fixedRoutes` in `src/diagnostics/data.ts:83` has no `/api/friends`, no `/api/invites/:id/decline` and no `/play/friend`. A fault report from one of these shows the route `/other`.
+- It also has no `/index.html`. The site sends an account solo game to that address (`src/online/launch.ts:53`), and the old board starts the fault recorder (`src/entry.ts`).
 - `src/diagnostics/data.test.ts` checks sample paths only. No test compares the list with the API table (`src/api/http.ts:140`) or with the account routes (`src/online/routes.ts`).
 - The server calls `errorRoute` too (`src/diagnostics/server.ts:63`) and stores the result. Thus the change is class C, small as it is.
 
 ## Change
 
-- Add `/api/friends` and `/play/friend` to the list, and a pattern for `/api/invites/<id>/decline` that stores no ID.
+- Add `/api/friends`, `/play/friend` and `/index.html` to the list, and a pattern for `/api/invites/<id>/decline` that stores no ID.
 - Keep the line `if (clean === '/next.html') return '/next.html';` as it is: `tools/solo-launch.mjs` finds it by its exact text.
 
 ## Test that fails first
 
-In `src/diagnostics/data.test.ts`: for each `METHOD /api/…` key of `src/api/http.ts`, with a sample ID in the place of each parameter, `errorRoute` does not give `/other`, and its result does not hold the ID. The same for the named account paths. The test reads the keys with the scan that `tools/plugin-server-build.test.ts:46` uses. It is red on the three paths today.
+In `src/diagnostics/data.test.ts`: for each `METHOD /api/…` key of `src/api/http.ts`, with a sample ID in the place of each parameter, `errorRoute` does not give `/other`, and its result does not hold the ID. The same for the named account paths and for `/index.html`. The test reads the keys with the scan that `tools/plugin-server-build.test.ts:46` uses. It is red on the four paths today.
 
 ## Checks
 
@@ -26,5 +27,5 @@ In `src/diagnostics/data.test.ts`: for each `METHOD /api/…` key of `src/api/ht
 
 ## Known limits
 
-- The stored route of these three paths changes one time, so old and new reports of one fault have different routes.
+- The stored route of these four paths changes one time, so old and new reports of one fault have different routes.
 - An old app sends raw paths; the server reduces them. No iOS build is necessary.

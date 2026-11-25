@@ -2,11 +2,11 @@
 
 Status: needs-triage. Waits for the owner's approval of [the spec](../spec.md). The rollback text waits for decision 1.
 
-Class: A. Size: S.
+Class: B (a doc of a rollback path gets an independent read). Size: S.
 
 ## Problem
 
-- [HOSTING.md](../../../HOSTING.md) says that `/j` keeps the old page; on the site it goes through `join.html` to the new page. It names a cutover runbook at a path where no file is. It gives a rollback ("the same publish with `KINGDOWN_SOLO_LAUNCH=0`") that the release path cannot run.
+- [HOSTING.md](../../../HOSTING.md) says that `/j` keeps the old page; on the site it goes through `join.html` to the new page. For the cutover and the rollback it points to a runbook at a path where no file is (line 172). It does not say that every release builds with the switch on.
 - The comment in `next.html:37` ("no manifest and no service worker until cutover") is stale.
 - [IOS.md](../../../IOS.md) calls `src/platform.ts` "the one seam" and gives its rules as text only.
 - [FORMS.md](../../../FORMS.md) says that the web game screen and the plugin board screen are separate code. That is true for the new game screen. The account pages of the website (`/play`, `/g/<id>`) run the plugin screens through `src/online/runtime.ts`.

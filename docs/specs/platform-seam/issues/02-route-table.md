@@ -10,23 +10,25 @@ Class: B. Size: M.
 - The copies differ now. For `/j` on a launch tree, the host sends the page to `join.html` (`plugin-server-build.mjs:41`), and the preview sends it to `index.html`.
 - One comparing test exists: `tools/ios-app.test.ts:12` compares the Swift copy with the host on 11 sample paths, and it skips `/j` by hand.
 - No test compares the worker copy, `parseAccountRoute` (`src/online/routes.ts:14`) or `launchRoute` (`src/interface/platform.ts:15`) with the host.
-- Two of the three seam faults of the history were route faults: 13938bdd3 and 97f1b02c8.
+- Two of the three seam faults of the history were about `/j`: 13938bdd3 (the route) and 97f1b02c8 (the check lists after the route change).
 
 ## Change
 
-- A new module `tools/lib/page-routes.mjs` holds the pattern, the text of the join page (now inline at `plugin-server-build.mjs:137`) and a function that gives the page routes for a tree with or without the launch marker.
-- `vercelRoutes` in `tools/plugin-server-build.mjs` puts these routes in the same place and order as now.
-- The preview middleware of `vite.config.ts` routes a path through the same routes (with `tools/lib/site-route.mjs`). Its own copy of the pattern goes.
+The host list is the table. `vercelRoutes` in `tools/plugin-server-build.mjs` already gives it, and `tools/ios-app.test.ts` already reads it.
+
+- The preview middleware of `vite.config.ts` routes each path through `vercelRoutes` of the built tree (with the two servers off) and `tools/lib/site-route.mjs`. Its own copy of the pattern goes.
+- The text of the join page, now inline at `plugin-server-build.mjs:137`, becomes an exported constant. The built tree has no `join.html` (the host build writes it into its own output), so the preview answers `/join.html` with this constant.
+- The body of `vercelRoutes` does not change. Thus the class is B: the routes of the live host are the same function with the same output, and test 1 holds this.
 - The Swift router, the worker, the AASA file and `src/online/routes.ts` do not change.
 - The check lists of the deploy checks (`tools/vercel-check.mjs`, `tools/deploy-live-check.mjs`, `tools/web-online-check.mjs`) stay independent on purpose: a check that reads the table that it checks proves nothing.
 
 ## Tests
 
-1. Written before the change: `vercelRoutes(site)` gives the same routes after the change as before it, with and without the marker.
+1. Written before the change: `vercelRoutes(site)` gives the same routes after the change as before it, with and without the marker, and the host build writes the same `join.html`.
 2. Fails first: the preview routes each sample path as the host does. It is red on `/j` and `/j/` today.
-3. In `tools/ios-app.test.ts`: the Swift pattern is equal to the pattern of the module, as text. The sample loop stays. The `/j` difference stays, with its reason in the test: in the app, `/j` arrives only through `UniversalLink.localURL`.
-4. In `tools/service-worker.test.ts`: the launch worker gives the offline page for a path if and only if the pattern matches it. The sample list has paths that must not match: `/`, `/playground`, `/g/a/b`, `/next.html`.
-5. `parseAccountRoute` gives a route only where the host gives `index.html` or `join.html`. `launchRoute` gives home only where the host gives `next.html` with no 404. These tests read class C code; they do not edit it.
+3. In `tools/ios-app.test.ts`: the Swift pattern is equal to the pattern of the host route, as text. The sample loop stays. The `/j` difference stays, with its reason in the test: in the app, `/j` arrives only through `UniversalLink.localURL`.
+4. In `tools/service-worker.test.ts`: the launch worker gives the offline page for a path if and only if the pattern of the host route matches it. The sample list has paths that must not match: `/`, `/playground`, `/g/a/b`, `/next.html`.
+5. `parseAccountRoute` gives a route only where the host gives `index.html` or `join.html`. `launchRoute` gives home only where the host gives `next.html` with no 404. The test of `parseAccountRoute` reads class C code; it does not edit it.
 
 ## Checks
 
@@ -36,4 +38,4 @@ Class: B. Size: M.
 ## Known limits
 
 - The Swift copy and the worker copy stay copies. A test makes a difference fail; it does not remove the copy. A generated Swift file needs a new iOS build, and a filled worker changes the worker bytes for each client.
-- The preview serves a launch tree only in the release checks and by hand, until ticket 06.
+- Until ticket 06, the preview serves a launch tree only in a release run and by hand.
