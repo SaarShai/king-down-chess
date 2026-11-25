@@ -33,3 +33,56 @@ Each check is red today: `npm run check:browser <name>`.
 ## Known limits
 
 - `recovery-consumers` did not run in ticket 06: it needs `KINGDOWN_WEB_RECOVERY_OUTPUT` from outside. It is not a part of this ticket.
+
+## Results (first builder)
+
+The second builder does `stratus-registration`, `stratus-idle-exit` and ticket 09.
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| `lessons` | Parked: removed (`063ac65ee`). Its live Guide assertions moved first (`ad92b6583`). | Red at `tools/verify-lessons.mjs:28` ("Guide opens on the shelf"). Commit 50c492f19 removed `#lesson-shelf` from `index.html`; `docs/PARKED.md:12` parks Lessons. |
+| `lesson-return` | Parked: removed (`063ac65ee`). | Red at `tools/app-ui.mjs:82` (`startLesson`): no `#lesson-shelf`. It also opens a `?moves=` link, which round 3 parks. |
+| `workshop-cast` | Parked: removed (`063ac65ee`). | Red at `tools/app-ui.mjs:72`: no `[data-go="extra"]` in the Menu (`index.html:185-190`). `docs/PARKED.md:11`. |
+| `link-game` | Parked: removed (`063ac65ee`). | Red at `tools/verify-link-game.mjs:35`: `src/main.ts:28-34` drops `?moves=`, so no "Previously" line shows. `docs/PARKED.md:34`. |
+| `workshop` | Parked: stays, and stays red. | Red at `tools/app-ui.mjs:72` (no Extra row). It cannot go in this lane: `src/workshop/review.docs.test.ts:17` reads its groups, and this lane does not edit `src/`. With the file gone, `npm run test:docs` is red (ENOENT). The lead decides if a later change moves that lint off the script. |
+| `layout-title` | Stale: repaired (`f5ca2b00d`). | Only the `pieces` widths were red, at five sizes. Commit c28aea3a7 changed the piece pictures (pawn-b 254 × 320 to 284 × 244), and the image keeps its height with `width: auto` (`src/style.css:600-601`). The new widths come from the red log; heights, hero, text and the 0.02 tolerance stay. A note on how the wide pictures draw is ticket [11](11-title-lineup-clamp.md) (needs-triage). |
+
+The diagnosis of `lessons` said that the old board is only a rollback path. That is not correct: account solo games open the old board (`src/online/launch.ts:53-56`).
+
+### Where the live Guide assertions of `lessons` went
+
+- `tools/verify-menu-extra.mjs`, in the Guide step of its four sizes (320 × 568, 390 × 844, 844 × 390, 1440 × 900): Close is 44 × 44 px with a 24 px font, the first rule line is in view, and the head stays when the rules scroll. The old check ran these at 390 × 844 and 1440 × 900 only.
+- `tools/verify-read-piece.mjs`, at 390 × 844: All rules keeps the full Guide head and outlines the focused card, and Menu Guide then opens at the top (`src/ui/guide.ts:88`). The old check also ran these at 1440 × 900; that size is not moved.
+- The last assertion (`tools/verify-lessons.mjs:140`) is not in the list of the brief. It moved because `src/ui/guide.ts:88` is live code, not the shelf.
+- Each moved assertion is green on the page of today, so none needed a repair.
+
+### Removed helpers and docs
+
+- `tools/app-ui.mjs`: `lessonPath`, `workshopCopyLink` and `seeAgain` lost their last user. A search of `tools/`, `docs/` and `src/` finds no other import. `startLesson`, `keepWorkshopCopy`, `openExtra`, `openTricks` stay (the samples in `docs/specs/web-redesign/samples/` import them). `waitForLinkSave` stays (`tools/app-ui.test.ts` tests it). The Workshop branch of `pressMenu` stays (`workshop` and the samples use it).
+- The two tests that use `tools/verify-workshop.mjs` as an example path need no change, because `workshop` stays in the registry. With `workshop` out of the registry, three cases of `tools/git-hooks/commit-msg.test.ts` were red: its temporary repository copies the real registry. `tools/lib/removed-checks.test.ts` passes its own paths and was green.
+- `docs/PARKED.md`, `docs/WORKSHOP.md`, `docs/painted-game/README.md` and the comments of `tools/verify-painted-game.mjs` follow the removal.
+
+### A guard for checks that a CI step runs by name
+
+- A new registry field, `ciStep`, names the CI job whose own workflow step runs the check by name. `next-menus`, `next-skylift` and `next-rule-text` have `ciStep: 'play-scenes'`. The CI plan does not read the field: `checkShards()` gives the same plan with and without it.
+- `tools/workflow.lint.test.ts` holds the workflow steps and the marks in agreement, in both directions.
+
+## Work record
+
+- Item 1, green run: `npm run check:browser read-piece menu-extra`, 11:07:28 to 11:07:57: read-piece ok 1.9 s, menu-extra ok 9.1 s, 2 passed (folder seam-checks-DLReDI).
+- Item 2, red run: with `workshop` removed, `npm run test:docs` failed (`src/workshop/review.docs.test.ts`, ENOENT on `tools/verify-workshop.mjs`), and `KINGDOWN_TEST_FILE='tools/{git-hooks/commit-msg,lib/removed-checks,lib/checks,checks.lint,check,workflow.lint,app-ui}.test.ts' npm test` had 3 failed of 156 (`commit-msg.test.ts`, story 8 and two more). So `workshop` came back.
+- Item 2, green runs: `npm run test:docs` 199 passed, 1 skipped; `npm run typecheck` exit 0; the same seven test files 156 passed (24.6 s).
+- Item 2, search: no file in `tools/`, `src/` or `docs/` imports a removed script or helper. The only hits are the paths in the old record `docs/painted-game/continuation-checks-2026-09-29.json`.
+- Item 3, green run: `npm run check:browser layout-title`, 11:11:13 to 11:18:39 (most of it a wait for the machine lease): ok 4.2 s, 1 passed (folder seam-checks-6knpbN).
+- Item 4, red first: `KINGDOWN_TEST_FILE=tools/workflow.lint.test.ts npm test`, 1 failed of 9: the workflow steps give `next-menus play-scenes`, `next-rule-text play-scenes` and `next-skylift play-scenes`, and the registry gave none.
+- Item 4, with the marks: 9 passed of 9.
+- Item 4, mutation: with the mark of `next-skylift` removed, 1 failed of 9 (`+ "next-skylift play-scenes"`); the mark is back.
+- Last run: `npm run typecheck` exit 0; `npm run test:docs` 199 passed, 1 skipped; `KINGDOWN_TEST_FILE='tools/{checks.lint,check,workflow.lint,ci-plan,ci-shards,app-ui,git-hooks/commit-msg,lib/removed-checks,lib/checks}.test.ts' npm test` 8 files, 168 passed (25.4 s). The glob names `ci-plan.test.ts`, which does not exist.
+- The diagnostic runs of item 4 used `KINGDOWN_TEST_NO_TYPECHECK=1`; the last run did the type check.
+
+Not verified:
+
+- No full `npm test` and no run of all browser checks.
+- The moved All rules assertions do not run at 1440 × 900.
+- The commit-msg hook most likely counts no removed lines for the four deleted scripts, because it reads the registry of the work tree and their entries left in the same commit. The hook took the commit; it has one trailer for each check.
+- The second builder still does `stratus-registration`, `stratus-idle-exit` and `account-discovery`.
