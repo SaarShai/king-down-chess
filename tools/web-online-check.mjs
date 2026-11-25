@@ -632,7 +632,7 @@ export async function main() {
       if (await active.evaluate(() => !!navigator.serviceWorker.controller)) await takeover(active, output);
       else {
         served = output;
-        // The real root page must install and activate its offline worker without test registration.
+        // The old board at /index.html must install and activate its offline worker without test registration.
         assert.equal(await active.evaluate(() => navigator.serviceWorker.getRegistration('/').then(Boolean)), false);
         await active.goto(origin + '/index.html'); await readyBoard(active);
         await active.waitForFunction(() => navigator.serviceWorker.controller?.state === 'activated', null, { timeout: 30_000 * STEP });

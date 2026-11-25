@@ -39,6 +39,9 @@ In `tools/check.test.ts`, the test of the site build of the runner ("browser che
 
 - The time of the CI build grows by one site build while both trees are built.
 - A check can show a fault of the launch tree that is real. Such a fault becomes its own ticket; it does not stop this one.
+- `account-discovery` stays red, and no ticket holds the work yet. Before this ticket it ran on an off-tree build of its own; now `web-game-check.mjs` sets the switch for every mode (`tools/lib/registry.mjs:106`). It runs only by name, so CI stays green. The lead decides on the "Play on this device" link of `/play/` (`src/online/entry.ts:67`, see "Found fault"). Then the lead opens a ticket for the discovery journey on the launch tree.
+- In `web-online`, the offline install step opens `/index.html`, so it tests the worker of the old board. No step of `web-online` installs the worker from `/` on a fresh profile. The offline game-link step shows that `/` loads from the cache, but only after `/index.html` installed the worker. In CI, the only registration check of the new page is the `daylight` entry of `signin-speed` (`next.html`, `tools/lib/signin-speed-check.mjs:85`).
+- The route loop of `web-online` (`tools/web-online-check.mjs:660`) accepts `/index.html` or `/join.html` for each path. It checks the status and the content type, not which page each route gives. An assertion against `static/solo-launch.json` only compares the route table with the condition that made it (`tools/plugin-server-build.mjs:41`). The join part of `web-game` checks `/j` end to end.
 
 ## The checks that open `/` for the old board
 
@@ -76,7 +79,7 @@ In all, 43 registry entries open the old board. This ticket moves 40: 33 to the 
 - Jobs `browser-default (1)` to `(3)`: the runner site is now the launch tree. The shards balance by `ciSeconds` of the registry, which come from off-tree runs. The times here are near them, but `qa` was 232 s against 358 s.
 - Job `browser-webkit-board (input)` runs `web-online` and `signin-speed` on WebKit. No WebKit run of them was made here: this is their first test of the launch tree on WebKit in a pull request. Look first at the offline install of `web-online` and at the new `signin-speed` rule that `next.html` also installs the worker. (`next-art-wait` and `daylight-tabs` open WebKit themselves, so the runs here covered WebKit for them.)
 - `leap-start` asserts time and is a default check. It failed once here on one case (see below). Watch it in the default shards.
-- Job `play-scenes`: it builds the launch tree with the test pages. It passed here (408.5 s; the limit in CI is 420 s × 2).
+- Job `play-scenes`: it builds the launch tree with the test pages. It passed here in 408.5 s, near its local limit of 420 s (`tools/lib/registry.mjs:125`). The limit in CI is 420 s × 2, and `ciSeconds` is 320 from off-tree runs. If the CI time comes near the CI limit, change `ciSeconds` or the limit.
 - The test shards still build the off tree in `tools/openai-challenge.test.ts` and `tools/offline-build.test.ts`, because the workflow does not set the switch for the job. Ticket 07 moves them.
 
 ### Changed expectations (not faults of the checks)
@@ -104,7 +107,7 @@ Browser checks on the launch tree, one run each, in sequence (`npm run check:bro
 | read-piece, verb-marks, turn, end, their-turn, game-screen, menu-extra, home, account | ok | 5.1, 3.2, 21.2, 68.0, 11.9, 9.1, 10.5, 13.0, 64.2 s |
 | cursor-adoption, character-clips, new-game, powers, special-moves, ux-defects, visual-design, qa | ok | 43.3, 44.5, 38.2, 6.2, 41.7, 25.8, 27.4, 232.0 s |
 | painted-leaps, character-prepare, selftest | ok | 28.4, 13.6, 1.9 s |
-| leap-start | ok on the second run | 33.7 s |
+| leap-start | ok on the third run | 33.7 s |
 | next-art-wait, daylight-tabs, layout-result, next-save, muse-docs (not moved; same site build) | ok | 29.8, 45.1, 7.3, 5.9, 2.3 s |
 | layout-zoom, ui-review-samples, king-capture-facing, character-runtime, motion-concepts | ok | 3.7, 40.8, 71.2, 170.6, 51.0 s |
 | king-effects, painted-game (GPU; already at `/index.html`) | ok | 147.3, 173.6 s |
@@ -112,12 +115,14 @@ Browser checks on the launch tree, one run each, in sequence (`npm run check:bro
 | shared-mechanics, web-game-staging, desktop-performance, staging-login | ok | 143.5, 97.0, 100.0, 24.2 s |
 | play-scenes (alone, with the test pages, as CI runs it) | ok | 408.5 s |
 | gui-board-preview | ok | 175.1 s |
-| layout-title, stratus-idle-exit, stratus-registration, lessons, link-game, lesson-return, workshop, workshop-cast | fail; old faults | see below |
+| layout-title, stratus-registration, lessons, link-game, lesson-return, workshop, workshop-cast | fail; old faults | see below |
+| stratus-idle-exit | fail; old fault not proven | see below |
 | account-discovery | fail | see below |
 | recovery-consumers | not run | needs an outside `KINGDOWN_WEB_RECOVERY_OUTPUT` |
 
-- The first run of `leap-start` failed because this ticket file changed during the run (the runner refuses a changed checkout). The second run failed once on time ("knight white SE warm: 1317 ms, limit 150 ms"; the other 15 cases passed). The third run passed. In the first run the same case took 9 ms. The check asserts time, so the one slow case is most likely machine load. Not proven.
-- Old faults: the 8 by-name checks also fail on an off-tree build of this worktree (`KINGDOWN_SOLO_LAUNCH=0`, the same scripts, the old board at `/index.html`): the same assertion or time-out in each. `stratus-idle-exit` fails with a time-out on the launch tree and with "exit changes the pose" on the off tree. Five of them are parked (docs/PARKED.md). So these are not faults of the launch tree. They are moved, and they stay red as before.
+- The first run of `leap-start` failed because this ticket file changed during the run (the runner refuses a changed checkout). The second run failed once on time ("knight white SE warm: 1317 ms, limit 150 ms"; the other 14 cases passed). The third run passed. In the first run the same case took 9 ms. The check asserts time, so the one slow case is most likely machine load. Not proven.
+- Old faults: 7 by-name checks also fail on an off-tree build of this worktree (`KINGDOWN_SOLO_LAUNCH=0`, the same scripts, the old board at `/index.html`): the same assertion or time-out at the same line in each. Five of them are parked (docs/PARKED.md). So these 7 are not faults of the launch tree. They are moved, and they stay red as before.
+- `stratus-idle-exit`: not proven. On the off tree it fails at `tools/verify-stratus-idle-exit.mjs:36` ("exit changes the pose"). On the launch tree it passes line 36 and times out at line 121. The off run stops at line 36 and does not reach line 121. So no run shows that line 121 also fails on the off tree. It runs only by name, not in CI.
 - `account-discovery` is moved only in part: the first visit uses `/index.html`, and the offline step expects `/index.html`. It then fails at `tools/lib/account-discovery-check.mjs:81`: the "Play on this device" link of the sign-in page goes to `/` (`src/online/entry.ts:67`), which is the new page on the launch tree, and the check waits for the old board there. The rest of the journey needs a launch-tree design; it is not an address change. See "Found fault".
 - `staging-login`: its own solo game now opens the hand-over dialog of the old page, not the board (`tools/lib/staging-login-check.mjs:58`).
 
@@ -128,3 +133,15 @@ Browser checks on the launch tree, one run each, in sequence (`npm run check:bro
 - The CI run itself. It needs the lead.
 - `recovery-consumers` (it needs an outside output) and `account-discovery` past line 81.
 - The cause of the one slow `leap-start` case.
+- If the time-out of `stratus-idle-exit` at line 121 is an old fault (see above).
+- The by-name checks that read `next.html` or `index.html` on the runner site, which is now the launch tree: `next-menus` (`tools/verify-next-menus.mjs:31`), `next-skylift` (`tools/verify-next-skylift.mjs:13`), `next-rule-text` (`tools/verify-next-rule-text.mjs:16`) and `king-labels` (`tools/verify-king-labels.mjs:8`, `:62`). On the launch tree `next.html` is the launch page (`vite.config.ts:194`). No run here covered them.
+
+## Review
+
+- Kind: an independent review by an agent that did not build the change. It read head `3aeea07c576f573e1bb43c417d3efc7c8b6c834d`.
+- Findings: 1 blocking (the commit removed the web call of `checkSoloSync` with no `Removed-check:` trailer) and 7 notes (two wrong numbers for `leap-start`, `stratus-idle-exit` not proven old, `account-discovery` with no ticket, one wrong comment in `web-online`, the loose route loop, by-name checks not run, `play-scenes` near its limit).
+- One batch repairs them:
+  - The first commit has a new message with a 19th trailer for the web call of `checkSoloSync`. Its tree did not change. The two commits now have new hashes: `52ab76b8c` (was `5ea3ab3c2`) and `8390878b7` (was `3aeea07c5`).
+  - `tools/web-online-check.mjs:635`: the comment names the old board at `/index.html`.
+  - This file: `leap-start` numbers (14 other cases, ok on the third run); `stratus-idle-exit` is "not proven"; "Known limits" holds `account-discovery`, the worker of `/` in `web-online` and the route loop; "Not verified" holds the four by-name checks and `stratus-idle-exit`; the CI watch list holds the `play-scenes` time.
+  - Runs after the batch: `KINGDOWN_TEST_FILE=tools/web-online-check.test.ts npm test` (1 file, 42 passed); `npm run test:docs` (19 files, 199 passed, 1 skipped). The batch changes no check step, so no browser check ran again.
