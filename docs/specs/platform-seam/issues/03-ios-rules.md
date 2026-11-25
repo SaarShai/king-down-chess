@@ -1,6 +1,6 @@
 # The iOS rules as tests
 
-Status: needs-triage. Waits for the owner's approval of [the spec](../spec.md).
+Status: done on branch seam-guards; waits for the review.
 
 Class: B. Size: S. Needs decision 3 of the spec for the Apple switch.
 
@@ -33,3 +33,16 @@ The test of the build shell: `ios-sync.sh` has no such line today. The origin te
 - The AASA test converts the components of today to patterns. Apple has more match rules.
 - The checks that compile Swift stay on the Mac.
 - With the Apple switch pinned for production, the Apple release changes the pin on purpose. The test names the line. A staging build still takes the switch from the shell.
+
+## Work record
+
+- Decision 3: yes (the owner's pick in the spec).
+- `tools/ios-sync.sh`: the production arm exports `VITE_KINGDOWN_APPLE_SIGN_IN=0`; after `esac`, `unset KINGDOWN_TEST_PAGES`. The Apple switch takes the value 0, not `unset`, because a Vite `.env` file can set a `VITE_` value and a shell value overrides it. The build reads only `KINGDOWN_TEST_PAGES === '1'` from the shell, so `unset` is enough there (as `tools/release/live.sh` does).
+- `vite.config.ts` exports `buildTarget`, and `build.target` uses it.
+- `tools/ios-app.test.ts`: the build-shell test checks the two new lines, and that the staging arm has no Apple line. New tests: the Capacitor origin, the lowest iOS (each `IPHONEOS_DEPLOYMENT_TARGET` equals the `ios` and the `safari` version of `buildTarget`), the AASA pin, and the link test (Swift pattern, AASA components, host routes of a launch tree).
+- `ios/store.test.ts`: the AASA pin and the server-build check move out. The `plutil` test keeps the entitlement check. `tools/plugin-server-build.test.ts` gets the server-build check, with `mkdtempSync` folders.
+- `docs/IOS.md` names the tests beside the rules.
+- Red: `KINGDOWN_TEST_FILE="tools/{ios-app,plugin-server-build}.test.ts" npm test`: 1 failed, 19 passed. The failure: "builds the app with the new page whatever the website cutover is", the Apple line of the production arm is missing (received `[]`). The origin, target, AASA and link tests passed.
+- Green: `KINGDOWN_TEST_FILE="tools/{ios-app,plugin-server-build,offline-build,dev-settings}.test.ts" npm test`, with the type check: 4 files, 91 tests passed, 4.6 s of tests (126 s in all). `offline-build` and `dev-settings` load `vite.config.ts`.
+- The link test does not test the converse (each path that a component matches is accepted by the Swift pattern): `/g/*` is wider than the UUID pattern of the app.
+- Not verified: `ios/store.test.ts` after the edit (it runs only with `npm run ios:check`, which this lane does not run); `npm run ios:sync` with the new lines.

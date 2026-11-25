@@ -1,7 +1,8 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { runInNewContext } from 'node:vm';
 import { expect, it } from 'vitest';
 import { buildPluginServer, vercelRoutes } from './plugin-server-build.mjs';
 import { CHATGPT_PLUGIN } from './chatgpt-plugin.mjs';
@@ -105,6 +106,30 @@ it('gives a Muse build the Muse consent words and both connector builds the revi
     const server = readFileSync(join(fn, 'server.mjs'), 'utf8');
     for (const text of ['/muse/mcp', 'oauth-protected-resource', 'kingdown_new_game', 'kingdown_open']) expect(server.includes(text), text).toBe(true);
   } finally { rmSync(out, { recursive: true, force: true }); }
+}, 120_000);
+
+// The host side of universal links (docs/IOS.md): a website change that breaks it breaks invite links for the installed app.
+it('keeps the association file in a parked site build and serves JSON before the fallback', async () => {
+  const site = mkdtempSync(join(tmpdir(), 'aasa-site-')), out = mkdtempSync(join(tmpdir(), 'aasa-server-'));
+  try {
+    mkdirSync(join(site, '.well-known'));
+    copyFileSync('public/.well-known/apple-app-site-association', join(site, '.well-known/apple-app-site-association'));
+    writeFileSync(join(site, '.well-known/openai-apps-challenge'), 'test-domain-challenge');
+    writeFileSync(join(site, 'solo-launch.json'), '{}');
+    const output = await buildPluginServer(out, { site, chatgpt: false, muse: false });
+    const association = readFileSync(join(output, 'static/.well-known/apple-app-site-association'), 'utf8');
+    expect(association).toBe(readFileSync('public/.well-known/apple-app-site-association', 'utf8'));
+    expect(JSON.parse(association).applinks.details[0].appIDs).toEqual(['6M9C2YSWT4.dev.kingdown.app']);
+    const joinPage = readFileSync(join(output, 'static/join.html'), 'utf8');
+    let destination = '';
+    runInNewContext(/<script>(.*?)<\/script>/.exec(joinPage)![1], { location: { hash: '#fixture-token', replace: (value: string) => { destination = value; } } });
+    expect(destination).toBe('/next.html#join=fixture-token');
+    const routes = vercelRoutes(site, { chatgpt: false, muse: false });
+    const at = routes.findIndex((row: any) => row.src === '^/\\.well-known/apple-app-site-association$');
+    expect(routes[at]).toMatchObject({ headers: { 'Content-Type': 'application/json' }, continue: true });
+    expect(at).toBeLessThan(routes.findIndex((row: any) => row.handle === 'filesystem'));
+    expect(existsSync(join(output, 'static/.well-known/openai-apps-challenge'))).toBe(false);
+  } finally { rmSync(site, { recursive: true, force: true }); rmSync(out, { recursive: true, force: true }); }
 }, 120_000);
 
 it('refuses a recovery rehearsal on a parked build instead of reporting a pass', () => {

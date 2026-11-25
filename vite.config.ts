@@ -14,6 +14,8 @@ import { fileURLToPath } from 'node:url';
 import type { OutputBundle } from 'rolldown';
 
 const launch = soloLaunch();
+// Vite 8's default target, pinned: the iOS app floor (IPHONEOS_DEPLOYMENT_TARGET 16.4) depends on it. Raise both together.
+export const buildTarget = ['chrome111', 'edge111', 'firefox114', 'safari16.4', 'ios16.4'];
 
 const walk = (dir: string): string[] => readdirSync(dir).flatMap(name => {
   const path = join(dir, name);
@@ -167,9 +169,8 @@ export default defineConfig(({ command }) => {
   server: { host: '127.0.0.1', port: +(process.env.PORT || 5173), strictPort: true, ...(localOnline && { proxy: { '/api': { target: process.env.KINGDOWN_LOCAL_API_ORIGIN!, changeOrigin: false } } }) },
   preview: { host: '127.0.0.1', ...(localOnline && { proxy: { '/api': { target: process.env.KINGDOWN_LOCAL_API_ORIGIN!, changeOrigin: false } } }) },
   worker: { format: 'es' },
-  // Vite 8's default target, pinned: the iOS app floor (IPHONEOS_DEPLOYMENT_TARGET 16.4) depends on it. Raise both together.
   // The old screens and the new interface. The fixture page and the painted moments demo are test pages.
-  build: { copyPublicDir: false, target: ['chrome111', 'edge111', 'firefox114', 'safari16.4', 'ios16.4'],
+  build: { copyPublicDir: false, target: buildTarget,
     rollupOptions: { output: { manualChunks(id) {
       // These shared state helpers load together on home. Keep the board and search as lazy imports.
       if (/\/src\/(?:turn|screen\/save|account\/(?:local|sync)|ai\/skill)\.ts$/.test(id)) return 'local-state';
