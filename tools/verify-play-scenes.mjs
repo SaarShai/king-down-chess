@@ -1,4 +1,4 @@
-// Check the play scenes at four portrait and desktop sizes, two landscape phone sizes (game screen; at 667x375 the new-game panel too) and two text scales. Find cut and split text, horizontal
+// Check the play scenes at four portrait and desktop sizes, four compact landscape sizes (game screen; at 667x375 and 568x320 the new-game panel too) and two text scales. Find cut and split text, horizontal
 // viewport and scroll box overflow, reader text and controls that a scroll box hides at rest, overlap, card names that another card covers, controls that cannot take a tap, and network requests.
 // The page is in a build only with KINGDOWN_TEST_PAGES=1:
 //   KINGDOWN_TEST_PAGES=1 npm run check:browser play-scenes
@@ -14,7 +14,7 @@ import { pauseClock } from './lib/page-clock.mjs';
 // name with an ellipsis, as the known mark at 320 px allows.
 const gameScreen = scene => /^(online|solo)-/.test(scene) && !['online-loss', 'online-loss-offer'].includes(scene);
 const withPanel = scene => gameScreen(scene) || ['new-game', 'setup-friend'].includes(scene);
-const SIZES = [[320, 568], [360, 640], [390, 844], [667, 375, withPanel], [568, 320, withPanel], [1280, 800]], SCALES = [100, 150];
+const SIZES = [[320, 568], [360, 640], [390, 844], [667, 375, withPanel], [568, 320, withPanel], [736, 414, gameScreen], [900, 600, gameScreen], [1280, 800]], SCALES = [100, 150];
 const ROLES = ['button', 'link', 'switch', 'radio', 'checkbox', 'tab', 'menuitem', 'option', 'slider', 'textbox', 'combobox'];
 const SENTINEL = 'kingdown-scene-sentinel';
 
@@ -319,7 +319,7 @@ function layoutFaults(roles) {
   return out;
 }
 
-/** In the page: your capture counter at 1 and 12 captures, with each power name, clears the name, the mark, the notches, the line under the name and the cards. */
+/** In the page: your capture counter at 1 and 12 captures, with each power name, clears the name, the mark, the notches, the line under the name and the cards. Each card stays on the screen and takes a tap on 44 px. */
 function counterFaults() {
   const own = document.querySelector('.play-own'), store = own?.querySelector('.play-store'), range = document.createRange(), out = [];
   if (!own?.checkVisibility({ visibilityProperty: true })) return out;
@@ -332,7 +332,19 @@ function counterFaults() {
     const parts = [['mark', '.play-seat-ring'], ['notch', '.play-power-notch'], ['card', '.play-card']].flatMap(([part, selector]) => [...own.querySelectorAll(selector)].map(node => [part, node.getBoundingClientRect()]));
     // A row with no room draws the coin only: the copy is for screen readers.
     if (label && getComputedStyle(own.querySelector('.play-power-copy')).clipPath !== 'inset(50%)') parts.push(['name', text(label)], ['line', text(small)]);
+    const at = `at counter "${count}"${name && ` with ${name}`}`;
     for (const [part, other] of parts) if (Math.min(box.right, other.right) - Math.max(box.left, other.left) > .5 && Math.min(box.bottom, other.bottom) - Math.max(box.top, other.top) > .5) out.push(`the counter "${count}" covers the ${part}${name && ` of ${name}`}`);
+    if (own.closest('[inert]') || window.playSceneModal()) continue;
+    for (const card of own.querySelectorAll('.play-card')) {
+      const edge = card.getBoundingClientRect();
+      if (!edge.width) continue;
+      const called = `card "${card.querySelector('[data-button-label]')?.textContent.trim()}"`;
+      if (edge.left < -.5 || edge.right > innerWidth + .5) out.push(`${called} passes the screen edge ${at}`);
+      // The hit test can start up to 1 px outside the box.
+      let tap = 0;
+      for (let x = edge.left - 1; x < edge.right + 1; x += .5) if (document.elementFromPoint(x, edge.top + edge.height / 2)?.closest('.play-card') === card) tap += .5;
+      if (tap < 44) out.push(`${called} takes a tap on ${tap} px ${at}`);
+    }
   }
   return out;
 }

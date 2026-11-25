@@ -588,6 +588,14 @@
 @container (max-width: 300px) { .play-own:has(> .play-store[data-empty='false']) .play-hand { padding-inline: 0; } }
 /* A row that shows the coin only has no width left: the counter stands above the coin. */
 @container (max-width: 259px) { .play-own:has(> .play-hand) > .play-store { position: absolute; top: 0; left: 12px; margin: 0; } }
+/* A landscape row up to 300 px (736x414, 900x600) has no room for the power name, the counter and four cards: it shows the coin only, and the cards do not fan. */
+@container (max-width: 300px) {
+  .play-game[data-layout='wide'] .play-own:has(> .play-hand) > .play-power { min-width: 44px; }
+  .play-game[data-layout='wide'] .play-own:has(> .play-hand) .play-power-copy { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .play-game[data-layout='wide'] .play-own:has(> .play-hand) > .play-store { position: absolute; top: 0; left: 12px; margin: 0; }
+  .play-game[data-hand='hand'][data-layout='wide'] .play-own .play-card { --fan-angle: 0deg !important; --fan-drop: 0px !important; }
+  .play-game[data-layout='wide'] .play-hand { padding-inline: 0; }
+}
 @media (max-width: 359px) {
   .play-game .play-own .play-power { min-width: 50px; }
   /* Beside four cards, a name such as "Darkness" takes the narrow font, so "Salvation" fits its card. */
