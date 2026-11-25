@@ -1,0 +1,92 @@
+# Test workers: the two plugin-app reds
+
+Status: done for the two `plugin-app` reds (cause proven by a forced order, test repaired). Open: the pass bar with 8 workers failed in run 4 on two other files with no proven cause, so `maxWorkers` stays 4.
+
+Source: [retro](../retro.md), item 11; ticket [06](06-test-workers.md)
+
+## Problem
+
+Ticket 06 kept `maxWorkers: 4`, because two tests of `tools/plugin-app.test.ts` failed with 8 workers and had no cause:
+
+- "keeps two failed polls silent, resets the count on a good read, and locks after three failures": line 2018, `expected true to be false`. Try again shows after the second failed poll of the second offline window.
+- "recovers a held move at 10 seconds and ignores its late reply": line 1379, `locator.click: Timeout 5000ms exceeded`, while it waits for `#end-turn[aria-disabled="false"]`.
+
+## Cause
+
+### Premise: do they fail with 4 workers?
+
+- Line 2018: yes. The session logs of the owner hold three natural reds of this test with the same message: one on 2026-10-24 and two on 2026-10-29. `vite.config.ts` had `maxWorkers: 4` at those commits. Each was the only red of its full run. The 10-24 run had a load average of 13.8. Thus this test is a flake with 4 workers too.
+- Line 1379: not shown. The session logs hold four earlier reds of this test (two on 10-15, one on 10-26, one on 11-13). Each run has at least 4 other failures, and the logs do not keep the error line of this test. The 10-15 runs come before the `maxWorkers` setting.
+- CI: neither test is in the failures of the last 40 failed CI runs. There, the held move test passes in 7.5 s to 13.6 s.
+
+### Line 1379: the taps come before the board preview reply
+
+- The test reads the game after the friend joins. That read draws the board, and the board asks the server for its draft preview (`requestPreview` in `src/plugin/screens/board.ts`). The test then taps e2 and e4 at once. It does not wait for the preview, as the poll test does with `settled(page)`.
+- While the preview waits, `canPlay()` is false. A tap then only reads its square and keeps it as `earlyTap` (ticket 87). The reply applies the last early tap again: e4, an empty square. No move stages, so `#end-turn` stays off, and the click waits until its 5 s limit.
+- Thus the cause is the order, not the 5 s limit: after two early taps, End turn never comes on.
+- On an idle Mac, `harnessApp.client.inflight` is 0 at each tap (the preview is back), and End turn comes on 393 to 458 ms after the second tap.
+- Rejected: a canvas box read before the board has its size (the seat tap fault of ticket 06). The canvas is 487 px wide at each read, also when each ResizeObserver callback of the frame is held 400 ms. The board keeps its size from the waiting screen.
+- Forced order: a Playwright route holds the first `kingdown_preview` request after the join read. Without the repair (hold 1500 ms), the test is red 4 of 4 times with the exact line: `locator.click: Timeout 5000ms exceeded`, waiting for `#end-turn[aria-disabled="false"]`. With the repair and a hold (1500 ms once, 3000 ms three times), it is green 4 of 4 times.
+- Not measured: that a full suite delays the preview reply past the two taps. This is an inference.
+
+### Line 2018: the good read meets the old offline state
+
+- The test counts failed polls. Two failed polls are silent, a good read sets the count to 0, and the third failed poll in a row shows Try again. The good read comes at once after `setOffline(false)`.
+- Each failed transport call writes `King Down connection failed` to the browser console, and the vitest log keeps these lines. The red full run of ticket 06 (`passfull-1.log`) has 5 of them from this test at 11:32:33: 3 under the test, and 2 under the next test. The next test writes none when it runs alone. The 10-29 red also has 5.
+- Up to line 2018 the test makes only 4 offline polls. A green run of the complete test has 5 lines (2 + 3 polls). Thus in each red, one more transport call failed with `Failed to fetch`. A good read that comes back but does not set the count to 0 gives 4 lines, so that is not the cause.
+- In a green run, the test makes no other call in this part: the tool calls are the 5 polls and nothing more. Line 2005 passes, so the draft preview is present, and an unchanged poll starts no new preview. The timed poll is 15 s or more away.
+- So the most likely failed call is the good read itself: Chromium applies the online state after `setOffline(false)` returns, and the read meets the old offline state. That failure is the third in a row, and nothing checks `#retry` until line 2018.
+- Ticket 06 rejected a late network change: 300 changes, each followed at once by a fetch from the host page, gave 0 late changes. That probe ran without the load of a full suite.
+- Forced order: a Playwright route aborts each host request with `internetdisconnected` for 300 ms or 1000 ms after the first `setOffline(false)`, as if the browser applied the online state late. Without the repair, the test is red 7 of 7 times at the same assertion (`expected true to be false`), with 5 `connection failed` lines, as in the natural red. The capture shows `#error` "Cannot connect. Check your connection, then try again." and 5 `kingdown_get` calls with no other call. With the repair and the same force, it is green 7 of 7 times.
+- Not measured: a natural late online state under the load of a full suite. The natural reds do not keep the tool calls, so the count of 5 shows one more failed fetch but does not name the call.
+
+### Two new reds in pass-bar run 4 (cause not found)
+
+Run 4 failed two tests in other files, both at the first wait after a page boot:
+
+- `tools/plugin-real-host.test.ts`, "keeps two live widgets on one game current, and the older widget writes only its own state": `frame.waitForFunction: Timeout 5000ms exceeded` in `showGame` (line 60), for the second widget. The test took 8008 ms (3971 and 4433 ms in runs 2 and 3).
+- `tools/plugin-setup-owner.test.ts`, "uses the seven selected copies for random": `locator.click: Timeout 5000ms exceeded`, waiting for `#home-games:not(:disabled)` (line 249), the first action after the page opens. The test took 5245 ms (1086 and 783 ms in runs 2 and 3). The solo and quick variants just before it passed in 1.7 s and 1.6 s.
+
+What the JSON reports show:
+
+- Both reds come in the same 5 s, at about +239 s to +244 s of the run. At that time six browser files ran at once (`plugin-app`, `plugin-profile`, `plugin-join-review`, `plugin-setup-owner`, `plugin-motion-concepts`, `plugin-real-host`), with `deploy.test.ts` and `commit-msg.test.ts`. Runs 2 and 3 did not run the two red files at the same time.
+- The tests of the other files in that window took about 1.4 to 2.3 times their time in runs 2 and 3. Over each file, the median is 1.0 to 1.4 times. A load of that size does not explain a boot step of less than 1 s that takes more than 5 s.
+- A held app module (6 s) gives each exact line, and a 10 s or 15 s boot limit makes it green (3 of 3 each). But a hold of 6 s must fail a 5 s wait, so this force cannot tell a slow boot from a stuck boot. It is not a proof of the cause, and the limits are not in the tree.
+
+By the stop rule, `maxWorkers` stays 4.
+
+## Change
+
+- `tools/plugin-app.test.ts`, "recovers a held move at 10 seconds and ignores its late reply": `await settled(page)` after the join read and before the taps (commit `aecd22ff6`).
+- `tools/plugin-app.test.ts`, "keeps two failed polls silent…": the helper `network(page, online)` sets the offline state, then waits until a fetch from the host page gets that state. The test uses it for each of its four changes. After the good read, the test checks that `#error` is empty. The two checks name the message line and the last 8 tool calls when they fail, so a natural red carries its own log (commit `537229593`).
+- `vite.config.ts`: no change. The pass bar ran with `process.env.CI ? 4 : 8`; after the red in run 4 the value went back to 4.
+
+## Checks
+
+Times are the vitest `Duration`. The runs of one test select it with `KINGDOWN_TEST_NAME`; the forced runs also skip the type check (`KINGDOWN_TEST_NO_TYPECHECK=1`).
+
+| Run | Workers | Repair | Time | Result |
+| --- | --- | --- | --- | --- |
+| Line 1379, hold of the preview 1500 ms | 1 test | no | 7.7 to 7.8 s | red (4 of 4), the natural line |
+| Line 1379, hold of the preview 1500 or 3000 ms | 1 test | yes | 5.1 to 7.1 s | green (4 of 4) |
+| Line 1379, no force, with the type check | 1 test | yes | 4.0 s | green |
+| Line 2018, late online state 300 or 1000 ms | 1 test | no | 2.9 to 3.1 s | red (7 of 7), the natural line |
+| Line 2018, late online state 300 or 1000 ms | 1 test | yes | 3.4 to 4.2 s | green (7 of 7) |
+| Line 2018, no force, with the type check | 1 test | yes | 2.9 s | green |
+| Pass bar, full run 1 | 8 | yes | 478 s | green (other load on the Mac: the other runs took 326 to 343 s) |
+| Pass bar, full run 2 | 8 | yes | 326 s | green |
+| Pass bar, full run 3 | 8 | yes | 342 s | green |
+| Pass bar, full run 4 | 8 | yes | 343 s | red: `plugin-real-host.test.ts:60` (via line 190) and `plugin-setup-owner.test.ts:249`; `plugin-app.test.ts` green |
+| `tools/plugin-app.test.ts`, committed state | 4 | yes | 190 s | green (138 tests, with the type check) |
+
+The pass bar fails: 3 green and 1 red. Runs 5 to 10 did not run. `tools/plugin-app.test.ts` was green in each of the 4 full runs with 8 workers.
+
+## Known limits
+
+- The two forced orders prove that each order gives the exact red line and that each repair makes it green. They do not prove that a full suite gives that order. Both natural triggers are inferences.
+- The forces are not in the tree. The patches with them are in the log folder of this work (`held-force.patch`, `poll-force.patch`, `boot-force.patch`), not in the repository.
+- The committed poll test has one more check than the forced runs: `#error` is empty after the good read.
+- Other tests in the file use `setOffline` with no wait for the state. Five natural reds of "gives one offline sentence on Start and Join" (4 workers) show a server reply ("Invitation unavailable") on the join screen while the page is offline. Four of the five are on one day (11-14), so they can come from a change of that day, not from load. This work did not prove or repair that test.
+- Lines 924 and 953 of `tools/plugin-app.test.ts` also tap through `screenOf` after a read, with no wait for the preview.
+- The run 4 reds have no capture at failure time, so a next red of the same tests also does not show if the page was slow or stuck.
+- Other sessions of the owner share the Mac. The times change with their load.
