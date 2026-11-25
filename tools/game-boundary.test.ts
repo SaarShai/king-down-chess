@@ -25,8 +25,9 @@ function violations(file: string, source: string): string[] {
   const tree = parseSync(file, source);
   if (tree.errors.length) throw new Error(`Cannot inspect ${file}: ${JSON.stringify(tree.errors)}`);
   const check = (specifier: string, names: string[]) => {
-    if (!specifier.startsWith('.')) return;
-    const target = relative(root, resolve(dirname(resolve(root, file)), specifier)).replace(sourceExtension, '') + '.ts';
+    // Vite resolves '/src/...' from the project root; bare names are packages.
+    if (!specifier.startsWith('.') && !specifier.startsWith('/')) return;
+    const target = relative(root, specifier.startsWith('/') ? resolve(root, '.' + specifier) : resolve(dirname(resolve(root, file)), specifier)).replace(sourceExtension, '') + '.ts';
     const denied = blocked[target];
     if (denied) for (const name of names) if (name === '*' || denied.has(name)) faults.push(`${file}: ${name} from ${target}`);
   };
@@ -78,6 +79,12 @@ describe('product game boundary', () => {
     expect(violations('src/example.ts', "import { positionKey } from './rules/position-key';")).toHaveLength(1);
     expect(violations('src/example.ts', "import { legalMoves } from './rules/engine.js';")).toHaveLength(1);
     expect(violations('src/render/painted/example.mjs', "import { legalMoves } from '../../rules/engine.ts';")).toHaveLength(1);
+    expect(violations('src/render/painted/example.mjs', "import { legalMoves } from '/src/rules/engine.ts';")).toHaveLength(1);
+  });
+  it('sees each import path into src: no alias or tsconfig path maps a bare name to a source file', () => {
+    const options = JSON.parse(readFileSync(resolve(root, 'tsconfig.json'), 'utf8')).compilerOptions;
+    expect.soft([options.paths, options.baseUrl, options.rootDirs], 'tsconfig.json maps bare names into src: teach check() in tools/game-boundary.test.ts to resolve them first').toEqual([undefined, undefined, undefined]);
+    expect.soft(readFileSync(resolve(root, 'vite.config.ts'), 'utf8').match(/^.*\balias\s*:.*$/m)?.[0], 'vite.config.ts has a resolve alias: teach check() in tools/game-boundary.test.ts to resolve it first').toBeUndefined();
   });
   it('permits only a direct owned-search destructuring callback for a lazy import', () => {
     expect(violations('src/example.ts', "import('./ai/search').then(({ searchOwned }) => searchOwned(owner, rules, pos));")).toEqual([]);
