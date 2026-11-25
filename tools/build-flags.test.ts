@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { FLAG_NAMES, scanFlags } from './build-flags.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-const reads: { name: string; place: string; client: boolean }[] = scanFlags(root);
+// The quoted folders also make tools/lib/test-select.mjs select this test for a change of any file in them.
+const reads: { name: string; place: string; client: boolean }[] = scanFlags(root, ['src/', 'tools/', 'vite.config.ts', 'package.json']);
 const firstPlace = (name: string) => reads.find(read => read.name === name)?.place;
 const text = (file: string) => readFileSync(root + file, 'utf8');
 

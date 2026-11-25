@@ -41,9 +41,12 @@ const READ = /(?:import\.meta\.env\??\.|process\.env\.|env\.|\$\{?|['"]|(?<=^|\s
 const SOURCE = /\.(?:ts|mjs|sh|py)$/, TEST = /\.test\.(?:ts|mjs)$/;
 const SELF = 'tools/build-flags.mjs';
 
-/** Each read of a name in the source: the name, its place (file:line) and whether it is an import.meta.env read. */
-export function scanFlags(root) {
-  const files = ['vite.config.ts', 'package.json'];
+/**
+ * Each read of a name in the sources: the name, its place (file:line) and whether it is an import.meta.env read.
+ * A source that ends in / is a folder; the scan reads each .ts, .mjs, .sh and .py file below it, except tests.
+ */
+export function scanFlags(root, sources) {
+  const files = sources.filter(source => !source.endsWith('/'));
   const walk = dir => {
     for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
       const path = `${dir}/${entry.name}`;
@@ -51,7 +54,7 @@ export function scanFlags(root) {
       else if (SOURCE.test(entry.name) && !TEST.test(entry.name) && path !== SELF) files.push(path);
     }
   };
-  walk('src'); walk('tools');
+  for (const source of sources) if (source.endsWith('/')) walk(source.slice(0, -1));
   const reads = [];
   for (const file of files) {
     const lines = readFileSync(join(root, file), 'utf8').split('\n');
