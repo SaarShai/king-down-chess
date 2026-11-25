@@ -1,6 +1,6 @@
 # The docs say what the code does
 
-Status: needs-triage. Waits for the owner's approval of [the spec](../spec.md). The rollback text waits for decision 1.
+Status: ready-for-agent. The owner approved [the spec](../spec.md) on 2026-11-25. Decision 1 is yes: the off build ends with ticket 07, and the rollback text says so.
 
 Class: B (a doc of a rollback path gets an independent read). Size: S.
 

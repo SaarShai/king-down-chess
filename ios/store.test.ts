@@ -1,10 +1,8 @@
 import { it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
-import { runInNewContext } from 'node:vm';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import sharp from 'sharp';
-import { buildPluginServer, vercelRoutes } from '../tools/plugin-server-build.mjs';
 
 const read = (path: string) => readFileSync(path, 'utf8');
 const plist = (path: string) => JSON.parse(execFileSync('plutil', ['-convert', 'json', '-o', '-', path], { encoding: 'utf8' }));
@@ -33,10 +31,8 @@ it('wires automatic signing and the association with the owner team', () => {
   expect(project).toContain('UniversalLink.swift in Sources');
   const exported = plist('ios/ExportOptions.plist');
   expect(exported).toMatchObject({ method: 'app-store-connect', destination: 'upload', signingStyle: 'automatic', teamID: '6M9C2YSWT4', manageAppVersionAndBuildNumber: false });
+  // tools/ios-app.test.ts pins the association file; tools/plugin-server-build.test.ts checks how the host serves it.
   expect(plist('ios/App/App/App.entitlements')['com.apple.developer.associated-domains']).toEqual(['applinks:kingdown.dev']);
-  expect(JSON.parse(read('public/.well-known/apple-app-site-association')).applinks.details).toEqual([
-    { appIDs: ['6M9C2YSWT4.dev.kingdown.app'], components: [{ '/': '/g/*' }, { '/': '/j' }, { '/': '/j/' }] },
-  ]);
 });
 
 it('uses a complete opaque icon and keeps the platform security defaults', async () => {
@@ -57,26 +53,6 @@ it('declares account profile data and the app-owned defaults reason without trac
   expect(privacy.NSPrivacyCollectedDataTypes.map((row: any) => row.NSPrivacyCollectedDataType).sort()).toEqual(['EmailAddress', 'UserID', 'Name', 'PhotosorVideos', 'GameplayContent', 'OtherUserContent', 'ProductInteraction', 'OtherDiagnosticData'].map(type => 'NSPrivacyCollectedDataType' + type).sort());
   for (const row of privacy.NSPrivacyCollectedDataTypes) expect([row.NSPrivacyCollectedDataTypeLinked, row.NSPrivacyCollectedDataTypeTracking, row.NSPrivacyCollectedDataTypePurposes]).toEqual([true, false, ['NSPrivacyCollectedDataTypePurposeAppFunctionality']]);
 });
-
-it('keeps the association file in a parked site build and serves JSON before the fallback', async () => {
-  const site = resolve(run, 'site'), output = resolve(run, 'server');
-  mkdirSync(resolve(site, '.well-known'), { recursive: true });
-  copyFileSync('public/.well-known/apple-app-site-association', resolve(site, '.well-known/apple-app-site-association'));
-  writeFileSync(resolve(site, '.well-known/openai-apps-challenge'), 'test-domain-challenge');
-  writeFileSync(resolve(site, 'solo-launch.json'), '{}');
-  await buildPluginServer(output, { site, chatgpt: false, muse: false });
-  expect(read(resolve(output, '.vercel/output/static/.well-known/apple-app-site-association'))).toBe(read('public/.well-known/apple-app-site-association'));
-  expect(JSON.parse(read(resolve(output, '.vercel/output/static/.well-known/apple-app-site-association'))).applinks.details[0].appIDs).toEqual(['6M9C2YSWT4.dev.kingdown.app']);
-  const joinPage = read(resolve(output, '.vercel/output/static/join.html'));
-  let destination = '';
-  runInNewContext(/<script>(.*?)<\/script>/.exec(joinPage)![1], { location: { hash: '#fixture-token', replace: (value: string) => { destination = value; } } });
-  expect(destination).toBe('/next.html#join=fixture-token');
-  const routes = vercelRoutes(site, { chatgpt: false, muse: false });
-  const at = routes.findIndex((row: any) => row.src === '^/\\.well-known/apple-app-site-association$');
-  expect(routes[at]).toMatchObject({ headers: { 'Content-Type': 'application/json' }, continue: true });
-  expect(at).toBeLessThan(routes.findIndex((row: any) => row.handle === 'filesystem'));
-  expect(() => read(resolve(output, '.vercel/output/static/.well-known/openai-apps-challenge'))).toThrow();
-}, 120000);
 
 it('wires the local Apple sheet without a new package or an active sign-in entitlement', () => {
   const swift = read('ios/App/App/AppleSignInPlugin.swift');
