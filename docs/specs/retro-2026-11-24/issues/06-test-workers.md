@@ -1,6 +1,6 @@
 # Test workers: the seat tap repair, and 4 workers stay
 
-Status: needs-info
+Status: done (PR 467) for the repair of the seat tap. Open: the two `plugin-app` reds with 8 workers have no cause, so `maxWorkers` stays 4.
 
 Source: [retro](../retro.md), item 11
 
@@ -14,7 +14,7 @@ The full `npm test` takes about 525 s with `maxWorkers: 4`. This Mac has 16 core
 
 The test reads the box of the seat board before the board has its size.
 
-- The failure line in the retro log: `A setup piece keeps its touch drag guard: expected false to be true`, at line 86. The value is `false`, not `undefined`. Thus the tap hits the canvas and its `touchstart` listener runs, but `PaintedView` starts no drag (`dragFrom` is null): the tap is not on an own piece.
+- The failure line in the retro log: `A setup piece keeps its touch drag guard: expected false to be true`, at line 86 of the test file at that time (line 87 on main before this change). The value is `false`, not `undefined`. Thus the tap hits the canvas and its `touchstart` listener runs, but `PaintedView` starts no drag (`dragFrom` is null): the tap is not on an own piece.
 - `PaintedView` sizes the canvas in a ResizeObserver callback (`src/render/PaintedView.ts`). The seat moves `#board` into its slot, so the canvas is 0 × 0 until a frame delivers that callback.
 - A sampler in the frame (each frame and each resize, 393 × 852, 8 runs): the seat shows at about 65 ms with the canvas at `197,351` and 0 × 0. The canvas gets `5,147` and 384 px at about 155 ms. `#board` has `aria-busy="false"` before the seat shows (`src/plugin/board-view.ts` sets it once, at boot), so that wait gives nothing here.
 - If the box read comes in that window, the test taps at (197, 351). After the resize, that point is in the middle of the board, on an empty square. The guard is then `false`, as in the retro log.
@@ -22,7 +22,7 @@ The test reads the box of the seat board before the board has its size.
 - Not measured: that 8 workers delay the frame into that window. This is an inference. A CPU throttle of the page (1× to 30×, 16 runs) gives no red, because it slows the frames and the test commands together.
 - Rejected: a seat animation that takes the `pointerdown` (the probe shows that `pointerdown` reaches the canvas, and no animation runs), and a position that is not set (`seat.ts` calls `board.sync` in the same task that shows the seat).
 
-This is a test fault, not a product fault. The canvas is 0 × 0 only until the first frame after the seat shows.
+This is a test fault, not a product fault. The canvas is 0 × 0 only until the first ResizeObserver callback after the seat shows (about 90 ms in the sampler). The output of the sampler and of the CPU throttle runs is not in the log folder.
 
 ### A second red with 8 workers (cause not found)
 
@@ -91,3 +91,8 @@ The 10 slowest files, from the red full run (pass-bar full run 1, 8 workers, 274
 - The loaded run (4 files) keeps only 4 of the 8 workers busy. Its greens show less than the full runs.
 - The two plugin-app reds have no cause. To find them, run full suites with 8 workers and instrumented copies of those tests until one is red, then read its log.
 - Other sessions of the owner share the machine. The times change with their load.
+
+## Review
+
+- Review: an agent that did not build the change read head `2408560e2`. It found no blocking fault. It confirmed the cause in the code: the ResizeObserver of `src/render/PaintedView.ts` gives the canvas 0 px while the board is in a hidden screen, and `waitForBoardPaint` needs a canvas with a box. One batch repairs its six notes, all in the docs: the limit of the line 1379 red, the true gain of a split of `tools/deploy.test.ts`, the two `--publish` sections, the words on the 0 × 0 window, this status line, and the line number.
+- Open findings: none that block.
