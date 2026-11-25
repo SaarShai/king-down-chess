@@ -6,7 +6,7 @@ import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mc
 import { registerAppTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import { z } from 'zod';
 import { MatchServiceError } from '../match/service';
-import { createSchema, inviteSchema, friendsSchema, invitationsSchema, draftSchema, MAX_REVISION, PRESETS, type Action, type View } from '../match/protocol';
+import { createSchema, inviteSchema, friendsSchema, invitationsSchema, draftSchema, MAX_REVISION, PRESETS, type Action, type ErrorCode, type View } from '../match/protocol';
 import { DEFAULT_OPTIONS } from '../match/setup';
 import { choiceSchema, optionsSchema } from '../match/setup-schema';
 import { REPORT_CATEGORIES } from '../account/profile';
@@ -15,6 +15,7 @@ import { settingsSchema } from './settings';
 import { ending } from './ending';
 import { commandLimit, handleSchema, TOOL_LIMITS } from './service';
 import type { PluginService } from './service';
+import type { PluginTool } from './tool-names';
 
 /** The plugin build writes this origin before each art file (tools/plugin-ui-build.mjs); the server swaps in its own. */
 export const ART_ORIGIN = 'https://kingdown-art.invalid';
@@ -27,7 +28,7 @@ const text = (value: string) => [{ type: 'text' as const, text: value }];
 /** Plugin words for refusals. The board reads the game again after a stale or invalid move, so neither says "Reload".
  *  STALE_REVISION: the view is old (the owner's pick, approval W7, option a). INVALID_MOVE: the service checks the
  *  revision first, so the view is current and only the move is wrong. Change the words here only. */
-const REFUSED: Partial<Record<string, string>> = { STALE_REVISION: 'Your opponent moved. Check the board.', INVALID_MOVE: 'This move is not available. Choose another move.', FRIEND_GAME_LIMIT: 'The game limit is reached. See the board for details.', FRIEND_INVITE_LIMIT: 'The invitation limit is reached. See the board for details.', OPEN_INVITE_LIMIT: 'The open invitation limit is reached. See the board for details.' };
+const REFUSED: Partial<Record<ErrorCode, string>> = { STALE_REVISION: 'Your opponent moved. Check the board.', INVALID_MOVE: 'This move is not available. Choose another move.', FRIEND_GAME_LIMIT: 'The game limit is reached. See the board for details.', FRIEND_INVITE_LIMIT: 'The invitation limit is reached. See the board for details.', OPEN_INVITE_LIMIT: 'The open invitation limit is reached. See the board for details.' };
 let page = { source: '', origin: '', html: '', uri: '' };
 /** The page with its art origin, and its URI. Hosts cache resources by URI, so a changed board must not reuse old
  *  controls. The HTTP handler makes a server for each request: the swap and the hash run once for each page and origin. */
@@ -63,7 +64,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     return handler(request, extra);
   });
   const command = { game_id: gameId, command_id: z.string().min(1).max(200), expected_revision: z.number().int().min(0).max(MAX_REVISION) };
-  function register<T extends z.ZodRawShape>(name: string, description: string, shape: T, { visibility, readOnly = false, openWorld = false, destructive = false, idempotent = true, meta, output }: Hints, run: (args: z.infer<z.ZodObject<T>>) => Promise<Reply>) {
+  function register<T extends z.ZodRawShape>(name: PluginTool, description: string, shape: T, { visibility, readOnly = false, openWorld = false, destructive = false, idempotent = true, meta, output }: Hints, run: (args: z.infer<z.ZodObject<T>>) => Promise<Reply>) {
     const inputSchema = z.object(shape).strict(); inputs.set(name, inputSchema);
     // Only kingdown_open carries the board: a template on every tool makes ChatGPT redraw the board too often.
     // The Muse connector installs the v2 MCP SDK, so ext-apps types now name v2's server; this plugin stays on v1 and runs the same.
