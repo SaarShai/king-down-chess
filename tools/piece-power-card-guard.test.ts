@@ -3,8 +3,10 @@
  * table of their own. Each case comes from the real lists (LETTERS, POOL, PROMOTIONS,
  * RELEASED_CARDS), so a new entry there makes these tests name the place to change.
  */
+import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { art, symbols } from '../src/account-game/art';
+import { RELEASED_CARDS } from '../src/content/cards';
 import { GameRules } from '../src/game-rules';
 import { matchMove } from '../src/muse/match-words';
 import { DEFAULT_RULES, K, LETTERS, NAMES, PROMOTIONS } from '../src/rules/engine';
@@ -47,5 +49,14 @@ describe('Muse: move notation for each piece letter', () => {
     expect(list, `test position: no promotion to ${l}; change the test position`).toContain(`b7-b8=${l}`);
     const r = matchMove(rules as never, fen, list, `b8=${l}`);
     expect(r.kind === 'one' ? r.move.id : r.kind, `src/muse/match-words.ts SAN: add the letter ${l} to the promotion class`).toBe(`b7-b8=${l}`);
+  });
+});
+
+describe('plugin: card motion for each released card', () => {
+  it('has a motion recipe and a motion map for each released card', () => {
+    const missing = RELEASED_CARDS.map(c => c.id.toLowerCase())
+      .flatMap(id => [`src/plugin/card-motion/recipes/${id}.ts`, `src/plugin/assets/card-motion/${id}.webp`])
+      .filter(path => !existsSync(path));
+    expect(missing, 'plugin card motion: add the recipe and the map (tools/card-motion), or the card shows a still picture').toEqual([]);
   });
 });
