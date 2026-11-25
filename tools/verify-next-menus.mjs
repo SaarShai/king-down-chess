@@ -288,7 +288,8 @@ const cases = {
   async home_resize(page, context, check, size) {
     if (size !== '1280x720') return;
     const open = async (label, { reduced = false, ended = false, fail = false, touch = false, viewport = { width: 500, height: 1000 } } = {}) => {
-      const tab = await (await browser.newContext({ viewport, hasTouch: touch, reducedMotion: reduced ? 'reduce' : 'no-preference' })).newPage();
+      // The case holds and fails picture requests; the launch worker would answer them from its cache.
+      const tab = await (await browser.newContext({ viewport, hasTouch: touch, reducedMotion: reduced ? 'reduce' : 'no-preference', serviceWorkers: 'block' })).newPage();
       let release; const held = new Promise(done => { release = done; }), asked = [], state = { fail };
       // The pictures of the other layout: those that the tab has not loaded yet.
       await tab.route(viewport.width === 500 ? '**/hero-wide.webp' : /hero-(portrait|square)\.webp$/, async r => { asked.push(r); await held; return state.fail ? r.abort() : r.continue(); });
@@ -886,7 +887,9 @@ try {
     ? ['320x568', '360x640', '390x844', '667x375'] : sizes;
   for (const size of list) for (const [name, run] of Object.entries(cases)) {
     if (only && !only.includes(name)) continue;
-    const [width, height] = size.split('x').map(Number), context = await browser.newContext({ viewport: { width, height }, reducedMotion: ['guide', 'home_art', 'seat_tint', 'result_reload'].includes(name) ? 'no-preference' : 'reduce' });
+    // These cases hold or fail the board code; the launch worker (src/interface/platform.ts:46) would answer it from its cache.
+    const workers = ['code_fault', 'result_reload'].includes(name) ? 'block' : 'allow';
+    const [width, height] = size.split('x').map(Number), context = await browser.newContext({ viewport: { width, height }, reducedMotion: ['guide', 'home_art', 'seat_tint', 'result_reload'].includes(name) ? 'no-preference' : 'reduce', serviceWorkers: workers });
     // The launch page shows a notice to a returning player and waits for Continue (src/interface/platform.ts). These cases test
     // the menus, so each one starts past the notice.
     await context.addInitScript(() => localStorage.setItem('kingdown.solo-launch-seen', '1'));
