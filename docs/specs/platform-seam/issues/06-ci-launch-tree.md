@@ -1,6 +1,6 @@
 # CI builds the tree that ships
 
-Status: done on branch seam-ci; waits for the review.
+Status: done on branch seam-ci; reviewed, repaired and checked.
 
 Class: B (check scripts, tests and CI only). Size: M, or L if many checks need more than a new start address.
 
@@ -39,7 +39,7 @@ In `tools/check.test.ts`, the test of the site build of the runner ("browser che
 
 - The time of the CI build grows by one site build while both trees are built.
 - A check can show a fault of the launch tree that is real. Such a fault becomes its own ticket; it does not stop this one.
-- `account-discovery` stays red, and no ticket holds the work yet. Before this ticket it ran on an off-tree build of its own; now `web-game-check.mjs` sets the switch for every mode (`tools/lib/registry.mjs:106`). It runs only by name, so CI stays green. The lead decides on the "Play on this device" link of `/play/` (`src/online/entry.ts:67`, see "Found fault"). Then the lead opens a ticket for the discovery journey on the launch tree.
+- `account-discovery` stays red; ticket [09](09-account-discovery-launch.md) holds the work. Before this ticket it ran on an off-tree build of its own; now `web-game-check.mjs` sets the switch for every mode (`tools/lib/registry.mjs:106`). It runs only by name, so CI stays green. The lead decided that the "Play on this device" link of `/play/` is correct (see "Found fault").
 - In `web-online`, the offline install step opens `/index.html`, so it tests the worker of the old board. No step of `web-online` installs the worker from `/` on a fresh profile. The offline game-link step shows that `/` loads from the cache, but only after `/index.html` installed the worker. In CI, the only registration check of the new page is the `daylight` entry of `signin-speed` (`next.html`, `tools/lib/signin-speed-check.mjs:85`).
 - The route loop of `web-online` (`tools/web-online-check.mjs:660`) accepts `/index.html` or `/join.html` for each path. It checks the status and the content type, not which page each route gives. An assertion against `static/solo-launch.json` only compares the route table with the condition that made it (`tools/plugin-server-build.mjs:41`). The join part of `web-game` checks `/j` end to end.
 
@@ -91,8 +91,8 @@ In all, 43 registry entries open the old board. This ticket moves 40: 33 to the 
 
 ### Found fault
 
-- Possible: on the launch tree, the sign-in page of `/play/` links "Play on this device" to `/` (`src/online/entry.ts:67`). That is the new page, not the old board where the player came from. `account-discovery` fails there (run `seam-ci-eZEprN/account-discovery.log`, time-out at line 81). The lead decides if this is a fault or the design of the launch.
-- Possible: on the launch tree, Log out is no longer the last Settings row; "Delete my account" comes after it. The old assertion (`web-game-check.mjs`, "Log out is the last Settings row") failed in `seam-ci-Si7Bj0/web-game.log`. The launch code puts the section there on purpose, so this ticket records it and does not judge it. The lead decides if it is a fault.
+- Possible: on the launch tree, the sign-in page of `/play/` links "Play on this device" to `/` (`src/online/entry.ts:67`). That is the new page, not the old board where the player came from. `account-discovery` fails there (run `seam-ci-eZEprN/account-discovery.log`, time-out at line 81). Lead decision, 2026-11-25: this is the design. On the launch tree, `/` is the page where a player plays on this device. The check is wrong, not the page; ticket [09](09-account-discovery-launch.md) changes the check.
+- Possible: on the launch tree, Log out is no longer the last Settings row; "Delete my account" comes after it. The old assertion (`web-game-check.mjs`, "Log out is the last Settings row") failed in `seam-ci-Si7Bj0/web-game.log`. The launch code puts the section there on purpose. Lead decision, 2026-11-25: this is the design, not a fault.
 
 ### Red and green
 
@@ -121,7 +121,7 @@ Browser checks on the launch tree, one run each, in sequence (`npm run check:bro
 | recovery-consumers | not run | needs an outside `KINGDOWN_WEB_RECOVERY_OUTPUT` |
 
 - The first run of `leap-start` failed because this ticket file changed during the run (the runner refuses a changed checkout). The second run failed once on time ("knight white SE warm: 1317 ms, limit 150 ms"; the other 14 cases passed). The third run passed. In the first run the same case took 9 ms. The check asserts time, so the one slow case is most likely machine load. Not proven.
-- Old faults: 7 by-name checks also fail on an off-tree build of this worktree (`KINGDOWN_SOLO_LAUNCH=0`, the same scripts, the old board at `/index.html`): the same assertion or time-out at the same line in each. Five of them are parked (docs/PARKED.md). So these 7 are not faults of the launch tree. They are moved, and they stay red as before.
+- Old faults: 7 by-name checks also fail on an off-tree build of this worktree (`KINGDOWN_SOLO_LAUNCH=0`, the same scripts, the old board at `/index.html`): the same assertion or time-out at the same line in each. Five of them are parked (docs/PARKED.md). So these 7 are not faults of the launch tree. They are moved, and they stay red as before. Ticket [10](10-red-by-name-checks.md) holds them and `stratus-idle-exit`.
 - `stratus-idle-exit`: not proven. On the off tree it fails at `tools/verify-stratus-idle-exit.mjs:36` ("exit changes the pose"). On the launch tree it passes line 36 and times out at line 121. The off run stops at line 36 and does not reach line 121. So no run shows that line 121 also fails on the off tree. It runs only by name, not in CI.
 - `account-discovery` is moved only in part: the first visit uses `/index.html`, and the offline step expects `/index.html`. It then fails at `tools/lib/account-discovery-check.mjs:81`: the "Play on this device" link of the sign-in page goes to `/` (`src/online/entry.ts:67`), which is the new page on the launch tree, and the check waits for the old board there. The rest of the journey needs a launch-tree design; it is not an address change. See "Found fault".
 - `staging-login`: its own solo game now opens the hand-over dialog of the old page, not the board (`tools/lib/staging-login-check.mjs:58`).
