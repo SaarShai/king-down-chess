@@ -34,3 +34,31 @@ describe('import.meta.env names in src', () => {
     expect(undefinedNames).toEqual([]);
   });
 });
+
+describe('KINGDOWN_TEST_* names', () => {
+  // `npm run test:changed` runs `npm test` with this clear list, so a filter of the caller's shell cannot select the tests.
+  const plan = text('tools/ci-plan.mjs'), tests = plan.slice(plan.indexOf("process.argv[2] === 'tests'"));
+  const call = tests.slice(tests.indexOf("run(['test'], {")).split('\n', 1)[0];
+  const cleared = new Set([...call.matchAll(/(KINGDOWN_TEST_[A-Z0-9_]+):/g)].map(match => match[1]));
+  // Each name here may pass from the caller's shell into the child `npm test`.
+  const KEPT: Record<string, string> = {
+    KINGDOWN_TEST_BASE: 'only tools/ci-plan.mjs reads it, to find the base of the change',
+    KINGDOWN_TEST_WHY: 'only tools/ci-plan.mjs reads it, to print why it selects a slow file',
+    KINGDOWN_TEST_LOCKED: 'tools/test-lock.sh sets it; a child command uses the lease of its parent',
+    KINGDOWN_TEST_LOCK_WAIT: 'it sets only how long tools/test-lock.sh waits for the lease',
+    KINGDOWN_TEST_OUT: 'it sets only the output folder of ios/store.test.ts',
+    KINGDOWN_TEST_PAGES: 'it adds test pages to a build; src/interface/people/screens/build.test.ts sets its own value',
+  };
+
+  it('finds the clear list of the child npm test', () => {
+    expect(cleared.has('KINGDOWN_TEST_FILE')).toBe(true);
+  });
+
+  it('clears each name in the child npm test, or keeps it for a reason', () => {
+    const names = [...new Set(reads.map(read => read.name).filter(name => name.startsWith('KINGDOWN_TEST_')))].sort();
+    const open = names.filter(name => !cleared.has(name) && !(name in KEPT))
+      .map(name => `${firstPlace(name)} reads ${name}. Add ${name}: '' to the run(['test'], ...) call of the 'tests' mode in tools/ci-plan.mjs, or add it to KEPT in tools/build-flags.test.ts with the reason that it can pass to the child npm test`);
+    expect(open).toEqual([]);
+    expect(Object.keys(KEPT).filter(name => !names.includes(name) || cleared.has(name))).toEqual([]);
+  });
+});
