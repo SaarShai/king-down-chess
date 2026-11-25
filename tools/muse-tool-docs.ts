@@ -8,13 +8,13 @@ import { createMcpHandler } from '@modelcontextprotocol/server';
 import { MAX_ACTIVE_MCP, MAX_ACTIVE_MCP_PER_USER, MAX_MCP_BODY } from '../src/plugin/http';
 import { TOOL_LIMITS } from '../src/plugin/service';
 import { MUSE_METADATA_PATH, MUSE_PATH } from '../src/muse/http';
-import { COUNTERS, createMuseServer, REFUSED, type MuseGames } from '../src/muse/tools';
+import { COUNTERS, createMuseServer, REFUSED, type MuseGames, type MuseTool } from '../src/muse/tools';
 
 export const TOOL_DOCS = 'docs/specs/muse-connector/tool-docs.md';
 export const PUBLIC_TOOL_DOCS = 'public/muse-connector.html';
 
 /** What each tool changes. A listed tool with no line here, or a line with no listed tool, stops the generator. */
-const EFFECTS: Record<string, string> = {
+const EFFECTS: Record<MuseTool, string> = {
   kingdown_games: 'None. It reads the unfinished games of the account.',
   kingdown_view: 'None. It reads one game.',
   kingdown_explain: 'None. It reads the rules, and the position of a game against the computer.',

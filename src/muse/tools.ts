@@ -19,7 +19,10 @@ import { board } from './position';
 
 /** The per-user limit (TOOL_LIMITS) that a counted tool uses before it works: a move can make the computer's turn, so it
  *  counts as one. The reads count nothing. tools/muse-tool-docs.ts documents these limits. */
-export const COUNTERS = { kingdown_new_game: 'kingdown_create', kingdown_move: 'kingdown_computer' } as const satisfies Record<string, keyof typeof TOOL_LIMITS>;
+/** The names of the Muse tools. A new or renamed tool fails typecheck until it is here, in EFFECTS of tools/muse-tool-docs.ts
+ *  and in COUNTER of tools/muse-tool-counters.test.ts. */
+export type MuseTool = 'kingdown_games' | 'kingdown_view' | 'kingdown_explain' | 'kingdown_new_game' | 'kingdown_move' | 'kingdown_end';
+export const COUNTERS = { kingdown_new_game: 'kingdown_create', kingdown_move: 'kingdown_computer' } as const satisfies Partial<Record<MuseTool, keyof typeof TOOL_LIMITS>>;
 
 export interface MuseGames {
   create: GameService['create'];
@@ -101,7 +104,7 @@ export function createMuseServer({ games, actorId, publicOrigin }: { games: Muse
   const server = new McpServer({ name: 'kingdown', version: '1.0.0' });
   const origin = new URL(publicOrigin).origin, host = new URL(origin).host, link = (id: string) => `${origin}/g/${id}`;
 
-  function tool<I extends z.ZodObject, O extends z.ZodObject>(name: string, title: string, description: string, kind: 'read' | 'write' | 'destructive', input: I, output: O, run: (args: z.infer<I>) => Promise<Out & { data: z.infer<O> }>) {
+  function tool<I extends z.ZodObject, O extends z.ZodObject>(name: MuseTool, title: string, description: string, kind: 'read' | 'write' | 'destructive', input: I, output: O, run: (args: z.infer<I>) => Promise<Out & { data: z.infer<O> }>) {
     server.registerTool<StandardSchemaWithJSON, StandardSchemaWithJSON>(name, { title, description, inputSchema: input, outputSchema: output, annotations: { readOnlyHint: kind === 'read', destructiveHint: kind === 'destructive', idempotentHint: true, openWorldHint: false } },
       async (args): Promise<CallToolResult> => {
         try {
