@@ -4,7 +4,7 @@ import { McpServer, type CallToolResult, type StandardSchemaWithJSON } from '@mo
 import { z } from 'zod';
 import { GameRules } from '../game-rules';
 import type { PublicMatchRules } from '../match';
-import { MAX_REVISION, TURN_ACTIONS, type InboxEntry, type View } from '../match/protocol';
+import { MAX_REVISION, TURN_ACTIONS, type ErrorCode, type InboxEntry, type View } from '../match/protocol';
 import { MatchServiceError, type GameService } from '../match/service';
 import { DEFAULT_OPTIONS } from '../match/setup';
 import { describeMove } from '../move-text';
@@ -37,7 +37,7 @@ export interface MuseGames {
 const COMPUTER_CALLS = 8;
 const NEXT_CHOICES = 6;
 /** Fixed sentences for service refusals; the service text never reaches the model. INVALID_MOVE and INVALID_INPUT are the plugin's words. */
-export const REFUSED: Record<string, string> = {
+export const REFUSED: Partial<Record<ErrorCode, string>> = {
   STALE_REVISION: 'The game changed. Read the game again, then move.', INVALID_MOVE: 'This move is not available. Choose another move.',
   WRONG_TURN: 'It is not your turn.', MATCH_TERMINAL: 'This game is over.', RATE_LIMITED: 'Too many requests. Wait one minute, then try again.',
   UNAVAILABLE: 'The game server is busy. Try again.', NOT_FOUND: 'There is no game with this ID.', FORBIDDEN: 'You do not have a seat in this game.',
@@ -114,7 +114,7 @@ export function createMuseServer({ games, actorId, publicOrigin }: { games: Muse
           const known = error instanceof Refusal || error instanceof MatchServiceError;
           if (!known || error instanceof MatchServiceError && error.status >= 500) console.error('King Down Muse tool failed', { tool: name, ...diagnostic(error) });
           const code = known ? error.code : 'INTERNAL_ERROR';
-          return { isError: true, content: [{ type: 'text', text: error instanceof Refusal ? error.message : REFUSED[code] ?? 'Could not update the game. Try again.' }], structuredContent: { code } };
+          return { isError: true, content: [{ type: 'text', text: error instanceof Refusal ? error.message : REFUSED[code as ErrorCode] ?? 'Could not update the game. Try again.' }], structuredContent: { code } };
         }
       });
   }
