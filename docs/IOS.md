@@ -4,7 +4,7 @@ The iOS app is a Capacitor shell around the same web build as kingdown.dev. Deci
 
 ## Build and run
 
-1. `npm run ios:sync` builds the web game with the staging account settings and copies it into `ios/App/App/public` (ignored by Git). `npm run ios:sync production` uses the production settings and kingdown.dev. The script always sets `KINGDOWN_SOLO_LAUNCH=1` (the launch switch of [the launch platform](specs/interface-platform/spec.md)), so the app opens the new page whatever the website's cutover state is. It also clears `KINGDOWN_TEST_PAGES`, and the production stage sets `VITE_KINGDOWN_APPLE_SIGN_IN=0`, so a store archive does not take these values from the caller's shell. `tools/ios-app.test.ts` checks these lines.
+1. `npm run ios:sync` builds the web game with the staging account settings and copies it into `ios/App/App/public` (ignored by Git). `npm run ios:sync production` uses the production settings and kingdown.dev. Each build writes the launch marker `solo-launch.json` (see [HOSTING.md](HOSTING.md#the-launch-tree)), so the app opens the new page. It also clears `KINGDOWN_TEST_PAGES`, and the production stage sets `VITE_KINGDOWN_APPLE_SIGN_IN=0`, so a store archive does not take these values from the caller's shell. `tools/ios-app.test.ts` checks these lines.
 2. Run it in the simulator: `npx cap run ios --target <simulator id>` (list ids with `xcrun simctl list devices available`), or open Xcode with `npx cap open ios`.
 3. Inspect the page: debug builds are inspectable in Safari > Develop > Simulator. The native log with the page's console: `xcrun simctl launch --console-pty booted dev.kingdown.app`.
 
