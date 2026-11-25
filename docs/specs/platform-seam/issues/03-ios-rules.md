@@ -33,11 +33,11 @@ The test of the build shell: `ios-sync.sh` has no such line today. The origin te
 - The AASA test converts the components of today to patterns. Apple has more match rules.
 - The checks that compile Swift stay on the Mac.
 - With the Apple switch pinned for production, the Apple release changes the pin on purpose. The test names the line. A staging build still takes the switch from the shell.
-- For the lead: record where and when the owner approved the spec and decision 3, then change the Status line of `spec.md` and the TASKS.md row. A branch does not edit TASKS.md.
+- The owner approved the spec and its four decisions on 2026-11-25, in the lead session ("Approve, build it"). The Status line of `spec.md` records this. The TASKS.md row changes on main.
 
 ## Work record
 
-- Decision 3: yes. The spec holds only the author's pick ("My pick: yes", `spec.md`, decision 3). The lane brief says that the owner approved the spec with the four picks. `spec.md`, its tickets 05 to 08 and TASKS.md do not record that approval: the Status line of `spec.md` says "needs-triage", and the TASKS.md row of the four decisions says needs-info.
+- Decision 3: yes. The spec holds only the author's pick ("My pick: yes", `spec.md`, decision 3). The owner approved the spec with the four picks on 2026-11-25; the Status line of `spec.md` records this.
 - `tools/ios-sync.sh`: the production arm exports `VITE_KINGDOWN_APPLE_SIGN_IN=0`; after `esac`, `unset KINGDOWN_TEST_PAGES`. The Apple switch takes the value 0, not `unset`, because a Vite `.env` file can set a `VITE_` value and a shell value overrides it. The build reads only `KINGDOWN_TEST_PAGES === '1'` from the shell, so `unset` is enough there (as `tools/release/live.sh` does).
 - `vite.config.ts` exports `buildTarget`, and `build.target` uses it.
 - `tools/ios-app.test.ts`: the build-shell test checks the two new lines, and that the staging arm has no Apple line. New tests: the Capacitor origin, the lowest iOS (each `IPHONEOS_DEPLOYMENT_TARGET` equals the `ios` and the `safari` version of `buildTarget`), the AASA pin, and the link test (Swift pattern, AASA components, host routes of a launch tree).
