@@ -15,9 +15,9 @@ Ticket 06 kept `maxWorkers: 4`, because two tests of `tools/plugin-app.test.ts` 
 
 ### Premise: do they fail with 4 workers?
 
-- Line 2018: yes. The session logs of the owner hold three natural reds of this test with the same message: one on 2026-10-24 and two on 2026-10-29. `vite.config.ts` had `maxWorkers: 4` at those commits. Each was the only red of its full run. The 10-24 run had a load average of 13.8. Thus this test is a flake with 4 workers too.
+- Line 2018: yes. The session logs of the owner hold three natural reds of this test: one on 2026-10-24 and two on 2026-10-29. `vite.config.ts` had `maxWorkers: 4` at those commits. Each was the only red of its full run. The 10-24 extract shows `expected true to be false`; the two 10-29 extracts show only the FAIL line, and one of them shows 5 `connection failed` lines. The 10-24 run had a load average of 13.8. Thus this test is a flake with 4 workers too.
 - Line 1379: not shown. The session logs hold four earlier reds of this test (two on 10-15, one on 10-26, one on 11-13). Each run has at least 4 other failures, and the logs do not keep the error line of this test. The 10-15 runs come before the `maxWorkers` setting.
-- CI: neither test is in the failures of the last 40 failed CI runs. There, the held move test passes in 7.5 s to 13.6 s.
+- CI: neither test is in the failures of the last 40 failed CI runs. Two of the 40 logs hold only a browser check and no vitest output, so this covers 38 runs. In those logs the held move test passes 13 times, in 7.6 s to 13.6 s.
 
 ### Line 1379: the taps come before the board preview reply
 
@@ -67,26 +67,30 @@ Times are the vitest `Duration`. The runs of one test select it with `KINGDOWN_T
 
 | Run | Workers | Repair | Time | Result |
 | --- | --- | --- | --- | --- |
+| Line 1379, ResizeObserver callbacks of the frame held 400 ms | 1 test | no | 4.2 s | green: the canvas is 487 px at each read (rejects the box cause) |
 | Line 1379, hold of the preview 1500 ms | 1 test | no | 7.7 to 7.8 s | red (4 of 4), the natural line |
 | Line 1379, hold of the preview 1500 or 3000 ms | 1 test | yes | 5.1 to 7.1 s | green (4 of 4) |
 | Line 1379, no force, with the type check | 1 test | yes | 4.0 s | green |
 | Line 2018, late online state 300 or 1000 ms | 1 test | no | 2.9 to 3.1 s | red (7 of 7), the natural line |
+| Line 2018, late online state 300 ms, force started after the wait | 1 test | yes | 2.8 s | void: a fault of the probe (the late state began after the repair's wait); red at the line 2018 assertion |
 | Line 2018, late online state 300 or 1000 ms | 1 test | yes | 3.4 to 4.2 s | green (7 of 7) |
 | Line 2018, no force, with the type check | 1 test | yes | 2.9 s | green |
-| Pass bar, full run 1 | 8 | yes | 478 s | green (other load on the Mac: the other runs took 326 to 343 s) |
+| Pass bar, full run 1 | 8 | yes | 478 s | green (the other runs took 326 to 343 s; the cause of the long run is not measured) |
 | Pass bar, full run 2 | 8 | yes | 326 s | green |
 | Pass bar, full run 3 | 8 | yes | 342 s | green |
 | Pass bar, full run 4 | 8 | yes | 343 s | red: `plugin-real-host.test.ts:60` (via line 190) and `plugin-setup-owner.test.ts:249`; `plugin-app.test.ts` green |
-| `tools/plugin-app.test.ts`, committed state | 4 | yes | 190 s | green (138 tests, with the type check) |
+| Run 4 reds, app module of the frame held 6 s, 5 s limit | 1 test | no | — | red (3 of 3 for each file), the natural lines |
+| Run 4 reds, app module held 6 s, 10 s (`plugin-setup-owner`) or 15 s (`plugin-real-host`) limit | 1 test | limit | — | `plugin-setup-owner` green (3 of 3); `plugin-real-host` void once (the probe kept the hold on for the remount, red at line 239), then green (3 of 3) |
+| `tools/plugin-app.test.ts`, committed state | 4 | yes | 190 s | green (138 passed, 1 skipped: "reads a friend code again after the join preview remounts", an `it.skip` outside this work) |
 
 The pass bar fails: 3 green and 1 red. Runs 5 to 10 did not run. `tools/plugin-app.test.ts` was green in each of the 4 full runs with 8 workers.
 
 ## Known limits
 
 - The two forced orders prove that each order gives the exact red line and that each repair makes it green. They do not prove that a full suite gives that order. Both natural triggers are inferences.
-- The forces are not in the tree. The patches with them are in the log folder of this work (`held-force.patch`, `poll-force.patch`, `boot-force.patch`), not in the repository.
+- The forces are not in the tree. The patches with them are in the log folder of this work, `$TMPDIR/workers-8-logs/` (`held-force.patch`, `poll-force.patch`, `boot-force.patch`), not in the repository. The ResizeObserver probe is in no patch.
 - The committed poll test has one more check than the forced runs: `#error` is empty after the good read.
 - Other tests in the file use `setOffline` with no wait for the state. Five natural reds of "gives one offline sentence on Start and Join" (4 workers) show a server reply ("Invitation unavailable") on the join screen while the page is offline. Four of the five are on one day (11-14), so they can come from a change of that day, not from load. This work did not prove or repair that test.
-- Lines 924 and 953 of `tools/plugin-app.test.ts` also tap through `screenOf` after a read, with no wait for the preview.
+- Lines 924 and 953 of `tools/plugin-app.test.ts` also tap through `screenOf` after a read. The first waits with `settled(page)`; the second taps before the preview on purpose (ticket 87). No change.
 - The run 4 reds have no capture at failure time, so a next red of the same tests also does not show if the page was slow or stuck.
 - Other sessions of the owner share the Mac. The times change with their load.
