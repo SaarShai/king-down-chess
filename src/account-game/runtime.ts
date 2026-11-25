@@ -71,7 +71,8 @@ const router = createRouter(call, navigate, next => {
   return true;
 });
 export const { routeView, start } = router;
-const screens = { play: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen };
+// A new Screen gives TS2741 here until it has a renderer, or until it joins the list of screens with no renderer.
+const screens: Record<Exclude<Screen, 'home' | 'board' | 'collection' | 'settings' | 'handle'>, () => void> = { play: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen };
 export const memory = { ...createHallMemory(), dirty: false, kind: 'solo' as 'solo' | 'friend' | 'random', code: '', blockNotice: '', settings: undefined as PlayerSettings | undefined, me: undefined as { handle: string | null; icon: Icon | null } | undefined, preview: undefined as JoinPreview | undefined, joinError: undefined as { code: string; message: string } | undefined, get view() { return view; } };
 let enterRead: ((route: ReadRoute) => void) | undefined;
 const pageHost: PageHost = {
