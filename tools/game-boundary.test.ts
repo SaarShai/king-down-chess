@@ -65,7 +65,7 @@ function files(dir: string): string[] {
   return readdirSync(resolve(root, dir), { withFileTypes: true }).flatMap(entry => {
     const path = `${dir}/${entry.name}`;
     // Plain JavaScript product files (src/interface/ui/kit.js, src/render/painted/*.mjs) can import the engine too.
-    return entry.isDirectory() ? files(path) : sourceExtension.test(path) && !/\.d\.[cm]?ts$/.test(path) && !/\.test\.[cm]?[jt]s$/.test(path) ? [path] : [];
+    return entry.isDirectory() ? files(path) : sourceExtension.test(path) && !/\.d\.[cm]?ts$/.test(path) && !/\.test\.[cm]?[jt]sx?$/.test(path) ? [path] : [];
   });
 }
 describe('product game boundary', () => {

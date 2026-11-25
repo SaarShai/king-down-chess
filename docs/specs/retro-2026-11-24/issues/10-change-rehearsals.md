@@ -521,7 +521,9 @@ Notes with no change: an ignored local file can make the build-flags scan red in
 
 After the batch: `npm run typecheck` passes; the five changed guard files pass (16 tests, 472 ms); `npm run test:docs` passes (215 passed, 1 skipped, 1.82 s).
 
-Repair check: REPAIR_CHECK
+Repair check: both reviewers read 2aeeb32a0 on 2026-11-25. Blocking: 0. Each of the 16 notes is repaired or recorded in a ticket. Their probes: `import.meta.env['KINGDOWN_ZZ_DEFINE']` makes the define test red; a `:code` route key stays green; a hi half taken from its lo half in `Z_MARK` (128 keys) makes the per-table test red (four tables have 128 keys or more: `Z_LO`, `Z_MARK`, `Z_LOST`, `Z_LAST`; `Z_WAIT` has 8 keys and stays outside the per-table test); a `.tsx` file with an engine import is listed; a fake `docs/submission/notes/x.md` makes `npm run test:docs` red, and the real files give no false red; a comment in tsconfig.json gives the new text.
+
+Two new notes from the check, repaired after it with one probe each (no other review round): `.test.tsx` and `.test.jsx` files were scanned as product files (the test-file filter of `tools/game-boundary.test.ts` is now `/\.test\.[cm]?[jt]sx?$/`), and `import.meta.env?.['X']` was not a client read (the read pattern of `tools/build-flags.mjs` now takes it).
 
 ## Work record
 

@@ -37,7 +37,7 @@ export const FLAG_NAMES = [
 ];
 
 // A read (import.meta.env.X, import.meta.env['X'], process.env.X, env.X, $X, ${X}, a quoted key) or a shell assignment (X=value).
-const READ = /(?:import\.meta\.env(?:\??\.|\[['"])|process\.env\.|env\.|\$\{?|['"]|(?<=^|\s)(?=[A-Z0-9_]+=))((?:VITE_)?KINGDOWN_[A-Z0-9_]+|VITE_[A-Z0-9_]+)/g;
+const READ = /(?:import\.meta\.env(?:\??\.|(?:\?\.)?\[['"])|process\.env\.|env\.|\$\{?|['"]|(?<=^|\s)(?=[A-Z0-9_]+=))((?:VITE_)?KINGDOWN_[A-Z0-9_]+|VITE_[A-Z0-9_]+)/g;
 const SOURCE = /\.(?:ts|mjs|sh|py)$/, TEST = /\.test\.(?:ts|mjs)$/;
 const SELF = 'tools/build-flags.mjs';
 
