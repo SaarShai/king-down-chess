@@ -1,6 +1,6 @@
 # Retro, 2026-11-24: slow runs, repeated faults and the shape of the code
 
-Status: for the owner. Three items are built on the branch `retro-env`. The other items wait for the owner's decision.
+Status: for the owner. Items 1, 2 and 3 are built and merged (PR 464). Items 12 and 15 are built (PR 465). The section "Decisions after the merge" holds the decision on each other item.
 
 Method. One helper read the session records of the last 12 days: 144 sessions (85 worktree lanes) and 327 helper records. It counted tool wait time, repeated errors and owner complaints with scripts. One helper read the code for the cost of a change: where the core lives, how each form uses it, and how many places one new card touches. The lead measured the test suite on this Mac and read the check and CI tools. Each number below comes from those sources. A guess has the label "guess".
 
@@ -25,7 +25,7 @@ The values come from commit `96ba0f0f6`, before the merge of 161 newer commits o
 
 1. **[Checks] The browser checks need setup that they do not do. Built: `retro-env-checks`.** `web-game` fails 18 of 36 runs, `play-scenes` 24 of 81. In 28 cases the test database address is not set; in 21 sessions the agent then builds a PostgreSQL by hand (98 calls). In 9 cases the build has no test pages. Change: the runner starts a throwaway PostgreSQL for a check with the `db` flag, prepares the schema, and stops and removes it on every exit. It builds the test pages for a check that needs them. With no PostgreSQL programs it stops before the build with one line. Result: `web-game` (83 s) and `play-scenes` (225 s) pass with no variable set. Ticket: [01](issues/01-check-setup.md).
 
-2. **[Tests] Almost every change runs the full suite, and the full suite holds the machine lease. Built: `retro-env`.** The selection of `check:changed` knows two CSS files; each other change gives the full plan. Change: `npm run test:changed` reads the repository into one graph (imports, files that a test or a tools file names, globs, folders) and runs the test files that the change can reach. The full suite runs for a file outside `src/` and `tools/` (a hook, a migration, a public file) and for a file that no import, name or glob connects to a test. CI still runs the full plan. Measured: a change in `src/interface/play/main.ts` runs 45 of 441 files in 44 s. Estimates from the full run: a change in `src/account/account.ts` 59 s, in `src/plugin/screens/board.ts` 288 s, in `src/rules/engine.ts` 391 s (314 files: the core reaches almost every test). A change in a tools script still takes about 240 s, because `tools/deploy.test.ts` (235 s) covers most of them. History check: for 150 commits that change a test and a source file together, the first selector held 253 of 260 changed tests; each of the 7 others has a cause that is not a missed link. An independent review then found two false skips (a catch-all glob made every file look connected; a migration and a git hook reached their tests through paths that the scanner cannot read). Both are repaired and have test cases. With the repaired selector, 46 of the 150 commits give the full suite and the repairs add no miss. A second review on the merged head found a third false skip (a test that lists its own folder) and four shell variables that could narrow a full run. Both are repaired. The tickets hold the review record. Ticket: [02](issues/02-test-changed.md). Owner decision: add one line to the section "Tests and checks" of AGENTS.md, so that agents use it in the inner loop.
+2. **[Tests] Almost every change runs the full suite, and the full suite holds the machine lease. Built: `retro-env`.** The selection of `check:changed` knows two CSS files; each other change gives the full plan. Change: `npm run test:changed` reads the repository into one graph (imports, files that a test or a tools file names, globs, folders) and runs the test files that the change can reach. The full suite runs for a file outside `src/` and `tools/` (a hook, a migration, a public file) and for a file that no import, name or glob connects to a test. CI still runs the full plan. Measured: a change in `src/interface/play/main.ts` runs 45 of 441 files in 44 s. Estimates from the full run: a change in `src/account/account.ts` 59 s, in `src/plugin/screens/board.ts` 288 s, in `src/rules/engine.ts` 391 s (314 files: the core reaches almost every test). A change in a tools script still takes about 240 s, because `tools/deploy.test.ts` (235 s) covers most of them. History check: for 150 commits that change a test and a source file together, the first selector held 253 of 260 changed tests; each of the 7 others has a cause that is not a missed link. An independent review then found two false skips (a catch-all glob made every file look connected; a migration and a git hook reached their tests through paths that the scanner cannot read). Both are repaired and have test cases. With the repaired selector, 46 of the 150 commits give the full suite and the repairs add no miss. A second review on the merged head found a third false skip (a test that lists its own folder) and four shell variables that could narrow a full run. Both are repaired. The tickets hold the review record. Ticket: [02](issues/02-test-changed.md). The section "Tests and checks" of AGENTS.md names the command, so that agents use it in the inner loop (the owner said "add it").
 
 3. **[Code] One new card touches about nine tables, and nothing names a missed table. Built: `retro-env-cards`.** PR 431 repaired Guide and Help lines that were false. Change: each table states its key set as a type, so a new card or power with no entry fails `npm run typecheck` at that table, and a new piece fails the forms drift test. The forms drift test started from the web table, so a piece with no web name passed; it now starts from the released pieces. No text and no behaviour changes; the worker fingerprint is the same. Ticket: [03](issues/03-card-tables.md).
 
@@ -33,7 +33,7 @@ The values come from commit `96ba0f0f6`, before the merge of 161 newer commits o
 
 ### Medium
 
-5. **[Hooks] The tool gate refuses the form that its own message recommends. Owner decision.** About 17 of 20 `ps` refusals use `ps -o pid=,command= -p $pid` or a comma list of PIDs. The rule accepts only one literal number (`.claude/hooks/tool-gate.mjs`, `oneProcess`). Change: accept a list of numbers. A variable is a wider change. The lead did not edit a safety hook without the owner's word.
+5. **[Hooks] The tool gate refuses the form that its own message recommends. Decided: no change.** About 17 of 20 `ps` refusals use `ps -o pid=,command= -p $pid` or a comma list of PIDs. The rule accepts only one literal number (`.claude/hooks/tool-gate.mjs`, `oneProcess`). Change: accept a list of numbers. A variable is a wider change. The lead did not edit a safety hook without the owner's word.
 
 6. **[Code] The readings rule lives in at least six builders.** "A game with a power or a hand gets the balanced readings" is written out in `src/main.ts:65`, `src/new-game.ts:204`, `src/interface/play/saved.ts:38`, `src/online/launch.ts:25`, `src/screen/play.ts:690` and `src/match/service.ts:199`. Decision 188 edited five of them. Change: one function gives the readings for kings and hands; each builder calls it. A test of each builder comes first. The worker copy moves with the next engine pair, because the worker source is part of the save fingerprint.
 
@@ -45,7 +45,7 @@ The values come from commit `96ba0f0f6`, before the merge of 161 newer commits o
 
 10. **[Steering] The launch briefs are large.** `runs/launch/decisions.md` is 216 KB and 32 sessions read it. Change: an index with one line per decision; a lane brief names the decision IDs that it needs.
 
-11. **[Tests] Eight test workers save about 200 s, but one test fails under that load. Owner decision.** `vite.config.ts` sets `maxWorkers: 4`; this Mac has 16 cores. Two full runs with 8 workers took 327 s and 312 s, against 525 s. One run failed `tools/plugin-ios-size.test.ts` ("keeps the seat and board large at 393 × 852 with host insets 102/118"); the other was green. Change: find why that test fails under load (guess: it reads the layout before the page settles), then use 8 workers outside CI. Not built: a suite that fails one run in two is worse than a slow suite.
+11. **[Tests] Eight test workers save about 200 s, but one test fails under that load. Decided: 4 workers stay.** `vite.config.ts` sets `maxWorkers: 4`; this Mac has 16 cores. Two full runs with 8 workers took 327 s and 312 s, against 525 s. One run failed `tools/plugin-ios-size.test.ts` ("keeps the seat and board large at 393 × 852 with host insets 102/118"); the other was green. Change: find why that test fails under load (guess: it reads the layout before the page settles), then use 8 workers outside CI. Not built: a suite that fails one run in two is worse than a slow suite.
 
 ### Low
 
@@ -54,6 +54,19 @@ The values come from commit `96ba0f0f6`, before the merge of 161 newer commits o
 14. **[Lease] The wait line of `test-lock.sh` does not name the holder.** The check runner's wait line does. During this retro a 22 s test run waited more than 6 minutes for a lane that the line did not name. Change: write the PID and the folder into the lock file, and print them.
 15. **[Search] `engines/` holds 56,000 lines of released bundles.** They must stay (save compatibility). Change: an ignore file for the search tools, so a search of the code skips them.
 16. **[Tests] Between 17 and 75 test files read source text.** A rename breaks them with no change in behaviour. Change: when one of them fails on a rename, replace it with a test of the behaviour. No batch rewrite.
+
+## Decisions after the merge
+
+The owner gave these decisions to the lead ("you decide what is best").
+
+- Item 2: AGENTS.md names `npm run test:changed`.
+- Item 5: no change. The lead does not edit the hook that controls its own tools, and the cost is small: about 17 refusals in 12 days.
+- Item 11: the suite keeps 4 workers until the cause of the failed test is known.
+- Items 12 and 15: built. `docs/COMPUTE.md` holds the zsh line, and `.ignore` keeps `engines/` out of a search.
+- Item 6 waits for its own spec. It changes online play and the server (`src/online/launch.ts`, `src/match/service.ts`), so it is a class C change: it needs a two-account pass on staging, and a staging deploy needs the owner's word. Item 9 follows it.
+- Items 7 and 8 wait: a different session of the owner works on the GUI, and these items change the same files (`src/interface/play/main.ts` and the turn modules).
+- Items 4 and 10 wait: they change the launch briefs under `runs/`, which this retro did not read in full.
+- Items 13, 14 and 16 stay open.
 
 ## Faults found on the way
 

@@ -1,6 +1,6 @@
 # The browser check runner makes its own test database and test pages
 
-Status: ready-for-human
+Status: done (PR 464 merged)
 
 Source: [retro](../retro.md), item 1. Branch `retro-env-checks`, merged into `retro-env`.
 

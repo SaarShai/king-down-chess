@@ -1,6 +1,6 @@
 # A new card, power or piece with a missing table entry fails a check
 
-Status: ready-for-human
+Status: done (PR 464 merged)
 
 Source: [retro](../retro.md), item 3. Branch `retro-env-cards`, merged into `retro-env`. This is a class B change.
 
