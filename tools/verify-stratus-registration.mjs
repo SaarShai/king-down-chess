@@ -3,7 +3,8 @@ import {readFile,writeFile} from 'node:fs/promises';
 import sharp from 'sharp';
 import {join} from 'node:path';
 import {env,launch,oldBoard,shot,trapErrors,assertNoErrors} from './lib/checks.mjs';
-// Check the selected rest authority and every padded turn join in the built package.
+import {turnRoute} from '../src/render/painted/character-runtime.mjs';
+// Check the selected rest authority and every turn join that a route from the rest plays.
 const root=join(process.cwd(),'public/character-runtime');
 const manifest=JSON.parse(await readFile(join(root,'manifest.json'),'utf8'));
 const assets=JSON.parse(await readFile(join(root,'assets.json'),'utf8'));
@@ -20,10 +21,12 @@ for(const army of ['white','black']) {
   async function pixels({bank,frame}){return sharp(join(root,frame.url)).ensureAlpha().extend({top:0,left:0,right:width-bank.canvasSize[0],bottom:height-bank.canvasSize[1],background:{r:0,g:0,b:0,alpha:0}}).raw().toBuffer();}
   assert((await pixels(a)).equals(await pixels(b)),`${army} endpoint pixels differ`);
  }
- for(const direction of ['N','NE','E','SE','S','SW','W','NW']){
-  const ends=turns.flatMap(bank=>[{direction:bank.from,bank,frame:bank.frames[0]},{direction:bank.to,bank,frame:bank.frames.at(-1)}]).filter(end=>end.direction===direction);
-  assert.equal(ends.length,2,`${army} ${direction}`);await equal(ends[0],ends[1]);
-  if(direction==='SE')for(const bank of idles)await equal({bank,frame:bank.frames[0]},ends[0]);
+ const start=({bank,reverse})=>({bank,frame:reverse?bank.frames.at(-1):bank.frames[0]}),end=({bank,reverse})=>({bank,frame:reverse?bank.frames[0]:bank.frames.at(-1)});
+ // The runtime turns only from the SE rest (src/render/painted/character-runtime.mjs:415, :477).
+ for(const direction of ['N','NE','E','S','SW','W','NW']){
+  const route=turnRoute(turns,'SE',direction);assert(route?.length,`${army} ${direction}`);
+  for(const bank of idles)await equal({bank,frame:bank.frames[0]},start(route[0]));
+  for(let i=1;i<route.length;i++)await equal(end(route[i-1]),start(route[i]));
  }
 }
 const browser=await launch(),cases=[];
@@ -31,7 +34,7 @@ try {
  for(const army of ['white','black'])for(const [direction,to] of [['N',43],['NE',44],['E',36],['SE',28],['S',27],['SW',26],['W',34],['NW',42]]) {
   const fen=army==='white'?'6k1/p7/8/3K4/8/8/P7/8 w - - 0 1':'8/7p/8/3k4/8/8/P7/K7 b - - 0 1',flipped=false;
   const banks=manifest.banks.filter(b=>b.character==='king-stratus'&&b.army===army&&b.kind==='turn');
-  const {turnRoute}=await import('../src/render/painted/character-runtime.mjs');const route=turnRoute(banks,'SE',direction);assert(route);const expected=route.map(p=>p.bank.id);
+  const route=turnRoute(banks,'SE',direction);assert(route);const expected=route.map(p=>p.bank.id);
   const from=35,page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
   const url=new URL(oldBoard());url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');url.searchParams.set('kings','stratus:flight,stratus:flight');
