@@ -1,6 +1,6 @@
 # The routes of fault reports
 
-Status: done on branch seam-reports; the review is repaired; waits for the check of the repair batch, the staging pass and the publish.
+Status: done on branch seam-reports; reviewed, repaired and checked; waits for the staging pass and the publish.
 
 Class: C. Size: S. Needs a two-account pass on staging and a publish.
 
@@ -68,3 +68,4 @@ Not verified:
   - `KINGDOWN_TEST_FILE=src/diagnostics/data.test.ts npm test`: 36 passed, 4 s (`green2.log`).
   - `npm run test:docs`: 19 files passed; 199 tests passed, 1 skipped; 2 s.
   - No `test:changed` run: the batch changes one test file and the ticket.
+- Check of the repair batch, by the same reviewer, on head `a348026a3`: each repair holds; no blocker. One note stays open, not needed for the ticket: a mapped type can make each screen key hold the sample of its own screen.
