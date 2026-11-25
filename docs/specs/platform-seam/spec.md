@@ -39,7 +39,7 @@ History: the iOS work started on 2026-11-07. In the 18 days after it, 3 commits 
 Three steps, each smaller than the platform object.
 
 1. **Repair, then guard.** Repair the links of the sign-in sheet and the list for fault reports. For each rule that only a doc holds, add the narrowest test that fails. `src/platform.ts` keeps its two values and gets no new export.
-2. **One page route table.** One small module holds the page routes. The host build and the Vite preview read it. A test compares each other copy with it: the Swift router, the launch service worker, the page-side parsers.
+2. **One page route table.** The host list is the table. The Vite preview reads it, and its own copy goes. A test compares each other copy with it: the Swift router, the launch service worker, the page-side parsers.
 3. **Remove the fork.** First, CI and the checks build the tree that ships. Then the launch switch, the off build and its fork points go. This step ends the switch as a rollback path, so it needs the owner's decision.
 
 ## Tickets
@@ -80,4 +80,5 @@ A publish for tickets 05 and 07 needs the owner's word, as each deploy does.
 ## Evidence
 
 - The readers and the checkers read `origin/main` at f41b860db. A checker opened each cited file. The lead verified the facts of items 1, 2, 4 and 5 above in the code.
+- Review: an agent that did not write the spec read head `215c7ab85`. It confirmed the main claim and most facts. It found four blocking faults, all in tickets 06 and 07: ticket 07 broke the local online stack and did not name ten tests and tools that read the fork; ticket 06 named the wrong file for its first test and missed one site build. One batch repairs these and its sixteen notes.
 - Not verified: the sign-in links on a device; the number of checks that ticket 06 moves (an estimate from a search); that the launch tree is byte-equal before and after ticket 07 (no build ran).
