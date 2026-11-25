@@ -121,8 +121,9 @@ it('names each API route, each account path and the old board, with no ID', () =
  const keys = [...http.matchAll(/^  '([A-Z]+ \/api[^']*)':/gm)].map(match => match[1]);
  expect(keys.length).toBeGreaterThan(0);
  const id = 'd137864c-e174-4f38-9277-6bdd0a4289dc', key = 'ABC234';
- // A new screen of AccountEntryRoute does not compile until it has a sample here.
- const screens: Record<AccountEntryRoute['screen'], AccountEntryRoute[]> = { play: [{ screen: 'play' }], profile: [{ screen: 'profile' }], settings: [{ screen: 'settings' }],
+ // Each screen of AccountEntryRoute must have one or more samples of that screen, or this does not compile.
+ type Samples = { [S in AccountEntryRoute['screen']]: [AccountEntryRoute & { screen: S }, ...(AccountEntryRoute & { screen: S })[]] };
+ const screens: Samples = { play: [{ screen: 'play' }], profile: [{ screen: 'profile' }], settings: [{ screen: 'settings' }],
   'new-friend': [{ screen: 'new-friend' }], game: [{ screen: 'game', gameId: id }], join: [{ screen: 'join', key: null }, { screen: 'join', key }] };
  // A server fault gives the key path itself (src/api/http.ts), so test that form too.
  const paths = [...keys.map(name => name.split(' ')[1]).flatMap(path => [path, path.replace(/:[a-z]+/g, id)]), ...Object.values(screens).flat().map(accountPath), '/index.html'];

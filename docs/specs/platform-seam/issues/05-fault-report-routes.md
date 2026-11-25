@@ -36,7 +36,7 @@ Branch `seam-reports`, from `origin/main` at cc61f2633.
 
 Change:
 - `src/diagnostics/data.ts`: `fixedRoutes` gets `/index.html`, `/play/friend` and `/api/friends`. A new line in `errorRoute` gives `/api/invites/:invite/decline` for `/api/invites/<id>/decline`. The line `if (clean === '/next.html') return '/next.html';` does not change. The comment of `errorRoute` now names the old board page too.
-- `src/diagnostics/data.test.ts`: one new test. It reads each key of `src/api/http.ts` with the scan of `tools/plugin-server-build.test.ts`. It tests each key path two times: as the server gives it (`/api/invites/:id/decline`, from `route.key` in `src/api/http.ts`) and with a sample ID. It also tests the path of each screen from `accountPath` (`src/online/routes.ts`) and `/index.html`. The samples are a `Record` with one key for each screen of `AccountEntryRoute`, so a new screen with no sample does not compile. A route must not be `/other`, must not hold the game ID or the invite key, and must give itself again, because the server reduces the route of the browser a second time.
+- `src/diagnostics/data.test.ts`: one new test. It reads each key of `src/api/http.ts` with the scan of `tools/plugin-server-build.test.ts`. It tests each key path two times: as the server gives it (`/api/invites/:id/decline`, from `route.key` in `src/api/http.ts`) and with a sample ID. It also tests the path of each screen from `accountPath` (`src/online/routes.ts`) and `/index.html`. The samples are a mapped type with one key for each screen of `AccountEntryRoute`; each key holds a list of one or more samples of its own screen. Thus a new screen with no sample, an empty list, or a sample of a different screen does not compile. A route must not be `/other`, must not hold the game ID or the invite key, and must give itself again, because the server reduces the route of the browser a second time.
 
 Red, on an earlier text of the test with the sample-ID form only (`red.log:28`): `KINGDOWN_TEST_FILE=src/diagnostics/data.test.ts npm test`, 1 failed, 35 passed. The failing list held the four paths of the ticket: `/api/friends`, `/api/invites/<id>/decline`, `/play/friend`, `/index.html`.
 
@@ -68,4 +68,18 @@ Not verified:
   - `KINGDOWN_TEST_FILE=src/diagnostics/data.test.ts npm test`: 36 passed, 4 s (`green2.log`).
   - `npm run test:docs`: 19 files passed; 199 tests passed, 1 skipped; 2 s.
   - No `test:changed` run: the batch changes one test file and the ticket.
-- Check of the repair batch, by the same reviewer, on head `a348026a3`: each repair holds; no blocker. One note stays open, not needed for the ticket: a mapped type can make each screen key hold the sample of its own screen.
+- Check of the repair batch, by the same reviewer, on head `a348026a3`: each repair holds; no blocker. One note stays open, not needed for the ticket: a mapped type can make each screen key hold the sample of its own screen. The next batch repairs it.
+
+## Review of head a348026a3
+
+- Kind: a review by an agent that did not build the change.
+- Head: `a348026a3e7f5b0eba55b9e05c0d185adf99ec89`.
+- Findings: no blocker; three notes. The sample table typed its values as `AccountEntryRoute[]`, so an empty list or a sample of a different screen compiled. The test also checks the raw key form and a second reduction; both match real code paths, so no change. `npm run test:changed` is not green as one run; the record states this, and the lead decides if a green run must come before the staging pass.
+- One batch repairs them:
+  - `src/diagnostics/data.test.ts:125` types the samples as `{ [S in AccountEntryRoute['screen']]: [AccountEntryRoute & { screen: S }, ...(AccountEntryRoute & { screen: S })[]] }`. `Extract` does not work here: `ReadRoute` keeps `play`, `profile` and `settings` in one member, so `Extract` gives `never` for them.
+  - A probe with `profile: []` fails the type check with TS2322, 'Source has 0 element(s) but target requires 1' (`probe-empty-list.log`). A probe with a `settings` sample under `profile` fails with TS2322 (`probe-wrong-screen.log`).
+  - No change for the second and third notes.
+- Runs after the batch:
+  - `KINGDOWN_TEST_FILE=src/diagnostics/data.test.ts npm test`: 36 passed, 3 s (`green3.log`).
+  - `npm run test:docs`: 19 files passed; 199 tests passed, 1 skipped; 2 s (`docs7.log`).
+  - No `test:changed` run: the batch changes the type of one test table and the ticket.
