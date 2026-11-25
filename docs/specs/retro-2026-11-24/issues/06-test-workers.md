@@ -1,6 +1,6 @@
 # Test workers: the seat tap repair, and 4 workers stay
 
-Status: done in PR 467 for the repair of the seat tap. Ticket [07](07-plugin-app-workers.md) finds and repairs the causes of the two `plugin-app` reds. Open: its pass bar with 8 workers failed on two other files with no proven cause, so `maxWorkers` stays 4.
+Status: done in PR 467 for the repair of the seat tap. Ticket [07](07-plugin-app-workers.md) repairs the two `plugin-app` tests; a forced order gives each red. Open: its pass bar with 8 workers failed on two other files with no proven cause, so `maxWorkers` stays 4.
 
 Source: [retro](../retro.md), item 11
 

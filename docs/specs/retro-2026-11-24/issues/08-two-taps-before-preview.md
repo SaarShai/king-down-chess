@@ -34,7 +34,7 @@ The pick is option 1. It keeps what ticket 87 started (a tap before the reply is
 A browser test in `tools/plugin-app.test.ts`, near the ticket 87 tests:
 
 - Open a friend game where this player moves (as in "recovers a held move at 10 seconds and ignores its late reply").
-- Hold the first `kingdown_preview` reply. The harness hook `holdNext = 'kingdown_preview'` does this (ticket 87 uses it); a Playwright route that delays the request also works (`held-force.patch` of ticket 07).
+- Hold the first `kingdown_preview` reply. The harness hook `holdNext = 'kingdown_preview'` does this (ticket 87 uses it); a Playwright route that delays the request also works (`held-force.patch` of ticket 07). Set the hold before the read that draws the board: the board asks for the preview during that read.
 - Tap e2, then e4, through `board.screenOf`.
 - Release the reply (`releaseHeld()`).
 - Expect the staged move `e2-e4` and `#end-turn[aria-disabled="false"]`, with no more taps.
@@ -56,4 +56,4 @@ B: new behaviour on one screen, the plugin board. It runs in ChatGPT and on the 
 
 - Not built. This ticket holds the fault and the plan only.
 - Not measured: how often a player meets a game that needs the server preview, and how long the reply takes on a slow network.
-- Option 1 keeps two taps. A third tap before the reply (for example, a second piece) needs a rule too: the simplest is that each new piece tap replaces the kept pair.
+- Option 1 keeps two taps. The rule for a third tap before the reply is part of option 1: a new tap on an own piece replaces the kept pair. The change has one check for this rule.
