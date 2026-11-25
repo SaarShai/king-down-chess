@@ -134,7 +134,7 @@ Browser checks on the launch tree, one run each, in sequence (`npm run check:bro
 - `recovery-consumers` (it needs an outside output) and `account-discovery` past line 81.
 - The cause of the one slow `leap-start` case.
 - If the time-out of `stratus-idle-exit` at line 121 is an old fault (see above).
-- The by-name checks that read `next.html` or `index.html` on the runner site, which is now the launch tree: `next-menus` (`tools/verify-next-menus.mjs:31`), `next-skylift` (`tools/verify-next-skylift.mjs:13`), `next-rule-text` (`tools/verify-next-rule-text.mjs:16`) and `king-labels` (`tools/verify-king-labels.mjs:8`, `:62`). On the launch tree `next.html` is the launch page (`vite.config.ts:194`). No run here covered them.
+- The by-name checks that read `next.html` or `index.html` on the runner site, which is now the launch tree: `next-menus` (`tools/verify-next-menus.mjs:31`), `next-skylift` (`tools/verify-next-skylift.mjs:13`), `next-rule-text` (`tools/verify-next-rule-text.mjs:16`) and `king-labels` (`tools/verify-king-labels.mjs:8`, `:62`). On the launch tree `next.html` is the launch page (`vite.config.ts:194`). No run of the build covered them. After the first CI run, the `notice` case of `next-menus` ran here and passed (see "Review").
 
 ## Review
 
@@ -145,3 +145,7 @@ Browser checks on the launch tree, one run each, in sequence (`npm run check:bro
   - `tools/web-online-check.mjs:635`: the comment names the old board at `/index.html`.
   - This file: `leap-start` numbers (14 other cases, ok on the third run); `stratus-idle-exit` is "not proven"; "Known limits" holds `account-discovery`, the worker of `/` in `web-online` and the route loop; "Not verified" holds the four by-name checks and `stratus-idle-exit`; the CI watch list holds the `play-scenes` time.
   - Runs after the batch: `KINGDOWN_TEST_FILE=tools/web-online-check.test.ts npm test` (1 file, 42 passed); `npm run test:docs` (19 files, 199 passed, 1 skipped). The batch changes no check step, so no browser check ran again.
+- Check of the batch, by the same reviewer, on head `08ce70de4`: the blocker is closed; no blocking finding; no new fault.
+- The first CI run (head `0e1998312`) was red in one job. `play-scenes` runs `MENUS_CASES=notice npm run check:browser next-menus` (`.github/workflows/plugin-checks.yml:196`), and the four sizes of the case timed out. Cause: the case stores a signed-in session before the first visit, so the launch page shows its notice to a returning player and waits for Continue (`src/interface/platform.ts`). The build and the review listed `next-menus` as not verified. They did not see that CI runs this case.
+- Repair by the lead: the runner of `tools/verify-next-menus.mjs` sets the seen mark of the notice on each context. The line that set the mark for `result_reload` only goes. `src/interface/platform.test.ts` tests the notice. Run on the launch tree with the CI command: the `notice` case was red before (four time-outs, 49.7 s) and is ok after (12.2 s).
+- Not verified: the 22 other cases of `next-menus` on the launch tree. The lead runs them with ticket 07, on the one tree that stays.

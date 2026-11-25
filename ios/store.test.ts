@@ -1,6 +1,6 @@
 import { it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import sharp from 'sharp';
 
@@ -10,8 +10,13 @@ const run = resolve(process.env.KINGDOWN_TEST_OUT ?? '../run/store-checks');
 
 it('accepts only game and invite links from the associated HTTPS host', () => {
   mkdirSync(run, { recursive: true });
+  // `npm run ios:check` puts `run` in node_modules, and node_modules of a worktree links to the main checkout. So all
+  // worktrees share one module cache. swiftc keeps the path text of the cache in each precompiled module and refuses a
+  // module made with other text. The real path gives the same text in each worktree. The folder name is new, because
+  // `ModuleCache` holds modules made with the path text of one worktree.
+  const modules = resolve(realpathSync(run), 'swift-modules');
   writeFileSync(resolve(run, 'AppRouter.swift'), 'import Foundation\nprotocol Router {}\n' + read('ios/App/App/SceneDelegate.swift').slice(read('ios/App/App/SceneDelegate.swift').indexOf('struct AppRouter: Router')));
-  execFileSync('xcrun', ['swiftc', '-module-cache-path', resolve(run, 'ModuleCache'), 'ios/App/App/UniversalLink.swift', resolve(run, 'AppRouter.swift'), 'ios/Tests/UniversalLinkChecks.swift', '-o', resolve(run, 'links')], { timeout: 90000 });
+  execFileSync('xcrun', ['swiftc', '-module-cache-path', modules, 'ios/App/App/UniversalLink.swift', resolve(run, 'AppRouter.swift'), 'ios/Tests/UniversalLinkChecks.swift', '-o', resolve(run, 'links')], { timeout: 90000 });
   const checks = execFileSync(resolve(run, 'links'), { encoding: 'utf8' });
   expect(checks).toContain('30 passed'); expect(checks).toContain('Native invite route checks: 18 passed');
   const scene = read('ios/App/App/SceneDelegate.swift');

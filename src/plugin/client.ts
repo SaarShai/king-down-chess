@@ -3,8 +3,9 @@ import type { InboxEntry, View } from '../match/protocol';
 import { resultCode, resultText, type createQueue, type JobOptions, type Outcome, type ToolResult } from './queue';
 import type { App } from '@modelcontextprotocol/ext-apps';
 import type { GameTransport } from '../account-game/host';
+import type { PluginTool } from './tool-names';
 import { CANNOT_CONNECT, errorText, knownScreen, type Screen, type Pending } from '../account-game/types';
-export const BOARD_ID_TOOLS = ['kingdown_get', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'] as const;
+export const BOARD_ID_TOOLS = ['kingdown_get', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'] as const satisfies readonly PluginTool[];
 /** The tools whose reply selects the page's board. */
 export const SELECTION_TOOLS = ['kingdown_open', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'];
 /** A private draft binds its moves to the complete account, game, revision, rules and engine implementation. */

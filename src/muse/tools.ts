@@ -4,7 +4,7 @@ import { McpServer, type CallToolResult, type StandardSchemaWithJSON } from '@mo
 import { z } from 'zod';
 import { GameRules } from '../game-rules';
 import type { PublicMatchRules } from '../match';
-import { MAX_REVISION, TURN_ACTIONS, type InboxEntry, type View } from '../match/protocol';
+import { MAX_REVISION, TURN_ACTIONS, type ErrorCode, type InboxEntry, type View } from '../match/protocol';
 import { MatchServiceError, type GameService } from '../match/service';
 import { DEFAULT_OPTIONS } from '../match/setup';
 import { describeMove } from '../move-text';
@@ -19,7 +19,10 @@ import { board } from './position';
 
 /** The per-user limit (TOOL_LIMITS) that a counted tool uses before it works: a move can make the computer's turn, so it
  *  counts as one. The reads count nothing. tools/muse-tool-docs.ts documents these limits. */
-export const COUNTERS = { kingdown_new_game: 'kingdown_create', kingdown_move: 'kingdown_computer' } as const satisfies Record<string, keyof typeof TOOL_LIMITS>;
+/** The names of the Muse tools. A new or renamed tool fails typecheck until it is here, in EFFECTS of tools/muse-tool-docs.ts
+ *  and in COUNTER of tools/muse-tool-counters.test.ts. */
+export type MuseTool = 'kingdown_games' | 'kingdown_view' | 'kingdown_explain' | 'kingdown_new_game' | 'kingdown_move' | 'kingdown_end';
+export const COUNTERS = { kingdown_new_game: 'kingdown_create', kingdown_move: 'kingdown_computer' } as const satisfies Partial<Record<MuseTool, keyof typeof TOOL_LIMITS>>;
 
 export interface MuseGames {
   create: GameService['create'];
@@ -34,15 +37,17 @@ export interface MuseGames {
 const COMPUTER_CALLS = 8;
 const NEXT_CHOICES = 6;
 /** Fixed sentences for service refusals; the service text never reaches the model. INVALID_MOVE and INVALID_INPUT are the plugin's words. */
-export const REFUSED: Record<string, string> = {
+export const REFUSED: Partial<Record<ErrorCode, string>> = {
   STALE_REVISION: 'The game changed. Read the game again, then move.', INVALID_MOVE: 'This move is not available. Choose another move.',
   WRONG_TURN: 'It is not your turn.', MATCH_TERMINAL: 'This game is over.', RATE_LIMITED: 'Too many requests. Wait one minute, then try again.',
   UNAVAILABLE: 'The game server is busy. Try again.', NOT_FOUND: 'There is no game with this ID.', FORBIDDEN: 'You do not have a seat in this game.',
   INVALID_INPUT: 'Invalid input: check the tool fields.', COMMAND_CONFLICT: 'This request ID belongs to another request. Use a new request ID.',
   NOT_ALLOWED: 'The game does not allow this now.', MATCH_LIMIT: 'This game reached its length limit.', MATCH_INCOMPATIBLE: 'This game uses an older version. Play it on the website.',
 };
+/** The refusal codes of this layer only. A new one fails typecheck at the LAYER table of tools/muse-tool-docs.ts: give it its words there. */
+export type MuseLayerCode = 'NO_GAME' | 'PERSON_GAME' | 'NOT_STARTED';
 /** A refusal of this layer: a fixed sentence (it never repeats the input) and its code. */
-class Refusal extends Error { constructor(readonly code: string, message: string) { super(message); } }
+class Refusal extends Error { constructor(readonly code: ErrorCode | MuseLayerCode, message: string) { super(message); } }
 
 const commandId = (gameId: string, revision: number, what: string) => `muse:${createHash('sha256').update(`${gameId}:${revision}:${what}`).digest('hex')}`;
 const colourOf = (seat: number) => seat === 0 ? 'white' as const : 'black' as const;
@@ -101,7 +106,7 @@ export function createMuseServer({ games, actorId, publicOrigin }: { games: Muse
   const server = new McpServer({ name: 'kingdown', version: '1.0.0' });
   const origin = new URL(publicOrigin).origin, host = new URL(origin).host, link = (id: string) => `${origin}/g/${id}`;
 
-  function tool<I extends z.ZodObject, O extends z.ZodObject>(name: string, title: string, description: string, kind: 'read' | 'write' | 'destructive', input: I, output: O, run: (args: z.infer<I>) => Promise<Out & { data: z.infer<O> }>) {
+  function tool<I extends z.ZodObject, O extends z.ZodObject>(name: MuseTool, title: string, description: string, kind: 'read' | 'write' | 'destructive', input: I, output: O, run: (args: z.infer<I>) => Promise<Out & { data: z.infer<O> }>) {
     server.registerTool<StandardSchemaWithJSON, StandardSchemaWithJSON>(name, { title, description, inputSchema: input, outputSchema: output, annotations: { readOnlyHint: kind === 'read', destructiveHint: kind === 'destructive', idempotentHint: true, openWorldHint: false } },
       async (args): Promise<CallToolResult> => {
         try {
@@ -111,7 +116,7 @@ export function createMuseServer({ games, actorId, publicOrigin }: { games: Muse
           const known = error instanceof Refusal || error instanceof MatchServiceError;
           if (!known || error instanceof MatchServiceError && error.status >= 500) console.error('King Down Muse tool failed', { tool: name, ...diagnostic(error) });
           const code = known ? error.code : 'INTERNAL_ERROR';
-          return { isError: true, content: [{ type: 'text', text: error instanceof Refusal ? error.message : REFUSED[code] ?? 'Could not update the game. Try again.' }], structuredContent: { code } };
+          return { isError: true, content: [{ type: 'text', text: error instanceof Refusal ? error.message : REFUSED[code as ErrorCode] ?? 'Could not update the game. Try again.' }], structuredContent: { code } };
         }
       });
   }

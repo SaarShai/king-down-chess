@@ -753,7 +753,6 @@ const cases = {
     ];
     const markOf = save => `${save.gameAt}|${gameJSON(save)}`;
     await context.addInitScript(() => {
-      localStorage.setItem('kingdown.solo-launch-seen', '1');
       window.kdSeen = { writes: [], moments: [] };
       const get = Storage.prototype.getItem;
       Storage.prototype.getItem = function (key) { if (key === 'kingdown.result') window.kdRead ??= performance.now(); return get.call(this, key); };
@@ -888,6 +887,9 @@ try {
   for (const size of list) for (const [name, run] of Object.entries(cases)) {
     if (only && !only.includes(name)) continue;
     const [width, height] = size.split('x').map(Number), context = await browser.newContext({ viewport: { width, height }, reducedMotion: ['guide', 'home_art', 'seat_tint', 'result_reload'].includes(name) ? 'no-preference' : 'reduce' });
+    // The launch page shows a notice to a returning player and waits for Continue (src/interface/platform.ts). These cases test
+    // the menus, so each one starts past the notice.
+    await context.addInitScript(() => localStorage.setItem('kingdown.solo-launch-seen', '1'));
     const page = await context.newPage(), failures = [], errors = [];
     page.setDefaultTimeout(12000);
     const trapped = trapErrors(page);
