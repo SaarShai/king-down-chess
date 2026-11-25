@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { contextText, focusBoard, leaveBoard, openPieceRules, lanMoves } from './app-ui.mjs';
+import { contextText, focusBoard, leaveBoard, openPieceRules, lanMoves, pressMenu } from './app-ui.mjs';
 import { oldBoard, insideViewport, trapErrors, assertNoErrors } from './lib/checks.mjs';
 import { fixture } from './read-verb-fixture.mjs';
 const { page, seed, tap, marks, close } = await fixture(oldBoard());
@@ -36,5 +36,17 @@ try {
   await openPieceRules(page);
   assert.equal(await page.evaluate(() => document.activeElement?.closest('.piece-card')?.dataset.piece), 'archer', 'All rules focuses the rule card when the piece also has a lesson');
   await insideViewport(page, '#rules-rows .piece-card[data-piece="archer"]');
+  // From the parked lessons check (ecfdfb3c1): the Guide frame is live on the old board.
+  assert.equal(await page.evaluate(() => {
+    const sheet = document.getElementById('rules').getBoundingClientRect();
+    const head = document.querySelector('.lesson-guide-head').getBoundingClientRect();
+    const focus = document.activeElement;
+    return head.top >= sheet.top && head.bottom <= sheet.bottom && focus.matches('.piece-card')
+      && getComputedStyle(focus).outlineStyle === 'solid';
+  }), true, 'All rules keeps the full Guide head and outlines the card');
+  const rulesTop = await page.locator('.lesson-guide-body').evaluate(el => el.scrollTop);
+  assert.ok(rulesTop > 0, `All rules scrolls the Guide body to the card (scrollTop ${rulesTop})`);
+  await page.keyboard.press('Escape'); await pressMenu(page, 'Guide');
+  assert.equal(await page.locator('.lesson-guide-body').evaluate(el => el.scrollTop), 0, 'Menu Guide opens at the top after All rules');
   console.log('read-piece: 3 cases pass; I, toggle and All rules pass');
 } finally { try { assertNoErrors(errors); } finally { await close(); } }

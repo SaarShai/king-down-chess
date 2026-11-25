@@ -15,6 +15,7 @@
 // The standalone group gives each check its own job. ciBrowsers lists the browsers that its script opens.
 // ciTestPages enables the test pages for that job's build, and for the build of a local run that selects the check.
 // ciSeconds is the median observed duration when the time limit is a poor estimate.
+// ciStep names the CI job (matrix name) whose own workflow step runs the check by name; the CI plan does not read it.
 // The default checks and the self-test run when no name is given. The selftest-* entries after them are planned
 // faults that prove the runner: selftest-dirty writes a scratch file into the checkout, selftest-fail
 // fails, selftest-hang never ends, selftest-hold sleeps 15 s so that two runs can be seen together.
@@ -29,7 +30,7 @@ export const checks = [
   // Uses the local online stack at PLAYABLE_URL; it must keep the lane's assigned port.
   { name: 'next-arrange', script: 'tools/verify-next-arrange.mjs', limit: 480, channel: 'chromium', byName: true, external: true },
   { name: 'next-art-wait', ci: 'journey', ciSeconds: 28.1, ciBrowsers: ['chromium', 'webkit'], script: 'tools/verify-next-art-wait.mjs', limit: 240, channel: 'chromium', byName: true },
-  { name: 'next-menus', script: 'tools/verify-next-menus.mjs', limit: 900, channel: 'chromium', byName: true },
+  { name: 'next-menus', ciStep: 'play-scenes', script: 'tools/verify-next-menus.mjs', limit: 900, channel: 'chromium', byName: true },
   { name: 'daylight-tabs', ci: 'journey', ciSeconds: 25, ciBrowsers: ['chromium', 'webkit'], script: 'tools/verify-daylight-tabs.mjs', limit: 180, byName: true },
   { name: 'painted-leaps', script: 'tools/verify-painted-leaps.mjs', limit: 120, channel: 'chromium', byName: true },
   { name: 'leap-start', ciSeconds: 44, script: 'tools/verify-painted-leaps.mjs', args: ['start'], limit: 240, channel: 'chromium', exclusive: true },
@@ -56,11 +57,7 @@ export const checks = [
   { name: 'effects-states', script: 'docs/specs/effects-animation/evidence/14-state-integration/capture.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'read-piece', ciSeconds: 2, script: 'tools/verify-read-piece.mjs', limit: 180 },
   { name: 'verb-marks', ciSeconds: 4, script: 'tools/verify-verb-marks.mjs', limit: 180 },
-  // Parked with their features (docs/PARKED.md): lessons, lesson-return, workshop and workshop-cast run only by name.
-  { name: 'lessons', script: 'tools/verify-lessons.mjs', limit: 180, byName: true },
   { name: 'turn', ciSeconds: 41, script: 'tools/verify-turn.mjs', limit: 180 },
-  // The serverless game link is parked (docs/PARKED.md): its check runs only by name, and it can fail until the link returns.
-  { name: 'link-game', script: 'tools/verify-link-game.mjs', args: ['link'], limit: 180, byName: true },
   { name: 'end', ciSeconds: 102, script: 'tools/verify-end.mjs', limit: 180 },
   { name: 'their-turn', ciSeconds: 13, script: 'tools/verify-their-turn.mjs', limit: 180 },
   { name: 'game-screen', ciSeconds: 18, script: 'tools/verify-game-screen.mjs', limit: 240 },
@@ -70,15 +67,14 @@ export const checks = [
   { name: 'cursor-adoption', ciSeconds: 81, script: 'tools/verify-cursor-adoption.mjs', limit: 240, channel: 'chromium' },
   { name: 'king-effects', script: 'tools/verify-king-effects.mjs', limit: 240, exclusive: true, gpu: true },
   { name: 'character-clips', ciSeconds: 67, script: 'tools/verify-character-clips.mjs', limit: 180 },
-  { name: 'lesson-return', script: 'tools/verify-lesson-return.mjs', limit: 180, byName: true },
   { name: 'new-game', ciSeconds: 95, script: 'tools/verify-new-game.mjs', limit: 240 },
   { name: 'painted-game', script: 'tools/verify-painted-game.mjs', limit: 240, exclusive: true, gpu: true },
   { name: 'powers', ciSeconds: 11, script: 'tools/verify-powers.mjs', limit: 180 },
   { name: 'special-moves', ciSeconds: 58, script: 'tools/verify-special-moves.mjs', limit: 240 },
   { name: 'ux-defects', ciSeconds: 65, script: 'tools/verify-ux-defects.mjs', limit: 300 },
   { name: 'visual-design', ciSeconds: 62, script: 'docs/visual-design/verify.mjs', limit: 240 },
+  // Workshop is parked (docs/PARKED.md), so this check fails; src/workshop/review.docs.test.ts reads its groups.
   { name: 'workshop', script: 'tools/verify-workshop.mjs', limit: 240, byName: true },
-  { name: 'workshop-cast', script: 'tools/verify-workshop-cast.mjs', limit: 180, byName: true },
   { name: 'qa', ciSeconds: 358, script: 'tools/qa.mjs', limit: 900, channel: 'chromium', exclusive: true },
   { name: 'selftest', ciSeconds: 1, script: 'tools/check-selftest.mjs', limit: 120 },
   // Plugin checks build their own artifact; OAuth and HTTP checks need local PostgreSQL (db).
@@ -115,8 +111,8 @@ export const checks = [
   // The live page (next.html): its save wiring (interface-playable issue 01).
   { name: 'king-labels', script: 'tools/verify-king-labels.mjs', limit: 300, channel: 'chromium', byName: true },
   { name: 'next-save', ci: 'journey', ciSeconds: 5.4, script: 'tools/verify-next-save.mjs', limit: 180, channel: 'chromium', byName: true },
-  { name: 'next-skylift', script: 'tools/verify-next-skylift.mjs', limit: 240, channel: 'chromium', byName: true },
-  { name: 'next-rule-text', script: 'tools/verify-next-rule-text.mjs', limit: 240, channel: 'chromium', byName: true },
+  { name: 'next-skylift', ciStep: 'play-scenes', script: 'tools/verify-next-skylift.mjs', limit: 240, channel: 'chromium', byName: true },
+  { name: 'next-rule-text', ciStep: 'play-scenes', script: 'tools/verify-next-rule-text.mjs', limit: 240, channel: 'chromium', byName: true },
   { name: 'selftest-dirty', script: 'tools/check-selftest-dirty.mjs', limit: 30, byName: true },
   { name: 'selftest-fail', script: 'tools/check-selftest-dirty.mjs', args: ['fail'], limit: 30, byName: true },
   { name: 'selftest-hang', script: 'tools/check-selftest-dirty.mjs', args: ['hang'], limit: 5, byName: true },
