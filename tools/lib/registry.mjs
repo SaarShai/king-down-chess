@@ -15,6 +15,7 @@
 // The standalone group gives each check its own job. ciBrowsers lists the browsers that its script opens.
 // ciTestPages enables the test pages for that job's build, and for the build of a local run that selects the check.
 // ciSeconds is the median observed duration when the time limit is a poor estimate.
+// ciStep names the CI job (matrix name) whose own workflow step runs the check by name; the CI plan does not read it.
 // The default checks and the self-test run when no name is given. The selftest-* entries after them are planned
 // faults that prove the runner: selftest-dirty writes a scratch file into the checkout, selftest-fail
 // fails, selftest-hang never ends, selftest-hold sleeps 15 s so that two runs can be seen together.
@@ -29,7 +30,7 @@ export const checks = [
   // Uses the local online stack at PLAYABLE_URL; it must keep the lane's assigned port.
   { name: 'next-arrange', script: 'tools/verify-next-arrange.mjs', limit: 480, channel: 'chromium', byName: true, external: true },
   { name: 'next-art-wait', ci: 'journey', ciSeconds: 28.1, ciBrowsers: ['chromium', 'webkit'], script: 'tools/verify-next-art-wait.mjs', limit: 240, channel: 'chromium', byName: true },
-  { name: 'next-menus', script: 'tools/verify-next-menus.mjs', limit: 900, channel: 'chromium', byName: true },
+  { name: 'next-menus', ciStep: 'play-scenes', script: 'tools/verify-next-menus.mjs', limit: 900, channel: 'chromium', byName: true },
   { name: 'daylight-tabs', ci: 'journey', ciSeconds: 25, ciBrowsers: ['chromium', 'webkit'], script: 'tools/verify-daylight-tabs.mjs', limit: 180, byName: true },
   { name: 'painted-leaps', script: 'tools/verify-painted-leaps.mjs', limit: 120, channel: 'chromium', byName: true },
   { name: 'leap-start', ciSeconds: 44, script: 'tools/verify-painted-leaps.mjs', args: ['start'], limit: 240, channel: 'chromium', exclusive: true },
@@ -110,8 +111,8 @@ export const checks = [
   // The live page (next.html): its save wiring (interface-playable issue 01).
   { name: 'king-labels', script: 'tools/verify-king-labels.mjs', limit: 300, channel: 'chromium', byName: true },
   { name: 'next-save', ci: 'journey', ciSeconds: 5.4, script: 'tools/verify-next-save.mjs', limit: 180, channel: 'chromium', byName: true },
-  { name: 'next-skylift', script: 'tools/verify-next-skylift.mjs', limit: 240, channel: 'chromium', byName: true },
-  { name: 'next-rule-text', script: 'tools/verify-next-rule-text.mjs', limit: 240, channel: 'chromium', byName: true },
+  { name: 'next-skylift', ciStep: 'play-scenes', script: 'tools/verify-next-skylift.mjs', limit: 240, channel: 'chromium', byName: true },
+  { name: 'next-rule-text', ciStep: 'play-scenes', script: 'tools/verify-next-rule-text.mjs', limit: 240, channel: 'chromium', byName: true },
   { name: 'selftest-dirty', script: 'tools/check-selftest-dirty.mjs', limit: 30, byName: true },
   { name: 'selftest-fail', script: 'tools/check-selftest-dirty.mjs', args: ['fail'], limit: 30, byName: true },
   { name: 'selftest-hang', script: 'tools/check-selftest-dirty.mjs', args: ['hang'], limit: 5, byName: true },

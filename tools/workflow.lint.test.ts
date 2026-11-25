@@ -1,6 +1,7 @@
 // Keep the workflow, sharding tool and release gate on the same contract.
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { checks } from './lib/registry.mjs';
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const workflow = read('.github/workflows/plugin-checks.yml');
@@ -84,6 +85,15 @@ describe('plugin-checks workflow', () => {
   it('checks the launch tree that ships and keeps one build and route check of the off tree', () => {
     expect(job('verify')).toContain('KINGDOWN_SOLO_LAUNCH=0 npm run build:vercel\n          npm run check:vercel\n');
     expect(workflow.match(/KINGDOWN_SOLO_LAUNCH/g)).toHaveLength(2);
+  });
+
+  it('marks each check that a workflow step runs by name with ciStep, and each ciStep has its step', () => {
+    const steps = readdirSync(new URL('../.github/workflows/', import.meta.url))
+      .flatMap(file => read(`.github/workflows/${file}`).split(/\n\s+- /));
+    const run = steps.flatMap(step => [...step.matchAll(/npm run check:browser ([a-z][\w-]*)/g)]
+      .map(m => `${m[1]} ${step.match(/matrix\.name == '([^']+)'/)?.[1] ?? '(no matrix name)'}`));
+    const marked = checks.filter(c => 'ciStep' in c).map(c => `${c.name} ${c.ciStep}`);
+    expect(run.sort()).toEqual(marked.sort());
   });
 
   it('keeps the release and sample instructions in line with the CI and push gates', () => {
