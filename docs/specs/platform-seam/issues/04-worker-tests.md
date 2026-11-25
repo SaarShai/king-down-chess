@@ -31,3 +31,6 @@ If [ticket 07](07-remove-off-build.md) comes first, this ticket is not necessary
 - Red: `mcp` removed from `PRIVATE` in `tools/solo-launch/sw.js` only, `KINGDOWN_TEST_NO_TYPECHECK=1 KINGDOWN_TEST_FILE=tools/service-worker.test.ts npm test`: 2 failed, 226 passed: "public request boundary (tools/solo-launch/sw.js) > bypasses /mcp" and "… /mcp/child".
 - Probe: the same removal with no private path on the allowlist: 228 passed. This shows that the allowlist step is necessary.
 - The worker file is back to its committed text (`git diff` shows only the test file).
+- The kept copy of the test file in the log folder is byte-equal to the text of commit de9ddec20.
+- Final run on head f68ec5c9a (all four tickets): `npm run test:changed`, with the type checks. It ran the full suite: 430 files, 411 passed and 19 skipped; 8119 tests passed and 387 skipped; the node tests 115 passed; 610 s of tests (622 s in all). An earlier run on this head had no home folder and could not stop Chromium, so it is void.
+- Not verified: a red line for the group "private safety during installation" on the launch worker. The probe removed a path that only the boundary group reads.
