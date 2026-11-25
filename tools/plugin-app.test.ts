@@ -1366,6 +1366,8 @@ it('recovers a held move at 10 seconds and ignores its late reply', async () => 
     await page.request.post(harness.url + 'fixture-friend-tool', { data: { name: 'kingdown_join', arguments: { code } } });
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}, false, false, true); });
     const revision = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.revision);
+    // A tap before the reply of the board preview only reads its square (ticket 87), and then no move stages. Wait for the reply.
+    await settled(page);
     await page.clock.install();
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_move'; });
     const pane = await page.locator('iframe').boundingBox();
