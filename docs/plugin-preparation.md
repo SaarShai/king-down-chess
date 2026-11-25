@@ -42,7 +42,7 @@ npm run check:browser plugin-oauth plugin-ui-http
 
 Each check builds the plugin in a temporary folder. The fixture and HTTP checks start their own harness on a free loopback port. The HTTP check also starts the compiled server on a free port and makes two disposable users in `PLUGIN_TEST_DATABASE_URL`. Each check closes its servers and browser, removes its temporary build, and deletes the HTTP test users and their games. Logs and screenshots use the shared runner's output folder. No hand-started server is needed.
 
-`plugin-ui` checks move choices, Haste, recovery, computer play, a terminal board, remounting, display mode, friend replies, and a 390-pixel viewport. `plugin-ui-http` checks the board through the compiled HTTP server and real PostgreSQL. `plugin-oauth` checks consent, PKCE and the audience hook. The last two need the disposable database: the runner uses `PLUGIN_TEST_DATABASE_URL` when it is set, else it starts a throwaway one. These checks run only by name; the normal website checks need no plugin database.
+`plugin-ui` checks move choices, Haste, recovery, computer play, a terminal board, remounting, display mode, friend replies, and a 390-pixel viewport. `plugin-ui-http` checks the board through the compiled HTTP server and real PostgreSQL. `plugin-oauth` checks consent, PKCE and the audience hook. `plugin-ui-http`, `plugin-oauth`, `plugin-privacy` and `plugin-skylift` need the disposable database: the runner uses `PLUGIN_TEST_DATABASE_URL` when it is set, else it starts a throwaway one. These checks run only by name; the normal website checks need no plugin database.
 
 To play the fixture by hand, build the plugin and start the harness:
 

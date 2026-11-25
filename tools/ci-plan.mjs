@@ -76,7 +76,8 @@ if (process.argv[2] === 'changed') {
   if (slow.length) console.log(`Skip the slow files: ${slow.map(file => `${file} (${slowTests.get(file)} s)`).join(', ')}`);
   if (process.env.KINGDOWN_TEST_WHY === '1' && plan.why) for (const file of tests.filter(file => slowTests.has(file))) console.log(`Why: ${plan.why.get(file)}`);
   if (plan.mode !== 'full') console.log('This is a selection. CI runs the full plan.');
-  if (tests.length) run(['test'], { KINGDOWN_TEST_FILE: plan.mode === 'full' ? '' : filePattern(tests) }); // '' drops a filter from the caller's shell
+  // '' drops each filter that the caller's shell holds, so the run is the full suite or the full selection, with the type checks.
+  if (tests.length) run(['test'], { KINGDOWN_TEST_FILE: plan.mode === 'full' ? '' : filePattern(tests), KINGDOWN_TEST_DOCS: '', KINGDOWN_TEST_SKIP: '', KINGDOWN_TEST_NAME: '', KINGDOWN_TEST_NO_TYPECHECK: '' });
   else run(['run', 'typecheck']); // only deleted test files changed
 } else if (process.argv[2] === 'workflow') {
   const base = process.env.CI_BASE ?? '';

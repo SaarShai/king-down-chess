@@ -50,6 +50,10 @@ const tree: Record<string, string> = {
   'src/main.ts': '',
   'src/copy.test.ts': "await cp('lint-me', copy, { recursive: true });",
   'tools/page.test.ts': "expect(await image.getAttribute('src')).toContain('x');",
+  'src/shop/css.test.ts': "for (const file of readdirSync(new URL('./', import.meta.url), { recursive: true })) read(file);",
+  'src/shop/face.ts': "import './deep/part';",
+  'src/shop/face.test.ts': "import './face';",
+  'src/shop/deep/part.ts': '',
 };
 const select = (...changed: string[]) => selectTests(changed, { files: Object.keys(tree), read: (file: string) => tree[file] });
 
@@ -91,6 +95,9 @@ it('follows the files that a test names, a script names and a folder holds (rule
   // A comment names no file; Vite's build() loads vite.config.ts, and its HTML inputs.
   expect(select('src/view.ts').tests).toEqual(['src/text.test.ts']);
   expect(select('src/main.ts').tests).toEqual(['tools/site-build.test.ts']);
+  // A test that lists its own folder reads each file in it and below it.
+  expect(select('src/shop/face.ts').tests).toEqual(['src/shop/css.test.ts', 'src/shop/face.test.ts']);
+  expect(select('src/shop/deep/part.ts').tests).toEqual(['src/shop/css.test.ts', 'src/shop/face.test.ts']);
   // A folder name adds its test, but does not place a file that nothing else connects.
   expect(select('src/lint-me/two.webp')).toMatchObject({ mode: 'full' });
 });

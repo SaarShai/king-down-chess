@@ -115,6 +115,8 @@ function testGraph({ files, read }) {
       }
     }
     if (!names) continue;
+    // A test that lists a folder and knows its own place can list its own folder: readdirSync(new URL('./', import.meta.url)).
+    if (tests.has(file) && /\b(?:readdir|glob|walk)(?:Sync)?\(/.test(source) && /import\.meta\.(?:dirname|url)|__dirname/.test(source)) edge(`${dirname(file)}/`, file, 'holds');
     const run = new Set([...strings, ...[...source.matchAll(scriptRun)].map(match => match[1])].filter(name => Object.hasOwn(scripts, name)));
     const tokens = [...strings, ...source.match(pathToken) ?? []].map(token => [token, file]);
     // Each Vite call without configFile: false loads the config; a file with more calls than such options names it.

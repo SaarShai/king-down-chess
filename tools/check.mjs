@@ -80,7 +80,7 @@ if (isInside(root, outRoot)) {
 // The test database: with no PLUGIN_TEST_DATABASE_URL, a "(db)" check gets a throwaway server (step 5b).
 const postgres = selected.some(c => c.db) && !process.env.PLUGIN_TEST_DATABASE_URL ? await import('./lib/postgres.mjs') : null;
 try { for (const tool of ['initdb', 'pg_ctl', 'createdb']) postgres?.pgTool(tool); } catch {
-  console.error(`check: no test database for ${selected.filter(c => c.db).map(c => c.name).join(', ')}: ${postgres.PG_BIN} has no initdb, pg_ctl or createdb. Install PostgreSQL 17 (brew install postgresql@17), set PG_BIN to its program folder, or set PLUGIN_TEST_DATABASE_URL`);
+  console.error(`check: no test database for ${selected.filter(c => c.db).map(c => c.name).join(', ')}: ${postgres.PG_BIN} has no initdb, pg_ctl or createdb. Install PostgreSQL 17 (brew install postgresql@17) and set PG_BIN to its program folder (/opt/homebrew/opt/postgresql@17/bin), or set PLUGIN_TEST_DATABASE_URL`);
   process.exit(2);
 }
 
@@ -97,13 +97,12 @@ process.on('exit', () => {
     Object.assign(active, { end: new Date().toISOString(), ok: false, fault: interrupted ? `stopped by ${interrupted.signal}` : 'the runner exited' });
     writeRecord();
   }
-  if (db) {
+  try { if (db) {
     postgres.stopPostgres(db.dir, db.pid);
     // An exit handler cannot wait: when pg_ctl did not stop the server, stop it now, before its folder goes.
     if (postgres.isAlive(db.pid)) try { process.kill(db.pid, 'SIGKILL'); } catch {}
     rmSync(db.dir, { recursive: true, force: true });
-  }
-  releaseAll();
+  } } finally { releaseAll(); } // a fault in the cleanup must not keep the leases
 });
 // A signal stops the running child; the run then ends with the signal's exit code and no report line.
 let interrupted = null;
@@ -203,6 +202,7 @@ if (postgres) {
     db.pid = postgres.startPostgres(db.dir, port, log);
     execFileSync(postgres.pgTool('createdb'), ['-h', '127.0.0.1', '-p', String(port), '-U', 'postgres', 'kingdown_check_test'], { stdio: 'pipe' });
   } catch (error) {
+    exitIfInterrupted(); // an interrupt stops the child too; give the signal's code, not a database fault
     report(false, 'database', (Date.now() - start) / 1000, error.message.split('\n')[0], log);
     process.exit(1);
   }

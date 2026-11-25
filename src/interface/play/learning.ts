@@ -94,5 +94,5 @@ const steps: Record<string, string> = {
   Vault: 'Tap a ringed Rook, Bishop or Queen, then a target beyond exactly one piece.',
   Curse: 'Tap a ringed enemy piece, then an empty square next to it.',
   SkyLift: 'Tap one ringed piece, then the other piece to swap. They must have different types.',
-} satisfies Record<ReleasedCardId, string>;
+} satisfies Record<ReleasedCardId | Exclude<PowerName, 'HolyLight' | 'Mercy' | 'DeathTouch' | 'Darkness'>, string>; // stepLine reads it for a king power with uses too
 export const stepLine = (subject: LearnSubject) => subject.kind === 'piece' ? '' : steps[subject.id] ?? '';
