@@ -155,7 +155,8 @@ const HOLD_DEFAULT: Readonly<Partial<Record<CardName, number>>> = Object.freeze(
   // bishop gains over the pawn (Sacrifice's share, `sacrificeHoldShare`); MorphS SkyLift's value
   // (the same move).
   MorphP: 110, MorphS: 60,
-});
+  // Each card needs a hold, except the four always-on powers (never dealt) and the cards that `powerTerm` prices.
+} satisfies Record<Exclude<CardName, 'HolyLight' | 'Mercy' | 'DeathTouch' | 'Darkness' | 'Sacrifice' | 'Salvation' | 'Mirror' | 'MirrorB'>, number>);
 const hold: Partial<Record<CardName, number>> = { ...HOLD_DEFAULT };
 /** Share of the best returnable piece's gain (piece − pawn) an unspent Sacrifice is worth. */
 let sacrificeHoldShare = 0.5;

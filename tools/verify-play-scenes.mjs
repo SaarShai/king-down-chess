@@ -1,7 +1,7 @@
 // Check the play scenes at four portrait and desktop sizes, four compact landscape sizes (game screen; at 667x375 and 568x320 the new-game panel too) and two text scales. Find cut and split text, horizontal
 // viewport and scroll box overflow, reader text and controls that a scroll box hides at rest, overlap, card names that another card covers, controls that cannot take a tap, and network requests.
 // The page is in a build only with KINGDOWN_TEST_PAGES=1:
-//   KINGDOWN_TEST_PAGES=1 npm run check:browser play-scenes
+//   npm run check:browser play-scenes (the runner sets it for this check)
 // Check the result sheet at eight sizes and three text sizes.
 // Save pictures of faults, 320x568 at 150%, and 390x844 and 1280x800 at 100% in PLAYABLE_OUT.
 import assert from 'node:assert/strict';

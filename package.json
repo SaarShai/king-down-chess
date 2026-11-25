@@ -48,7 +48,8 @@
     "online:local:reset": "node tools/online-local.mjs reset",
     "ios:sync": "bash tools/ios-sync.sh",
     "ios:check": "KINGDOWN_TEST_FILE=ios/store.test.ts KINGDOWN_TEST_OUT=node_modules/.cache/store-checks npm test",
-    "check:changed": "node tools/ci-plan.mjs changed"
+    "check:changed": "node tools/ci-plan.mjs changed",
+    "test:changed": "node tools/ci-plan.mjs tests"
   },
   "dependencies": {
     "@capacitor/core": "8.6.0",

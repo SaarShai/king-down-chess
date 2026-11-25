@@ -1,10 +1,11 @@
 // npm run check:browser [-- --gpu | -- --no-gpu | name ...]: builds and serves the site when a selected check needs it. Runs checks
 // one at a time in this run (checks-and-hooks/06; after-redesign/01 for the slots and the run folders).
 // `npm run check:browser -- --help` prints the names and the settings. The checks are in tools/lib/registry.mjs.
-// Exit codes: 0 all passed, 1 a check or the build failed, 2 a usage fault (unknown name, output root inside
-// the checkout), 130/143/129 on SIGINT/SIGTERM/SIGHUP.
-import { spawn, spawnSync } from 'node:child_process';
-import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+// Exit codes: 0 all passed, 1 a check, the build or the throwaway test database failed, 2 a usage fault (unknown
+// name, output root inside the checkout, no PostgreSQL programs for a "(db)" check), 130/143/129 on SIGINT/SIGTERM/SIGHUP.
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CHECK_SITE_ENV, env, isInside, outRoot, STEP } from './lib/checks.mjs';
@@ -17,11 +18,15 @@ const root = realpathSync(join(dirname(fileURLToPath(import.meta.url)), '..'));
 const say = line => console.log(line);
 
 function usage() {
-  const rows = checks.map(c => `  ${c.name.padEnd(16)} ${String(c.limit).padStart(4)} s  ${c.script}${c.channel ? `  (channel ${c.channel})` : ''}${c.env ? `  (${Object.entries(c.env).map(([k, v]) => `${k}=${v}`).join(' ')})` : ''}${c.site ? '  (site)' : ''}${c.byName ? '  (by name only)' : ''}${c.exclusive ? '  (exclusive)' : ''}${c.gpu ? '  (gpu)' : ''}`);
+  const rows = checks.map(c => `  ${c.name.padEnd(16)} ${String(c.limit).padStart(4)} s  ${c.script}${c.channel ? `  (channel ${c.channel})` : ''}${c.env ? `  (${Object.entries(c.env).map(([k, v]) => `${k}=${v}`).join(' ')})` : ''}${c.site ? '  (site)' : ''}${c.db ? '  (db)' : ''}${c.ciTestPages ? '  (test pages)' : ''}${c.byName ? '  (by name only)' : ''}${c.exclusive ? '  (exclusive)' : ''}${c.gpu ? '  (gpu)' : ''}`);
   return `Usage: npm run check:browser [-- --gpu | -- --no-gpu | name ...]
 
 Builds and serves the site with Vite's preview on 127.0.0.1 at a free port when a check needs it.
 Plugin-only checks build their own artifact; a "(site)" plugin check also opens the site. Runs the named checks one at a time. With no name, it runs all checks that are not "by name only". The "(gpu)" checks assert frame times and need a GPU: --no-gpu runs all but them (the CI job, whose runner has no GPU), and --gpu runs only them (the deploy, when CI ran the others).
+A "(test pages)" check makes the build include the test pages (KINGDOWN_TEST_PAGES=1).
+A "(db)" check needs the disposable test database in PLUGIN_TEST_DATABASE_URL. When you set it, the check gets it as it is.
+Else the runner starts a throwaway PostgreSQL 17 (programs in PG_BIN, default /opt/homebrew/bin) on 127.0.0.1 at a free
+port, with its data folder in the system temp folder, prepares the schema, and stops and removes it when the run ends.
 
 Checks (name, time limit, script):
 ${rows.join('\n')}
@@ -72,10 +77,19 @@ if (isInside(root, outRoot)) {
   process.exit(2);
 }
 
-// 3. The locks, and a clean stop on every exit: the child, the record of a check in progress, every lease.
+// The test database: with no PLUGIN_TEST_DATABASE_URL, a "(db)" check gets a throwaway server (step 5b).
+const postgres = selected.some(c => c.db) && !process.env.PLUGIN_TEST_DATABASE_URL ? await import('./lib/postgres.mjs') : null;
+try { for (const tool of ['initdb', 'pg_ctl', 'createdb']) postgres?.pgTool(tool); } catch {
+  console.error(`check: no test database for ${selected.filter(c => c.db).map(c => c.name).join(', ')}: ${postgres.PG_BIN} has no initdb, pg_ctl or createdb. Install PostgreSQL 17 (brew install postgresql@17) and set PG_BIN to its program folder (/opt/homebrew/opt/postgresql@17/bin), or set PLUGIN_TEST_DATABASE_URL`);
+  process.exit(2);
+}
+
+// 3. The locks, and a clean stop on every exit: the child, the record of a check in progress, the throwaway
+// database, every lease.
 await enterMachineLease();
 let current = null; // the running child process
 let active = null; // the record entry of the check in progress
+let db = null; // the throwaway database: { dir, pid }
 const killGroup = (child, signal) => { try { process.kill(-child.pid, signal); } catch {} };
 process.on('exit', () => {
   if (current) killGroup(current, 'SIGKILL');
@@ -83,7 +97,12 @@ process.on('exit', () => {
     Object.assign(active, { end: new Date().toISOString(), ok: false, fault: interrupted ? `stopped by ${interrupted.signal}` : 'the runner exited' });
     writeRecord();
   }
-  releaseAll();
+  try { if (db) {
+    postgres.stopPostgres(db.dir, db.pid);
+    // An exit handler cannot wait: when pg_ctl did not stop the server, stop it now, before its folder goes.
+    if (postgres.isAlive(db.pid)) try { process.kill(db.pid, 'SIGKILL'); } catch {}
+    rmSync(db.dir, { recursive: true, force: true });
+  } } finally { releaseAll(); } // a fault in the cleanup must not keep the leases
 });
 // A signal stops the running child; the run then ends with the signal's exit code and no report line.
 let interrupted = null;
@@ -161,7 +180,7 @@ let server;
 let url;
 if (selected.some(c => !c.external && (c.site || !['tools/plugin-browser-check.mjs', 'tools/web-game-check.mjs'].includes(c.script)))) {
   const buildLog = join(runDir, 'build.log');
-  const build = await inSlot(false, () => run('npm', ['run', '--silent', 'build'], { log: buildLog, limit: 600, extraEnv: CHECK_SITE_ENV }));
+  const build = await inSlot(false, () => run('npm', ['run', '--silent', 'build'], { log: buildLog, limit: 600, extraEnv: { ...CHECK_SITE_ENV, ...(selected.some(c => c.ciTestPages) ? { KINGDOWN_TEST_PAGES: '1' } : {}) } }));
   exitIfInterrupted();
   if (build.code !== 0) {
     report(false, 'build', build.seconds, firstFault(buildLog, build), buildLog);
@@ -171,6 +190,32 @@ if (selected.some(c => !c.external && (c.site || !['tools/plugin-browser-check.m
   server = await preview({ root, logLevel: 'silent', preview: { host: '127.0.0.1', port: Number(process.env.PLAYABLE_PORT ?? selected.find(check => check.previewPort)?.previewPort ?? 0), strictPort: true, open: false } });
   url = server.resolvedUrls.local[0];
   say(`check: serving the build at ${url}`);
+}
+
+// 5b. The throwaway test database: a new cluster, one database, the schema. The exit handler removes it.
+if (postgres) {
+  const start = Date.now(), log = join(runDir, 'database.log');
+  db = { dir: mkdtempSync(join(tmpdir(), 'kingdown-check-pg-')), pid: null };
+  const [port] = await postgres.reservePorts(1);
+  process.env.PLUGIN_TEST_DATABASE_URL = `postgresql://postgres@127.0.0.1:${port}/kingdown_check_test`;
+  try {
+    db.pid = postgres.startPostgres(db.dir, port, log);
+    execFileSync(postgres.pgTool('createdb'), ['-h', '127.0.0.1', '-p', String(port), '-U', 'postgres', 'kingdown_check_test'], { stdio: 'pipe' });
+  } catch (error) {
+    await new Promise(resolve => setImmediate(resolve)); // a signal handler runs only when the event loop turns
+    exitIfInterrupted(); // an interrupt stops the child too; give the signal's code, not a database fault
+    report(false, 'database', (Date.now() - start) / 1000, error.message.split('\n')[0], log);
+    process.exit(1);
+  }
+  exitIfInterrupted();
+  const schemaLog = join(runDir, 'schema.log');
+  const schema = await run(process.execPath, ['tools/plugin-db/bootstrap-test.mjs'], { log: schemaLog, limit: 120 });
+  exitIfInterrupted();
+  if (schema.code !== 0) {
+    report(false, 'schema', schema.seconds, firstFault(schemaLog, schema), schemaLog);
+    process.exit(1);
+  }
+  say(`check: test database ${process.env.PLUGIN_TEST_DATABASE_URL} (server PID ${db.pid}, data folder ${db.dir})`);
 }
 
 // 6. The checks, one at a time, each in a slot; each one must leave the checkout as it found it.
