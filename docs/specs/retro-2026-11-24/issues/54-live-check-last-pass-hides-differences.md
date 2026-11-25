@@ -15,7 +15,7 @@ When `checkSignal.aborted` is true after a pass, keep the `found` of the pass be
 
 ## Test that fails first
 
-A local site that answers the first pass at once with a different bundle and holds each later reply for longer than the time that is left (site() with a reply delay that starts after the first pass). With a limit of about 3000 ms: before the change, the FAIL text has only `fetch failed` lines; after the change, it names `index-Old999.js` and `index-Abc123_x.js`.
+A local site that answers the first pass at once with a different bundle, and holds each reply of the second pass for longer than the time that is left. `site()` has no delay that starts only after the first pass: the test needs a new `site()` option (for example a delay from the second request of `/` on) or its own server. Use a limit of about 7000 ms. The pause between passes is `Math.min(5000, left)` (tools/deploy-live-check.mjs, about line 184), so a limit shorter than the first pass plus 5 s starts no second pass. With 7000 ms, the second pass starts with about 1.7 s left, and a reply delay of more than that cuts it. Before the change, the FAIL text has only `fetch failed` lines. After the change, it names `index-Old999.js` and `index-Abc123_x.js`.
 
 ## Known limits
 

@@ -57,7 +57,9 @@ One independent review (an agent that did not build the change) read b5928fcb4. 
 - Note 2: with limit 0, a hung local server gives only `Test timed out in 60000ms`. No change: more than 30 tests in this file already use limit 0.
 - Note 3: with a positive limit, the abort can cut the last pass and hide the differences of the pass before. This is a release tool change, outside this test-only ticket: ticket [54](54-live-check-last-pass-hides-differences.md).
 - Note 4: the plugin test at `tools/deploy-plugin-live-check.test.ts:67` stays at 250 ms; the reviewer agrees with the reasons in Known limits.
-- Note 5: the record above is true for each line that the reviewer checked.
+- Note 5: the reviewer confirmed the red text, the test counts, the green runs with the delay and the line numbers. The reviewer did not run the old publish test with the delay (11 tests, 1 failed); only the code supports that red result (`setup()` gives 1500 ms, and `tools/deploy.sh` does not set or clear the limit).
+
+Repair check (the same reviewer, at 6c1127964): blocking 0. The fault "hide the difference lines when the limit is above 0" makes the short-limit test red (1 of 78 fails); with a 1600 ms late reply the file passes 78 of 78. The spec criterion is true. Two notes on ticket text, corrected after the check with no other review round: the test plan of ticket 54 (a 7000 ms limit, a new `site()` option) and the scope of note 5.
 
 ## Work record
 
