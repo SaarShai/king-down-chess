@@ -40,6 +40,8 @@ describe('deploy-live-check.mjs', () => {
     const result = await check(buildFolder(pages()), live.url, 1500);
     expect(result.status).toBe(1);
     expect(result.seconds).toBeLessThan(1.5 + 5);
+    // A positive limit (production uses one) still prints the difference; a late reply prints its timeout line instead.
+    expect(result.stderr).toMatch(/bundle: .*index-Old999\.js|fetch failed/);
   });
 
   it('checks runtime bytes and immutable cache headers', async () => {

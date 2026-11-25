@@ -48,6 +48,17 @@ Forced order with the existing `site()` option `delayMs` (tools/lib/deploy-site-
 - tools/deploy-plugin-live-check.test.ts:67 asserts the named reasons `Muse metadata must be served on staging` and `/muse/mcp discovery issuer` with a 250 ms limit. A late reply can turn it red. Limit 0 does not help there: tools/deploy-plugin-live-check.mjs:10 reads 0 as a deadline now, and a longer limit costs the full limit for each fault, because the loop tries again until the deadline. No CI failure of this test is known. Its last case (`Muse must be built on staging`, :78) fails before any request (tools/deploy-plugin-live-check.mjs:73).
 - Some pass tests still run with a short limit: `check()` with its 1500 ms default (tools/deploy-live-check.test.ts:16, :123, :172, :304), the 7000 ms retry test (:96), and the publish tests that keep the `setup()` default of 1500 ms (tools/deploy-publish.test.ts:14, :101, :141). A late reply can turn them red too. They assert no named difference, so they are not in the scope of this ticket.
 
+## Review
+
+One independent review (an agent that did not build the change) read b5928fcb4. It ran three focused runs in a scratch copy: a late reply (1600 ms) on the new and the old tests, a fault that hides the difference lines when the limit is above 0, and a fault that adds 10 s to the deadline. Result: blocking 1, notes 5.
+
+- Blocking: after the change, no test proved that a check with a positive limit names the difference (production uses 180000 ms). The fault "hide the difference lines when the limit is above 0" stayed green. Repair: the short-limit test also asserts `/bundle: .*index-Old999\.js|fetch failed/` (a late reply still matches the timeout line; the fault goes red on a fast runner).
+- Note 1: `docs/specs/secrets-and-public-gates/issues/10-deploy-publish-and-live-check.md:16` said that one test gives the bound and the names. Repair: the criterion now says how the two are proven.
+- Note 2: with limit 0, a hung local server gives only `Test timed out in 60000ms`. No change: more than 30 tests in this file already use limit 0.
+- Note 3: with a positive limit, the abort can cut the last pass and hide the differences of the pass before. This is a release tool change, outside this test-only ticket: ticket [54](54-live-check-last-pass-hides-differences.md).
+- Note 4: the plugin test at `tools/deploy-plugin-live-check.test.ts:67` stays at 250 ms; the reviewer agrees with the reasons in Known limits.
+- Note 5: the record above is true for each line that the reviewer checked.
+
 ## Work record
 
 Partly built. The plugin CORS case: PR #446 (merge 55196fb27, commit 31c993190, 2026-11-23) gives it 2000 ms and a 500 ms reply delay. The "both connectors" test now uses `passingEnv` with 10000 ms (tools/deploy-plugin-live-check.test.ts:14, :40). No failure of these two after the repair in the runs since 2026-11-05. The `deploy-live-check.mjs` cases: run 45209506437 failed after #446.

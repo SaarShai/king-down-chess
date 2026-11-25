@@ -13,7 +13,7 @@
 - [x] With `--publish`, the stub log holds one `npx` call with the pinned Vercel version, its `--prod` and yes flags, after the runner call.
 - [x] A failed check stops the script before the `npx` call.
 - [x] The live check runs against a local server that serves the build: it passes.
-- [x] The local server with a different bundle name, and again with a changed terms page, fails within the time limit (shortened by an env for the test) and names the difference.
+- [x] The local server with a different bundle name, and again with a changed terms page, fails and names the difference. The names are proven with limit 0 (one pass), so a late local reply on a loaded runner cannot hide them. The time limit (shortened by an env for the test) is proven with the bundle fault at 1500 ms (retro ticket [13](../../retro-2026-11-24/issues/13-ci-live-check-short-limit.md)).
 - [x] The live check sends no cookie header; the local server asserts this.
 - [x] The worktree is gone after a publish run, pass or fail.
 
