@@ -103,7 +103,7 @@ function offlineBuild(): Plugin {
         if (file === 'character-runtime/manifest.json') writeFileSync(join(outDir, file), JSON.stringify(validateManifest(JSON.parse(contents.toString('utf8')))) + '\n');
         validateRuntimeImage(contents, file);
       }
-      const template = readFileSync(launch ? join(root, 'tools/solo-launch/sw.js') : join(publicDir, 'sw.js'), 'utf8');
+      const template = readFileSync(join(publicDir, 'sw.js'), 'utf8');
       const hash = createHash('sha256').update(template); // a change to the worker itself is a new version too
       for (const f of files.filter(file => !file.startsWith('character-runtime/') || isCharacterRuntimeStartup(file) || file === 'character-runtime/manifest.json')) hash.update(f).update(readFileSync(join(outDir, f)));
       const { allowlist, precache } = offlineCacheFiles(bundle, root, files, launch);
