@@ -1,10 +1,11 @@
 # Faster first load, installable, offline, ready for a public host
 
-Work of 2026-10-02 (branch `claude/perf-installable`). What changed, how it was measured, and the
-owner's one-time steps to put the game on GitHub Pages.
+Work of 2026-10-02 (branch `claude/perf-installable`). What changed and how it was measured.
 
 > **2026-10-11:** the clay look is parked (`1476f55c:parked/clay/`, [spec](../specs/park-clay/spec.md)). The game has
 > only the painted look, and the build publishes no clay file. The clay parts below are history.
+> The GitHub Pages workflow is gone (decision 1 of [the platform seam spec](../specs/platform-seam/spec.md)):
+> kingdown.dev is the only public host ([HOSTING.md](../HOSTING.md)).
 
 ## In plain words
 
@@ -19,8 +20,6 @@ owner's one-time steps to put the game on GitHub Pages.
   only used when there is no connection.
 - **The published game is 15 MB instead of 47 MB.** Graphics-study models that no game page loads are
   no longer published. They still work in development (`npm run graphics:study`).
-- **It is ready for GitHub Pages**, at `https://saarshai.github.io/king-down-chess/`, by one manual
-  button press after the one-time setup below. Nothing has been published.
 
 ## Before and after
 
@@ -79,22 +78,6 @@ What the numbers mean:
   Frost King (`docs/2d-first-pieces/king-frost/king.webp`, the game's own art; made by
   [make-icons.mjs](make-icons.mjs)). `index.html` gained four head tags (description, theme colour,
   manifest, Apple touch icon).
-- `.github/workflows/pages.yml`: builds and publishes to GitHub Pages, **only when started by hand**.
-
-## Putting the game on GitHub Pages (owner, one time)
-
-Nothing is published until you do this.
-
-1. Merge this branch into `main`.
-2. On GitHub, open the repository's **Settings → Pages**. Under **Build and deployment → Source**,
-   choose **GitHub Actions**. (Pages on a private repository needs a paid GitHub plan; on a public
-   repository it is free.)
-3. Open **Actions → Publish to GitHub Pages → Run workflow**, keep the branch `main`, and press
-   **Run workflow**. After about two minutes the game is at
-   `https://saarshai.github.io/king-down-chess/`.
-4. To publish a later version, run the workflow again. Players get it on their next visit.
-
-To take it down: **Settings → Pages → Unpublish site** (or turn the source off).
 
 ## Checking it yourself
 
@@ -103,9 +86,6 @@ npm run build && npx vite preview --host 127.0.0.1 --port 5189 --strictPort &
 PLAYABLE_URL=http://127.0.0.1:5189/ PLAYABLE_BROWSER=chromium node tools/measure-load.mjs --runs 3
 # Updates and offline: a new deployment shows on the next load, and offline works right after it
 PLAYABLE_BROWSER=chromium node docs/perf/check-update.mjs
-# The same build under a sub-path, as GitHub Pages serves it:
-npx vite preview --host 127.0.0.1 --port 5193 --strictPort --base /king-down-chess/ &
-PLAYABLE_URL=http://127.0.0.1:5193/king-down-chess/ PLAYABLE_BROWSER=chromium node tools/measure-load.mjs --runs 1
 ```
 
 ## Limits and next steps
