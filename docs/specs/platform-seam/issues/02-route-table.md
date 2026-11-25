@@ -1,6 +1,6 @@
 # One page route table
 
-Status: needs-triage. Waits for the owner's approval of [the spec](../spec.md).
+Status: done on branch seam-guards; waits for the review.
 
 Class: B. Size: M.
 
@@ -39,3 +39,16 @@ The host list is the table. `vercelRoutes` in `tools/plugin-server-build.mjs` al
 
 - The Swift copy and the worker copy stay copies. A test makes a difference fail; it does not remove the copy. A generated Swift file needs a new iOS build, and a filled worker changes the worker bytes for each client.
 - Until ticket 06, the preview serves a launch tree only in a release run and by hand.
+
+## Work record
+
+- `tools/plugin-server-build.mjs`: the join page is the exported constant `JOIN_PAGE`, and the host build writes it. No line of `vercelRoutes` changes.
+- `vite.config.ts`: the preview middleware of a launch tree routes each path through `vercelRoutes(site, { chatgpt: false, muse: false })` and `siteRoute`. It tells `siteRoute` which files the tree has, and that `/join.html` is present. It answers `/join.html` with `JOIN_PAGE`. Each destination that is not a page (`/mcp`, `/internal`) gets the 404 page, as a missing file does today. The preview adds no route header. Its copy of the pattern goes.
+- Test 1 (`tools/plugin-server-build.test.ts`): the routes of today as literals, with and without the marker (both servers on), and the join page text in the server-build test of ticket 03. It was green before the change and after it.
+- Test 2 (`tools/plugin-server-build.test.ts`): takes the `solo-launch-preview` plugin from the config, drives its middleware on a temporary launch tree, and compares 20 paths with the host. Red before the change: `/j: expected { dest: '/index.html' } to deeply equal { dest: '/join.html' }` (the case stops at the first fault; `/j/` and `/join.html` also differed in the old preview).
+- Test 3 (`tools/ios-app.test.ts`): the Swift pattern equals the host route as text. The `/j` difference stays, with its reason.
+- Test 4 (`tools/service-worker.test.ts`): the launch worker gives its offline page for a navigation exactly where the host pattern matches, on 13 paths.
+- Test 5 (`tools/platform.test.ts`): `parseAccountRoute` gives a route only where the host gives `index.html` or `join.html`; `launchRoute` gives home exactly where the host gives `next.html` with no 404. The test loads `src/interface/platform.ts` through a path in a variable: a static import puts the whole board (its dynamic import of `play/main`) into the tools type check, and that check fails on files of `src/` (`never[]` with `noImplicitAny` off).
+- Red: `KINGDOWN_TEST_FILE="tools/{plugin-server-build,ios-app,service-worker,platform}.test.ts" npm test`, with the type check: 1 failed (test 2), 269 passed, 4.8 s of tests.
+- Green: `KINGDOWN_TEST_FILE="tools/{plugin-server-build,ios-app,service-worker,platform,offline-build,dev-settings}.test.ts" npm test`, with the type check: 6 files, 341 tests passed, 4.8 s of tests (31 s in all). `offline-build` loads the config from its file; `dev-settings` imports it.
+- Not verified: `npm run check:vercel` on a launch tree (no launch tree was built); a real `vite preview` of a launch tree in a browser.

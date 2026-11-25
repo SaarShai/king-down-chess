@@ -15,6 +15,9 @@ import { STAGING_ORIGIN, STAGING_PROJECT_ID, STAGING_SUPABASE_URL } from './stag
 import { CHATGPT_PLUGIN } from './chatgpt-plugin.mjs';
 import { MUSE_CONNECTOR, MUSE_PATHS } from './muse-connector.mjs';
 
+/** The page for `/j` on a launch tree: the invite token stays in the fragment. The Vite preview serves it too. */
+export const JOIN_PAGE = '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Join King Down</title><script>location.replace("/next.html#join=" + location.hash.slice(1));</script></html>';
+
 /** Site routes keep the domain challenge separate from the plugin function. While the ChatGPT plugin is parked
  *  (tools/chatgpt-plugin.mjs), the tree has no board art and no domain challenge, so it has no route for them. The Muse
  *  connector (tools/muse-connector.mjs) routes its paths, and the consent page when the plugin does not serve it, to the
@@ -134,7 +137,7 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
       await symlink('mcp.func', resolve(output, 'functions/internal.func'));
     }
     if (site && existsSync(resolve(site, 'solo-launch.json'))) {
-      await writeFile(resolve(output, 'static/join.html'), '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Join King Down</title><script>location.replace("/next.html#join=" + location.hash.slice(1));</script></html>');
+      await writeFile(resolve(output, 'static/join.html'), JOIN_PAGE);
     }
     await writeFile(resolve(output, 'config.json'), JSON.stringify({ version: 3, routes }) + '\n');
     if (staging) {

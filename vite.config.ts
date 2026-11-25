@@ -3,6 +3,8 @@ import { isCharacterRuntimePublic, isCharacterRuntimeStartup } from './tools/lib
 import { privateRuntimeData, validateManifest, validateRuntimeImage } from './tools/lib/character-runtime-guard.mjs';
 import { splitManifest, writeRuntimeParts } from './tools/lib/character-runtime-split.mjs';
 import { pluginSymbols } from './tools/lib/plugin-symbols.mjs';
+import { siteRoute } from './tools/lib/site-route.mjs';
+import { JOIN_PAGE, vercelRoutes } from './tools/plugin-server-build.mjs';
 import { buildWorker } from './tools/plugin-runtime-build.mjs';
 import { launchSource, soloLaunch } from './tools/solo-launch.mjs';
 import { configDefaults, defineConfig, type Plugin } from 'vitest/config';
@@ -193,16 +195,19 @@ export default defineConfig(({ command }) => {
       ? { rel: 'preload', as: 'style', crossorigin: '', href: '/' + name }
       : { rel: 'modulepreload', crossorigin: '', href: '/' + name }, injectTo: 'head' as const }));
   } } }, { name: 'solo-launch-source', apply: 'build', enforce: 'pre', transform(code, id) { return launchSource(code, id, launch); }, transformIndexHtml: { order: 'pre', handler(html, context) { return launch && context.path === '/next.html' ? readFileSync(join(fileURLToPath(new URL('.', import.meta.url)), 'tools/solo-launch/next.html'), 'utf8').replace('/src/interface/entry.ts', '/src/interface/launch-entry.ts') : html; } } }, { name: 'solo-launch-preview', configurePreviewServer(server) {
-    if (!existsSync(resolve(server.config.root, server.config.build.outDir, 'solo-launch.json'))) return;
+    const site = resolve(server.config.root, server.config.build.outDir);
+    if (!existsSync(resolve(site, 'solo-launch.json'))) return;
+    // The page routes of the host. The preview has no server, so a path of /api, /internal or a connector answers as a missing file.
+    const host = { routes: vercelRoutes(site, { chatgpt: false, muse: false }) };
     server.middlewares.use((req, res, next) => {
       const path = new URL(req.url ?? '/', 'http://localhost').pathname;
-      if (/^\/(?:play(?:\/.*)?|g\/[^/]+\/?|j\/?)$/.test(path)) { req.url = '/index.html'; return next(); }
-      if (path === '/') { req.url = '/next.html'; return next(); }
-      if (!existsSync(resolve(server.config.root, server.config.build.outDir, '.' + path))) {
-        res.statusCode = 404; res.setHeader('Content-Type', 'text/html');
-        res.end(readFileSync(resolve(server.config.root, server.config.build.outDir, 'next.html'))); return;
-      }
-      next();
+      // The host build writes join.html into its own output, not into the built tree.
+      const { dest, status } = siteRoute(host, path, path === '/join.html' || existsSync(resolve(site, '.' + path)));
+      if (dest === '/join.html') { res.setHeader('Content-Type', 'text/html'); res.end(JOIN_PAGE); return; }
+      if (!status && dest === path) return next();
+      if (!status && ['/index.html', '/next.html'].includes(dest)) { req.url = dest; return next(); }
+      res.statusCode = 404; res.setHeader('Content-Type', 'text/html');
+      res.end(readFileSync(resolve(site, 'next.html')));
     });
   } }, pluginSymbols(), offlineBuild(), characterRuntimeParts(), { name: 'account-engine-identity', ...(localOnline ? {} : { apply: 'build' as const }), async config() {
     return { define: { __KINGDOWN_PAGE_ENGINE__: JSON.stringify((await buildWorker()).engine) } };

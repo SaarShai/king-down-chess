@@ -15,13 +15,15 @@ it('routes the pages in the app as the host does, from the same build marker', (
   expect(swift).toContain('rootViewController = AppViewController()');
   expect(swift).toContain('override func router() -> Router { AppRouter() }');
   expect(/static let marker = "(.+?)"/.exec(swift)?.[1]).toBe('solo-launch.json');
-  const online = new RegExp(/static let onlinePages = #"(.+?)"#/.exec(swift)![1]);
+  const pages = /static let onlinePages = #"(.+?)"#/.exec(swift)![1], online = new RegExp(pages);
   const site = mkdtempSync(join(tmpdir(), 'ios-routes-'));
   try {
     writeFileSync(join(site, 'solo-launch.json'), '{"soloLaunch":true}');
     const config = { routes: vercelRoutes(site) };
+    expect(pages).toBe(config.routes.find(route => route.dest === '/index.html')!.src);
     for (const path of ['/', '/play', '/play/', '/play/settings', '/playground', '/g/game', '/g/game/', '/g/a/b', '/j', '/j/', '/missing']) {
-      // The website translates invite fragments; native universal links use UniversalLink.localURL.
+      // The host sends /j to its join page. In the app, /j arrives only through UniversalLink.localURL, which opens
+      // /next.html#join= itself; a change of the router needs a new iOS build.
       if (path === '/j' || path === '/j/') { expect(siteRoute(config, path).dest).toBe('/join.html'); continue; }
       expect(online.test(path) ? '/index.html' : '/next.html', path).toBe(siteRoute(config, path).dest);
     }

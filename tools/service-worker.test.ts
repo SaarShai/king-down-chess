@@ -1,7 +1,10 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { withPrivateCachePolicy } from '../src/online/cache-policy';
 import { describe, expect, it, vi } from 'vitest';
+import { vercelRoutes } from './plugin-server-build.mjs';
 
 const origin = 'https://kingdown.test';
 const version = 'test-build';
@@ -762,6 +765,21 @@ it('recovers an offline online-page navigation without caching private responses
  }
  expect([...cache.entries.keys()]).toEqual(before);
  for (const path of ['/api/me/games', '/authorize', '/play']) expect(w.request(path).response).toBeUndefined();
+});
+
+it('gives the offline page in the launch worker exactly for the online pages of the host', async () => {
+  const site = mkdtempSync(join(tmpdir(), 'worker-routes-'));
+  try {
+    writeFileSync(join(site, 'solo-launch.json'), '{}');
+    const online = new RegExp(vercelRoutes(site).find(route => route.dest === '/index.html')!.src);
+    const w = worker(storage(), version, [...files, 'next.html'], undefined, readFileSync(new URL('./solo-launch/sw.js', import.meta.url), 'utf8'));
+    w.fetch.mockRejectedValue(new Error('offline'));
+    for (const path of ['/', '/play', '/play/', '/play/settings', '/playground', '/g/game', '/g/game/', '/g/a/b', '/j', '/j/', '/j/token', '/next.html', '/missing']) {
+      const answer = w.request(path, { mode: 'navigate' }).response;
+      const offline = answer ? (await answer.then(page => page.text(), () => '')).includes('You are offline') : false;
+      expect(offline, path).toBe(online.test(path));
+    }
+  } finally { rmSync(site, { recursive: true, force: true }); }
 });
 
 it.each(['../public/sw.js', './solo-launch/sw.js'])('fault 6: a failed character sound does not stop the install, the activation or the proof (%s)', async path => {

@@ -3,6 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { expect, it } from 'vitest';
+import { parseAccountRoute } from '../src/online/routes';
+import { siteRoute } from './lib/site-route.mjs';
 import { soloLaunch } from './solo-launch.mjs';
 import { vercelRoutes } from './plugin-server-build.mjs';
 
@@ -101,4 +103,23 @@ it('keeps the original entries off and attaches the launch controls to the actua
  const launch = launchSource(source, '/src/online/entry.ts', true)!;
  expect(launch).toContain('installLocalSolo(api, session.userId);'); expect(launch).toContain('installAccountControls(auth, session);');
  expect(launch.indexOf('installLocalSolo(api, session.userId);')).toBeLessThan(launch.indexOf('const host = createBrowserRuntime'));
+});
+
+it('reads a page route only where the host serves that page', async () => {
+  // A path in a variable keeps this module out of the tools type check: it imports the whole board at run time.
+  const platform = '../src/interface/platform', { launchRoute } = await import(platform);
+  const site = mkdtempSync(join(tmpdir(), 'page-routes-'));
+  try {
+    writeFileSync(join(site, 'solo-launch.json'), '{"soloLaunch":true}');
+    // The host serves the files of a launch tree and the join page that its build writes.
+    const host = { routes: vercelRoutes(site) }, files = new Set(['/index.html', '/next.html', '/join.html']);
+    const game = '0f8b3c1e-2a4d-4b6f-8c9e-1a2b3c4d5e6f';
+    let routes = 0;
+    for (const path of ['/', '/next.html', '/index.html', '/join.html', '/play', '/play/', '/play/friend', '/play/settings', '/play/x/y', '/playground', `/g/${game}`, `/g/${game}/`, '/g/game', '/g/a/b', '/j', '/j/', '/j/token', '/missing', '/api/status']) {
+      const { dest, status } = siteRoute(host, path, files.has(path)), url = new URL(path + '#ABCDEF', 'https://kingdown.dev');
+      if (parseAccountRoute(url)) { routes++; expect(['/index.html', '/join.html'], path).toContain(dest); }
+      expect(launchRoute(url) === 'home', path).toBe(dest === '/next.html' && !status);
+    }
+    expect(routes).toBeGreaterThan(0);
+  } finally { rmSync(site, { recursive: true, force: true }); }
 });
