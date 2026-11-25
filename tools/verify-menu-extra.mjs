@@ -166,6 +166,7 @@ try {
           const body = document.querySelector('.lesson-guide-body').getBoundingClientRect();
           return box.width === 44 && box.height === 44 && parseFloat(getComputedStyle(close).fontSize) === 24 && lead.top + 20 < body.bottom;
         }), true, 'Guide shows Close and the first rule line');
+        await noSidewaysScroll(page);
         const guideHead = await page.locator('.lesson-guide-head').boundingBox();
         await page.locator('.lesson-guide-body').evaluate(el => { el.scrollTop = el.scrollHeight; });
         assert.deepEqual(await page.locator('.lesson-guide-head').boundingBox(), guideHead, 'Guide head stays in place when rules scroll');
