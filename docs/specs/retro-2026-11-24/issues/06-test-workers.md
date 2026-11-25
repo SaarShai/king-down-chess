@@ -85,7 +85,7 @@ The 10 slowest files, from the red full run (pass-bar full run 1, 8 workers, 274
 ## Known limits
 
 - The natural red of the seat tap did not come back on this Mac: 0 of 6 loaded runs and 0 of 2 valid full runs before the repair (the retro: 1 of 2). The proof of the cause is the forced order, not a natural red.
-- The committed state (the repair with 4 workers) did not run. The repaired file is green with 8 workers only: 10 loaded runs, 1 full run and 2 runs of the plugin files.
+- The lead ran the committed state: `KINGDOWN_TEST_FILE=tools/plugin-ios-size.test.ts npm test` with 4 workers passes (33 tests, 55 s). The builder ran the repaired file with 8 workers only: 10 loaded runs, 1 full run and 2 runs of the plugin files.
 - No run shows if the two plugin-app reds also occur with 4 workers.
 - Full run 3 before the repair had a probe in the test, which adds steps before the tap.
 - The loaded run (4 files) keeps only 4 of the 8 workers busy. Its greens show less than the full runs.
