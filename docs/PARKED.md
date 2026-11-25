@@ -46,10 +46,12 @@ A friend joins an online game by the invite link only. The friend screen shows a
 
 ## Parked checks
 
-The browser checks `lessons`, `lesson-return`, `workshop` and `workshop-cast` run only by name (`tools/lib/registry.mjs`). They test parked features, so they can fail until the feature returns.
+The browser checks `lessons`, `lesson-return`, `workshop-cast` and `link-game` are removed (2026-11-25). Each stopped at its first step, because the entry point of its feature is not in the page, so no repair could make it green while the feature is parked. A return most likely builds on the new page and needs a new check. Commit `ad92b6583` is the last one that holds the four scripts; they are the same at `ab67fccc1` on main. To restore one: `git show ab67fccc1:tools/verify-lessons.mjs > tools/verify-lessons.mjs`, then add its entry to `tools/lib/registry.mjs` again. The live Guide assertions of `lessons` moved to `menu-extra` and `read-piece`. When lessons return, the risk "a lesson replaces the saved match" needs a browser check again.
 
-The browser check `link-game` runs only by name (`tools/lib/registry.mjs`). It tests the parked game link, so it can fail until the link returns. The checks that start a two-person game use the `?players=` fixture (`startGame` with `mode: 'two'` in `tools/new-game-ui.mjs`). The design-game steps of `painted-game` moved into `link-game`, because a design game opens only from a game link.
+The browser check `workshop` stays and runs only by name. It fails until the Workshop returns, but `src/workshop/review.docs.test.ts` reads its groups.
+
+The checks that start a two-person game use the `?players=` fixture (`startGame` with `mode: 'two'` in `tools/new-game-ui.mjs`). The design-game steps of `painted-game` moved into `link-game`, because a design game opens only from a game link.
 
 ## How to return a feature
 
-Put its entry point back in `index.html` (or `src/plugin/index.html` and `src/plugin/screens/setup.ts`) and its wiring in `src/main.ts` (or `src/ui/menu.ts`), and remove it from this page. `git log -- docs/PARKED.md` names the commit that parked it; its diff shows each removed line.
+Put its entry point back in `index.html` (or `src/plugin/index.html` and `src/plugin/screens/setup.ts`) and its wiring in `src/main.ts` (or `src/ui/menu.ts`), and remove it from this page. Give it a browser check: restore its old check (see Parked checks) or write a new one. `git log -- docs/PARKED.md` names the commit that parked it; its diff shows each removed line.

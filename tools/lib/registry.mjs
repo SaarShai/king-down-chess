@@ -56,11 +56,7 @@ export const checks = [
   { name: 'effects-states', script: 'docs/specs/effects-animation/evidence/14-state-integration/capture.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'read-piece', ciSeconds: 2, script: 'tools/verify-read-piece.mjs', limit: 180 },
   { name: 'verb-marks', ciSeconds: 4, script: 'tools/verify-verb-marks.mjs', limit: 180 },
-  // Parked with their features (docs/PARKED.md): lessons, lesson-return, workshop and workshop-cast run only by name.
-  { name: 'lessons', script: 'tools/verify-lessons.mjs', limit: 180, byName: true },
   { name: 'turn', ciSeconds: 41, script: 'tools/verify-turn.mjs', limit: 180 },
-  // The serverless game link is parked (docs/PARKED.md): its check runs only by name, and it can fail until the link returns.
-  { name: 'link-game', script: 'tools/verify-link-game.mjs', args: ['link'], limit: 180, byName: true },
   { name: 'end', ciSeconds: 102, script: 'tools/verify-end.mjs', limit: 180 },
   { name: 'their-turn', ciSeconds: 13, script: 'tools/verify-their-turn.mjs', limit: 180 },
   { name: 'game-screen', ciSeconds: 18, script: 'tools/verify-game-screen.mjs', limit: 240 },
@@ -70,15 +66,14 @@ export const checks = [
   { name: 'cursor-adoption', ciSeconds: 81, script: 'tools/verify-cursor-adoption.mjs', limit: 240, channel: 'chromium' },
   { name: 'king-effects', script: 'tools/verify-king-effects.mjs', limit: 240, exclusive: true, gpu: true },
   { name: 'character-clips', ciSeconds: 67, script: 'tools/verify-character-clips.mjs', limit: 180 },
-  { name: 'lesson-return', script: 'tools/verify-lesson-return.mjs', limit: 180, byName: true },
   { name: 'new-game', ciSeconds: 95, script: 'tools/verify-new-game.mjs', limit: 240 },
   { name: 'painted-game', script: 'tools/verify-painted-game.mjs', limit: 240, exclusive: true, gpu: true },
   { name: 'powers', ciSeconds: 11, script: 'tools/verify-powers.mjs', limit: 180 },
   { name: 'special-moves', ciSeconds: 58, script: 'tools/verify-special-moves.mjs', limit: 240 },
   { name: 'ux-defects', ciSeconds: 65, script: 'tools/verify-ux-defects.mjs', limit: 300 },
   { name: 'visual-design', ciSeconds: 62, script: 'docs/visual-design/verify.mjs', limit: 240 },
+  // Workshop is parked (docs/PARKED.md), so this check fails; src/workshop/review.docs.test.ts reads its groups.
   { name: 'workshop', script: 'tools/verify-workshop.mjs', limit: 240, byName: true },
-  { name: 'workshop-cast', script: 'tools/verify-workshop-cast.mjs', limit: 180, byName: true },
   { name: 'qa', ciSeconds: 358, script: 'tools/qa.mjs', limit: 900, channel: 'chromium', exclusive: true },
   { name: 'selftest', ciSeconds: 1, script: 'tools/check-selftest.mjs', limit: 120 },
   // Plugin checks build their own artifact; OAuth and HTTP checks need local PostgreSQL (db).

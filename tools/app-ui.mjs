@@ -170,7 +170,6 @@ export async function previousReview(page) {
   await page.locator('#back-to-game').focus();
   await page.keyboard.press('ArrowLeft');
 }
-export const seeAgain = page => page.locator('#see-again[aria-disabled="false"]').click();
 
 /** An opened link finishes its replay before the check taps the board. */
 export const waitForLinkReplay = page => page.waitForFunction(() => document.getElementById('see-again').getAttribute('aria-disabled') === 'false');
@@ -262,20 +261,11 @@ export async function waitForUi(page, test, arg = null, options = {}) {
 /** Keep a copy on the card face that a design link opens first. */
 export const keepWorkshopCopy = page => page.locator('#workshop .pg-sheet[open] [data-keep]');
 
-/** Copy link in the Share sheet. */
-export const workshopCopyLink = page => page.locator('#workshop .pg-sheet[open] [data-copy]');
-
 /** The read line opens the Guide at the piece. */
 export const openPieceRules = page => page.locator('#all-rules').click();
 
 /** A coin read opens the same rules action at its power. */
 export const openPowerRules = openPieceRules;
-
-/** @deprecated Parked with the lesson shelf (docs/PARKED.md). Lesson board IDs and taps follow the shelf's order. */
-export const lessonPath = () => [
-  [0, [27, 45]], [1, [27, 35, 43]], [2, [27, 28]],
-  [3, [27, 35]], [4, [11, 12]], [5, [3, 43]],
-];
 
 /** King Down moves into the result when the board sequence ends. */
 export const ceremonyWords = page => page.locator('#over-words:visible, .kd-words:visible').first();

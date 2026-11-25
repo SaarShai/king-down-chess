@@ -222,7 +222,7 @@ try {
     await page.waitForFunction(() => window.view?.ready);
     await page.evaluate(() => window.view.ready());
   }
-  // 2f. The game link (parked, docs/PARKED.md) has its own check by name: link-game.
+  // 2f. The game link is parked (docs/PARKED.md); its check link-game is removed.
   // 2g. A resigned game against the computer: the resigning White king topples. (Lessons and Today's army are parked: docs/PARKED.md.)
   {
     await startGame(page, { mode: 'computer', side: 'white', army: 'classic' });
@@ -235,8 +235,7 @@ try {
   }
   console.log(`ok animations: normal ${normal.ms} ms, fast ${fast.ms} ms, tap-skip ${tapped.ms} ms, off ${off.ms} ms`);
 
-  // 2i. A game with a Workshop design: the Workshop and the game link are parked (docs/PARKED.md), so the design game
-  // check lives in the parked check link-game (tools/verify-link-game.mjs).
+  // 2i. A game with a Workshop design: the Workshop and the game link are parked (docs/PARKED.md); its check left with link-game.
 
   // 3. Phone width: the board fits without horizontal scrolling.
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
