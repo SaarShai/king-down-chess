@@ -3,11 +3,11 @@
 // Run: npm run check:browser ux-defects (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 // A probe exports `default async function (ctx)`; ctx is { browser, base, open, trapErrors, shot } (see open.mjs).
 import { readdirSync } from 'node:fs';
-import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, launch, oldBoard, shot, trapErrors } from './lib/checks.mjs';
 import { probeFiles } from './lib/registry.mjs';
 import { opener } from './ux-defects/open.mjs';
 
-const base = env('PLAYABLE_URL');
+const base = oldBoard();
 const dir = new URL('./ux-defects/', import.meta.url);
 const probes = readdirSync(dir)
   .filter(name => probeFiles.test(`tools/ux-defects/${name}`))

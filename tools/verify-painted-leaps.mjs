@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile,rename} from 'node:fs/promises';
 import {join} from 'node:path';
-import {env,launch,trapErrors,assertNoErrors} from './lib/checks.mjs';
+import {env,oldBoard,launch,trapErrors,assertNoErrors} from './lib/checks.mjs';
 const manifest=JSON.parse(await readFile('public/character-runtime/manifest.json'));
 const browser=await launch();
 if(process.argv[2]==='start'){
@@ -27,7 +27,7 @@ if(process.argv[2]==='start'){
    const page=await context.newPage(),errors=trapErrors(page);
    try{
     await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
-    const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('players','human,human');url.searchParams.set('fen',fen);
+    const url=new URL(oldBoard());url.searchParams.set('players','human,human');url.searchParams.set('fen',fen);
     await page.goto(url.href);await page.waitForFunction(s=>window.view?.scene?.characterFrames?.some(f=>f.square===s),from);await page.evaluate(()=>view.ready());
     await page.waitForFunction(()=>view.scene.characterWarmupSettled,null,{timeout:15000});await page.waitForTimeout(500);
     // The move starts at now - actionElapsed (normal pace, speed 1), so the poll interval does not count.
@@ -53,7 +53,7 @@ if(process.argv[2]==='start'){
    const page=await context.newPage(),errors=trapErrors(page);
    try{
     await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
-    const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('players','human,human');url.searchParams.set('fen','7k/p5G1/8/8/8/8/P5p1/7K w - - 0 1');
+    const url=new URL(oldBoard());url.searchParams.set('players','human,human');url.searchParams.set('fen','7k/p5G1/8/8/8/8/P5p1/7K w - - 0 1');
     await page.goto(url.href);await page.waitForFunction(()=>window.view?.scene?.characterFrames?.some(f=>f.square===7));await page.evaluate(()=>view.ready());
     await page.waitForFunction(()=>view.scene.characterWarmupSettled,null,{timeout:15000});await page.waitForTimeout(500);
     await page.evaluate(()=>{let downs=0;window.clickAt=null;window.startAt=null;window.total=null;addEventListener('pointerdown',()=>{if(++downs===2)clickAt=performance.now();},true);
@@ -78,7 +78,7 @@ try{
   const context=await browser.newContext({viewport:{width:1000,height:900},serviceWorkers:'block',reducedMotion:'no-preference',recordVideo:{dir:env('PLAYABLE_OUT'),size:{width:1000,height:900}}});
   const page=await context.newPage(),errors=trapErrors(page);
   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
-  const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('players','human,human');
+  const url=new URL(oldBoard());url.searchParams.set('players','human,human');
   url.searchParams.set('fen',`7k/p7/8/8/3${piece}4/8/P7/K7 ${army==='white'?'w':'b'} - - 0 1`);
   await page.goto(url.href);await page.waitForFunction(()=>window.view?.scene?.characterFrames?.some(f=>f.square===27));await page.evaluate(()=>view.ready());
   const from=await page.evaluate(()=>view.screenOf(27));await page.mouse.click(from.x,from.y);

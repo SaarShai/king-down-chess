@@ -55,7 +55,8 @@ export async function checkStagingLogin({ browser, origin, accountOrigin, actors
     await page.locator('[data-screen="play"]:not([hidden]) #setup-start:not(:disabled)').waitFor();
     assert.equal(new URL(page.url()).pathname, '/play/', 'An account refusal has a usable exit');
     await page.goto(origin + '/g/' + games[1].game_id);
-    await page.locator('#board').waitFor({ state: 'visible' });
+    // The launch tree plays an own solo game on this device: the old page offers the hand-over.
+    await page.locator('dialog.launch-handoff[open]').waitFor();
     await shot(page, 'staging-password-own-game');
     assert.equal(attempts, 2); assert.deepEqual(unexpected, []);
     console.log('PASS staging-login: entered email, native input validation, failed password recovery, normal SDK session, route return, real API private refusal and own-game access; no external request');

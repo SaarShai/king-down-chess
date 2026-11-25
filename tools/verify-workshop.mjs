@@ -75,9 +75,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { pressMenu } from './app-ui.mjs';
-import { assertNoErrors, env, imageIs, insideViewport, launch, minTarget, noRunningAnimations, noSidewaysScroll, shot, textNotCut, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, imageIs, insideViewport, launch, minTarget, noRunningAnimations, noSidewaysScroll, oldBoard, shot, textNotCut, trapErrors } from './lib/checks.mjs';
 
-const base = env('PLAYABLE_URL');
+const base = oldBoard();
 const POOL = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'archer', 'paladin', 'guard', 'maester', 'beast', 'ogre'];
 /** The marks of the scene test (src/workshop/scene.test.ts, the hand scenes of the mockup). */
 const PAWN = ['c5 take', 'd5 move', 'd6 move asleep', 'e5 take'];

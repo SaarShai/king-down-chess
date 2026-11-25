@@ -15,9 +15,9 @@ import { powerButtonText, usePower, endTurn, startNewGame } from './app-ui.mjs';
  */
 import { lanMoves } from './app-ui.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
-import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, launch, oldBoard, trapErrors } from './lib/checks.mjs';
 
-const BASE = env('PLAYABLE_URL');
+const BASE = oldBoard();
 /** `QA_ONLY=substring` runs the matching cases only (quick regression checks). */
 const ONLY = process.env.QA_ONLY;
 const PAWN_FEN = '7k/7p/8/3p4/3L4/8/8/K6R w - - 0 1';

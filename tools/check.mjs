@@ -176,11 +176,12 @@ const report = (ok, name, seconds, fault, log) =>
   say(`${ok ? 'ok  ' : 'FAIL'} ${name.padEnd(16)} ${seconds.toFixed(1).padStart(6)} s  ${fault ? `${fault}  ` : ''}${log}`);
 
 // 5. External checks use the caller's local stack. Plugin checks build their own artifact; the rest need the site.
+// The site is the launch tree, which each shipped form builds (tools/release/profile.sh); its old board is at index.html.
 let server;
 let url;
 if (selected.some(c => !c.external && (c.site || !['tools/plugin-browser-check.mjs', 'tools/web-game-check.mjs'].includes(c.script)))) {
   const buildLog = join(runDir, 'build.log');
-  const build = await inSlot(false, () => run('npm', ['run', '--silent', 'build'], { log: buildLog, limit: 600, extraEnv: { ...CHECK_SITE_ENV, ...(selected.some(c => c.ciTestPages) ? { KINGDOWN_TEST_PAGES: '1' } : {}) } }));
+  const build = await inSlot(false, () => run('npm', ['run', '--silent', 'build'], { log: buildLog, limit: 600, extraEnv: { ...CHECK_SITE_ENV, KINGDOWN_SOLO_LAUNCH: '1', ...(selected.some(c => c.ciTestPages) ? { KINGDOWN_TEST_PAGES: '1' } : {}) } }));
   exitIfInterrupted();
   if (build.code !== 0) {
     report(false, 'build', build.seconds, firstFault(buildLog, build), buildLog);

@@ -55,9 +55,10 @@ function lintCheck(file: string, text: string): string[] {
       local.set(name, alias ?? name);
     }
   }
+  const calls = (name: string) => { const as = local.get(name); return !!as && new RegExp(`\\b${as}\\s*\\(`).test(body); };
   for (const name of required) {
-    const as = local.get(name);
-    if (!as || !new RegExp(`\\b${as}\\s*\\(`).test(body)) faults.push(`${file}: does not use ${name} from ${SHARED}`);
+    // oldBoard() reads PLAYABLE_URL through env in the shared module.
+    if (!calls(name) && !(name === 'env' && calls('oldBoard'))) faults.push(`${file}: does not use ${name} from ${SHARED}`);
   }
   return faults;
 }
@@ -110,6 +111,11 @@ describe('check lint fixtures', () => {
 
   it('a check that follows every rule passes', () => {
     expect(lintCheck('tools/verify-x.mjs', GOOD)).toEqual([]);
+  });
+
+  it('oldBoard from the shared module counts as a use of env', () => {
+    const old = GOOD.replace('{ assertNoErrors, env, launch, trapErrors }', '{ assertNoErrors, launch, oldBoard, trapErrors }').replace("env('PLAYABLE_URL')", 'oldBoard()');
+    expect(lintCheck('tools/verify-x.mjs', old)).toEqual([]);
   });
 });
 

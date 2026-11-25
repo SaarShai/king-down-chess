@@ -5,10 +5,10 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { boardHelp, endTurn, lastMoveText, lanMoves, pressMenu, readyBoard, waitForUi } from './app-ui.mjs';
-import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, env, launch, oldBoard, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 
-const url = env('PLAYABLE_URL');
+const url = oldBoard();
 const out = env('PLAYABLE_OUT');
 mkdirSync(out, { recursive: true });
 const browser = await launch();

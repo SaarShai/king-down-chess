@@ -1,7 +1,7 @@
 // Five Home cases use the live board and the same controls as play.
 import assert from 'node:assert/strict';
 import { arriveContinue, contextText, endTurn, lanMoves, waitForUi } from './app-ui.mjs';
-import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, launch, oldBoard, trapErrors } from './lib/checks.mjs';
 const browser = await launch();
 const SAVE = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'ai', skill: 'club', sound: false, pace: 'off' };
 const MATE = { ...SAVE, moves: ['f2-f3', 'e7-e5', 'g2-g4', 'Qd8-h4'], black: 'human' };
@@ -9,7 +9,7 @@ async function open(save = SAVE, query = '', viewport = { width: 390, height: 84
   const context = await browser.newContext({ viewport, reducedMotion: 'reduce' });
   await context.addInitScript(save => { localStorage.setItem('kingdown.save', JSON.stringify(save)); }, save);
   const page = await context.newPage(); trapErrors(page);
-  await page.goto(new URL(query, env('PLAYABLE_URL')).href);
+  await page.goto(new URL(query, oldBoard()).href);
   await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
   await page.waitForFunction(() => window.home);
   return { page, context };

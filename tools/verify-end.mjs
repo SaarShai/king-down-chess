@@ -1,8 +1,8 @@
 // W6: the handed-over end, board Ceremony and result review tiles.
 import assert from 'node:assert/strict';
 import { readyBoard, rulesAt,ceremonyTile, ceremonyWords, confirmResign, endTurn, usePower, lanMoves, openEndReview, openMoves, pressMenu, startNewGame, waitForUi } from './app-ui.mjs';
-import { assertNoErrors, env, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
-const base = env('PLAYABLE_URL'), browser = await launch();
+import { assertNoErrors, launch, minTarget, noSidewaysScroll, oldBoard, shot, trapErrors } from './lib/checks.mjs';
+const base = oldBoard(), browser = await launch();
 const faults = [];
 const check = (actual, expected, name) => {
   try { assert.equal(actual, expected, name); } catch (error) { faults.push(error); }

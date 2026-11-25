@@ -2,11 +2,11 @@
 import assert from 'node:assert/strict';
 import { assertHiddenDetail } from './previously-layout-check.mjs';
 import { contextText, lanMoves, openMenu, closeMenu, seeAgain, waitForLinkReplay, waitForLinkSave } from './app-ui.mjs';
-import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, launch, oldBoard, shot, trapErrors } from './lib/checks.mjs';
 import { WARD_LINK } from './lib/design-link.mjs';
 
 const browser = await launch();
-const base = env('PLAYABLE_URL');
+const base = oldBoard();
 const url = new URL('?army=RNBQKBNR&moves=e2-e4_e7-e5&look=painted', base).href;
 async function open(motion = true) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: motion ? 'no-preference' : 'reduce' });

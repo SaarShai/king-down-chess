@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
-import {env,launch,trapErrors,assertNoErrors} from './lib/checks.mjs';
+import {env,launch,oldBoard,trapErrors,assertNoErrors} from './lib/checks.mjs';
 import {turnRoute} from '../src/render/painted/character-runtime.mjs';
 
 const out=env('PLAYABLE_OUT'),manifest=JSON.parse(await readFile('public/character-runtime/manifest.json','utf8'));
@@ -24,7 +24,7 @@ try {
     ['black','7r/8/8/4k3/4P3/8/8/K7 b - - 0 1',36,28,'S'],
    ] : []),
   ]){
-   const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');url.searchParams.set('kings',`${design}:${power},${design}:${power}`);
+   const url=new URL(oldBoard());url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');url.searchParams.set('kings',`${design}:${power},${design}:${power}`);
    await page.goto(url.href);await page.waitForFunction(from=>window.view?.scene?.characterFrames?.some(f=>f.square===from),from,{timeout:15000});await page.evaluate(()=>view.ready());
    await page.waitForTimeout(500);
    const before=await page.evaluate(from=>view.scene.characterFrames.find(f=>f.square===from),from);

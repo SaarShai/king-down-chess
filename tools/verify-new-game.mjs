@@ -6,11 +6,11 @@
 // Run: npm run check:browser new-game (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
 import { powersHidden, endTurn, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
-import { assertNoErrors, env, insideViewport, launch, shot, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, insideViewport, launch, oldBoard, shot, trapErrors } from './lib/checks.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
 import { WARD_LINK } from './lib/design-link.mjs';
 
-const base = env('PLAYABLE_URL');
+const base = oldBoard();
 const browser = await launch();
 const jpeg = { type: 'jpeg', quality: 86 };
 const ok = msg => console.log(`ok ${msg}`);
