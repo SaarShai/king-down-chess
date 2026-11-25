@@ -18,7 +18,7 @@ The test reads the box of the seat board before the board has its size.
 - `PaintedView` sizes the canvas in a ResizeObserver callback (`src/render/PaintedView.ts`). The seat moves `#board` into its slot, so the canvas is 0 × 0 until a frame delivers that callback.
 - A sampler in the frame (each frame and each resize, 393 × 852, 8 runs): the seat shows at about 65 ms with the canvas at `197,351` and 0 × 0. The canvas gets `5,147` and 384 px at about 155 ms. `#board` has `aria-busy="false"` before the seat shows (`src/plugin/board-view.ts` sets it once, at boot), so that wait gives nothing here.
 - If the box read comes in that window, the test taps at (197, 351). After the resize, that point is in the middle of the board, on an empty square. The guard is then `false`, as in the retro log.
-- Forced order (a probe copy of the test steps; ResizeObserver callbacks in the frame held 150 ms or 400 ms, and a wait between the box read and the tap): each run without the repair is red with the same line, the box `197,351,0` and the canvas `5,147,384` at `pointerdown` (6 of 6). Each run with the repair is green (4 of 4).
+- Forced order (a probe copy of the test steps; ResizeObserver callbacks in the frame held 150 ms or 400 ms, and a wait between the box read and the tap): each run without the repair is red with the same line, the box `197,351,0` and the canvas `5,147,384` at `pointerdown` (6 of 6: 2 read the box in the task that shows the seat, 4 hold the ResizeObserver 150 ms or 400 ms). Each run with the repair is green (4 of 4, with the hold). The probe is a copy of the test steps; the committed test did not run with this trigger.
 - Not measured: that 8 workers delay the frame into that window. This is an inference. A CPU throttle of the page (1× to 30×, 16 runs) gives no red, because it slows the frames and the test commands together.
 - Rejected: a seat animation that takes the `pointerdown` (the probe shows that `pointerdown` reaches the canvas, and no animation runs), and a position that is not set (`seat.ts` calls `board.sync` in the same task that shows the seat).
 
@@ -35,11 +35,11 @@ Try again shows through a read notice. The app sets it after a third failed poll
 - No repro: an instrumented copy of the test (each store action, each call with its error text, each read outcome) is green 16 of 16 times with or without busy threads. It is green 150 of 150 times in each of two runs with the other plugin files as load.
 - The retro data has no earlier failure of this test.
 
-### A third red with 8 workers
+### A third red, outside the pass bar
 
-The second run of the plugin files (8 workers, 259 s) failed one more test in the same file: "recovers a held move at 10 seconds and ignores its late reply", at line 1379. `locator.click: Timeout 5000ms exceeded`, while it waits for `#end-turn[aria-disabled="false"]`. `tools/plugin-app.test.ts` has fixed 5 s limits with no `STEP`. The cause is not found.
+The second run of the plugin files and the poll probe (259 s) failed one more test in the same file: "recovers a held move at 10 seconds and ignores its late reply", at line 1379. `locator.click: Timeout 5000ms exceeded`, while it waits for `#end-turn[aria-disabled="false"]`. `tools/plugin-app.test.ts` has fixed 5 s limits with no `STEP`. The cause is not found. This run is weaker evidence: it is not a pass-bar run, and it also held the probe copy of `plugin-app` (a second harness and browser, 150 page opens). Its worker count is not recorded: the run started at 23:47:04 and `vite.config.ts` went back to 4 at 23:47:10, so it most likely used 8.
 
-Thus the stop rule applies: `maxWorkers` stays 4.
+The decision comes from the pass-bar full run 1: 8 workers, the repair in place, no probe in the tree, and a red with no proven cause. Thus the stop rule applies: `maxWorkers` stays 4.
 
 ## Change
 
@@ -61,11 +61,11 @@ Times are the vitest `Duration`. "Loaded run": `KINGDOWN_TEST_FILE='tools/plugin
 | Loaded run 1 to 10 (pass bar) | 8 | yes | 116, 117, 116, 111, 111, 111, 112, 112, 111, 111 s | green (10 of 10) |
 | Full run 1 (pass bar) | 8 | yes | 274 s | red: `tools/plugin-app.test.ts:2018` |
 | Plugin files and poll probe, run 1 | 8 | yes | 307 s | green (40 files; 150 of 150 probe repeats) |
-| Plugin files and poll probe, run 2 | 8 | yes | 259 s | red: `tools/plugin-app.test.ts:1379` (150 of 150 probe repeats green) |
+| Plugin files and poll probe, run 2 | 8 (most likely) | yes | 259 s | red: `tools/plugin-app.test.ts:1379` (150 of 150 probe repeats green) |
 
 The pass bar fails. Full runs 2 and 3 of the pass bar did not run.
 
-The 10 slowest files in the red full run (8 workers, 274 s):
+The 10 slowest files, from the red full run (pass-bar full run 1, 8 workers, 274 s):
 
 | File | Time |
 | --- | --- |
@@ -85,6 +85,9 @@ The 10 slowest files in the red full run (8 workers, 274 s):
 ## Known limits
 
 - The natural red of the seat tap did not come back on this Mac: 0 of 6 loaded runs and 0 of 2 valid full runs before the repair (the retro: 1 of 2). The proof of the cause is the forced order, not a natural red.
+- The committed state (the repair with 4 workers) did not run. The repaired file is green with 8 workers only: 10 loaded runs, 1 full run and 2 runs of the plugin files.
+- No run shows if the two plugin-app reds also occur with 4 workers.
+- Full run 3 before the repair had a probe in the test, which adds steps before the tap.
 - The loaded run (4 files) keeps only 4 of the 8 workers busy. Its greens show less than the full runs.
 - The two plugin-app reds have no cause. To find them, run full suites with 8 workers and instrumented copies of those tests until one is red, then read its log.
 - Other sessions of the owner share the machine. The times change with their load.
