@@ -19,6 +19,8 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
   const local = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce', ...(webkit ? { serviceWorkers: 'block' } : {}) });
   const settingsUrl = 'https://web-proof.supabase.co/auth/v1/settings';
   let settings = { external: { github: true, google: false } }, settingsReads = 0;
+  // A returning player has seen the one-time launch notice, so `/` opens Home (src/interface/platform.ts:37).
+  await local.addInitScript(() => localStorage.setItem('kingdown.solo-launch-seen', '1'));
   await local.exposeBinding('testProviderSettings', (_source, key) => { settingsReads++; assert.equal(key, 'sb_publishable_local_test'); return settings; });
   await local.addInitScript(url => {
     const nativeFetch = window.fetch;
@@ -29,7 +31,12 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     };
   }, settingsUrl);
   local.on('request', request => { if (new URL(request.url()).origin !== origin && request.url() !== settingsUrl) requests.push('external request'); if (request.method() !== 'GET') requests.push(request.method() + ' ' + new URL(request.url()).pathname); });
-  const page = await local.newPage(); errors.push(trapErrors(page)); page.setDefaultTimeout(15_000);
+  // Offline, the board asks for character art that the worker does not keep, and it draws the plain figure (vite.config.ts:51).
+  // Only that art may fail in the page; any other failed page request goes to `requests`. The worker's own
+  // network tries fail offline too, and it then answers from its cache.
+  let offline = false;
+  local.on('requestfailed', request => { if (offline && !request.serviceWorker() && !/^\/character-runtime\/assets\/[0-9a-f]{64}\.webp$/.test(new URL(request.url()).pathname)) requests.push('offline failure ' + new URL(request.url()).pathname); });
+  const page = await local.newPage(); errors.push(trapErrors(page, [{ pattern: '^Failed to load resource: net::ERR_INTERNET_DISCONNECTED$', reason: 'optional character art offline; the requestfailed rule above limits it' }])); page.setDefaultTimeout(15_000);
   async function checkLayout(label) {
     for (const viewport of [{ width: 390, height: 844 }, { width: 390, height: 640 }, { width: 844, height: 390 }, { width: 1440, height: 900 }]) {
       await page.setViewportSize(viewport);
@@ -40,6 +47,14 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     }
     await page.setViewportSize({ width: 390, height: 844 });
   }
+  // This check serves its own site with its API, so the old board is on `origin`, not on the runner's preview site.
+  const board = origin + '/index.html';
+  // "Play on this device" on /play/ goes to `/`, the new page on the launch tree (src/online/entry.ts:67).
+  const playHere = async target => {
+    await target.getByRole('link', { name: 'Play on this device', exact: true }).click();
+    await target.waitForURL(url => new URL(url).pathname === '/'); await target.locator('.play-home h1').waitFor();
+  };
+  const backToBoard = async () => { await page.goto(board); await ready(page); };
   try {
     // Hold the local app bundle to inspect the first paint before it can open the title.
     let releaseMain, mainRequested;
@@ -78,26 +93,28 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     assert.equal(await readSave(page), firstSave, 'Opening account play leaves the local save intact');
     assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.first-deal')), null, 'Account entry does not start the local first deal');
     await shot(page, 'discovery-sign-in-390');
-    await page.getByRole('link', { name: 'Play on this device', exact: true }).click(); await ready(page);
+    await playHere(page);
     assert.equal(await readSave(page), firstSave, 'Cancel sign-in preserves the local save');
     settings = { external: null };
+    await backToBoard();
     await titleLink.click(); await page.getByRole('button', { name: 'Try again', exact: true }).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Continue with GitHub', exact: true }).count(), 0, 'Failed settings never guess a provider');
     await shot(page, 'signin-options-retry');
     settings = { external: { github: true, google: false } };
     await page.getByRole('button', { name: 'Try again', exact: true }).click();
     await page.getByRole('button', { name: 'Continue with GitHub', exact: true }).waitFor();
-    await page.getByRole('link', { name: 'Play on this device', exact: true }).click(); await ready(page);
+    await playHere(page);
 
     // Seed once. Do not overwrite the save during reload or offline continuation.
     await page.evaluate(save => { localStorage.setItem('kingdown.save', JSON.stringify(save)); sessionStorage.removeItem('kingdown.title-seen'); }, SAVE);
-    await page.reload(); await ready(page); await page.locator('#home-head:visible').waitFor();
+    await backToBoard(); await page.locator('#home-head:visible').waitFor();
     const saved = await readSave(page);
     await checkLayout('home');
     await page.locator('#home-account [data-account-play]').click();
     await page.getByRole('button', { name: 'Continue with GitHub', exact: true }).waitFor();
-    await page.getByRole('link', { name: 'Play on this device', exact: true }).click(); await ready(page);
+    await playHere(page);
     assert.equal(await readSave(page), saved, 'The Home round trip preserves the local game');
+    await backToBoard();
     await page.locator('#menu-btn').click();
     assert.equal(await page.locator('#menu-sheet').getByRole('link', { name: 'Log in', exact: true }).count(), 1);
     for (const viewport of [{ width: 393, height: 852 }, { width: 1366, height: 768 }]) {
@@ -113,12 +130,14 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     await shot(page, 'discovery-menu-390');
     await page.locator('#menu-sheet [data-account-play]').click();
     await page.getByRole('button', { name: 'Continue with GitHub', exact: true }).waitFor();
-    await page.getByRole('link', { name: 'Play on this device', exact: true }).click(); await ready(page);
+    await playHere(page);
     assert.equal(await readSave(page), saved, 'The Menu round trip preserves the local game');
+    await backToBoard();
     await page.locator('#menu-btn').click();
     await page.locator('#menu-sheet [data-account-play]').press('Enter');
     await page.getByRole('button', { name: 'Continue with GitHub', exact: true }).waitFor();
-    await page.getByRole('link', { name: 'Play on this device', exact: true }).click(); await ready(page);
+    await playHere(page);
+    await backToBoard();
     await page.locator('#home-new').click();
     assert.equal(await page.getByRole('link', { name: 'A friend', exact: true }).count(), 1);
     assert.equal(await page.locator('#new-game-warn').isVisible(), true);
@@ -141,14 +160,14 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     await page.locator('#menu-sheet [data-account-play]').click();
     await page.getByRole('button', { name: 'Continue with GitHub', exact: true }).waitFor();
     assert.equal(new URL(page.url()).pathname, '/play/');
-    await page.getByRole('link', { name: 'Play on this device', exact: true }).click(); await ready(page);
+    await playHere(page);
     await page.evaluate(() => sessionStorage.removeItem('kingdown.title-seen'));
-    await page.reload(); await ready(page); await page.locator('#home-head:visible').waitFor();
+    await backToBoard(); await page.locator('#home-head:visible').waitFor();
 
     // WebKit's offline service-worker harness is not stable here; Chromium covers this path.
     if (!webkit) {
       await page.waitForFunction(() => !!navigator.serviceWorker.controller);
-      await local.setOffline(true);
+      await local.setOffline(true); offline = true;
       await page.locator('#home-account [data-account-play]').click();
       assert.equal(new URL(page.url()).pathname, '/index.html');
       assert.equal(await page.locator('#home-account .account-play-status').innerText(), 'You are offline. Keep playing on this device.');
@@ -161,7 +180,7 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
       await page.locator('#menu-btn').click(); await page.locator('#menu-sheet [data-account-play]').click();
       assert.equal(await page.locator('#menu-sheet .account-play-status').innerText(), 'You are offline. Keep playing on this device.');
       await shot(page, 'discovery-offline-menu');
-      await local.setOffline(false);
+      await local.setOffline(false); offline = false;
       await page.waitForFunction(() => document.querySelector('#menu-sheet .account-play-status').textContent === '');
     }
     assert.deepEqual(requests, [], 'Navigation and offline play make no external request or server command');
@@ -181,9 +200,12 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     const account = await context.newPage(); errors.push(trapErrors(account));
     await account.goto(origin + '/play/');
     await account.locator(`#games-list [data-game-id="${created.game_id}"]`).click();
-    await account.locator('[data-screen="board"]:not([hidden])').waitFor();
-    assert.equal(new URL(account.url()).pathname, `/g/${created.game_id}`);
-    await shot(account, 'discovery-existing-account-game');
+    // The launch tree hands an own solo game to the local board and does not open it here (src/online/launch.ts:108-111).
+    await account.locator('dialog.launch-handoff[open]').waitFor();
+    assert.equal(await account.locator('#launch-handoff-title').innerText(), 'Play on this device');
+    // The refused game read keeps the list screen, so the path does not move to /g/<id> (src/online/runtime.ts:186-192).
+    assert.equal(new URL(account.url()).pathname, '/play/');
+    await shot(account, 'discovery-existing-account-handoff');
     const resumed = (await tool(0, 'kingdown_get', { game_id: created.game_id }))._meta.view;
     assert.equal(resumed.revision, created.revision, 'Resume does not change the account game');
     assert.deepEqual(await counts(), before, 'Entry and resume create no extra game or command');
@@ -192,6 +214,7 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
       const hostedOrigin = process.env.KINGDOWN_HOSTED_SIGNIN_ORIGIN;
       assert.equal(hostedOrigin, 'https://kingdown-staging.vercel.app', 'Hosted sign-in checks are staging only');
       const hosted = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+      await hosted.addInitScript(() => localStorage.setItem('kingdown.solo-launch-seen', '1'));
       const unexpected = [];
       await hosted.route('**/*', route => {
         const request = route.request(), url = new URL(request.url());
@@ -200,14 +223,14 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
       });
       try {
         const fresh = await hosted.newPage(), failures = trapErrors(fresh);
-        await fresh.goto(hostedOrigin); await ready(fresh);
+        await fresh.goto(hostedOrigin + '/index.html'); await ready(fresh);
         await fresh.locator('#title-screen [data-account-play]').click();
         await fresh.getByRole('button', { name: 'Continue with GitHub', exact: true }).waitFor();
         assert.equal(await fresh.getByRole('button', { name: 'Continue with Google', exact: true }).count(), 0);
         await shot(fresh, 'hosted-signin-available-providers');
-        await fresh.getByRole('link', { name: 'Play on this device', exact: true }).click(); await ready(fresh);
+        await playHere(fresh);
         await fresh.evaluate(save => { localStorage.setItem('kingdown.save', JSON.stringify(save)); sessionStorage.removeItem('kingdown.title-seen'); }, SAVE);
-        await fresh.reload(); await ready(fresh);
+        await fresh.goto(hostedOrigin + '/index.html'); await ready(fresh);
         const saved = await readSave(fresh);
         await openAccount(fresh); await fresh.locator('#account-body [data-provider="github"]').waitFor();
         assert.equal(await fresh.locator('#account-body [data-provider="google"]').count(), 0);
@@ -218,6 +241,6 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
         console.log('PASS hosted sign-in: fresh staging home to account play, GitHub only, local return and local Account; no authorization or writes');
       } finally { await hosted.close(); }
     }
-    console.log(`PASS account-discovery: first paint, title, Home, Menu click and keyboard, four sizes, sign-in cancellation, saved local game${webkit ? '' : ', offline move/reload'}, existing account-game resume; no new game or command`);
+    console.log(`PASS account-discovery: first paint, title, Home, Menu click and keyboard, four sizes, sign-in cancellation to the new page, saved local game${webkit ? '' : ', offline move/reload'}, own solo account game opens the hand-over; no new game or command`);
   } finally { await local.close(); }
 }
