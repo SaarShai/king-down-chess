@@ -79,6 +79,9 @@ it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 215, 175], [320, 568
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
     await frame.locator('html').evaluate(() => document.fonts.ready.then(() => {}));
     await frame.locator('#board[aria-busy="false"]').waitFor();
+    // The seat shows the canvas at 0 × 0; its ResizeObserver sizes it in a later frame. If that frame comes after the
+    // box read, the tap lands mid-board after the resize.
+    await waitForBoardPaint(frame);
     await frame.locator('#board canvas').evaluate(canvas => canvas.addEventListener('touchstart', event => {
       (window as any).setupTouchGuard = event.defaultPrevented;
     }, { once: true }));
