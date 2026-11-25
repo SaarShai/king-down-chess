@@ -9,7 +9,7 @@ export const testGlobs = [
   '{docs/2d-first-pieces,src/render/painted}/**/*.test.mjs',
 ];
 
-// Plugin files over one minute in the previous full test run; the deploy rows below have their own source. The app file gets a runner to itself.
+// Files over one minute in the previous full test run; the deploy rows below have their own source. The app file gets a runner to itself.
 // New files start with the default weight and enter a shard automatically.
 const testSeconds = new Map([
   ['ios-size', 278], ['races', 259], ['motion', 238], ['lobby', 213], ['setup-owner', 110],
