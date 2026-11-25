@@ -9,10 +9,10 @@
 // page's clock under the check's control, it saves each clip's key drawings (PLAYABLE_OUT) and a short video.
 import assert from 'node:assert/strict';
 import { endTurn } from './app-ui.mjs';
-import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, env, launch, oldBoard, shot, trapErrors } from './lib/checks.mjs';
 import { CLIPS } from '../src/render/painted/clips.mjs';
 
-const url = new URL(env('PLAYABLE_URL'));
+const url = new URL(oldBoard());
 url.searchParams.set('players', 'human,human');
 // White Knight b1, Rook h1; Black Knight g8, Rook a8.
 const FEN = 'r3k1n1/8/8/8/8/8/8/1N2K2R w - - 0 1';

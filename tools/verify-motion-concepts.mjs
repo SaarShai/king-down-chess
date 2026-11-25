@@ -8,7 +8,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { createServer } from 'vite';
 import { endTurn, readyBoard } from './app-ui.mjs';
-import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, env, launch, oldBoard, trapErrors } from './lib/checks.mjs';
 
 const out = env('PLAYABLE_OUT');
 mkdirSync(out, { recursive: true });
@@ -141,7 +141,7 @@ try {
   }
 
   // Part 2: the real web game. Two people play at this device; the second check case plays Black against the computer.
-  const url = env('PLAYABLE_URL');
+  const url = oldBoard();
   for (const [size, viewport] of [['phone', { width: 390, height: 844 }], ['desktop', { width: 1440, height: 1000 }]]) for (const reduced of [false, true]) {
     if (reduced && size === 'desktop') continue;
     const page = await browser.newPage({ viewport, hasTouch: size === 'phone', reducedMotion: reduced ? 'reduce' : 'no-preference' }), errors = trapErrors(page);

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFile,writeFile} from 'node:fs/promises';
 import sharp from 'sharp';
 import {join} from 'node:path';
-import {env,launch,shot,trapErrors,assertNoErrors} from './lib/checks.mjs';
+import {env,launch,oldBoard,shot,trapErrors,assertNoErrors} from './lib/checks.mjs';
 // Check the selected rest authority and every padded turn join in the built package.
 const root=join(process.cwd(),'public/character-runtime');
 const manifest=JSON.parse(await readFile(join(root,'manifest.json'),'utf8'));
@@ -34,7 +34,7 @@ try {
   const {turnRoute}=await import('../src/render/painted/character-runtime.mjs');const route=turnRoute(banks,'SE',direction);assert(route);const expected=route.map(p=>p.bank.id);
   const from=35,page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
-  const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');url.searchParams.set('kings','stratus:flight,stratus:flight');
+  const url=new URL(oldBoard());url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');url.searchParams.set('kings','stratus:flight,stratus:flight');
   await page.goto(url.href);await page.waitForFunction(s=>window.view?.scene?.characterFrames?.some(f=>f.square===s),from);await page.evaluate(()=>view.ready());if(flipped){await page.evaluate(()=>view.flip(true));await page.waitForFunction(s=>view.scene.characterFrames.some(f=>f.square===s&&f.foot.x===536),from);}
   const rest=await page.evaluate(s=>({frame:view.scene.characterFrames.find(f=>f.square===s),foot:view.scene.foot(s)}),from);
   assert.equal(rest.frame.bank,`king-stratus-${army}-idle-continuous-4s`);assert.deepEqual(rest.frame.foot,rest.foot);

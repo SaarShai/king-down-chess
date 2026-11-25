@@ -6,9 +6,9 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { usePower, boardHelp, contextText, titleStart, arriveContinue, endTurn, lanMoves, moveRow, openMoves, pressMenu, refusalText, waitForUi } from '../../tools/app-ui.mjs';
-import { assertNoErrors, env, launch, trapErrors } from '../../tools/lib/checks.mjs';
+import { assertNoErrors, env, launch, oldBoard, trapErrors } from '../../tools/lib/checks.mjs';
 
-const base = env('PLAYABLE_URL');
+const base = oldBoard();
 const browser = await launch();
 const checks = [];
 const ok = msg => { checks.push(msg); console.log(`ok ${msg}`); };

@@ -1,8 +1,8 @@
 // W1: the real turn press, its Undo floor and the guarded link send.
 import assert from 'node:assert/strict';
 import { powerCoin, rulesAt, usePower, confirmResign, endTurn, lanMoves, setPace, waitForUi } from './app-ui.mjs';
-import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
-const base = env('PLAYABLE_URL'), browser = await launch();
+import { assertNoErrors, launch, oldBoard, trapErrors } from './lib/checks.mjs';
+const base = oldBoard(), browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 await page.addInitScript(() => {
   sessionStorage.setItem('kingdown.title-seen', '1');

@@ -46,7 +46,7 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     const held = new Promise(resolve => { releaseMain = resolve; });
     const requested = new Promise(resolve => { mainRequested = resolve; });
     await page.route(/\/assets\/main-[^/]+\.js$/, async route => { mainRequested(); await held; await route.continue(); }, { times: 1 });
-    await page.goto(origin, { waitUntil: 'commit' }); await requested;
+    await page.goto(origin + '/index.html', { waitUntil: 'commit' }); await requested;
     await page.waitForFunction(() => document.querySelector('#game-table'));
     assert.equal(await page.locator('#game-table').evaluate(el => getComputedStyle(el).visibility), 'hidden');
     assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor), 'rgb(242, 233, 214)');
@@ -150,7 +150,7 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
       await page.waitForFunction(() => !!navigator.serviceWorker.controller);
       await local.setOffline(true);
       await page.locator('#home-account [data-account-play]').click();
-      assert.equal(new URL(page.url()).pathname, '/');
+      assert.equal(new URL(page.url()).pathname, '/index.html');
       assert.equal(await page.locator('#home-account .account-play-status').innerText(), 'You are offline. Keep playing on this device.');
       await page.locator('#home-main').click();
       for (const square of [6, 21]) { const point = await page.evaluate(s => window.view.screenOf(s), square); await page.mouse.click(point.x, point.y); }

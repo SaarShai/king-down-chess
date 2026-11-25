@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {join} from 'node:path';
 import {writeFile} from 'node:fs/promises';
-import {env,shot,trapErrors,assertNoErrors} from './checks.mjs';
+import {env,oldBoard,shot,trapErrors,assertNoErrors} from './checks.mjs';
 
 /** The published native effects through the production game, sampled on its actual canvas clock. */
 export async function checkCharacterEffects(browser){
@@ -26,7 +26,7 @@ export async function checkCharacterEffects(browser){
     return Reflect.apply(draw,this,[image,...args]);
    };
   });
-  const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');await page.goto(url.href);
+  const url=new URL(oldBoard());url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');await page.goto(url.href);
   await page.waitForFunction(from=>window.view?.scene?.characterFrames?.some(f=>f.square===from),from);await page.evaluate(()=>view.ready());if(flipped)await page.evaluate(()=>view.flip(true));
   await page.clock.pauseAt(await page.evaluate(()=>Date.now())+50);
   const legal=await page.evaluate(([from,target])=>view.context.legalMoves(view.pos).some(m=>m.from===from&&m.captures.includes(target)),[from,target]);assert(legal,`${label}: legal game capture`);

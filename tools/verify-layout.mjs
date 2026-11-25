@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { assertNoErrors, env, insideViewport, launch, noOverlap, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, env, insideViewport, launch, noOverlap, noSidewaysScroll, oldBoard, shot, trapErrors } from './lib/checks.mjs';
 import { cutText } from './lib/cut-text.mjs';
 
 const mode = process.argv[2];
@@ -74,7 +74,7 @@ try {
       await context.close();
       continue;
     }
-    await page.goto(env('PLAYABLE_URL'));
+    await page.goto(oldBoard());
     await page.waitForFunction(() => window.view?.ready);
     await page.evaluate(() => window.view.ready());
     await page.evaluate(() => document.fonts.ready);

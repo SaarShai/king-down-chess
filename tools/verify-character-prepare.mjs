@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { env, launch, trapErrors, assertNoErrors } from './lib/checks.mjs';
+import { oldBoard, launch, trapErrors, assertNoErrors } from './lib/checks.mjs';
 import { turnRoute } from '../src/render/painted/character-runtime.mjs';
 
 const browser=await launch();
@@ -10,7 +10,7 @@ try {
  for(const cancel of [false,true]){
   const page=await browser.newPage({viewport:{width:1100,height:950},serviceWorkers:'block'}),errors=trapErrors(page);
   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
-  const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen','7k/8/8/8/8/8/4P3/K7 w - - 0 1');url.searchParams.set('players','human,human');
+  const url=new URL(oldBoard());url.searchParams.set('fen','7k/8/8/8/8/8/4P3/K7 w - - 0 1');url.searchParams.set('players','human,human');
   const manifest=await (await page.request.get(new URL('/character-runtime/manifest.json',url).href)).json();
   const banks=manifest.banks.filter(b=>b.character==='pawn'&&b.army==='white'),rest=banks.find(b=>b.kind==='idle');
   const route=turnRoute(banks.filter(b=>b.kind==='turn'),rest.facing,'N');assert(route?.length);
@@ -72,7 +72,7 @@ try {
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const waitFor=predicate=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error(`request wait timed out: started=${started}, closed=${closed}`)),12000);notify=()=>{if(predicate()){clearTimeout(timer);resolve();}};notify();});
  try{
-  const page=await browser.newPage({serviceWorkers:'block'});await page.goto(env('PLAYABLE_URL'));
+  const page=await browser.newPage({serviceWorkers:'block'});await page.goto(oldBoard());
   const source=await readFile(new URL('../src/render/painted/character-runtime.mjs',import.meta.url),'utf8'),base=`http://127.0.0.1:${server.address().port}/`;
   await page.evaluate(async({source,base})=>{
    const moduleUrl=URL.createObjectURL(new Blob([source],{type:'text/javascript'})),{createCharacterRuntime}=await import(moduleUrl);URL.revokeObjectURL(moduleUrl);

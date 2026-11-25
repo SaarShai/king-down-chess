@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { recordBoardText, boardText } from './board-ink-check.mjs';
 import { lanMoves, contextText } from './app-ui.mjs';
-import { env, trapErrors, assertNoErrors } from './lib/checks.mjs';
+import { oldBoard, trapErrors, assertNoErrors } from './lib/checks.mjs';
 import { fixture } from './read-verb-fixture.mjs';
-const { page, seed, tap, marks, close } = await fixture(env('PLAYABLE_URL'));
+const { page, seed, tap, marks, close } = await fixture(oldBoard());
 const errors = trapErrors(page);
 await recordBoardText(page);
 try {

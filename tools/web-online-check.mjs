@@ -226,6 +226,8 @@ export async function main() {
     if (process.env.KINGDOWN_WEB_RECOVERY_OUTPUT) recovery = await recoveryOutput(process.env.KINGDOWN_WEB_RECOVERY_OUTPUT);
     else {
       const site = join(work, 'recovery-site');
+      // The release tree is the launch tree of the runner (tools/check.mjs), so the recovery tree is one too.
+      process.env.KINGDOWN_SOLO_LAUNCH = '1';
       await build({ envDir: false, build: { outDir: site }, plugins: [{ name: 'recovery-fixture', transformIndexHtml: html => html.replace('</head>', '<!-- Recovery fixture -->\n</head>') }] });
       const output = await buildPluginServer(join(work, 'recovery'), { site });
       recovery = await recoveryOutput(output);
@@ -336,9 +338,9 @@ export async function main() {
         sessionStorage.setItem('web-online.seeded', '1');
       }
     });
-    assert.equal((await page.goto(origin)).status(), 200, 'The site root serves the built page');
+    assert.equal((await page.goto(origin + '/index.html')).status(), 200, 'The old board serves the built page');
     await readyBoard(page);
-    assert.equal(new URL(page.url()).pathname, '/', 'The game opens at the site root');
+    assert.equal(new URL(page.url()).pathname, '/index.html', 'The old board stays at its own address');
     assert.equal(page.mainFrame().childFrames().length, 0, 'The game is a top-level page');
     assert.deepEqual(await lanMoves(page), [], 'The local game starts with no moves');
     await tapSquare(page, 12); await tapSquare(page, 28);
@@ -630,9 +632,9 @@ export async function main() {
       if (await active.evaluate(() => !!navigator.serviceWorker.controller)) await takeover(active, output);
       else {
         served = output;
-        // The real root page must install and activate its offline worker without test registration.
+        // The old board at /index.html must install and activate its offline worker without test registration.
         assert.equal(await active.evaluate(() => navigator.serviceWorker.getRegistration('/').then(Boolean)), false);
-        await active.goto(origin); await readyBoard(active);
+        await active.goto(origin + '/index.html'); await readyBoard(active);
         await active.waitForFunction(() => navigator.serviceWorker.controller?.state === 'activated', null, { timeout: 30_000 * STEP });
         const installed = await active.evaluate(async () => {
           const registration = await navigator.serviceWorker.getRegistration('/');
@@ -654,7 +656,8 @@ export async function main() {
 
       for (const path of ['/play/', '/play.html', '/g/inert', '/j', '/j/inert', '/api/games']) {
         const response = await active.request.get(origin + path, { maxRedirects: 0 });
-        const entry = siteRoute(outputs.get(output).config, path).dest === '/index.html';
+        // The launch tree sends /j to its join page.
+        const entry = ['/index.html', '/join.html'].includes(siteRoute(outputs.get(output).config, path).dest);
         assert.equal(response.status(), entry ? 200 : 404, `${path}: public entries follow this output's routes`);
         if (entry) assert.match(response.headers()['content-type'], /^text\/html/);
       }
@@ -682,7 +685,7 @@ export async function main() {
         localStorage.setItem('kingdown.save', JSON.stringify({ back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'human', sound: false, pace: 'off' }));
         sessionStorage.setItem('kingdown.title-seen', '1');
       });
-      await active.goto(`${origin}/?title=0`); await readyBoard(active);
+      await active.goto(`${origin}/index.html?title=0`); await readyBoard(active);
       await active.waitForFunction(savedGameSynced);
       // Wait for the first art loads. The board can still start an idle animation after this wait.
       await active.waitForFunction(() => { return window.view.scene.characterWarmupSettled; });
@@ -691,7 +694,7 @@ export async function main() {
       const offlineRequests = new WeakSet();
       const isOfflineProbe = url => {
         const path = new URL(url, origin);
-        return path.origin === origin && (path.pathname === '/' || path.pathname === '/sw.js' && !path.search);
+        return path.origin === origin && (['/', '/index.html'].includes(path.pathname) || path.pathname === '/sw.js' && !path.search);
       };
       const recordOfflineError=message=>{if(message.type()==='error')offlineErrors.push(message.text());};
       const recordOfflineRequest = request => { if (offline) offlineRequests.add(request); };
@@ -708,7 +711,7 @@ export async function main() {
         const part = await active.evaluate(async path => (await fetch(`/character-runtime/${path}`, { cache: 'reload' })).json(), Object.values(index.parts)[0]);
         assert.ok(Array.isArray(part.banks), 'The installed character parts are available offline');
       }
-      await active.goto(origin); await readyBoard(active); assert.deepEqual(await lanMoves(active), ['e2-e4']);
+      await active.goto(origin + '/index.html'); await readyBoard(active); assert.deepEqual(await lanMoves(active), ['e2-e4']);
       const saved = await active.evaluate(() => localStorage.getItem('kingdown.save'));
       const beforeOffline = await localData(active);
       // Lessons and the Workshop are parked (docs/PARKED.md): offline, the Guide and New game open and keep the save.
@@ -731,17 +734,16 @@ export async function main() {
       assert.deepEqual(await lanMoves(active), ['e2-e4', 'e7-e5'], 'Offline reload keeps the local move');
       assertLocalData(afterMove, await localData(active));
 
+      // The game link is parked (docs/PARKED.md). On the launch tree a link opens the new page at the root, also offline.
       await restoreLocalSave(active, saved);
-      await active.goto(`${origin}/?army=RNBQKBNR&moves=e2-e4&players=human,ai`); await readyBoard(active);
-      // The game link is parked (docs/PARKED.md): offline, a ?moves= link opens as a plain visit and keeps the save.
-      assert.equal(await active.textContent('#context-text'), 'This version cannot open game links. Your saved game stays.', 'An offline game link says that it is parked');
-      assert.equal(new URL(active.url()).search, '?players=human%2Cai', 'An offline game link loses its link parameters');
-      assert.deepEqual(await lanMoves(active), ['e2-e4'], 'An offline game link keeps the saved game');
+      await active.goto(`${origin}/?army=RNBQKBNR&moves=e2-e4&players=human,ai`);
+      await active.getByRole('heading', { name: 'This game link cannot open here', exact: true }).waitFor();
+      assert.equal(await active.evaluate(() => localStorage.getItem('kingdown.save')), saved, 'An offline game link keeps the saved game');
       await active.evaluate(() => {
         const saved = JSON.parse(localStorage.getItem('kingdown.save')); saved.black = 'ai';
         localStorage.setItem('kingdown.save', JSON.stringify(saved));
       });
-      await active.goto(origin); await readyBoard(active);
+      await active.goto(origin + '/index.html'); await readyBoard(active);
       await active.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.length >= 2, null, { timeout: 30_000 * STEP });
       assert.equal((await lanMoves(active))[0], 'e2-e4', 'The offline AI continues the saved game');
       await inspect(active);
@@ -753,7 +755,7 @@ export async function main() {
       active.off('console',recordOfflineError);assert.deepEqual(offlineErrors,[], 'Offline play logs no errors');
       await persistent.setOffline(false); offline = false;
       await restoreLocalSave(active, saved);
-      await active.goto(`${origin}/?title=0`); await readyBoard(active);
+      await active.goto(`${origin}/index.html?title=0`); await readyBoard(active);
       await active.waitForFunction(savedGameSynced);
       const beforeLocal = await localData(active);
       await pressMenu(active, 'Guide'); await active.locator('#rules').waitFor({ state: 'visible' }); await active.keyboard.press('Escape');

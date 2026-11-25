@@ -6,7 +6,7 @@ import { checkTabletButtons, checkButtonContent } from './lib/plugin-tablet-chec
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { contextText, endTurn, lanMoves, readyBoard } from './app-ui.mjs';
-import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, env, launch, oldBoard, shot, trapErrors } from './lib/checks.mjs';
 const out = env('PLAYABLE_OUT');
 mkdirSync(out, { recursive: true });
 const browser = await launch();
@@ -16,7 +16,7 @@ try {
     const page = await browser.newPage({ viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 }, hasTouch: mobile });
     await page.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
     trapErrors(page);
-    const url = env('PLAYABLE_URL');
+    const url = oldBoard();
     await page.goto(url);
     // The fresh game saves itself once its board is up; seeding before that loses the seed.
     await readyBoard(page); await page.waitForFunction(() => localStorage.getItem('kingdown.save'));

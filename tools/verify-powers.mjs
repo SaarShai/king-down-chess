@@ -2,9 +2,9 @@
 // Run: npm run check:browser powers.
 import assert from 'node:assert/strict';
 import { contextText, endTurn, lanMoves, openMoves, openPowerRules, powerCoin, previousReview, readPower, usePower } from './app-ui.mjs';
-import { assertNoErrors, env, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, launch, minTarget, noSidewaysScroll, oldBoard, shot, trapErrors } from './lib/checks.mjs';
 
-const base = env('PLAYABLE_URL'), browser = await launch();
+const base = oldBoard(), browser = await launch();
 const FEN = '4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1';
 const sq = name => (name.charCodeAt(1) - 49) * 8 + name.charCodeAt(0) - 97;
 const tap = async (page, name) => {

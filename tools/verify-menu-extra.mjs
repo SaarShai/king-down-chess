@@ -2,7 +2,7 @@
 // Tricks and seals, Today's army, the Workshop row and the Card mode row; Account is a main Menu row.
 import assert from 'node:assert/strict';
 import { endTurn, lanMoves, openAccount, openMenu, pressMenu } from './app-ui.mjs';
-import { assertNoErrors, env, launch, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, launch, noSidewaysScroll, oldBoard, shot, trapErrors } from './lib/checks.mjs';
 async function assertPhoneSheet(page, height) {
   const bounds = await page.locator('#menu-sheet').evaluate(sheet => {
     const body = sheet.querySelector('.sheet-body'), section = body.querySelector(':scope > section:not([hidden])');
@@ -37,7 +37,7 @@ try {
       localStorage.setItem('kingdown.save', JSON.stringify({ back: '', fen: '7k/8/8/3p4/3Sp3/8/8/K7 w - - 0 1', moves: [], white: 'human', black: 'human', pace: 'off', sound: false }));
     });
     const page = await context.newPage(); trapErrors(page);
-    await page.goto(env('PLAYABLE_URL')); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
+    await page.goto(oldBoard()); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
     assert.equal(await page.locator('#menu-seal-dot, .seal-dot').count(), 0, 'no seal dot, also with old unseen seal data');
     for (const sq of [27, 35, 28]) {
       const point = await page.evaluate(s => window.view.screenOf(s), sq);
@@ -56,10 +56,12 @@ try {
   }
   for (const [width, height] of [[320, 568], [390, 844], [844, 390], [1440, 900]]) {
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' });
+    // The check site has no API. The launch preview answers 404 there; a closed status is what a closed API gives.
+    await context.route(url => url.pathname === '/api/status', r => r.fulfill({ json: { account_access: 'closed', valid_for_ms: 0 } }));
     await context.addInitScript(() => { sessionStorage.setItem('kingdown.title-seen', '1'); localStorage.setItem('kingdown.tricks', JSON.stringify({ found: ['chain'], unseen: false })); localStorage.setItem('kingdown.save', JSON.stringify({ back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'human', pace: 'off', sound: false })); });
     const page = await context.newPage(); trapErrors(page);
     let confirms = 0; page.on('dialog', d => { confirms++; void d.dismiss(); });
-    await page.goto(env('PLAYABLE_URL')); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
+    await page.goto(oldBoard()); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
     await openMenu(page); await page.mouse.click(0, 0);
     assert.equal(await page.locator('#menu-sheet').isVisible(), false, 'a tap outside closes Menu');
     assert.equal(await page.evaluate(() => document.activeElement.id), 'menu-btn');
@@ -171,7 +173,7 @@ try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   await context.addInitScript(() => { sessionStorage.setItem('kingdown.title-seen', '1'); localStorage.setItem('kingdown.look', 'clay'); localStorage.setItem('kingdown.save', JSON.stringify({ back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'human', sound: false })); });
   const page = await context.newPage(); trapErrors(page);
-  await page.goto(new URL('?look=clay', env('PLAYABLE_URL')).href); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
+  await page.goto(new URL('?look=clay', oldBoard()).href); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
   assert.ok(await page.evaluate(() => 'kings' in window.view && window.view.pos.board[4] > 0), 'an old clay look opens the painted board');
   assert.equal(await page.locator('#asset-status').innerText(), '', 'an old clay look gives no notice');
   assert.equal(await page.locator('dialog[open]').count(), 0, 'an old clay look opens no dialog');

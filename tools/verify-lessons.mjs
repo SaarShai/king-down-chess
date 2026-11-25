@@ -1,7 +1,7 @@
 // W9: the shelf opens, a figure opens its lesson, and Learned follows the store.
 import assert from 'node:assert/strict';
 import { contextText, openPieceRules, pressMenu, startLesson, waitForUi } from './app-ui.mjs';
-import { assertNoErrors, env, launch, minTarget, noSidewaysScroll, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, launch, minTarget, noSidewaysScroll, oldBoard, trapErrors } from './lib/checks.mjs';
 
 const browser = await launch();
 try {
@@ -13,7 +13,7 @@ try {
       localStorage.removeItem('kingdown.lessons');
     });
     const page = await context.newPage(); trapErrors(page);
-    await page.goto(env('PLAYABLE_URL'));
+    await page.goto(oldBoard());
     await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
     const saved = () => page.evaluate(() => localStorage.getItem('kingdown.save'));
     const board = () => page.evaluate(() => Array.from(window.view.pos.board));

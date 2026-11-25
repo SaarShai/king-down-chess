@@ -10,6 +10,8 @@
 //                                                 plugin-ui, plugin-ui-http and web-online; use firefox for web-online.
 //                                                 Other checks can use CDP or open Chromium directly.
 //                             An unknown name throws.
+//   oldBoard()                The old board on the check site: PLAYABLE_URL + index.html. The site is the launch tree,
+//                             so PLAYABLE_URL itself opens the new page.
 //   outRoot                   The parent of the runner's output folders: <system temp folder>/kingdown-check-runs, never
 //                             in a checkout. The runner makes one folder a run under it (after-redesign/01).
 //   isInside(folder, path)    True when `path` is `folder` or a path inside it, after symbolic links resolve. A part
@@ -82,6 +84,9 @@ export function env(name) {
  * Firefox uses the WebKit wait budget for the web journey on CI.
  */
 export const STEP = !process.env.CI ? 1 : ['webkit', 'firefox'].includes(process.env.PLAYABLE_BROWSER) ? 3 : 2;
+
+/** The address of the old board on the check site. The runner builds the launch tree, where `/` is the new page. */
+export const oldBoard = () => new URL('index.html', env('PLAYABLE_URL')).href;
 
 /** The public build values of the shared check site: a production build (no stage) with a fake account project.
  *  The website reads both values from the build (src/account/public-config.ts); a check that signs in answers this

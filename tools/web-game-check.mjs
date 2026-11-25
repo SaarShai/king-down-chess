@@ -19,7 +19,6 @@ import { launch, shot, trapErrors, assertNoErrors, env } from './lib/checks.mjs'
 import { checkRecoveryConsumers, checkSharedMechanics } from './lib/shared-mechanics-check.mjs';
 import { checkErrorRecorder } from './lib/error-recorder-check.mjs';
 import { checkDaylightSetup } from './lib/daylight-home-check.mjs';
-import { checkSoloSync } from './lib/solo-sync-check.mjs';
 
 const unregister = register();
 const mechanics = process.argv[2] === 'mechanics';
@@ -56,6 +55,8 @@ try {
     accountServer.listen(0, '127.0.0.1'); await once(accountServer, 'listening');
     accountOrigin = `http://127.0.0.1:${accountServer.address().port}`;
   }
+  // Each shipped form builds the launch tree (tools/release/profile.sh); vite.config.ts reads the switch.
+  process.env.KINGDOWN_SOLO_LAUNCH = '1';
   // Use public fake settings only. The browser gets a real signed local session; no OAuth provider is contacted.
   await build({ logLevel: 'warn', plugins: [{ name: 'lobby-check-state', transform(code, id) {
     if (id !== resolve('src/account-game/runtime.ts')) return;
@@ -244,19 +245,25 @@ try {
   await shot(page, 'web-replaced-friend-code');
   await page.locator('#friend-new').click();
   code = await linkKey(); assert.notEqual(code, replacedCode);
-  // The friend opens the invite link in a browser and joins with its Join control.
+  // The friend opens the invite link in a browser and joins with its Join control. The launch tree sends /j to its
+  // join page, which opens the invite on the new page; the friend has seen the one-time launch notice.
   const friend = await browser.newContext({ viewport: { width: 1100, height: 1000 } });
+  await friend.addInitScript(() => localStorage.setItem('kingdown.solo-launch-seen', '1'));
   await friend.addInitScript(({ origin, actor, token }) => { if (location.origin === origin && !localStorage.getItem('kingdown.auth')) localStorage.setItem('kingdown.auth', JSON.stringify({
     access_token: token, refresh_token: 'local-test-refresh', token_type: 'bearer', expires_in: 600, expires_at: Math.floor(Date.now() / 1000) + 600, user: { id: actor, aud: 'authenticated', role: 'authenticated', email: 'browser@example.invalid', app_metadata: { provider: 'google' }, user_metadata: {}, created_at: new Date().toISOString() },
   })); }, { origin, actor: actors[1], token: tokens[1] });
   await friend.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : (failures.push('External request blocked'), route.abort()));
   const joiner = await friend.newPage(), joinErrors = trapErrors(joiner);
   await joiner.goto(await page.locator('#friend-link').innerText());
-  await joiner.locator('[data-screen="join"]:not([hidden]) #join-confirm:not([hidden])').waitFor();
-  assert.equal(new URL(joiner.url()).hash, `#${code}`, 'The join screen keeps the invite key');
+  await joiner.waitForURL(url => new URL(url).pathname === '/next.html');
+  assert.equal(new URL(joiner.url()).hash, `#join=${code}`, 'The join page keeps the invite key');
+  const joinGame = joiner.getByRole('button', { name: 'Join the game', exact: true });
+  await joinGame.waitFor();
   await shot(joiner, 'web-join-link');
-  await joiner.locator('#join-confirm').click();
-  await joiner.waitForURL(`${origin}/g/${gameId}`);
+  const redeemed = joiner.waitForResponse(response => new URL(response.url()).pathname === '/api/invites/redeem');
+  await joinGame.click();
+  assert.equal((await redeemed).status(), 200, 'The new page joins the game');
+  await joiner.waitForURL(url => new URL(url).hash === `#online=${gameId}`);
   await friend.close(); assertNoErrors(joinErrors);
   await page.locator('[data-screen="seat"]:not([hidden])').waitFor();
   await page.locator('#seat-screen #board[aria-busy="false"] canvas').waitFor({ state: 'visible' });
@@ -396,65 +403,37 @@ try {
     assert.deepEqual((await view(0)).result, a.result, 'The original result is preserved');
     await shot(page, 'web-rematch-selection-recovered');
   } finally { releaseRematch?.(); await page.unroute('**/api/games/*', holdRematch); }
-  await checkSoloSync({ page, ui: page, tool: (name, args) => tool(0, name, args), open: id => page.goto(origin + '/g/' + id), label: 'web' });
   {
-    // A fresh /play/ load recovers a pending computer reply on its source board; the URL names that board.
+    // The launch server refuses web solo commands, and the old page hands an account solo game to the local board.
     const solo = (await tool(0, 'kingdown_create', { kind: 'solo', mode: 'casual', colour: 'white', level: 'beginner', command_id: randomUUID(),
       options: { fairy: true, pool: ['Q', 'O', 'L', 'R', 'B', 'N', 'A', 'G', 'M', 'S'], arrangement: false, classic: false, cards: true, cardPool: ['Freeze', 'IceWall', 'March', 'MorphP'], kingPowers: true } }))._meta.view;
-    const soloPath = '/g/' + solo.game_id, readSolo = async () => (await tool(0, 'kingdown_get', { game_id: solo.game_id }))._meta.view;
     await tool(0, 'kingdown_choose', { game_id: solo.game_id, command_id: randomUUID(), expected_revision: solo.revision, order: solo.draw, king: { king: 'Mud', power: 'March' }, ready: true });
-    await page.goto(origin + soloPath);
-    await page.locator('[data-screen="board"]:not([hidden])').waitFor();
-    await page.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
-    let computerSent, releaseComputer, heldDropped, heldId;
-    const sent = new Promise(resolve => { computerSent = resolve; }), released = new Promise(resolve => { releaseComputer = resolve; });
-    const dropped = new Promise(resolve => { heldDropped = resolve; });
-    // Only the first computer call is held, and it never reaches the server. The route stays until that call is
-    // aborted: with no route left, the browser lets a held request go on (about one run in five failed so).
-    // The reloaded page's resend of the same call goes through.
-    const holdComputer = async route => {
-      const body = route.request().postDataJSON();
-      if (body?.action?.type !== 'computer' || heldId) return route.continue();
-      heldId = body.command_id; computerSent(); await released;
-      await route.abort('aborted').catch(() => {}); heldDropped();
-    };
-    await page.route('**/api/games/*/commands', holdComputer);
-    const canvas = page.locator('#board canvas'), box = await canvas.boundingBox(); assert(box);
-    const square = (file, rank) => canvas.click({ position: { x: (32 + (file + .5) * 112) * box.width / 960, y: (96 + (7 - rank + .5) * 112) * box.width / 960 } });
-    await square(0, 1); await square(0, 2);
-    await page.locator('#end-turn[aria-disabled="false"]').click();
-    await sent;
-    const moved = await readSolo();
-    const computerCalls = [];
-    const logComputer = response => {
-      const request = response.request(), body = request.method() === 'POST' && request.postDataJSON();
-      if (body?.action?.type === 'computer') computerCalls.push({ id: body.command_id, status: response.status() });
-    };
-    page.on('response', logComputer);
-    await page.goto(origin + '/play/');
-    releaseComputer(); await dropped;
-    await page.unroute('**/api/games/*/commands', holdComputer);
-    await page.locator('[data-screen="board"]:not([hidden])').waitFor();
-    assert.equal(new URL(page.url()).pathname, soloPath, 'Recovery names the source game in the URL');
-    // A tap during a board animation only skips it (owner pick A8 a), so Back waits for the board to stop.
-    await page.locator('#status').filter({ hasText: 'Your move' }).waitFor();
-    await page.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
-    page.off('response', logComputer);
-    // The server plays one computer action for each call (W7 ticket 06). A card or a Haste first move keeps the
-    // computer's turn, and the board then sends one more call with a new ID.
-    const replied = await readSolo(), reply = replied.last_commands.filter(command => command.seq > moved.last_commands.at(-1).seq);
-    assert.equal(computerCalls[0]?.id, heldId, 'Recovery sends the held computer command first');
-    assert.equal(new Set(computerCalls.map(call => call.id)).size, computerCalls.length, 'No computer command goes twice');
-    assert.deepEqual(computerCalls.map(call => call.status), computerCalls.map(() => 200), 'The server accepts each computer call');
-    assert.deepEqual(reply.map(command => command.action.type), computerCalls.map(() => 'computer'), 'Each computer call adds one computer action and nothing else');
-    assert.equal(replied.revision, moved.revision + computerCalls.length);
-    assert.equal(replied.turn, replied.seat, 'The player moves after the computer turn');
-    assert.equal(new URL(page.url()).pathname, soloPath, 'The settled reply keeps the source game URL');
-    await shot(page, 'web-recovered-solo-url');
-    await page.locator('#board-menu').click(); await page.locator('#board-sheet').getByRole('button', {name: 'Main menu', exact: true}).click();
-    await page.locator('[data-screen="play"]:not([hidden])').waitFor();
-    assert.equal(new URL(page.url()).pathname, '/play/', 'Menu returns to the games list');
-    console.log(`web: a fresh /play/ load recovers a pending computer reply under its source game URL (computer calls: ${computerCalls.length})`);
+    const refused = await http(0, `/api/games/${solo.game_id}/commands`, { command_id: randomUUID(), expected_revision: solo.revision + 1, action: { type: 'computer' } }, 403);
+    assert.deepEqual([refused.code, refused.message], ['NOT_ALLOWED', 'The computer plays on this device.'], 'The launch server refuses a computer call from the website');
+    // The local board syncs a signed-in save with the account project, so the hand-over runs in its own tab, where the
+    // fake account project answers locally (answerCheckHost in tools/lib/checks.mjs).
+    const tab = await browser.newContext({ viewport: { width: 1100, height: 1000 } });
+    await tab.addInitScript(({ origin, actor, token }) => { if (location.origin === origin && !localStorage.getItem('kingdown.auth')) localStorage.setItem('kingdown.auth', JSON.stringify({
+      access_token: token, refresh_token: 'local-test-refresh', token_type: 'bearer', expires_in: 600, expires_at: Math.floor(Date.now() / 1000) + 600, user: { id: actor, aud: 'authenticated', role: 'authenticated', email: 'browser@example.invalid', app_metadata: { provider: 'google' }, user_metadata: {}, created_at: new Date().toISOString() },
+    })); }, { origin, actor: actors[0], token: tokens[0] });
+    await tab.route('**/*', route => {
+      const at = new URL(route.request().url()).origin;
+      return at === origin ? route.continue() : at === accountOrigin ? route.fallback() : (failures.push('External request blocked'), route.abort());
+    });
+    const board = await tab.newPage(), boardErrors = trapErrors(board);
+    await board.goto(origin + '/g/' + solo.game_id);
+    const handoff = board.locator('dialog.launch-handoff[open]');
+    await handoff.waitFor();
+    assert.equal(await handoff.locator('#launch-handoff-title').innerText(), 'Play on this device');
+    assert.match(await handoff.locator('#launch-handoff-line').innerText(), /Your online game stays saved\./, 'The hand-over keeps the online game');
+    await shot(board, 'web-solo-handoff');
+    await handoff.getByRole('button', { name: 'Open local game', exact: true }).click();
+    await board.waitForURL(url => new URL(url).pathname === '/index.html');
+    await board.waitForFunction(() => window.view?.ready);
+    const local = await board.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')));
+    assert.deepEqual([local.white, local.black, local.moves], ['human', 'ai', []], 'The local board gets the solo game');
+    await tab.close(); assertNoErrors(boardErrors);
+    console.log('web: the launch server refuses a web computer call, and the old page hands the solo game to the local board');
   }
   // Seven weighted pool pieces force the army's contents; each seat still submits a real setup choice.
   const options = { fairy: true, pool: ['O', 'A', 'G', 'M', 'S'], arrangement: true, classic: false,
@@ -715,7 +694,8 @@ try {
       const logout = screen.getByRole('button', { name: 'Log out', exact: true });
       await logout.scrollIntoViewIfNeeded();
       assert.equal(await logout.count(), 1, 'Settings has one logout button');
-      assert(await logout.evaluate(button => button.parentElement === button.parentElement.parentElement.lastElementChild), 'Log out is the last Settings row');
+      // The launch tree adds its Account section after Log out when its status read ends.
+      assert(await logout.evaluate(button => [button.parentElement, button.parentElement.nextElementSibling?.matches('.launch-account:last-child') && button.parentElement.nextElementSibling].includes(button.parentElement.parentElement.lastElementChild)), 'Log out is the last Settings row before the launch Account section');
       const box = await logout.boundingBox();
       assert(box && box.width >= 48 && box.height >= 48, 'Log out has a 48 by 48 pixel target');
       await screen.evaluate(() => document.fonts.ready);
@@ -761,7 +741,7 @@ try {
   const recoveryError = 'console.error: King Down connection failed TypeError: Failed to fetch';
   assert.equal(errors.filter(error => String(error).startsWith(recoveryError)).length, 1);
   assertNoErrors(errors.filter(error => !String(error).includes('net::ERR_FAILED') && !String(error).startsWith(recoveryError)));
-  await writeFile(join(env('PLAYABLE_OUT'), 'proof.json'), JSON.stringify({ game_id: gameId, origin, revision: a.revision, commands: commands.length, result: a.result, checks: ['emitted /play/ and /g assets', 'real HTTP create', 'MCP join', 'hidden setup', 'UI ready and two-action Haste turn', 'lost reply navigation', 'failed recovery Retry keeps destination setup', 'same account MCP', 'shared result', 'pending solo recovery names its game URL'] }, null, 2));
+  await writeFile(join(env('PLAYABLE_OUT'), 'proof.json'), JSON.stringify({ game_id: gameId, origin, revision: a.revision, commands: commands.length, result: a.result, checks: ['emitted /play/ and /g assets', 'real HTTP create', 'MCP join', 'hidden setup', 'UI ready and two-action Haste turn', 'lost reply navigation', 'failed recovery Retry keeps destination setup', 'same account MCP', 'shared result', 'launch solo refusal and hand-over'] }, null, 2));
   console.log(`PASS web-game: emitted website, HTTP and MCP share one game; proof ${resolve(env('PLAYABLE_OUT'))}`);
   }
 } finally {

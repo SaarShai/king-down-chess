@@ -187,7 +187,7 @@ try {
       const p=await ctx.newPage();p.setDefaultTimeout(10000);
       if (item === 'A8' && phase === 'after') await p.clock.install();
       if (item === 'A17') await p.addInitScript(watchFrost);
-      async function open(fen, args='') { await p.goto(webURL+'?title=0&players=human,human&fen='+encodeURIComponent(fen)+args);await p.waitForFunction(()=>window.view?.ready);await p.evaluate(()=>window.view.ready());await p.evaluate(()=>document.fonts.ready); }
+      async function open(fen, args='') { await p.goto(webURL+'index.html?title=0&players=human,human&fen='+encodeURIComponent(fen)+args);await p.waitForFunction(()=>window.view?.ready);await p.evaluate(()=>window.view.ready());await p.evaluate(()=>document.fonts.ready); }
       async function tap(sq){ const point=await p.evaluate(sq=>window.view.screenOf(sq),sq);await p.mouse.click(point.x,point.y);await p.waitForTimeout(400); }
       async function shot(id,screen){const file=`${id}-web-${screen}-${width}x${height}-${theme}.png`;await p.screenshot({path:join(out,file)});notes.push(file);}
       for(const id of items) {
