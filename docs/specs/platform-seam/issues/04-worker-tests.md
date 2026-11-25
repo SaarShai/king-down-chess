@@ -1,6 +1,6 @@
 # The worker tests run on the worker that ships
 
-Status: needs-triage. Waits for the owner's approval of [the spec](../spec.md).
+Status: done on branch seam-guards; the review repairs are in; waits for the repair check.
 
 Class: B (tests only). Size: S.
 
@@ -21,3 +21,23 @@ Remove one private path from `tools/solo-launch/sw.js` only. The tests are green
 ## Known limits
 
 If [ticket 07](07-remove-off-build.md) comes first, this ticket is not necessary: one worker stays, and the tests point at it.
+
+## Work record
+
+- `tools/service-worker.test.ts`: the groups "private safety during installation" and "public request boundary" run on `public/sw.js` and on `tools/solo-launch/sw.js` (`describe.each`). No worker line changes.
+- Not as the ticket says: the parametrization alone does not give the red line. A path that is not on the allowlist gets no cache key, also when the private list does not match it, so the two groups did not read the private list. The bypass case and the forbidden-key case now put their private paths on the allowlist (`listed`). Only the private list of the worker keeps them out.
+- Two differences of the launch worker on purpose, each named in its case: a navigation to an online page (`/play…`, `/g/<id>`, `/j`) goes to the network with the offline page as the fallback; `index.html` is the old page with a key of its own, so the install-shell case runs on `/` only for that worker.
+- Green: `KINGDOWN_TEST_FILE=tools/service-worker.test.ts npm test`, with the type check: 228 tests passed, 0.5 s of tests (86 s in all).
+- Red: `mcp` removed from `PRIVATE` in `tools/solo-launch/sw.js` only, `KINGDOWN_TEST_NO_TYPECHECK=1 KINGDOWN_TEST_FILE=tools/service-worker.test.ts npm test`: 2 failed, 226 passed: "public request boundary (tools/solo-launch/sw.js) > bypasses /mcp" and "… /mcp/child".
+- Probe: the same removal with no private path on the allowlist: 228 passed. This shows that the allowlist step is necessary.
+- The worker file is back to its committed text (`git diff` shows only the test file).
+- The kept copy of the test file in the log folder is byte-equal to the text of commit de9ddec20.
+- Final run on head f68ec5c9a (all four tickets): `npm run test:changed`, with the type checks. It ran the full suite: 430 files, 411 passed and 19 skipped; 8119 tests passed and 387 skipped; the node tests 115 passed; 610 s of tests (622 s in all). An earlier run on this head had no home folder and could not stop Chromium, so it is void.
+- Red of the group "private safety during installation" on the launch worker, from the probe of the review batch (temporary edits, not committed, files restored from HEAD; log `probe-review.log`): `api` removed from `PRIVATE` in `tools/solo-launch/sw.js:24`, `KINGDOWN_TEST_NO_TYPECHECK=1 KINGDOWN_TEST_FILE="tools/{api-origin,ios-app,service-worker,platform}.test.ts" npm test` (four more mutations of tickets 01 and 02 in the same run): 10 failed, 253 passed. The case of this group: "private safety during installation (tools/solo-launch/sw.js) > refuses early proof with a forbidden cache key: /api/private", `promise resolved "undefined" instead of rejecting`. The boundary group is red on `/api`, `/api/child` and `/api/status` too.
+- "With the type check" means that the command did not set `KINGDOWN_TEST_NO_TYPECHECK`. No log shows a type-check line, because `tsc --noEmit` writes nothing when it passes (`tools/test-unlocked.sh:12-13`). The runs of this ticket waited for the machine lease, so their elapsed times do not show the type check.
+
+## Review
+
+- Kind: a review by an agent that did not build the change. Head: `82780d5f5a15bc40e8cf4d55ef05d7b5c233f942`.
+- Findings: no blocking finding. For this ticket, two notes: the group "private safety during installation" had no red line on the launch worker; the logs of the green runs show no type-check line.
+- One batch repairs them. A probe run gives the red line of that group (see the work record). The record says what "with the type check" means. No code of this ticket changes.

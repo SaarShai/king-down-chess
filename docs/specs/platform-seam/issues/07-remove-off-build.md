@@ -1,6 +1,6 @@
 # Remove the launch switch and the off build
 
-Status: needs-triage. Waits for the owner's approval of [the spec](../spec.md) and for decision 1.
+Status: ready-for-agent when ticket 06 is merged. The owner approved [the spec](../spec.md) and decision 1 on 2026-11-25. The staging pass and the publish need the owner's word.
 
 Blocked by: 06
 

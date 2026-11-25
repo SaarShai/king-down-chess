@@ -1,8 +1,11 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { runInNewContext } from 'node:vm';
 import { expect, it } from 'vitest';
+import viteConfig from '../vite.config';
+import { siteRoute } from './lib/site-route.mjs';
 import { buildPluginServer, vercelRoutes } from './plugin-server-build.mjs';
 import { CHATGPT_PLUGIN } from './chatgpt-plugin.mjs';
 import { MUSE_CONNECTOR } from './muse-connector.mjs';
@@ -105,6 +108,85 @@ it('gives a Muse build the Muse consent words and both connector builds the revi
     const server = readFileSync(join(fn, 'server.mjs'), 'utf8');
     for (const text of ['/muse/mcp', 'oauth-protected-resource', 'kingdown_new_game', 'kingdown_open']) expect(server.includes(text), text).toBe(true);
   } finally { rmSync(out, { recursive: true, force: true }); }
+}, 120_000);
+
+it('gives the host routes of the time before the page route table, with and without the launch marker', () => {
+  const art = Object.entries({ webp: 'image/webp', png: 'image/png', svg: 'image/svg+xml', woff2: 'font/woff2', mjs: 'text/javascript' }).map(([type, contentType]) => ({
+    src: `^/plugin-art/[\\w-]+\\.${type}$`, headers: { 'Cache-Control': 'public, max-age=31536000, immutable', 'Access-Control-Allow-Origin': '*', 'Cross-Origin-Resource-Policy': 'cross-origin', 'Content-Type': contentType }, continue: true,
+  }));
+  const plain = [...art,
+    { src: '^/muse/mcp$', dest: '/mcp' }, { src: '^/\\.well-known/oauth-protected-resource/muse/mcp$', dest: '/mcp' },
+    { src: '^/character-runtime/assets/[a-f0-9]{64}\\.webp$', headers: { 'Cache-Control': 'public, max-age=31536000, immutable' }, continue: true },
+    { src: '^/character-runtime/(?:index\\.json|parts/[^/]+\\.json)$', headers: { 'Cache-Control': 'no-cache' }, continue: true },
+    { src: '^/audio/armour/[\\w-]+\\.wav$', headers: { 'Content-Type': 'audio/wav' }, continue: true },
+    { src: '^/internal/.+$', dest: '/internal' }, { src: '^/api(?:/.*)?$', dest: '/mcp' },
+  ];
+  const online = { src: '^/(?:play(?:/.*)?|g/[^/]+/?|j/?)$', dest: '/index.html' };
+  const site = mkdtempSync(join(tmpdir(), 'route-table-'));
+  try {
+    expect(vercelRoutes(site, { chatgpt: true, muse: true })).toEqual([...plain, online]);
+    writeFileSync(join(site, 'solo-launch.json'), '{}');
+    expect(vercelRoutes(site, { chatgpt: true, muse: true })).toEqual([...plain, { src: '^/j/?$', dest: '/join.html' }, online,
+      { src: '^/$', dest: '/next.html' }, { handle: 'filesystem' }, { src: '^/.*$', dest: '/next.html', status: 404 }]);
+  } finally { rmSync(site, { recursive: true, force: true }); }
+});
+
+it('routes each path in the Vite preview of a launch tree as the host does', () => {
+  const site = mkdtempSync(join(tmpdir(), 'preview-routes-'));
+  try {
+    for (const file of ['solo-launch.json', 'index.html', 'next.html', 'privacy.html']) writeFileSync(join(site, file), file);
+    mkdirSync(join(site, 'assets')); writeFileSync(join(site, 'assets/main.js'), '');
+    const plugin = (viteConfig({ command: 'serve', mode: 'development' }) as any).plugins.find((entry: any) => entry?.name === 'solo-launch-preview');
+    let middleware: any;
+    plugin.configurePreviewServer({ config: { root: site, build: { outDir: '.' } }, middlewares: { use: (handler: any) => { middleware = handler; } } });
+    /** The answer of the preview in the form of a host route: a page that it serves, or the 404 page. */
+    const preview = (path: string) => {
+      const request = { url: path }, response: any = { statusCode: 200, setHeader() {} };
+      let answer: { dest: string; status?: number } | undefined;
+      response.end = (body: unknown) => {
+        if (response.statusCode === 404) { expect(String(body)).toBe('next.html'); answer = { dest: '/next.html', status: 404 }; return; }
+        let destination = '';
+        runInNewContext(/<script>(.*?)<\/script>/.exec(String(body))![1], { location: { hash: '#token', replace: (value: string) => { destination = value; } } });
+        expect(destination).toBe('/next.html#join=token'); answer = { dest: '/join.html' };
+      };
+      middleware(request, response, () => { answer = { dest: request.url }; });
+      return answer;
+    };
+    // The host serves the files of the tree and the join page that its build writes.
+    const host = { routes: vercelRoutes(site) }, files = new Set(['/index.html', '/next.html', '/privacy.html', '/assets/main.js', '/join.html']);
+    for (const path of ['/', '/play', '/play/', '/play/settings', '/playground', '/g/game', '/g/game/', '/g/a/b', '/j', '/j/', '/j/token', '/missing', '/next.html', '/index.html', '/join.html', '/privacy.html', '/assets/main.js', '/api/status', '/internal/tick', '/muse/mcp']) {
+      const { dest, status } = siteRoute(host, path, files.has(path));
+      // The preview has no server: an /api, /internal or connector path answers as a missing file does.
+      const page = dest === path || ['/index.html', '/next.html', '/join.html'].includes(dest);
+      expect(preview(path), path).toEqual(page ? { dest, ...(status && { status }) } : { dest: '/next.html', status: 404 });
+    }
+  } finally { rmSync(site, { recursive: true, force: true }); }
+});
+
+// The host side of universal links (docs/IOS.md): a website change that breaks it breaks invite links for the installed app.
+it('keeps the association file in a parked site build and serves JSON before the fallback', async () => {
+  const site = mkdtempSync(join(tmpdir(), 'aasa-site-')), out = mkdtempSync(join(tmpdir(), 'aasa-server-'));
+  try {
+    mkdirSync(join(site, '.well-known'));
+    copyFileSync('public/.well-known/apple-app-site-association', join(site, '.well-known/apple-app-site-association'));
+    writeFileSync(join(site, '.well-known/openai-apps-challenge'), 'test-domain-challenge');
+    writeFileSync(join(site, 'solo-launch.json'), '{}');
+    const output = await buildPluginServer(out, { site, chatgpt: false, muse: false });
+    const association = readFileSync(join(output, 'static/.well-known/apple-app-site-association'), 'utf8');
+    expect(association).toBe(readFileSync('public/.well-known/apple-app-site-association', 'utf8'));
+    expect(JSON.parse(association).applinks.details[0].appIDs).toEqual(['6M9C2YSWT4.dev.kingdown.app']);
+    const joinPage = readFileSync(join(output, 'static/join.html'), 'utf8');
+    // The join page of the host before the page route table (docs/specs/platform-seam/issues/02-route-table.md).
+    expect(joinPage).toBe('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Join King Down</title><script>location.replace("/next.html#join=" + location.hash.slice(1));</script></html>');
+    let destination = '';
+    runInNewContext(/<script>(.*?)<\/script>/.exec(joinPage)![1], { location: { hash: '#fixture-token', replace: (value: string) => { destination = value; } } });
+    expect(destination).toBe('/next.html#join=fixture-token');
+    const routes = vercelRoutes(site, { chatgpt: false, muse: false });
+    const at = routes.findIndex((row: any) => row.src === '^/\\.well-known/apple-app-site-association$');
+    expect(routes[at]).toMatchObject({ headers: { 'Content-Type': 'application/json' }, continue: true });
+    expect(at).toBeLessThan(routes.findIndex((row: any) => row.handle === 'filesystem'));
+    expect(existsSync(join(output, 'static/.well-known/openai-apps-challenge'))).toBe(false);
+  } finally { rmSync(site, { recursive: true, force: true }); rmSync(out, { recursive: true, force: true }); }
 }, 120_000);
 
 it('refuses a recovery rehearsal on a parked build instead of reporting a pass', () => {
