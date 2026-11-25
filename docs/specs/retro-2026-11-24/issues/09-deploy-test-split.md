@@ -13,7 +13,7 @@ Source: [retro](../retro.md), the section "Decisions after the merge", the item 
 This is a move. No test name, assertion or test body changes.
 
 - Seven test files take the sections of the old file:
-  - `tools/deploy-sh.test.ts`: the first part of `describe('deploy.sh')` (setup mode, settings, remotes, configure, the plugin gates). The old file goes to this name with `git mv`.
+  - `tools/deploy-sh.test.ts`: the first part of `describe('deploy.sh')` (setup mode, settings, remotes, configure, the plugin gates). The old file went to this name with `git mv`, but git records a delete and an add (see "Known limits").
   - `tools/deploy-sh-release.test.ts`: the second part of `describe('deploy.sh')` (the site gates, the release commit, CI reuse, frame-time records, cleanup).
   - `tools/deploy-slow-link.test.ts`: `describe.each(...)('%s over a slow link')`.
   - `tools/deploy-live-check.test.ts`: `describe('deploy-live-check.mjs')` and the top-level test "checks the launch root against the new page and keeps the old online page byte check".
@@ -85,6 +85,7 @@ A probe script called `selectTests` for one changed file at a time, on the tree 
   - `tools/wt.sh`: `deploy-sh` and `deploy-sh-release` (their strings name it; the real file is never run, because the temporary repository holds a stub).
   - `tools/deploy-live-check.mjs`, `tools/deploy-keep-assets.mjs`, `tools/deploy-plugin-live-check.mjs`, `tools/chatgpt-plugin.mjs`, `tools/muse-connector.mjs`: all seven files.
   - `tools/piece-activity.ts` and `tools/plugin-ui-build.mjs`: no deploy test of the split (`tools/deploy-plugin-env.test.ts` still holds `tools/`).
+- A grep of `tools/deploy.sh` for `$0`, `dirname`, `BASH_SOURCE`, `source`, `. "` and `--input-type` finds four files that it uses from the real `tools/` folder: `test-lock.sh` (a wide file: its change runs the full suite), `staging-config.mjs`, `deploy-plugin-env.mjs` and `release/frame-checks.sh`. Its inline node scripts import only node modules.
 - Without the new `frame-checks.sh` import, a change to `tools/release/frame-checks.sh` selected no file of the split. `deploy.sh` names it as `"$script_dir/release/frame-checks.sh"`, which the scanner cannot read. The row in `extraImports` closes this gap.
 
 ## Known limits
