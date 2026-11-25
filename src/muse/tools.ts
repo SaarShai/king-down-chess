@@ -44,8 +44,10 @@ export const REFUSED: Partial<Record<ErrorCode, string>> = {
   INVALID_INPUT: 'Invalid input: check the tool fields.', COMMAND_CONFLICT: 'This request ID belongs to another request. Use a new request ID.',
   NOT_ALLOWED: 'The game does not allow this now.', MATCH_LIMIT: 'This game reached its length limit.', MATCH_INCOMPATIBLE: 'This game uses an older version. Play it on the website.',
 };
+/** The refusal codes of this layer only. A new one fails typecheck at the LAYER table of tools/muse-tool-docs.ts: give it its words there. */
+export type MuseLayerCode = 'NO_GAME' | 'PERSON_GAME' | 'NOT_STARTED';
 /** A refusal of this layer: a fixed sentence (it never repeats the input) and its code. */
-class Refusal extends Error { constructor(readonly code: string, message: string) { super(message); } }
+class Refusal extends Error { constructor(readonly code: ErrorCode | MuseLayerCode, message: string) { super(message); } }
 
 const commandId = (gameId: string, revision: number, what: string) => `muse:${createHash('sha256').update(`${gameId}:${revision}:${what}`).digest('hex')}`;
 const colourOf = (seat: number) => seat === 0 ? 'white' as const : 'black' as const;

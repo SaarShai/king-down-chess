@@ -8,7 +8,7 @@ import { createMcpHandler } from '@modelcontextprotocol/server';
 import { MAX_ACTIVE_MCP, MAX_ACTIVE_MCP_PER_USER, MAX_MCP_BODY } from '../src/plugin/http';
 import { TOOL_LIMITS } from '../src/plugin/service';
 import { MUSE_METADATA_PATH, MUSE_PATH } from '../src/muse/http';
-import { COUNTERS, createMuseServer, REFUSED, type MuseGames, type MuseTool } from '../src/muse/tools';
+import { COUNTERS, createMuseServer, REFUSED, type MuseGames, type MuseLayerCode, type MuseTool } from '../src/muse/tools';
 
 export const TOOL_DOCS = 'docs/specs/muse-connector/tool-docs.md';
 export const PUBLIC_TOOL_DOCS = 'public/muse-connector.html';
@@ -38,6 +38,12 @@ type Schema = {
   minimum?: number; maximum?: number; minItems?: number; maxItems?: number; items?: Schema; anyOf?: Schema[]; properties?: Record<string, Schema>; required?: string[];
 };
 const code = (text: string) => `\`${text}\``;
+/** The words for each code of the connector layer (src/muse/tools.ts Refusal). A new MuseLayerCode fails typecheck here: add its words. */
+const LAYER: Record<MuseLayerCode | 'INTERNAL_ERROR', string> = {
+  NO_GAME: 'no game against the computer', PERSON_GAME: 'the game is against a person; the sentence gives its link',
+  NOT_STARTED: 'the setup of the game is not complete', INTERNAL_ERROR: 'any other fault; "Could not update the game. Try again."',
+};
+const layerCodes = Object.entries(LAYER).map(([c, words]) => `${code(c)} (${words})`);
 const cell = (text: string) => text.replaceAll('|', '\\|').replaceAll('\n', ' ');
 const yes = (value: unknown) => value ? 'yes' : 'no';
 
@@ -139,7 +145,7 @@ export async function toolDocs(publicPage = false): Promise<string> {
     '|---|---|',
     ...Object.entries(REFUSED).map(([c, sentence]) => `| ${code(c)} | ${cell(sentence)} |`),
     '',
-    'The connector has more codes, each with its own fixed sentence: `NO_GAME` (no game against the computer), `PERSON_GAME` (the game is against a person; the sentence gives its link), `NOT_STARTED` (the setup of the game is not complete) and `INTERNAL_ERROR` (any other fault; "Could not update the game. Try again."). The server log records the tool name and a fixed error category only.',
+    `The connector has more codes, each with its own fixed sentence: ${layerCodes.slice(0, -1).join(', ')} and ${layerCodes.at(-1)}. The server log records the tool name and a fixed error category only.`,
     '',
     'A call that does not fit the input schema stops in the MCP SDK, before the tool runs. Its result sets `isError` and has no `structuredContent`. Its text starts with "Input validation error:" and names the field and the rule that the input breaks.',
     '',
