@@ -50,7 +50,7 @@ The browser checks `lessons`, `lesson-return`, `workshop-cast` and `link-game` a
 
 The browser check `workshop` stays and runs only by name. It fails until the Workshop returns, but `src/workshop/review.docs.test.ts` reads its groups.
 
-The checks that start a two-person game use the `?players=` fixture (`startGame` with `mode: 'two'` in `tools/new-game-ui.mjs`). The design-game steps of `painted-game` moved into `link-game`, because a design game opens only from a game link.
+The checks that start a two-person game use the `?players=` fixture (`startGame` with `mode: 'two'` in `tools/new-game-ui.mjs`). The design-game steps of `painted-game` moved into `link-game`, because a design game opens only from a game link. They left with `link-game` (removed 2026-11-25).
 
 ## How to return a feature
 
