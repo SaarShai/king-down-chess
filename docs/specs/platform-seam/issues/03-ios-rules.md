@@ -37,7 +37,7 @@ The test of the build shell: `ios-sync.sh` has no such line today. The origin te
 
 ## Work record
 
-- Decision 3: yes. The spec holds only the author's pick ("My pick: yes", `spec.md`, decision 3). The lane brief says that the owner approved the spec with the four picks. No file on this branch records that approval: the Status line of `spec.md` says "needs-triage", and the TASKS.md row of the four decisions says needs-info.
+- Decision 3: yes. The spec holds only the author's pick ("My pick: yes", `spec.md`, decision 3). The lane brief says that the owner approved the spec with the four picks. `spec.md`, its tickets 05 to 08 and TASKS.md do not record that approval: the Status line of `spec.md` says "needs-triage", and the TASKS.md row of the four decisions says needs-info.
 - `tools/ios-sync.sh`: the production arm exports `VITE_KINGDOWN_APPLE_SIGN_IN=0`; after `esac`, `unset KINGDOWN_TEST_PAGES`. The Apple switch takes the value 0, not `unset`, because a Vite `.env` file can set a `VITE_` value and a shell value overrides it. The build reads only `KINGDOWN_TEST_PAGES === '1'` from the shell, so `unset` is enough there (as `tools/release/live.sh` does).
 - `vite.config.ts` exports `buildTarget`, and `build.target` uses it.
 - `tools/ios-app.test.ts`: the build-shell test checks the two new lines, and that the staging arm has no Apple line. New tests: the Capacitor origin, the lowest iOS (each `IPHONEOS_DEPLOYMENT_TARGET` equals the `ios` and the `safari` version of `buildTarget`), the AASA pin, and the link test (Swift pattern, AASA components, host routes of a launch tree).
