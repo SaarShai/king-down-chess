@@ -1,6 +1,6 @@
 # Test workers: the seat tap repair, and 4 workers stay
 
-Status: done (PR 467) for the repair of the seat tap. Open: the two `plugin-app` reds with 8 workers have no cause, so `maxWorkers` stays 4.
+Status: done in PR 467 for the repair of the seat tap. Open: the two `plugin-app` reds with 8 workers have no cause, so `maxWorkers` stays 4.
 
 Source: [retro](../retro.md), item 11
 
@@ -95,4 +95,5 @@ The 10 slowest files, from the red full run (pass-bar full run 1, 8 workers, 274
 ## Review
 
 - Review: an agent that did not build the change read head `2408560e2`. It found no blocking fault. It confirmed the cause in the code: the ResizeObserver of `src/render/PaintedView.ts` gives the canvas 0 px while the board is in a hidden screen, and `waitForBoardPaint` needs a canvas with a box. One batch repairs its six notes, all in the docs: the limit of the line 1379 red, the true gain of a split of `tools/deploy.test.ts`, the two `--publish` sections, the words on the 0 × 0 window, this status line, and the line number.
+- Repair check: the same reviewer read `edf60938d`. Each repair holds in substance. The lead then corrected three small notes of that check in the docs: the heading of item 11, the numbers of the split gain (each from one run), and this status line.
 - Open findings: none that block.
