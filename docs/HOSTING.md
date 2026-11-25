@@ -153,7 +153,24 @@ The owner parked the ChatGPT plugin on 2026-10-28 and brought it back on 2026-11
 
 The build option `KINGDOWN_SOLO_LAUNCH=1` selects the new page at `/`.
 It is off by default. The emitted `solo-launch.json` selects the combined host routes.
-`/play`, `/g/...` and `/j` keep the old page. Unknown paths return the new page with HTTP 404.
+The release tools set the option on: `tools/release/profile.sh` sets it to 1, and `tools/release/live.sh`,
+`tools/release/release.sh`, `tools/release/staging.py` and `tools/lib/release-browser.mjs` read that file.
+`tools/ios-sync.sh` sets it to 1 for each app build. `tools/deploy.sh` does not read `profile.sh`:
+a direct run builds with the value of the caller's shell.
+
+The host routes of a tree with the launch marker (`vercelRoutes` in `tools/plugin-server-build.mjs`):
+
+- `/` gives the new page, `next.html`.
+- `/play`, `/play/…` and `/g/<id>` give `index.html`. For an account route, that page starts the account pages ([FORMS.md](FORMS.md)).
+- `/j` and `/j/` give `join.html` (`JOIN_PAGE`). This page opens `/next.html#join=<token>`. The token stays in the fragment.
+- A file of the tree gives that file. Each other path gives the new page with HTTP 404.
+
+A tree with no marker has no `join.html`: `/play…`, `/g/<id>` and `/j` give `index.html`, and `/` has no route (the host gives its default file, `index.html`, the old page).
+`tools/plugin-server-build.test.ts` holds both route lists and the join page. It also checks that the Vite preview
+of a launch tree routes each sample path as the host does. `tools/ios-app.test.ts`, `tools/service-worker.test.ts`
+and `tools/platform.test.ts` compare the app router, the offline page of the launch worker and the page-side
+route parsers with the host route.
+
 The launch worker lists both public pages and their local graphs. Private online paths stay out of its cache.
 The runtime `index.json` and `parts/*.json` use `Cache-Control: no-cache`.
 Content-named WebP frames keep their immutable one-year cache.
@@ -169,5 +186,10 @@ itself; the combined host sets it from the site launch marker.
 Each configured host instance writes `King Down release` with the source commit and connector state.
 `npm run errors:daily` reads the existing fault report for one day. It sends no message.
 The owner must schedule the command, assign a reader and set up external checks of `/` and `/api/status`.
-The design project's `runs/launch/platform/cutover.md` gives the setup, cutover and rollback steps.
 No build switch authorizes a deploy.
+
+The rollback. The off build exists today, but the release tools cannot build it: `profile.sh` sets the option to 1
+with no condition. A direct `tools/deploy.sh --publish` in a shell with no option publishes the off build.
+Ticket 07 of [the platform seam spec](specs/platform-seam/spec.md) removes the option and the off build (decision 1).
+After ticket 07, `tools/deploy.sh` still builds only a fresh `origin/main` and takes no ref. A rollback is then
+a revert on main and a release.
