@@ -42,7 +42,7 @@ const serveHarness = (_req, res) => {
     };
     window.load = (fen, flip, card) => {
       const f = card && fixtures.find(f => f.item === card), kings = f?.setup.kings ? parseKings(f.setup.kings) : undefined;
-      window.rules = new GameRules(f ? { ...(kings?.some(Boolean) ? POWERS_BALANCED : {}), ...(kings ? { kings } : {}), hands: [f.setup.hand, f.setup.hand] } : {});
+      window.rules = new GameRules(f ? { ...(kings?.some(Boolean) || f.setup.hand?.length ? POWERS_BALANCED : {}), ...(kings ? { kings } : {}), hands: [f.setup.hand, f.setup.hand] } : {});
       window.pos = rules.fromFen(f ? f.setup.fen : fen); view.setRules(rules); view.sync(pos); view.flip(flip); view.highlight(marks(pos));
       effects.length = 0; window.finished = true;
       return f?.actions[0];
