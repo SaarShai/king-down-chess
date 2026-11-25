@@ -10,7 +10,7 @@ On a game that needs the server preview, a player who taps a piece and then its 
 
 The order in `src/plugin/screens/board.ts`:
 
-- A new view with a change (a new revision, FEN, status or engine) clears the server preview (`:818`) and asks for a new one (`restorePreview()`, `:858`). An unchanged view keeps the preview (`:810` to `:816`).
+- A view is unchanged when it has the same game, revision, FEN, status and engine (`:798`). An unchanged view keeps the preview (`:810` to `:816`). Each other view clears the server preview (`:818`) and asks for a new one (`restorePreview()`, `:858`).
 - Until the reply, `previewWaits()` is true (`:176`), so `blocked()` is true (`:177`) and `canPlay()` is false (`:184`). The board shows no wait state for the preview: it shows the read words of a tap, as ticket 87 says.
 - A tap on an own piece in that time only reads the square and keeps it as `earlyTap` (`:448`).
 - A tap on the target next clears `earlyTap` (`:431`). The target is empty, so `:442` clears `selected` and `inspected`.
@@ -18,7 +18,7 @@ The order in `src/plugin/screens/board.ts`:
 
 Ticket 87 (`docs/specs/staging-first-game/issues/87-early-tap-before-preview.md`) keeps one tap only. Its tests do not tap two squares before the reply.
 
-Which games need the server preview: `remote()` (`:165`) calls `needsServerPreview` (`src/account-game/engine-identity.ts:4`). It is true when the page has no engine of its own, or when the engine of the game is not the engine of the page. The production builds of the plugin (`tools/plugin-ui-build.mjs`) and of the website (`vite.config.ts`, `account-engine-identity`) set the page engine. So a player meets the fault on a game with another engine, for example a game from before an engine release. The test harness with the source page has no page engine, so there each game needs the server preview.
+Which games need the server preview: `remote()` (`:165`) calls `needsServerPreview` (`src/account-game/engine-identity.ts:4`). It is true when the game has no engine, when the page has no engine of its own, or when the engine of the game is not the engine of the page. A game with no engine gets a read notice, not a preview (`board.ts:349`); a game gets its engine when it starts (`src/match/service.ts:225`). The production builds of the plugin (`tools/plugin-ui-build.mjs:41`) and of the website (`vite.config.ts:206` to `:207`) set the page engine. So a player meets the fault on a game with another engine than the page, for example a game that started before an engine release. The test harness with the source page has no page engine, so there each game needs the server preview.
 
 ## Change
 
@@ -39,7 +39,7 @@ A browser test in `tools/plugin-app.test.ts`, near the ticket 87 tests:
 - Release the reply (`releaseHeld()`).
 - Expect the staged move `e2-e4` and `#end-turn[aria-disabled="false"]`, with no more taps.
 
-On the current code the test fails: nothing is selected and End turn stays off.
+Nobody has run this test yet. The expected result on the current code is a red: no move stages and End turn stays off. The evidence is the forced red of ticket 07: the held move test without its repair taps e2 and e4 before the reply, and the click on `#end-turn` waits until its 5 s limit.
 
 ## Class
 
@@ -48,7 +48,7 @@ B: new behaviour on one screen, the plugin board. It runs in ChatGPT and on the 
 ## Checks
 
 - The new test fails before the change and passes after it.
-- The ticket 87 tests pass: one tap before the reply, the same tap then Escape, and the restored draft that moves another piece to the tapped square.
+- The ticket 87 tests in `tools/plugin-app.test.ts` pass: the three cases of "draws Maester swap marks through the shared board adapter" (a tap after the reply, before the reply, and before the reply then Escape) and "keeps a tap before a restored draft preview as a read".
 - A mutation check: drop the kept target tap, and the new test fails.
 - `npm run test:changed`, then the class B path of `docs/CHANGES.md`, with `npm run check:browser plugin-oauth plugin-ui plugin-ui-http plugin-skylift plugin-privacy`.
 
