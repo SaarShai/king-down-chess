@@ -15,6 +15,8 @@ const blocked: Record<string, Set<string>> = Object.fromEntries(Object.entries({
 }).map(([path, names]) => [`src/${path}.ts`, new Set(names.split(' '))]));
 
 // Private rule owners and their helper implementations are not product entry points.
+// TypeScript and Vite resolve './engine.js' and './engine.mjs' to engine.ts, so each source extension names the same module.
+const sourceExtension = /\.(?:[cm]?ts|[cm]?js)$/;
 const internal = new Set([
   'src/game-rules.ts', 'src/match/worker.ts', 'src/match/search-worker.ts',
 ]);
@@ -24,7 +26,7 @@ function violations(file: string, source: string): string[] {
   if (tree.errors.length) throw new Error(`Cannot inspect ${file}: ${JSON.stringify(tree.errors)}`);
   const check = (specifier: string, names: string[]) => {
     if (!specifier.startsWith('.')) return;
-    const target = relative(root, resolve(dirname(resolve(root, file)), specifier)).replace(/\.ts$/, '') + '.ts';
+    const target = relative(root, resolve(dirname(resolve(root, file)), specifier)).replace(sourceExtension, '') + '.ts';
     const denied = blocked[target];
     if (denied) for (const name of names) if (name === '*' || denied.has(name)) faults.push(`${file}: ${name} from ${target}`);
   };
@@ -34,7 +36,7 @@ function violations(file: string, source: string): string[] {
       const member = node.callee, callback = node.arguments[0];
       if (node.optional || node.arguments.length !== 1 || member.type !== 'MemberExpression' || member.computed || member.optional || member.property.type !== 'Identifier' || member.property.name !== 'then' || member.object.type !== 'ImportExpression') return;
       const imported = member.object;
-      if (imported.source.type !== 'Literal' || typeof imported.source.value !== 'string' || resolve(dirname(resolve(root, file)), imported.source.value).replace(/\.ts$/, '') !== resolve(root, 'src/ai/search')) return;
+      if (imported.source.type !== 'Literal' || typeof imported.source.value !== 'string' || resolve(dirname(resolve(root, file)), imported.source.value).replace(sourceExtension, '') !== resolve(root, 'src/ai/search')) return;
       if (callback?.type !== 'ArrowFunctionExpression' || callback.params.length !== 1 || callback.params[0].type !== 'ObjectPattern' || callback.params[0].properties.length !== 1) return;
       const property = callback.params[0].properties[0];
       if (property.type === 'Property' && !property.computed && property.key.type === 'Identifier' && property.key.name === 'searchOwned' && property.value.type === 'Identifier') ownedImports.add(imported.start);
@@ -61,7 +63,8 @@ function violations(file: string, source: string): string[] {
 function files(dir: string): string[] {
   return readdirSync(resolve(root, dir), { withFileTypes: true }).flatMap(entry => {
     const path = `${dir}/${entry.name}`;
-    return entry.isDirectory() ? files(path) : path.endsWith('.ts') && !path.endsWith('.test.ts') ? [path] : [];
+    // Plain JavaScript product files (src/interface/ui/kit.js, src/render/painted/*.mjs) can import the engine too.
+    return entry.isDirectory() ? files(path) : sourceExtension.test(path) && !/\.d\.[cm]?ts$/.test(path) && !/\.test\.[cm]?[jt]s$/.test(path) ? [path] : [];
   });
 }
 describe('product game boundary', () => {
@@ -73,6 +76,8 @@ describe('product game boundary', () => {
     expect(violations('src/example.ts', "import type { Rules } from './rules/rules'; import { parseSq, P } from './rules/engine';")).toEqual([]);
     expect(violations('src/example.ts', "import { shortMove } from './move-text'; import { ceremonyMoveLabel } from './ceremony-game'; import { previouslyTurn } from './previously'; import { teachNote, readText, readTap, guideTypes } from './read'; import { describeMove } from './move-text'; import { railsOf } from './marks-model'; import { cursorText } from './cursor-text'; import { frozenPieces } from './render/frost'; import { searchOwned } from './ai/search';")).toEqual([]);
     expect(violations('src/example.ts', "import { positionKey } from './rules/position-key';")).toHaveLength(1);
+    expect(violations('src/example.ts', "import { legalMoves } from './rules/engine.js';")).toHaveLength(1);
+    expect(violations('src/render/painted/example.mjs', "import { legalMoves } from '../../rules/engine.ts';")).toHaveLength(1);
   });
   it('permits only a direct owned-search destructuring callback for a lazy import', () => {
     expect(violations('src/example.ts', "import('./ai/search').then(({ searchOwned }) => searchOwned(owner, rules, pos));")).toEqual([]);
@@ -96,6 +101,7 @@ describe('product game boundary', () => {
   });
   it('keeps ambient engine and helper operations inside the owned boundary', () => {
     const product = files('src').filter(file => !internal.has(file) && !/^src\/(rules|ai|sim)\//.test(file));
+    expect(product, 'files() must also scan the plain JavaScript product files').toEqual(expect.arrayContaining(['src/interface/ui/kit.js', 'src/render/painted/scene.mjs']));
     expect(product.flatMap(file => violations(file, readFileSync(resolve(root, file), 'utf8')))).toEqual([]);
   });
 });
