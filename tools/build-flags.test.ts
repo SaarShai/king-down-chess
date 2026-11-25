@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { FLAG_NAMES, scanFlags } from './build-flags.mjs';
 
-const root = new URL('..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('..', import.meta.url));
 const reads: { name: string; place: string; client: boolean }[] = scanFlags(root);
 const firstPlace = (name: string) => reads.find(read => read.name === name)?.place;
 const text = (file: string) => readFileSync(root + file, 'utf8');
