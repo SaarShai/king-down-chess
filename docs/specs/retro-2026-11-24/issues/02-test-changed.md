@@ -1,8 +1,8 @@
 # One command runs the tests that a change can break
 
-Status: ready-for-human
+Status: done (PR 464 merged)
 
-Source: [retro](../retro.md), item 2. Branch `retro-env`. The owner decides on the AGENTS.md line.
+Source: [retro](../retro.md), item 2. Branch `retro-env`. Merged with PR 464. AGENTS.md names the command in "Tests and checks" (the owner said "add it").
 
 ## Problem
 

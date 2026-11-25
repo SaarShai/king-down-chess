@@ -1,0 +1,2 @@
+# Search tools (ripgrep) skip the released engine bundles: 56,000 lines that never change. git still tracks them.
+engines/
