@@ -163,7 +163,7 @@ The host routes of a tree with the launch marker (`vercelRoutes` in `tools/plugi
 - `/` gives the new page, `next.html`.
 - `/play`, `/play/…` and `/g/<id>` give `index.html`. For an account route, that page starts the account pages ([FORMS.md](FORMS.md)).
 - `/j` and `/j/` give `join.html` (`JOIN_PAGE`). This page opens `/next.html#join=<token>`. The token stays in the fragment.
-- A file of the tree gives that file. Each other path gives the new page with HTTP 404.
+- A file of the tree gives that file. `/api`, `/internal` and the connector paths go to the function (see above). Each other path gives the new page with HTTP 404.
 
 A tree with no marker has no `join.html`: `/play…`, `/g/<id>` and `/j` give `index.html`, and `/` has no route (the host gives its default file, `index.html`, the old page).
 `tools/plugin-server-build.test.ts` holds both route lists and the join page. It also checks that the Vite preview
@@ -188,8 +188,12 @@ Each configured host instance writes `King Down release` with the source commit 
 The owner must schedule the command, assign a reader and set up external checks of `/` and `/api/status`.
 No build switch authorizes a deploy.
 
-The rollback. The off build exists today, but the release tools cannot build it: `profile.sh` sets the option to 1
-with no condition. A direct `tools/deploy.sh --publish` in a shell with no option publishes the off build.
+### Rollback
+
+Today, a rollback of a code fault is a revert on main and a release (`tools/release/release.sh`).
+`tools/deploy.sh` builds only a fresh `origin/main` and takes no ref.
+The off build exists today, but the release tools cannot build it: `profile.sh` sets the option to 1
+with no condition. A direct `tools/deploy.sh --publish` with no option is the only way to publish the off build.
+Use it only with the owner's word, and give it the shell values that `tools/release/live.sh` sets.
 Ticket 07 of [the platform seam spec](specs/platform-seam/spec.md) removes the option and the off build (decision 1).
-After ticket 07, `tools/deploy.sh` still builds only a fresh `origin/main` and takes no ref. A rollback is then
-a revert on main and a release.
+After ticket 07, the off build goes, and a revert on main and a release is the only rollback.
