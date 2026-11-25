@@ -1,6 +1,6 @@
 # Platform seam: what the four forms share, and what keeps them equal
 
-Status: needs-triage. The owner has not approved this spec. No ticket starts before that.
+Status: approved. The owner approved this spec and the four picks of its author on 2026-11-25, in the lead session ("Approve, build it"). A publish for tickets 05 and 07 still needs his word.
 
 Source: [the retro of 2026-11-24](../retro-2026-11-24/retro.md), item 9
 

@@ -7,9 +7,12 @@ cd "$(dirname "$0")/.."
 stage=${1:-staging}
 case "$stage" in
   staging) site=https://kingdown-staging.vercel.app; export VITE_KINGDOWN_STAGE=staging VITE_SUPABASE_URL=https://puhspsyjyzaghmgtkzqd.supabase.co ;;
-  production) site=https://kingdown.dev; unset VITE_KINGDOWN_STAGE KINGDOWN_STAGE; export VITE_SUPABASE_URL=https://utqzovjmclfyojedmwok.supabase.co ;;
+  production) site=https://kingdown.dev; unset VITE_KINGDOWN_STAGE KINGDOWN_STAGE; export VITE_SUPABASE_URL=https://utqzovjmclfyojedmwok.supabase.co VITE_KINGDOWN_APPLE_SIGN_IN=0 ;;
   *) echo 'usage: npm run ios:sync [staging|production]' >&2; exit 2 ;;
 esac
+# A store archive takes no test page from the caller's shell, and a production one no Apple sign-in: the value 0 also
+# overrides a .env file (decision 3 of docs/specs/platform-seam/spec.md). A staging build takes the Apple switch from the shell.
+unset KINGDOWN_TEST_PAGES
 VITE_SUPABASE_PUBLISHABLE_KEY=$(node tools/release/publishable-key.mjs "$site"); export VITE_SUPABASE_PUBLISHABLE_KEY
 # The app always opens the new page, whatever the website's cutover switch is (decision 83): the build writes the
 # launch marker solo-launch.json, and AppRouter sends / to next.html.
