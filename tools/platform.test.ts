@@ -31,7 +31,9 @@ it('requires revalidation for the runtime index and parts, with immutable hashed
   }
   expect(routes.find(route => new RegExp(route.src).test('/character-runtime/assets/' + 'a'.repeat(64) + '.webp'))?.headers?.['Cache-Control']).toBe('public, max-age=31536000, immutable');
 });
-const support = readFileSync('tools/solo-launch/browser-support.js', 'utf8');
+const support = readFileSync('public/browser-support.js', 'utf8');
+/** The shipped legal pages (vite.config.ts copies privacy and support from tools/solo-launch/). */
+const legal = (page: string) => readFileSync(['privacy', 'support'].includes(page) ? `tools/solo-launch/${page}.html` : `public/${page}.html`, 'utf8');
 it.each([
   ['Mozilla Chrome/110.0 Safari/537.36', false], ['Mozilla Chrome/111.0 Safari/537.36', true],
   ['Mozilla Firefox/113.0', false], ['Mozilla Firefox/114.0', true],
@@ -46,11 +48,11 @@ it('uses the existing bounded fault report for the daily summary', () => {
   expect(JSON.parse(readFileSync('package.json', 'utf8')).scripts['errors:daily']).toBe('tsx tools/errors-report.ts --since 1');
 });
 it('keeps the launch legal facts and the old in-app deletion path', () => {
-  const privacy = readFileSync('tools/solo-launch/privacy.html', 'utf8');
+  const privacy = legal('privacy');
   expect(privacy).not.toMatch(/lessons|badges|lesson progress/);
   for (const text of ['Solo games on the website run on your device.', 'Muse', 'Facebook', '30 days without use']) expect(privacy).toContain(text);
-  for (const page of ['terms', 'support', 'delete-data']) expect(readFileSync(`tools/solo-launch/${page}.html`, 'utf8')).toContain('href="/play"');
-  expect(readFileSync('tools/solo-launch/delete-data.html', 'utf8')).toContain('Settings → Account');
+  for (const page of ['terms', 'support', 'delete-data']) expect(legal(page)).toContain('href="/play"');
+  expect(legal('delete-data')).toContain('Settings → Account');
 });
 it('names King Down in the launch HTML before script execution', () => {
   const html = readFileSync('tools/solo-launch/next.html', 'utf8');
@@ -74,14 +76,14 @@ it('uses the Daylight page colour before the styles load and in the launch manif
 });
 
 it('does not list parked features as current deletion data', () => {
- const page = readFileSync('tools/solo-launch/delete-data.html', 'utf8');
+ const page = legal('delete-data');
  expect(page).not.toMatch(/lesson progress|badges and unlocks/);
  expect(page).toContain('cloud saves, old progress data, ratings and rating history. It also deletes');
 });
 
 it('gives each launch legal link a 44 px target on a light page', () => {
  for (const page of ['privacy', 'terms', 'support', 'delete-data']) {
-  const html = readFileSync(`tools/solo-launch/${page}.html`, 'utf8');
+  const html = legal(page);
   expect(html, page).toMatch(/nav a \{[^}]*display: inline-flex;[^}]*min-height: 44px;/);
   expect(html, page).toContain('body { margin: 0; background: #f7f5ed;');
  }

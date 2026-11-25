@@ -77,7 +77,9 @@ function offlineBuild(): Plugin {
         if (file.startsWith('character-runtime/effects/') && /(?:^|\/)provenance(?:\/|$)/.test(file)) return false;
         return !file.startsWith('character-runtime/') || statSync(path).isDirectory() || isCharacterRuntimePublic(file);
       } });
-      if (launch) for (const file of ['privacy.html', 'terms.html', 'support.html', 'delete-data.html', 'browser-support.js']) cpSync(join(root, 'tools/solo-launch', file), join(outDir, file));
+      // These two pages ship from tools/solo-launch/: public/privacy.html has Muse text that never shipped, and
+      // public/support.html gives the head of public/muse-connector.html. The owner decides their text (ticket 07).
+      if (launch) for (const file of ['privacy.html', 'support.html']) cpSync(join(root, 'tools/solo-launch', file), join(outDir, file));
       // The beam is the only effect that reads metadata at runtime.
       const effects = join(outDir, 'character-runtime/effects');
       if (existsSync(effects)) for (const path of walk(effects).filter(path => path.endsWith('/effect.json'))) {
