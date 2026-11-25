@@ -1,6 +1,6 @@
 # Retro, 2026-11-24: slow runs, repeated faults and the shape of the code
 
-Status: for the owner. Items 1, 2 and 3 are built and merged (PR 464). Items 12 and 15 are built (PR 465). The section "Decisions after the merge" holds the decision on each other item.
+Status: for the owner. Items 1, 2 and 3 are built and merged (PR 464). Items 12 and 15 are built (PR 465). Item 14 and the small faults are built (tickets [04](issues/04-lock-holder.md) and [05](issues/05-small-faults.md)). Item 6 is closed with no build. The section "Decisions after the merge" holds the decision on each other item.
 
 Method. One helper read the session records of the last 12 days: 144 sessions (85 worktree lanes) and 327 helper records. It counted tool wait time, repeated errors and owner complaints with scripts. One helper read the code for the cost of a change: where the core lives, how each form uses it, and how many places one new card touches. The lead measured the test suite on this Mac and read the check and CI tools. Each number below comes from those sources. A guess has the label "guess".
 
@@ -51,7 +51,7 @@ The values come from commit `96ba0f0f6`, before the merge of 161 newer commits o
 
 12. **[Shell] The shell is zsh.** About 37 failures come from `echo ====` and from a glob with no quotes. Change: one line in `docs/COMPUTE.md` beside the existing zsh note.
 13. **[Briefs] A helper brief and a hook disagree.** 26 refusals: a helper tries to write a report file, or calls the plan tool. Change: the brief tells a helper to give its result as text.
-14. **[Lease] The wait line of `test-lock.sh` does not name the holder.** The check runner's wait line does. During this retro a 22 s test run waited more than 6 minutes for a lane that the line did not name. Change: write the PID and the folder into the lock file, and print them.
+14. **[Lease] The wait line of `test-lock.sh` does not name the holder.** The check runner's wait line does. During this retro a 22 s test run waited more than 6 minutes for a lane that the line did not name. Change: write the PID and the folder into a record beside the lock file (the lock file itself is the lease identity), and print them. Built: ticket [04](issues/04-lock-holder.md).
 15. **[Search] `engines/` holds 56,000 lines of released bundles.** They must stay (save compatibility). Change: an ignore file for the search tools, so a search of the code skips them.
 16. **[Tests] Between 17 and 75 test files read source text.** A rename breaks them with no change in behaviour. Change: when one of them fails on a rename, replace it with a test of the behaviour. No batch rewrite.
 
@@ -63,19 +63,21 @@ The owner gave these decisions to the lead ("you decide what is best").
 - Item 5: no change. The lead does not edit the hook that controls its own tools, and the cost is small: about 17 refusals in 12 days.
 - Item 11: the suite keeps 4 workers until the cause of the failed test is known.
 - Items 12 and 15: built. `docs/COMPUTE.md` holds the zsh line, and `.ignore` keeps `engines/` out of a search.
-- Item 6 waits for its own spec. It changes online play and the server (`src/online/launch.ts`, `src/match/service.ts`), so it is a class C change: it needs a two-account pass on staging, and a staging deploy needs the owner's word. Item 9 follows it.
+- Item 6: closed, with no build. The retro did not weigh PR 429 (decision 188). Its test `src/match/one-reading.test.ts` fails when the match worker, the solo hand-over and the solo page give different readings, and `src/match/service.test.ts` holds the game record. The old page (`src/main.ts`, `src/new-game.ts`, `src/screen/play.ts`) cannot start a new game with a hand, and its rematch with a hand gets the balanced readings. The builders take different inputs (a game type, options, kings and a hand, stored rules), so one function would hold only "a power or a hand". The one fault of this kind was in a check tool; ticket [05](issues/05-small-faults.md) repairs it.
+- Item 9 is the next large item. It needs its own spec.
 - Items 7 and 8 wait: a different session of the owner works on the GUI, and these items change the same files (`src/interface/play/main.ts` and the turn modules).
 - Items 4 and 10 wait: they change the launch briefs under `runs/`, which this retro did not read in full.
-- Items 13, 14 and 16 stay open.
+- Item 14: built. The wait line names the holder, or says "holder unknown" with the last record.
+- Items 13 and 16 stay open.
 
 ## Faults found on the way
 
 - `tools/forms-drift.test.ts`: the piece name test could not fail for a missing piece. Repaired in item 3.
 - `src/interface/play/learning.ts:59` reads a Guide note with no fallback, so a missing note throws. The new test of item 3 prevents the missing note.
-- `src/render/effects/power-overlays.ts:179` casts an action ID to a kind with no check. Open.
-- `src/card-symbol.ts:45`: the comment says that a released card can have no painting; all 21 cards have one. Open.
-- `tools/verify-motion-concepts.mjs:45` gives the balanced readings for kings only, but it sets hands (guess: stale since decision 188). Open.
-- The hand size 4 is in two dealers (`src/match/setup.ts:58`, `src/interface/play/new-game.ts:124`). Correct now; it can drift. Open.
+- `src/render/effects/power-overlays.ts:179` casts an action ID to a kind with no check. No change: only the six IDs of the kind get to the cast (ticket [05](issues/05-small-faults.md)).
+- `src/card-symbol.ts:45`: the comment says that a released card can have no painting; all 21 cards have one. Repaired (ticket 05).
+- `tools/verify-motion-concepts.mjs:45` gives the balanced readings for kings only, but it sets hands (guess: stale since decision 188). Repaired (ticket 05).
+- The hand size 4 is in two dealers (`src/match/setup.ts:58`, `src/interface/play/new-game.ts:124`). Correct now; it can drift. A test now fails when the two dealers differ (ticket 05).
 
 ## What this retro did not determine
 

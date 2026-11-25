@@ -1,6 +1,6 @@
 # Small faults from the retro are repaired or explained
 
-Status: ready-for-review
+Status: done (PR 466)
 
 Source: [retro](../retro.md), the section "Faults found on the way". The first fault is of the kind that item 6 describes.
 
@@ -38,4 +38,5 @@ The retro lists four open small faults:
 ## Review
 
 - Review: an agent that did not build the change read head `4bbbda682`. It found no blocking fault. One batch repairs its notes in this ticket: the source line, the statement on the workshop, the third `4`, and the Freeze frames.
+- Repair check: the same reviewer read `8328bbc5d`. Each repair holds. No blocking fault remains.
 - Open findings: none that block.

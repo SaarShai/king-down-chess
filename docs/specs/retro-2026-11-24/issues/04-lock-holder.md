@@ -1,6 +1,6 @@
 # The wait line of test-lock.sh names the holder of the lock
 
-Status: ready-for-review
+Status: done (PR 466)
 
 Source: [retro](../retro.md), item 14
 
@@ -38,4 +38,5 @@ When `tools/test-lock.sh` waits for the machine lease or the test lock, its line
 ## Review
 
 - Review: an agent that did not build the change read head `4bbbda682`. It found no blocking fault. One batch repairs its notes: the script does not open a named pipe or a link in the place of the record, and the line says "holder unknown, last record" where it said "old record".
+- Repair check: the same reviewer read `8328bbc5d`. Each repair holds. No blocking fault remains.
 - Open findings: none that block. The notes are in "Known limits".
