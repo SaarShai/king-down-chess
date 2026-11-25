@@ -131,7 +131,7 @@ describe('deploy.sh --publish', () => {
   it('fails when the live site does not serve the build, names the difference, and removes its worktree', async () => {
     const { repo, deployAsync } = setup();
     const live = await site(() => pages(undefined, 'Terms v2'));
-    const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(pages()), DEPLOY_LIVE_URL: live.url });
+    const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(pages()), DEPLOY_LIVE_URL: live.url, DEPLOY_LIVE_TIMEOUT_MS: '0' });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toMatch(/terms\.html: the live page differs/);
     expect(result.stderr).toContain('FAIL at live check');

@@ -24,14 +24,22 @@ describe('deploy-live-check.mjs', () => {
     expect(live.requests.filter(r => r.cookie !== undefined)).toEqual([]);
   });
 
-  it('fails within the time limit when the live site loads a different bundle, and names both bundles', async () => {
+  // Limit 0 is one pass with the 60 s request limit: a late local reply on a loaded runner still gives the named difference.
+  it('fails when the live site loads a different bundle, and names both bundles', async () => {
+    const live = await site(() => ({ ...pages(), 'index.html': pages('index-Old999')['index.html'] }));
+    const result = await check(buildFolder(pages()), live.url, 0);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/bundle: .*index-Old999\.js.*index-Abc123_x\.js/);
+    expect(result.stderr).not.toMatch(/terms\.html|privacy\.html|delete-data\.html|support\.html/);
+    expect(live.requests.filter(r => r.cookie !== undefined)).toEqual([]);
+  });
+
+  // The one short-limit fault case: it proves the time bound, so it asserts no names.
+  it('fails within the time limit when the live site keeps a different bundle', async () => {
     const live = await site(() => ({ ...pages(), 'index.html': pages('index-Old999')['index.html'] }));
     const result = await check(buildFolder(pages()), live.url, 1500);
     expect(result.status).toBe(1);
     expect(result.seconds).toBeLessThan(1.5 + 5);
-    expect(result.stderr).toMatch(/bundle: .*index-Old999\.js.*index-Abc123_x\.js/);
-    expect(result.stderr).not.toMatch(/terms\.html|privacy\.html|delete-data\.html|support\.html/);
-    expect(live.requests.filter(r => r.cookie !== undefined)).toEqual([]);
   });
 
   it('checks runtime bytes and immutable cache headers', async () => {
@@ -63,24 +71,23 @@ describe('deploy-live-check.mjs', () => {
     expect(result.status).toBe(1); expect(result.stderr).toContain(`/${sound}: expected audio/wav, got audio/wave`);
   });
 
-  it('fails within the time limit when the live terms page differs, and names only that page', async () => {
+  it('fails when the live terms page differs, and names only that page', async () => {
     const live = await site(() => pages(undefined, 'Terms v2'));
-    const result = await check(buildFolder(pages()), live.url, 1500);
+    const result = await check(buildFolder(pages()), live.url, 0);
     expect(result.status).toBe(1);
-    expect(result.seconds).toBeLessThan(1.5 + 5);
     expect(result.stderr).toMatch(/terms\.html: the live page differs/);
     expect(result.stderr).not.toMatch(/bundle:|privacy\.html|delete-data\.html|support\.html/);
     expect(live.requests.filter(r => r.cookie !== undefined)).toEqual([]);
   });
 
-  it.each(['missing', 'stale'])('refuses a %s support page within the time limit', async fault => {
+  it.each(['missing', 'stale'])('refuses a %s support page', async fault => {
     const files = pages(), served: Record<string,string> = {...files};
     if (fault === 'missing') delete served['support.html']; else served['support.html'] = 'Old support';
     const live = await site(() => served);
-    const result = await check(buildFolder(files), live.url, 1500);
+    const result = await check(buildFolder(files), live.url, 0);
     expect(result.status).toBe(1);
-    expect(result.seconds).toBeLessThan(1.5 + 5);
-    expect(result.stderr).toContain('support.html');
+    // A request timeout line also names support.html: require the fault itself.
+    expect(result.stderr).toContain(fault === 'missing' ? '/support.html: HTTP 404' : 'support.html: the live page differs');
   });
 
   it('tries again until the live site serves the build, inside the time limit', async () => {
