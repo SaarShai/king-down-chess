@@ -56,7 +56,7 @@ Each item, and the decision:
 
 - Full test names, before and after, equal. A collect-only run (`KINGDOWN_TEST_NAME` that matches no test, with the vitest JSON reporter) read a copy of the old file from `80b855489` beside the seven new files; the copy was then removed. Each side has 207 names, 207 distinct. `diff` of the two sorted lists: empty. The JSON of the timed run after the split gives the same 207 names (`diff`: empty).
 - Source-level names: a parser read each `describe`, `it` and `test` call (name text and `.each` table text) of the old file and of the seven new files. 98 calls on each side; `diff`: empty.
-- The lists are in the scratch folder of the build session: `fullnames-before.txt`, `fullnames-after-collect.txt`, `fullnames-after.txt`, `names-before.txt`, `names-after.txt`.
+- The name lists are not kept: they were in the scratch folder of the build session, which is temporary. To make them again, put a copy of `git show 80b855489:tools/deploy.test.ts` beside the seven files, run them with `KINGDOWN_TEST_NAME` set to a regex that matches no test and `-- --reporter=json --outputFile=<file>`, and sort the full names of each side. An independent review compared the 98 `describe`, `it` and `test` calls of the old file and the new files (describe path, body and `.each` table): all 98 are equal.
 - Timed run before the split (clean tree at `80b855489`): `KINGDOWN_TEST_FILE=tools/deploy.test.ts KINGDOWN_TEST_NO_TYPECHECK=1 npm test`: 1 file, 207 passed, `Duration 266.69s (tests 100%)`.
 - Timed run after the split: `KINGDOWN_TEST_FILE='{tools/deploy-sh.test.ts,tools/deploy-sh-release.test.ts,tools/deploy-slow-link.test.ts,tools/deploy-live-check.test.ts,tools/deploy-keep-assets.test.ts,tools/deploy-plugin-live-check.test.ts,tools/deploy-publish.test.ts}' KINGDOWN_TEST_NO_TYPECHECK=1 npm test -- --reporter=default --reporter=json --outputFile=<scratch>`: 7 files, 207 passed, `Duration 92.03s (tests 100%)`. The files:
 
@@ -81,9 +81,10 @@ A probe script called `selectTests` for one changed file at a time, on the tree 
 
 - Before, each probe in `tools/` selected `tools/deploy.test.ts`: some through an import or a name, the others through a folder edge. The string `'tools'` (the stub folder of the temporary repository, in `setup()`) made the test "hold" the `tools/` folder. Thus a change to any file under `tools/` selected the 235 s file, also `tools/piece-activity.ts` and `tools/plugin-ui-build.mjs`, which the deploy tests do not use.
 - After, that string is in the kit, which is not a test, so no deploy test holds `tools/`. Each probe that the deploy tests use still selects them:
-  - `tools/deploy.sh`, `tools/check.mjs`, `tools/lib/registry.mjs`, `tools/staging-config.mjs`, `tools/deploy-plugin-env.mjs`, `tools/lib/temp-repo.mjs`, `tools/engines-check.mjs`, `tools/ci-green.mjs`, `tools/release/frame-checks.sh`: `deploy-sh`, `deploy-sh-release`, `deploy-publish`.
+  - `tools/deploy.sh`, `tools/check.mjs`, `tools/lib/registry.mjs`, `tools/deploy-plugin-env.mjs`, `tools/lib/temp-repo.mjs`, `tools/engines-check.mjs`, `tools/ci-green.mjs`, `tools/release/frame-checks.sh`: `deploy-sh`, `deploy-sh-release`, `deploy-publish`.
+  - `tools/staging-config.mjs`, `tools/chatgpt-plugin.mjs`, `tools/muse-connector.mjs`: the full suite, because they are in the import graph of `vite.config.ts`.
   - `tools/wt.sh`: `deploy-sh` and `deploy-sh-release` (their strings name it; the real file is never run, because the temporary repository holds a stub).
-  - `tools/deploy-live-check.mjs`, `tools/deploy-keep-assets.mjs`, `tools/deploy-plugin-live-check.mjs`, `tools/chatgpt-plugin.mjs`, `tools/muse-connector.mjs`: all seven files.
+  - `tools/deploy-live-check.mjs`, `tools/deploy-keep-assets.mjs`, `tools/deploy-plugin-live-check.mjs`: all seven files.
   - `tools/piece-activity.ts` and `tools/plugin-ui-build.mjs`: no deploy test of the split (`tools/deploy-plugin-env.test.ts` still holds `tools/`).
 - A grep of `tools/deploy.sh` for `$0`, `dirname`, `BASH_SOURCE`, `source`, `. "` and `--input-type` finds four files that it uses from the real `tools/` folder: `test-lock.sh` (a wide file: its change runs the full suite), `staging-config.mjs`, `deploy-plugin-env.mjs` and `release/frame-checks.sh`. Its inline node scripts import only node modules.
 - Without the new `frame-checks.sh` import, a change to `tools/release/frame-checks.sh` selected no file of the split. `deploy.sh` names it as `"$script_dir/release/frame-checks.sh"`, which the scanner cannot read. The row in `extraImports` closes this gap.
@@ -103,3 +104,8 @@ A probe script called `selectTests` for one changed file at a time, on the tree 
 - Read `AGENTS.md`, the old file, `tools/lib/temp-repo.mjs`, `tools/deploy.sh` (fixed paths, the lease), `tools/test-lock.sh`, `tools/release/frame-checks.sh`, `tools/lib/test-select.mjs`, `tools/ci-shards.mjs`, `vite.config.ts` (4 workers, default isolation).
 - Commits on `deploy-split`: the split; the list changes; this ticket.
 - Not verified: a full `npm test`; a CI run; `npm run test:changed` (it selects the deploy files, so it is a run of these tests again). Not pushed; no pull request.
+
+## Review
+
+- Review: an agent that did not build the change read head `fb90b0279` (the split, merged with `origin/main` at `d781512ed`). Blocking: 0. It compared the 98 test calls of the old file and the new files (describe path, body, `.each` table): all equal. It found no shared state between the files. It ran `selectTests` for each file under `src/` and `tools/`: of the 80 files that selected `tools/deploy.test.ts` for a real reason, 0 lost a deploy test. Notes: (1) three probe results in "Selection" were wrong (`tools/staging-config.mjs`, `tools/chatgpt-plugin.mjs` and `tools/muse-connector.mjs` give the full suite); (2) the name lists are not kept; (3) the wall-clock limits of `deploy-live-check`, `deploy-plugin-live-check` and `deploy-slow-link`: in CI they run in another shard than the `deploy.sh` files, no change; (4) the comment of `testSeconds` in `tools/ci-shards.mjs`.
+- One repair batch: notes 1, 2 and 4 (this ticket and one comment). Note 3 stays in "Known limits".
