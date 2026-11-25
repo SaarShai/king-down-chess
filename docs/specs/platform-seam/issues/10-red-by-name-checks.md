@@ -130,3 +130,11 @@ Runs of the batch:
 - `npm run check:browser read-piece menu-extra`: read-piece ok 1.8 s, menu-extra ok 9.0 s, 2 passed (folder seam-checks-7sULV3).
 - `KINGDOWN_TEST_FILE=tools/workflow.lint.test.ts npm test`: 9 passed of 9.
 - `npm run typecheck`: exit 0. `npm run test:docs`: 199 passed, 1 skipped.
+
+## Decisions of the lead after the review (2026-11-25)
+
+- `workshop` stays, by name, and stays red while the Workshop is parked. `src/workshop/review.docs.test.ts:17` reads the script, and this lane does not edit `src/`. The first decision (all five go) is thus four.
+- The offline console rule of `account-discovery` stays (ticket 09). The evidence holds: no frame load starts offline, and two new rules make a frame request or any other failed request offline red.
+- Tickets 11, 12 and 13 need triage. Ticket 13 (`code_fault` of `next-menus`) is a page fault that a player reaches only on a page that no worker controls.
+- Reconcile: a merge of `origin/main` (pull request 477 of the guards lane, with `tools/registry-ci.test.ts`) had no conflict. On the merged head: `npm run typecheck`; `npm run test:docs`, 215 passed; the tests `checks.lint`, `check`, `workflow.lint`, `registry-ci` and `build-flags`, 69 passed.
+- Not verified: a second run of `stratus-idle-exit` (one green run; a timing risk); the hosted staging block of `account-discovery`.
