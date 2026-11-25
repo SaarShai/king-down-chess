@@ -29,6 +29,8 @@ The check itself: `npm run check:browser account-discovery` is red today at line
 ## Known limits
 
 - Ticket [07](07-remove-off-build.md) removes the off build. Do this ticket before ticket 07 or with it.
+- The check now allows one console message offline: `Failed to load resource: net::ERR_INTERNET_DISCONNECTED` (`tools/lib/account-discovery-check.mjs:34-42`). This makes the tolerance wider. The lead decides if it stays.
+- The hosted staging block runs only with `KINGDOWN_HOSTED_SIGNIN_ORIGIN`. No run proves its new steps. Run it once against staging before the release report.
 
 ## Work record
 

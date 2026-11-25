@@ -33,6 +33,7 @@ Each check is red today: `npm run check:browser <name>`.
 ## Known limits
 
 - `recovery-consumers` did not run in ticket 06: it needs `KINGDOWN_WEB_RECOVERY_OUTPUT` from outside. It is not a part of this ticket.
+- `workshop` stays, and stays red, so it does not meet the Checks line above. `src/workshop/review.docs.test.ts:17` reads the script, and this lane does not edit `src/`. One way out: a later class A change points that lint off the script; then the script and its registry entry go with a `Removed-check:` trailer. The lead decides.
 
 ## Results (first builder)
 
@@ -107,3 +108,25 @@ Not verified (second builder):
 - The off tree: no off-tree run of `account-discovery`, `stratus-idle-exit` or `next-menus` exists, so it is not known if the `next-menus` faults and the boot fault of ticket 13 are on the off tree too. Line 36 of `stratus-idle-exit` on the off tree has no proven cause.
 - Each repaired browser check ran green one time only. The `stratus-idle-exit` repair has a timing risk: Undo must come within 1 s of the move, or the preparation falls back.
 - The cause of ticket 13 comes from a read of the code; the run shows only the result.
+
+## Review
+
+An agent that did not build the change read head `604b416b5bbe9817907f718f90bf43ebcb2373ea` (tickets 09 and 10). It gave no blocking finding and 14 notes: two gaps in `docs/PARKED.md`, a lost `noSidewaysScroll` call and two Guide assertions that can pass when nothing scrolls, a guard that reads only the first check name, and decisions and runs for the lead.
+
+One batch repairs them:
+
+- `docs/PARKED.md`: the restore step names the helpers that `lesson-return`, `link-game` and `workshop-cast` need from `tools/app-ui.mjs` at `ab67fccc1` (`lessonPath`, `seeAgain`, `workshopCopyLink`). Each other name that the four old scripts import is still there. The design-game sentence says that the steps left with `link-game`.
+- `tools/verify-menu-extra.mjs`: the Guide step calls `noSidewaysScroll` at its four sizes, as `tools/verify-lessons.mjs:33` did at `ab67fccc1`. Before the head assertion, the step asserts that the Guide body scrolls (`scrollTop > 0`).
+- `tools/verify-read-piece.mjs`: after All rules, the check asserts that the Guide body scrolled to the card (`scrollTop > 0`). So "Menu Guide opens at the top" cannot pass with no scroll.
+- `tools/workflow.lint.test.ts`: the `ciStep` guard reads each name of a `check:browser` command up to the first word that is not a check name. A probe: the workflow of today gives the same three names, and `check:browser a b --x c` gives `a` and `b`.
+- Ticket 09, "Known limits": the offline console tolerance (the lead decides) and the hosted staging block (no run yet).
+- Ticket 10, "Known limits": `workshop` stays red.
+- No change: the `layout-title` clamp rows (ticket 11), the `stratus-registration` routes, the `next-menus` worker block, and ticket 13 (needs triage).
+- Commit messages: `c09dcfbda` says that `result_reload` and `home_resize` are green "at all sizes". They run at two sizes and one size. `03a0ac991` cites `vite.config.ts:51`; `232ae66a7` corrects it. The `test:changed` run in "Final runs (second builder)" was before `232ae66a7`. A squash message must give the correct claims.
+- Open for the lead: one more run of `stratus-idle-exit` to see if it is stable, and one run of the hosted block of `account-discovery`.
+
+Runs of the batch:
+
+- `npm run check:browser read-piece menu-extra`: read-piece ok 1.8 s, menu-extra ok 9.0 s, 2 passed (folder seam-checks-7sULV3).
+- `KINGDOWN_TEST_FILE=tools/workflow.lint.test.ts npm test`: 9 passed of 9.
+- `npm run typecheck`: exit 0. `npm run test:docs`: 199 passed, 1 skipped.
