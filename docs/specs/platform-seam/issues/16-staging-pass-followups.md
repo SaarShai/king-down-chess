@@ -1,6 +1,6 @@
 # Follow-ups of the staging pass of PR 485
 
-Status: done on branch web-followups; reviewed; waits for the staging pass.
+Status: done and live (PR 486, 2026-11-26). The two-account staging pass met points 1 to 6. Points 7 and 8 stay open here; the new findings of that pass are in ticket 17.
 
 Class: B. Size: S.
 
