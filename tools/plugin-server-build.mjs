@@ -15,15 +15,34 @@ import { STAGING_ORIGIN, STAGING_PROJECT_ID, STAGING_SUPABASE_URL } from './stag
 import { CHATGPT_PLUGIN } from './chatgpt-plugin.mjs';
 import { MUSE_CONNECTOR, MUSE_PATHS } from './muse-connector.mjs';
 
+/** The share and search tags of the public pages (hand-over D1). They name only the home page: an invite link shows
+ *  the general card. No tag holds a name, a game id or the invite fragment. */
+const SHARE_TAGS = '<meta name="description" content="Chess with new pieces, king powers and cards. Play on this device, or play a person online.">'
+  + '<meta property="og:title" content="King Down"><meta property="og:site_name" content="King Down">'
+  + '<meta property="og:description" content="Chess with new pieces, king powers and cards."><meta property="og:type" content="website">'
+  + '<meta property="og:url" content="https://kingdown.dev/"><meta property="og:image" content="https://kingdown.dev/share-1200x630.jpg">'
+  + '<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">'
+  + '<meta property="og:image:alt" content="King Down figures in battle on a chessboard terrace at sunset.">'
+  + '<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="King Down">'
+  + '<meta name="twitter:description" content="Chess with new pieces, king powers and cards.">'
+  + '<meta name="twitter:image" content="https://kingdown.dev/share-1200x630.jpg"><link rel="canonical" href="https://kingdown.dev/">';
+
 /** The page for `/j` on a launch tree: the invite token stays in the fragment. The Vite preview serves it too. */
-export const JOIN_PAGE = '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Join King Down</title><script>location.replace("/next.html#join=" + location.hash.slice(1));</script></html>';
+export const JOIN_PAGE = '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Join King Down</title>' + SHARE_TAGS + '<script>location.replace("/next.html#join=" + location.hash.slice(1));</script></html>';
 
 /** Site routes keep the domain challenge separate from the plugin function. While the ChatGPT plugin is parked
  *  (tools/chatgpt-plugin.mjs), the tree has no board art and no domain challenge, so it has no route for them. The Muse
  *  connector (tools/muse-connector.mjs) routes its paths, and the consent page when the plugin does not serve it, to the
  *  function; Vercel keeps the request path. */
-export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNECTOR } = {}) {
-  const routes = chatgpt ? Object.entries(ART_TYPES).map(([type, contentType]) => ({ src: `^/plugin-art/[\\w-]+\\.${type}$`, headers: { ...ART_HEADERS, 'Content-Type': contentType }, continue: true })) : [];
+export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNECTOR, staging = false } = {}) {
+  const routes = [];
+  // Search engines (hand-over D10). Production: www.kingdown.dev sends its pages to kingdown.dev.
+  // The list holds pages and search files only, so the API, the functions, OAuth, .well-known and sw.js stay on the host.
+  // A staging build has no such route and no noindex header: with that header on each answer, the host put its
+  // feedback script into next.html, and the alias check of tools/release/staging.py failed. Staging closes robots.txt (searchFiles).
+  if (site && !staging) routes.push({ src: '^/((?:|next\\.html|index\\.html|play(?:/.*)?|g/[^/]+/?|j/?|(?:terms|privacy|support|delete-data)\\.html|robots\\.txt|sitemap\\.xml))$',
+    has: [{ type: 'host', value: 'www.kingdown.dev' }], methods: ['GET', 'HEAD'], status: 308, headers: { Location: 'https://kingdown.dev/$1' } });
+  if (chatgpt) routes.push(...Object.entries(ART_TYPES).map(([type, contentType]) => ({ src: `^/plugin-art/[\\w-]+\\.${type}$`, headers: { ...ART_HEADERS, 'Content-Type': contentType }, continue: true })));
   if (muse) for (const path of [...MUSE_PATHS, ...chatgpt ? [] : ['/authorize', '/consent.mjs']]) routes.push({ src: `^${path.replace(/[.]/g, '\\.')}$`, dest: '/mcp' });
   if (site) {
     if (existsSync(resolve(site, '.well-known/apple-app-site-association'))) routes.push({ src: '^/\\.well-known/apple-app-site-association$', headers: { 'Content-Type': 'application/json' }, continue: true });
@@ -52,6 +71,14 @@ export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNE
   return routes;
 }
 
+/** The search files of a site tree. Production keeps public/robots.txt and public/sitemap.xml. Staging and the preview
+ *  remove the production sitemap and give a robots.txt that closes the site to crawlers. */
+export async function searchFiles(staticDir, { staging }) {
+  if (!staging) return;
+  await rm(resolve(staticDir, 'sitemap.xml'), { force: true });
+  await writeFile(resolve(staticDir, 'robots.txt'), 'User-agent: *\nDisallow: /\n');
+}
+
 /** The consent page of a Muse build: the Muse tools (src/muse/tools.ts) in place of the ChatGPT list in consent.html.
  *  It names no data limit: the token gives the client the email address and the provider metadata. With `chatgpt`
  *  too, the page keeps both texts in [data-connector] parts, and src/plugin/consent.ts shows the one of the client. */
@@ -73,8 +100,8 @@ export function museConsent(html, { chatgpt = false } = {}) {
  *  `muse` (default: tools/muse-connector.mjs) adds the Muse handler, the consent page and the Muse routes. */
 export async function buildPluginServer(outDir = resolve('plugin-server-dist'), { vercel = false, site, chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNECTOR } = {}) {
   vercel ||= Boolean(site);
-  const routes = vercel ? vercelRoutes(site, { chatgpt, muse }) : [];
   const staging = process.env.KINGDOWN_STAGE === 'staging';
+  const routes = vercel ? vercelRoutes(site, { chatgpt, muse, staging }) : [];
   if (staging && (!site || process.env.VITE_KINGDOWN_STAGE !== 'staging' || process.env.VITE_SUPABASE_URL !== STAGING_SUPABASE_URL || !/^sb_publishable_[A-Za-z0-9_-]+$/.test(process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? ''))) throw new Error('Staging build requires explicit isolated browser settings and the combined site');
   const root = fileURLToPath(new URL('../', import.meta.url));
   const output = vercel ? resolve(outDir, '.vercel/output') : outDir;
@@ -126,6 +153,7 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
     }
     if (site) {
       await cp(site, resolve(output, 'static'), { recursive: true });
+      await searchFiles(resolve(output, 'static'), { staging });
       // A parked tree publishes no OpenAI domain challenge.
       if (!chatgpt) {
         const known = resolve(output, 'static/.well-known');

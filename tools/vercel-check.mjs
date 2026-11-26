@@ -54,8 +54,9 @@ try {
   assert.equal(await exists(join(tree, 'functions/api.func')), undefined, 'No website API function');
   const apiRule = { src: '^/api(?:/.*)?$', dest: '/mcp' };
   // Routes after `handle: filesystem` apply only when no file or earlier route answers: the launch tree ends with its 404 page.
+  // Only a route with a destination sends /api to a place: a header route (the staging noindex) does not.
   const filesystem = config.routes.findIndex(route => route.handle === 'filesystem');
-  assert.deepEqual(config.routes.slice(0, filesystem < 0 ? undefined : filesystem).filter(route => new RegExp(route.src).test('/api/games')), [apiRule]);
+  assert.deepEqual(config.routes.slice(0, filesystem < 0 ? undefined : filesystem).filter(route => route.dest && new RegExp(route.src).test('/api/games')), [apiRule]);
   for (const path of ['/api', '/api/', '/api/games', '/api/me/games']) assert(new RegExp(apiRule.src).test(path), path);
   for (const path of ['/apix', '/apiary', '/play', '/unrelated-path']) assert(!new RegExp(apiRule.src).test(path), path);
   for (const path of (await readdir(join(tree, 'functions'), { recursive: true })).filter(path => path.endsWith('.func'))) {

@@ -2,8 +2,9 @@
 # Live release of a fresh origin/main through tools/deploy.sh (the only deploy path, docs/HOSTING.md).
 #   tools/release/live.sh check     checks and builds origin/main with tools/deploy.sh; publishes nothing
 #   tools/release/live.sh engines   read-only check of the engines in use against production; publishes nothing
+#   tools/release/live.sh games     read-only weekly count of games on production (tools/games-weekly.mjs); publishes nothing
 #   tools/release/live.sh publish   waits for green CI on origin/main (deploy.sh then skips the local test run), publishes
-# The engine check reads the live games with the runtime database login from the owner's private env file
+# The engine check and the games count read the live games with the runtime database login from the owner's private env file
 # (KINGDOWN_SECRETS_ENV). The value goes only into this process, never in an argument, a message or a log. Without the
 # file, a hidden prompt asks for the URL. The publishable key is the public production value read from the live bundle.
 #   KINGDOWN_RELEASE_WORKTREE  a worktree with its own node_modules (default <main checkout>/.claude/worktrees/release-live)
@@ -11,14 +12,14 @@
 #   KINGDOWN_RELEASE_COMMIT    the green main commit supplied by release.sh
 #   KINGDOWN_RELEASE_EVIDENCE  where the logs go (default <main checkout>/../evidence/production-release)
 set -euo pipefail
-mode=${1:?check, engines or publish}
+mode=${1:?check, engines, games or publish}
 tools=$(cd "$(dirname "$0")/.." && pwd -P)
 main=$(dirname "$(git -C "$tools" rev-parse --path-format=absolute --git-common-dir)")
 repo=${KINGDOWN_RELEASE_WORKTREE:-$main/.claude/worktrees/release-live}
 evidence=${KINGDOWN_RELEASE_EVIDENCE:-$main/../evidence/production-release}
 secrets=${KINGDOWN_SECRETS_ENV:-$main/../.secrets/kingdown-mvp.env}
 expected=${KINGDOWN_RELEASE_COMMIT:-}
-case "$mode" in check|engines|publish) ;; *) echo 'usage: tools/release/live.sh check|engines|publish' >&2; exit 2 ;; esac
+case "$mode" in check|engines|games|publish) ;; *) echo 'usage: tools/release/live.sh check|engines|games|publish' >&2; exit 2 ;; esac
 [ -d "$repo/.git" ] || [ -f "$repo/.git" ] || { echo "live: $repo is not a worktree; make it with tools/wt.sh add release-live" >&2; exit 2; }
 mkdir -p "$evidence"
 evidence=$(cd "$evidence" && pwd -P)
@@ -47,11 +48,15 @@ echo "live: $mode origin/main $sha"
 case "$mode" in
   check)
     test_database; cd "$repo"; tools/deploy.sh 2>&1 | tee "$evidence/check-$sha.log" ;;
-  engines)
+  engines|games)
     # A node_modules link (tools/wt.sh) points at the main checkout's packages: npm ci through it would empty them.
     [ ! -L "$repo/node_modules" ] || rm "$repo/node_modules"
     npm ls --depth=0 --prefix "$repo" >/dev/null 2>&1 || npm ci --prefix "$repo"
-    engine_url; cd "$repo"; node tools/engines-check.mjs engines 2>&1 | tee "$evidence/engines-$sha.log" ;;
+    if [ "$mode" = engines ]; then
+      engine_url; cd "$repo"; node tools/engines-check.mjs engines 2>&1 | tee "$evidence/engines-$sha.log"
+    else
+      engine_url; cd "$repo"; node tools/games-weekly.mjs 2>&1 | tee "$evidence/games-$sha.log"
+    fi ;;
   publish)
     test_database; engine_url
     # The release driver already waits for the merge commit. The direct command still has its own gate.

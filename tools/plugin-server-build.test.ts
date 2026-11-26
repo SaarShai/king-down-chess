@@ -6,7 +6,7 @@ import { runInNewContext } from 'node:vm';
 import { expect, it } from 'vitest';
 import viteConfig from '../vite.config';
 import { siteRoute } from './lib/site-route.mjs';
-import { buildPluginServer, vercelRoutes } from './plugin-server-build.mjs';
+import { buildPluginServer, JOIN_PAGE, vercelRoutes } from './plugin-server-build.mjs';
 import { CHATGPT_PLUGIN } from './chatgpt-plugin.mjs';
 import { MUSE_CONNECTOR } from './muse-connector.mjs';
 
@@ -110,11 +110,16 @@ it('gives a Muse build the Muse consent words and both connector builds the revi
   } finally { rmSync(out, { recursive: true, force: true }); }
 }, 120_000);
 
+/** The production redirect of www.kingdown.dev (hand-over D10): page and search file paths only. */
+const www = {
+  src: '^/((?:|next\\.html|index\\.html|play(?:/.*)?|g/[^/]+/?|j/?|(?:terms|privacy|support|delete-data)\\.html|robots\\.txt|sitemap\\.xml))$',
+  has: [{ type: 'host', value: 'www.kingdown.dev' }], methods: ['GET', 'HEAD'], status: 308, headers: { Location: 'https://kingdown.dev/$1' },
+};
 it('gives the host routes of the time before the page route table, with and without the launch marker', () => {
   const art = Object.entries({ webp: 'image/webp', png: 'image/png', svg: 'image/svg+xml', woff2: 'font/woff2', mjs: 'text/javascript' }).map(([type, contentType]) => ({
     src: `^/plugin-art/[\\w-]+\\.${type}$`, headers: { 'Cache-Control': 'public, max-age=31536000, immutable', 'Access-Control-Allow-Origin': '*', 'Cross-Origin-Resource-Policy': 'cross-origin', 'Content-Type': contentType }, continue: true,
   }));
-  const plain = [...art,
+  const plain = [www, ...art,
     { src: '^/muse/mcp$', dest: '/mcp' }, { src: '^/\\.well-known/oauth-protected-resource/muse/mcp$', dest: '/mcp' },
     { src: '^/character-runtime/assets/[a-f0-9]{64}\\.webp$', headers: { 'Cache-Control': 'public, max-age=31536000, immutable' }, continue: true },
     { src: '^/character-runtime/(?:index\\.json|parts/[^/]+\\.json)$', headers: { 'Cache-Control': 'no-cache' }, continue: true },
@@ -128,6 +133,64 @@ it('gives the host routes of the time before the page route table, with and with
     writeFileSync(join(site, 'solo-launch.json'), '{}');
     expect(vercelRoutes(site, { chatgpt: true, muse: true })).toEqual([...plain, { src: '^/j/?$', dest: '/join.html' }, online,
       { src: '^/$', dest: '/next.html' }, { handle: 'filesystem' }, { src: '^/.*$', dest: '/next.html', status: 404 }]);
+  } finally { rmSync(site, { recursive: true, force: true }); }
+});
+
+it('sends the www pages to kingdown.dev in production and keeps the server, OAuth and worker paths', () => {
+  const site = mkdtempSync(join(tmpdir(), 'www-routes-'));
+  try {
+    writeFileSync(join(site, 'solo-launch.json'), '{}');
+    const routes = vercelRoutes(site, { chatgpt: true, muse: true });
+    expect(routes[0]).toEqual(www);
+    expect(routes.filter((route: { has?: unknown }) => route.has)).toEqual([www]);
+    // vercel-check.mjs refuses a well-known route on a parked tree.
+    expect(www.src).not.toContain('well-known');
+    const pattern = new RegExp(www.src);
+    for (const path of ['/', '/next.html', '/index.html', '/play', '/play/', '/play/settings', '/g/game', '/g/game/', '/j', '/j/', '/terms.html', '/privacy.html', '/support.html', '/delete-data.html', '/robots.txt', '/sitemap.xml']) expect(pattern.test(path), path).toBe(true);
+    expect('/play/settings'.replace(pattern, www.headers.Location)).toBe('https://kingdown.dev/play/settings');
+    expect('/'.replace(pattern, www.headers.Location)).toBe('https://kingdown.dev/');
+    // Each path that the build sends to a function, and each file that is not a page, stays on the host.
+    const kept = ['/api', '/api/status', '/api/me/games', '/mcp', '/internal/tick', '/authorize', '/consent', '/consent.mjs', '/token', '/register',
+      '/muse/mcp', '/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/.well-known/oauth-protected-resource/muse/mcp',
+      '/.well-known/oauth-authorization-server', '/.well-known/apple-app-site-association', '/.well-known/openai-apps-challenge',
+      '/plugin-art/pawn.webp', '/sw.js', '/manifest.webmanifest', '/muse-connector.html', '/assets/main.js', '/share-1200x630.jpg', '/g/a/b', '/j/token', '/playground'];
+    for (const path of kept) expect(pattern.test(path), path).toBe(false);
+    for (const route of routes.filter((route: { dest?: string }) => route.dest === '/mcp' || route.dest === '/internal')) for (const path of kept) if (new RegExp(route.src).test(path)) expect(pattern.test(path), path).toBe(false);
+  } finally { rmSync(site, { recursive: true, force: true }); }
+});
+
+it('gives a staging build no www redirect and no noindex header route', () => {
+  const site = mkdtempSync(join(tmpdir(), 'staging-routes-'));
+  try {
+    writeFileSync(join(site, 'solo-launch.json'), '{}');
+    const routes = vercelRoutes(site, { chatgpt: false, muse: true, staging: true });
+    expect(routes.some((route: { has?: unknown }) => route.has)).toBe(false);
+    expect(routes.filter((route: { headers?: object }) => route.headers && 'X-Robots-Tag' in route.headers)).toHaveLength(0);
+    // vercel-check.mjs: the only route that sends /api/games somewhere is the API rule.
+    expect(routes.slice(0, routes.findIndex((route: { handle?: string }) => route.handle === 'filesystem')).filter((route: { src?: string; dest?: string }) => route.dest && new RegExp(route.src!).test('/api/games'))).toEqual([{ src: '^/api(?:/.*)?$', dest: '/mcp' }]);
+    // No site (the plugin target): neither route.
+    expect(vercelRoutes(undefined, { staging: true }).concat(vercelRoutes(undefined)).some((route: { headers?: object; has?: unknown }) => route.has || (route.headers && 'X-Robots-Tag' in route.headers))).toBe(false);
+  } finally { rmSync(site, { recursive: true, force: true }); }
+});
+
+it('gives the local host no redirect: it does not know the request host', () => {
+  expect(siteRoute({ routes: [www, { src: '^/play$', dest: '/index.html' }] }, '/play')).toEqual({ dest: '/index.html', headers: {} });
+});
+
+it('writes the search files of each stage', async () => {
+  const { searchFiles } = await import('./plugin-server-build.mjs');
+  const site = mkdtempSync(join(tmpdir(), 'search-files-'));
+  try {
+    copyFileSync('public/robots.txt', join(site, 'robots.txt')); copyFileSync('public/sitemap.xml', join(site, 'sitemap.xml'));
+    await searchFiles(site, { staging: false });
+    expect(readFileSync(join(site, 'robots.txt'), 'utf8')).toBe('User-agent: *\nAllow: /\nSitemap: https://kingdown.dev/sitemap.xml\n');
+    const sitemap = readFileSync(join(site, 'sitemap.xml'), 'utf8');
+    expect(Array.from(sitemap.matchAll(/<loc>([^<]*)<\/loc>/g), match => match[1])).toEqual(['https://kingdown.dev/', 'https://kingdown.dev/privacy.html', 'https://kingdown.dev/terms.html', 'https://kingdown.dev/support.html', 'https://kingdown.dev/delete-data.html']);
+    expect(sitemap.startsWith('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')).toBe(true);
+    // Staging and the preview: robots.txt closes the site, and there is no production sitemap.
+    await searchFiles(site, { staging: true });
+    expect(readFileSync(join(site, 'robots.txt'), 'utf8')).toBe('User-agent: *\nDisallow: /\n');
+    expect(existsSync(join(site, 'sitemap.xml'))).toBe(false);
   } finally { rmSync(site, { recursive: true, force: true }); }
 });
 
@@ -177,7 +240,10 @@ it('keeps the association file in a parked site build and serves JSON before the
     expect(JSON.parse(association).applinks.details[0].appIDs).toEqual(['6M9C2YSWT4.dev.kingdown.app']);
     const joinPage = readFileSync(join(output, 'static/join.html'), 'utf8');
     // The join page of the host before the page route table (docs/specs/platform-seam/issues/02-route-table.md).
-    expect(joinPage).toBe('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Join King Down</title><script>location.replace("/next.html#join=" + location.hash.slice(1));</script></html>');
+    // The share tags (tools/platform.test.ts) come between the title and the one script.
+    expect(joinPage).toBe(JOIN_PAGE);
+    expect(joinPage).toMatch(/^<!doctype html><html lang="en"><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Join King Down<\/title>(?:<(?:meta|link) [^<>]*>)+<script>location\.replace\("\/next\.html#join=" \+ location\.hash\.slice\(1\)\);<\/script><\/html>$/);
+    expect(joinPage.split('<script>')).toHaveLength(2);
     let destination = '';
     runInNewContext(/<script>(.*?)<\/script>/.exec(joinPage)![1], { location: { hash: '#fixture-token', replace: (value: string) => { destination = value; } } });
     expect(destination).toBe('/next.html#join=fixture-token');

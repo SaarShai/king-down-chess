@@ -148,9 +148,56 @@ describe('deploy.sh', () => {
     },
   );
 
+  it.each([
+    ['docs/x.md', 'history', true],
+    ['src/interface/play/texts.ts', 'history', true],
+    ['src/interface/play/texts.ts', 'record', true],
+    ['src/render/x.ts', 'history', false],
+    ['src/render/x.ts', 'record', false],
+    ['docs/x.md', 'no history', false],
+  ])('reuses the frame-time pass of an ancestor only when no frame path changed (%s, %s)', (path, source, reuse) => {
+    const { repo, deploy, calls } = setup();
+    repo.write('.github/workflows/plugin-checks.yml', '      - run: npm run check:browser -- --no-gpu\n');
+    repo.write('src/render/view.ts', 'export {};\n');
+    repo.git('add', '.');
+    repo.git('commit', '-qm', 'ancestor');
+    const ancestorTree = head(repo, 'HEAD^{tree}');
+    repo.write(path, 'change\n');
+    repo.git('add', '.');
+    repo.git('commit', '-qm', 'tweak');
+    repo.git('push', '-q', 'origin', 'main');
+    const history = join(repo.root, 'evidence');
+    const pass = `pass ${ancestorTree} 2026-11-23T10:00:00Z king-effects painted-game\n`;
+    const run = join(history, `release-2-${'b'.repeat(40)}`, 'live');
+    mkdirSync(run, { recursive: true });
+    const record = join(run, 'frame-checks.pass');
+    if (source === 'record') {
+      writeFileSync(join(repo.root, 'copied.pass'), pass);
+    } else {
+      const prior = join(history, `release-1-${'a'.repeat(40)}`, 'live');
+      mkdirSync(prior, { recursive: true });
+      writeFileSync(join(prior, 'frame-checks.pass'), pass);
+    }
+    const result = deploy([], {
+      STUB_CI_PASS: '1', STUB_FRAME_PASS: '1',
+      KINGDOWN_FRAME_CHECKS_RECORD: source === 'record' ? join(repo.root, 'copied.pass') : record,
+      KINGDOWN_FRAME_CHECKS_HISTORY: source === 'no history' ? '' : history,
+    });
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    const browser = calls().filter(line => line.startsWith('node tools/check.mjs')).map(line => line.replace(/ @ .*/, ''));
+    expect(browser).toEqual(reuse ? [] : ['node tools/check.mjs --gpu']);
+    if (reuse) {
+      expect(result.stdout).toContain(`deploy: skipped frame-time browser checks: ancestor tree ${ancestorTree} passed at 2026-11-23T10:00:00Z, no frame path changed`);
+    } else {
+      expect(result.stdout).not.toContain('skipped frame-time browser checks');
+    }
+  });
+
   it('reuses a completed frame-time run for the merge tree after a later deploy gate fails', () => {
     const { repo, deploy, calls } = setup();
     repo.write('.github/workflows/plugin-checks.yml', '      - run: npm run check:browser -- --no-gpu\n');
+    // A frame path changes too, so the older pass does not count for this tree.
+    repo.write('src/render/view.ts', 'export {};\n');
     repo.git('add', '.');
     repo.git('commit', '-qm', 'workflow');
     repo.git('push', '-q', 'origin', 'main');

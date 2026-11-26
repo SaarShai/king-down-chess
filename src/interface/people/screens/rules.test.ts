@@ -19,6 +19,10 @@ afterEach(() => vi.unstubAllGlobals());
 const sequence = (...values: number[]) => () => values.shift() ?? 0;
 const taken = () => new OnlineError('HANDLE_TAKEN', 409, 'This handle is in use');
 
+it('says in the sign-in line what other players see: the game name and the sign-in picture, not the email', () => {
+  expect(signInText.line).toBe('Your game stays with your account. Other players see your game name and sign-in picture, if you have one.');
+  expect(signInText.private).toBe('Other players never see your email.');
+});
 it('states the random pieces before the host makes a link', () => {
   expect(personText.time).toBe('Each player has 3 days for each move. Your pieces are random.');
 });

@@ -5,7 +5,7 @@ import { runInNewContext } from 'node:vm';
 import { expect, it } from 'vitest';
 import { parseAccountRoute } from '../src/online/routes';
 import { siteRoute } from './lib/site-route.mjs';
-import { vercelRoutes } from './plugin-server-build.mjs';
+import { JOIN_PAGE, vercelRoutes } from './plugin-server-build.mjs';
 
 it('gives the new page at / only for a tree with the launch marker', () => {
   const site = mkdtempSync(join(tmpdir(), 'platform-routes-'));
@@ -50,6 +50,20 @@ it('keeps the launch legal facts and the old in-app deletion path', () => {
   for (const text of ['Solo games on the website run on your device.', 'Muse', 'Facebook', '30 days without use']) expect(privacy).toContain(text);
   for (const page of ['terms', 'support', 'delete-data']) expect(legal(page)).toContain('href="/play"');
   expect(legal('delete-data')).toContain('Settings → Account');
+});
+it('leads with the kingdown.dev paths and keeps the /play path second', () => {
+  const plain = (page: string) => legal(page).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').replace(/&amp;/g, '&');
+  for (const page of ['support', 'terms', 'delete-data']) expect(legal(page), page).toContain('Last updated: 26 November 2026');
+  const remove = plain('delete-data');
+  expect(remove.indexOf('Open Account & settings. In Account, choose Delete account and confirm.')).toBeGreaterThan(-1);
+  expect(remove.indexOf('Open Account & settings')).toBeLessThan(remove.indexOf('Settings → Account'));
+  const support = plain('support');
+  expect(support).toContain('Open kingdown.dev and select Play to play the computer. To play a person, select Play a friend and sign in.');
+  expect(support.indexOf('select Play a friend')).toBeLessThan(support.indexOf('Play King Down'));
+  expect(support.match(/If you already have access to the King Down app in ChatGPT/g)?.length).toBeGreaterThanOrEqual(2);
+  expect(support.indexOf('After the game, select Player options, then Report player.')).toBeLessThan(support.indexOf('At /play, the Menu has Report player too.'));
+  const terms = plain('terms');
+  expect(terms.indexOf('select Play a friend on kingdown.dev and sign in')).toBeLessThan(terms.indexOf('The older online game at /play'));
 });
 it('names King Down in the launch HTML before script execution', () => {
   const html = readFileSync('next.html', 'utf8');
@@ -103,4 +117,44 @@ it('reads a page route only where the host serves that page', async () => {
     }
     expect(routes).toBeGreaterThan(0);
   } finally { rmSync(site, { recursive: true, force: true }); }
+});
+
+/** The share and search tags (hand-over D1): one set in each head that a public page path serves. */
+const shareTags: [RegExp, string | undefined][] = [
+  [/<meta name="description" content="([^"]*)"/g, undefined],
+  [/<meta property="og:title" content="([^"]*)"/g, 'King Down'],
+  [/<meta property="og:site_name" content="([^"]*)"/g, 'King Down'],
+  [/<meta property="og:description" content="([^"]*)"/g, undefined],
+  [/<meta property="og:type" content="([^"]*)"/g, 'website'],
+  [/<meta property="og:url" content="([^"]*)"/g, 'https://kingdown.dev/'],
+  [/<meta property="og:image" content="([^"]*)"/g, 'https://kingdown.dev/share-1200x630.jpg'],
+  [/<meta property="og:image:width" content="([^"]*)"/g, '1200'],
+  [/<meta property="og:image:height" content="([^"]*)"/g, '630'],
+  [/<meta property="og:image:alt" content="([^"]*)"/g, undefined],
+  [/<meta name="twitter:card" content="([^"]*)"/g, 'summary_large_image'],
+  [/<meta name="twitter:title" content="([^"]*)"/g, 'King Down'],
+  [/<meta name="twitter:description" content="([^"]*)"/g, undefined],
+  [/<meta name="twitter:image" content="([^"]*)"/g, 'https://kingdown.dev/share-1200x630.jpg'],
+  [/<link rel="canonical" href="([^"]*)"/g, 'https://kingdown.dev/'],
+];
+it.each([['next.html'], ['index.html'], ['join page']])('gives one set of share tags in the head of %s', page => {
+  const html: string = page === 'join page' ? JOIN_PAGE : readFileSync(page, 'utf8');
+  const head = page === 'join page' ? html.slice(0, html.indexOf('<script>')) : html.slice(0, html.indexOf('</head>'));
+  for (const [pattern, value] of shareTags) {
+    const found = Array.from(head.matchAll(pattern), match => match[1]);
+    expect(found, `${page}: ${pattern.source}`).toHaveLength(1);
+    if (value) expect(found[0], `${page}: ${pattern.source}`).toBe(value);
+    // A tag names no person, game or invite.
+    expect(found[0], `${page}: ${pattern.source}`).not.toMatch(/#|\/g\/|\/j\b|join=/);
+  }
+  expect(html.match(/property="og:|name="twitter:|rel="canonical"/g)!.length, page).toBe(shareTags.length - 1);
+});
+it('ships the share picture as a 1200 x 630 JPEG under 300 KB', () => {
+  const jpeg = readFileSync('public/share-1200x630.jpg');
+  expect(jpeg.length).toBeLessThan(300_000);
+  expect([jpeg[0], jpeg[1]]).toEqual([0xff, 0xd8]);
+  // Walk the JPEG segments to the frame header (SOF0 to SOF3).
+  let at = 2;
+  while (at < jpeg.length && !(jpeg[at] === 0xff && jpeg[at + 1] >= 0xc0 && jpeg[at + 1] <= 0xc3)) at += 2 + jpeg.readUInt16BE(at + 2);
+  expect([jpeg.readUInt16BE(at + 7), jpeg.readUInt16BE(at + 5)]).toEqual([1200, 630]);
 });

@@ -93,16 +93,26 @@ ci → staging → staging-checks → merge → main-ci → engines → publish 
   The alias check compares `/` with `next.html`, `/play/` with `index.html`, and the worker with `sw.js`.
 - For direct use, `tools/release/merge.sh <pr> <head> <reviewed head> [note]`
   records an independent review and merges on green.
-  `tools/release/live.sh check|engines|publish` uses a fresh `origin/main`.
+  `tools/release/live.sh check|engines|games|publish` uses a fresh `origin/main`.
   `check` builds and checks the site. `engines` reads the engines in use.
+  `games` prints the count of online games for each week (read-only; it cannot count games against the computer, which stay on the device).
   `publish` waits for CI and deploys through `tools/deploy.sh`.
+- Search and share: `public/robots.txt`, `public/sitemap.xml` and the share picture `public/share-1200x630.jpg` go out with the site.
+  In production, the page addresses on `www.kingdown.dev` redirect (308) to `kingdown.dev`; the API, sign-in and connector addresses do not.
+  On staging, `robots.txt` closes the site to crawlers (`Disallow: /`), and the build removes `sitemap.xml`.
   If CI does not pass in time, `tools/deploy.sh` runs the local checks.
   The default private env path is `<main checkout>/../.secrets/kingdown-mvp.env`.
 
 For a tweak preview, run `python3 tools/release/staging.py --preview <ref>`
 from the release tools checkout. Use `--dry-run` to see the commands.
-Pass the scripted journey check and the builder's browser pass before you run
-`--preview`. The command runs neither check. See Preview in `docs/CHANGES.md` on main.
+For a class A web tweak, pass `npm run typecheck`, `KINGDOWN_TEST_WEB_ONLY=1 npm run test:changed`
+and the builder's browser pass of the changed screen before you run `--preview`.
+The command runs no test and no browser pass. No scripted journey check runs before the preview:
+PR CI runs the journey checks. A class A tweak has no two-account staging pass.
+After green PR CI, merge and release with
+`KINGDOWN_REVIEW=lead-read tools/release/release.sh --tweak <PR> <full head sha>`.
+The lead-read review accepts only the paths in `tools/lib/ci-paths.mjs`; any other path needs an independent review.
+See Preview and "A 10-minute Class A batch" in `docs/CHANGES.md` on main.
 The preview uses the linked staging worktree and its staging project.
 It checks types, builds with `KINGDOWN_TEST_PAGES=1`, and runs `release-site`
 on the local build. The staging guard publishes to the preview target.

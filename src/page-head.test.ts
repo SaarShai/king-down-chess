@@ -20,7 +20,10 @@ describe('the page head: one light look', () => {
 
 
 it('roots every authored public resource so deep game routes use the same files', () => {
-  const urls = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map(match => match[1]).filter(url => !url.startsWith('#') && !url.startsWith('data:'));
+  // The canonical link is the one absolute address: search engines need the full URL (tools/platform.test.ts).
+  expect([...html.matchAll(/(?:src|href)="(https?:[^"]+)"/g)].map(match => match[0])).toEqual(['href="https://kingdown.dev/"']);
+  expect(html).toContain('<link rel="canonical" href="https://kingdown.dev/" />');
+  const urls = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map(match => match[1]).filter(url => !url.startsWith('#') && !url.startsWith('data:') && url !== 'https://kingdown.dev/');
   expect(urls.length).toBeGreaterThan(30);
   for (const url of urls) {
     expect(url.startsWith('/'), url).toBe(true);

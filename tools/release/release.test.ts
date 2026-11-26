@@ -322,6 +322,70 @@ cat "$frame_record"
   }
 });
 
+it.each([
+  ['docs/x.md', '1520', true],
+  ['src/interface/play/texts.ts', '1521', true],
+  ['src/render/x.ts', '1522', false],
+  ['docs/king-effects/preview.mjs', '1523', false],
+  ['src/first-deal.ts', '1524', false],
+  ['src/interface/play/play.css', '1525', true],
+])('reuses the frame-checks of a first-parent ancestor only when no frame path changed (%s)', (path, number, reuse) => {
+  const repo = tempRepo({ hooks: false });
+  try {
+    repo.write('.gitignore', 'node_modules/\n');
+    repo.write('docs/x.md', 'docs\n');
+    repo.write('src/render/view.ts', 'export {};\n');
+    repo.git('add', '.');
+    repo.git('commit', '-qm', 'base');
+    const ancestor = repo.git('rev-parse', 'HEAD').stdout.trim();
+    const ancestorTree = repo.git('rev-parse', 'HEAD^{tree}').stdout.trim();
+    repo.write(path, `change ${number}\n`);
+    repo.git('add', '.');
+    repo.git('commit', '-qm', 'PR');
+    const commit = repo.git('rev-parse', 'HEAD').stdout.trim();
+    const tree = repo.git('rev-parse', 'HEAD^{tree}').stdout.trim();
+    repo.git('push', '-q', 'origin', `HEAD:refs/pull/${number}/head`);
+    repo.git('checkout', '-q', '--detach', ancestor);
+    const result = run('bash', ['-c', `
+source "$0" --dry-run --from log --force "$2" "$1" >/dev/null
+dry=no
+stage=ci
+prior="$base/release-${number}9-${'c'.repeat(40)}/live"
+mkdir -p "$prior"
+printf 'pass %s 2026-11-23T10:00:00Z king-effects painted-game\n' "$ANCESTOR_TREE" > "$prior/frame-checks.pass"
+gh() { printf '%s\n' "$PR_JSON" | jq -r "\${!#}"; }
+bash() { [[ "$1" == */ci-wait.sh && "$2" == "$head" && "$4" == --pr-head ]] || return 80; }
+npm() { [ "$1" = ci ] && mkdir -p node_modules; }
+node() {
+  [ "$*" = 'tools/check.mjs --gpu' ] && [ "$(git rev-parse HEAD)" = "$head" ] || return 82
+  touch "$run/gpu-started"
+  printf 'ok   king-effects     1.0 s\nok   painted-game     1.0 s\n'
+}
+run_stage ci
+cat "$frame_record"
+rm -rf "$prior"
+`, 'tools/release/release.sh', commit, number], {
+      KINGDOWN_RELEASE_WORKTREE: repo.dir,
+      ANCESTOR_TREE: ancestorTree,
+      PR_JSON: JSON.stringify({ state: 'OPEN', baseRefName: 'main', headRefOid: commit, isCrossRepository: false }),
+    });
+    const output = result.stdout + result.stderr;
+    const evidence = join(folder, `release-dry-${number}-${commit}`);
+    expect(result.status, output).toBe(0);
+    expect(existsSync(join(evidence, 'gpu-started'))).toBe(!reuse);
+    if (reuse) {
+      expect(output).toContain(`reuse frame-checks of ancestor tree ${ancestorTree}: no frame path changed`);
+      expect(output).toMatch(new RegExp(`^pass ${ancestorTree} 2026-11-23T10:00:00Z king-effects painted-game$`, 'm'));
+    } else {
+      expect(output).not.toContain('reuse frame-checks');
+      expect(output).toMatch(new RegExp(`^pass ${tree} \\d{4}-\\d{2}-\\d{2}T[0-9:]+Z king-effects painted-game$`, 'm'));
+    }
+    rmSync(evidence, { recursive: true, force: true });
+  } finally {
+    repo.cleanup();
+  }
+});
+
 it('plans both preview site checks from the build worktree', () => {
   const result = run('python3', ['tools/release/staging.py', '--preview', '--dry-run', head]);
   const checks = result.stdout.split('\n').filter(line => line.includes('check:browser release-site'));
