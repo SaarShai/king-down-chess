@@ -59,6 +59,7 @@ Scope: points 1 to 6. Client only. Line numbers are on this branch.
 - Check: `tools/verify-play-scenes.mjs:227-249`: in a Home row status and the online header clock, no line starts with "·", and a part takes more than one line only when it alone is wider than its line. New scene `home-results` (`src/interface/play/scenes.ts:85-89`): a saved computer game, so each online game is a row: a claim row, a result that the friend won and a "Their move" row. It runs at the same sizes as `home-games`, with 667x375 and 844x390.
 - Red (old home.ts and main.ts): 83 cases fail, for example `status "Their move · Time is up" starts a line with "·"` (online-claim 320x568), `status "Their move · 2 days" breaks inside "2 days", which fits on one line` (home-games 844x390), `status "Time is up · claim the win" breaks inside "claim the win", which fits on one line` (home-results).
 - First gate run (head `422956b61`): play-scenes failed 21 cases. The status "Time is up · claim the win" was one part, so it broke inside "claim the win"; at 667x375 with 150% text "Their move ·" wrapped inside and put the "·" alone on a line; the longer header words cut the name (point 3). The repairs above follow this run.
+- Second gate run (head `650ac3d41`): play-scenes failed 4 cases, `home-games` and `home-results` at 667x375 and 844x390 with 150% text: `status "Their move · 2 days" breaks inside "Their move", which fits on one line`. There the status column is about 70 px wide, and "Their move ·" is wider than it, so the part may wrap (the rule of the lead). The scene rule measured the part without its "·"; it now measures the part with its "·" (`tools/verify-play-scenes.mjs:244-245`).
 - Green: see Gates.
 
 ## Gates
@@ -77,7 +78,7 @@ GATES
 - Point 1: a result row inside the 24 hours has no control to remove it; it goes after 24 hours (if seen) or when 10 newer results push it out.
 - Point 2: a first load on a join link or an online game moves no focus either; the first Tab there goes to the first control of the page.
 - Point 3: Home and the game page can show different words for the same time ("3 days" and "2 days 23 hours left").
-- Points 5 and 6: a part wider than its line still wraps inside the part (for example at 320x568 with 150% text).
+- Points 5 and 6: a part wider than its line still wraps inside the part. At 667x375 and 844x390 with 150% text the Home status column is about 70 px wide, and "Their move ·" shows as "Their" / "move ·" / "2 days".
 
 ## Closed by design
 

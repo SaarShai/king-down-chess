@@ -238,9 +238,11 @@ function homeNameFaults() {
     const font = getComputedStyle(line), probe = document.createElement('span');
     Object.assign(probe.style, { position: 'absolute', whiteSpace: 'nowrap', font: font.font, letterSpacing: font.letterSpacing, visibility: 'hidden' });
     let start = 0;
-    for (const part of text.split(' · ')) {
+    const parts = text.split(' · ');
+    for (const [i, part] of parts.entries()) {
       const rows = new Set(chars.slice(start, start + part.length).map(c => c.row).filter(row => row != null));
-      probe.textContent = part; document.body.append(probe);
+      // The "·" stays with its part, so the part with its "·" must fit.
+      probe.textContent = i < parts.length - 1 ? part + ' ·' : part; document.body.append(probe);
       const wide = probe.getBoundingClientRect().width > line.clientWidth + 1; probe.remove();
       if (rows.size > 1 && !wide) out.push(`status "${text}" breaks inside "${part}", which fits on one line`);
       start += part.length + 3;
