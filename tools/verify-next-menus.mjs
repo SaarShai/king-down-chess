@@ -259,8 +259,8 @@ const cases = {
     check(await page.title() === 'King Down', 'the document title names the page on load');
     await page.keyboard.press('Tab');
     check(await page.locator('.shell-skip').evaluate(node => node === document.activeElement && node.matches(':focus-visible') && getComputedStyle(node).transform === 'none'), 'the first Tab on Home focuses and shows the skip link');
-    // A route change in the app still moves the focus to the title.
-    await page.locator('.home-guide-btn').click(); await page.waitForSelector('.guide-page');
+    // A route change in the app still moves the focus to the title. The shown skip link covers Guide on a phone: blur it first.
+    await page.evaluate(() => document.activeElement?.blur()); await page.locator('.home-guide-btn').click(); await page.waitForSelector('.guide-page');
     await page.goBack(); await page.waitForSelector('.play-home .home-topbar');
     check(await page.evaluate(() => document.activeElement?.matches('.play-home h1')), 'Back to Home moves the focus to the title');
   },
