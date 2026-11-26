@@ -44,6 +44,17 @@ describe('deploy-live-check.mjs', () => {
     expect(result.stderr).toMatch(/bundle: .*index-Old999\.js|fetch failed/);
   });
 
+  it('keeps the differences of the pass before when the time limit stops the last pass', async () => {
+    // The first pass answers at once. The pause is 5 s, so the second pass starts with about 2 s left, and each of its replies comes late.
+    const live = await site(() => ({ ...pages(), 'index.html': pages('index-Old999')['index.html'] }), { delayMs: 4000, delayAfterRoots: 1 });
+    const result = await check(buildFolder(pages()), live.url, 7000);
+    expect(result.status).toBe(1);
+    expect(live.requests.filter(request => request.path === '/').length, 'the check made no second pass').toBeGreaterThan(1);
+    expect(result.stderr).toMatch(/bundle: .*index-Old999\.js.*index-Abc123_x\.js/);
+    expect(result.stderr).toContain('the last pass stopped at the time limit');
+    expect(result.stderr).not.toContain('fetch failed');
+  }, 20_000);
+
   it('checks runtime bytes and immutable cache headers', async () => {
     const asset = `character-runtime/assets/${'a'.repeat(64)}.webp`;
     const files = {...pages(), 'character-runtime/manifest.json':'{}', [asset]:'frame bytes'};

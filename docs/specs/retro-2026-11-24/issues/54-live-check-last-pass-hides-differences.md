@@ -1,6 +1,6 @@
 # Keep the named differences when the time limit cuts the last pass of the live check
 
-Status: ready-for-agent
+Status: in-review
 Source: the review of the ticket [13](13-ci-live-check-short-limit.md) repair, 2026-11-25
 
 ## Problem
@@ -24,4 +24,9 @@ A local site that answers the first pass at once with a different bundle, and ho
 
 ## Work record
 
-Not started.
+2026-11-25, branch `live-check-last-pass` (from the ticket 13 head 954b909b7).
+- `tools/deploy-live-check.mjs`: when a pass has lines, the check-wide abort fired, and the pass before has lines, the check keeps the lines of the pass before and adds `the last pass stopped at the time limit; the lines above come from the pass before`. A clean pass still passes, also when the abort fires after it. The first pass and limit 0 do not change.
+- `tools/lib/deploy-site-kit.ts`: a new `site()` option `delayAfterRoots`. The delay starts only after this many requests of `/`, so only the later passes are late.
+- `tools/deploy-live-check.test.ts`: the new test 'keeps the differences of the pass before when the time limit stops the last pass' (limit 7000 ms, delay 4000 ms from the second pass). It also asserts that the check made a second pass, so that it cannot pass on one pass only.
+- Red first: with the old `deploy-live-check.mjs`, the test fails after 7 s, and the FAIL text has only `fetch failed (The operation was aborted due to timeout)` lines.
+- Green: `tools/deploy-live-check.test.ts` 79 of 79.

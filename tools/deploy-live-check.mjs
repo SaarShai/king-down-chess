@@ -170,7 +170,12 @@ let found;
 console.log(`live-check: ${base} against ${folder} (bundle ${bundle}, time limit ${Math.round(limit / 1000)} s)`);
 console.log(`live-check: sw.js version ${version}, policy ${policy}, sha256 ${createHash('sha256').update(built.get('/sw.js').bytes).digest('hex')}`);
 for (;;) {
-  if (!found || Date.now() < deadline) found = await differences();
+  if (!found || Date.now() < deadline) {
+    const pass = await differences();
+    // The limit can stop a pass in the middle. Then its timeout lines would hide the differences of the pass before.
+    if (pass.length && checkSignal?.aborted && found?.length) found = [...found, 'the last pass stopped at the time limit; the lines above come from the pass before'];
+    else found = pass;
+  }
   if (!found.length) {
     console.log(`live-check: pass: ${base} loads ${bundle}; ${checkedPages.join(', ')} are identical to the build; ${paths.length} public files match bytes and types (${assetFiles.length} under /assets/); ${appPages.length} app pages serve the build's index.html; ${closedPages.length} closed paths answer 404; account_access ${access}; ${apiProbes.length} API probes pass`);
     process.exit(0);
