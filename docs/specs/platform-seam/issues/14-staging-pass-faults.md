@@ -1,6 +1,6 @@
 # Seven faults from the staging pass of tickets 05 and 07
 
-Status: repairs on branch web-faults; see ticket [15](15-staging-fault-repairs.md) (repairs 1 to 7). Waits for the review.
+Status: done and live (PR 485, 2026-11-26); see ticket [15](15-staging-fault-repairs.md), repairs 1 to 7. What stays is in ticket [16](16-staging-pass-followups.md).
 
 Source: the two-account pass on staging of 2026-11-25 (head `920573c7a`, PR 479). The report and the pictures are in the lead's run folder `runs/seam-staging-479/` (`pass.md`).
 

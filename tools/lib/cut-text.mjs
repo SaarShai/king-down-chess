@@ -16,6 +16,8 @@ export function cutText(suffix = '') {
       if (/auto|scroll/.test(style.overflowX + style.overflowY)) { lines = [edge]; continue; }
       // The closed History shows its newest record as a one-line preview; the open History and the button's name hold it in full.
       if (node.matches('.play-history-record')) { lines = [edge]; continue; }
+      // A Home game row cuts a long name on one line with "…" on purpose; the row text and the title hold the full name.
+      if (node.matches('.home-game-row > strong') && style.textOverflow === 'ellipsis' && style.whiteSpace === 'nowrap') { lines = [edge]; continue; }
       // A box that draws an ellipsis cuts its text at the first part of a pixel.
       const slack = style.textOverflow === 'ellipsis' ? .05 : 1;
       if (/hidden|clip/.test(style.overflowX + style.overflowY) && lines.some(box => box.left < edge.left - slack || box.right > edge.right + slack || box.top < edge.top - 1 || box.bottom > edge.bottom + 1)) { out.push(`text "${words.slice(0, 40)}" is cut by ${name(node)}${suffix}`); break; }

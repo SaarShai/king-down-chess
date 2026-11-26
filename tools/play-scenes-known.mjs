@@ -24,6 +24,4 @@ export const KNOWN = new Map([
   ], 'at 568x320 with 150% text the opponent choice covers part of the Powers tile'],
   [cases(['setup-friend'], ['568x320'], [150]),
     ['word "Random" breaks over two lines in strong'], 'at 568x320 with 150% text the seat is 86 px and "Random" needs 94 px; unbroken, it covers VS'],
-  [cases(['home-games'], ['320x568', '667x375', '844x390'], [150]),
-    ['word "midnight" breaks over two lines in strong'], 'at 150% text the narrow Home row gives the name half of the free width, less than "midnight" needs; a two-line row is a later layout change'],
 ].flatMap(([places, lines, reason]) => places.flatMap(place => lines.map(line => [`${place}: ${line}`, reason]))));

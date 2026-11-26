@@ -1,6 +1,6 @@
 # Repairs of the eight staging faults (tickets 13 and 14)
 
-Status: done on branch web-faults (PR 485); reviewed, repaired and checked; one local playtest; waits for the staging pass.
+Status: done, merged and live (PR 485; merge commit `2a9c8d344`; live on 2026-11-26 10:11Z).
 
 Class: C. Size: M.
 
@@ -138,3 +138,9 @@ More known limits, from the playtest:
 
 - CI on `00caf0127` was red in one unit shard: `src/interface/platform.test.ts` has no `window`, and the new boot-flag line of repair 8 used it (`ReferenceError: window is not defined`). The line now sets the flag on `globalThis`, which is the same object in a browser. No local gate of the build or of the review ran that file; the lead then ran each test file under `src/interface` (61 files, 1,121 tests) and `npm run test:changed`.
 - CI on `942e7b1b5` was red in `browser-webkit-board (input)`: `web-online`, "Offline play logs no errors". The log does not hold the error text. The same check passes here in WebKit with the CPU canvas (117 s) and in Chromium. The process notes of 2026-11-22 hold one earlier red of this offline part in WebKit that a rerun cleared. The assertion now prints the console lines, so the next red names its cause. Cause not proven.
+
+## Staging pass and release (2026-11-26)
+
+- Staging pass on `05c8fa9c8`: one tester, two signed-in profiles (desktop and phone), 24 minutes. Pass, no Blocker, no High. All eight repairs were seen. The time-up lock came 1.9 s after the deadline of a real game; "Claim win" by the other player gave the same result on both screens in 12 s. The offline note shows on the page. The report is in the lead's run folder `runs/web-faults-485/` (`staging.md`).
+- Release: `tools/release/release.sh`, exit 0; the live check passed. A signed-out look at the live site in Chromium and WebKit: no console error.
+- What the pass found and this change does not repair is in ticket [16](16-staging-pass-followups.md).

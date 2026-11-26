@@ -116,7 +116,8 @@ export function playScreen(d: PlayData, art: Art, previous?: ReturnType<typeof c
     if (game === primary) continue;
     const row = el('button', 'home-game-row'); row.type = 'button'; row.dataset.game = game.id; row.dataset.mine = String(game.mine);
     const left = game.state === 'playing' ? deadlineLine(game.deadline) : '';
-    row.append(profilePortrait(game.name, game.avatar), el('strong', '', game.name), el('span', '', [game.status, left].filter(Boolean).join(' · ')), icon('next'));
+    const name = el('strong', '', game.name); name.title = game.name;
+    row.append(profilePortrait(game.name, game.avatar), name, el('span', '', [game.status, left].filter(Boolean).join(' · ')), icon('next'));
     row.addEventListener('click', () => d.onPersonGame(game.id));
     rows.push({ ...game, row });
   }

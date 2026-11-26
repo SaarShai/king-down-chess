@@ -137,7 +137,7 @@ try {
         page.on('pageerror', error => found.push(`page error: ${error.message}`));
         try {
           await openScene(page, scene);
-          found.push(...await page.evaluate(cutText), ...await page.evaluate(foldFaults, scale === 100), ...await page.evaluate(layoutFaults, ROLES), ...await page.evaluate(coveredCards));
+          found.push(...await page.evaluate(cutText), ...await page.evaluate(foldFaults, scale === 100), ...await page.evaluate(layoutFaults, ROLES), ...await page.evaluate(coveredCards), ...await page.evaluate(homeNameFaults));
           if (found.length || width === 320 && scale === 150 || scale === 100 && (width === 390 || width === 1280)) {
             await shot(page, picture);
             pictured = true;
@@ -210,8 +210,24 @@ for (const line of known) console.log(`known fault: ${line}`);
 if (faults.length) { console.error(`play scenes: ${faults.length} case(s) fail\n  ${faults.join('\n  ')}`); process.exit(1); }
 console.log(`play scenes: all ${cases} cases pass (${links.length} scenes)`);
 
+/** In the page: the name in a Home game row stays on one line (cut with "…"), and its title holds the full name. */
+function homeNameFaults() {
+  const out = [], range = document.createRange();
+  for (const name of document.querySelectorAll('.home-game-row > strong')) {
+    if (!name.checkVisibility({ visibilityProperty: true })) continue;
+    range.selectNodeContents(name);
+    const lines = new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round(r.top / 4))).size;
+    if (lines > 1) out.push(`name "${name.textContent}" takes ${lines} lines in a Home game row`);
+    if (name.title !== name.textContent) out.push(`name "${name.textContent}" has no title with the full name in a Home game row`);
+    // The row shows the name; a status that repeats it breaks a long handle in a narrow row.
+    const status = name.nextElementSibling;
+    if (status?.matches('span') && name.textContent && status.textContent.includes(name.textContent)) out.push(`status "${status.textContent}" repeats the name in a Home game row`);
+  }
+  return out;
+}
+
 /** In the page: a control must be active in this layer and visible without keyboard focus. */
-function outsideLayer(node) { const modal = window.playSceneModal(); return !!node.closest('[inert], .shell-skip:not(:focus)') || !!modal && !modal.contains(node); }
+function outsideLayer(node) { const modal = window.playSceneModal(); return !!node.closest('[inert], .shell-skip:not(:focus-visible)') || !!modal && !modal.contains(node); }
 
 /** In the page: the box that clips part of this control, if any (a scroll box can show all of it). */
 function cutBy(control) {
@@ -234,7 +250,7 @@ function layoutFaults(roles) {
     '.play-opp, .play-own, .play-turn, .play-hand, .play-reader, .play-result',
     '.guide-entry-pane, .turn-steps',
   ].join(', ');
-  const hidden = '[inert], .kd-sr, .shell-skip:not(:focus), script, style';
+  const hidden = '[inert], .kd-sr, .shell-skip:not(:focus-visible), script, style';
   const shown = node => (!modal || modal.contains(node)) && !node.closest(hidden) &&
     node.checkVisibility({ visibilityProperty: true, opacityProperty: true });
   const short = label => label.trim().split('\n', 1)[0].slice(0, 40).trimEnd();

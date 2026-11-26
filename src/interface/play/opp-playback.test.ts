@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { runInNewContext } from 'node:vm';
+import { runInContext, runInNewContext } from 'node:vm';
 import { parseSync, transformSync } from 'rolldown/utils';
 import { afterEach, expect, it } from 'vitest';
 import { fixtureService } from '../../../tools/plugin-protocol-fixture';
@@ -12,6 +12,8 @@ import { fakeServer, memoryStorage } from '../people/fake-server';
 import { lastTurnOf } from '../people/replica';
 import { peopleServer } from '../people/server';
 import { lastReplySteps, replayController, undoReplayState } from './replay';
+import { timeUpLine } from '../people/host/games';
+import { refusalReason } from './help/reasons';
 import { castOf } from './cast';
 import { stateMarks } from './marks';
 import { DraftTurn } from './turn';
@@ -85,7 +87,7 @@ function boardFor(previous: PeopleState, { mount = false, reduce = '', inApp = f
     setTimeout: (run: () => void, ms: number) => { timers.set(++ids, { run, at: clock + ms }); return ids; }, clearTimeout: (id: number) => timers.delete(id),
     AbortController, closeIn: () => ({ cancel: noop, finish: noop }), reducedMotion: () => false,
     refuse: (error: string) => { throw new Error(error); },
-    cells: Array.from({ length: 64 }, (_, square) => ({ square, getBoundingClientRect: () => ({}), classList: { remove: noop } })), armedResource: noop, gameHelp: undefined, choice: [], refusalReason: noop,
+    cells: Array.from({ length: 64 }, (_, square) => ({ square, getBoundingClientRect: () => ({}), classList: { remove: noop } })), armedResource: noop, gameHelp: undefined, choice: [], refusalReason: noop, lockedLine: noop,
     cue: noop, freezeArmed: () => false, typeOf: () => 1, colorOf: () => previous.view!.seat,
     PLAIN_KINGS: [], learningEntry: () => ({ short: '' }), nameOf: () => 'Pawn', sqName, text: {},
   };
@@ -351,4 +353,21 @@ it('a live check draws in when the playback shows it; a manual Replay shows it a
   board.scope.undoOrReplay();
   await settle();
   expect([board.plays, board.checks.length]).toEqual([['d1 d4', 'd1 d4'], 1]);
+});
+
+it('a board tap after the own move time ran out gives the clock words, not "Wait for your turn." (ticket 16, point 4)', async () => {
+  const { light } = await match();
+  const live = light.state(), draft = live.draft!;
+  // The real `lockedLine` of main.ts, with the real refusal rule and turn line.
+  const declarator = parseSync(filename.pathname, source).program.body.flatMap(node => node.type === 'VariableDeclaration' ? node.declarations : [])
+    .find(node => node.id.type === 'Identifier' && node.id.name === 'lockedLine')!;
+  const tapAfter = (mine: boolean) => {
+    const state = { ...live, phase: 'their-move', draft: undefined, clock: { mine, left: 0 } } as PeopleState;
+    const { scope } = boardFor(state);
+    Object.assign(scope, { refusalReason, timeUpLine, people: undefined, draft, player: draft.base.turn, thinking: true, arrangement: undefined });
+    runInContext(`lockedLine = ${transformSync(filename.pathname, source.slice(declarator.init!.start, declarator.init!.end)).code}`, scope);
+    try { scope.tap(parseSq('e4')); } catch (error) { return (error as Error).message; }
+  };
+  expect(tapAfter(true)).toBe('Your time to move is up.');
+  expect(tapAfter(false)).toBe('Wait for your turn.');
 });

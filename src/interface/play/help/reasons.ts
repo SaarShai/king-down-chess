@@ -24,11 +24,12 @@ const reason = (code: Refusal['code'], line: string = lines[code]): Refusal => (
 
 /** Call before the tap changes the draft. A preview restriction is optional. */
 export function refusalReason(
-  { draft, player, inputLocked, previewBlocked }: { draft: DraftTurn; player: Color; inputLocked?: boolean; previewBlocked?: boolean },
+  { draft, player, inputLocked, previewBlocked, lockedLine }: { draft: DraftTurn; player: Color; inputLocked?: boolean; previewBlocked?: boolean; lockedLine?: string },
   tap: HelpTap,
 ): Refusal | null {
   if (draft.game.status !== 'playing') return null;
-  if (draft.base.turn !== player || inputLocked) return reason('not-your-turn');
+  // `lockedLine` names a lock that is not the other side's turn, for example an online move time that ran out.
+  if (draft.base.turn !== player || inputLocked) return reason('not-your-turn', lockedLine);
   if (previewBlocked) return reason('not-in-preview');
   const context = draft.game.context, pos = draft.now;
   const checked = () => context.inCheck(pos);

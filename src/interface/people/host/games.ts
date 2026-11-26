@@ -23,13 +23,16 @@ export function personGame(view: View): PersonGame {
   const avatar = opponent && !opponent.computer && !opponent.deleted ? opponent.avatar ?? null : invited?.avatar ?? null;
   // A missed move stays 'playing' until the server's next command or sweep; it is not your move.
   const late = view.status === 'playing' && view.kind !== 'solo' && !!view.deadline_at && Date.parse(view.deadline_at) <= Date.now();
-  const mine = view.status === 'playing' && view.action === 'ready' && !late;
+  // The other player's move time ran out: this player can claim the win, or end the game while abort is open (`boardActions`).
+  const claim = late && view.turn !== view.seat;
+  const mine = view.status === 'playing' && (view.action === 'ready' && !late || claim);
   const state = view.status === 'aborted' ? 'finished' : view.status;
   const status = view.status === 'aborted' ? 'The game ends with no result.' : state === 'waiting'
     ? invited ? 'Invite sent' : 'Waiting for a player'
     : state === 'setup' ? 'Getting the game ready'
     : state === 'finished' ? view.result?.winner == null ? 'Draw' : view.result.winner === view.seat ? 'You win' : `${name} wins`
-    : mine ? 'Your move' : late && view.action === 'ready' ? 'Time is up' : `${name} to move`;
+    : claim ? `Time is up · ${view.abort_open ? 'end the game' : 'claim the win'}`
+    : mine ? 'Your move' : late && view.action === 'ready' ? 'Time is up' : 'Their move';
   return { id: view.game_id, name, avatar, mine, deadline: view.deadline_at, state, status, preview: game ? savedPreview(new DraftTurn(game), view.seat) : null, view };
 }
 const rulesWords = (options: Options | null) => options?.kingPowers ? options.cards ? 'With powers and cards' : 'With powers' : options?.cards ? 'With cards' : 'Pieces';
@@ -48,18 +51,23 @@ export function gameOrder(a: Ordered, b: Ordered): number {
   return rank(a) - rank(b) || (a.deadline ? Date.parse(a.deadline) : Infinity) - (b.deadline ? Date.parse(b.deadline) : Infinity) || 0;
 }
 export function deadlineLine(deadline: string | null, now = Date.now()) {
-  return deadline ? timeWords(Date.parse(deadline) - now) : '';
+  // No time left once the move time ran out (the status says "Time is up").
+  return deadline && Date.parse(deadline) > now ? timeWords(Date.parse(deadline) - now) : '';
 }
 
 /** System copy on a person game keeps the same rules, with the correct opponent words. */
 export const personWords = (line: string) => line.replace(/\bComputer\b/g, 'Opponent').replace(/\bcomputer\b/g, 'opponent').replaceAll('End turn', 'Send');
 
+const TIME_UP = 'Your time to move is up.';
+/** A tap on a locked board after the own move time ran out gives the turn line. */
+export const timeUpLine = (state?: Pick<PeopleState, 'phase'> & Partial<Pick<PeopleState, 'clock'>>) =>
+  state?.phase === 'their-move' && state.clock?.mine ? TIME_UP : undefined;
 /** A send does not give the opponent a turn until the server confirms it. */
 export function personTurn(state: Pick<PeopleState, 'phase' | 'connection'> & Partial<Pick<PeopleState, 'clock'>>): string | undefined {
   if (state.connection === 'auth') return 'Sign in to send your turn.';
   if (state.connection === 'offline') return 'You are offline. Your unsent turn stays.';
   // Your clock ran out (controller `late`): the controls lock until the server ends the game.
-  if (state.phase === 'their-move' && state.clock?.mine) return 'Your time to move is up.';
+  if (state.phase === 'their-move' && state.clock?.mine) return TIME_UP;
   if (state.phase === 'waiting') return 'Waiting for a player';
   if (state.phase === 'setup') return 'Getting the game ready';
   if (state.phase === 'sending') return 'Sending your turn…';
