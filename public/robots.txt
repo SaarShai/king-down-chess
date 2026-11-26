@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://kingdown.dev/sitemap.xml
