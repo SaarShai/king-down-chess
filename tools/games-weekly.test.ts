@@ -56,7 +56,7 @@ it('formats fixed rows as a table with a total, and names the kind of each row',
 
 it('fails the CLI with a missing or bad setting and does not print it', () => {
   for (const env of [{}, { KINGDOWN_ENGINES_DATABASE_URL: 'postgresql://user:private-url@127.0.0.1/kingdown_test' }]) {
-    const run = spawnSync(process.execPath, ['--import', './tools/fixtures/engine-report-query-error.mjs', 'tools/games-weekly.mjs'], { encoding: 'utf8', env });
+    const run = spawnSync(process.execPath, ['--import', './tools/fixtures/engine-report-query-error.mjs', 'tools/games-weekly.mjs'], { encoding: 'utf8', env, timeout: 20000 });
     expect(run.status).toBe(1);
     expect(run.stderr).toContain('games-weekly: FAIL');
     expect(run.stderr).not.toMatch(/private-query-marker|private-url|127\.0\.0\.1/);
