@@ -97,7 +97,7 @@ export const oldBuild = (): Record<string, string> => ({
 });
 
 /** A local site. `files` can change between requests; `/` serves `index.html`. */
-export async function site(files: () => Record<string, string>, challengeReply: { status?: number; type?: string | null; location?: string; path?: string; body?: string; cache?: string | null; drop?: number; delayMs?: number } = {}, access: Access = 'closed') {
+export async function site(files: () => Record<string, string>, challengeReply: { status?: number; type?: string | null; location?: string; path?: string; body?: string; cache?: string | null; drop?: number; delayMs?: number; delayAfterRoots?: number } = {}, access: Access = 'closed') {
   const requests: { path: string; method?: string; cookie?: string }[] = [];
   let active = 0, peak = 0;
   const server = createServer(async (req, res) => {
@@ -108,7 +108,9 @@ export async function site(files: () => Record<string, string>, challengeReply: 
     // drop: close the connection with no reply this many times, as a network fault does.
     if (challengeReply.drop && path === challengeReply.path) { challengeReply.drop--; req.socket.destroy(); return; }
     if (req.headers.cookie !== undefined) { res.writeHead(400).end('cookie sent'); return; }
-    if (challengeReply.delayMs && (!challengeReply.path || path === challengeReply.path)) await new Promise(done => setTimeout(done, challengeReply.delayMs));
+    // delayAfterRoots: no delay until this many requests of `/` came, so that only the later passes are late.
+    const roots = requests.filter(request => request.path === '/').length;
+    if (challengeReply.delayMs && (!challengeReply.path || path === challengeReply.path) && roots > (challengeReply.delayAfterRoots ?? 0)) await new Promise(done => setTimeout(done, challengeReply.delayMs).unref());
     const body = files()[path === '/' ? (files()['solo-launch.json'] ? 'next.html' : 'index.html') : path.slice(1)];
     if (path === (challengeReply.path ?? '/.well-known/openai-apps-challenge')) {
       const api = apiPaths.includes(path);

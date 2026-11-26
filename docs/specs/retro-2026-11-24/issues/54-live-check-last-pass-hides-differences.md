@@ -1,6 +1,6 @@
 # Keep the named differences when the time limit cuts the last pass of the live check
 
-Status: ready-for-agent
+Status: done
 Source: the review of the ticket [13](13-ci-live-check-short-limit.md) repair, 2026-11-25
 
 ## Problem
@@ -21,7 +21,23 @@ A local site that answers the first pass at once with a different bundle, and ho
 
 - This is a change of a release tool (class B), not a test change.
 - Found by reading and by a fault test in the review; no production run showed it yet.
+- The check drops all lines of the stopped pass, also a real new difference from a request that ended before the stop (for example, the bundle now agrees but `/sw.js` differs). The exit stays 1, and the added line says that the lines are from the pass before. A run with a longer limit shows the new state.
 
 ## Work record
 
-Not started.
+2026-11-25, branch `live-check-last-pass` (from the ticket 13 head 954b909b7).
+- `tools/deploy-live-check.mjs`: when a pass has lines, the check-wide abort fired, and the pass before has lines, the check keeps the lines of the pass before and adds `the last pass stopped at the time limit; the lines above come from the pass before`. A clean pass still passes, also when the abort fires after it. The first pass and limit 0 do not change.
+- `tools/lib/deploy-site-kit.ts`: a new `site()` option `delayAfterRoots`. The delay starts only after this many requests of `/`, so only the later passes are late.
+- `tools/deploy-live-check.test.ts`: the new test 'keeps the differences of the pass before when the time limit stops the last pass' (limit 7000 ms, delay 4000 ms from the second pass). It also asserts that the check made a second pass, so that it cannot pass on one pass only.
+- Red first: with the old `deploy-live-check.mjs`, the test fails after 7 s, and the FAIL text has only `fetch failed (The operation was aborted due to timeout)` lines.
+- Green: `tools/deploy-live-check.test.ts` 79 of 79. Typecheck passes.
+
+## Review
+
+- One independent review at 04c8133a7: blocking 0, notes 3. The reviewer also ran the test with the old tool (red) and examined each order of abort and pass: a clean pass stays a pass; the first pass, limit 0 and a pass with no abort do not change.
+  1. A stopped pass drops its real new lines too. Recorded under Known limits; no code change.
+  2. The test could fail with no fault when the first pass took more than 2 s on a loaded runner. Repaired: limit 10000 ms, delay 6000 ms, so the first pass has 5 s.
+  3. The delay timer held the test worker for up to 4 s after the test. Repaired: `.unref()`.
+- One repair batch, f082a3c7d. Red again with the old tool (1 of 79 fails); green 79 of 79; typecheck passes.
+- Repair check by the same reviewer at f082a3c7d: blocking 0, no new notes.
+- Before the PR: `tools/deploy-slow-link.test.ts` 26 of 26 (it uses the changed delay timer); `npm run test:changed` 46 files, 695 passed, 1 skipped.
