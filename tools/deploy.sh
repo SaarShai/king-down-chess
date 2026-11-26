@@ -305,7 +305,18 @@ if [ "$target" = website ]; then
   if [ -z "$passed_at" ] && [ -n "$frame_history" ] && saved=$(find_frame_record "$frame_history" "$tree"); then
     passed_at=$(frame_passed_at "$saved" "$tree") || passed_at=
   fi
-  if [ -n "$passed_at" ]; then
+  # A release run (KINGDOWN_FRAME_CHECKS_HISTORY set) can also use the pass of an older tree with the same
+  # frame paths (frame_paths in release/frame-checks.sh): the record that the release copied, or the
+  # nearest first-parent ancestor with a record. A direct publish has no history, so it runs the checks.
+  reuse=
+  if [ -z "$passed_at" ] && [ -n "$frame_history" ]; then
+    reuse=$(frame_record_reuse "$record" "$commit") || reuse=$(frame_reuse "$frame_history" "$commit") || reuse=
+  fi
+  if [ -n "$reuse" ]; then
+    read -r reuse_tree reuse_at _ <<< "$reuse"
+    echo "deploy: skipped frame-time browser checks: ancestor tree $reuse_tree passed at $reuse_at, no frame path changed"
+    if [ "$ci_browser" = no ]; then step 'browser checks' node tools/check.mjs --no-gpu; fi
+  elif [ -n "$passed_at" ]; then
     echo "deploy: skipped frame-time browser checks for tree $tree (passed at $passed_at)"
     if [ "$ci_browser" = no ]; then step 'browser checks' node tools/check.mjs --no-gpu; fi
   elif [ "$ci_browser" = yes ]; then

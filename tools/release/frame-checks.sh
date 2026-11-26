@@ -21,6 +21,53 @@ find_frame_record() {
   return 1
 }
 
+# The paths that king-effects and painted-game load, play or measure (tools/verify-king-effects.mjs and
+# tools/verify-painted-game.mjs open index.html, which loads src/main.ts; king-effects also serves
+# docs/king-effects from disk). A change to a path in this list runs the frame checks again.
+# A change to other paths only (texts.ts, scenes.ts, the play CSS files, docs) can use an older pass.
+# Add a path when you are not sure: a long list is safe, a missing path is not.
+frame_paths=(
+  src/main.ts src/entry.ts src/game.ts src/new-game.ts src/dialog-dismiss.ts src/power-motion.ts src/power-motion.css
+  src/render src/screen src/ui src/rules src/ai src/interface/entry.ts src/interface/board-api.ts
+  src/interface/play/main.ts src/interface/play/motion.ts src/interface/play/fx src/interface/play/turn.ts
+  index.html public/ui public/character-runtime public/sw.js public/browser-support.js engines
+  docs/king-effects docs/2d-first-pieces
+  tools/verify-king-effects.mjs tools/verify-painted-game.mjs tools/app-ui.mjs tools/new-game-ui.mjs
+  tools/check.mjs tools/lib tools/release/frame-checks.sh
+  package.json package-lock.json vite.config.ts tsconfig.json
+)
+
+# Exit 0 when the frame paths of two commits or trees are the same. Run in the repository (default .).
+frame_same() {
+  git -C "${3:-.}" diff --quiet "$1" "$2" -- "${frame_paths[@]}" 2>/dev/null
+}
+
+# frame_reuse <history> <commit> [repository]: walk the first-parent ancestors of the commit, nearest first.
+# Stop at the first ancestor whose frame paths differ. Print "<tree> <time> <record>" for the first ancestor
+# with a pass record in the history. Exit 1 when there is no such ancestor or the commit is not known.
+frame_reuse() {
+  local history=$1 commit=$2 dir=${3:-.} c tree record
+  [ -n "$history" ] || return 1
+  for c in $(git -C "$dir" rev-list --first-parent --max-count=100 "$commit" 2>/dev/null); do
+    frame_same "$c" "$commit" "$dir" || return 1
+    tree=$(git -C "$dir" rev-parse "$c^{tree}") || return 1
+    record=$(find_frame_record "$history" "$tree") || continue
+    printf '%s %s %s\n' "$tree" "$(frame_passed_at "$record" "$tree")" "$record"
+    return 0
+  done
+  return 1
+}
+
+# frame_record_reuse <record> <commit>: print the pass time of the record when its own tree has the
+# same frame paths as the commit. The release copies an ancestor's record to its run (release.sh stage ci).
+frame_record_reuse() {
+  local record=$1 commit=$2 tree time
+  [ -f "$record" ] || return 1
+  tree=$(awk 'NR == 1 { print $2 }' "$record") || return 1
+  [[ "$tree" =~ ^[0-9a-f]{40}$ ]] && time=$(frame_passed_at "$record" "$tree") && frame_same "$tree" "$commit" || return 1
+  printf '%s %s\n' "$tree" "$time"
+}
+
 write_frame_record() {
   local record=$1 tree=$2 log=$3 time checks
   time=$(date -u +%FT%TZ) || return

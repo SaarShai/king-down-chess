@@ -145,13 +145,19 @@ wait_head() {
   outward bash "$tools/release/ci-wait.sh" "$head" '' --pr-head
 }
 release_ci() {
-  local code=0 tree saved=
+  local code=0 tree saved= reuse= dir=.
   if tree=$(git rev-parse --quiet --verify "$head^{tree}") ||
-     tree=$(git -C "$live_tree" rev-parse --quiet --verify "$head^{tree}" 2>/dev/null); then
+     { dir=$live_tree; tree=$(git -C "$live_tree" rev-parse --quiet --verify "$head^{tree}" 2>/dev/null); }; then
     if frame_passed_at "$frame_record" "$tree" >/dev/null; then
       saved=$frame_record
     else
       saved=$(find_frame_record "$base" "$tree") || saved=
+    fi
+    # No pass for this tree: use the pass of the nearest first-parent ancestor when no frame path changed
+    # since that ancestor (frame_paths in frame-checks.sh). The copied record keeps the ancestor tree.
+    if [ -z "$saved" ] && [ "$dry" = no ] && reuse=$(frame_reuse "$base" "$head" "$dir"); then
+      saved=${reuse#* * }
+      say "reuse frame-checks of ancestor tree ${reuse%% *}: no frame path changed"
     fi
   fi
   if [ "$dry" = no ] && [ "$saved" != "$frame_record" ]; then rm -f "$frame_record" || return; fi
@@ -162,7 +168,7 @@ release_ci() {
     dry_command bash "$tools/release/ci-wait.sh" "$head" '' --pr-head
   fi
   if [ -n "$saved" ]; then
-    say "reuse frame-checks for tree $tree from $saved"
+    if [ -n "$reuse" ]; then say "reuse frame-checks from $saved"; else say "reuse frame-checks for tree $tree from $saved"; fi
     say 'time frame-checks 0s'
   elif [ "$dry" = yes ]; then
     timed_frame_checks || return
