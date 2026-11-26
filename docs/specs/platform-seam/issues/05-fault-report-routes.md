@@ -50,9 +50,15 @@ Runs after the change:
 - `npm run test:docs`: 19 files passed; 199 tests passed, 1 skipped; 2 s.
 
 Not verified:
-- The two-account pass on staging and the stored route of a report from `/play/friend`. No staging deploy ran.
+- The stored route of a report from `/play/friend` (see "Staging pass").
 - The database tests of the server path. `src/diagnostics/server.db.test.ts` skips when `PLUGIN_TEST_DATABASE_URL` is not set, and the log does not show that it ran. Its one `/other` case sends a made-up `/play/profile/...` path, so the change does not touch it.
 - A full-suite run. CI runs it.
+
+## Staging pass (2026-11-25, head `920573c7a`, with ticket 07)
+
+- A fault at `/index.html` sends `"route":"/index.html"`; the reply is 204. Before this ticket the route was `/other`.
+- A fault 5 s after the load of `/play/friend` sends `"route":"/play"`. This is correct, and it is a limit: `/play/friend` is an entry address, and the page changes the address to `/play` when the friend setup opens (`route()` in `src/online/runtime.ts`). Only a fault before that change has the route `/play/friend`. The unit tests hold the mapping; the pass did not see such a report.
+- The pass sent no report from `/api/friends` or from a decline.
 
 ## Review
 
