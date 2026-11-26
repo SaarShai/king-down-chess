@@ -104,6 +104,8 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
       page.style.transform = `translateX(${direction * 14 * (1 - k)}px)`; page.style.opacity = String(.64 + .36 * k);
     }, { curve: ease.out3, done: () => { ghost.remove(); page.style.removeProperty('transform'); page.style.removeProperty('opacity'); } });
   }
+  // The first draw of the page moves no focus: the first Tab goes to "Skip to content". Only a route change in the app moves it.
+  let firstDraw = false;
   const show = (next: Route, draw = true, scroll?: number) => {
     const before = route; route = next;
     const old = root.querySelector<HTMLElement>(':scope > :not(.shell-departing)');
@@ -122,7 +124,7 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
         } else window.scrollTo(0, scroll);
       }
       // A page that restores the view (the row that the person left) keeps its focus and its scroll.
-      if (page?.dataset.restore !== 'true' && !document.querySelector('dialog[open]')) { page?.querySelector<HTMLElement>('h1')?.focus({ preventScroll: true }); window.scrollTo(0, 0); }
+      if (page?.dataset.restore !== 'true' && !document.querySelector('dialog[open]')) { if (!firstDraw) page?.querySelector<HTMLElement>('h1')?.focus({ preventScroll: true }); window.scrollTo(0, 0); }
     }
     if (draw && before.place !== next.place && places.includes(before.place) && places.includes(next.place)) { sound('pass'); pulse('light'); }
   };
@@ -191,6 +193,8 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
   replacePlace(route, location.pathname + location.search + (route.place === 'play' ? '' : routeHash(route)));
   return {
     go, get route() { return route; },
+    /** True while `start` draws the first page of the load. */
+    get firstDraw() { return firstDraw; },
     start() {
       let scroll: number | undefined;
       const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
@@ -200,7 +204,8 @@ export function mountShell(root: HTMLElement, render: (route: Route) => void) {
           if (address === guideAddress() && typeof top === 'number') scroll = top;
         } catch { /* Storage can be blocked. */ }
       }
-      show(route, true, scroll);
+      firstDraw = true;
+      try { show(route, true, scroll); } finally { firstDraw = false; }
     },
     /** Runs `run` now, or after a pending layer Back, in order with route changes. Open a layer only in `run`. */
     settled,

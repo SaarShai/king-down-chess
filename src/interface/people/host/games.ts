@@ -30,7 +30,7 @@ export function personGame(view: View): PersonGame {
   const status = view.status === 'aborted' ? 'The game ends with no result.' : state === 'waiting'
     ? invited ? 'Invite sent' : 'Waiting for a player'
     : state === 'setup' ? 'Getting the game ready'
-    : state === 'finished' ? view.result?.winner == null ? 'Draw' : view.result.winner === view.seat ? 'You win' : `${name} wins`
+    : state === 'finished' ? view.result?.winner == null ? 'Draw' : view.result.winner === view.seat ? 'You win' : 'They win'
     : claim ? `Time is up · ${view.abort_open ? 'end the game' : 'claim the win'}`
     : mine ? 'Your move' : late && view.action === 'ready' ? 'Time is up' : 'Their move';
   return { id: view.game_id, name, avatar, mine, deadline: view.deadline_at, state, status, preview: game ? savedPreview(new DraftTurn(game), view.seat) : null, view };
@@ -39,7 +39,7 @@ const rulesWords = (options: Options | null) => options?.kingPowers ? options.ca
 export function homeInvite(invitation: InvitationRow, now = Date.now()): HomeInvite {
   const name = invitation.player?.handle ?? 'A player', avatar = invitation.player?.avatar ?? null;
   if (invitation.direction === 'incoming') {
-    const left = timeWords(Date.parse(invitation.expires_at) - now);
+    const left = timeWords(Date.parse(invitation.expires_at) - now, true);
     return { id: invitation.invite_id, name, avatar, line: ['Invites you to a game', rulesWords(invitation.options), left].filter(Boolean).join(' · '), kind: 'incoming' };
   }
   return { id: invitation.invite_id, name, avatar, line: invitation.state === 'declined' ? 'Invite declined' : 'Invite expired', kind: invitation.state === 'declined' ? 'declined' : 'expired' };
@@ -52,7 +52,7 @@ export function gameOrder(a: Ordered, b: Ordered): number {
 }
 export function deadlineLine(deadline: string | null, now = Date.now()) {
   // No time left once the move time ran out (the status says "Time is up").
-  return deadline && Date.parse(deadline) > now ? timeWords(Date.parse(deadline) - now) : '';
+  return deadline && Date.parse(deadline) > now ? timeWords(Date.parse(deadline) - now, true) : '';
 }
 
 /** System copy on a person game keeps the same rules, with the correct opponent words. */

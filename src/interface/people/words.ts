@@ -5,9 +5,13 @@
 const MINUTE = 60_000, HOUR = 60 * MINUTE, DAY = 24 * HOUR;
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-/** The time that is left: "{n} days" from 2 days, "1 day", "{n} hours" under 24 hours, "less than 1 hour". It rounds down. */
-export function timeWords(ms: number): string {
-  if (ms >= 2 * DAY) return `${Math.floor(ms / DAY)} days`;
+/**
+ * The time that is left: "{n} days {h} hours" from 2 days ("{n} days" when the hours are 0), "1 day", "{n} hours" under 24 hours,
+ * "less than 1 hour". It rounds down. `short` (a narrow Home row) gives the nearest whole day from 2 days: at most 12 hours over the true time.
+ */
+export function timeWords(ms: number, short = false): string {
+  if (ms >= 2 * DAY && short) return `${Math.round(ms / DAY)} days`;
+  if (ms >= 2 * DAY) { const hours = Math.floor(ms % DAY / HOUR); return `${Math.floor(ms / DAY)} days${hours ? ' ' + count(hours, 'hour', 'hours') : ''}`; }
   if (ms >= DAY) return '1 day';
   if (ms >= HOUR) return count(Math.floor(ms / HOUR), 'hour', 'hours');
   return 'less than 1 hour';

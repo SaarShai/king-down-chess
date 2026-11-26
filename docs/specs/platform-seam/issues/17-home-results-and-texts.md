@@ -1,6 +1,6 @@
 # Home results, first Tab, and time words
 
-Status: ready-for-agent
+Status: done on branch web-followups-2; waits for the review.
 
 Class: B. Size: S.
 
@@ -14,6 +14,69 @@ Source: the two-account staging pass of PR 486 on 2026-11-26 (head `a36cee399`).
 4. **Low. A finished row says "<name> wins"**, and the row already shows the name. Wanted: "They win". The scene rule that a status must not repeat the name then holds for each status.
 5. **Low. A status wraps with one short word alone on line 2** ("win", "wins", "player") at 390x844, 844x390, 667x375 and 320x568. Wanted: the status is on one line, or it breaks only at the "·".
 6. **Low. The game header at 390x844 starts line 2 with the dot**: "Your move" / "· Time is up". Wanted: the break comes after the dot, or the dot goes away at the break.
+
+## Build (branch web-followups-2)
+
+Scope: points 1 to 6. Client only. Line numbers are on this branch.
+
+### 1. A result does not show on Home when the game ends in front of the player
+
+- Cause: `src/interface/people/host/index.ts:192-196` (`refresh`) dropped each result whose seen key matched; `index.ts:343` writes that key when a finished view arrives on the game page.
+- Change: `index.ts:194`: a result stays for 24 hours after `finished_at`, seen or not. After 24 hours the old rule applies. The limit of 10 rows and the seen-key write do not change.
+- Remove control: a game row has no "Dismiss" (only invite rows have one, `src/interface/play/home.ts:144`), so a result row goes only by the rules above. No control is added.
+- Continue card: `home.ts:101` takes only a game with `state === 'playing'`; a finished game is `state: 'finished'` and `mine: false` (`online.test.ts:151-153`), so it cannot be the card.
+- Red: `online.test.ts` (test "Home keeps a result row for 24 hours"): `expected [ 'unseen' ] to deeply equal [ 'edge', 'fresh', 'unseen' ]`.
+- Green: passes.
+
+### 2. The first Tab on Home does not show "Skip to content"
+
+- Cause: `src/interface/play/shell.ts:125` (old) focused the H1 after each draw, the first draw too; `src/interface/play/main.ts:567` (old) focused the Home title each time Home opened.
+- Change: `shell.ts:108, 197, 207-208`: `start()` sets `firstDraw` while it draws the first page; `shell.ts:127` then moves no focus. `main.ts:567` reads the same `shell.firstDraw`, so the two places agree. A route change in the app (Back, Guide, a game) moves the focus to the H1 as before.
+- Screen readers: the document title is the fixed "King Down" (`next.html:44`) and names the page on load; the new case checks it.
+- Check: `tools/verify-next-menus.mjs:253` case `first_tab` (390x844, 1280x720): after load no element has focus, the title is "King Down", one Tab focuses and shows the skip link, and Back from the Guide focuses the Home title. The `skip_link` case does not change (one stale comment only).
+- Red (old shell.ts and main.ts): `FAIL 390x844 first_tab the first draw moves no focus: H1 | the first Tab on Home focuses and shows the skip link`.
+- Green: see Gates.
+
+### 3. "2 days left" directly after a join with "3 days for each move"
+
+- Cause: `src/interface/people/words.ts:10` (old) `timeWords` gave whole days only, rounded down.
+- Change: `words.ts:12-14`: with 2 days or more, the words are days and hours ("2 days 23 hours"; "3 days" when the hours are 0). The other ranges do not change. The optional `short` argument gives the nearest whole day by rounding (`Math.round`): at most 12 hours over the true time, never more.
+- Choice: the game clock (`main.ts:1466`) takes the long words. The two Home lines take the short words, because the row is narrow: `deadlineLine` (`games.ts:55`) and the invite expiry (`games.ts:42`). So a game with 2 days 23 hours left shows "3 days" on Home and "2 days 23 hours left" on the game page.
+- Red: `words.test.ts:9`: `expected '2 days' to be '2 days 23 hours'`; `words.test.ts:22`: `expected '2 days' to be '3 days'`; `online.test.ts` (test "the Home lines give the nearest whole day"): `expected '2 days' to be '3 days'`.
+- Green: pass. `words.test.ts:26` holds the 12-hour limit from 2 to 8 days, one step each 7 minutes.
+
+### 4. A finished row says "<name> wins"
+
+- Cause: `src/interface/people/host/games.ts:33` (old) gave `${name} wins`.
+- Change: `games.ts:33`: "They win". The Home row and the Continue card use this status. The result line of the game page (`main.ts:460`, `onlineResult`) keeps the name; it does not read this status.
+- Red: `online.test.ts:151`: `expected { … } to match object { name: 'swift-guard-86', …, status: 'They win' }`; scene `home-results` at all sizes: `status "quiet-bishop-7 wins" repeats the name in a Home game row`.
+- Green: pass.
+
+### 5 and 6. A status breaks inside a part, and a line starts with "·"
+
+- Cause: the Home row status (`home.ts:132`, old) and the game header clock (`main.ts:1466`, old) were one text. A line could break inside a part ("2" / "days") or before the "·". The header has `text-wrap: balance` (`reading-b.css:379`), which put "· Time is up" on line 2.
+- Change: `home.ts:23` `statusParts`: each part is a `.text-part` box; the "·" ends the part before it, and a normal space comes between the boxes. `menus.css:369`: `.text-part { display: inline-block; max-width: 100%; }`: a line breaks only between the parts, and a part that alone is wider than its line wraps inside (no side scroll). The text stays "A · B". Callers: the Home game row (`home.ts:132`), the invite line (`home.ts:138`) and the game header clock (`main.ts:1466`).
+- Check: `tools/verify-play-scenes.mjs:227-249`: in a Home row status and the online header clock, no line starts with "·", and a part takes more than one line only when it alone is wider than its line. New scene `home-results` (`src/interface/play/scenes.ts:85-89`): a saved computer game, so each online game is a row: a claim row, a result that the friend won and a "Their move" row. It runs at the same sizes as `home-games`, with 667x375 and 844x390.
+- Red (old home.ts and main.ts): 83 cases fail, for example `status "Their move · Time is up" starts a line with "·"` (online-claim 320x568), `status "Their move · 2 days" breaks inside "2 days", which fits on one line` (home-games 844x390), `status "Time is up · claim the win" breaks inside "claim the win", which fits on one line` (home-results).
+- Green: see Gates.
+
+## Gates
+
+GATES
+
+## Not verified
+
+- No staging or two-account pass ran. Point 1 is proven with a unit test of `refresh()` on a stand-in server only; the end of a real game in front of both players is not driven.
+- Point 2 is checked in Chromium only, at 390x844 and 1280x720. No screen reader ran.
+- Points 5 and 6: no pictures before and after; the scene rule measures the breaks. No 667x375 picture of the game header.
+
+## Known limits
+
+- Point 1: the 24 hours use the device clock against the server `finished_at`. A wrong device clock makes the time longer or shorter.
+- Point 1: a result row inside the 24 hours has no control to remove it; it goes after 24 hours (if seen) or when 10 newer results push it out.
+- Point 2: a first load on a join link or an online game moves no focus either; the first Tab there goes to the first control of the page.
+- Point 3: Home and the game page can show different words for the same time ("3 days" and "2 days 23 hours left").
+- Points 5 and 6: a part wider than its line still wraps inside the part (for example at 320x568 with 150% text).
 
 ## Closed by design
 

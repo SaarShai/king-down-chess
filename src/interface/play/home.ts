@@ -16,6 +16,18 @@ import { deadlineLine, gameOrder, type HomeInvite, type PersonGame } from '../pe
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', content = '') => {
   const node = document.createElement(tag); node.className = className; node.textContent = content; return node;
 };
+/**
+ * A status of parts ("Their move · 3 days") breaks only after a "·": each part is a `.text-part` box (menus.css). A part that alone
+ * is wider than its line wraps inside. The text stays "A · B".
+ */
+export function statusParts<T extends HTMLElement>(node: T, parts: readonly string[]): T {
+  const shown = parts.filter(Boolean);
+  node.replaceChildren(...shown.flatMap((part, i) => {
+    const box = el('span', 'text-part', i < shown.length - 1 ? part + ' ·' : part);
+    return i ? [' ', box] : [box];
+  }));
+  return node;
+}
 export const homeText = {
   yourGame: 'Your game', turn: 'Turn',
   types: { pieces: text.noPowers, powers: text.powersNote, cards: text.cardsNote, both: text.bothNote },
@@ -117,13 +129,13 @@ export function playScreen(d: PlayData, art: Art, previous?: ReturnType<typeof c
     const row = el('button', 'home-game-row'); row.type = 'button'; row.dataset.game = game.id; row.dataset.mine = String(game.mine);
     const left = game.state === 'playing' ? deadlineLine(game.deadline) : '';
     const name = el('strong', '', game.name); name.title = game.name;
-    row.append(profilePortrait(game.name, game.avatar), name, el('span', '', [game.status, left].filter(Boolean).join(' · ')), icon('next'));
+    row.append(profilePortrait(game.name, game.avatar), name, statusParts(el('span'), [game.status, left]), icon('next'));
     row.addEventListener('click', () => d.onPersonGame(game.id));
     rows.push({ ...game, row });
   }
   for (const invite of d.invites ?? []) {
     const row = el('div', 'home-game-row home-invite-row'); row.dataset.invite = invite.id; row.dataset.inviteKind = invite.kind;
-    const copy = el('div', 'home-game-copy'); copy.append(el('strong', '', invite.name), el('span', '', invite.line));
+    const copy = el('div', 'home-game-copy'); copy.append(el('strong', '', invite.name), statusParts(el('span'), invite.line.split(' · ')));
     const actions = el('div', 'home-invite-actions');
     if (invite.kind === 'incoming') actions.append(
       button('Accept', { onPress: () => d.onAcceptInvite?.(invite.id) }),

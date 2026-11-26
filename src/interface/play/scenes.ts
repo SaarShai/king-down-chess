@@ -34,7 +34,7 @@ const THEIR_MOVE = { status: 'playing', turn: 1, action: 'waiting', in_check: fa
 const BOARD = '.play-game:has(.play-grid:not([inert])):has(.play-own .play-power)';
 const WITH_HAND = `${BOARD}:has(.play-hand > .play-card:nth-child(4):last-child)`;
 const knight = { control: '.play-square[data-square="6"]' };
-const ROW_0 = '00000000-0000-4000-8000-0000000000a0', ROW_A = '00000000-0000-4000-8000-0000000000a1', ROW_B = '00000000-0000-4000-8000-0000000000a2';
+const ROW_0 = '00000000-0000-4000-8000-0000000000a0', ROW_A = '00000000-0000-4000-8000-0000000000a1', ROW_B = '00000000-0000-4000-8000-0000000000a2', ROW_C = '00000000-0000-4000-8000-0000000000a3', ROW_D = '00000000-0000-4000-8000-0000000000a4';
 const LOSS = { status: 'finished', result: { winner: 1, reason: 'checkmate' }, fen: LOST, rematch_offer: null };
 const SCENES: Record<string, Scene> = {
   'online-loss': { online: LOSS, ready: '.play-result' },
@@ -82,6 +82,11 @@ const SCENES: Record<string, Scene> = {
   'home-games': { games: { [ROW_0]: { ...THEIR_MOVE, game_id: ROW_0, turn: 0, action: 'ready' }, [ROW_A]: { ...THEIR_MOVE, game_id: ROW_A, opponent: { ...THEIR_MOVE.opponent, handle: 'midnight-rook-42' } },
     [ROW_B]: { ...THEIR_MOVE, game_id: ROW_B, opponent: { ...THEIR_MOVE.opponent, handle: 'swift-guard-86' } } },
     ready: '.play-home .home-game-row[data-game]' },
+  // Ticket 17: with a saved computer game, every online game is a row: a claim row, a result that the friend won, and a "Their move" row.
+  'home-results': { save: SOLO, games: { [ROW_C]: { ...THEIR_MOVE, game_id: ROW_C, deadline_at: new Date(Date.now() - 60_000).toISOString(), opponent: { ...THEIR_MOVE.opponent, handle: 'bold-ogre-97' } },
+    [ROW_D]: { ...THEIR_MOVE, game_id: ROW_D, status: 'finished', action: 'done', result: { winner: 1, reason: 'resignation' }, deadline_at: null, opponent: { ...THEIR_MOVE.opponent, handle: 'quiet-bishop-7' } },
+    [ROW_A]: { ...THEIR_MOVE, game_id: ROW_A, opponent: { ...THEIR_MOVE.opponent, handle: 'midnight-rook-42' } } },
+    ready: `.play-home .home-game-row[data-game="${ROW_D}"]` },
   'setup-more': { save: SOLO, steps: [text.newGame, panelText.more], ready: '.setup-overlay:not([hidden]) [data-choice="more"]' },
   'setup-piece-pool': { save: SOLO, steps: [text.newGame, panelText.more, panelText.pool],
     ready: '.setup-overlay:not([hidden]) .pool-list .pool-row' },
