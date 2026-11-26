@@ -14,8 +14,9 @@ import { pauseClock } from './lib/page-clock.mjs';
 // name with an ellipsis, as the known mark at 320 px allows.
 const gameScreen = scene => /^(online|solo)-/.test(scene) && !['online-loss', 'online-loss-offer'].includes(scene);
 const withPanel = scene => gameScreen(scene) || ['new-game', 'setup-friend'].includes(scene);
-// home-games: the landscape Home (667x375, 844x390) splits its actions column between the name and the status of a game row.
-const SIZES = [[320, 568], [360, 640], [390, 844], [667, 375, scene => withPanel(scene) || scene === 'home-games'], [568, 320, withPanel], [736, 414, gameScreen], [900, 600, gameScreen], [844, 390, scene => scene === 'home-games'], [1280, 800]], SCALES = [100, 150];
+// home-games, home-results, home-claim: the landscape Home (667x375, 844x390) splits its actions column between the name and the status of a game row.
+const homeRows = scene => ['home-games', 'home-results', 'home-claim'].includes(scene);
+const SIZES = [[320, 568], [360, 640], [390, 844], [667, 375, scene => withPanel(scene) || homeRows(scene)], [568, 320, withPanel], [736, 414, gameScreen], [900, 600, gameScreen], [844, 390, homeRows], [1280, 800]], SCALES = [100, 150];
 const ROLES = ['button', 'link', 'switch', 'radio', 'checkbox', 'tab', 'menuitem', 'option', 'slider', 'textbox', 'combobox'];
 const SENTINEL = 'kingdown-scene-sentinel';
 
@@ -222,6 +223,30 @@ function homeNameFaults() {
     // The row shows the name; a status that repeats it breaks a long handle in a narrow row.
     const status = name.nextElementSibling;
     if (status?.matches('span') && name.textContent && status.textContent.includes(name.textContent)) out.push(`status "${status.textContent}" repeats the name in a Home game row`);
+  }
+  // Ticket 17, points 5 and 6: a status of parts ("A · B") breaks only after a "·". A part breaks only when it alone is wider than its line.
+  for (const line of document.querySelectorAll('.home-game-row > span:not(.profile-portrait), .home-state > strong, .home-game-copy > span, .play-game[data-online] .opponent-clock')) {
+    if (!line.checkVisibility({ visibilityProperty: true }) || !line.textContent.includes(' · ')) continue;
+    const chars = [], walk = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+    while (walk.nextNode()) for (let i = 0; i < walk.currentNode.length; i++) {
+      range.setStart(walk.currentNode, i); range.setEnd(walk.currentNode, i + 1);
+      const rect = [...range.getClientRects()].find(r => r.width > 0);
+      chars.push({ char: walk.currentNode.data[i], row: rect && !/\s/.test(walk.currentNode.data[i]) ? Math.round(rect.top / 4) : null });
+    }
+    const text = chars.map(c => c.char).join(''), rowOf = (from, step) => { for (let i = from; i >= 0 && i < chars.length; i += step) if (chars[i].row != null) return chars[i].row; return null; };
+    for (let i = text.indexOf('·'); i >= 0; i = text.indexOf('·', i + 1)) if (rowOf(i - 1, -1) !== chars[i].row) out.push(`status "${text}" starts a line with "·"`);
+    const font = getComputedStyle(line), probe = document.createElement('span');
+    Object.assign(probe.style, { position: 'absolute', whiteSpace: 'nowrap', font: font.font, letterSpacing: font.letterSpacing, visibility: 'hidden' });
+    let start = 0;
+    const parts = text.split(' · ');
+    for (const [i, part] of parts.entries()) {
+      const rows = new Set(chars.slice(start, start + part.length).map(c => c.row).filter(row => row != null));
+      // The "·" stays with its part, so the part with its "·" must fit.
+      probe.textContent = i < parts.length - 1 ? part + ' ·' : part; document.body.append(probe);
+      const wide = probe.getBoundingClientRect().width > line.clientWidth + 1; probe.remove();
+      if (rows.size > 1 && !wide) out.push(`status "${text}" breaks inside "${part}", which fits on one line`);
+      start += part.length + 3;
+    }
   }
   return out;
 }

@@ -12,7 +12,7 @@ import { rulesOf } from './saved';
 import { panelText, text } from './texts';
 
 type Step = string | { control: string };
-interface Scene { save?: object; online?: object; games?: Record<string, object>; steps?: Step[]; ready: string; readyText?: string }
+interface Scene { save?: object; online?: object; games?: Record<string, object>; invitations?: object[]; steps?: Step[]; top?: boolean; ready: string; readyText?: string }
 // White to move; the opponent's queen mates on h4 (the "fool's mate").
 const LOST = 'rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3';
 const SOLO = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'ai', rules: { kings: [null, null], hands: [[], []] }, pace: 'off' };
@@ -34,7 +34,16 @@ const THEIR_MOVE = { status: 'playing', turn: 1, action: 'waiting', in_check: fa
 const BOARD = '.play-game:has(.play-grid:not([inert])):has(.play-own .play-power)';
 const WITH_HAND = `${BOARD}:has(.play-hand > .play-card:nth-child(4):last-child)`;
 const knight = { control: '.play-square[data-square="6"]' };
-const ROW_0 = '00000000-0000-4000-8000-0000000000a0', ROW_A = '00000000-0000-4000-8000-0000000000a1', ROW_B = '00000000-0000-4000-8000-0000000000a2';
+const ROW_0 = '00000000-0000-4000-8000-0000000000a0', ROW_A = '00000000-0000-4000-8000-0000000000a1', ROW_B = '00000000-0000-4000-8000-0000000000a2', ROW_C = '00000000-0000-4000-8000-0000000000a3', ROW_D = '00000000-0000-4000-8000-0000000000a4';
+// Ticket 17: a claim game (the friend's time is up), a result that the friend won, and a "Their move" game.
+const RESULT_GAMES = {
+  [ROW_C]: { ...THEIR_MOVE, game_id: ROW_C, deadline_at: new Date(Date.now() - 60_000).toISOString(), opponent: { ...THEIR_MOVE.opponent, handle: 'bold-ogre-97' } },
+  [ROW_D]: { ...THEIR_MOVE, game_id: ROW_D, status: 'finished', action: 'done', result: { winner: 1, reason: 'resignation' }, deadline_at: null, opponent: { ...THEIR_MOVE.opponent, handle: 'quiet-bishop-7' } },
+  [ROW_A]: { ...THEIR_MOVE, game_id: ROW_A, opponent: { ...THEIR_MOVE.opponent, handle: 'midnight-rook-42' } },
+};
+const INVITATION = { revision: 1, invite_id: '00000000-0000-4000-8000-0000000000b1', game_id: '00000000-0000-4000-8000-0000000000b2', direction: 'incoming',
+  recipient_id: '00000000-0000-4000-8000-000000000002', player: { user_id: '00000000-0000-4000-8000-0000000000b3', handle: 'brave-knight-31', icon: 'frost', avatar: null },
+  options: null, expires_at: new Date(Date.now() + 3 * 86_400_000).toISOString(), state: 'open' };
 const LOSS = { status: 'finished', result: { winner: 1, reason: 'checkmate' }, fen: LOST, rematch_offer: null };
 const SCENES: Record<string, Scene> = {
   'online-loss': { online: LOSS, ready: '.play-result' },
@@ -82,6 +91,14 @@ const SCENES: Record<string, Scene> = {
   'home-games': { games: { [ROW_0]: { ...THEIR_MOVE, game_id: ROW_0, turn: 0, action: 'ready' }, [ROW_A]: { ...THEIR_MOVE, game_id: ROW_A, opponent: { ...THEIR_MOVE.opponent, handle: 'midnight-rook-42' } },
     [ROW_B]: { ...THEIR_MOVE, game_id: ROW_B, opponent: { ...THEIR_MOVE.opponent, handle: 'swift-guard-86' } } },
     ready: '.play-home .home-game-row[data-game]' },
+  // Ticket 17: with a saved computer game, every online game is a row: a claim row, a result that the friend won, and a "Their move" row.
+  // An incoming invitation shows its line ("Invites you to a game · Pieces · 3 days"). With 4 rows the list folds, so the scene opens all games.
+  // The press focuses the fourth row and scrolls to it; `top` takes the page back to the top, at rest.
+  'home-results': { save: SOLO, games: RESULT_GAMES, invitations: [INVITATION], steps: ['Show all games'], top: true,
+    ready: `.play-home:has(.home-invite-row) .home-game-row[data-game="${ROW_D}"]` },
+  // The same games with no saved computer game: the claim game is the Continue card, and its status has two parts.
+  'home-claim': { games: RESULT_GAMES, invitations: [INVITATION],
+    ready: `.play-home:has(.home-invite-row):has(.home-game-row[data-game="${ROW_D}"]) .home-card .home-state > strong > .text-part` },
   'setup-more': { save: SOLO, steps: [text.newGame, panelText.more], ready: '.setup-overlay:not([hidden]) [data-choice="more"]' },
   'setup-piece-pool': { save: SOLO, steps: [text.newGame, panelText.more, panelText.pool],
     ready: '.setup-overlay:not([hidden]) .pool-list .pool-row' },
@@ -117,7 +134,7 @@ const answer = (path: string, method: string) => {
   if (method === 'GET' && path.startsWith('/api/games/') && scene?.games?.[path.slice(11)]) return json(view(scene.games[path.slice(11)]));
   if (method === 'GET' && path === `/api/games/${GAME}`) return json(view(scene?.online ?? {}));
   if (path === '/api/me/settings') return json({ settings: {}, me: { handle: 'alex', icon: 'flame' } });
-  if (path === '/api/me/games') return json({ games: Object.keys(scene?.games ?? {}).map(game_id => ({ game_id })), invitations: [], next_before: null });
+  if (path === '/api/me/games') return json({ games: Object.keys(scene?.games ?? {}).map(game_id => ({ game_id })), invitations: scene?.invitations ?? [], next_before: null });
   if (path === '/api/me/record') return json({ handle: 'alex', icon: 'flame', record: {}, notices: [], blocks: [], history: [], next_before: null });
   if (method === 'POST' && path.endsWith('/seen')) return json(null, 204);
   return json({ code: 'NOT_FOUND', message: 'Not in the scene' }, 404);
@@ -157,6 +174,7 @@ if (!scene) {
   if (scene.online) { localStorage.setItem('kingdown.auth', JSON.stringify(session)); history.replaceState(null, '', `${location.search}#online=${GAME}`); }
   await import('./main');
   for (const step of scene.steps ?? []) { await press(step); await frame(); await settled(); }
+  if (scene.top) { (document.activeElement as HTMLElement | null)?.blur(); for (const node of [document.scrollingElement, ...document.querySelectorAll('*')]) if (node?.scrollTop) node.scrollTop = 0; }
   await find(() => [...document.querySelectorAll(scene.ready)].find(node =>
     shown(node) && (scene.readyText == null || node.textContent?.trim() === scene.readyText)));
   await document.fonts.ready; await settled(); await frame(); await frame();

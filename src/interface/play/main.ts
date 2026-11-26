@@ -41,7 +41,7 @@ import { fitReader, narratorView, readerNodes, readerView, resetFit, sentences, 
 import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, gameFacts, savedPlayTime, storeChoice as store, storedChoice as stored, storedGameType, storedVibration, storeVibration, type GameType as Setup, type KeptOffer, type Level } from './saved';
 import { arrowStep, fileLabelRow, rankLabelColumn, sideText, SIDE_CHOICES, SIDE_KEY, squareAt, type SideChoice } from './sides';
 import { changeDraft, createDraft, OPTIONS_KEY, PANEL_KEY, readPanel, readOptions, rulesFor, startOf, type NewGameDraft } from './new-game';
-import { playScreen, type Art } from './home';
+import { playScreen, statusParts, type Art } from './home';
 import { clearResult, markedResult, markResult } from './result-mark';
 import { newGamePanel } from './setup-table';
 import { dismissSheet, gameMenu, settingsSheet, type Settings } from './menus';
@@ -564,7 +564,7 @@ function home(newArmy = false) {
     root.replaceChildren(play.element, ...(old ? [old] : []));
     play.reveal.sync();
   }
-  if (enteringHome) play.focus(); else if (focused) play.element.querySelector<HTMLElement>(focused)?.focus({ preventScroll: true });
+  if (enteringHome) { if (!shell.firstDraw) play.focus(); } else if (focused) play.element.querySelector<HTMLElement>(focused)?.focus({ preventScroll: true });
   homePoll?.update();
   if (old) void screenChange(old, play.element, true).then(() => { old.remove(); oldBoard?.dispose(); }); else oldBoard?.dispose();
 }
@@ -1463,7 +1463,7 @@ function update() {
     const nextSrc = allowedAvatarUrl(oppAvatar) ? oppAvatar : null;
     const currentSrc = face?.dataset.avatar ?? null;
     if (face && (currentSrc !== nextSrc || nameChanged)) face.replaceWith(profilePortrait(oppName, oppAvatar));
-    if (clock) clock.textContent = state.clock.left == null ? '' : `${state.clock.mine ? 'Your move' : 'Their move'} · ${state.clock.left <= 0 ? 'Time is up' : timeWords(state.clock.left) + ' left'}`;
+    if (clock) statusParts(clock, state.clock.left == null ? [] : [state.clock.mine ? 'Your move' : 'Their move', state.clock.left <= 0 ? 'Time is up' : timeWords(state.clock.left, true) + ' left']);
   }
   if (arrangement && !ended) { updateArrangement(); return; }
   screen.querySelector('.play-grid')!.setAttribute('aria-description', text.shortcuts);

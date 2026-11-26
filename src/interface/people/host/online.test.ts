@@ -146,6 +146,41 @@ it('the other player sees that the time is up and that a claim is possible; the 
   expect(personGame(long).status).not.toContain('midnight-rook-42');
   expect(personGame({ ...base, kind: 'solo', deadline_at: past } as View)).toMatchObject({ mine: false });
 });
+it('a finished row says "They win" when the friend wins; the name is in the row (ticket 17, point 4)', () => {
+  const base = { game_id: 'g', revision: 9, seat: 0, status: 'finished', action: 'done', turn: 1, kind: 'friend', speed: 'daily', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', last_commands: [], server_now: new Date().toISOString(), opponent: { handle: 'swift-guard-86', icon: null, avatar: null, computer: false, deleted: false }, draw_offer: null, abort_open: false, legal: [], deadline_at: null } as never as View;
+  expect(personGame({ ...base, result: { winner: 1, reason: 'resignation' } } as View)).toMatchObject({ name: 'swift-guard-86', state: 'finished', mine: false, status: 'They win' });
+  expect(personGame({ ...base, result: { winner: 0, reason: 'resignation' } } as View)).toMatchObject({ state: 'finished', mine: false, status: 'You win' });
+  expect(personGame({ ...base, result: { winner: null, reason: 'agreement' } } as View)).toMatchObject({ state: 'finished', mine: false, status: 'Draw' });
+});
+it('the Home lines give the nearest whole day from 2 days (ticket 17, point 3)', () => {
+  const HOUR = 3_600_000, DAY = 24 * HOUR, now = Date.parse('2026-11-26T12:00:00Z'), at = (ms: number) => new Date(now + ms).toISOString();
+  expect(deadlineLine(at(3 * DAY - 60_000), now)).toBe('3 days');
+  expect(deadlineLine(at(2 * DAY + 11 * HOUR), now)).toBe('2 days');
+  const invite = { invite_id: 'i', game_id: 'g', direction: 'incoming', state: 'open', options: null, player: { handle: 'bo', avatar: null }, expires_at: at(6 * DAY + 20 * HOUR) } as never;
+  expect(homeInvite(invite, now).line).toBe('Invites you to a game · Pieces · 7 days');
+});
+it('Home keeps a result row for 24 hours after the end, seen or not; after that only an unseen result stays (ticket 17, point 1)', async () => {
+  vi.stubGlobal('location', new URL('https://kingdown.test/next.html')); vi.stubGlobal('history', { state: {}, replaceState: vi.fn() });
+  vi.stubGlobal('sessionStorage', memoryStorage()); vi.stubGlobal('navigator', {}); vi.stubGlobal('matchMedia', () => ({ matches: false }));
+  const HOUR = 3_600_000, ago = (hours: number) => new Date(Date.now() - hours * HOUR).toISOString();
+  const rows = { fresh: ago(1), edge: ago(23.9), old: ago(25), unseen: ago(30) };
+  const storage = memoryStorage();
+  for (const id of ['fresh', 'edge', 'old'] as const) storage.setItem(`kingdown.people-seen.alice.${id}`, rows[id]);
+  const send = vi.fn(async (input: RequestInfo | URL) => {
+    const path = new URL(String(input), 'https://kingdown.test').pathname;
+    if (path === '/api/me/games') return Response.json({ games: [], invitations: [] });
+    if (path === '/api/me/record') return Response.json({ history: Object.entries(rows).map(([game_id, finished_at]) => ({ game_id, finished_at, result: 'won', opponent: { handle: 'bo', computer: false, deleted: false } })) });
+    if (path.startsWith('/api/games/')) return Response.json({ game_id: path.slice(11), status: 'finished', seat: 0, result: { winner: 0, reason: 'resignation' } });
+    return Response.json({ me: { handle: 'alice', icon: null } });
+  });
+  const { onlineHost } = await import('./index');
+  const host = onlineHost({ auth: async () => ({ onSession() {}, readSession: async () => ({ userId: 'alice', accessToken: 'alice' }) }) as never,
+    storage, fetch: send, rules: () => 'pieces', setRules() {}, changed() {}, open() {}, home() {}, toast() {} });
+  await host.signIn(); await host.refresh();
+  expect(host.views.map(view => view.game_id).sort()).toEqual(['edge', 'fresh', 'unseen']);
+  // The seen key does not change.
+  expect(storage.getItem('kingdown.people-seen.alice.fresh')).toBe(rows.fresh);
+});
 it('each computer level has its approved portrait', () => {
   expect(['casual','clever','club'].map(level => computerPortrait(level as 'casual'))).toEqual([1,2,3].map(n => `/interface/computer-king-${n}-96.webp`));
 });

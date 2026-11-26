@@ -189,7 +189,9 @@ export function onlineHost(options: HostOptions) {
         const nextUpdates = invitationRows.filter(row => row.direction === 'outgoing' && (row.state === 'declined' || row.state === 'expired') && (() => {
           try { return storage.getItem(inviteSeenKey(session!.userId, row.invite_id)) !== row.state; } catch { return true; }
         })());
+        // A result stays for 24 hours after the end, seen or not (both players often see the end on the game page); after that, only an unseen result.
         const finished = record.history.filter(row => {
+          if (Date.now() - Date.parse(row.finished_at) < 86_400_000) return true;
           try { return storage.getItem(`kingdown.people-seen.${session!.userId}.${row.game_id}`) !== row.finished_at; } catch { return true; }
         }).slice(0, 10);
         const answers = await Promise.allSettled([...new Set([...inbox.map(row => row.game_id), ...finished.map(row => row.game_id)])].map(id => api.game(id)));

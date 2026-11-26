@@ -238,7 +238,7 @@ const cases = {
     await page.goto(NEXT); await page.waitForSelector('.play-home');
     const shown = () => page.locator('.shell-skip').evaluate(node => node === document.activeElement && getComputedStyle(node).transform === 'none');
     const focusSkip = () => page.locator('.shell-skip').evaluate(node => { node.blur(); node.focus(); });
-    // A mouse click on the Home title focuses it (tabindex -1; the page focuses it at load, so blur it first); a script then
+    // A mouse click on the Home title focuses it (tabindex -1; blur any focus first); a script then
     // moves the focus, as "Show all games" does.
     await page.evaluate(() => document.activeElement?.blur());
     await page.locator('.play-home h1').click();
@@ -249,6 +249,20 @@ const cases = {
     // A key press makes the next focus a keyboard focus.
     await page.keyboard.press('Shift'); await focusSkip();
     check(await shown(), 'keyboard focus shows the skip link');
+  },
+  async first_tab(page, context, check, size) {
+    // Ticket 17, point 2: the first draw moves no focus, so the first Tab on Home goes to the skip link and shows it.
+    if (!['390x844', '1280x720'].includes(size)) return 'skip';
+    await page.goto(NEXT); await page.waitForSelector('.play-home .home-topbar');
+    await page.waitForTimeout(500);
+    check(await page.evaluate(() => document.activeElement === document.body), `the first draw moves no focus: ${await page.evaluate(() => document.activeElement?.tagName)}`);
+    check(await page.title() === 'King Down', 'the document title names the page on load');
+    await page.keyboard.press('Tab');
+    check(await page.locator('.shell-skip').evaluate(node => node === document.activeElement && node.matches(':focus-visible') && getComputedStyle(node).transform === 'none'), 'the first Tab on Home focuses and shows the skip link');
+    // A route change in the app still moves the focus to the title. The shown skip link covers Guide on a phone: blur it first.
+    await page.evaluate(() => document.activeElement?.blur()); await page.locator('.home-guide-btn').click(); await page.waitForSelector('.guide-page');
+    await page.goBack(); await page.waitForSelector('.play-home .home-topbar');
+    check(await page.evaluate(() => document.activeElement?.matches('.play-home h1')), 'Back to Home moves the focus to the title');
   },
   async home_art(page, context, check) {
     await context.route('**/ui/pieces/*.webp', r => r.abort());
