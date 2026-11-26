@@ -42,9 +42,9 @@ export function homeInvite(invitation: InvitationRow, now = Date.now()): HomeInv
   return { id: invitation.invite_id, name, avatar, line: invitation.state === 'declined' ? 'Invite declined' : 'Invite expired', kind: invitation.state === 'declined' ? 'declined' : 'expired' };
 }
 type Ordered = Pick<PersonGame, 'mine' | 'deadline' | 'state'> & { invite?: boolean };
-/** Invite rows come first, so an answer to an invite shows in the three rows that Home shows. */
+/** Invite rows rank with "Your move" games; they have no deadline, so they come after those games and before all other rows. */
 export function gameOrder(a: Ordered, b: Ordered): number {
-  const rank = (game: Ordered) => game.invite ? -1 : game.mine ? 0 : game.state === 'playing' || game.state === 'setup' ? 1 : game.state === 'finished' ? 2 : 3;
+  const rank = (game: Ordered) => game.mine || game.invite ? 0 : game.state === 'playing' || game.state === 'setup' ? 1 : game.state === 'finished' ? 2 : 3;
   return rank(a) - rank(b) || (a.deadline ? Date.parse(a.deadline) : Infinity) - (b.deadline ? Date.parse(b.deadline) : Infinity) || 0;
 }
 export function deadlineLine(deadline: string | null, now = Date.now()) {
@@ -59,7 +59,7 @@ export function personTurn(state: Pick<PeopleState, 'phase' | 'connection'> & Pa
   if (state.connection === 'auth') return 'Sign in to send your turn.';
   if (state.connection === 'offline') return 'You are offline. Your unsent turn stays.';
   // Your clock ran out (controller `late`): the controls lock until the server ends the game.
-  if (state.phase === 'their-move' && state.clock?.mine) return 'Your time to move is up. The game ends soon.';
+  if (state.phase === 'their-move' && state.clock?.mine) return 'Your time to move is up.';
   if (state.phase === 'waiting') return 'Waiting for a player';
   if (state.phase === 'setup') return 'Getting the game ready';
   if (state.phase === 'sending') return 'Sending your turn…';

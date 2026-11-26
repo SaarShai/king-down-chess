@@ -299,7 +299,7 @@ it('time up on your own move: the controls lock, the clock still says your move'
   const late = w.alice.controller.state();
   expect(late).toMatchObject({ draft: undefined, received: undefined, canSend: false, claim: null, clock: { mine: true } });
   expect(late.clock.left!).toBeLessThan(0);
-  expect(personTurn(late)).toBe('Your time to move is up. The game ends soon.');
+  expect(personTurn(late)).toBe('Your time to move is up.');
 });
 
 it('recovery states: the game is gone, another account, and the service down after three failed reads', async () => {

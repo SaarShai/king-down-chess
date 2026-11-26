@@ -46,6 +46,7 @@ import { clearResult, markedResult, markResult } from './result-mark';
 import { newGamePanel } from './setup-table';
 import { dismissSheet, gameMenu, settingsSheet, type Settings } from './menus';
 import { allowedAvatarUrl } from '../../account/public-config';
+import { AUTH_KEY } from '../../account/session';
 import { computerPortrait, profilePortrait } from '../people/host/portrait';
 import type { OnlineHost } from '../people/host/index';
 import { ObsoleteAction } from '../people/server';
@@ -226,8 +227,10 @@ let people: OnlineHost | undefined, peopleReady: Promise<OnlineHost> | undefined
 let peopleStatus: 'checking' | 'ready' | 'failed' = 'checking', accountNote = '';
 const peopleLoadError = 'Online play cannot load. Check your connection and try again.';
 const signInRetry = 'Sign-in does not finish. Try again.';
-// A failed load (offline, no account code) does not know the account: no Sign in, only the neutral settings button.
-const showHomeSignIn = () => peopleStatus === 'ready' && !people?.signedIn;
+// A failed load (offline, no account code) with a stored session does not know the account: no Sign in. With no stored
+// session (the key that the people host init reads), Sign in shows.
+const showHomeSignIn = () => peopleStatus === 'ready' ? !people?.signedIn : peopleStatus === 'failed' && !storedSession();
+function storedSession() { try { return !!localStorage.getItem(AUTH_KEY); } catch { return false; } }
 let homePoll: ReturnType<typeof runPoll> | undefined;
 function gameWords(line: string) { return onlineActive ? personWords(line) : line; }
 let mountingOnline = false, shownRevision = -1, onlineNote = '', onlineReconnecting = false;

@@ -107,9 +107,13 @@ it('game order puts your move first, then deadlines, results and waiting links',
   const row = (id: string, mine: boolean, state: 'playing' | 'finished' | 'waiting', deadline: string | null = null) => ({ id, mine, state, deadline });
   const rows = [row('link',false,'waiting'),row('result',false,'finished'),row('later',false,'playing','2026-11-18'),row('mine',true,'playing'),row('soon',false,'playing','2026-11-15')];
   expect(rows.sort(gameOrder).map(row => row.id)).toEqual(['mine','soon','later','result','link']);
-  // An invite row (incoming, or a declined or expired update) comes before your moves: Home shows only three rows.
-  const declined = { ...row('declined',false,'finished'), invite: true };
-  expect([row('a',true,'playing'),row('b',true,'playing'),row('c',true,'playing'),declined].sort(gameOrder)[0].id).toBe('declined');
+  // An invite row (incoming, or a declined or expired update) ranks with your moves. It has no deadline, so it comes after
+  // your moves with a deadline and before all other rows. Home shows only three rows.
+  const invite = (id: string) => ({ ...row(id,false,'finished'), invite: true });
+  expect([row('a',true,'playing','2026-11-15'),row('b',true,'playing','2026-11-16'),row('c',true,'playing','2026-11-17'),invite('declined')].sort(gameOrder).map(row => row.id)).toEqual(['a','b','c','declined']);
+  // Three invite rows do not push a "Your move" game out of the first three rows.
+  expect([invite('i1'),invite('i2'),invite('i3'),row('mine',true,'playing','2026-11-15')].sort(gameOrder)[0].id).toBe('mine');
+  expect([row('theirs',false,'playing','2026-11-15'),invite('declined')].sort(gameOrder).map(row => row.id)).toEqual(['declined','theirs']);
 });
 it('a sent invite or link is a short status on Home, not a note that stays (the sent texts only)', () => {
   expect([personText.linkCopied, personText.linkSent, personText.inviteSent('swift-guard-86')].map(passingNote)).toEqual([true, true, true]);
