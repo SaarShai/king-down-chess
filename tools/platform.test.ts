@@ -51,6 +51,20 @@ it('keeps the launch legal facts and the old in-app deletion path', () => {
   for (const page of ['terms', 'support', 'delete-data']) expect(legal(page)).toContain('href="/play"');
   expect(legal('delete-data')).toContain('Settings → Account');
 });
+it('leads with the kingdown.dev paths and keeps the /play path second', () => {
+  const plain = (page: string) => legal(page).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').replace(/&amp;/g, '&');
+  for (const page of ['support', 'terms', 'delete-data']) expect(legal(page), page).toContain('Last updated: 26 November 2026');
+  const remove = plain('delete-data');
+  expect(remove.indexOf('Open Account & settings. In Account, choose Delete account and confirm.')).toBeGreaterThan(-1);
+  expect(remove.indexOf('Open Account & settings')).toBeLessThan(remove.indexOf('Settings → Account'));
+  const support = plain('support');
+  expect(support).toContain('Open kingdown.dev and select Play to play the computer. To play a person, select Play a friend and sign in.');
+  expect(support.indexOf('select Play a friend')).toBeLessThan(support.indexOf('Play King Down'));
+  expect(support.match(/If you already have access to the King Down app in ChatGPT/g)?.length).toBeGreaterThanOrEqual(2);
+  expect(support.indexOf('After the game, select Player options, then Report player.')).toBeLessThan(support.indexOf('At /play, the Menu has Report player too.'));
+  const terms = plain('terms');
+  expect(terms.indexOf('select Play a friend on kingdown.dev and sign in')).toBeLessThan(terms.indexOf('The older online game at /play'));
+});
 it('names King Down in the launch HTML before script execution', () => {
   const html = readFileSync('next.html', 'utf8');
   expect(Array.from(html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi), ([, title]) => title.trim())).toEqual(['King Down']);
