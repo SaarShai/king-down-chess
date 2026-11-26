@@ -69,7 +69,7 @@ Scope: points 1 to 6. Client only. Line numbers are on this branch.
 - `src/interface/people/words.ts:10`: the comment of `short` names the Home rows, the invite line and the game header.
 - `src/interface/play/home.ts:168`: the Continue card status of a person game uses `statusParts`, as the rows do.
 - `tools/verify-play-scenes.mjs:228`: the scene rule also measures the Continue card status (`.home-state > strong`) and the invite line (`.home-game-copy > span`).
-- `src/interface/play/scenes.ts`: the scene server returns the invitations of a scene. `home-results` has one incoming invitation; with 4 rows the list folds, so the scene presses "Show all games" first. The new scene `home-claim` has the same games and invitation with no saved computer game, so the claim game is the Continue card ("Time is up · claim the win"). It runs at the same sizes as `home-results`.
+- `src/interface/play/scenes.ts`: the scene server returns the invitations of a scene. `home-results` has one incoming invitation; with 4 rows the list folds, so the scene presses "Show all games" first and then goes back to the top of the page (the press scrolls to the fourth row). The new scene `home-claim` has the same games and invitation with no saved computer game, so the claim game is the Continue card ("Time is up · claim the win"). It runs at the same sizes as `home-results`.
 - Ticket, point 2: the screen-reader text says that the title names the site, and that a first load of a deep link does not announce the page name. Known limits: the 24-hour result rows read each finished game again on each Home refresh.
 
 ## Gates

@@ -12,7 +12,7 @@ import { rulesOf } from './saved';
 import { panelText, text } from './texts';
 
 type Step = string | { control: string };
-interface Scene { save?: object; online?: object; games?: Record<string, object>; invitations?: object[]; steps?: Step[]; ready: string; readyText?: string }
+interface Scene { save?: object; online?: object; games?: Record<string, object>; invitations?: object[]; steps?: Step[]; top?: boolean; ready: string; readyText?: string }
 // White to move; the opponent's queen mates on h4 (the "fool's mate").
 const LOST = 'rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3';
 const SOLO = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'ai', rules: { kings: [null, null], hands: [[], []] }, pace: 'off' };
@@ -93,7 +93,8 @@ const SCENES: Record<string, Scene> = {
     ready: '.play-home .home-game-row[data-game]' },
   // Ticket 17: with a saved computer game, every online game is a row: a claim row, a result that the friend won, and a "Their move" row.
   // An incoming invitation shows its line ("Invites you to a game · Pieces · 3 days"). With 4 rows the list folds, so the scene opens all games.
-  'home-results': { save: SOLO, games: RESULT_GAMES, invitations: [INVITATION], steps: ['Show all games'],
+  // The press focuses the fourth row and scrolls to it; `top` takes the page back to the top, at rest.
+  'home-results': { save: SOLO, games: RESULT_GAMES, invitations: [INVITATION], steps: ['Show all games'], top: true,
     ready: `.play-home:has(.home-invite-row) .home-game-row[data-game="${ROW_D}"]` },
   // The same games with no saved computer game: the claim game is the Continue card, and its status has two parts.
   'home-claim': { games: RESULT_GAMES, invitations: [INVITATION],
@@ -173,6 +174,7 @@ if (!scene) {
   if (scene.online) { localStorage.setItem('kingdown.auth', JSON.stringify(session)); history.replaceState(null, '', `${location.search}#online=${GAME}`); }
   await import('./main');
   for (const step of scene.steps ?? []) { await press(step); await frame(); await settled(); }
+  if (scene.top) { (document.activeElement as HTMLElement | null)?.blur(); for (const node of [document.scrollingElement, ...document.querySelectorAll('*')]) if (node?.scrollTop) node.scrollTop = 0; }
   await find(() => [...document.querySelectorAll(scene.ready)].find(node =>
     shown(node) && (scene.readyText == null || node.textContent?.trim() === scene.readyText)));
   await document.fonts.ready; await settled(); await frame(); await frame();
