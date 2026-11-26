@@ -53,7 +53,7 @@ import { ObsoleteAction } from '../people/server';
 import type { PeopleState } from '../people/controller';
 import { lastTurnOf } from '../people/replica';
 import { seatKingUnsaved } from '../people/seat-king';
-import { homeInvite, personGame, personTurn, personWords } from '../people/host/games';
+import { homeInvite, personGame, personTurn, personWords, timeUpLine } from '../people/host/games';
 import { timeWords } from '../people/words';
 import { runPoll } from '../../plugin/poll';
 import { landingText, passingNote, signInText } from '../people/screens/copy';
@@ -206,6 +206,7 @@ function showGameMessage(message: string) {
   if (!reducedMotion()) stay = later(1800, close);
 }
 
+const lockedLine = () => onlineActive ? timeUpLine(people?.controller?.state() ?? onlineState) : undefined;
 function refuse(message: string, square?: number, reason?: Refusal | null) {
   notice = message;
   if (square != null && !freezeArmed()) cue('no');
@@ -795,7 +796,7 @@ async function start(resumed?: { game: Game; draft: DraftTurn; level: Level; pla
     finish: () => { void finish(); },
     refusedFinish: () => {
       if (arrangement || ended || fault) return;
-      const reason = refusalReason({ draft, player, inputLocked: thinking }, { kind: 'end' });
+      const reason = refusalReason({ draft, player, inputLocked: thinking, lockedLine: lockedLine() }, { kind: 'end' });
       if (reason) gameHelp?.showRefusal(reason, controls.finish, helpAvoid());
     },
   });
@@ -1046,7 +1047,7 @@ function tap(square: number) {
   if (ended) reading = 'result';
   if (choice.length) clearChoice();
   const pos = draft.position, code = pos.board[square], source = draft.chain ? draft.previewMove!.from : selected;
-  const reason = refusalReason({ draft, player, inputLocked: thinking }, { kind: 'board', square, source });
+  const reason = refusalReason({ draft, player, inputLocked: thinking, lockedLine: lockedLine() }, { kind: 'board', square, source });
   const refuseAt = (fallback: string) => refuse(reason?.line ?? fallback, square, reason);
   if (!ended && !thinking && !draft.open && !draft.chain) { refuseAt(text.staged); return; }
   if (ended || thinking) {
@@ -1961,7 +1962,7 @@ function pressResource(res: Resource) {
   gameHelp?.close(); skipBoard();
   if (ended) return; // the last reply can end the game inside skipBoard: the result keeps its place (decision 129)
   clearChoice(); selected = inspected = null; reading = 'normal'; shown = res;
-  const reason = res.side === player && res.card != null && res.key ? refusalReason({ draft, player, inputLocked: thinking },
+  const reason = res.side === player && res.card != null && res.key ? refusalReason({ draft, player, inputLocked: thinking, lockedLine: lockedLine() },
     { kind: 'card', index: res.card, key: res.key }) : null;
   const spent = res.control.dataset.spent === 'true', short = res.side === cpu() && res.subject.kind === 'power' ? opponentLines[res.subject.id] ?? res.short : res.short;
   // The owner line of the reading area names who has a power; the cancel line names a card or a power (reading decisions 19 and 22).

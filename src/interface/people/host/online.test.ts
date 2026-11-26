@@ -5,7 +5,7 @@ import { M, N, R, typeOf } from '../../../rules/engine';
 import { DraftTurn } from '../../play/turn';
 import { memoryStorage } from '../fake-server';
 import { draftKey, inviteURL, keepDraft, onlineOptions, restoreDraft } from './index';
-import { deadlineLine, gameOrder, homeInvite, personGame, personTurn, personWords } from './games';
+import { deadlineLine, gameOrder, homeInvite, personGame, personTurn, personWords, timeUpLine } from './games';
 import { computerPortrait } from './portrait';
 import type { PeopleState } from '../controller';
 import { fixtureService } from '../../../../tools/plugin-protocol-fixture';
@@ -127,6 +127,13 @@ it('a game whose move time ran out on your turn is not "Your move" on Home', () 
   // A row whose move time ran out shows no time left (ticket 16, point 2).
   expect(deadlineLine(past)).toBe('');
   expect(deadlineLine(future)).toBe('23 hours');
+});
+it('a tap after the own move time ran out gives the turn line (ticket 16, point 4)', () => {
+  expect(timeUpLine({ phase: 'their-move', clock: { mine: true, left: 0 } })).toBe('Your time to move is up.');
+  expect(timeUpLine({ phase: 'their-move', clock: { mine: true, left: 0 } })).toBe(personTurn({ phase: 'their-move', connection: 'online', clock: { mine: true, left: 0 } }));
+  expect(timeUpLine({ phase: 'their-move', clock: { mine: false, left: 0 } })).toBeUndefined();
+  expect(timeUpLine({ phase: 'sending', clock: { mine: true, left: 10 } })).toBeUndefined();
+  expect(timeUpLine(undefined)).toBeUndefined();
 });
 it('the other player sees that the time is up and that a claim is possible; the row needs that player (ticket 16, point 3)', () => {
   const past = new Date(Date.now() - 60_000).toISOString(), future = new Date(Date.now() + 864e5).toISOString();

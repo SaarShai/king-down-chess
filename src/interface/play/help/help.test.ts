@@ -78,6 +78,9 @@ describe('Refused taps', () => {
     const tap = { kind: 'board', square: sq('a2'), source: null } as const;
     expect(refusalReason({ draft, player: 1 }, tap)?.code).toBe('not-your-turn');
     expect(refusalReason({ draft, player: 0, inputLocked: true }, tap)?.code).toBe('not-your-turn');
+    // Ticket 16, point 4: after the own move time ran out, a tap gives the turn line, not "Wait for your turn.".
+    expect(refusalReason({ draft, player: 0, inputLocked: true, lockedLine: 'Your time to move is up.' }, tap)).toEqual({ code: 'not-your-turn', line: 'Your time to move is up.' });
+    expect(refusalReason({ draft, player: 0, inputLocked: true, lockedLine: undefined }, tap)?.line).toBe('Wait for your turn.');
     expect(refusalReason({ draft, player: 0, previewBlocked: true }, tap)?.code).toBe('not-in-preview');
     expect(refusalReason({ draft, player: 0 }, tap)).toBeNull();
   });

@@ -58,12 +58,16 @@ export function deadlineLine(deadline: string | null, now = Date.now()) {
 /** System copy on a person game keeps the same rules, with the correct opponent words. */
 export const personWords = (line: string) => line.replace(/\bComputer\b/g, 'Opponent').replace(/\bcomputer\b/g, 'opponent').replaceAll('End turn', 'Send');
 
+const TIME_UP = 'Your time to move is up.';
+/** A tap on a locked board after the own move time ran out gives the turn line. */
+export const timeUpLine = (state?: Pick<PeopleState, 'phase'> & Partial<Pick<PeopleState, 'clock'>>) =>
+  state?.phase === 'their-move' && state.clock?.mine ? TIME_UP : undefined;
 /** A send does not give the opponent a turn until the server confirms it. */
 export function personTurn(state: Pick<PeopleState, 'phase' | 'connection'> & Partial<Pick<PeopleState, 'clock'>>): string | undefined {
   if (state.connection === 'auth') return 'Sign in to send your turn.';
   if (state.connection === 'offline') return 'You are offline. Your unsent turn stays.';
   // Your clock ran out (controller `late`): the controls lock until the server ends the game.
-  if (state.phase === 'their-move' && state.clock?.mine) return 'Your time to move is up.';
+  if (state.phase === 'their-move' && state.clock?.mine) return TIME_UP;
   if (state.phase === 'waiting') return 'Waiting for a player';
   if (state.phase === 'setup') return 'Getting the game ready';
   if (state.phase === 'sending') return 'Sending your turn…';
