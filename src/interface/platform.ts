@@ -40,7 +40,7 @@ export async function startPlatform() {
   root.replaceChildren();
   // After this, main.ts shows its own fault lines (a failed board or account chunk); the static boot fault is for a failed first load only.
   await import('./play/main');
-  (window as unknown as { kdBooted?: boolean }).kdBooted = true;
+  (globalThis as unknown as { kdBooted?: boolean }).kdBooted = true;
   if (!root.hasChildNodes()) await new Promise<void>(done => {
     const observer = new MutationObserver(() => { if (root.hasChildNodes()) { observer.disconnect(); done(); } });
     observer.observe(root, { childList: true });

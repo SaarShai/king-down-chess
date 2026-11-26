@@ -135,3 +135,5 @@ More known limits, from the playtest:
 - A handle of 20 letters (the longest) still breaks with a last line of one letter in a Home row at 844x390 and 667x375, and the status breaks inside the name at 360x640. No overlap. A cut with "…" is a design choice that the lead did not make in this batch.
 - The first move of a friend game showed on the other screen after 25 s; the next moves in about 1 s. Not examined.
 - In "Invite by name", Enter in the name field does nothing; the Invite button of the result row sends.
+
+- CI on `00caf0127` was red in one unit shard: `src/interface/platform.test.ts` has no `window`, and the new boot-flag line of repair 8 used it (`ReferenceError: window is not defined`). The line now sets the flag on `globalThis`, which is the same object in a browser. No local gate of the build or of the review ran that file; the lead then ran each test file under `src/interface` (61 files, 1,121 tests) and `npm run test:changed`.
