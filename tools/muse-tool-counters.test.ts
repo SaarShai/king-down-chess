@@ -1,7 +1,7 @@
 /** The written counter decision of each Muse tool. COUNTER is a Record<MuseTool, ...>, so a new name in MuseTool
  *  (src/muse/tools.ts) fails typecheck here until the tool has a decision: a TOOL_LIMITS key or 'none'.
  *  A write tool that makes games or plays the computer needs a counter. The second test calls each counted tool
- *  and asks that its body calls games.toolTry with its COUNTERS key before it does any other work. */
+ *  and asks that its body calls games.toolTry with its COUNTERS key before it does any other work (the rule "count first"). */
 import { expect, it } from 'vitest';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { createMcpHandler } from '@modelcontextprotocol/server';
@@ -36,5 +36,5 @@ it.each(Object.keys(SAMPLES) as (keyof typeof COUNTERS)[])('counts a call of the
   const client = new Client({ name: 'muse-tool-counters', version: '1.0.0' });
   await client.connect(new StreamableHTTPClientTransport(new URL('https://kingdown.test/muse/mcp'), { fetch: (url, init) => handler.fetch(new Request(url, init)) }));
   try { await client.callTool({ name, arguments: SAMPLES[name] }); } finally { await client.close(); }
-  expect(tried, `Muse tool ${name} has COUNTERS.${name} = ${COUNTERS[name]} but its body in src/muse/tools.ts does not call games.toolTry(actorId, COUNTERS.${name}) before ${worked[0] ? `games.${worked[0]}` : 'it ends'}: add that call first in the body (or fix its sample in SAMPLES of tools/muse-tool-counters.test.ts)`).toEqual([COUNTERS[name]]);
+  expect(tried, `Muse tool ${name} has COUNTERS.${name} = ${COUNTERS[name]} but its body in src/muse/tools.ts does not call games.toolTry(actorId, COUNTERS.${name}) before ${worked[0] ? `games.${worked[0]}` : 'it ends'}. The rule is "count first": a counted tool calls games.toolTry before any other games call, so a refused call does no work. Add that call first in the body (or fix its sample in SAMPLES of tools/muse-tool-counters.test.ts)`).toEqual([COUNTERS[name]]);
 });

@@ -1,6 +1,6 @@
 # Change guards: 17 places that a second probe could forget with no red
 
-Status: done on branch guard-holes (15 of 17 places; items 4 and 7 stay, see below); waits for the review
+Status: done on branch guard-holes; reviewed, and one batch repairs the findings; waits for the repair check.
 Source: three independent probes of the guards of PR 477 on `origin/main` 672c2a6aa, 2026-11-25 ([ticket 10](10-change-rehearsals.md)). The lead started them; no prober built a guard.
 
 ## Problem
@@ -79,7 +79,7 @@ Kind: behaviour test over the real import graph. A source-text read stays only f
 
 - Seed: add `export const seedRecorder = import.meta.env.KINGDOWN_ERROR_RECORDER;` to src/interface/entry.ts. The name has a define in tools/plugin-server-build.mjs, so the old test stayed green; vite.config.ts has no define.
 - Red: `src/interface/entry.ts:16 reads import.meta.env.KINGDOWN_ERROR_RECORDER, and the web bundle holds the file, but the define block of vite.config.ts has no define of 'import.meta.env.KINGDOWN_ERROR_RECORDER'. Add 'import.meta.env.KINGDOWN_ERROR_RECORDER': JSON.stringify(...) to its define block, or the bundle reads undefined` (Tests 1 failed | 6 passed).
-- Green (real tree): `Tests 7 passed (7)`. The web graph (353 files) reads only VITE_ names today.
+- Green (real tree): `Tests 7 passed (7)`. The web graph (380 files after the review batch) reads only VITE_ names today.
 
 #### Item 11: a flag read in a .js or .mts file
 
@@ -105,7 +105,7 @@ The graph also follows `import.meta.glob` of code files (the 23 recipes of src/p
 
 - `npm run typecheck`: green (last run after all changes).
 - `git status`: only my two files of this lane changed; no seed file in the worktree.
-- Limits: the graph follows relative imports and code globs only (no bare package names, no `/src/` absolute paths; none in src today). An import with an apostrophe or a semicolon (in a comment) between `import` and `from` is not followed. The web entries in BUNDLES are copied by hand from the script tags of the five html pages. `__KINGDOWN_*__` global defines are not in this guard (the ticket names only import.meta.env flags).
+- Limits: the graph follows relative imports and code globs only (no bare package names, no `/src/` absolute paths; none in src today). An import with an apostrophe or a semicolon (in a comment) between `import` and `from` is not followed. The web entries in BUNDLES are copied by hand from the script tags of the five html pages. Vite also removes a value import that the file uses only as a type (`import { X }` with X used as a type only); the graph still follows it, and can give a red that is too strict. `__KINGDOWN_*__` global defines are not in this guard (the ticket names only import.meta.env flags).
 
 ## Record: Checks and migrations (items 13 to 17, failure text 4)
 
@@ -190,7 +190,7 @@ Seeds go in my own files or in a temporary untracked copy. I removed each seed a
 
 #### Item 5: route key in another quote form or indentation
 
-- Guard: a new scan, `tools/api-route-keys.ts` (a helper, not a test). It reads the `routes` object of `src/api/http.ts` in any indentation, in single, double or back quotes, and with more than one key on a line. It throws when it cannot find the block. A new test in `tools/api-route-lists.test.ts` requires that each key is also in the strict form (two spaces, single quotes, a colon). The strict scan of `tools/plugin-server-build.test.ts` is not my file, so this test protects it and the operation sets. The `created`, `engine` and `route.key ===` lists now read all quote forms. `tools/api-route-client.test.ts` and `src/diagnostics/data.test.ts` now use the shared scan.
+- Guard: a new scan, `tools/api-route-keys.ts` (a helper, not a test). It reads the `routes` object of `src/api/http.ts` in any indentation, in single or double quotes, and with more than one key on a line (the review batch removed back quotes: a back quote is not a valid object key). It throws when it cannot find the block. A new test in `tools/api-route-lists.test.ts` requires that each key is also in the strict form (two spaces, single quotes, a colon). The strict scan of `tools/plugin-server-build.test.ts` is not my file, so this test protects it and the operation sets. The `created`, `engine` and `route.key ===` lists now read all quote forms. `tools/api-route-client.test.ts` and `src/diagnostics/data.test.ts` now use the shared scan.
 - Note: the helper is outside the letter of my file list (it is not a test file). One scan in one file replaces three copies of the regex.
 - Seed (in `httpSource` of the helper): `"GET /api/lobby":` in double quotes; `'GET /api/friends':` with four spaces; `'POST /api/relations':` on the same line as the key before it; a new key `'POST /api/seeded'`.
 - Red: `src/api/http.ts: write the route key GET /api/lobby on its own line as two spaces, single quotes and a colon (  'GET /api/lobby': ...); tools/plugin-server-build.test.ts and the operation sets read that form only`. The same line comes for GET /api/friends and POST /api/relations.
@@ -319,3 +319,29 @@ Limit: src/interface/play/main.ts:284 (the signed-in route switch) has no guard.
 - src/online/runtime.ts (type-only)
 - tools/piece-power-card-guard.test.ts (2 new tests)
 - tools/account-screen-guard.test.ts (1 new test and the NextPaths type)
+
+## Review
+
+Kind: two agents that did not build the change. One asked "do the guards bite", one asked "the product stays the same". Head: 4ae70f63b. Result: "bite" blocks (2 blocking findings, 3 notes); "product" passes (4 notes). One batch repairs them.
+
+### Blocking findings
+
+1. `tools/build-flags.mjs` (IMPORT, importGraph): false red. The graph follows `import { type X } from '...'`, but Vite removes that import. Probe: in `src/online/client.ts`, `import type { InviteLink }` changed to `import { type InviteLink }`. Red before the repair: `src/api/http.ts:211 reads import.meta.env.KINGDOWN_ERROR_RECORDER, and the web bundle holds the file, but the define block of vite.config.ts has no define ...` (5 lines).
+   - Repair: IMPORT has named groups (`clause`, `spec`). importGraph skips an import or export whose braces hold one or more specifiers, each of them `type ...`. Empty braces, `X, { type Y }`, `{ type A, b }`, side-effect imports, `import()` and `new URL` stay followed.
+   - New test in `tools/build-flags.test.ts`: "does not follow an import that holds only type specifiers" (a temporary folder with each form).
+   - Proof (`tools/build-flags.test.ts`, one lease): real tree `Tests 8 passed (8)`; the probe `import { type InviteLink }` is green (`Tests 8 passed (8)`); the item 12 seed (`import.meta.env.KINGDOWN_ERROR_RECORDER` in `src/interface/entry.ts`) is still red (`src/interface/entry.ts:15 reads import.meta.env.KINGDOWN_ERROR_RECORDER, and the web bundle holds the file, but the define block of vite.config.ts has no define ...`); the item 10 seed (KINGDOWN_MUSE removed from the consent build() call) is still red (`src/plugin/consent.ts:15 reads import.meta.env.KINGDOWN_MUSE, and the consent bundle holds the file, but the build() call with 'src/plugin/consent.ts' ...`).
+   - Limit (in the record "Build flags"): Vite also removes a value import that a file uses only as a type; the graph still follows it.
+2. `tools/tool-names-in-text.docs.test.ts` (COUNTERS_LINE): false red. The test removed only the first line of COUNTERS. Probe: COUNTERS on two lines. Red before the repair: `src/muse/tools.ts names kingdown_create, which is not a listed Muse tool: change the text ...`.
+   - Repair: `COUNTERS_BLOCK = /^export const COUNTERS = \{[^}]*\}/m` removes the whole object; the "update this test" expect reads COUNTERS_BLOCK.
+   - Proof: the two-line probe is green (`Tests 6 passed (6)`). The item 8 seed (`'Read it with kingdown_show.'` added to `src/muse/tools.ts`) is still red: `src/muse/tools.ts names kingdown_show, which is not a listed Muse tool ...`. COUNTERS renamed gives `src/muse/tools.ts has no "export const COUNTERS = { ... }" object; update COUNTERS_BLOCK ...`.
+
+### Notes
+
+- `tools/plugin-db/migration-places.docs.test.ts` ("bite" and "product"): the create scan missed `create table x (` with no schema and a quoted name; any mention of the table counted as a grant. Repair: the create scan takes an optional `public.` and quotes, and no other schema (`auth.x` gives no match); a grant counts only in a `grant ...;` statement. The real tree: 28 tables before and after, green. Seed `0099_seed_three.sql` with `create table seed_three (...)` and `create table public."seed_four" (...)`: red for both (`makes table public.seed_three ...`, `... public.seed_four ...`).
+- `tools/account-screen-guard.test.ts`: the message now names both places: `signInPath (src/online/sign-in.ts) gives <screen> another address than nextPaths in tools/account-screen-guard.test.ts: correct signInPath, or change the row in nextPaths if the new address is intended`.
+- `tools/muse-tool-counters.test.ts`: "count first" stays the rule. The message and the file comment now state it: a counted tool calls games.toolTry before any other games call, so a refused call does no work. `src/muse/tools.ts` does not change.
+- `tools/registry-ci.test.ts` (paths): `existsSync` and `readdirSync` use `join(root, ...)`, with root from `import.meta.url`.
+- `tools/registry-ci.test.ts` (reasons, "product"): `cache-registration` and `production-comparison` have their own rows with true reasons (own loopback worker fixture; two built artifacts whose paths you set). I read both scripts first.
+- `tools/api-route-keys.ts`: routeKeys reads single and double quotes only; a back quote is not a valid object key. The comment and the record "Routes and tools" agree. `quoted` and the `route.key ===` scan keep back quotes (they are valid there).
+- The record "Build flags": the web graph count was stale (353). After this batch it is 380 files; the record line now says so.
+- `tools/build-flags.mjs` (plugin server graph, "product"): the plugin server bundle has `external: ['src/match/index.ts']`, because the isolated-match-runtime plugin of the build points that import at `runtime/index.mjs`. importGraph does not go into an external file; the plugin server graph goes from 72 to 60 files, and the item 10 seed stays red. The Vitest-only limit is in the BUNDLES comment: a file that only Vitest loads and that reads a non-VITE_ name from import.meta.env must also be in a bundle (none today).

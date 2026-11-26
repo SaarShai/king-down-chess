@@ -32,7 +32,7 @@ describe('account screen sign-in return', () => {
   it('gives each account screen its /next.html address', () => {
     for (const [screen, routes] of Object.entries(samples)) for (const route of routes) {
       const want = (nextPaths[screen as AccountEntryRoute['screen']] as (route: AccountEntryRoute) => string)(route);
-      expect(signInPath(route, '/next.html'), `src/online/sign-in.ts signInPath: give ${screen} its own address`).toBe(want);
+      expect(signInPath(route, '/next.html'), `signInPath (src/online/sign-in.ts) gives ${screen} another address than nextPaths in tools/account-screen-guard.test.ts: correct signInPath, or change the row in nextPaths if the new address is intended`).toBe(want);
     }
   });
 });

@@ -1,5 +1,5 @@
-// The route keys of src/api/http.ts, read in every form: any indentation, single, double or back quotes, and more than
-// one key on a line. The tests that read the keys use this scan, so a key in another form cannot drop out of a list.
+// The route keys of src/api/http.ts, read in every form: any indentation, single or double quotes (a back quote is not
+// a valid object key), and more than one key on a line. The tests that read the keys use this scan, so a key in another form cannot drop out of a list.
 // tools/api-route-lists.test.ts holds the keys to the one form that the scan of tools/plugin-server-build.test.ts reads.
 import { readFileSync } from 'node:fs';
 
@@ -14,7 +14,7 @@ export function routesBlock(http: string): string {
 
 /** Each route key of the `routes` object, in any form. */
 export const routeKeys = (http = httpSource()) =>
-  [...routesBlock(http).matchAll(/(?:^|[{,])[ \t]*(['"`])([A-Z]+ \/api[^'"`]*)\1[ \t]*:/gm)].map(match => match[2]);
+  [...routesBlock(http).matchAll(/(?:^|[{,])[ \t]*(['"])([A-Z]+ \/api[^'"]*)\1[ \t]*:/gm)].map(match => match[2]);
 
 /** The one form that the strict scans read: two spaces, single quotes, a colon. */
 export const strictRouteKeys = (http = httpSource()) => [...http.matchAll(/^  '([A-Z]+ \/api[^']*)':/gm)].map(match => match[1]);

@@ -40,8 +40,9 @@ it.each([['plugin', 'src/plugin/server.ts', pluginTools], ['Muse', 'src/muse/too
 
 /** The source files of a server folder, with no tests. */
 const sources = (folder: string) => readdirSync(folder, { recursive: true, encoding: 'utf8' }).filter(file => /\.ts$/.test(file) && !/\.test\.ts$/.test(file)).map(file => join(folder, file));
-/** COUNTERS in src/muse/tools.ts maps a Muse tool to a plugin TOOL_LIMITS key; those keys are counters, not Muse tools. */
-const COUNTERS_LINE = /^export const COUNTERS = .*$/m;
+/** COUNTERS in src/muse/tools.ts maps a Muse tool to a plugin TOOL_LIMITS key; those keys are counters, not Muse tools.
+ *  The scan removes the whole object, on one line or more. */
+const COUNTERS_BLOCK = /^export const COUNTERS = \{[^}]*\}/m;
 
 it.each([['plugin', 'src/plugin', pluginTools], ['Muse', 'src/muse', museTools]] as const)('the %s source texts (replies included) name only listed tools', async (_server, folder, list) => {
   const listed = new Set((await list()).map(tool => tool.name)), files = sources(folder);
@@ -49,8 +50,8 @@ it.each([['plugin', 'src/plugin', pluginTools], ['Muse', 'src/muse', museTools]]
   for (const file of files) {
     let text = readFileSync(file, 'utf8');
     if (file === 'src/muse/tools.ts') {
-      expect(COUNTERS_LINE.test(text), 'src/muse/tools.ts has no "export const COUNTERS = ..." line; update COUNTERS_LINE in tools/tool-names-in-text.docs.test.ts').toBe(true);
-      text = text.replace(COUNTERS_LINE, '');
+      expect(COUNTERS_BLOCK.test(text), 'src/muse/tools.ts has no "export const COUNTERS = { ... }" object; update COUNTERS_BLOCK in tools/tool-names-in-text.docs.test.ts').toBe(true);
+      text = text.replace(COUNTERS_BLOCK, '');
     }
     for (const name of names(text)) expect(listed.has(name), `${file} names ${name}, which is not a listed ${_server} tool: change the text (a reply text, a description or a call); a database name goes in NOT_TOOLS of tools/tool-names-in-text.docs.test.ts`).toBe(true);
   }

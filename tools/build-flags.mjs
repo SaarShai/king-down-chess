@@ -71,11 +71,14 @@ export function scanFlags(root, sources) {
  * Each bundle that Vite builds from the source: its build file, a text that is only in its build() call (null: the file
  * has one define block, as vite.config.ts) and its entry files. tools/build-flags.test.ts follows the imports from the
  * entries and asks for a define in that call of each non-VITE_ name that a file of the bundle reads from import.meta.env.
+ * Limit: each source file that reads a non-VITE_ name from import.meta.env must be in a bundle here, also a file that
+ * only Vitest loads (none today).
  */
 export const BUNDLES = [
   { name: 'web', build: 'vite.config.ts', call: null, entries: ['src/entry.ts', 'src/interface/entry.ts', 'src/interface/people/screens/demo.ts', 'src/interface/moments/demo.ts', 'src/interface/play/scenes.ts'] },
   { name: 'consent', build: 'tools/plugin-server-build.mjs', call: "'src/plugin/consent.ts'", entries: ['src/plugin/consent.ts'] },
-  { name: 'plugin server', build: 'tools/plugin-server-build.mjs', call: "'tools/plugin-server.mjs'", entries: ['tools/plugin-server.mjs'] },
+  // The isolated-match-runtime plugin of that build points src/match/index.ts at the external runtime/index.mjs.
+  { name: 'plugin server', build: 'tools/plugin-server-build.mjs', call: "'tools/plugin-server.mjs'", entries: ['tools/plugin-server.mjs'], external: ['src/match/index.ts'] },
   { name: 'plugin board', build: 'tools/plugin-ui-build.mjs', call: "root: resolve('src/plugin')", entries: ['src/plugin/app.ts'] },
   { name: 'match worker', build: 'tools/plugin-runtime-build.mjs', call: "'src/match/worker.ts'", entries: ['src/match/worker.ts'] },
   { name: 'search worker', build: 'tools/plugin-runtime-build.mjs', call: "'src/match/search-worker.ts'", entries: ['src/match/search-worker.ts'] },
@@ -84,14 +87,21 @@ export const BUNDLES = [
 ];
 
 // A relative import that stays in the JavaScript: import or export ... from, import(), import '...', new URL('...').
-const IMPORT = /(?:\b(?:import|export)\s+(?!type\s)(?:[^'";]*?\sfrom\s*)?|\bimport\s*\(\s*|new\s+URL\(\s*)['"](\.{1,2}\/[^'"?]+)/g;
+// Vite removes `import { type A, type B } from` (each specifier is a type), so the graph does not follow it.
+const IMPORT = /(?:\b(?:import|export)\s+(?!type\s)(?:(?<clause>[^'";]*?)\sfrom\s*)?|\bimport\s*\(\s*|new\s+URL\(\s*)['"](?<spec>\.{1,2}\/[^'"?]+)/g;
+const typesOnly = clause => {
+  const inner = /^\{([^}]*)\}$/.exec(clause?.trim() ?? '')?.[1];
+  const specifiers = inner?.split(',').map(part => part.trim()).filter(Boolean) ?? [];
+  return specifiers.length > 0 && specifiers.every(part => /^type\s/.test(part));
+};
 const CODE = /\.[cm]?[jt]sx?$/;
 // An import.meta.glob of code files, as the recipes of src/plugin/card-motion/runtime.ts.
 const GLOB = /\bimport\.meta\.glob(?:<[^>]*>)?\(\s*['"](\.{1,2}\/[^'"]+\.[cm]?[jt]sx?)['"]/g;
 
 /** The files that the entries import, directly or through other files: relative imports and import.meta.glob of code
- *  files, not type imports. */
-export function importGraph(root, entries) {
+ *  files, not type imports. The graph does not go into a file in `external` (the build keeps that import outside the
+ *  bundle). */
+export function importGraph(root, entries, external = []) {
   const isFile = path => existsSync(join(root, path)) && statSync(join(root, path)).isFile();
   const target = (from, spec) => {
     const base = normalize(join(dirname(from), spec));
@@ -104,7 +114,11 @@ export function importGraph(root, entries) {
     files.add(file);
     if (!CODE.test(file)) continue;
     const code = readFileSync(join(root, file), 'utf8');
-    for (const match of code.matchAll(IMPORT)) { const next = target(file, match[1]); if (next) open.push(next); }
+    for (const match of code.matchAll(IMPORT)) {
+      if (typesOnly(match.groups.clause)) continue;
+      const next = target(file, match.groups.spec);
+      if (next && !external.includes(next)) open.push(next);
+    }
     for (const match of code.matchAll(GLOB)) open.push(...globSync(normalize(join(dirname(file), match[1])), { cwd: root }));
   }
   return files;

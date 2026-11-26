@@ -1,9 +1,13 @@
 // Change guards for a new browser check (change rehearsals of 2026-11-25, kind "new browser check").
 // A check that CI must run is in a job of tools/ci-shards.mjs, and each tools/verify-*.mjs has a registry entry.
 import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { checkShards } from './ci-shards.mjs';
 import { checks } from './lib/registry.mjs';
+
+const root = fileURLToPath(new URL('..', import.meta.url));
 
 it('puts each browser check that CI selects in a CI job', () => {
   const jobs = checkShards();
@@ -25,7 +29,7 @@ const exempt: Record<string, string> = {
 it('gives each tools/verify-*.mjs browser check a registry entry', () => {
   const scripts = new Set(checks.map(check => check.script));
   // All folders of tools/: a check script is verify.mjs or verify-<name>.mjs (tools/card-motion/verify.mjs).
-  const files = readdirSync('tools', { recursive: true, encoding: 'utf8' })
+  const files = readdirSync(join(root, 'tools'), { recursive: true, encoding: 'utf8' })
     .filter(file => /(?:^|\/)verify(?:-[^/]*)?\.mjs$/.test(file) && !file.includes('node_modules'));
   const missing = files.filter(file => !scripts.has(`tools/${file}`) && !(file in exempt))
     .map(file => `tools/${file} is a browser check with no entry in tools/lib/registry.mjs; add { name, script, limit } `
@@ -37,7 +41,7 @@ it('gives each tools/verify-*.mjs browser check a registry entry', () => {
 });
 
 it('finds the script of each registry entry', () => {
-  const missing = checks.filter(check => !existsSync(check.script))
+  const missing = checks.filter(check => !existsSync(join(root, check.script)))
     .map(check => `tools/lib/registry.mjs: check "${check.name}" has script "${check.script}", and that file does not exist; `
       + 'correct the path, add the script, or remove the entry');
   expect(missing).toEqual([]);
@@ -49,8 +53,10 @@ const localOnly: Record<string, string> = Object.fromEntries([
   ...['owner-playtest-r5', 'owner-playtest-r4', 'owner-playtest-r2', 'owner-playtest-round2-b', 'owner-playtest-b']
     .map(name => [name, 'an owner playtest round, run on request']),
   ...['next-arrange', 'account-discovery', 'staging-login', 'plugin-ui-http-staging', 'web-game-staging',
-    'desktop-performance', 'production-comparison', 'shared-mechanics', 'recovery-consumers', 'cache-registration']
+    'desktop-performance', 'shared-mechanics', 'recovery-consumers']
     .map(name => [name, 'needs a local or staging stack, a staging build or a production site']),
+  ['production-comparison', 'compares two built artifacts whose paths you set (KINGDOWN_COMPARISON_*_DIST)'],
+  ['cache-registration', 'serves its own worker fixture on loopback; a lane runs it by hand'],
   ...['painted-leaps', 'movement-runtime', 'king-capture-facing', 'stratus-idle-exit', 'stratus-registration',
     'character-runtime', 'layout-title', 'layout-zoom', 'w6-parts', 'search-worker', 'king-labels']
     .map(name => [name, 'a focused check that a lane runs by hand']),

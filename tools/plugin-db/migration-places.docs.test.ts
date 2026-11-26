@@ -56,8 +56,10 @@ const noRuntimeGrant: Record<string, string> = {
 it('gives each new table a grant in plugin-deploy/runtime-role.sql', () => {
   const grants = read('plugin-deploy/runtime-role.sql').replace(/--.*$/gm, '');
   const tables = files.flatMap(file => [...read(`supabase/migrations/${file}`).replace(/--.*$/gm, '')
-    .matchAll(/create table (?:if not exists )?public\.(\w+)/gi)].map(match => ({ file, table: match[1] })));
-  const missed = tables.filter(({ table }) => !(table in noRuntimeGrant) && !new RegExp(`public\\.${table}(?!\\w)`).test(grants))
+    // A table with no schema goes in public too; a quoted name counts; a table of another schema (auth.x) does not.
+    .matchAll(/create\s+table\s+(?:if\s+not\s+exists\s+)?(?:"?public"?\.)?"?(\w+)"?\s*\(/gi)].map(match => ({ file, table: match[1] })));
+  // Only a grant statement counts, not a revoke or another mention of the table.
+  const missed = tables.filter(({ table }) => !(table in noRuntimeGrant) && !new RegExp(`\\bgrant\\b[^;]*\\bpublic\\.${table}(?!\\w)`, 'i').test(grants))
     .map(({ file, table }) => `supabase/migrations/${file} makes table public.${table}, and plugin-deploy/runtime-role.sql `
       + `grants nothing on it; add a grant block (begin; grant ... on public.${table} to kingdown_plugin_runtime; commit;), `
       + 'or add it to noRuntimeGrant in tools/plugin-db/migration-places.docs.test.ts with the reason');
