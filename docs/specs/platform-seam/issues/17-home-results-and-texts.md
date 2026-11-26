@@ -71,6 +71,13 @@ Scope: points 1 to 6. Client only. Line numbers are on this branch.
 - `tools/verify-play-scenes.mjs:228`: the scene rule also measures the Continue card status (`.home-state > strong`) and the invite line (`.home-game-copy > span`).
 - `src/interface/play/scenes.ts`: the scene server returns the invitations of a scene. `home-results` has one incoming invitation; with 4 rows the list folds, so the scene presses "Show all games" first and then goes back to the top of the page (the press scrolls to the fourth row). The new scene `home-claim` has the same games and invitation with no saved computer game, so the claim game is the Continue card ("Time is up · claim the win"). It runs at the same sizes as `home-results`.
 - Ticket, point 2: the screen-reader text says that the title names the site, and that a first load of a deep link does not announce the page name. Known limits: the 24-hour result rows read each finished game again on each Home refresh.
+- Gates after the repairs, one at a time:
+  - `npm run typecheck` (head `bfdcffee3`): pass. After the two later `scenes.ts` commits, `tsc --noEmit` passes too.
+  - `npm run test:changed` (head `bfdcffee3`): 131 files, 2,307 tests pass, 1 skipped.
+  - `npm run test:docs` (head `bfdcffee3`): 21 files, 219 tests pass, 1 skipped.
+  - `npm run check:browser play-scenes`: two runs stopped at the 420 s limit with a browser error ("Failed to open a new tab") on a busy machine. The cause: `home-results` never became ready, because with 4 rows the list folds and hides the result row. The scene now presses "Show all games" (`de55f3ee2`). The next run failed 11 `home-results` cases ("crosses the top viewport edge"): the press scrolls to the fourth row. The scene now goes back to the top at rest (`3d503c0d1`). Then, 15:42-15:49: pass, 518 cases (37 scenes). No known mark is added; no app layout changed.
+  - `npm run check:browser next-menus`, 15:49-15:59 (head `3d503c0d1`): pass (357 PASS, 119 SKIP, 0 FAIL).
+  - `npm run check:browser home`, 15:59 (head `3d503c0d1`): pass.
 
 ## Gates
 
