@@ -1,6 +1,6 @@
 # Home results, first Tab, and time words
 
-Status: done on branch web-followups-2; reviewed; waits for the staging pass.
+Status: done and live (PR 487, 2026-11-26). The two-account staging pass met points 1 to 6.
 
 Class: B. Size: S.
 
