@@ -114,3 +114,17 @@ test('the website policy names Meta as a recipient of the Muse connector, and Mu
  const outside = policy.replace(/<p id="muse-connector">[\s\S]*?<\/p>/, '').replace(/<li id="muse-link">[\s\S]*?<\/li>/, '').replace('from the website, from ChatGPT or from Muse;', '');
  expect(outside).not.toMatch(/Muse/);
 });
+
+// The published page (tools/solo-launch/privacy.html) names what the new page shows (main.ts, safety.ts,
+// supabase/migrations/0025_opponent_avatar.sql). The new path comes first; the old /play path stays second.
+test('the published policy says what other players see on kingdown.dev and where the picture loads from', () => {
+ const policy = readFileSync('tools/solo-launch/privacy.html', 'utf8'), text = policy.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ');
+ expect(policy).toContain('Last updated: 26 November 2026');
+ expect(text).toContain('On kingdown.dev, other players see your game name, the picture from your sign-in service (or your initial if there is none) and the games you play with them.');
+ expect(text).toContain('It loads from your sign-in service\'s servers also when they see it, so that service can see when it is shown.');
+ expect(text).toContain('With an email code there is no picture.');
+ expect(text).toContain('The game does not copy the provider name or photo to a new profile.');
+ expect(text.indexOf('In a game against a person on kingdown.dev or at /play, open Menu and select Block player')).toBeGreaterThan(-1);
+ expect(text.indexOf('On kingdown.dev, Account & settings has Blocked players, with Unblock for each player')).toBeLessThan(text.indexOf('At /play, Profile also lists blocked players'));
+ expect(text.indexOf('To play a person, sign in on kingdown.dev')).toBeLessThan(text.indexOf('The older online game at /play'));
+});
