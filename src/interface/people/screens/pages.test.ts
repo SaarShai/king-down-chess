@@ -121,6 +121,31 @@ it('Invite by name: Players you know, a search only from 2 letters, "No player h
   } finally { await page.close(); }
 });
 
+it('Invite by name: Enter sends the invite only when exactly one result row shows (ticket 16, point 5)', async () => {
+  const page = await open('person');
+  try {
+    await press(page, 'Invite another player by name');
+    await expect.poll(() => title(page).textContent()).toBe('Invite by name');
+    const field = sheet(page).getByLabel('Game name');
+    const invites = async () => (await calls(page)).filter(c => c.startsWith('invite:'));
+    await field.fill('da');
+    await expect.poll(() => sheet(page).locator('.people-row').count()).toBe(2);
+    await field.press('Enter'); await page.waitForTimeout(300);
+    expect(await invites()).toEqual([]);
+    await field.fill('noor');
+    await expect.poll(() => calls(page)).toContain('find:noor');
+    await expect.poll(() => sheet(page).locator('.people-row').count()).toBe(1);
+    // A new search is not back yet: the one row is of the old text, so Enter does nothing.
+    await field.fill('ez'); await field.press('Enter'); await page.waitForTimeout(300);
+    expect(await invites()).toEqual([]);
+    await expect.poll(() => sheet(page).locator('.people-row strong').allTextContents()).toEqual(['ezra-m']);
+    await field.fill('noor');
+    await expect.poll(() => sheet(page).locator('.people-row strong').allTextContents()).toEqual(['noor-k']);
+    await field.press('Enter');
+    await expect.poll(invites).toEqual(['invite:noor-k:pieces']);
+  } finally { await page.close(); }
+});
+
 it('A refused link: the line of the limit, and the line of a lost connection', async () => {
   const page = await open('person', '?make=50');
   try {

@@ -144,21 +144,28 @@ export function nameSearch(sheet: PeopleSheet, host: PersonHost, rules: Rules, b
   input.type = 'text'; input.name = 'handle'; input.autocomplete = 'off'; input.autocapitalize = 'none'; input.spellcheck = false; input.maxLength = 20;
   input.setAttribute('enterkeyhint', 'search');
   const field = node('label', 'people-field'); field.append(node('span', '', personText.field), input);
-  let known: Player[] = [], asked = 0, timer: ReturnType<typeof setTimeout> | undefined;
+  // `found` is true only while the rows are the search results of the text in the field.
+  let known: Player[] = [], asked = 0, timer: ReturnType<typeof setTimeout> | undefined, found = false;
   const invite = inviter(sheet, host, status, () => rules);
   const rows = (players: Player[]) => list.replaceChildren(...players.map(player => playerRow(player, '', control => void invite(player.handle, control), host.named, host.photo ?? host.named === false)));
   input.addEventListener('input', () => {
-    clearTimeout(timer); say(status);
+    clearTimeout(timer); say(status); found = false;
     const text = input.value.trim().toLowerCase(), mark = ++asked;
     if (text.length < SEARCH_LETTERS) { heading.hidden = !known.length; rows(known); return; }
     if (text === host.me()?.handle?.toLowerCase()) { heading.hidden = true; rows([]); say(status, personText.self); return; }
     timer = setTimeout(() => {
-      host.find(text).then(found => {
+      host.find(text).then(players => {
         if (mark !== asked) return;
-        heading.hidden = true; rows(found);
-        if (!found.length) say(status, personText.none);
+        heading.hidden = true; rows(players); found = true;
+        if (!players.length) say(status, personText.none);
       }, error => { if (mark === asked) { heading.hidden = true; rows([]); say(status, inviteProblem(error, null, host.online?.() ?? navigator.onLine)); } });
     }, SEARCH_WAIT_MS);
+  });
+  // Enter sends the invite when exactly one result row shows (ticket 16, point 5).
+  input.addEventListener('keydown', event => {
+    const shown = list.querySelectorAll<HTMLButtonElement>('.people-row button');
+    if (event.key !== 'Enter' || event.isComposing || !found || shown.length !== 1) return;
+    event.preventDefault(); shown[0].click();
   });
   heading.hidden = true;
   sheet.show({ title: personText.byName, body: [field, heading, list, node('p', 'people-small', personText.hint), status], back });
