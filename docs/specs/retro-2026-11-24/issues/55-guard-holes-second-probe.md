@@ -1,6 +1,6 @@
 # Change guards: 17 places that a second probe could forget with no red
 
-Status: done on branch guard-holes; reviewed, and one batch repairs the findings; waits for the repair check.
+Status: done on branch guard-holes (PR 484); reviewed, repaired and checked.
 Source: three independent probes of the guards of PR 477 on `origin/main` 672c2a6aa, 2026-11-25 ([ticket 10](10-change-rehearsals.md)). The lead started them; no prober built a guard.
 
 ## Problem
@@ -322,7 +322,7 @@ Limit: src/interface/play/main.ts:284 (the signed-in route switch) has no guard.
 
 ## Review
 
-Kind: two agents that did not build the change. One asked "do the guards bite", one asked "the product stays the same". Head: 4ae70f63b. Result: "bite" blocks (2 blocking findings, 3 notes); "product" passes (4 notes). One batch repairs them.
+Kind: two agents that did not build the change. One asked "do the guards bite", one asked "the product stays the same". Head: 4ae70f63b. Result: "bite" blocks (2 blocking findings, 5 notes); "product" passes (4 notes). One batch repairs them.
 
 ### Blocking findings
 
@@ -345,3 +345,8 @@ Kind: two agents that did not build the change. One asked "do the guards bite", 
 - `tools/api-route-keys.ts`: routeKeys reads single and double quotes only; a back quote is not a valid object key. The comment and the record "Routes and tools" agree. `quoted` and the `route.key ===` scan keep back quotes (they are valid there).
 - The record "Build flags": the web graph count was stale (353). After this batch it is 380 files; the record line now says so.
 - `tools/build-flags.mjs` (plugin server graph, "product"): the plugin server bundle has `external: ['src/match/index.ts']`, because the isolated-match-runtime plugin of the build points that import at `runtime/index.mjs`. importGraph does not go into an external file; the plugin server graph goes from 72 to 60 files, and the item 10 seed stays red. The Vitest-only limit is in the BUNDLES comment: a file that only Vitest loads and that reads a non-VITE_ name from import.meta.env must also be in a bundle (none today).
+
+## Repair check
+
+- Kind: an agent that did not build the change or the repair read `e75c06826`. Result: pass; both blocking findings are closed (each probe is green, each named fault is still red).
+- Two notes. The count of the notes above is corrected. A limit stays: the grant scan of `tools/plugin-db/migration-places.docs.test.ts` needs `(` after the table name, so `create table public.x as select ...` and `partition of` give no red. No migration uses these forms.
