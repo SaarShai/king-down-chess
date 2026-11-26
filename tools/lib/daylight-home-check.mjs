@@ -9,7 +9,23 @@ export async function checkDaylightSetup(browser, origin) {
   const errors = trapErrors(page);
   try {
     await page.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+    // Default MVP setup dev-gates power-user customizers (opponent king, card pool, piece pool, manual arrangement).
     await page.goto(origin + '/next.html');
+    await newGame(page).click();
+    const mvpSetup = setupTable(page);
+    await mvpSetup.getByRole('button', { name: 'Start game', exact: true }).waitFor();
+    assert.equal(await mvpSetup.getByRole('button', { name: 'Opponent', exact: true }).count(), 0);
+    await mvpSetup.getByRole('button', { name: 'Cards', exact: true }).click();
+    assert.equal(await mvpSetup.locator('.panel-card').count(), 0);
+    assert.equal(await mvpSetup.getByRole('switch', { name: 'Cards', exact: true }).getAttribute('aria-checked'), 'true');
+    await mvpSetup.getByRole('button', { name: 'More options', exact: true }).click();
+    assert.equal(await mvpSetup.getByRole('radio', { name: 'Piece pool' }).count(), 0);
+    assert.equal(await mvpSetup.getByRole('radio', { name: 'Manual' }).count(), 0);
+    await mvpSetup.getByRole('radiogroup', { name: 'Your side' }).waitFor();
+    await page.goBack();
+    await mvpSetup.locator('.setup-overlay').waitFor({ state: 'hidden' });
+    // ?custom=1 exposes the full power-user customizers unchanged.
+    await page.goto(origin + '/next.html?custom=1');
     await newGame(page).click();
     const setup = setupTable(page);
     await setup.getByRole('button', { name: 'Start game', exact: true }).waitFor();

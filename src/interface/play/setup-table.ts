@@ -14,7 +14,7 @@ import { cardSummary, homeText, type Art } from './home';
 import { levelPill } from './level-pill';
 import { ms } from './motion';
 import { at, burst, ease, later, onFrame, pulse, reducedMotion, sound, Spring, tween, type Effect } from './fx';
-import { cardLocked, changeDraft, DOUBLE_KINDS, kingChoices, onlinePanelOptions, poolLetters, poolLocked, restorePanel, selectCard, selectPiece, shownKing, type GameOptions, type NewGameDraft, type PanelMemory } from './new-game';
+import { cardLocked, changeDraft, customSetupEnabled, DOUBLE_KINDS, kingChoices, onlinePanelOptions, poolLetters, poolLocked, restorePanel, selectCard, selectPiece, shownKing, type GameOptions, type NewGameDraft, type PanelMemory } from './new-game';
 import { hasCards, hasPowers, typeName, typeOfFlags, type GameType } from './saved';
 import { sideText } from './sides';
 import { cardLine, kingLabel, panelText, pieces, text } from './texts';
@@ -49,6 +49,7 @@ export interface PanelData {
 type Choice = 'king' | 'opponent' | 'cards' | 'more' | 'confirm' | 'people';
 
 export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogElement; open(source: HTMLElement): void; close(): void; back(): boolean } {
+  const custom = customSetupEnabled();
   const dialog = el('dialog', 'kd-dialog new-game-panel'), table = el('div', 'setup-table');
   const heading = el('h2', '', text.newGame), summary = el('p', 'setup-summary');
   heading.id = 'new-game-title'; heading.tabIndex = -1;
@@ -70,7 +71,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   let opener: HTMLElement | null = null, choiceSource = '', starting = false, busy = false, actionId = 0;
   let sheetEffect: Effect | undefined, sheetOffset = 0, closing = false;
   let pull: { id: number; y: number } | undefined;
-  let poolSelected = saved?.section === 'pieces', poolOpen = false;
+  let poolSelected = custom && saved?.section === 'pieces', poolOpen = false;
   const setOptions = (change: Partial<GameOptions>) => edit({ options: { ...draft.options, ...change } });
   const edit = (change: Parameters<typeof changeDraft>[1]) => {
     cancelPerson();
@@ -115,10 +116,11 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
 
   function seat(side: Color, own: boolean) {
     const friend = !own && opponent === 'person';
-    const king = own || opponent === 'computer' && draft.options.opponentKing
+    const staticSeat = friend || (!own && !custom);
+    const king = own || custom && opponent === 'computer' && draft.options.opponentKing
       ? draft.game.context.rules.kings[own ? draft.player : draft.player ^ 1] : null;
     const name = own ? panelText.yourKing : panelText.opponent;
-    const node = friend ? el('div', 'setup-seat setup-seat-static') : openControl(name, own ? 'king' : 'opponent', 'setup-seat');
+    const node = staticSeat ? el('div', 'setup-seat setup-seat-static') : openControl(name, own ? 'king' : 'opponent', 'setup-seat');
     // A friend game with Powers off has no side: both seats show one grey king.
     const randomSide = !king && opponent === 'person' && (own || !hasPowers(draft.setup));
     // A known king gets its house tint only with Powers on. The tint sits on the lasting row, so a change can fade.
@@ -141,7 +143,7 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     power.id = own ? 'setup-own-power' : 'setup-opponent-power';
     copy.append(kingName, power, caption);
     node.append(stage, copy);
-    if (!friend) {
+    if (!staticSeat) {
       caption.append(icon('next'));
       node.querySelector('[data-button-label]')!.classList.add('kd-sr');
       node.setAttribute('aria-label', name);
@@ -178,12 +180,14 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
       const cards = draft.game.context.rules.hands[draft.player];
       picture.append(...(cards.length ? cards.slice(0, 2).map(card => RELEASED_CARDS.findIndex(c => c.id === card)) : [0, 1]).map(art.card));
     }
+    const opensSheet = powers || custom;
     const artwork = keyed(button(label, { onPress: () => {
+      if (!opensSheet) { setFeature(name, !on); return; }
       if (!powers && !on) setFeature(name, true);
       openChoice(powers ? 'king' : 'cards', artwork);
     } }), name);
     artwork.classList.add('setup-feature-label');
-    artwork.setAttribute('aria-haspopup', 'dialog');
+    if (opensSheet) artwork.setAttribute('aria-haspopup', 'dialog');
     artwork.prepend(picture);
     const toggle = keyed(switchRow(label, '', on), `${name}-switch`);
     toggle.querySelector('.kd-switch-copy')!.remove();
@@ -208,7 +212,8 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     level.hidden = start.hidden = friend;
     friendFoot.hidden = !friend;
     features.replaceChildren(feature('powers', hasPowers(draft.setup)), feature('cards', hasCards(draft.setup)));
-    links.replaceChildren(openControl(panelText.more, 'more'));
+    if (custom || !friend) links.replaceChildren(openControl(panelText.more, 'more'));
+    else links.replaceChildren();
     if (focus) table.querySelector<HTMLElement>(`[data-focus="${CSS.escape(focus)}"]`)?.focus({ preventScroll: true });
   }
 
@@ -405,48 +410,50 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
   function more() {
     const box = el('div', 'panel-section setup-more'), list = el('div', 'pool-list');
     if (opponent === 'person') box.append(el('p', 'panel-note', 'Sides are random.'));
-    const full = poolLetters(draft.options.pool, draft.options.seconds) === poolLetters(POOL_KINDS);
-    box.append(choiceValues(panelText.pieces, [{ value: 'all', label: panelText.allPieces }, { value: 'pool', label: panelText.pool }], full && !poolSelected && !poolOpen ? 'all' : 'pool', value => {
-      poolSelected = value === 'pool';
-      if (poolSelected) {
-        if (!poolOpen) d.openView(() => showSetupChoice('more', 'more', true));
-      } else {
-        setOptions({ pool: POOL_KINDS, seconds: DOUBLE_KINDS }); draw();
-        if (!poolOpen) redrawChoice(); else d.backView();
+    if (custom) {
+      const full = poolLetters(draft.options.pool, draft.options.seconds) === poolLetters(POOL_KINDS);
+      box.append(choiceValues(panelText.pieces, [{ value: 'all', label: panelText.allPieces }, { value: 'pool', label: panelText.pool }], full && !poolSelected && !poolOpen ? 'all' : 'pool', value => {
+        poolSelected = value === 'pool';
+        if (poolSelected) {
+          if (!poolOpen) d.openView(() => showSetupChoice('more', 'more', true));
+        } else {
+          setOptions({ pool: POOL_KINDS, seconds: DOUBLE_KINDS }); draw();
+          if (!poolOpen) redrawChoice(); else d.backView();
+        }
+      }));
+      if (poolOpen) {
+        const lock = el('p', 'panel-note', panelText.poolLock); lock.id = 'pool-lock';
+        for (const letter of POOL_KINDS) for (const copy of (DOUBLE_KINDS.includes(letter) ? [1, 2] : [1]) as (1 | 2)[]) {
+          const type = LETTERS.indexOf(letter), name = pieces[type].name + (DOUBLE_KINDS.includes(letter) ? copy === 1 ? ' x1' : ' 2nd' : '');
+          const row = el('label', 'pool-row'), chosen = (copy === 1 ? draft.options.pool : draft.options.seconds ?? DOUBLE_KINDS).includes(letter);
+          const locked = poolLocked(draft.options.pool, letter, draft.options.seconds, copy);
+          row.dataset.letter = letter;
+          const figure = art.figure(type, opponent === 'person' ? 0 : draft.player, draft.game.context.rules);
+          const toggle = keyed(el('input', 'kd-sr'), `${letter}-${copy}`);
+          toggle.type = 'checkbox'; toggle.checked = chosen; toggle.disabled = locked;
+          toggle.setAttribute('aria-label', name);
+          if (locked) toggle.setAttribute('aria-describedby', lock.id);
+          const check = el('span', 'pool-check'), mark = icon('check');
+          mark.querySelector('path')!.setAttribute('pathLength', '24');
+          check.append(mark);
+          toggle.addEventListener('change', () => {
+            const on = toggle.checked;
+            const copies = copy === 2 && !draft.options.pool.includes(letter) ? [1, 2] : [copy];
+            edit({ options: selectPiece(draft.options, letter, copy, on) }); update();
+            if (on && !reducedMotion()) for (const n of copies) {
+              panelBody.querySelector(`[data-focus="${letter}-${n}"] + .pool-check`)?.classList.add('draw-check');
+            }
+          });
+          row.append(figure, el('span', 'pool-name', name));
+          if (locked) row.append(el('span', 'pool-lock', panelText.locked));
+          row.append(toggle, check); list.append(row);
+        }
+        box.append(lock, list);
       }
-    }));
-    if (poolOpen) {
-      const lock = el('p', 'panel-note', panelText.poolLock); lock.id = 'pool-lock';
-      for (const letter of POOL_KINDS) for (const copy of (DOUBLE_KINDS.includes(letter) ? [1, 2] : [1]) as (1 | 2)[]) {
-        const type = LETTERS.indexOf(letter), name = pieces[type].name + (DOUBLE_KINDS.includes(letter) ? copy === 1 ? ' x1' : ' 2nd' : '');
-        const row = el('label', 'pool-row'), chosen = (copy === 1 ? draft.options.pool : draft.options.seconds ?? DOUBLE_KINDS).includes(letter);
-        const locked = poolLocked(draft.options.pool, letter, draft.options.seconds, copy);
-        row.dataset.letter = letter;
-        const figure = art.figure(type, opponent === 'person' ? 0 : draft.player, draft.game.context.rules);
-        const toggle = keyed(el('input', 'kd-sr'), `${letter}-${copy}`);
-        toggle.type = 'checkbox'; toggle.checked = chosen; toggle.disabled = locked;
-        toggle.setAttribute('aria-label', name);
-        if (locked) toggle.setAttribute('aria-describedby', lock.id);
-        const check = el('span', 'pool-check'), mark = icon('check');
-        mark.querySelector('path')!.setAttribute('pathLength', '24');
-        check.append(mark);
-        toggle.addEventListener('change', () => {
-          const on = toggle.checked;
-          const copies = copy === 2 && !draft.options.pool.includes(letter) ? [1, 2] : [copy];
-          edit({ options: selectPiece(draft.options, letter, copy, on) }); update();
-          if (on && !reducedMotion()) for (const n of copies) {
-            panelBody.querySelector(`[data-focus="${letter}-${n}"] + .pool-check`)?.classList.add('draw-check');
-          }
-        });
-        row.append(figure, el('span', 'pool-name', name));
-        if (locked) row.append(el('span', 'pool-lock', panelText.locked));
-        row.append(toggle, check); list.append(row);
-      }
-      box.append(lock, list);
+      box.append(choiceValues(panelText.arrangement, [{ value: 'random', label: panelText.random }, { value: 'manual', label: panelText.manual }], draft.options.arrangement, value => {
+        setOptions({ arrangement: value === 'manual' ? 'manual' : 'random' }); update();
+      }), el('p', 'panel-note', draft.options.arrangement === 'manual' ? panelText.manualLine : panelText.randomLine));
     }
-    box.append(choiceValues(panelText.arrangement, [{ value: 'random', label: panelText.random }, { value: 'manual', label: panelText.manual }], draft.options.arrangement, value => {
-      setOptions({ arrangement: value === 'manual' ? 'manual' : 'random' }); update();
-    }), el('p', 'panel-note', draft.options.arrangement === 'manual' ? panelText.manualLine : panelText.randomLine));
     if (opponent === 'computer') box.append(choiceValues(homeText.side, [{ value: 'light', label: sideText.light }, { value: 'dark', label: sideText.dark }], draft.player ? 'dark' : 'light', value => {
       edit({ sideChoice: value === 'dark' ? 'dark' : 'light' }); update();
     }));

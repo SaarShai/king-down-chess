@@ -11,6 +11,10 @@ import type { CardName, KingChoice } from '../../rules/rules';
 import { hasCards, hasPowers, rulesOf, type GameType, type Level } from './saved';
 import { resolveSide, type SideChoice } from './sides';
 
+/** Power-user New Game customizers stay dev-gated behind ?custom=1 for MVP focus. */
+export const customSetupEnabled = (search = globalThis.location?.search ?? ''): boolean =>
+  new URLSearchParams(search).get('custom') === '1';
+
 /** The stored options of the next game (main.ts). */
 export const OPTIONS_KEY = 'kingdown.game-options';
 /** The piece letters that the selected first and second copies give. */

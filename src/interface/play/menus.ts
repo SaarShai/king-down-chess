@@ -1,7 +1,14 @@
 /** Shared controls for the account settings and the game menu. */
 import { button, closeX, choiceGroup, switchRow } from '../ui/kit.js';
-import { apiOrigin } from '../../platform';
+import { apiOrigin, inApp } from '../../platform';
 import { text } from './texts';
+
+type HapticsWindow = Window & { Capacitor?: { Plugins?: { Haptics?: { vibrate?: unknown } } } };
+/** Show Vibration in the iOS app or on touch devices with Web Vibration; hide on desktop browsers. */
+export const supportsVibration = (): boolean =>
+  inApp ||
+  Boolean((globalThis.window as HapticsWindow | undefined)?.Capacitor?.Plugins?.Haptics?.vibrate) ||
+  (typeof globalThis.navigator?.vibrate === 'function' && (globalThis.matchMedia?.('(pointer: coarse)')?.matches ?? false));
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', content = '') => {
   const node = document.createElement(tag); node.className = className; node.textContent = content; return node;
@@ -47,7 +54,9 @@ function controls(s: Settings): HTMLElement[] {
     motion: changed(segmented(text.motion, speeds(), s.motion, true), s.setMotion),
   };
   return SETTING_ORDER.map(name => {
-    const row = all[name]; row.dataset.setting = name; return row;
+    const row = all[name]; row.dataset.setting = name;
+    if (name === 'vibration' && !supportsVibration()) row.hidden = true;
+    return row;
   });
 }
 
