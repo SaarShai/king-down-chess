@@ -27,5 +27,6 @@ Status: built (2026-11-26). The owner stopped the staging-polish loop; this is t
 
 ## Low items, no work planned
 
+- By design, a change to only `src/style.css` or the play CSS files skips the frame checks. A heavy CSS effect over the board can then change frame time with no check.
 - `KINGDOWN_TEST_FILE` with one file in braces, for example `'{tools/platform.test.ts}'`, finds no test files.
 - The legal and support pages have no canonical link and no description tag.

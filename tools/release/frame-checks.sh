@@ -32,6 +32,7 @@ frame_paths=(
   src public index.html engines docs/king-effects docs/2d-first-pieces
   tools/verify-king-effects.mjs tools/verify-painted-game.mjs tools/app-ui.mjs tools/new-game-ui.mjs
   tools/check.mjs tools/lib tools/release/frame-checks.sh
+  'tools/plugin-*.mjs' tools/staging-config.mjs tools/chatgpt-plugin.mjs tools/muse-connector.mjs
   package.json package-lock.json vite.config.ts tsconfig.json
   ':(exclude)src/interface/play/texts.ts' ':(exclude)src/interface/play/scenes.ts' ':(exclude)src/style.css'
   ':(exclude)src/interface/play/help/help.css' ':(exclude)src/interface/play/menus.css'

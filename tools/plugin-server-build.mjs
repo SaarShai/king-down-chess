@@ -36,7 +36,7 @@ export const JOIN_PAGE = '<!doctype html><html lang="en"><meta charset="utf-8"><
  *  function; Vercel keeps the request path. */
 export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNECTOR, staging = false } = {}) {
   const routes = [];
-  // Search engines (hand-over D10). Staging and the preview: each answer says noindex. A crawler must read the header,
+  // Search engines (hand-over D10). A staging build (KINGDOWN_STAGE=staging): each answer says noindex. A crawler must read the header,
   // so robots.txt does not close the site (searchFiles). Production: www.kingdown.dev sends its pages to kingdown.dev.
   // The list holds pages and search files only, so the API, the functions, OAuth, .well-known and sw.js stay on the host.
   if (site && staging) routes.push({ src: '^/.*$', headers: { 'X-Robots-Tag': 'noindex, nofollow' }, continue: true });

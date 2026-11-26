@@ -5,7 +5,7 @@
  *  Test-account games are in the count: no column marks a test account.
  *  Directly: KINGDOWN_ENGINES_DATABASE_URL=... node tools/games-weekly.mjs. The query is in supabase/ops/weekly-games.sql.
  *  A game deleted with its account, or a Muse game deleted after a disconnect, is not in the count. */
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { pluginDatabaseConfig } from './plugin-db-config.mjs';
@@ -35,7 +35,7 @@ export function formatWeeklyGames(rows) {
   return [line('week (UTC)', 'kind', 'started', 'finished'), ...body, line('total', '', started, finished)].join('\n');
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   let client;
   try {
     // The URL stays in the environment. No output or error prints it.
