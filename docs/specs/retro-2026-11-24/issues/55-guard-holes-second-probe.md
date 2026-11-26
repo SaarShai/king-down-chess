@@ -31,7 +31,7 @@ A new build flag, check or migration:
 12. A non-VITE flag that the web bundle reads: no test reads the define block of `vite.config.ts`.
 13. A registry entry with `byName: true` and no `ci` group: nothing asks the builder to choose "local only".
 14. A check script in a subfolder of `tools/` with no registry entry: the orphan test reads the top level only.
-15. A registry entry whose script file does not exist: the only red is a baseline count, and it goes green when the builder adds the name.
+15. A registry entry whose script file does not exist: the only red is the hand-written baseline list in `tools/ci-shards.test.ts:39`; it names no place and goes green when the builder adds the name.
 16. A migration with a new table and no grant block in `plugin-deploy/runtime-role.sql`.
 17. A migration file with a hyphen after the number (`0027-name.sql`): both docs tests filter on `NNNN_`, so no guard sees the file.
 

@@ -1,6 +1,6 @@
 # The routes of fault reports
 
-Status: done and merged (PR 472; the last batch came with the pull request of tickets 01 to 04); waits for the staging pass and the publish.
+Status: done and merged (PR 472; the last batch came with the pull request of tickets 01 to 04); the staging pass is done (2026-11-25); waits for the publish.
 
 Class: C. Size: S. Needs a two-account pass on staging and a publish.
 
@@ -57,7 +57,7 @@ Not verified:
 ## Staging pass (2026-11-25, head `920573c7a`, with ticket 07)
 
 - A fault at `/index.html` sends `"route":"/index.html"`; the reply is 204. Before this ticket the route was `/other`.
-- A fault 5 s after the load of `/play/friend` sends `"route":"/play"`. This is correct, and it is a limit: `/play/friend` is an entry address, and the page changes the address to `/play` when the friend setup opens (`route()` in `src/online/runtime.ts`). Only a fault before that change has the route `/play/friend`. The unit tests hold the mapping; the pass did not see such a report.
+- A fault 5 s after the load of `/play/friend` sends `"route":"/play"`. This is correct, and it is a limit: `/play/friend` is an entry address, and the page changes the address to `/play/` (stored route: `/play`) when the friend setup opens (`route()` in `src/online/runtime.ts`). Only a fault before that change has the route `/play/friend`. The unit tests hold the mapping; the pass did not see such a report.
 - The pass sent no report from `/api/friends` or from a decline.
 
 ## Review
