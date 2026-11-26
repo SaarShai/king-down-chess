@@ -14,7 +14,7 @@ export const signInText = {
   person: 'Sign in to play a person',
   join: (inviter: string | null) => inviter ? `Sign in to join ${inviter}'s game` : "Sign in to join your friend's game",
   again: 'Sign in again',
-  line: 'Your game stays with your account. Other players see your game name and sign-in picture, if you have one. They do not see your email address.',
+  line: 'Your game stays with your account. Other players see your game name and sign-in picture, if you have one.',
   againLine: 'Your sign-in has ended. Your turn stays on this device. Sign in to send it.',
   way: (way: Way) => way === 'apple' ? 'Sign in with Apple' : `Continue with ${WAY_NAMES[way]}`,
   opening: (way: Way) => `Opening ${WAY_NAMES[way]}…`,
