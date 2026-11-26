@@ -298,6 +298,8 @@ async function loadPeople() {
   }).catch(error => {
     peopleReady = undefined; peopleStatus = 'failed'; onlineNote = peopleLoadError;
     updateAccount();
+    // The note must show on an open Home: with a stored session the top bar has no Sign in to explain the state.
+    if (document.body.dataset.page === 'home' && shell.route.place === 'play') home();
     announce(onlineNote);
     throw error;
   });

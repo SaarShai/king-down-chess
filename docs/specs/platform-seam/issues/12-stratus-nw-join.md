@@ -1,6 +1,6 @@
 # The black Stratus NW turn join differs in one patch
 
-Status: needs-triage.
+Status: wontfix. The lead decided on 2026-11-26: no route plays this join, and the check now compares only the joins that a route plays. Open it again when a new route or rest facing plays `black-turn-W-NW`.
 
 Source: ticket [10](10-red-by-name-checks.md), `stratus-registration`.
 

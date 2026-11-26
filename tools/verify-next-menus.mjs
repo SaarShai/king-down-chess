@@ -197,6 +197,7 @@ const cases = {
     check(await page.waitForFunction(() => document.querySelector('body > .kd-sr')?.textContent.includes('Online play cannot load')).then(() => true, () => false), 'the account load fails');
     await page.waitForTimeout(250);
     check(await page.locator('.play-home .home-sign-in:not([hidden])').count() === 0, 'no Sign in while the account cannot load');
+    check(await page.locator('.play-home .home-note:visible', { hasText: 'Online play cannot load' }).count() === 1, 'Home shows the load note');
     check(await page.locator('.play-home .home-settings-btn:visible').count() === 1, 'the settings button shows');
     await shot(page, 'offline-sign-in');
   },

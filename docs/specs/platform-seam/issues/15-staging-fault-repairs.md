@@ -1,6 +1,6 @@
 # Repairs of the eight staging faults (tickets 13 and 14)
 
-Status: done on branch web-faults (PR 485); reviewed, and one batch repairs the findings; waits for the repair check and the staging pass.
+Status: done on branch web-faults (PR 485); reviewed, repaired and checked; one local playtest; waits for the staging pass.
 
 Class: C. Size: M.
 
@@ -123,3 +123,15 @@ Line numbers are on this branch.
   - Note (tests): `net::ERR_INTERNET_DISCONNECTED` was accepted in all fault cases. Batch: only in `offline_sign_in` and `offline_signed_out`.
   - Note (tests): `code_fault` waited a fixed 250 ms. Batch: see repair 8. Red with the `platform.ts` flag reverted: `code_fault` fails at 7 of 17 sizes (the reviewer saw 1). The fault is a race, so a size can still pass on the old code; the `merge.test.ts` pattern holds the repair line.
   - Note (tests): a case that does not run at a size printed PASS. Batch: a case that skips a whole size returns `'skip'`, and the runner prints `SKIP <size> <case>` and records no result (`offline_sign_in`, `offline_signed_out`, `join_loading`, `home_resize`, `notice`, `result_reload`). A case that skips only some steps at a size keeps PASS.
+
+## Repair check and playtest (2026-11-26)
+
+- Repair check: an agent that did not build the change or the repair read `ede901b79`. Pass. The blocking finding is closed: the new order test fails on the reviewed code. One note: the third new order assertion also passes on the reviewed code.
+- Playtest: one tester with two accounts on the local stack, head `ede901b79`, 28 minutes. Result: pass, no Blocker, no High. Met: repairs 3, 4, 5 and 7 (an invite shows on an open Home in 5 s; a decline in 5 s; "Invite sent" goes after 6 s in the neutral colour; "Loading the invite…" shows in less than 0.3 s). Not run: repair 1 (a game has 3 days for each move, so no game reached its deadline; the unit tests hold it) and repair 8 (the check case holds it).
+- One fault of this batch from the playtest, repaired by the lead after the check: with a stored session and a failed load of the account code, repair 6 removes "Sign in", and the note "Online play cannot load" was only in the screen-reader region. The failed-load path of `loadPeople` (`src/interface/play/main.ts`) now draws Home again, so the note shows. The case `offline_sign_in` of `tools/verify-next-menus.mjs` has a new assertion, "Home shows the load note": red without the line at both sizes, green with it.
+
+More known limits, from the playtest:
+
+- A handle of 20 letters (the longest) still breaks with a last line of one letter in a Home row at 844x390 and 667x375, and the status breaks inside the name at 360x640. No overlap. A cut with "…" is a design choice that the lead did not make in this batch.
+- The first move of a friend game showed on the other screen after 25 s; the next moves in about 1 s. Not examined.
+- In "Invite by name", Enter in the name field does nothing; the Invite button of the result row sends.
