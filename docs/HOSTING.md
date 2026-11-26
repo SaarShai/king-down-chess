@@ -101,8 +101,14 @@ ci → staging → staging-checks → merge → main-ci → engines → publish 
 
 For a tweak preview, run `python3 tools/release/staging.py --preview <ref>`
 from the release tools checkout. Use `--dry-run` to see the commands.
-Pass the scripted journey check and the builder's browser pass before you run
-`--preview`. The command runs neither check. See Preview in `docs/CHANGES.md` on main.
+For a class A web tweak, pass `npm run typecheck`, `KINGDOWN_TEST_WEB_ONLY=1 npm run test:changed`
+and the builder's browser pass of the changed screen before you run `--preview`.
+The command runs no test and no browser pass. No scripted journey check runs before the preview:
+PR CI runs the journey checks. A class A tweak has no two-account staging pass.
+After green PR CI, merge and release with
+`KINGDOWN_REVIEW=lead-read tools/release/release.sh --tweak <PR> <full head sha>`.
+The lead-read review accepts only the paths in `tools/lib/ci-paths.mjs`; any other path needs an independent review.
+See Preview and "A 10-minute Class A batch" in `docs/CHANGES.md` on main.
 The preview uses the linked staging worktree and its staging project.
 It checks types, builds with `KINGDOWN_TEST_PAGES=1`, and runs `release-site`
 on the local build. The staging guard publishes to the preview target.

@@ -1,11 +1,22 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, globSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, globSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { checkShards, filePattern, testGlobs } from './ci-shards.mjs';
 import { findGreenTree, gitTree, jobsForRun, jobsMatchPlan } from './ci-green-tree.mjs';
 import { localPlan, pathPlan } from './lib/ci-paths.mjs';
 import { checks } from './lib/registry.mjs';
 import { selectTests, slowTests } from './lib/test-select.mjs';
+
+// KINGDOWN_TEST_WEB_ONLY=1 (npm run test:changed only): a web-only change leaves out the plugin test files
+// (tools/plugin-*.test.ts and the test files under src/plugin/). PR CI runs them. CI must never set this variable.
+const pluginTest = file => /^tools\/plugin-[^/]*\.test\.ts$/.test(file) || /^src\/plugin\/.*\.test\.(?:ts|mjs)$/.test(file);
+export function webOnly(tests, env) {
+  if (env.KINGDOWN_TEST_WEB_ONLY !== '1') return { tests, dropped: [] };
+  if (env.CI) throw new Error('KINGDOWN_TEST_WEB_ONLY is refused when CI is set: CI runs every test file');
+  return { tests: tests.filter(file => !pluginTest(file)), dropped: tests.filter(pluginTest) };
+}
+// The commands below run only when node starts this file, not when a test imports it.
+const main = process.argv[1] && import.meta.filename === realpathSync(process.argv[1]);
 
 const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
 const commit = /^[a-f0-9]{40}$/;
@@ -38,7 +49,9 @@ function report(what, all, selected) {
   console.log(`Skip ${what} (${skipped.length}): ${skipped.join(', ') || 'none'}`);
 }
 
-if (process.argv[2] === 'changed') {
+if (!main) {
+  // Imported: export webOnly only.
+} else if (process.argv[2] === 'changed') {
   const base = git(['rev-parse', '--verify', 'origin/main^{commit}']).trim();
   const selection = select(base);
   const registry = checks.filter(check => !['standalone', 'release'].includes(check.ci));
@@ -65,11 +78,13 @@ if (process.argv[2] === 'changed') {
 } else if (process.argv[2] === 'tests') {
   // npm run test:changed: the type checks and the test files that the change can break (tools/lib/test-select.mjs).
   // KINGDOWN_TEST_BASE names another base, for a branch on a branch (default origin/main).
+  webOnly([], process.env); // refuse KINGDOWN_TEST_WEB_ONLY under CI before any git or npm call
   const base = git(['merge-base', process.env.KINGDOWN_TEST_BASE || 'origin/main', 'HEAD']).trim();
   const files = git(['ls-files', '--cached', '--others', '--exclude-standard', '-z']).split('\0').filter(file => file && existsSync(file));
   const read = file => { try { return readFileSync(file, 'utf8'); } catch { return undefined; } };
   const plan = selectTests(changesFrom(base).map(({ path }) => path), { files, read });
-  const all = globSync(testGlobs), tests = plan.mode === 'full' ? all : plan.tests;
+  const all = globSync(testGlobs), { tests, dropped } = webOnly(plan.mode === 'full' ? all : plan.tests, process.env);
+  for (const file of dropped) console.log(`Skip ${file}: PR CI runs it (KINGDOWN_TEST_WEB_ONLY=1)`);
   const skipped = all.filter(file => !tests.includes(file));
   console.log(`Run ${tests.length} test files. Skip ${skipped.length} test files.${plan.mode === 'full' ? ` Full suite: ${plan.reason}.` : ''}`);
   const slow = skipped.filter(file => slowTests.has(file));
@@ -77,7 +92,7 @@ if (process.argv[2] === 'changed') {
   if (process.env.KINGDOWN_TEST_WHY === '1' && plan.why) for (const file of tests.filter(file => slowTests.has(file))) console.log(`Why: ${plan.why.get(file)}`);
   if (plan.mode !== 'full') console.log('This is a selection. CI runs the full plan.');
   // '' drops each filter that the caller's shell holds, so the run is the full suite or the full selection, with the type checks.
-  if (tests.length) run(['test'], { KINGDOWN_TEST_FILE: plan.mode === 'full' ? '' : filePattern(tests), KINGDOWN_TEST_DOCS: '', KINGDOWN_TEST_SKIP: '', KINGDOWN_TEST_NAME: '', KINGDOWN_TEST_NO_TYPECHECK: '' });
+  if (tests.length) run(['test'], { KINGDOWN_TEST_FILE: plan.mode === 'full' && !dropped.length ? '' : filePattern(tests), KINGDOWN_TEST_WEB_ONLY: '', KINGDOWN_TEST_DOCS: '', KINGDOWN_TEST_SKIP: '', KINGDOWN_TEST_NAME: '', KINGDOWN_TEST_NO_TYPECHECK: '' });
   else run(['run', 'typecheck']); // only deleted test files changed
 } else if (process.argv[2] === 'workflow') {
   const base = process.env.CI_BASE ?? '';
