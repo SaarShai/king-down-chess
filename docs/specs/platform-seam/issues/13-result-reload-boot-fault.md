@@ -1,6 +1,6 @@
 # A failed board load on a result reload shows the boot fault under Home
 
-Status: repair on branch web-faults; see ticket [15](15-staging-fault-repairs.md) (repair 8). Waits for the review.
+Status: done and live (PR 485, 2026-11-26); see ticket [15](15-staging-fault-repairs.md), repair 8.
 
 Source: ticket [10](10-red-by-name-checks.md), the `next-menus` cases of the lane notes.
 
