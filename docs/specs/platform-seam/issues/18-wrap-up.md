@@ -24,3 +24,8 @@ Status: built (2026-11-26). The owner stopped the staging-polish loop; this is t
 
 - That `www.kingdown.dev` is a domain of the host project. If it is not, the redirect does nothing.
 - The weekly count ran only on an empty test database.
+
+## Low items, no work planned
+
+- `KINGDOWN_TEST_FILE` with one file in braces, for example `'{tools/platform.test.ts}'`, finds no test files.
+- The legal and support pages have no canonical link and no description tag.
