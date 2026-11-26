@@ -110,7 +110,7 @@ export async function site(files: () => Record<string, string>, challengeReply: 
     if (req.headers.cookie !== undefined) { res.writeHead(400).end('cookie sent'); return; }
     // delayAfterRoots: no delay until this many requests of `/` came, so that only the later passes are late.
     const roots = requests.filter(request => request.path === '/').length;
-    if (challengeReply.delayMs && (!challengeReply.path || path === challengeReply.path) && roots > (challengeReply.delayAfterRoots ?? 0)) await new Promise(done => setTimeout(done, challengeReply.delayMs));
+    if (challengeReply.delayMs && (!challengeReply.path || path === challengeReply.path) && roots > (challengeReply.delayAfterRoots ?? 0)) await new Promise(done => setTimeout(done, challengeReply.delayMs).unref());
     const body = files()[path === '/' ? (files()['solo-launch.json'] ? 'next.html' : 'index.html') : path.slice(1)];
     if (path === (challengeReply.path ?? '/.well-known/openai-apps-challenge')) {
       const api = apiPaths.includes(path);

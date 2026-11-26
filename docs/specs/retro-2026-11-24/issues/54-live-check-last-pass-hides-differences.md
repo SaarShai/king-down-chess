@@ -21,6 +21,7 @@ A local site that answers the first pass at once with a different bundle, and ho
 
 - This is a change of a release tool (class B), not a test change.
 - Found by reading and by a fault test in the review; no production run showed it yet.
+- The check drops all lines of the stopped pass, also a real new difference from a request that ended before the stop (for example, the bundle now agrees but `/sw.js` differs). The exit stays 1, and the added line says that the lines are from the pass before. A run with a longer limit shows the new state.
 
 ## Work record
 
