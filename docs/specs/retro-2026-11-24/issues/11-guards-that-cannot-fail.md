@@ -1,6 +1,6 @@
 # Guards that cannot fail, and a guard that fails with no fault
 
-Status: done on branch change-guards (PR A); waits for the review
+Status: done (PR 477, merged 2026-11-25)
 
 Source: the owner's task of 2026-11-25, track 2. [Ticket 03](03-card-tables.md) found one test in `tools/forms-drift.test.ts` that could not fail.
 

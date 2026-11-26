@@ -1,6 +1,6 @@
 # The deploy test file is split by section, so the workers run its parts at the same time
 
-Status: done on branch `deploy-split`, waits for review.
+Status: done (PR 476, merged 2026-11-25)
 
 Source: [retro](../retro.md), the section "Decisions after the merge", the item on `tools/deploy.test.ts`.
 

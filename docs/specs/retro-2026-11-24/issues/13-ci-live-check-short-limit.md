@@ -1,6 +1,6 @@
 # Give the live-check fault tests a limit that a loaded runner can meet
 
-Status: ready-for-agent
+Status: done (PR 478, merged 2026-11-25; not proven on a loaded CI shard)
 Source: the change rehearsals and guard checks of 2026-11-25 ([ticket 10](10-change-rehearsals.md), [ticket 11](11-guards-that-cannot-fail.md), [ticket 12](12-lessons-and-checks.md))
 
 ## Problem
@@ -65,7 +65,7 @@ Repair check (the same reviewer, at 6c1127964): blocking 0. The fault "hide the 
 
 Partly built. The plugin CORS case: PR #446 (merge 55196fb27, commit 31c993190, 2026-11-23) gives it 2000 ms and a 500 ms reply delay. The "both connectors" test now uses `passingEnv` with 10000 ms (tools/deploy-plugin-live-check.test.ts:14, :40). No failure of these two after the repair in the runs since 2026-11-05. The `deploy-live-check.mjs` cases: run 45209506437 failed after #446.
 
-2026-11-25, branch live-check-limit (test change only, not merged):
+2026-11-25, branch live-check-limit (test change only; merged with PR 478):
 - The bundle, terms and support tests in tools/deploy-live-check.test.ts and the publish test at tools/deploy-publish.test.ts:131 use limit 0. Their titles lose "within the time limit", and the three tests lose their `seconds` bound.
 - The support tests now require the fault itself: `/support.html: HTTP 404` (missing) or `support.html: the live page differs` (stale). The old text `support.html` is also in the timeout line, so the old test stayed green with late replies.
 - New test "fails within the time limit when the live site keeps a different bundle" (1500 ms, bundle fault): it asserts only status 1 and `seconds < 6.5`. "keeps the whole-check limit when requests and queued probes are slow" stays as it is.

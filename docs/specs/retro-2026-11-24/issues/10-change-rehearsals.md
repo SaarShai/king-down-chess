@@ -1,6 +1,6 @@
 # Change rehearsals: a missed place fails the type check or one fast test
 
-Status: done on branch change-guards (PR A); waits for the review
+Status: done (PR 477, merged 2026-11-25)
 
 Source: the owner's task of 2026-11-25 ("improvements to how flexible the codebase is and it being more robust when we make changes to it"). Rule 5 of [CHANGES.md](../../../CHANGES.md): hold each lesson in the cheapest form that stops the repeat. Model: [ticket 03](03-card-tables.md).
 

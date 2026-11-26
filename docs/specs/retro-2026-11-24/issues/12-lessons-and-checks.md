@@ -1,6 +1,6 @@
 # Lessons about code and the check that holds each one
 
-Status: done on branch change-guards (PR A); waits for the review
+Status: done (PR 477, merged 2026-11-25)
 
 Source: the owner's task of 2026-11-25, track 2. Rule 5 of [CHANGES.md](../../../CHANGES.md): a lesson goes into a note only when no check can hold it.
 
