@@ -85,7 +85,7 @@ function boardFor(previous: PeopleState, { mount = false, reduce = '', inApp = f
     setTimeout: (run: () => void, ms: number) => { timers.set(++ids, { run, at: clock + ms }); return ids; }, clearTimeout: (id: number) => timers.delete(id),
     AbortController, closeIn: () => ({ cancel: noop, finish: noop }), reducedMotion: () => false,
     refuse: (error: string) => { throw new Error(error); },
-    cells: Array.from({ length: 64 }, (_, square) => ({ square, getBoundingClientRect: () => ({}), classList: { remove: noop } })), armedResource: noop, gameHelp: undefined, choice: [], refusalReason: noop,
+    cells: Array.from({ length: 64 }, (_, square) => ({ square, getBoundingClientRect: () => ({}), classList: { remove: noop } })), armedResource: noop, gameHelp: undefined, choice: [], refusalReason: noop, lockedLine: noop,
     cue: noop, freezeArmed: () => false, typeOf: () => 1, colorOf: () => previous.view!.seat,
     PLAIN_KINGS: [], learningEntry: () => ({ short: '' }), nameOf: () => 'Pawn', sqName, text: {},
   };
