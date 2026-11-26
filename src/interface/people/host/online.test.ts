@@ -5,7 +5,7 @@ import { M, N, R, typeOf } from '../../../rules/engine';
 import { DraftTurn } from '../../play/turn';
 import { memoryStorage } from '../fake-server';
 import { draftKey, inviteURL, keepDraft, onlineOptions, restoreDraft } from './index';
-import { gameOrder, homeInvite, personGame, personTurn, personWords } from './games';
+import { deadlineLine, gameOrder, homeInvite, personGame, personTurn, personWords } from './games';
 import { computerPortrait } from './portrait';
 import type { PeopleState } from '../controller';
 import { fixtureService } from '../../../../tools/plugin-protocol-fixture';
@@ -124,6 +124,17 @@ it('a game whose move time ran out on your turn is not "Your move" on Home', () 
   const base = { game_id: 'g', revision: 3, seat: 0, status: 'playing', action: 'ready', turn: 0, kind: 'friend', speed: 'daily', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', last_commands: [], server_now: new Date().toISOString(), opponent: { handle: 'bo', icon: null, avatar: null, computer: false, deleted: false }, draw_offer: null, abort_open: false, legal: [] } as never as View;
   expect(personGame({ ...base, deadline_at: past })).toMatchObject({ mine: false, status: 'Time is up' });
   expect(personGame({ ...base, deadline_at: future })).toMatchObject({ mine: true, status: 'Your move' });
+  // A row whose move time ran out shows no time left (ticket 16, point 2).
+  expect(deadlineLine(past)).toBe('');
+  expect(deadlineLine(future)).toBe('23 hours');
+});
+it('the other player sees that the time is up and that a claim is possible; the row needs that player (ticket 16, point 3)', () => {
+  const past = new Date(Date.now() - 60_000).toISOString(), future = new Date(Date.now() + 864e5).toISOString();
+  const base = { game_id: 'g', revision: 3, seat: 1, status: 'playing', action: 'waiting', turn: 0, kind: 'friend', speed: 'daily', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', last_commands: [], server_now: new Date().toISOString(), opponent: { handle: 'bo', icon: null, avatar: null, computer: false, deleted: false }, draw_offer: null, abort_open: false, legal: [] } as never as View;
+  expect(personGame({ ...base, deadline_at: past })).toMatchObject({ mine: true, status: 'Time is up · you can claim the win' });
+  expect(personGame({ ...base, deadline_at: past, abort_open: true })).toMatchObject({ mine: true, status: 'Time is up · you can end the game' });
+  expect(personGame({ ...base, deadline_at: future })).toMatchObject({ mine: false, status: 'bo to move' });
+  expect(personGame({ ...base, kind: 'solo', deadline_at: past } as View)).toMatchObject({ mine: false });
 });
 it('each computer level has its approved portrait', () => {
   expect(['casual','clever','club'].map(level => computerPortrait(level as 'casual'))).toEqual([1,2,3].map(n => `/interface/computer-king-${n}-96.webp`));
