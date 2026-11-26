@@ -219,12 +219,15 @@ function homeNameFaults() {
     const lines = new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round(r.top / 4))).size;
     if (lines > 1) out.push(`name "${name.textContent}" takes ${lines} lines in a Home game row`);
     if (name.title !== name.textContent) out.push(`name "${name.textContent}" has no title with the full name in a Home game row`);
+    // The row shows the name; a status that repeats it breaks a long handle in a narrow row.
+    const status = name.nextElementSibling;
+    if (status?.matches('span') && name.textContent && status.textContent.includes(name.textContent)) out.push(`status "${status.textContent}" repeats the name in a Home game row`);
   }
   return out;
 }
 
 /** In the page: a control must be active in this layer and visible without keyboard focus. */
-function outsideLayer(node) { const modal = window.playSceneModal(); return !!node.closest('[inert], .shell-skip:not(:focus)') || !!modal && !modal.contains(node); }
+function outsideLayer(node) { const modal = window.playSceneModal(); return !!node.closest('[inert], .shell-skip:not(:focus-visible)') || !!modal && !modal.contains(node); }
 
 /** In the page: the box that clips part of this control, if any (a scroll box can show all of it). */
 function cutBy(control) {
@@ -247,7 +250,7 @@ function layoutFaults(roles) {
     '.play-opp, .play-own, .play-turn, .play-hand, .play-reader, .play-result',
     '.guide-entry-pane, .turn-steps',
   ].join(', ');
-  const hidden = '[inert], .kd-sr, .shell-skip:not(:focus), script, style';
+  const hidden = '[inert], .kd-sr, .shell-skip:not(:focus-visible), script, style';
   const shown = node => (!modal || modal.contains(node)) && !node.closest(hidden) &&
     node.checkVisibility({ visibilityProperty: true, opacityProperty: true });
   const short = label => label.trim().split('\n', 1)[0].slice(0, 40).trimEnd();

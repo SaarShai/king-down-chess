@@ -138,9 +138,12 @@ it('a tap after the own move time ran out gives the turn line (ticket 16, point 
 it('the other player sees that the time is up and that a claim is possible; the row needs that player (ticket 16, point 3)', () => {
   const past = new Date(Date.now() - 60_000).toISOString(), future = new Date(Date.now() + 864e5).toISOString();
   const base = { game_id: 'g', revision: 3, seat: 1, status: 'playing', action: 'waiting', turn: 0, kind: 'friend', speed: 'daily', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', last_commands: [], server_now: new Date().toISOString(), opponent: { handle: 'bo', icon: null, avatar: null, computer: false, deleted: false }, draw_offer: null, abort_open: false, legal: [] } as never as View;
-  expect(personGame({ ...base, deadline_at: past })).toMatchObject({ mine: true, status: 'Time is up · you can claim the win' });
-  expect(personGame({ ...base, deadline_at: past, abort_open: true })).toMatchObject({ mine: true, status: 'Time is up · you can end the game' });
-  expect(personGame({ ...base, deadline_at: future })).toMatchObject({ mine: false, status: 'bo to move' });
+  expect(personGame({ ...base, deadline_at: past })).toMatchObject({ mine: true, status: 'Time is up · claim the win' });
+  expect(personGame({ ...base, deadline_at: past, abort_open: true })).toMatchObject({ mine: true, status: 'Time is up · end the game' });
+  expect(personGame({ ...base, deadline_at: future })).toMatchObject({ mine: false, name: 'bo', status: 'Their move' });
+  // The row shows the name; its status does not repeat it (a long handle broke at its hyphen).
+  const long = { ...base, deadline_at: future, opponent: { handle: 'midnight-rook-42', icon: null, avatar: null, computer: false, deleted: false } } as View;
+  expect(personGame(long).status).not.toContain('midnight-rook-42');
   expect(personGame({ ...base, kind: 'solo', deadline_at: past } as View)).toMatchObject({ mine: false });
 });
 it('each computer level has its approved portrait', () => {

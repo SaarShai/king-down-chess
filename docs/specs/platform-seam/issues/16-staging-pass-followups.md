@@ -1,6 +1,6 @@
 # Follow-ups of the staging pass of PR 485
 
-Status: done on branch web-followups; waits for the review.
+Status: done on branch web-followups; reviewed; waits for the staging pass.
 
 Class: B. Size: S.
 
@@ -71,6 +71,15 @@ Scope: points 1 to 6 built; point 7 examined; point 8 not touched. Client only. 
 - Probe (a scratch unit test, not kept): the fixture service, alice creates a friend game, bob joins by link, alice opens it. Alice's view has `last_commands: [{ seq: 1, seat: 1, action: { type: 'join' } }]` and `pollDelay(view, 0, false, { fastStart: true })` is 3000. So the client rule is correct on the fixture server.
 - Cause: not proven. The client code gives 3 s when the view holds the join command less than 2 minutes before `server_now`. On the local stack one of these must be false. The candidates: the join `at` (Postgres `created_at`) and `server_now` (the API clock) differ by more than about 70 s; or the view that the page read did not hold the join command. Next step: on the local stack, log A's `GET` reads of the game and the `last_commands` and `server_now` of the first read. No client repair is made.
 
+## Repairs after the review
+
+Two reviews gave PASS with no blocker. The lead decided these repairs:
+
+1. **Point 1: the status repeats the name.** `games.ts:35`: when the other player is to move, the status is "Their move" (the game clock uses the same words), not "<name> to move". The name is in the row, and the row keeps the full name in its accessible name. A long name in the status broke at its hyphen at 844x390, 667x375 and 320x568 at 150% text. The large Continue card uses the same status. Red: the run before the code change stopped at the first changed line, `online.test.ts:141` (`"Time is up · you can claim the win"`). Check: `homeNameFaults` (`tools/verify-play-scenes.mjs:222-224`): a row status that holds the name of its row is a fault.
+2. **Point 3: shorter claim words.** `games.ts:34`: "Time is up · claim the win" and "Time is up · end the game". Tests: `online.test.ts:141-142`.
+3. **Point 6 in the scene check.** `tools/verify-play-scenes.mjs:230, 253`: the skip link counts as hidden while it has no `:focus-visible` (before: no `:focus`), the same rule as `menus.css:8`.
+4. **Point 4 wiring.** `opp-playback.test.ts` (last test): it runs the real `tap` and `lockedLine` of main.ts with the real `refusalReason`. When the own clock is up, a tap on an empty square gives "Your time to move is up."; when the clock is not the own, it gives "Wait for your turn.".
+
 ## Gates (head 43a9bb797, 2026-11-26)
 
 One at a time, after the last code edit:
@@ -96,3 +105,5 @@ One at a time, after the last code edit:
 - Point 3: Home shows the claim row only from the first read after the deadline (Home reads at most every 15 s).
 - Point 5: Enter with the "Players you know" rows (fewer than 2 letters) does nothing.
 - Point 7: cause not proven; see above.
+- Points 2 and 3: Home decides "Time is up" and the claim from the device clock; the game page uses the server time. A wrong device clock can make the two disagree (the old "late" rule had the same limit before this branch).
+- Point 1: two friends whose names start with the same long text show the same cut name in a narrow row.

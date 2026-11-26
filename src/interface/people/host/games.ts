@@ -31,8 +31,8 @@ export function personGame(view: View): PersonGame {
     ? invited ? 'Invite sent' : 'Waiting for a player'
     : state === 'setup' ? 'Getting the game ready'
     : state === 'finished' ? view.result?.winner == null ? 'Draw' : view.result.winner === view.seat ? 'You win' : `${name} wins`
-    : claim ? `Time is up · you can ${view.abort_open ? 'end the game' : 'claim the win'}`
-    : mine ? 'Your move' : late && view.action === 'ready' ? 'Time is up' : `${name} to move`;
+    : claim ? `Time is up · ${view.abort_open ? 'end the game' : 'claim the win'}`
+    : mine ? 'Your move' : late && view.action === 'ready' ? 'Time is up' : 'Their move';
   return { id: view.game_id, name, avatar, mine, deadline: view.deadline_at, state, status, preview: game ? savedPreview(new DraftTurn(game), view.seat) : null, view };
 }
 const rulesWords = (options: Options | null) => options?.kingPowers ? options.cards ? 'With powers and cards' : 'With powers' : options?.cards ? 'With cards' : 'Pieces';
