@@ -261,7 +261,7 @@ live_step() {
   if [ -z "$commit" ]; then commit=$(merge_commit) || return; fi
   if [ "$dry" = yes ]; then
     if [ "$mode" = publish ]; then
-      echo 'dry-run: reuse frame-time evidence only for the merge tree, else run the frame-time checks'
+      echo 'dry-run: reuse frame-time evidence for the merge tree or for an ancestor with the same frame paths, else run the frame-time checks'
     fi
     dry_command "KINGDOWN_RELEASE_WORKTREE=$live_tree" "KINGDOWN_RELEASE_COMMIT=$commit" "KINGDOWN_RELEASE_EVIDENCE=$run/live" bash "$tools/release/live.sh" "$mode"
   else

@@ -327,6 +327,8 @@ it.each([
   ['src/interface/play/texts.ts', '1521', true],
   ['src/render/x.ts', '1522', false],
   ['docs/king-effects/preview.mjs', '1523', false],
+  ['src/first-deal.ts', '1524', false],
+  ['src/interface/play/play.css', '1525', true],
 ])('reuses the frame-checks of a first-parent ancestor only when no frame path changed (%s)', (path, number, reuse) => {
   const repo = tempRepo({ hooks: false });
   try {

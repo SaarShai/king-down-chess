@@ -40,7 +40,7 @@ A tweak goes to the preview address, `https://kingdown-preview.vercel.app`, befo
 
 ## A 10-minute Class A batch
 
-These are the commands for one batch of approved web tweaks. The PR CI wait (about 11 to 14 minutes) is extra.
+These are the commands for one batch of web tweaks. The PR CI wait (about 11 to 14 minutes) is extra. Push before the preview: the preview command fetches origin and builds the commit. PR CI runs while the owner looks at the preview. Take out each tweak that the owner refuses before the release.
 
 ```
 tools/wt.sh add <branch> origin/main

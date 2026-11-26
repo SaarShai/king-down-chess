@@ -21,20 +21,25 @@ find_frame_record() {
   return 1
 }
 
-# The paths that king-effects and painted-game load, play or measure (tools/verify-king-effects.mjs and
+# The paths that king-effects and painted-game can load, play or measure (tools/verify-king-effects.mjs and
 # tools/verify-painted-game.mjs open index.html, which loads src/main.ts; king-effects also serves
 # docs/king-effects from disk). A change to a path in this list runs the frame checks again.
-# A change to other paths only (texts.ts, scenes.ts, the play CSS files, docs) can use an older pass.
+# The list holds all of src/ and public/. It leaves out only the files that a lead-read tweak may change
+# (leadRead in tools/lib/ci-paths.mjs): texts.ts, scenes.ts, style.css and the play and plugin screen CSS files.
+# Docs outside docs/king-effects and docs/2d-first-pieces are not in the list.
 # Add a path when you are not sure: a long list is safe, a missing path is not.
 frame_paths=(
-  src/main.ts src/entry.ts src/game.ts src/new-game.ts src/dialog-dismiss.ts src/power-motion.ts src/power-motion.css
-  src/render src/screen src/ui src/rules src/ai src/interface/entry.ts src/interface/board-api.ts
-  src/interface/play/main.ts src/interface/play/motion.ts src/interface/play/fx src/interface/play/turn.ts
-  index.html public/ui public/character-runtime public/sw.js public/browser-support.js engines
-  docs/king-effects docs/2d-first-pieces
+  src public index.html engines docs/king-effects docs/2d-first-pieces
   tools/verify-king-effects.mjs tools/verify-painted-game.mjs tools/app-ui.mjs tools/new-game-ui.mjs
   tools/check.mjs tools/lib tools/release/frame-checks.sh
   package.json package-lock.json vite.config.ts tsconfig.json
+  ':(exclude)src/interface/play/texts.ts' ':(exclude)src/interface/play/scenes.ts' ':(exclude)src/style.css'
+  ':(exclude)src/interface/play/help/help.css' ':(exclude)src/interface/play/menus.css'
+  ':(exclude)src/interface/play/reading-b.css' ':(exclude)src/interface/play/sides.css'
+  ':(exclude)src/interface/play/shell.css' ':(exclude)src/interface/play/play.css'
+  ':(exclude)src/plugin/screens/board.css' ':(exclude)src/plugin/screens/end.css'
+  ':(exclude)src/plugin/screens/collection.css' ':(exclude)src/plugin/screens/seat.css'
+  ':(exclude)src/plugin/screens/setup.css'
 )
 
 # Exit 0 when the frame paths of two commits or trees are the same. Run in the repository (default .).
