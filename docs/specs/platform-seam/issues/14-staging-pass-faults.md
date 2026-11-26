@@ -1,6 +1,6 @@
 # Seven faults from the staging pass of tickets 05 and 07
 
-Status: needs-triage.
+Status: repairs on branch web-faults; see ticket [15](15-staging-fault-repairs.md) (repairs 1 to 7). Waits for the review.
 
 Source: the two-account pass on staging of 2026-11-25 (head `920573c7a`, PR 479). The report and the pictures are in the lead's run folder `runs/seam-staging-479/` (`pass.md`).
 
