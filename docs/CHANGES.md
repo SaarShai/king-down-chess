@@ -6,7 +6,7 @@ The lead sets the class of a change when the request arrives. The first answer t
 
 | Class | What it is | Review | Path |
 | --- | --- | --- | --- |
-| A. Tweak | Text, style or layout of one screen. Easy to undo. No server, database, account, storage, browser history or rules code. | The lead's read of the diff and the pictures is the independent review. A tweak that the lead writes gets a reader that did not write it. | The builder makes it and does a browser pass of the changed screen: each changed control, a phone size and a desktop size, pictures before and after. The scripted journey check runs. The tweak goes to the preview. The owner says yes or no. Approved tweaks go in one PR with one CI run. Publish. |
+| A. Tweak | Text, style or layout of one screen. Easy to undo. No server, database, account, storage, browser history or rules code. | The lead's read of the diff and the pictures is the independent review. A tweak that the lead writes gets a reader that did not write it. | The builder makes it and does a browser pass of the changed screen: each changed control, a phone size and a desktop size, pictures before and after. `npm run typecheck` and `KINGDOWN_TEST_WEB_ONLY=1 npm run test:changed` pass. The tweak goes to the preview. The owner says yes or no. Approved tweaks go in one PR with one CI run; PR CI runs the journey checks. Release with `KINGDOWN_REVIEW=lead-read tools/release/release.sh --tweak`. No staging pass. |
 | B. Feature | New behaviour in one area. | One independent review by an agent that did not build it. | A short spec. The failing test first. One playtest of the journeys that the change touches, on a frozen head. The review. One batch of repairs. One check of that batch by the same reviewer. One CI run. Publish. |
 | C. Risky | Server, database, accounts, online play, storage, browser history, a cutover. Hard to undo. | As B. A second review is permitted. | As B, and one two-account pass on staging. |
 
@@ -26,11 +26,37 @@ A change that touches class C code is class C. Its size does not change this.
 
 Record each review in the ticket and in the PR: the kind (the lead's read of a tweak, or a review by an agent that did not build the change), the head that was read, and the open findings. When the head or the base moves after the review, the record holds a reconcile note that says what changed and how it was verified.
 
-Use `KINGDOWN_REVIEW=lead-read` to record the lead's read of a tweak. The merge tool refuses this review if the change includes a risky or unknown path.
+Use `KINGDOWN_REVIEW=lead-read` to record the lead's read of a tweak. The merge tool refuses this review if the change includes a risky or unknown path. The accepted paths are in `riskyPaths` of `tools/lib/ci-paths.mjs` (the `leadRead` and `docsPath` patterns):
+- `src/interface/play/texts.ts`, `src/interface/play/scenes.ts` and `tools/verify-play-scenes.mjs`;
+- `src/style.css` and the play CSS files: `help/help.css`, `menus.css`, `reading-b.css`, `sides.css`, `shell.css` and `play.css` in `src/interface/play/`;
+- the plugin screen CSS files: `board.css`, `end.css`, `collection.css`, `seat.css` and `setup.css` in `src/plugin/screens/`;
+- `TASKS.md`, `LESSONS.md`, `docs/lessons/*.md` and the ticket files `docs/specs/<feature>/issues/<n>-<name>.md`.
+
+A change to any other path needs an independent review, also when it is a tweak.
 
 ## Preview
 
-A tweak goes to the preview address, `https://kingdown-preview.vercel.app`, before CI. Before the preview, these pass: the type check, the build, the scripted journey check and the builder's browser pass. The preview uses the staging project and the staging data. It never uses a production key or the production database, and it never moves the staging address or the live site. Only the lead starts a preview. `tools/deploy.sh` publishes to production only: never use it for a preview.
+A tweak goes to the preview address, `https://kingdown-preview.vercel.app`, before CI. Before the preview, these pass: `npm run typecheck`, `KINGDOWN_TEST_WEB_ONLY=1 npm run test:changed` and the builder's browser pass of the changed screen. The preview command builds the site. No scripted journey check runs before the preview: PR CI runs the journey checks. A class A tweak has no two-account staging pass. The preview uses the staging project and the staging data. It never uses a production key or the production database, and it never moves the staging address or the live site. Only the lead starts a preview. `tools/deploy.sh` publishes to production only: never use it for a preview.
+
+## A 10-minute Class A batch
+
+These are the commands for one batch of approved web tweaks. The PR CI wait (about 11 to 14 minutes) is extra.
+
+```
+tools/wt.sh add <branch> origin/main
+# Edit. Do the browser pass of each changed screen (phone and desktop, pictures before and after).
+npm run typecheck
+KINGDOWN_TEST_WEB_ONLY=1 npm run test:changed
+git add <files> && git commit && git push -u origin <branch> && gh pr create
+python3 tools/release/staging.py --preview <full head sha>   # from the release tools checkout
+# The owner says yes or no on https://kingdown-preview.vercel.app. Then PR CI must be green.
+KINGDOWN_REVIEW=lead-read tools/release/release.sh --tweak <PR> <full head sha>   # in tmux; read progress.log
+```
+
+- `KINGDOWN_TEST_WEB_ONLY=1` leaves out `tools/plugin-*.test.ts` and the test files under `src/plugin/`; PR CI runs them. CI refuses the variable.
+- `--tweak` leaves out the stages `staging` and `staging-checks` of `release.sh`.
+- `release.sh` and `tools/deploy.sh` do not run the local frame checks (king-effects, painted-game) again when no frame path changed since the nearest first-parent ancestor with a pass record (`frame_paths` in `tools/release/frame-checks.sh`). A direct `live.sh publish` has no record history, so it runs them.
+- `KINGDOWN_REVIEW=lead-read` works only for the paths in Review record. For other paths, give an independent review and use `release.sh` without this variable.
 
 ## The plugin, the connector and the iOS app
 
