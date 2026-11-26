@@ -232,6 +232,24 @@ const cases = {
     await page.waitForTimeout(250);
     check(await page.locator('#boot-fault').count() === 0, 'a failed font does not show a page-code fault');
   },
+  async skip_link(page, context, check, size) {
+    // Ticket 16, point 6: the skip link shows for keyboard focus only, not when a mouse click moves the focus.
+    if (!['390x844', '1280x720'].includes(size)) return 'skip';
+    await page.goto(NEXT); await page.waitForSelector('.play-home');
+    const shown = () => page.locator('.shell-skip').evaluate(node => node === document.activeElement && getComputedStyle(node).transform === 'none');
+    const focusSkip = () => page.locator('.shell-skip').evaluate(node => { node.blur(); node.focus(); });
+    // A mouse click on the Home title focuses it (tabindex -1; the page focuses it at load, so blur it first); a script then
+    // moves the focus, as "Show all games" does.
+    await page.evaluate(() => document.activeElement?.blur());
+    await page.locator('.play-home h1').click();
+    check(await page.evaluate(() => document.activeElement?.matches('.play-home h1') && !document.activeElement.matches(':focus-visible')), 'a mouse click focuses the title with no focus ring');
+    await focusSkip();
+    check(await page.locator('.shell-skip').evaluate(node => node === document.activeElement), 'a script can focus the skip link');
+    check(!await shown(), 'focus after a mouse click does not show the skip link');
+    // A key press makes the next focus a keyboard focus.
+    await page.keyboard.press('Shift'); await focusSkip();
+    check(await shown(), 'keyboard focus shows the skip link');
+  },
   async home_art(page, context, check) {
     await context.route('**/ui/pieces/*.webp', r => r.abort());
     await page.goto(NEXT); await page.waitForSelector('.play-home');
