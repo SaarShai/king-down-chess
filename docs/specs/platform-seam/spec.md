@@ -1,6 +1,6 @@
 # Platform seam: what the four forms share, and what keeps them equal
 
-Status: approved. The owner approved this spec and the four picks of its author on 2026-11-25, in the lead session ("Approve, build it"). A publish for tickets 05 and 07 still needs his word.
+Status: approved. The owner approved this spec and the four picks of its author on 2026-11-25, in the lead session ("Approve, build it"). He gave the word for the staging pass and the publish; tickets 01 to 10 are live since 2026-11-26 (release of PR 479); the `workshop` check of ticket 10 stays red.
 
 Source: [the retro of 2026-11-24](../retro-2026-11-24/retro.md), item 9
 

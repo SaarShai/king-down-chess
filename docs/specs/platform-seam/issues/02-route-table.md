@@ -1,6 +1,6 @@
 # One page route table
 
-Status: done on branch seam-guards; the review repairs are in; waits for the repair check.
+Status: done and merged (PR 473); live with the release of PR 479 on 2026-11-26.
 
 Class: B. Size: M.
 

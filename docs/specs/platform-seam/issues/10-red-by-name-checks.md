@@ -1,6 +1,6 @@
 # Eight checks that run by name are red on main
 
-Status: done on branch seam-checks. `workshop` stays red: the lead decides how its docs lint leaves the script.
+Status: done and merged (PR 480); live with the release of PR 479 on 2026-11-26. The check `workshop` stays red: the lead decides how its docs lint leaves the script.
 
 Class: B (check scripts only). Size: M.
 

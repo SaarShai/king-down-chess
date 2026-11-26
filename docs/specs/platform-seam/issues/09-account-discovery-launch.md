@@ -1,6 +1,6 @@
 # The account discovery check follows the launch tree
 
-Status: done on branch seam-checks.
+Status: done and merged (PR 480); live with the release of PR 479 on 2026-11-26.
 
 Class: B (a check script only). Size: S to M.
 

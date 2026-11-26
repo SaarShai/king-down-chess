@@ -1,6 +1,6 @@
 # CI builds the tree that ships
 
-Status: done on branch seam-ci; reviewed, repaired and checked.
+Status: done and merged (PR 475); live with the release of PR 479 on 2026-11-26.
 
 Class: B (check scripts, tests and CI only). Size: M, or L if many checks need more than a new start address.
 

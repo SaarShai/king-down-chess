@@ -1,6 +1,6 @@
 # The docs say what the code does
 
-Status: done on branch seam-docs; reviewed, repaired and checked.
+Status: done and merged (PR 474); live with the release of PR 479 on 2026-11-26.
 
 Class: B (a doc of a rollback path gets an independent read). Size: S.
 

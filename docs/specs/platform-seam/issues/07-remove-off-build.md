@@ -1,6 +1,6 @@
 # Remove the launch switch and the off build
 
-Status: done on branch seam-switch (cut from seam-ci, ticket 06); reviewed, and one batch repairs the findings; waits for the repair check, CI and the staging pass. The owner approved [the spec](../spec.md) and decision 1 on 2026-11-25. The staging pass and the publish need the owner's word.
+Status: done, merged and published (PR 479; merge commit `f78ce17ee`; live on 2026-11-26 05:37Z). The owner approved [the spec](../spec.md) and decision 1 on 2026-11-25, and gave the word for the staging pass and for the publish. The staging pass is in the PR and in ticket [05](05-fault-report-routes.md) and [14](14-staging-pass-faults.md).
 
 Blocked by: 06
 

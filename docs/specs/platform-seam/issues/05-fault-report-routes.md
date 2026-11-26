@@ -1,6 +1,6 @@
 # The routes of fault reports
 
-Status: done and merged (PR 472; the last batch came with the pull request of tickets 01 to 04); the staging pass is done (2026-11-25); waits for the publish.
+Status: done and merged (PR 472; the last batch came with the pull request of tickets 01 to 04); the staging pass is done (2026-11-25); published with PR 479 on 2026-11-26.
 
 Class: C. Size: S. Needs a two-account pass on staging and a publish.
 
