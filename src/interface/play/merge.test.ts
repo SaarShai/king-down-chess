@@ -53,6 +53,8 @@ it('keeps the menus first-load recovery in the launch HTML and entry', () => {
   const entry = read('src/interface/entry.ts');
   expect(entry).toContain('boot.kdBooted = true');
   expect(entry).toContain('catch { boot.kdBootFault?.(); }');
+  // A loaded main module turns the boot fault off before Home draws: a failed lazy chunk after it is main.ts's fault line.
+  expect(read('src/interface/platform.ts')).toMatch(/await import\('\.\/play\/main'\);\s*\(window as unknown as \{ kdBooted\?: boolean \}\)\.kdBooted = true;/);
 });
 
 it('links the King Down crown icon in the new-page head', () => {

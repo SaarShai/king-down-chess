@@ -382,7 +382,8 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .home-game-list > li + li { border-top: 1px solid var(--divider); }
 .home-game-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) minmax(0, auto) auto;
+  /* The name and the status share the free width: a long status must not push the name into pieces of 2 or 3 letters. */
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   width: 100%;

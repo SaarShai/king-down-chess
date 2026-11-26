@@ -148,6 +148,7 @@ export function landingPage(host: LandingHost, fragment: string) {
     element.dataset.state = state.kind;
     if (restore) title.focus();
   }
+  element.append(node('p', 'people-loading', landingText.loading));
   void read();
   return element;
 }

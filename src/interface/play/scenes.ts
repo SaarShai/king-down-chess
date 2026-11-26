@@ -12,7 +12,7 @@ import { rulesOf } from './saved';
 import { panelText, text } from './texts';
 
 type Step = string | { control: string };
-interface Scene { save?: object; online?: object; steps?: Step[]; ready: string; readyText?: string }
+interface Scene { save?: object; online?: object; games?: Record<string, object>; steps?: Step[]; ready: string; readyText?: string }
 // White to move; the opponent's queen mates on h4 (the "fool's mate").
 const LOST = 'rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3';
 const SOLO = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'ai', rules: { kings: [null, null], hands: [[], []] }, pace: 'off' };
@@ -34,6 +34,7 @@ const THEIR_MOVE = { status: 'playing', turn: 1, action: 'waiting', in_check: fa
 const BOARD = '.play-game:has(.play-grid:not([inert])):has(.play-own .play-power)';
 const WITH_HAND = `${BOARD}:has(.play-hand > .play-card:nth-child(4):last-child)`;
 const knight = { control: '.play-square[data-square="6"]' };
+const ROW_0 = '00000000-0000-4000-8000-0000000000a0', ROW_A = '00000000-0000-4000-8000-0000000000a1', ROW_B = '00000000-0000-4000-8000-0000000000a2';
 const LOSS = { status: 'finished', result: { winner: 1, reason: 'checkmate' }, fen: LOST, rematch_offer: null };
 const SCENES: Record<string, Scene> = {
   'online-loss': { online: LOSS, ready: '.play-result' },
@@ -77,6 +78,10 @@ const SCENES: Record<string, Scene> = {
   'setup-cards': { save: SOLO, steps: [text.newGame, text.cards], ready: '.setup-overlay:not([hidden])' },
   'home-signed-out': { ready: '.play-home[data-state="new"] .home-sign-in:not([hidden])' },
   'home-saved': { save: SOLO, ready: '.play-home[data-state="saved"] .home-continue' },
+  // Signed in, with person games: long names in the Home rows (the first game is the large card, the rest are rows).
+  'home-games': { games: { [ROW_0]: { ...THEIR_MOVE, game_id: ROW_0, turn: 0, action: 'ready' }, [ROW_A]: { ...THEIR_MOVE, game_id: ROW_A, opponent: { ...THEIR_MOVE.opponent, handle: 'midnight-rook-42' } },
+    [ROW_B]: { ...THEIR_MOVE, game_id: ROW_B, opponent: { ...THEIR_MOVE.opponent, handle: 'swift-guard-86' } } },
+    ready: '.play-home .home-game-row[data-game]' },
   'setup-more': { save: SOLO, steps: [text.newGame, panelText.more], ready: '.setup-overlay:not([hidden]) [data-choice="more"]' },
   'setup-piece-pool': { save: SOLO, steps: [text.newGame, panelText.more, panelText.pool],
     ready: '.setup-overlay:not([hidden]) .pool-list .pool-row' },
@@ -109,9 +114,10 @@ Object.defineProperty(navigator, 'serviceWorker', { value: undefined, configurab
 Object.defineProperty(window, 'BroadcastChannel', { value: undefined, configurable: true });
 const json = (body: unknown, status = 200) => new Response(status === 204 ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 const answer = (path: string, method: string) => {
+  if (method === 'GET' && path.startsWith('/api/games/') && scene?.games?.[path.slice(11)]) return json(view(scene.games[path.slice(11)]));
   if (method === 'GET' && path === `/api/games/${GAME}`) return json(view(scene?.online ?? {}));
   if (path === '/api/me/settings') return json({ settings: {}, me: { handle: 'alex', icon: 'flame' } });
-  if (path === '/api/me/games') return json({ games: [], invitations: [], next_before: null });
+  if (path === '/api/me/games') return json({ games: Object.keys(scene?.games ?? {}).map(game_id => ({ game_id })), invitations: [], next_before: null });
   if (path === '/api/me/record') return json({ handle: 'alex', icon: 'flame', record: {}, notices: [], blocks: [], history: [], next_before: null });
   if (method === 'POST' && path.endsWith('/seen')) return json(null, 204);
   return json({ code: 'NOT_FOUND', message: 'Not in the scene' }, 404);
@@ -147,6 +153,7 @@ if (!scene) {
   sessionStorage.setItem('kingdown.title-seen', '1');
   localStorage.setItem('kingdown.solo-launch-seen', '1');
   if (scene.save) localStorage.setItem('kingdown.save', JSON.stringify(scene.save));
+  if (scene.games) localStorage.setItem('kingdown.auth', JSON.stringify(session));
   if (scene.online) { localStorage.setItem('kingdown.auth', JSON.stringify(session)); history.replaceState(null, '', `${location.search}#online=${GAME}`); }
   await import('./main');
   for (const step of scene.steps ?? []) { await press(step); await frame(); await settled(); }

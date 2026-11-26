@@ -176,8 +176,37 @@ const cases = {
     await page.locator('dialog[open]').getByRole('button', { name: text.resign, exact: true }).click();
     await page.waitForSelector('.play-result', { state: 'attached' });
     await context.route(pattern, r => r.abort()); await page.reload();
-    check(await page.waitForSelector('.play-home h1').then(() => true, () => false) && await page.locator('#boot-fault, .people-loading').count() === 0, 'a result card with no board code opens Home');
+    // The failed board file can come after Home draws: wait for it before the count (seam ticket 13).
+    const homeOpens = await page.waitForSelector('.play-home h1').then(() => true, () => false);
+    await page.waitForTimeout(250);
+    check(homeOpens && await page.locator('#boot-fault, .people-loading').count() === 0, 'a result card with no board code opens Home');
     await context.unroute(pattern);
+  },
+  async offline_sign_in(page, context, check, size) {
+    // A stored session, and the account code cannot load (offline; the launch worker does not keep it): Home does not
+    // know the account, so it shows the neutral settings button and no Sign in.
+    if (!['390x844', '1280x720'].includes(size)) return;
+    await signedIn(context, []);
+    // Two chunks are named client-*: the small online client that Home needs, and the large account client (sign-in library).
+    await context.route(/\/assets\/client-[\w-]+\.js$/, async r => { const reply = await r.fetch(); return (await reply.body()).length > 50_000 ? r.abort('internetdisconnected') : r.fulfill({ response: reply }); });
+    await page.goto(NEXT); await page.waitForSelector('.play-home');
+    // The load fault is announced (body > .kd-sr); a failed check waits for it, so a route that blocks nothing fails.
+    check(await page.waitForFunction(() => document.querySelector('body > .kd-sr')?.textContent.includes('Online play cannot load')).then(() => true, () => false), 'the account load fails');
+    await page.waitForTimeout(250);
+    check(await page.locator('.play-home .home-sign-in:not([hidden])').count() === 0, 'no Sign in while the account cannot load');
+    check(await page.locator('.play-home .home-settings-btn:visible').count() === 1, 'the settings button shows');
+    await shot(page, 'offline-sign-in');
+  },
+  async join_loading(page, context, check, size) {
+    // A signed-in player opens an invite link: a loading line shows at once, while the account and the invite read run.
+    if (!['390x844', '1280x720'].includes(size)) return;
+    await signedIn(context, []);
+    let release; const held = new Promise(done => { release = done; });
+    await page.route('**/api/me/settings', async route => { await held; return route.fulfill({ json: { settings: {}, me: { handle: 'tester', icon: null } } }); });
+    await page.goto(`${NEXT}#join=${'k'.repeat(43)}`);
+    check(await page.locator('#app .people-loading').filter({ hasText: 'Loading the invite' }).waitFor({ timeout: 2000 }).then(() => true, () => false), 'the join page shows a loading line at once');
+    release();
+    check(await page.locator('.people-landing').waitFor().then(() => true, () => false), 'the landing replaces the loading line');
   },
   async font_fault(page, context, check) {
     await context.route('**/fonts/alegreya-sans-bold-latin.woff2', r => r.abort());
@@ -901,10 +930,10 @@ try {
     const check = (ok, label) => { if (!ok) failures.push(label); };
     try { await run(page, context, check, size); } catch (e) { failures.push(String(e)); }
     // Only these fault cases deliberately abort requests (notice: a 401 read and the aborted account project). A page exception is never expected.
-    if (!['code_fault', 'font_fault', 'home_art', 'rematch_art', 'notice'].includes(name)) {
+    if (!['code_fault', 'font_fault', 'home_art', 'rematch_art', 'notice', 'offline_sign_in', 'join_loading'].includes(name)) {
       try { assertNoErrors(trapped); } catch (e) { failures.push(String(e)); }
       check(errors.length === 0, `no console error: ${errors.join('; ')}`);
-    } else check(!errors.some(e => !/Failed to load resource|Load failed|net::ERR_FAILED/.test(e)), `only blocked requests fail: ${errors.join('; ')}`);
+    } else check(!errors.some(e => !/Failed to load resource|Load failed|net::ERR_FAILED|net::ERR_INTERNET_DISCONNECTED/.test(e)), `only blocked requests fail: ${errors.join('; ')}`);
     const result = { size, name, failures, errors }; results.push(result);
     console.log(`${failures.length ? 'FAIL' : 'PASS'} ${size} ${name} ${failures.join(' | ')}`);
     await context.close();

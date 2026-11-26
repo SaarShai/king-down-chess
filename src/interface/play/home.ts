@@ -111,7 +111,7 @@ export function playScreen(d: PlayData, art: Art, previous?: ReturnType<typeof c
   home.querySelector('.home-hero')!.after(topbar);
 
   const start = el('div', 'home-start');
-  const rows: { mine: boolean; deadline: string | null; state: PersonGame['state']; row: HTMLElement }[] = [];
+  const rows: { mine: boolean; deadline: string | null; state: PersonGame['state']; invite?: boolean; row: HTMLElement }[] = [];
   for (const game of games) {
     if (game === primary) continue;
     const row = el('button', 'home-game-row'); row.type = 'button'; row.dataset.game = game.id; row.dataset.mine = String(game.mine);
@@ -133,7 +133,7 @@ export function playScreen(d: PlayData, art: Art, previous?: ReturnType<typeof c
       const player: HTMLButtonElement = button('Player options', { onPress: () => d.onInvitePlayer!(invite.id, player) }); actions.append(player);
     }
     row.append(profilePortrait(invite.name, invite.avatar), copy, actions);
-    rows.push({ mine: invite.kind === 'incoming', deadline: null, state: invite.kind === 'incoming' ? 'setup' : 'finished', row });
+    rows.push({ mine: invite.kind === 'incoming', deadline: null, state: invite.kind === 'incoming' ? 'setup' : 'finished', invite: true, row });
   }
   const card = el('article', 'home-card');
   const newGame = button(hasGame ? text.newGame : text.play, { kind: hasGame ? 'quiet' : 'main', onPress: () => hasGame ? d.onChange(newGame) : d.onPlay(newGame) });

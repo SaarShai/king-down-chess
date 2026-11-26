@@ -14,7 +14,8 @@ import { pauseClock } from './lib/page-clock.mjs';
 // name with an ellipsis, as the known mark at 320 px allows.
 const gameScreen = scene => /^(online|solo)-/.test(scene) && !['online-loss', 'online-loss-offer'].includes(scene);
 const withPanel = scene => gameScreen(scene) || ['new-game', 'setup-friend'].includes(scene);
-const SIZES = [[320, 568], [360, 640], [390, 844], [667, 375, withPanel], [568, 320, withPanel], [736, 414, gameScreen], [900, 600, gameScreen], [1280, 800]], SCALES = [100, 150];
+// home-games: the landscape Home (667x375, 844x390) splits its actions column between the name and the status of a game row.
+const SIZES = [[320, 568], [360, 640], [390, 844], [667, 375, scene => withPanel(scene) || scene === 'home-games'], [568, 320, withPanel], [736, 414, gameScreen], [900, 600, gameScreen], [844, 390, scene => scene === 'home-games'], [1280, 800]], SCALES = [100, 150];
 const ROLES = ['button', 'link', 'switch', 'radio', 'checkbox', 'tab', 'menuitem', 'option', 'slider', 'textbox', 'combobox'];
 const SENTINEL = 'kingdown-scene-sentinel';
 

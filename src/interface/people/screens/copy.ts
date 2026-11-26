@@ -70,6 +70,9 @@ export const personText = {
   closed: (name: string) => `${name} does not take invites now.`,
   tooMany: 'Too many tries. Wait a minute and try again.',
 } as const;
+/** A sent invite or link: Home shows it as a short status line, not as a note that stays (main.ts toast). */
+export const passingNote = (message: string) => message === personText.linkCopied || message === personText.linkSent
+  || /^Invite sent to (.+)\. \1 sees it on Home\.$/.test(message);
 /** "{result}, {when}" of a Play again row, for example "You win, 2 days ago". */
 export function againLine(name: string, result: 'won' | 'lost' | 'drawn' | null, ago: number | null): string {
   const words = result === 'won' ? 'You win' : result === 'lost' ? `${name} wins` : result === 'drawn' ? 'Draw' : '';
@@ -78,7 +81,7 @@ export function againLine(name: string, result: 'won' | 'lost' | 'drawn' | null,
 }
 
 export const landingText = {
-  brand: 'King Down',
+  brand: 'King Down', loading: 'Loading the invite…',
   title: (inviter: string) => `${inviter} invites you to a game`, titlePlain: 'A friend invites you to a game',
   line: 'Chess with new pieces. Checkmate wins.', time: '3 days for each move', side: (white: boolean) => `You play ${white ? 'Light' : 'Dark'}`,
   join: 'Join the game', notNow: 'Not now',

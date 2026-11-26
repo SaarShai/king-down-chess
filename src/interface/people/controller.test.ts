@@ -7,6 +7,7 @@ import { parseSq, type Move } from '../../rules/engine';
 import { toFen } from '../../rules/setup';
 import { Game } from '../../game';
 import { peopleController, type PeopleController } from './controller';
+import { personTurn } from './host/games';
 import { fakeServer, memoryStorage, type FakeServer } from './fake-server';
 import { receiptKey, receiptOf } from './receipt';
 import { peopleServer } from './server';
@@ -288,6 +289,17 @@ it('time up: End the game before both players move, Claim the win after', async 
   expect(won.alice.controller.state().claim).toBe('win');
   expect(await won.alice.controller.claim()).toBe(true);
   expect(won.alice.controller.state().view!.result).toEqual({ winner: 0, reason: 'timeout' });
+});
+
+it('time up on your own move: the controls lock, the clock still says your move', async () => {
+  const w = await started();
+  await play(w.alice.controller, 'e2', 'e4'); await w.bob.controller.refresh(); await play(w.bob.controller, 'e7', 'e5');
+  w.games.seed('alice', { views: { [w.id]: { deadline_at: new Date(Date.now() - 60_000).toISOString() } } });
+  await w.alice.controller.open(w.id);
+  const late = w.alice.controller.state();
+  expect(late).toMatchObject({ draft: undefined, received: undefined, canSend: false, claim: null, clock: { mine: true } });
+  expect(late.clock.left!).toBeLessThan(0);
+  expect(personTurn(late)).toBe('Your time to move is up. The game ends soon.');
 });
 
 it('recovery states: the game is gone, another account, and the service down after three failed reads', async () => {
