@@ -119,5 +119,5 @@ it('the launch app local board links to the new deletion control; the default ke
   expect(app).not.toContain('data-act="delete"');
   expect(old).toContain('data-act="delete"'); expect(old).not.toContain('/next.html#you');
   const source = readFileSync(new URL('./account.ts', import.meta.url), 'utf8');
-  expect(source).toContain("inApp && typeof __KINGDOWN_SOLO_LAUNCH__ === 'boolean' && __KINGDOWN_SOLO_LAUNCH__");
+  expect(source).toContain('accountHtml(user, facebook, providers, muse, inApp);');
 });

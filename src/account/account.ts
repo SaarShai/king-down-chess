@@ -15,7 +15,6 @@ import { apiOrigin, inApp } from '../platform';
 import { readWebAccountAccess } from '../online/account-access';
 export type User = { name: string; avatar: string | null; provider: string };
 type AuthUser = { user_metadata?: Record<string, unknown>; app_metadata?: Record<string, unknown> };
-declare const __KINGDOWN_SOLO_LAUNCH__: boolean;
 
 const PROVIDERS: [Exclude<Provider, 'apple'>, string][] = [['google', 'Google'], ['github', 'GitHub'], ['facebook', 'Facebook']];
 /** Each service's own mark, as its sign-in branding rules ask (Google's sits on white). */
@@ -96,7 +95,7 @@ export function startAccount(onApply: (down: Section[], switched?: boolean) => v
   const keep = (t: string): void => { keptNote = t; say(t); };
   const render = (): void => {
     const hadFocus = body.contains(document.activeElement);
-    body.innerHTML = accountHtml(user, facebook, providers, muse, inApp && typeof __KINGDOWN_SOLO_LAUNCH__ === 'boolean' && __KINGDOWN_SOLO_LAUNCH__);
+    body.innerHTML = accountHtml(user, facebook, providers, muse, inApp);
     // One form across redraws, so a code on its way keeps its step and typed address.
     if (user) { emailForm = null; forgetEmailCode(); }
     else if (providers.includes('email')) body.querySelector('small')!.before(emailForm ??= emailCodeForm(load, say));

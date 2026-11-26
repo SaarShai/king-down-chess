@@ -121,7 +121,7 @@ try {
     const options = { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false };
     if (app.localSolo) assert.equal((await web('/api/games', { kind: 'solo', command_id: randomUUID() }, 403)).code, 'NOT_ALLOWED');
     else {
-      // With the launch option off, the old /play page plays web solo: a move and a computer turn with real PostgreSQL.
+      // A server with localSolo off (no site, or the server from source) keeps web solo: a move and a computer turn with real PostgreSQL.
       const solo = (await web('/api/games', { kind: 'solo', options, colour: 'white', command_id: randomUUID() }, 201)).view;
       assert.equal(solo.kind, 'solo'); assert(solo.legal.length);
       const first = await web(`/api/games/${solo.game_id}/commands`, { command_id: 'http-solo-first', expected_revision: solo.revision, action: { type: 'turn', actions: [solo.legal.find(lan => !lan.includes('!'))] } });

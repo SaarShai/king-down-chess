@@ -100,21 +100,21 @@ function worker(caches = storage(), build = version, buildFiles = files, registr
   return { caches, registration, fetch, claim, skipWaiting, fire, request, message, timers, timerStarted, saved, storageAccess };
 }
 
-describe.each(['../public/sw.js', './solo-launch/sw.js'])('media bypass (%s)', path => {
+describe('media bypass', () => {
   it.each([
     ['ui/pawn.webp', { Range: 'bytes=0-1' }],
     ['interface/reveal/wide.mp4', {}],
     ['interface/reveal/wide-hevc.mp4', {}],
     ['interface/reveal/wide.webm', {}],
   ] as const)('leaves %s to the browser even on the allowlist', (file, headers) => {
-    const w = worker(storage(), version, [...files, file], undefined, readFileSync(new URL(path, import.meta.url), 'utf8'));
+    const w = worker(storage(), version, [...files, file]);
     expect(w.request(file, { headers: new Headers(headers) }).response).toBeUndefined();
     expect(w.fetch).not.toHaveBeenCalled();
   });
 });
 
-it.each(['../public/sw.js', './solo-launch/sw.js'])('caches painted art at use and leaves uncached banks to the fallback (%s)', async path => {
-  const w = worker(storage(), version, files, undefined, readFileSync(new URL(path, import.meta.url), 'utf8'));
+it('caches painted art at use and leaves uncached banks to the fallback', async () => {
+  const w = worker(storage(), version, files);
   const index = 'moments/painted.json';
   const sheet = 'moments/painted/collapse-pawn-white.webp';
   const missing = 'moments/painted/bow-frost-black.webp';
@@ -209,12 +209,10 @@ it.each([
 const privatePaths = ['/api', '/mcp', '/authorize', '/auth', '/oauth', '/consent', '/login', '/logout', '/signin', '/signout', '/callback', '/.well-known', '/internal', '/play', '/g', '/j'];
 /** The allowlist with these private paths on it: only the private list of the worker keeps them out of the cache. */
 const listed = (...paths: string[]) => [...files, ...paths.map(path => new URL(path, origin).pathname.slice(1))];
-// Each shipped form uses the launch worker (vite.config.ts); the off build uses public/sw.js. The private list is a copy in each.
-const workers = [['public/sw.js', template], ['tools/solo-launch/sw.js', readFileSync(new URL('./solo-launch/sw.js', import.meta.url), 'utf8')]] as const;
 
-describe.each(workers)('private safety during installation (%s)', (_name, source) => {
+describe('private safety during installation', () => {
   it('replies while an offline fetch is held, but keeps activation closed until the complete graph is present', async () => {
-    const w = worker(undefined, version, files, undefined, source), started = deferred(), resume = deferred();
+    const w = worker(undefined, version, files), started = deferred(), resume = deferred();
     w.fetch.mockImplementationOnce(async request => { started.resolve(); await resume.promise; return response(request.url); });
     const install = w.fire('install'); await started.promise;
     const proof = w.message({ data: { type: 'kingdown-cache-policy', requestId: 'early', installing: true } }); await proof.done();
@@ -224,19 +222,18 @@ describe.each(workers)('private safety during installation (%s)', (_name, source
     resume.resolve(); await install.done(); await w.fire('activate').done(); expect(w.claim).toHaveBeenCalledOnce();
   });
   it.each(['/api/private', '/play/', '/assets/main.js?code=private'])('refuses early proof with a forbidden cache key: %s', async path => {
-    const w = worker(undefined, version, listed('/api/private', '/play/'), undefined, source), cache = await w.caches.open(current); cache.entries.set(url(path), response(path));
+    const w = worker(undefined, version, listed('/api/private', '/play/')), cache = await w.caches.open(current); cache.entries.set(url(path), response(path));
     const proof = w.message({ data: { type: 'kingdown-cache-policy', requestId: 'early', installing: true } });
     await expect(proof.done()).rejects.toThrow('Forbidden application cache key'); expect(proof.postMessage).not.toHaveBeenCalled();
   });
 });
 
-describe.each(workers)('public request boundary (%s)', (name, source) => {
-  const launch = name === 'tools/solo-launch/sw.js';
+describe('public request boundary', () => {
   const named = [...privatePaths.flatMap(path => [path, `${path}/child`]), '/api/status', '/api/status?muse=1', '/play.html', '/consent.mjs'];
   it.each([...named, '/privacy.html', '/terms.html', '/delete-data.html', '/support.html', '/muse-connector.html', '/googlea1baf648ae09b150.html', '/assets/unknown.js', '/sw.js'])('bypasses %s with queries and navigation', async path => {
-    const w = worker(undefined, version, named.includes(path) ? listed(path) : files, undefined, source);
-    // The launch worker answers a navigation to an online page from the network, with its offline page as the fallback.
-    const online = launch && /^\/(?:play(?:\/.*)?|g\/[^/]+\/?|j\/?)$/.test(path);
+    const w = worker(undefined, version, named.includes(path) ? listed(path) : files);
+    // The worker answers a navigation to an online page from the network, with its offline page as the fallback.
+    const online = /^\/(?:play(?:\/.*)?|g\/[^/]+\/?|j\/?)$/.test(path);
     for (const suffix of ['', '?probe=1']) for (const mode of ['navigate', 'cors'] as const) {
       expect(w.request(path + suffix, { mode }).response === undefined, `${path}${suffix} ${mode}`).toBe(!(online && mode === 'navigate'));
     }
@@ -249,7 +246,7 @@ describe.each(workers)('public request boundary (%s)', (name, source) => {
     { cache: 'no-store' }, { headers: { 'Cache-Control': 'max-age=0, NO-STORE' } },
     { method: 'POST' }, { method: 'PUT' }, { method: 'DELETE' }, { method: 'HEAD' },
   ])('bypasses a public file with %j before cache access', init => {
-    const w = worker(undefined, version, files, undefined, source);
+    const w = worker(undefined, version, files);
     for (const path of ['/assets/main.js', '/?fen=local', '/index.html?fen=local']) {
       expect(w.request(path, init).response).toBeUndefined();
     }
@@ -258,7 +255,7 @@ describe.each(workers)('public request boundary (%s)', (name, source) => {
   });
 
   it('bypasses foreign URLs and asset queries without a canonical cache read', () => {
-    const w = worker(undefined, version, files, undefined, source);
+    const w = worker(undefined, version, files);
     for (const path of ['https://other.test/assets/main.js', '/assets/main.js?v=1', '/ui/pawn.webp?code=secret']) {
       expect(w.request(path).response).toBeUndefined();
     }
@@ -266,7 +263,7 @@ describe.each(workers)('public request boundary (%s)', (name, source) => {
   });
 
   it('installs all local files, then takes over, with no other storage change', async () => {
-    const w = worker(undefined, version, files, undefined, source);
+    const w = worker(undefined, version, files);
     const unrelated = await w.caches.open('other-app');
     unrelated.entries.set(url('/private'), response('/private'));
     await w.fire('install').done();
@@ -280,7 +277,7 @@ describe.each(workers)('public request boundary (%s)', (name, source) => {
 
   it('bounds concurrent install work and waits for the last public response before takeover', async () => {
     const paths = Array.from({ length: 19 }, (_, index) => `assets/public-${index}.js`);
-    const w = worker(undefined, version, paths, undefined, source), held = deferred();
+    const w = worker(undefined, version, paths), held = deferred();
     let active = 0, peak = 0;
     w.fetch.mockImplementation(async request => {
       peak = Math.max(peak, ++active);
@@ -299,7 +296,7 @@ describe.each(workers)('public request boundary (%s)', (name, source) => {
   });
 
   it('serves an exact cached asset with Vary ignored and Search kept', async () => {
-    const w = worker(undefined, version, files, undefined, source), cache = await w.caches.open(current);
+    const w = worker(undefined, version, files), cache = await w.caches.open(current);
     cache.entries.set(url('/assets/main.js'), response('/assets/main.js', { headers: { Vary: 'Origin' } }));
     const event = w.request('/assets/main.js'); await event.done();
     expect(await event.response).toBeInstanceOf(Response);
@@ -308,9 +305,9 @@ describe.each(workers)('public request boundary (%s)', (name, source) => {
     expect(cache.put).not.toHaveBeenCalled();
   });
 
-  // In the launch worker, index.html is the old page with a key of its own: "keeps the two launch page shells separate offline".
-  it.each(launch ? ['/', '/?game=local#board'] : ['/', '/index.html', '/?game=local#board', '/index.html?game=local#board'])('fetches the actual local URL and keeps the install shell: %s', async path => {
-    const w = worker(undefined, version, files, undefined, source);
+  // index.html is the old page with a key of its own: "keeps the two launch page shells separate offline".
+  it.each(['/', '/?game=local#board'])('fetches the actual local URL and keeps the install shell: %s', async path => {
+    const w = worker(undefined, version, files);
     await w.fire('install').done();
     const cache = w.caches.entries.get(current)!; cache.put.mockClear(); w.fetch.mockClear();
     w.fetch.mockImplementation(async request => response(request.url.replace(/#.*$/, '')));
@@ -323,7 +320,7 @@ describe.each(workers)('public request boundary (%s)', (name, source) => {
   });
 
   it.each(['code', 'state', 'error', 'error_code', 'error_description', 'sb_flow_id', 'access_token', 'refresh_token', 'id_token', 'token', 'token_hash'])('does not save a root callback with %s', async key => {
-    const w = worker(undefined, version, files, undefined, source);
+    const w = worker(undefined, version, files);
     await w.request(`/?${key}=private`, { mode: 'navigate' }).done();
     expect(w.caches.entries.get(current)!.put).not.toHaveBeenCalled();
   });
@@ -427,13 +424,13 @@ describe('cache writes', () => {
     const w = worker(), cache = await w.caches.open(current), network = deferred<Response>();
     cache.entries.set(url('/'), response('/'));
     w.fetch.mockReturnValue(network.promise);
-    const event = w.request('/index.html?game=local', { mode: 'navigate' });
+    const event = w.request('/?game=local', { mode: 'navigate' });
     await w.timerStarted.promise;
     for (const timeout of w.timers.values()) timeout();
     expect((await event.response)!.status).toBe(200);
     expect(event.waits).toHaveLength(1);
     expect(cache.put).not.toHaveBeenCalled();
-    network.resolve(response('/index.html?game=local', {}, 'new shell')); await event.done();
+    network.resolve(response('/?game=local', {}, 'new shell')); await event.done();
     expect([...cache.entries.keys()]).toEqual([url('/')]);
     expect(await cache.entries.get(url('/'))!.clone().text()).toBe('public bytes');
     expect(cache.put).not.toHaveBeenCalled();
@@ -734,8 +731,7 @@ describe('purge and policy proof', () => {
 });
 
 it('keeps the two launch page shells separate offline and preserves the private-cache proof', async () => {
-  const source = readFileSync(new URL('./solo-launch/sw.js', import.meta.url), 'utf8');
-  const w = worker(storage(), version, [...files, 'next.html'], undefined, source);
+  const w = worker(storage(), version, [...files, 'next.html']);
   w.fetch.mockImplementation(async (request: Request) => response(request.url, {}, new URL(request.url).pathname));
   await w.fire('install').done();
   // The public old shell has its own key in a launch build.
@@ -752,8 +748,7 @@ it('keeps the two launch page shells separate offline and preserves the private-
 });
 
 it('recovers an offline online-page navigation without caching private responses', async () => {
- const source = readFileSync(new URL('./solo-launch/sw.js', import.meta.url), 'utf8');
- const w = worker(storage(), version, [...files, 'next.html'], undefined, source);
+ const w = worker(storage(), version, [...files, 'next.html']);
  await w.fire('install').done();
  const cache = await w.caches.open(current), before = [...cache.entries.keys()];
  w.fetch.mockRejectedValue(new Error('offline'));
@@ -767,12 +762,21 @@ it('recovers an offline online-page navigation without caching private responses
  for (const path of ['/api/me/games', '/authorize', '/play']) expect(w.request(path).response).toBeUndefined();
 });
 
-it('gives the offline page in the launch worker exactly for the online pages of the host', async () => {
+it('the default worker answers an offline visit of /play with the offline page', async () => {
+  const w = worker(storage(), version, [...files, 'next.html'], undefined, template);
+  await w.fire('install').done();
+  w.fetch.mockRejectedValue(new Error('offline'));
+  const navigation = w.request('/play', { mode: 'navigate' });
+  expect(await (await navigation.response!).text()).toContain('You are offline');
+  await navigation.done();
+});
+
+it('gives the offline page exactly for the online pages of the host', async () => {
   const site = mkdtempSync(join(tmpdir(), 'worker-routes-'));
   try {
     writeFileSync(join(site, 'solo-launch.json'), '{}');
     const online = new RegExp(vercelRoutes(site).find(route => route.dest === '/index.html')!.src);
-    const w = worker(storage(), version, [...files, 'next.html'], undefined, readFileSync(new URL('./solo-launch/sw.js', import.meta.url), 'utf8'));
+    const w = worker(storage(), version, [...files, 'next.html']);
     w.fetch.mockRejectedValue(new Error('offline'));
     for (const path of ['/', '/play', '/play/', '/play/settings', '/playground', '/g/game', '/g/game/', '/g/a/b', '/j', '/j/', '/j/token', '/next.html', '/missing']) {
       const answer = w.request(path, { mode: 'navigate' }).response;
@@ -782,9 +786,8 @@ it('gives the offline page in the launch worker exactly for the online pages of 
   } finally { rmSync(site, { recursive: true, force: true }); }
 });
 
-it.each(['../public/sw.js', './solo-launch/sw.js'])('fault 6: a failed character sound does not stop the install, the activation or the proof (%s)', async path => {
-  const source = readFileSync(new URL(path, import.meta.url), 'utf8');
-  const w = worker(storage(), version, [...files, 'audio/armour/a.wav', 'audio/armour/b.wav'], undefined, source);
+it('fault 6: a failed character sound does not stop the install, the activation or the proof', async () => {
+  const w = worker(storage(), version, [...files, 'audio/armour/a.wav', 'audio/armour/b.wav']);
   w.fetch.mockImplementation(async (request: Request) => request.url.endsWith('a.wav') ? response(request.url, { status: 404 })
     : request.url.endsWith('b.wav') ? Promise.reject(new Error('offline')) : response(request.url));
   await w.fire('install').done(); await w.fire('activate').done();

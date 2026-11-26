@@ -20,7 +20,7 @@ function setup(failBuild = false) {
   const events = join(repo.root, 'events.jsonl');
   repo.write('package.json', JSON.stringify({ type: 'module', scripts: { build: 'node build.mjs' } }));
   repo.write('build.mjs', `import { appendFileSync, writeFileSync } from 'node:fs'; appendFileSync(process.env.RUNNER_EVENTS, '"build"\\n');
-    writeFileSync(process.env.RUNNER_EVENTS + '.build', JSON.stringify(Object.fromEntries(Object.entries(process.env).filter(([k]) => k.startsWith('VITE_') || k === 'KINGDOWN_TEST_PAGES' || k === 'KINGDOWN_SOLO_LAUNCH')))); process.exit(${failBuild ? 1 : 0});`);
+    writeFileSync(process.env.RUNNER_EVENTS + '.build', JSON.stringify(Object.fromEntries(Object.entries(process.env).filter(([k]) => k.startsWith('VITE_') || k === 'KINGDOWN_TEST_PAGES')))); process.exit(${failBuild ? 1 : 0});`);
   repo.write('tools/plugin-db/bootstrap-test.mjs', `import { appendFileSync } from 'node:fs';
     appendFileSync(process.env.RUNNER_EVENTS, JSON.stringify({ schema: process.env.PLUGIN_TEST_DATABASE_URL }) + '\\n');`);
   repo.write('node_modules/.gitignore', '*\n');
@@ -134,12 +134,10 @@ describe('browser check site build', () => {
     expect(run(['--gpu', '--no-gpu']).result.status).toBe(2);
   });
 
-  it('builds the site as a production launch build with the fake account project, whatever the shell holds', () => {
-    const { result, build } = run(['web-online'], false, { VITE_KINGDOWN_STAGE: 'staging', VITE_SUPABASE_URL: 'https://puhspsyjyzaghmgtkzqd.supabase.co', VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_other', KINGDOWN_SOLO_LAUNCH: '0' });
+  it('builds the site as a production build with the fake account project, whatever the shell holds', () => {
+    const { result, build } = run(['web-online'], false, { VITE_KINGDOWN_STAGE: 'staging', VITE_SUPABASE_URL: 'https://puhspsyjyzaghmgtkzqd.supabase.co', VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_other' });
     expect(result.status, result.stderr + result.stdout).toBe(0);
     expect(build).toMatchObject(CHECK_SITE_ENV);
-    // Each shipped form builds the launch tree (tools/release/profile.sh), so the checks test that tree.
-    expect(build.KINGDOWN_SOLO_LAUNCH).toBe('1');
     expect(CHECK_SITE_ENV).toEqual({ VITE_KINGDOWN_STAGE: '', VITE_SUPABASE_URL: 'https://web-proof.supabase.co', VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_local_test' });
   });
 

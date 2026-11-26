@@ -1,8 +1,9 @@
 // The privacy policy must say what the code does (approval items D9 a, D12 a, D14 a): each cleanup period of the
 // daily job, the Settings control by its exact name, OpenAI as a recipient, each kind of stored alert, and what a
 // deletion keeps. A changed period, label or alert kind fails here.
-// Both pages are checked: the default build publishes public/privacy.html, the launch build (tools/solo-launch.mjs)
-// publishes its own copy. Each page keeps its own words where the two differ.
+// Both pages are checked: the build publishes tools/solo-launch/privacy.html (vite.config.ts). public/privacy.html
+// holds Muse text that no build publishes; the owner decides the text (ticket 07 of docs/specs/platform-seam).
+// Each page keeps its own words where the two differ.
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
 

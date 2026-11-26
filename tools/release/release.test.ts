@@ -277,7 +277,7 @@ checks() { [ -f "$run/staging-ran" ] && touch "$run/staging-checked"; }
 node() {
   [[ "$1" != */deploy-plugin-live-check.mjs ]] || return 0
   [ "$OUTCOME" != reuse ] && [ "$*" = 'tools/check.mjs --gpu' ] && [ -d node_modules ] &&
-    [ "$(git rev-parse HEAD)" = "$head" ] && [ "$KINGDOWN_SOLO_LAUNCH" = 1 ] || return 82
+    [ "$(git rev-parse HEAD)" = "$head" ] || return 82
   for ((i = 0; i < 100; i++)); do
     if [ -f "$run/ci-started" ]; then
       touch "$run/gpu-started"
@@ -583,7 +583,7 @@ spec.loader.exec_module(staging)
 out = Path(${JSON.stringify(folder)}) / 'output'
 static = out / 'static'
 static.mkdir(parents=True)
-files = {'index.html': b'old page', 'next.html': b'new page', 'sw.js': b'worker', 'solo-launch.json': b'{}'}
+files = {'index.html': b'old page', 'next.html': b'new page', 'sw.js': b'worker'}
 for name, body in files.items():
     (static / name).write_bytes(body)
 with patch.object(staging, 'get', side_effect=[
@@ -600,6 +600,32 @@ with patch.object(staging, 'get', return_value=(302, b'', 'https://vercel.com/lo
         raise AssertionError('Expected Vercel sign-in refusal')
 `]);
   expect(result.status, result.stdout + result.stderr).toBe(0);
+});
+
+it('refuses a build with no launch marker before it publishes', () => {
+  const repo = tempRepo({ hooks: false });
+  try {
+    repo.write('.gitignore', 'kingdown-deploy\n');
+    repo.git('add', '.');
+    repo.git('commit', '-qm', 'a ref from before the single tree');
+    repo.git('push', '-q', 'origin', 'main');
+    const commit = repo.git('rev-parse', 'HEAD').stdout.trim();
+    const bin = join(folder, 'marker stubs');
+    const calls = join(folder, 'marker calls');
+    mkdirSync(bin);
+    for (const name of ['npm', 'node', 'npx']) writeFileSync(join(bin, name), `#!/bin/bash
+echo "${name} $*" >> "$CALLS"
+if [ "$*" = 'run build:vercel' ]; then mkdir -p kingdown-deploy/.vercel/output/static && echo old > kingdown-deploy/.vercel/output/static/next.html; fi
+`, { mode: 0o755 });
+    const result = run('python3', ['tools/release/staging.py', '--preview', commit],
+      { ...repo.env, PATH: bin + ':' + process.env.PATH, CALLS: calls, KINGDOWN_RELEASE_WORKTREE: repo.dir });
+    expect(result.status, result.stdout + result.stderr).toBe(1);
+    expect(result.stderr).toContain('staging: build failed. The build has no launch marker');
+    expect(readFileSync(calls, 'utf8')).toContain('npm run build:vercel');
+    expect(readFileSync(calls, 'utf8')).not.toContain('--publish');
+  } finally {
+    repo.cleanup();
+  }
 });
 
 it('reruns failed jobs on the exact main CI run once and stops if the retry fails', () => {

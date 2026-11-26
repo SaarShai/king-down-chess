@@ -68,7 +68,6 @@ ci → staging → staging-checks → merge → main-ci → engines → publish 
   only for the same Git tree and prints its time. If main adds changes to the
   PR tree, or if the record is missing or invalid, deploy runs the frame-time
   checks. The staging and live browser checks require clean worktrees.
-  The release helper sets the solo-launch build profile for staging and production.
   Keep the local test database on port 55432 ready for these checks.
 - Read the end of the printed `progress.log` path. Its `.done` file holds the exit
   code. Each stage has a log in the same folder. Use `--from <stage>` with the same PR
@@ -89,8 +88,9 @@ ci → staging → staging-checks → merge → main-ci → engines → publish 
 - `release-staging` and `release-live` each use their own packages.
   `python3 tools/release/staging.py [ref]` waits for CI on the exact commit.
   Use `--pr-head` to use the PR check rule. Use `--ci-passed` to check once.
-  The build names `next.html` for the solo-launch home. The alias check compares
-  `/` with that file, `/play/` with `index.html`, and the worker with `sw.js`.
+  The tool stops before it publishes when the build has no launch marker
+  (`static/solo-launch.json`): a ref from before the single tree. Update that PR to main.
+  The alias check compares `/` with `next.html`, `/play/` with `index.html`, and the worker with `sw.js`.
 - For direct use, `tools/release/merge.sh <pr> <head> <reviewed head> [note]`
   records an independent review and merges on green.
   `tools/release/live.sh check|engines|publish` uses a fresh `origin/main`.
@@ -120,8 +120,7 @@ on the preview. The check stops at the choices. It permits HTTP 403 from
 
 Run `npm run check:browser release-site release-history` for a local check.
 Set `PLAYABLE_URL` to check a public origin. Both checks use fresh headless
-browser contexts and read-only requests. The checks use the solo-launch
-profile when they build the local site.
+browser contexts and read-only requests.
 
 ## Domain and DNS
 
@@ -149,14 +148,11 @@ The owner parked the ChatGPT plugin on 2026-10-28 and brought it back on 2026-11
 - Owner items outside the repository: the live Supabase before-user-created hook (`review-signup-hook.sql` in `plugin-deploy/`) and the table `password_accounts` in the schema `kingdown_auth`. Keep the hook on while Email is on (`supabase/README.md`). Change the table only by the owner's word.
 
 
-## Solo launch preparation
+## The launch tree
 
-The build option `KINGDOWN_SOLO_LAUNCH=1` selects the new page at `/`.
-It is off by default. The emitted `solo-launch.json` selects the combined host routes.
-The release tools set the option on: `tools/release/profile.sh` sets it to 1, and `tools/release/live.sh`,
-`tools/release/release.sh`, `tools/release/staging.py` and `tools/lib/release-browser.mjs` read that file.
-`tools/ios-sync.sh` sets it to 1 for each app build. `tools/deploy.sh` does not read `profile.sh`:
-a direct run builds with the value of the caller's shell.
+The build has one form: the new page at `/`, and the old page at `/index.html` for the online paths.
+No build option gives the old home page. Each build writes the launch marker `solo-launch.json`.
+The marker selects the combined host routes, and the app router of the installed iOS build and the checks read it.
 
 The host routes of a tree with the launch marker (`vercelRoutes` in `tools/plugin-server-build.mjs`):
 
@@ -165,7 +161,7 @@ The host routes of a tree with the launch marker (`vercelRoutes` in `tools/plugi
 - `/j` and `/j/` give `join.html` (`JOIN_PAGE`). This page opens `/next.html#join=<token>`. The token stays in the fragment.
 - A file of the tree gives that file. `/api`, `/internal` and the connector paths go to the function (see above). Each other path gives the new page with HTTP 404.
 
-A tree with no marker has no `join.html`: `/play…`, `/g/<id>` and `/j` give `index.html`, and `/` has no route (the host gives its default file, `index.html`, the old page).
+A tree with no marker (no build makes one now; the tests keep the case) has no `join.html`: `/play…`, `/g/<id>` and `/j` give `index.html`, and `/` has no route (the host gives its default file, `index.html`, the old page).
 `tools/plugin-server-build.test.ts` holds both route lists and the join page. It also checks that the Vite preview
 of a launch tree routes each sample path as the host does. `tools/ios-app.test.ts`, `tools/service-worker.test.ts`
 and `tools/platform.test.ts` compare the app router, the offline page of the launch worker and the page-side
@@ -175,13 +171,14 @@ The launch worker lists both public pages and their local graphs. Private online
 The runtime `index.json` and `parts/*.json` use `Cache-Control: no-cache`.
 Content-named WebP frames keep their immutable one-year cache.
 
-With the launch option on, web solo games run on the device. The old web Computer controls
+Web solo games run on the device. The old web Computer controls
 open a local game. An account solo game keeps its full move history in the handoff.
 The website API refuses solo creation, solo rematches and computer commands from the web.
-Released iOS apps keep these API operations. The off build keeps the old web flow.
+Released iOS apps keep these API operations.
 The API counts draft previews on the existing computer-work quota (120 per minute per account).
 The connector services keep their solo games. The API adapter's named `localSolo` option is off by
-itself; the combined host sets it from the site launch marker.
+itself; the combined host sets it from the site launch marker. The server from source (`tools/plugin-server.mjs`,
+the local online stack) keeps it off.
 
 Each configured host instance writes `King Down release` with the source commit and connector state.
 `npm run errors:daily` reads the existing fault report for one day. It sends no message.
@@ -190,10 +187,7 @@ No build switch authorizes a deploy.
 
 ### Rollback
 
-Today, a rollback of a code fault is a revert on main and a release (`tools/release/release.sh`).
-`tools/deploy.sh` builds only a fresh `origin/main` and takes no ref.
-The off build exists today, but the release tools cannot build it: `profile.sh` sets the option to 1
-with no condition. A direct `tools/deploy.sh --publish` from a shell that does not set the option is the only way
-to publish the off build. This is a hazard, not a rollback step: no release tool does it, and it needs the owner's word, as each deploy does.
-Ticket 07 of [the platform seam spec](specs/platform-seam/spec.md) removes the option and the off build (decision 1).
-After ticket 07, the off build goes, and a revert on main and a release is the only rollback.
+A rollback of a code fault is a revert on main and a release (`tools/release/release.sh`).
+`tools/deploy.sh` builds only a fresh `origin/main` and takes no ref. No build option and no off build exist:
+ticket 07 of [the platform seam spec](specs/platform-seam/spec.md) removed them (decision 1).
+The host can also promote an earlier deployment; that is a deploy and needs the owner's word.

@@ -55,7 +55,7 @@ class AppViewController: CAPBridgeViewController {
     #endif
 }
 
-/// A page path loads index.html, as in the Capacitor template. The launch build (`KINGDOWN_SOLO_LAUNCH=1` writes the marker)
+/// A page path loads index.html, as in the Capacitor template. A bundle with the marker (each build writes it)
 /// loads the new page instead, and keeps the old page for the online paths: the host routes of tools/plugin-server-build.mjs.
 struct AppRouter: Router {
     static let marker = "solo-launch.json"

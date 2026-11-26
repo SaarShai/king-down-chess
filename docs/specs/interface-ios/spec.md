@@ -12,6 +12,7 @@ It changes no file in `src/interface/play/` or `src/interface/ui/`. It lists wha
 ## Plan
 
 - Use the launch switch of [the launch platform](../interface-platform/spec.md): `KINGDOWN_SOLO_LAUNCH=1`.
+  The switch is gone now: each build is [the launch tree](../../HOSTING.md#the-launch-tree).
   The app router reads the same marker as the host. `/` opens the new page. `/play`, `/g/<id>` and `/j` open the old page.
 - Read the empty path of `capacitor://localhost` as `/` in the new page.
 - Give the web view the swipe from the edge as the browser Back.

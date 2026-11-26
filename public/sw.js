@@ -12,6 +12,7 @@ const CACHE = `kingdown-${VERSION}`;
 const PAGE_TIMEOUT_MS = 4000;
 const PRECACHE_CONCURRENCY = 8;
 const START = new URL('./', self.registration.scope).href;
+const NEXT = new URL('next.html', START).href;
 const INDEX = new URL('index.html', START).href;
 const PUBLIC = new Set(ALLOWLIST.map(file => new URL(file, START).href));
 const isPainted = href => href.startsWith(START) && /^moments\/(?:painted\.json|painted\/(?:collapse|bow)-[a-z]+-(?:white|black)\.webp)$/.test(href.slice(START.length));
@@ -32,7 +33,7 @@ function publicKey(request) {
   url.hash = '';
   const plain = new URL(url); plain.search = '';
   if (!PUBLIC.has(plain.href) && !isPainted(plain.href)) return null;
-  if (plain.href === START || plain.href === INDEX) return START;
+  if (plain.href === START) return START;
   return url.search ? null : plain.href;
 }
 
@@ -150,7 +151,7 @@ async function page(request, event) {
     if (first) return first;
   } catch { /* Use the cache when offline. */ }
   finally { clearTimeout(timer); }
-  return (await cache?.match(START, { ignoreVary: true }).catch(() => undefined)) ?? network;
+  return (await cache?.match(publicKey(request), { ignoreVary: true }).catch(() => undefined)) ?? network;
 }
 
 /** Runtime startup files change with each deploy. Use the network first, keep the fresh copy, and use the
@@ -187,7 +188,13 @@ async function asset(request) {
 
 self.addEventListener('fetch', event => {
   const key = publicKey(event.request);
-  if (key === null) return;
-  event.respondWith(key === START ? page(event.request, event)
+  if (key === null) {
+    const url = new URL(event.request.url);
+    if (event.request.mode === 'navigate' && url.origin === self.location.origin && /^\/(?:play(?:\/.*)?|g\/[^/]+\/?|j\/?)$/.test(url.pathname)) {
+      event.respondWith(fetch(event.request).catch(() => new Response('<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><title>King Down</title><main style="max-width:30rem;margin:15vh auto;padding:24px;color:#262e2c;background:#f7f5ed;font:18px/1.5 sans-serif"><h1>You are offline</h1><p>Connect to open your online games. You can play on this device.</p><a style="display:inline-block;padding:12px" href="/next.html">Play on this device</a></main></html>', { headers: { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' } })));
+    }
+    return;
+  }
+  event.respondWith(key === START || key === INDEX || key === NEXT ? page(event.request, event)
     : FRESH.has(key) ? fresh(event.request, event) : asset(event.request));
 });

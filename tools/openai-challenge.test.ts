@@ -15,13 +15,15 @@ it('the site build keeps the domain challenge dot folder and exact bytes', async
     mkdirSync(join(root, 'public/.well-known'), { recursive: true });
     writeFileSync(join(root, 'public', challenge), token);
     cpSync(resolve('public/sw.js'), join(root, 'public/sw.js'));
+    // The build writes the King Down name into the web manifest.
+    writeFileSync(join(root, 'public/manifest.webmanifest'), '{}');
     writeFileSync(join(root, 'index.html'), '<!doctype html><title>Build check</title>');
     // The fixture page replaces the config's page inputs, which point into the repository.
     await build({ configFile: resolve('vite.config.ts'), root, logLevel: 'silent', envFile: false, build: { rollupOptions: { input: join(root, 'index.html') } } });
     expect(readFileSync(join(root, 'dist', challenge))).toEqual(token);
     const worker = readFileSync(join(root, 'dist/sw.js'), 'utf8');
     const precache = JSON.parse(/const PRECACHE = (\[.*\]);/.exec(worker)![1]);
-    expect(precache).toEqual(['./']);
+    expect(precache).toEqual(['./', 'index.html', 'next.html', 'manifest.webmanifest']);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

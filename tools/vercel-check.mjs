@@ -94,23 +94,23 @@ try {
     assert.equal(new Set(list).size, list.length, `${name} has no duplicate`);
     return list;
   };
-  const soloLaunch = !!await exists(join(tree, 'static/solo-launch.json'));
-  const home = soloLaunch ? 'next.html' : 'index.html';
+  assert(await exists(join(tree, 'static/solo-launch.json')), 'The build writes the launch marker');
+  const home = 'next.html';
   const allowlist = workerList('ALLOWLIST'), precache = workerList('PRECACHE');
   assert(!allowlist.includes('muse-connector.html'), 'The public Muse page bypasses the service worker');
   assert.deepEqual(allowlist.slice(0, 2), ['./', 'index.html']);
-  assert.deepEqual(precache, soloLaunch ? allowlist : allowlist.filter(file => file !== 'index.html'));
-  if (soloLaunch) assert(allowlist.includes('next.html'));
+  assert.deepEqual(precache, allowlist);
+  assert(allowlist.includes('next.html'));
   assert(!allowlist.some(file => file.startsWith('character-runtime/') && !isCharacterRuntimeStartup(file)), 'Optional runtime art stays out of the worker');
   for (const file of await readdir(runtimeDir, { recursive: true }).catch(() => [])) {
     const path = `character-runtime/${file}`;
     if (isCharacterRuntimeStartup(path)) assert(precache.includes(path), `Runtime startup file is offline: ${file}`);
   }
-  const fixedPublicFiles = ['./', 'index.html', ...soloLaunch ? [
+  const fixedPublicFiles = ['./', 'index.html',
     'next.html', 'browser-support.js', 'interface/stone-refined-light.webp',
     'interface/reveal/hero-portrait.webp', 'interface/reveal/hero-square.webp', 'interface/reveal/hero-wide.webp',
     'interface/computer-king-1-96.webp', 'interface/computer-king-2-96.webp', 'interface/computer-king-3-96.webp',
-  ] : []];
+  ];
   for (const file of allowlist) {
     assert(typeof file === 'string' && (fixedPublicFiles.includes(file) || isCharacterRuntimeStartup(file) || /^(?:assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|audio\/armour\/[\w-]+\.wav|manifest\.webmanifest)$/.test(file)), `Public build file: ${file}`);
     assert((await exists(join(tree, 'static', file === './' ? home : file)))?.isFile(), `Offline file exists: ${file}`);
@@ -305,7 +305,7 @@ try {
     assert.equal(response.status, 200, path + query);
     assert.equal(response.headers.get('location'), null, path + query);
     // The launch build answers /j with the page that hands the invite to the new page.
-    assert.equal(await response.text(), soloLaunch && /^\/j\/?$/.test(path) ? await readFile(join(tree, 'static/join.html'), 'utf8') : index, `${path + query} serves only the browser entry`);
+    assert.equal(await response.text(), /^\/j\/?$/.test(path) ? await readFile(join(tree, 'static/join.html'), 'utf8') : index, `${path + query} serves only the browser entry`);
     const head = await fetch(origin + path + query, { method: 'HEAD', redirect: 'manual' });
     assert.equal(head.status, 200, `HEAD ${path + query}`); assert.equal(await head.text(), '');
     assert.equal((await fetch(origin + path + query, { method: 'POST', redirect: 'manual' })).status, 404, `POST ${path + query}`);
@@ -326,7 +326,7 @@ try {
   assert.deepEqual(await outbox.json(), { code: 'NOT_FOUND', message: 'Not found' });
   const unknownJob = await job('/internal/unknown', secret); assert.equal(unknownJob.status, 404);
   const pluginServed = [...CHATGPT ? ['function /.well-known/oauth-protected-resource', 'function /.well-known/oauth-protected-resource/mcp', 'function /authorize', 'function /consent.mjs', 'static /plugin-art/*'] : [], ...MUSE ? [...MUSE_PATHS, '/authorize', '/consent.mjs'].map(path => `function ${path}`) : []];
-  assert.deepEqual([...served].sort(), [...new Set([...pluginServed, 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /internal/unknown', 'function /mcp', 'function /api/games', ...closedApi.map(([, path]) => `function ${new URL(path, origin).pathname}`), 'static /', 'static /privacy.html', 'static /sw.js', ...accountPaths.map(path => `static ${path}`), ...publicPaths.map(path => `static ${path}`), ...soloLaunch ? closedPaths.map(path => `static ${path}`) : [], ...soloLaunch && !MUSE ? MUSE_PATHS.map(path => `static ${path}`) : [], ...soloLaunch && !CHATGPT ? ['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/.well-known/openai-apps-challenge', '/plugin-art/*'].map(path => `static ${path}`) : [], ...(hasChallenge ? [`static ${challenge}`] : [])])].sort(), 'Closed/default served paths');
+  assert.deepEqual([...served].sort(), [...new Set([...pluginServed, 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /internal/unknown', 'function /mcp', 'function /api/games', ...closedApi.map(([, path]) => `function ${new URL(path, origin).pathname}`), 'static /', 'static /privacy.html', 'static /sw.js', ...accountPaths.map(path => `static ${path}`), ...publicPaths.map(path => `static ${path}`), ...closedPaths.map(path => `static ${path}`), ...!MUSE ? MUSE_PATHS.map(path => `static ${path}`) : [], ...!CHATGPT ? ['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/.well-known/openai-apps-challenge', '/plugin-art/*'].map(path => `static ${path}`) : [], ...(hasChallenge ? [`static ${challenge}`] : [])])].sort(), 'Closed/default served paths');
 
   await app.pool.end(); app = undefined;
   savedAccountAccess = (await pool.query('select enabled from public.web_account_access where singleton=true')).rows[0]?.enabled;
@@ -354,19 +354,12 @@ try {
       const value = await response.json(); assert.equal(response.status, status, `${path}: ${JSON.stringify(value)}`); return value;
     };
     const options = { fairy: true, pool: ['R', 'A', 'G', 'Q', 'M', 'S', 'O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false };
-    if (soloLaunch) assert.equal((await web('/api/games', { kind: 'solo', command_id: randomUUID() }, 403)).code, 'NOT_ALLOWED');
-    else {
-      // With the launch option off, the old /play page plays web solo: the solo game and its first move stay checked.
-      const solo = (await web('/api/games', { kind: 'solo', options, colour: 'white', command_id: randomUUID() }, 201)).view;
-      assert.equal(solo.kind, 'solo');
-      const first = await web(`/api/games/${solo.game_id}/commands`, { command_id: 'vercel-solo-first', expected_revision: solo.revision, action: { type: 'turn', actions: [solo.legal.find(lan => !lan.includes('!'))] } });
-      assert.equal(first.revision, solo.revision + 1);
-    }
+    assert.equal((await web('/api/games', { kind: 'solo', command_id: randomUUID() }, 403)).code, 'NOT_ALLOWED');
     const created = await web('/api/games', { kind: 'friend', options, colour: 'white', command_id: randomUUID() }, 201);
     game_id = created.view.game_id;
     await web('/api/invites/redeem', { token: created.invite.token }, 200, guestToken);
     const initial = await web(`/api/games/${game_id}`);
-    if (soloLaunch) assert.equal((await web(`/api/games/${game_id}/commands`, { command_id: 'vercel-cpu', expected_revision: initial.revision, action: { type: 'computer' } }, 403)).code, 'NOT_ALLOWED');
+    assert.equal((await web(`/api/games/${game_id}/commands`, { command_id: 'vercel-cpu', expected_revision: initial.revision, action: { type: 'computer' } }, 403)).code, 'NOT_ALLOWED');
     const moved = await web(`/api/games/${game_id}/commands`, { command_id: 'vercel-first', expected_revision: initial.revision, action: { type: 'turn', actions: [initial.legal.find(lan => !lan.includes('!'))] } });
     assert.equal(moved.revision, initial.revision + 1);
     lastCommand = moved.view.last_commands.at(-1);

@@ -50,19 +50,16 @@ it('keeps the menus first-load recovery in the launch HTML and entry', () => {
   const boot = (html: string) => /<script>[\s\S]*?<\/script>/.exec(html)?.[0];
   expect(boot(read('next.html'))).toContain('window.kdBootFault = show');
   expect(boot(read('next.html'))).toContain('window.kingdownSupported === false');
-  expect(boot(read('tools/solo-launch/next.html'))).toBe(boot(read('next.html')));
-  const entry = read('src/interface/launch-entry.ts');
+  const entry = read('src/interface/entry.ts');
   expect(entry).toContain('boot.kdBooted = true');
   expect(entry).toContain('catch { boot.kdBootFault?.(); }');
 });
 
-it('links the King Down crown icon in both new-page heads', () => {
+it('links the King Down crown icon in the new-page head', () => {
   const png = readFileSync('public/icons/crown-192.png');
   expect(png.subarray(1, 4).toString()).toBe('PNG');
   expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([192, 192]);
-  for (const path of ['next.html', 'tools/solo-launch/next.html']) {
-    const html = readFileSync(path, 'utf8');
-    expect(html).toContain('<link rel="icon" type="image/png" sizes="192x192" href="/icons/crown-192.png" />');
-    expect(html).toContain('<link rel="apple-touch-icon" href="/icons/crown-192.png" />');
-  }
+  const html = readFileSync('next.html', 'utf8');
+  expect(html).toContain('<link rel="icon" type="image/png" sizes="192x192" href="/icons/crown-192.png" />');
+  expect(html).toContain('<link rel="apple-touch-icon" href="/icons/crown-192.png" />');
 });

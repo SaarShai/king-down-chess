@@ -55,8 +55,6 @@ try {
     accountServer.listen(0, '127.0.0.1'); await once(accountServer, 'listening');
     accountOrigin = `http://127.0.0.1:${accountServer.address().port}`;
   }
-  // Each shipped form builds the launch tree (tools/release/profile.sh); vite.config.ts reads the switch.
-  process.env.KINGDOWN_SOLO_LAUNCH = '1';
   // Use public fake settings only. The browser gets a real signed local session; no OAuth provider is contacted.
   await build({ logLevel: 'warn', plugins: [{ name: 'lobby-check-state', transform(code, id) {
     if (id !== resolve('src/account-game/runtime.ts')) return;

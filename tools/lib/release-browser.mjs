@@ -50,8 +50,7 @@ export async function withReleaseSite(url, check) {
   const outDir = built ? undefined : await mkdtemp(join(tmpdir(), 'kingdown-release-site-'));
   try {
     if (outDir) {
-      const profile = fileURLToPath(new URL('../release/profile.sh', import.meta.url));
-      execFileSync('bash', ['-c', '. "$1"; exec npm run build -- --outDir "$2"', 'release-site', profile, outDir], {
+      execFileSync('npm', ['run', 'build', '--', '--outDir', outDir], {
         cwd: root, stdio: 'inherit', env: { ...process.env, ...CHECK_SITE_ENV },
       });
     }

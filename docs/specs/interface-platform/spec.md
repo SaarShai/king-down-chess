@@ -24,6 +24,11 @@ The ChatGPT and Muse services keep their server games.
   returning-player notice and old full-game link message.
 - Prepare cutover and rollback steps. Do not deploy.
 
+## Rollback now
+
+Ticket 07 of [the platform seam spec](../platform-seam/spec.md) removed the build option and the off build (decision 1).
+Each build is the launch tree. A rollback is a revert on main and a release ([HOSTING.md](../../HOSTING.md#rollback)).
+
 ## Acceptance
 
 Each new branch has a test. Full npm test, docs and build pass.
