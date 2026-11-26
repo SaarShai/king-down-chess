@@ -169,7 +169,7 @@ export function releaseDriver(page, url, touch = false) {
         !/Choose cards|shared cards|No powers|In pool/i.test(await setup.innerText());
     },
     async openMoreOptions() { await action(button(setup, panelText.more)); await moreOptions.waitFor(); },
-    async sendInviteLink() { await action(button(moreOptions, panelText.inviteLink)); await friendSignIn.waitFor(); return true; },
+    async sendInviteLink() { await action(button(setup.or(moreOptions), panelText.inviteLink)); await friendSignIn.waitFor(); return true; },
     async closeFriendSignIn() {
       await action(button(friendSignIn, signInText.notNow));
       await friendSignIn.waitFor({ state: 'hidden' });
@@ -202,7 +202,7 @@ export function releaseDriver(page, url, touch = false) {
     },
     async openHistorySetup() {
       await page.goto(new URL('/privacy.html', url).href);
-      await page.goto(new URL('/', url).href);
+      await page.goto(new URL('/?custom=1', url).href);
       await summary.waitFor();
       await action(summary);
       await setup.waitFor();

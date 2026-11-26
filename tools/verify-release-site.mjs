@@ -43,8 +43,8 @@ await withReleaseSite(origin, async url => {
         await picture('4-guide');
         await driver.backToHome();
         ok('Friend setup has both invite actions', await driver.openFriendSetup());
-        await driver.openMoreOptions();
-        ok('Send invite link opens sign-in choices from More options', await driver.sendInviteLink());
+        ok('Friend setup hides More options in default MVP', await page.getByRole('button', { name: 'More options', exact: true }).count() === 0);
+        ok('Send invite link opens sign-in choices from Friend setup', await driver.sendInviteLink());
         await picture('5-friend-signin');
         ok('setup stays after Not now', await driver.closeFriendSignIn());
         await driver.openHome();
