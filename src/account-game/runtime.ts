@@ -74,9 +74,11 @@ export const { routeView, start } = router;
 // A new Screen gives TS2741 here until it has a renderer, or until it joins the list of screens with no renderer.
 const screens: Record<Exclude<Screen, 'home' | 'board' | 'collection' | 'settings' | 'handle'>, () => void> = { play: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen };
 type Listed<T extends never> = T;
-// The screens that app.onResult (after a mount) and navigate() give to enterRead: two hand lists.
-// A new ReadRoute screen gives TS2344 here until it joins both lists and this one.
-export type ReadScreensListed = Listed<Exclude<ReadRoute['screen'], 'game' | 'play' | 'profile' | 'settings'>>;
+// The screens that app.onResult (after a mount) and navigate() give to enterRead: one list, read by isReadScreen.
+// A new ReadRoute screen gives TS2344 at ReadScreensListed until it joins READ_SCREENS (or gets its own route, as 'game').
+const READ_SCREENS = ['play', 'profile', 'settings'] as const satisfies readonly Exclude<ReadRoute['screen'], 'game'>[];
+export type ReadScreensListed = Listed<Exclude<ReadRoute['screen'], 'game' | typeof READ_SCREENS[number]>>;
+const isReadScreen = (screen: Screen): screen is typeof READ_SCREENS[number] => (READ_SCREENS as readonly Screen[]).includes(screen);
 export const memory = { ...createHallMemory(), dirty: false, kind: 'solo' as 'solo' | 'friend' | 'random', code: '', blockNotice: '', settings: undefined as PlayerSettings | undefined, me: undefined as { handle: string | null; icon: Icon | null } | undefined, preview: undefined as JoinPreview | undefined, joinError: undefined as { code: string; message: string } | undefined, get view() { return view; } };
 let enterRead: ((route: ReadRoute) => void) | undefined;
 const pageHost: PageHost = {
@@ -398,7 +400,7 @@ app.onResult = result => {
     if (outcome.status === 'superseded') return;
     store.sync();
     const screen = state.screen;
-    if (!memory.dirty && (screen === 'play' || screen === 'profile' || screen === 'settings')) enterRead?.({ screen });
+    if (!memory.dirty && isReadScreen(screen)) enterRead?.({ screen });
   });
 };
 async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
@@ -582,7 +584,7 @@ export function navigate(screen: Screen, queued?: Screen) {
   if (!mounting() && screen in screens) screens[screen as keyof typeof screens]();
   client.save(); poll?.update();
   app.route?.(screen, view?.game_id);
-  if (screen === 'play' || screen === 'profile' || screen === 'settings') {
+  if (isReadScreen(screen)) {
     if (!mounting()) { if (enteringPlay) memory.dirty = true; enterRead?.({ screen }); }
   } else if (screen === 'home' && !mounting() && memory.dirty) void games();
   if (screen === 'play') scrollNewGame();

@@ -10,9 +10,15 @@ it('names the last server migration and the last role block in the release steps
   const last = [...read('tools/plugin-db/migrate.ts').matchAll(/'(\d{4})_\w+\.sql'/g)].at(-1)![1];
   const blocks = read('plugin-deploy/runtime-role.sql').match(/^begin;$/gm)!.length;
   const readme = read('supabase/README.md');
-  expect(readme).toContain(`\`npm run plugin:db:migrate\` applies 0002–${last}`);
-  expect(readme).toContain(`apply 0005–${last}, then blocks 3–${blocks} of \`plugin-deploy/runtime-role.sql\``);
-  expect(readme).toContain(`- \`${last}_`);
+  const texts = [
+    [`\`npm run plugin:db:migrate\` applies 0002–${last}`, `the last server migration is ${last} (tools/plugin-db/migrate.ts)`],
+    [`apply 0005–${last}, then blocks 3–${blocks} of \`plugin-deploy/runtime-role.sql\``,
+      `the last server migration is ${last} and plugin-deploy/runtime-role.sql has ${blocks} blocks`],
+    [`- \`${last}_`, `migration ${last} needs its own list item`],
+  ];
+  for (const [text, why] of texts) {
+    expect(readme, `supabase/README.md: ${why}; change the release steps to say "${text}"`).toContain(text);
+  }
 });
 
 it.each(['supabase/README.md', 'docs/specs/test-guards/issues/02-deletion-grace-utc.md'])(
