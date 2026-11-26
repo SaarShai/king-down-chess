@@ -3,8 +3,9 @@
 
 /* ---------- Shell ---------- */
 .shell-skip { position: fixed; z-index: 40; top: calc(8px + var(--safe-top)); left: calc(8px + var(--safe-left)); display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: var(--radius-control); background: var(--surface-raised); color: var(--text); text-decoration: none; transform: translateY(calc(-100% - 16px - var(--safe-top))); }
-/* The shadow comes only with focus: a hidden link casts no shadow into the page. */
-.shell-skip:focus-visible, .shell-skip:focus { transform: none; box-shadow: var(--elevation-panel); }
+/* The shadow comes only with focus: a hidden link casts no shadow into the page. Only keyboard focus shows the link:
+   a mouse click that moves the focus does not (ticket 16, point 6). */
+.shell-skip:focus-visible { transform: none; box-shadow: var(--elevation-panel); }
 .group-title, .shell-page .group-title { font-family: var(--font-title); font-size: .75rem; line-height: 20px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 8px; }
 .new-tag { display: inline-block; vertical-align: middle; margin-left: 8px; padding: 2px 7px; border-radius: 3px; font: 700 .75rem/1.4 var(--font-reading); letter-spacing: .04em; text-transform: uppercase; color: var(--paper-0); background: var(--wax); box-shadow: inset 0 -1px 0 #0000004d, inset 0 1px 0 #ffffff33; rotate: -3deg; white-space: nowrap; }
 .text-button.kd-button { min-height: 44px; padding: 8px 12px; border: 0; background: transparent; box-shadow: none; color: var(--info); }
@@ -364,6 +365,8 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .mini-painted .mini-glyph { width: 96%; height: 125%; align-self: end; object-position: center bottom; }
 .home-seat { width: 100%; min-width: 0; display: flex; align-items: center; gap: 9px; border-top: 1px solid var(--divider); padding-top: 8px; }
 .home-seat h2, .home-game-row > strong { font: 650 .875rem/1.2 var(--font-title); letter-spacing: .04em; overflow-wrap: anywhere; }
+/* A game row name stays on one line and ends with "…" when it does not fit; the text and the title keep the full name. */
+.home-game-row > strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .home-game-copy, .home-state { display: grid; min-width: 0; gap: 3px; }
 .home-game-copy > span, .home-state > span, .home-game-row > span:not(.profile-portrait) { color: var(--text-muted); font-size: .875rem; }
 .home-state { margin-inline-start: auto; text-align: end; }
@@ -397,7 +400,7 @@ body > .kd-sr { inset: 0 auto auto 0; }
   font: inherit;
 }
 .home-game-row > .kd-icon { width: 14px; height: 14px; }
-.home-game-row > span:not(.profile-portrait) { max-width: 22ch; text-align: end; overflow-wrap: anywhere; }
+.home-game-row > span:not(.profile-portrait) { max-width: 22ch; text-align: end; overflow-wrap: break-word; }
 .profile-portrait { display: grid; place-items: center; position: relative; flex: none; width: 44px; height: 44px; overflow: hidden; border-radius: 50%; background: var(--surface-muted); color: var(--text); font-weight: var(--weight-strong); object-fit: cover; }
 .profile-portrait img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .home-game-row > .profile-portrait { width: 32px; height: 32px; }
