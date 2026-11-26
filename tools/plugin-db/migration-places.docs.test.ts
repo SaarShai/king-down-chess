@@ -38,3 +38,33 @@ it.each(released)('gives migration %s its apply lines in supabase/README.md', nu
       + `"Apply ${number} on ${stage} before ..." under its section, or add ${number} to noStagingLine in tools/plugin-db/migration-places.docs.test.ts with the reason`).toContain(`Apply ${number} on ${stage} before`);
   }
 });
+
+// The other tests here see only the files named NNNN_<name>.sql; a file with another name has no guard.
+it('names each migration file NNNN_<name>.sql', () => {
+  const wrong = readdirSync(join(root, 'supabase/migrations')).filter(name => !/^\d{4}_\w+\.sql$/.test(name))
+    .map(name => `supabase/migrations/${name}: rename it to NNNN_<name>.sql (four digits, an underscore, letters, digits and _)`);
+  expect(wrong).toEqual([]);
+});
+
+// Each table that a migration makes gets a grant block in plugin-deploy/runtime-role.sql (the server's restricted
+// role), or an entry here with the reason that the server does not use it.
+const noRuntimeGrant: Record<string, string> = {
+  user_data: 'the browser reads and writes it with the publishable key (0001: grants and Row Level Security)',
+  mod_actions: "the owner's moderation (tools/mod.ts) uses the admin connection (runtime-role.sql, block of 0008)",
+};
+
+it('gives each new table a grant in plugin-deploy/runtime-role.sql', () => {
+  const grants = read('plugin-deploy/runtime-role.sql').replace(/--.*$/gm, '');
+  const tables = files.flatMap(file => [...read(`supabase/migrations/${file}`).replace(/--.*$/gm, '')
+    // A table with no schema goes in public too; a quoted name counts; a table of another schema (auth.x) does not.
+    .matchAll(/create\s+table\s+(?:if\s+not\s+exists\s+)?(?:"?public"?\.)?"?(\w+)"?\s*\(/gi)].map(match => ({ file, table: match[1] })));
+  // Only a grant statement counts, not a revoke or another mention of the table.
+  const missed = tables.filter(({ table }) => !(table in noRuntimeGrant) && !new RegExp(`\\bgrant\\b[^;]*\\bpublic\\.${table}(?!\\w)`, 'i').test(grants))
+    .map(({ file, table }) => `supabase/migrations/${file} makes table public.${table}, and plugin-deploy/runtime-role.sql `
+      + `grants nothing on it; add a grant block (begin; grant ... on public.${table} to kingdown_plugin_runtime; commit;), `
+      + 'or add it to noRuntimeGrant in tools/plugin-db/migration-places.docs.test.ts with the reason');
+  expect(missed).toEqual([]);
+  const stale = Object.keys(noRuntimeGrant).filter(table => !tables.some(entry => entry.table === table))
+    .map(table => `tools/plugin-db/migration-places.docs.test.ts: remove "${table}" from noRuntimeGrant; no migration makes it`);
+  expect(stale).toEqual([]);
+});
