@@ -7,7 +7,8 @@ const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : 
 
 /**
  * The time that is left: "{n} days {h} hours" from 2 days ("{n} days" when the hours are 0), "1 day", "{n} hours" under 24 hours,
- * "less than 1 hour". It rounds down. `short` (a narrow Home row) gives the nearest whole day from 2 days: at most 12 hours over the true time.
+ * "less than 1 hour". It rounds down. `short` (the Home rows, the invite line and the game header) gives the nearest whole day from 2 days:
+ * at most 12 hours over the true time.
  */
 export function timeWords(ms: number, short = false): string {
   if (ms >= 2 * DAY && short) return `${Math.round(ms / DAY)} days`;

@@ -165,7 +165,8 @@ export function playScreen(d: PlayData, art: Art, previous?: ReturnType<typeof c
     const seat = el('div', 'home-seat'), copy = el('div', 'home-game-copy'), state = el('div', 'home-state');
     copy.append(el('h2', '', name));
     if (local) copy.append(el('span', '', text[local.level]));
-    const status = el('strong', '', local ? stateText[preview.state] : primary!.status);
+    // A person game splits its status at the "·", as the rows do (ticket 17, points 5 and 6).
+    const status = local ? el('strong', '', stateText[preview.state]) : statusParts(el('strong'), [primary!.status]);
     status.dataset.mine = String(local ? preview.state !== 'computer' : primary!.mine);
     state.append(status, el('span', '', `${homeText.turn} ${preview.turn}`));
     seat.append(face, copy, state);

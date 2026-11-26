@@ -1,6 +1,6 @@
 # Home results, first Tab, and time words
 
-Status: done on branch web-followups-2; waits for the review.
+Status: done on branch web-followups-2; reviewed; waits for the staging pass.
 
 Class: B. Size: S.
 
@@ -32,7 +32,7 @@ Scope: points 1 to 6. Client only. Line numbers are on this branch.
 
 - Cause: `src/interface/play/shell.ts:125` (old) focused the H1 after each draw, the first draw too; `src/interface/play/main.ts:567` (old) focused the Home title each time Home opened.
 - Change: `shell.ts:108, 197, 207-208`: `start()` sets `firstDraw` while it draws the first page; `shell.ts:127` then moves no focus. `main.ts:567` reads the same `shell.firstDraw`, so the two places agree. A route change in the app (Back, Guide, a game) moves the focus to the H1 as before.
-- Screen readers: the document title is the fixed "King Down" (`next.html:44`) and names the page on load; the new case checks it.
+- Screen readers: the document title is the fixed "King Down" (`next.html:44`) and names the site on load; the new case checks it. On a first load of a deep link (a join link or a game), no focus moves, so a screen reader does not announce the page name.
 - Check: `tools/verify-next-menus.mjs:253` case `first_tab` (390x844, 1280x720): after load no element has focus, the title is "King Down", one Tab focuses and shows the skip link, and Back from the Guide focuses the Home title. The `skip_link` case does not change (one stale comment only).
 - Red (old shell.ts and main.ts): `FAIL 390x844 first_tab the first draw moves no focus: H1 | the first Tab on Home focuses and shows the skip link`.
 - Green: see Gates.
@@ -63,6 +63,15 @@ Scope: points 1 to 6. Client only. Line numbers are on this branch.
 - Third gate run (head `d1529d62d`): play-scenes passed; next-menus failed one case, `FAIL 390x844 first_tab TimeoutError: locator.click`: at 390x844 the shown skip link covers Guide, so the click of the case did not land. The case now blurs the link before the click. No app code changed.
 - Green: see Gates.
 
+## Repairs after the review
+
+- Ticket, point 3: the known limit said that Home and the game page can show different words for the same time. That was false: all three callers use the short words. The limit now says so.
+- `src/interface/people/words.ts:10`: the comment of `short` names the Home rows, the invite line and the game header.
+- `src/interface/play/home.ts:168`: the Continue card status of a person game uses `statusParts`, as the rows do.
+- `tools/verify-play-scenes.mjs:228`: the scene rule also measures the Continue card status (`.home-state > strong`) and the invite line (`.home-game-copy > span`).
+- `src/interface/play/scenes.ts`: the scene server returns the invitations of a scene. `home-results` has one incoming invitation. The new scene `home-claim` has the same games and invitation with no saved computer game, so the claim game is the Continue card ("Time is up · claim the win"). It runs at the same sizes as `home-results`.
+- Ticket, point 2: the screen-reader text says that the title names the site, and that a first load of a deep link does not announce the page name. Known limits: the 24-hour result rows read each finished game again on each Home refresh.
+
 ## Gates
 
 One at a time, after the last code edit. Five commits; the last three change only check scripts and this ticket.
@@ -87,8 +96,9 @@ One at a time, after the last code edit. Five commits; the last three change onl
 
 - Point 1: the 24 hours use the device clock against the server `finished_at`. A wrong device clock makes the time longer or shorter.
 - Point 1: a result row inside the 24 hours has no control to remove it; it goes after 24 hours (if seen) or when 10 newer results push it out.
+- Point 1: for 24 hours after a game ends, each Home refresh reads that finished game again (up to 10 reads each 15 s). A later change can keep the finished views.
 - Point 2: a first load on a join link or an online game moves no focus either; the first Tab there goes to the first control of the page.
-- Point 3: Home and the game page can show different words for the same time ("3 days" and "2 days 23 hours left").
+- Point 3: Home, the invite line and the game header use the short words (nearest whole day from 2 days). The long form ("2 days 23 hours") has no caller.
 - Points 5 and 6: a part wider than its line still wraps inside the part. At 667x375 and 844x390 with 150% text the Home status column is about 70 px wide, and "Their move ·" shows as "Their" / "move ·" / "2 days".
 
 ## Closed by design

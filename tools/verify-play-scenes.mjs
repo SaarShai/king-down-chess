@@ -14,8 +14,8 @@ import { pauseClock } from './lib/page-clock.mjs';
 // name with an ellipsis, as the known mark at 320 px allows.
 const gameScreen = scene => /^(online|solo)-/.test(scene) && !['online-loss', 'online-loss-offer'].includes(scene);
 const withPanel = scene => gameScreen(scene) || ['new-game', 'setup-friend'].includes(scene);
-// home-games, home-results: the landscape Home (667x375, 844x390) splits its actions column between the name and the status of a game row.
-const homeRows = scene => scene === 'home-games' || scene === 'home-results';
+// home-games, home-results, home-claim: the landscape Home (667x375, 844x390) splits its actions column between the name and the status of a game row.
+const homeRows = scene => ['home-games', 'home-results', 'home-claim'].includes(scene);
 const SIZES = [[320, 568], [360, 640], [390, 844], [667, 375, scene => withPanel(scene) || homeRows(scene)], [568, 320, withPanel], [736, 414, gameScreen], [900, 600, gameScreen], [844, 390, homeRows], [1280, 800]], SCALES = [100, 150];
 const ROLES = ['button', 'link', 'switch', 'radio', 'checkbox', 'tab', 'menuitem', 'option', 'slider', 'textbox', 'combobox'];
 const SENTINEL = 'kingdown-scene-sentinel';
@@ -225,7 +225,7 @@ function homeNameFaults() {
     if (status?.matches('span') && name.textContent && status.textContent.includes(name.textContent)) out.push(`status "${status.textContent}" repeats the name in a Home game row`);
   }
   // Ticket 17, points 5 and 6: a status of parts ("A · B") breaks only after a "·". A part breaks only when it alone is wider than its line.
-  for (const line of document.querySelectorAll('.home-game-row > span:not(.profile-portrait), .play-game[data-online] .opponent-clock')) {
+  for (const line of document.querySelectorAll('.home-game-row > span:not(.profile-portrait), .home-state > strong, .home-game-copy > span, .play-game[data-online] .opponent-clock')) {
     if (!line.checkVisibility({ visibilityProperty: true }) || !line.textContent.includes(' · ')) continue;
     const chars = [], walk = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
     while (walk.nextNode()) for (let i = 0; i < walk.currentNode.length; i++) {
