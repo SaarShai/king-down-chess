@@ -126,7 +126,7 @@ it('a game whose move time ran out on your turn is not "Your move" on Home', () 
   expect(personGame({ ...base, deadline_at: future })).toMatchObject({ mine: true, status: 'Your move' });
   // A row whose move time ran out shows no time left (ticket 16, point 2).
   expect(deadlineLine(past)).toBe('');
-  expect(deadlineLine(future)).toBe('23 hours');
+  expect(deadlineLine(future, Date.parse(future) - 5 * 3_600_000 - 60_000)).toBe('5 hours');
 });
 it('a tap after the own move time ran out gives the turn line (ticket 16, point 4)', () => {
   expect(timeUpLine({ phase: 'their-move', clock: { mine: true, left: 0 } })).toBe('Your time to move is up.');
