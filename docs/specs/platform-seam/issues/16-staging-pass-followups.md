@@ -71,9 +71,18 @@ Scope: points 1 to 6 built; point 7 examined; point 8 not touched. Client only. 
 - Probe (a scratch unit test, not kept): the fixture service, alice creates a friend game, bob joins by link, alice opens it. Alice's view has `last_commands: [{ seq: 1, seat: 1, action: { type: 'join' } }]` and `pollDelay(view, 0, false, { fastStart: true })` is 3000. So the client rule is correct on the fixture server.
 - Cause: not proven. The client code gives 3 s when the view holds the join command less than 2 minutes before `server_now`. On the local stack one of these must be false. The candidates: the join `at` (Postgres `created_at`) and `server_now` (the API clock) differ by more than about 70 s; or the view that the page read did not hold the join command. Next step: on the local stack, log A's `GET` reads of the game and the `last_commands` and `server_now` of the first read. No client repair is made.
 
-## Gates
+## Gates (head 43a9bb797, 2026-11-26)
 
-See the gate list below (filled after the last edit).
+One at a time, after the last code edit:
+
+- `npm run typecheck`, 03:03: pass.
+- `npm run test:changed`, 03:03-03:08: 130 files, 2,353 tests pass, 1 skipped. A selection, not the full suite. Two earlier runs found two faults of this branch, both repaired: `src/interface/play/opp-playback.test.ts` runs main.ts functions in a new context and had no `lockedLine` (`ReferenceError`; commit `19c77544c`), and the new point 2 line in `online.test.ts` read the clock two times ("1 day" for "23 hours"; commit `43a9bb797`).
+- `npm run test:docs`, 03:08: 21 files pass.
+- `npm run check:browser play-scenes`, 03:08-03:14: pass, 494 cases (35 scenes). No known mark for `home-games` is left.
+- `npm run check:browser next-menus`, 03:14-03:24: pass (355 PASS, 104 SKIP, 0 FAIL; `skip_link` at 390x844 and 1280x720).
+- `npm run check:browser home`, 03:24: pass.
+- `npm run check:browser web-online`, 03:24-03:26: pass.
+- Focused unit runs while building: `online.test.ts` (81 tests), `help.test.ts`, `pages.test.ts` (31 tests): pass.
 
 ## Not verified
 
