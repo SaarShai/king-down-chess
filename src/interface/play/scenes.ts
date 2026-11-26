@@ -92,8 +92,8 @@ const SCENES: Record<string, Scene> = {
     [ROW_B]: { ...THEIR_MOVE, game_id: ROW_B, opponent: { ...THEIR_MOVE.opponent, handle: 'swift-guard-86' } } },
     ready: '.play-home .home-game-row[data-game]' },
   // Ticket 17: with a saved computer game, every online game is a row: a claim row, a result that the friend won, and a "Their move" row.
-  // An incoming invitation shows its line ("Invites you to a game · Pieces · 3 days").
-  'home-results': { save: SOLO, games: RESULT_GAMES, invitations: [INVITATION],
+  // An incoming invitation shows its line ("Invites you to a game · Pieces · 3 days"). With 4 rows the list folds, so the scene opens all games.
+  'home-results': { save: SOLO, games: RESULT_GAMES, invitations: [INVITATION], steps: ['Show all games'],
     ready: `.play-home:has(.home-invite-row) .home-game-row[data-game="${ROW_D}"]` },
   // The same games with no saved computer game: the claim game is the Continue card, and its status has two parts.
   'home-claim': { games: RESULT_GAMES, invitations: [INVITATION],
