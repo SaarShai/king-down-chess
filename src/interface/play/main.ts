@@ -46,6 +46,7 @@ import { clearResult, markedResult, markResult } from './result-mark';
 import { newGamePanel } from './setup-table';
 import { dismissSheet, gameMenu, settingsSheet, type Settings } from './menus';
 import { allowedAvatarUrl } from '../../account/public-config';
+import { AUTH_KEY } from '../../account/session';
 import { computerPortrait, profilePortrait } from '../people/host/portrait';
 import type { OnlineHost } from '../people/host/index';
 import { ObsoleteAction } from '../people/server';
@@ -55,7 +56,7 @@ import { seatKingUnsaved } from '../people/seat-king';
 import { homeInvite, personGame, personTurn, personWords } from '../people/host/games';
 import { timeWords } from '../people/words';
 import { runPoll } from '../../plugin/poll';
-import { personText, signInText } from '../people/screens/copy';
+import { landingText, passingNote, signInText } from '../people/screens/copy';
 import { blockedPlayers, deleteAccount, playerOptions, playerSafety } from '../people/screens/safety';
 import { peopleSheet, type PeopleSheet } from '../people/screens/sheet';
 import { signInSheet } from '../people/screens/sign-in';
@@ -226,7 +227,10 @@ let people: OnlineHost | undefined, peopleReady: Promise<OnlineHost> | undefined
 let peopleStatus: 'checking' | 'ready' | 'failed' = 'checking', accountNote = '';
 const peopleLoadError = 'Online play cannot load. Check your connection and try again.';
 const signInRetry = 'Sign-in does not finish. Try again.';
-const showHomeSignIn = () => peopleStatus !== 'checking' && !people?.signedIn;
+// A failed load (offline, no account code) with a stored session does not know the account: no Sign in. With no stored
+// session (the key that the people host init reads), Sign in shows.
+const showHomeSignIn = () => peopleStatus === 'ready' ? !people?.signedIn : peopleStatus === 'failed' && !storedSession();
+function storedSession() { try { return !!localStorage.getItem(AUTH_KEY); } catch { return false; } }
 let homePoll: ReturnType<typeof runPoll> | undefined;
 function gameWords(line: string) { return onlineActive ? personWords(line) : line; }
 let mountingOnline = false, shownRevision = -1, onlineNote = '', onlineReconnecting = false;
@@ -259,7 +263,7 @@ async function loadPeople() {
       open: (id, line) => { onlineGameNotice = line ? { id, line } : undefined; shell.go({ place: 'online', entry: id }); },
       toast: message => {
         announce(message);
-        if (message === personText.linkCopied) {
+        if (passingNote(message)) {
           clearInviteLinkStatus();
           inviteLinkStatus.textContent = message;
           root.querySelector('.home-start')?.prepend(inviteLinkStatus);
@@ -294,6 +298,8 @@ async function loadPeople() {
   }).catch(error => {
     peopleReady = undefined; peopleStatus = 'failed'; onlineNote = peopleLoadError;
     updateAccount();
+    // The note must show on an open Home: with a stored session the top bar has no Sign in to explain the state.
+    if (document.body.dataset.page === 'home' && shell.route.place === 'play') home();
     announce(onlineNote);
     throw error;
   });
@@ -1464,7 +1470,7 @@ function update() {
   const code = draft.position.board[inspected ?? selected ?? -1];
   const now = draft.now, midway = draft.open && draft.length > 0 && draft.canFinish ? now.haste !== undefined ? now.rage === 3 ? text.another : text.again : text.after : '';
   let help = fault ? '' : notice || (ended ? text.rematchHint : thinking ? text.wait : draft.armed ? '' : draft.chain ? draft.canFinish ? draft.targets(draft.previewMove!.from).length ? text.continue : text.endChain : text.mustContinue : midway === text.after ? '' : midway || (draft.length || code || fresh() || replySteps.length ? '' : text.choose));
-  if (net) help = (net.connection === 'auth' || net.phase === 'checking' || net.phase === 'sending' ? 'Your turn is not confirmed yet.' : net.phase === 'their-move' ? 'Your opponent now plays.' : help).replaceAll(text.finish, text.send);
+  if (net) help = (net.connection === 'auth' || net.phase === 'checking' || net.phase === 'sending' ? 'Your turn is not confirmed yet.' : net.phase === 'their-move' ? net.clock.mine ? '' : 'Your opponent now plays.' : help).replaceAll(text.finish, text.send);
   if (choice.length) help = notice;
   // Check names the player's own king only; a check that the player gives shows in the reading area (reading decision 22).
   const checked = !thinking && checkLines(game.context, draft.position, player).mine;
@@ -2276,6 +2282,7 @@ function renderPlace(route: Route) {
   if (route.place === 'online') { void openOnline(route.entry!); return; }
   if (route.place === 'join') {
     onlineActive = false; people?.stopGame();
+    document.body.dataset.page = 'join'; root.replaceChildren(el('p', 'people-loading', landingText.loading));
     void loadPeople().then(async host => { const { landingPage } = await import('../people/screens/landing'); if (shell.route.place === 'join') { document.body.dataset.page = 'join'; root.replaceChildren(landingPage(host.host, route.entry ?? '')); } }).catch(() => shell.go({ place: 'play' })); return;
   }
   if (route.place === 'person') { personFlow(); return; }
@@ -2308,7 +2315,7 @@ if (reload) shell.go({ place: 'game' }, false, true);
 // Home does not wait for the symbol files (launch decision 45): the small board and the Symbols view take them when they come.
 shell.start();
 homePoll = runPoll(() => document.body.dataset.page === 'home' && shell.route.place === 'play' && people?.signedIn
-  ? { view: people.views.find(view => view.status === 'playing' || view.status === 'waiting' || view.status === 'setup') ?? 'waiting for a join', read: () => people!.refresh(), fastStart: true }
+  ? { view: people.views.find(view => view.status === 'playing' || view.status === 'waiting' || view.status === 'setup') ?? 'waiting for a join', read: () => people!.refresh(), fastStart: true, maxMs: 15_000 }
   : undefined);
 const idle = (task: () => void) => 'requestIdleCallback' in window ? requestIdleCallback(task, { timeout: 2000 }) : setTimeout(task, 1000);
 idle(() => { loadBoardCode().catch(() => {}); void loadPeople().catch(() => {}); });

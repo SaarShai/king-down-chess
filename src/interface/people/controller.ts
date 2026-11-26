@@ -103,7 +103,10 @@ export function peopleController(options: ControllerOptions) {
   const offers = new Set<number>();
   let poll: ReturnType<typeof runPoll> | undefined;
 
-  const mine = (v: View | undefined = view) => !!v && v.status === 'playing' && v.action === 'ready' && v.turn === v.seat;
+  const myTurn = (v: View | undefined = view) => !!v && v.status === 'playing' && v.action === 'ready' && v.turn === v.seat;
+  // The same rule as boardActions: the server ends a missed move only at the next command or sweep, so the client locks it.
+  const late = (v: View) => v.kind !== 'solo' && v.deadline_at !== null && Date.parse(v.deadline_at) <= Date.parse(v.server_now) + (now() - readAt);
+  const mine = (v: View | undefined = view) => myTurn(v) && !late(v!);
   function phase(): Phase {
     if (fatal) return fatal;
     if (!view) return 'loading';
@@ -135,7 +138,7 @@ export function peopleController(options: ControllerOptions) {
       draw: !view || view.draw_offer == null ? 'none' : view.draw_offer === view.seat ? 'mine' : 'theirs',
       drawsLeft, canOfferDraw: !!playing && view!.kind !== 'solo' && view!.draw_offer == null && drawsLeft > 0,
       rematch: rematch(), rematchGame: view?.rematch_game_id ?? null,
-      clock: { left: Number.isFinite(deadline) ? deadline - (now() + skew) : null, mine: mine() },
+      clock: { left: Number.isFinite(deadline) ? deadline - (now() + skew) : null, mine: myTurn() },
       claim: actions.claim, abortOpen: !!view?.abort_open && view.status !== 'finished' && view.status !== 'aborted',
       connection, notice, engine,
       check: pending && { game: pending.receipt?.args.game_id ?? null, tries: pending.tries, canDiscard: !pending.receipt || pending.tries >= CHECKS_BEFORE_DISCARD },
@@ -205,7 +208,7 @@ export function peopleController(options: ControllerOptions) {
   /** A full view: build the copy again. */
   function adopt(next: View, keep?: readonly string[]) {
     const copy = replicaOf(next);
-    view = next; game = copy ?? positionOf(next) ?? setupGame(next); fatal = undefined;
+    timed(next); view = next; game = copy ?? positionOf(next) ?? setupGame(next); fatal = undefined;
     engine = copy && !needsServerPreview(next.engine_fingerprint, pageEngine) ? 'local' : 'server';
     if (!game && (next.status === 'playing' || next.status === 'finished')) fatal = 'failed';
     draft = freshDraft(keep);
@@ -233,7 +236,7 @@ export function peopleController(options: ControllerOptions) {
     const turns = playCommands(game, view.revision, next);
     if (!turns) return false;
     for (const command of next.last_commands) if (command.seq > view.revision && command.seat !== next.seat && command.action.type === 'rematch' && command.action.choice === 'decline') declined = true;
-    view = { ...next, rules: next.rules ?? view.rules };
+    timed(next); view = { ...next, rules: next.rules ?? view.rules };
     const theirs = turns.filter(turn => turn.seat !== next.seat).at(-1);
     if (theirs) { received = { seq: theirs.seq, at: theirs.at, steps: theirs.steps }; sent = false; }
     if (!mine()) draft = undefined;

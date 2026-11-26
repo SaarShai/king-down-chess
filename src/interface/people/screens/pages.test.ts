@@ -226,6 +226,15 @@ it('Sign-in does not work now: the computer, another try and Cancel; a suspended
   } finally { await page.close(); }
 });
 
+it('The link landing shows a loading line at once while the invite read is slow', async () => {
+  const page = await open('landing-plain', '?wait=4000');
+  try {
+    await expect.poll(() => page.locator('.people-landing .people-loading').textContent(), { timeout: 1500 }).toBe('Loading the invite…');
+    await expect.poll(() => page.locator('.people-landing h2').textContent(), { timeout: 10_000 }).toBe('A friend invites you to a game');
+    expect(await page.locator('.people-landing .people-loading').count()).toBe(0);
+  } finally { await page.close(); }
+});
+
 it('The link landing: signed out, Join signs in, takes the name and joins; an ended invite offers a new invite to the inviter', async () => {
   const page = await open('landing-plain');
   try {

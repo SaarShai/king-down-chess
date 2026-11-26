@@ -175,9 +175,56 @@ const cases = {
     await page.getByRole('button', { name: text.menu, exact: true }).click(); await page.getByRole('button', { name: text.resign, exact: true }).click();
     await page.locator('dialog[open]').getByRole('button', { name: text.resign, exact: true }).click();
     await page.waitForSelector('.play-result', { state: 'attached' });
-    await context.route(pattern, r => r.abort()); await page.reload();
-    check(await page.waitForSelector('.play-home h1').then(() => true, () => false) && await page.locator('#boot-fault, .people-loading').count() === 0, 'a result card with no board code opens Home');
+    await context.route(pattern, r => r.abort());
+    // The failed board file can come after Home draws: wait for it, then one frame, before the count (seam ticket 13).
+    const boardFails = page.waitForEvent('requestfailed', { predicate: r => pattern.test(new URL(r.url()).pathname) }).then(() => true, () => false);
+    await page.reload();
+    const homeOpens = await page.waitForSelector('.play-home h1').then(() => true, () => false);
+    check(await boardFails, 'the board request fails on the reload');
+    await page.evaluate(() => new Promise(done => requestAnimationFrame(() => done())));
+    check(homeOpens && await page.locator('#boot-fault, .people-loading').count() === 0, 'a result card with no board code opens Home');
     await context.unroute(pattern);
+  },
+  async offline_sign_in(page, context, check, size) {
+    // A stored session, and the account code cannot load (offline; the launch worker does not keep it): Home does not
+    // know the account, so it shows the neutral settings button and no Sign in.
+    if (!['390x844', '1280x720'].includes(size)) return 'skip';
+    await signedIn(context, []);
+    // Two chunks are named client-*: the small online client that Home needs, and the large account client (sign-in library).
+    await context.route(/\/assets\/client-[\w-]+\.js$/, async r => { const reply = await r.fetch(); return (await reply.body()).length > 50_000 ? r.abort('internetdisconnected') : r.fulfill({ response: reply }); });
+    await page.goto(NEXT); await page.waitForSelector('.play-home');
+    // The load fault is announced (body > .kd-sr); a failed check waits for it, so a route that blocks nothing fails.
+    check(await page.waitForFunction(() => document.querySelector('body > .kd-sr')?.textContent.includes('Online play cannot load')).then(() => true, () => false), 'the account load fails');
+    await page.waitForTimeout(250);
+    check(await page.locator('.play-home .home-sign-in:not([hidden])').count() === 0, 'no Sign in while the account cannot load');
+    check(await page.locator('.play-home .home-note:visible', { hasText: 'Online play cannot load' }).count() === 1, 'Home shows the load note');
+    check(await page.locator('.play-home .home-settings-btn:visible').count() === 1, 'the settings button shows');
+    await shot(page, 'offline-sign-in');
+  },
+  async offline_signed_out(page, context, check, size) {
+    // No stored session, and the people code cannot load (offline): Home shows Sign in (only a stored session hides it).
+    // With no stored session, init does not load the account client, so this case aborts the people host chunk instead.
+    // Two chunks are named host-*; only the people host holds the seen-game key.
+    if (!['390x844', '1280x720'].includes(size)) return 'skip';
+    await context.route(/\/assets\/host-[\w-]+\.js$/, async r => { const reply = await r.fetch(); return (await reply.text()).includes('kingdown.people-seen') ? r.abort('internetdisconnected') : r.fulfill({ response: reply }); });
+    await page.goto(NEXT); await page.waitForSelector('.play-home');
+    check(await page.waitForFunction(() => document.querySelector('body > .kd-sr')?.textContent.includes('Online play cannot load')).then(() => true, () => false), 'the account load fails');
+    check(await page.locator('.play-home .home-sign-in:not([hidden])').count() === 1, 'Sign in shows with no stored session');
+    await shot(page, 'offline-signed-out');
+  },
+  async join_loading(page, context, check, size) {
+    // A signed-in player opens an invite link: a loading line shows at once, while the account and the invite read run.
+    if (!['390x844', '1280x720'].includes(size)) return 'skip';
+    await signedIn(context, []);
+    let release; const held = new Promise(done => { release = done; });
+    await page.route('**/api/me/settings', async route => { await held; return route.fulfill({ json: { settings: {}, me: { handle: 'tester', icon: null } } }); });
+    // The stand-in has no invite: the preview read gets a 404, and the console gives the line that the runner accepts for this case.
+    const missing = []; page.on('response', r => { if (r.status() === 404) missing.push(new URL(r.url()).pathname); });
+    await page.goto(`${NEXT}#join=${'k'.repeat(43)}`);
+    check(await page.locator('#app .people-loading').filter({ hasText: 'Loading the invite' }).waitFor({ timeout: 2000 }).then(() => true, () => false), 'the join page shows a loading line at once');
+    release();
+    check(await page.locator('.people-landing').waitFor().then(() => true, () => false), 'the landing replaces the loading line');
+    check(missing.every(path => path === '/api/invites/preview'), `only the invite preview is missing: ${missing.join(', ')}`);
   },
   async font_fault(page, context, check) {
     await context.route('**/fonts/alegreya-sans-bold-latin.woff2', r => r.abort());
@@ -286,7 +333,7 @@ const cases = {
   // layout has the wide picture. A resize back, two fast resizes and a failed picture change nothing. After the wide
   // layout, the narrow layout gets its own still: the wide picture stays, whole, until that is ready, and no frame is blank or cuts a king.
   async home_resize(page, context, check, size) {
-    if (size !== '1280x720') return;
+    if (size !== '1280x720') return 'skip';
     const open = async (label, { reduced = false, ended = false, fail = false, touch = false, viewport = { width: 500, height: 1000 } } = {}) => {
       // The case holds and fails picture requests; the launch worker would answer them from its cache.
       const tab = await (await browser.newContext({ viewport, hasTouch: touch, reducedMotion: reduced ? 'reduce' : 'no-preference', serviceWorkers: 'block' })).newPage();
@@ -661,7 +708,7 @@ const cases = {
   // Online notices with a control (decision of tweaks-2): the hand keeps one place under an open reader; the notice and
   // its controls show whole; Menu asks the server for the block state.
   async notice(page, context, check, size) {
-    if (!['320x568', '360x640', '390x844', '667x375'].includes(size)) return;
+    if (!['320x568', '360x640', '390x844', '667x375'].includes(size)) return 'skip';
     const portrait = size === '320x568' || size === '360x640', answer = { view: onlineView({ draw_offer: 1 }) };
     let release; const held = new Promise(done => { release = done; }), blocks = [];
     await page.route('**/api/blocks', async route => { blocks.push(route.request().postDataJSON()); await held; return route.fulfill({ json: { blocked: true } }); });
@@ -737,7 +784,7 @@ const cases = {
   },
   // A reload on the open result card shows it again, at rest, and writes nothing. Each other way back opens Home.
   async result_reload(page, context, check, size) {
-    if (!['390x844', '1280x720'].includes(size)) return;
+    if (!['390x844', '1280x720'].includes(size)) return 'skip';
     const ended = (fen, moves, { player = 0, resigned = null } = {}) => {
       const game = new Game('RNBQKBNR', rulesOf('pieces', [null, null], [[], []]));
       if (fen) game.load(game.context.fromFen(fen));
@@ -895,16 +942,21 @@ try {
     await context.addInitScript(() => localStorage.setItem('kingdown.solo-launch-seen', '1'));
     const page = await context.newPage(), failures = [], errors = [];
     page.setDefaultTimeout(12000);
-    const trapped = trapErrors(page);
-    page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+    // join_loading: the stand-in has no invite, so the preview read is a 404 (the case checks that no other path is).
+    const known = name === 'join_loading' ? /^Failed to load resource: the server responded with a status of 404 \(Not Found\)$/ : null;
+    const trapped = trapErrors(page, known ? [{ pattern: known.source, reason: 'the stand-in has no invite preview' }] : []);
+    page.on('console', m => { if (m.type() === 'error' && !known?.test(m.text())) errors.push(m.text()); });
     page.on('pageerror', e => errors.push(e.message));
     const check = (ok, label) => { if (!ok) failures.push(label); };
-    try { await run(page, context, check, size); } catch (e) { failures.push(String(e)); }
+    let skipped = false;
+    try { skipped = await run(page, context, check, size) === 'skip'; } catch (e) { failures.push(String(e)); }
+    if (skipped) { console.log(`SKIP ${size} ${name} (not run at this size)`); await context.close(); continue; }
     // Only these fault cases deliberately abort requests (notice: a 401 read and the aborted account project). A page exception is never expected.
-    if (!['code_fault', 'font_fault', 'home_art', 'rematch_art', 'notice'].includes(name)) {
+    const offline = ['offline_sign_in', 'offline_signed_out'].includes(name);
+    if (!['code_fault', 'font_fault', 'home_art', 'rematch_art', 'notice'].includes(name) && !offline) {
       try { assertNoErrors(trapped); } catch (e) { failures.push(String(e)); }
       check(errors.length === 0, `no console error: ${errors.join('; ')}`);
-    } else check(!errors.some(e => !/Failed to load resource|Load failed|net::ERR_FAILED/.test(e)), `only blocked requests fail: ${errors.join('; ')}`);
+    } else check(!errors.some(e => !(offline ? /Failed to load resource|Load failed|net::ERR_FAILED|net::ERR_INTERNET_DISCONNECTED/ : /Failed to load resource|Load failed|net::ERR_FAILED/).test(e)), `only blocked requests fail: ${errors.join('; ')}`);
     const result = { size, name, failures, errors }; results.push(result);
     console.log(`${failures.length ? 'FAIL' : 'PASS'} ${size} ${name} ${failures.join(' | ')}`);
     await context.close();

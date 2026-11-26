@@ -28,7 +28,8 @@ export function pollDelay(view: PollView, waitingMs: number, hidden: boolean, { 
 }
 
 /** One poll target: the view that sets the delay, and the read that a tick runs (design §4). */
-export type PollTarget = { view: PollView; read: () => Promise<unknown>; fastStart?: boolean };
+/** `maxMs` caps the wait (Home: an invite shows within 15 s whatever the pace of its games). */
+export type PollTarget = { view: PollView; read: () => Promise<unknown>; fastStart?: boolean; maxMs?: number };
 /**
  * The page's one poll. A tick runs only while the page shows, a target exists and `gate()` is true; a closed gate skips
  * the tick and waits one more delay. `visibilitychange` and `pageshow` start one fresh read; missed ticks do not run.
@@ -49,7 +50,7 @@ export function runPoll(target: () => PollTarget | undefined, gate: () => boolea
       began.set(key, named && join !== undefined ? join : Date.now());
     }
     const delay = pollDelay(view, key === undefined ? 0 : Date.now() - began.get(key)!, page.hidden, { fastStart: next?.fastStart });
-    if (delay !== undefined) timer = setTimeout(tick, delay);
+    if (delay !== undefined) timer = setTimeout(tick, Math.min(delay, next?.maxMs ?? Infinity));
   }
   async function tick() {
     clearTimeout(timer);

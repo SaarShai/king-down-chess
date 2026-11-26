@@ -1,6 +1,6 @@
 # The title lineup draws the Ogre shorter than the Rook
 
-Status: needs-triage.
+Status: wontfix. The lead decided on 2026-11-26: the lineup is on the title of the old board, which few players see since the launch page; no assertion is red.
 
 Class: A (CSS of one screen). Size: S.
 

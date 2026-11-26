@@ -57,6 +57,20 @@ it('reads at mount and visibility, and stops on hide and teardown', async () => 
 });
 
 
+it('a target maxMs caps the wait (Home reads invites at least each 15 s); a finished game stays stopped', async () => {
+  vi.useFakeTimers();
+  const page = Object.assign(new EventTarget(), { hidden: false }), read = vi.fn(async () => {}), plain = vi.fn(async () => {});
+  const home = runPoll(() => ({ view: view(), read, maxMs: 15000 }), undefined, page);
+  const other = runPoll(() => ({ view: view(), read: plain }), undefined, page);
+  try {
+    await vi.advanceTimersByTimeAsync(0); expect([read.mock.calls.length, plain.mock.calls.length]).toEqual([1, 1]);
+    await vi.advanceTimersByTimeAsync(15000); expect([read.mock.calls.length, plain.mock.calls.length]).toEqual([2, 1]);
+    home.stop();
+    const done = vi.fn(async () => {}), ended = runPoll(() => ({ view: view({ status: 'finished' }), read: done, maxMs: 15000 }), undefined, page);
+    await vi.advanceTimersByTimeAsync(60000); expect(done).toHaveBeenCalledTimes(1); ended.stop();
+  } finally { home.stop(); other.stop(); vi.useRealTimers(); }
+});
+
 it('reads every three seconds for two minutes after your own move, draw or rematch answer against a person', () => {
   const idle = { handle: null, icon: null, computer: false, deleted: false, last_seen_ms: 600000 };
   const own = (type: 'turn' | 'draw' | 'rematch', ago: number) => [{ seq: 3, seat: 0 as const, at: new Date(Date.parse('2026-10-11T12:00:00.000Z') - ago).toISOString(), action: type === 'turn' ? { type, actions: ['e2-e4'] } : { type, choice: 'offer' as const } }];
