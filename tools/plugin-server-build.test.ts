@@ -159,17 +159,15 @@ it('sends the www pages to kingdown.dev in production and keeps the server, OAut
   } finally { rmSync(site, { recursive: true, force: true }); }
 });
 
-it('marks each staging and preview answer noindex first, with no www redirect', () => {
+it('gives a staging build no www redirect and no noindex header route', () => {
   const site = mkdtempSync(join(tmpdir(), 'staging-routes-'));
   try {
     writeFileSync(join(site, 'solo-launch.json'), '{}');
     const routes = vercelRoutes(site, { chatgpt: false, muse: true, staging: true });
-    expect(routes[0]).toEqual({ src: '^/.*$', headers: { 'X-Robots-Tag': 'noindex, nofollow' }, continue: true });
     expect(routes.some((route: { has?: unknown }) => route.has)).toBe(false);
-    expect(routes.filter((route: { headers?: object }) => route.headers && 'X-Robots-Tag' in route.headers)).toHaveLength(1);
+    expect(routes.filter((route: { headers?: object }) => route.headers && 'X-Robots-Tag' in route.headers)).toHaveLength(0);
     // vercel-check.mjs: the only route that sends /api/games somewhere is the API rule.
     expect(routes.slice(0, routes.findIndex((route: { handle?: string }) => route.handle === 'filesystem')).filter((route: { src?: string; dest?: string }) => route.dest && new RegExp(route.src!).test('/api/games'))).toEqual([{ src: '^/api(?:/.*)?$', dest: '/mcp' }]);
-    expect(siteRoute({ routes }, '/play').headers).toEqual({ 'X-Robots-Tag': 'noindex, nofollow' });
     // No site (the plugin target): neither route.
     expect(vercelRoutes(undefined, { staging: true }).concat(vercelRoutes(undefined)).some((route: { headers?: object; has?: unknown }) => route.has || (route.headers && 'X-Robots-Tag' in route.headers))).toBe(false);
   } finally { rmSync(site, { recursive: true, force: true }); }
@@ -189,9 +187,9 @@ it('writes the search files of each stage', async () => {
     const sitemap = readFileSync(join(site, 'sitemap.xml'), 'utf8');
     expect(Array.from(sitemap.matchAll(/<loc>([^<]*)<\/loc>/g), match => match[1])).toEqual(['https://kingdown.dev/', 'https://kingdown.dev/privacy.html', 'https://kingdown.dev/terms.html', 'https://kingdown.dev/support.html', 'https://kingdown.dev/delete-data.html']);
     expect(sitemap.startsWith('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')).toBe(true);
-    // Staging and the preview: a crawler may read each page and its noindex header, and finds no production sitemap.
+    // Staging and the preview: robots.txt closes the site, and there is no production sitemap.
     await searchFiles(site, { staging: true });
-    expect(readFileSync(join(site, 'robots.txt'), 'utf8')).toBe('User-agent: *\nAllow: /\n');
+    expect(readFileSync(join(site, 'robots.txt'), 'utf8')).toBe('User-agent: *\nDisallow: /\n');
     expect(existsSync(join(site, 'sitemap.xml'))).toBe(false);
   } finally { rmSync(site, { recursive: true, force: true }); }
 });

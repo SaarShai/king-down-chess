@@ -36,11 +36,11 @@ export const JOIN_PAGE = '<!doctype html><html lang="en"><meta charset="utf-8"><
  *  function; Vercel keeps the request path. */
 export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNECTOR, staging = false } = {}) {
   const routes = [];
-  // Search engines (hand-over D10). A staging build (KINGDOWN_STAGE=staging): each answer says noindex. A crawler must read the header,
-  // so robots.txt does not close the site (searchFiles). Production: www.kingdown.dev sends its pages to kingdown.dev.
+  // Search engines (hand-over D10). Production: www.kingdown.dev sends its pages to kingdown.dev.
   // The list holds pages and search files only, so the API, the functions, OAuth, .well-known and sw.js stay on the host.
-  if (site && staging) routes.push({ src: '^/.*$', headers: { 'X-Robots-Tag': 'noindex, nofollow' }, continue: true });
-  else if (site) routes.push({ src: '^/((?:|next\\.html|index\\.html|play(?:/.*)?|g/[^/]+/?|j/?|(?:terms|privacy|support|delete-data)\\.html|robots\\.txt|sitemap\\.xml))$',
+  // A staging build has no such route and no noindex header: with that header on each answer, the host put its
+  // feedback script into next.html, and the alias check of tools/release/staging.py failed. Staging closes robots.txt (searchFiles).
+  if (site && !staging) routes.push({ src: '^/((?:|next\\.html|index\\.html|play(?:/.*)?|g/[^/]+/?|j/?|(?:terms|privacy|support|delete-data)\\.html|robots\\.txt|sitemap\\.xml))$',
     has: [{ type: 'host', value: 'www.kingdown.dev' }], methods: ['GET', 'HEAD'], status: 308, headers: { Location: 'https://kingdown.dev/$1' } });
   if (chatgpt) routes.push(...Object.entries(ART_TYPES).map(([type, contentType]) => ({ src: `^/plugin-art/[\\w-]+\\.${type}$`, headers: { ...ART_HEADERS, 'Content-Type': contentType }, continue: true })));
   if (muse) for (const path of [...MUSE_PATHS, ...chatgpt ? [] : ['/authorize', '/consent.mjs']]) routes.push({ src: `^${path.replace(/[.]/g, '\\.')}$`, dest: '/mcp' });
@@ -72,11 +72,11 @@ export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN, muse = MUSE_CONNE
 }
 
 /** The search files of a site tree. Production keeps public/robots.txt and public/sitemap.xml. Staging and the preview
- *  remove the production sitemap and give a robots.txt with no Sitemap line and no Disallow (see vercelRoutes). */
+ *  remove the production sitemap and give a robots.txt that closes the site to crawlers. */
 export async function searchFiles(staticDir, { staging }) {
   if (!staging) return;
   await rm(resolve(staticDir, 'sitemap.xml'), { force: true });
-  await writeFile(resolve(staticDir, 'robots.txt'), 'User-agent: *\nAllow: /\n');
+  await writeFile(resolve(staticDir, 'robots.txt'), 'User-agent: *\nDisallow: /\n');
 }
 
 /** The consent page of a Muse build: the Muse tools (src/muse/tools.ts) in place of the ChatGPT list in consent.html.

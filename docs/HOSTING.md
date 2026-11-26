@@ -99,7 +99,7 @@ ci → staging → staging-checks → merge → main-ci → engines → publish 
   `publish` waits for CI and deploys through `tools/deploy.sh`.
 - Search and share: `public/robots.txt`, `public/sitemap.xml` and the share picture `public/share-1200x630.jpg` go out with the site.
   In production, the page addresses on `www.kingdown.dev` redirect (308) to `kingdown.dev`; the API, sign-in and connector addresses do not.
-  On staging, each answer has `X-Robots-Tag: noindex, nofollow`, and the build removes `sitemap.xml`.
+  On staging, `robots.txt` closes the site to crawlers (`Disallow: /`), and the build removes `sitemap.xml`.
   If CI does not pass in time, `tools/deploy.sh` runs the local checks.
   The default private env path is `<main checkout>/../.secrets/kingdown-mvp.env`.
 

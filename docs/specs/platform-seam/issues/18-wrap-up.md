@@ -8,7 +8,7 @@ Status: built (2026-11-26). The owner stopped the staging-polish loop; this is t
 2. `KINGDOWN_TEST_WEB_ONLY=1 npm run test:changed` drops the plugin test files on a developer machine. PR CI refuses the variable and runs all files.
 3. `docs/CHANGES.md` has the section "A 10-minute Class A batch" with the commands.
 4. Share tags (Open Graph and Twitter card) and a canonical link on `next.html`, `index.html` and the join page. The picture is `public/share-1200x630.jpg`.
-5. `public/robots.txt`, `public/sitemap.xml`, a 308 redirect of the page addresses from `www.kingdown.dev`, and no-index for staging.
+5. `public/robots.txt`, `public/sitemap.xml`, a 308 redirect of the page addresses from `www.kingdown.dev`, and a closed `robots.txt` for staging. A noindex header on staging was tried and removed: with it, the host put its feedback script into `next.html`, and the alias check failed.
 6. `tools/release/live.sh games` prints the count of online games for each week. It only reads. It cannot count games against the computer.
 7. Public text: the legal pages, the support page and the sign-in line now describe the new Home (`Play a friend`, `Account & settings`, the sign-in picture).
 
