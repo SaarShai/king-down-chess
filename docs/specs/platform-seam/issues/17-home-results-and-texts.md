@@ -65,7 +65,17 @@ Scope: points 1 to 6. Client only. Line numbers are on this branch.
 
 ## Gates
 
-GATES
+One at a time, after the last code edit. Five commits; the last three change only check scripts and this ticket.
+
+- `npm run typecheck`, 14:02 (head `650ac3d41`): pass.
+- `npm run test:changed`, 14:02-14:06 (head `650ac3d41`): 131 files, 2,307 tests pass, 1 skipped. A selection, not the full suite.
+- `npm run check:browser play-scenes`, 14:13-14:19 (head `d1529d62d`): pass, 506 cases (36 scenes). No known mark is added.
+- `npm run check:browser next-menus`, 14:30-14:41 (head `5f28a9be1`): pass (357 PASS, 119 SKIP, 0 FAIL; `first_tab` and `skip_link` at 390x844 and 1280x720).
+- `npm run check:browser home`, 14:41 (head `5f28a9be1`): pass.
+- `npm run check:browser web-online`, 14:41-14:43 (head `5f28a9be1`): pass.
+- `npm run test:docs`, 14:43 (head `5f28a9be1`): 21 files, 219 tests pass, 1 skipped.
+- Earlier runs that failed (see points 3, 5 and 6): play-scenes at `422956b61` and `650ac3d41`, next-menus at `d1529d62d`. Typecheck, test:changed and test:docs also passed at `422956b61` (13:49-13:53).
+- Red runs before the code change: the focused unit run (5 tests fail), next-menus `first_tab` with the old shell.ts and main.ts, and play-scenes with the old home.ts and main.ts (83 cases fail).
 
 ## Not verified
 
