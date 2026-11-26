@@ -367,6 +367,7 @@ body > .kd-sr { inset: 0 auto auto 0; }
 .home-seat h2, .home-game-row > strong { font: 650 .875rem/1.2 var(--font-title); letter-spacing: .04em; overflow-wrap: anywhere; }
 /* A status of parts breaks only between the parts (home.ts `statusParts`); a part wider than its line wraps inside. */
 .text-part { display: inline-block; max-width: 100%; }
+.text-part > span { white-space: nowrap; }
 /* A game row name stays on one line and ends with "…" when it does not fit; the text and the title keep the full name. */
 .home-game-row > strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .home-game-copy, .home-state { display: grid; min-width: 0; gap: 3px; }

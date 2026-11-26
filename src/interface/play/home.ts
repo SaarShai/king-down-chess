@@ -21,9 +21,11 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', conte
  * is wider than its line wraps inside. The text stays "A · B".
  */
 export function statusParts<T extends HTMLElement>(node: T, parts: readonly string[]): T {
-  const shown = parts.filter(Boolean);
+  const shown = parts.flatMap(part => part.split(' · ')).filter(Boolean);
   node.replaceChildren(...shown.flatMap((part, i) => {
-    const box = el('span', 'text-part', i < shown.length - 1 ? part + ' ·' : part);
+    const box = el('span', 'text-part', part);
+    // The "·" stays with the last word of its part: no line starts with it, also when the part wraps inside.
+    if (i < shown.length - 1) { const cut = part.lastIndexOf(' ') + 1; box.textContent = part.slice(0, cut); box.append(el('span', '', part.slice(cut) + ' ·')); }
     return i ? [' ', box] : [box];
   }));
   return node;

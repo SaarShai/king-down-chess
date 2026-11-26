@@ -1463,7 +1463,7 @@ function update() {
     const nextSrc = allowedAvatarUrl(oppAvatar) ? oppAvatar : null;
     const currentSrc = face?.dataset.avatar ?? null;
     if (face && (currentSrc !== nextSrc || nameChanged)) face.replaceWith(profilePortrait(oppName, oppAvatar));
-    if (clock) statusParts(clock, state.clock.left == null ? [] : [state.clock.mine ? 'Your move' : 'Their move', state.clock.left <= 0 ? 'Time is up' : timeWords(state.clock.left) + ' left']);
+    if (clock) statusParts(clock, state.clock.left == null ? [] : [state.clock.mine ? 'Your move' : 'Their move', state.clock.left <= 0 ? 'Time is up' : timeWords(state.clock.left, true) + ' left']);
   }
   if (arrangement && !ended) { updateArrangement(); return; }
   screen.querySelector('.play-grid')!.setAttribute('aria-description', text.shortcuts);
