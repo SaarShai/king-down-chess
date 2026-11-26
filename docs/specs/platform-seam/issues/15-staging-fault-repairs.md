@@ -65,6 +65,17 @@ Line numbers are on this branch.
 - Red: `next-menus` `code_fault` fails at 10 of 17 sizes (22:24-22:25); `merge.test.ts`: the pattern does not match.
 - Green: `code_fault` passes at 17 of 17 sizes (22:33); `merge.test.ts` passes.
 
+## Gates (head 6c33acf67, 2026-11-25)
+
+- `npm run typecheck`: pass.
+- Unit tests, `KINGDOWN_TEST_FILE='{src/interface/people/**/*.test.ts,src/plugin/poll.test.ts,src/interface/play/*.test.ts}'`, 22:41-22:42: 54 files, 985 tests pass. A focused run, not the full suite.
+- `npm run test:docs`, 22:41: 21 files pass.
+- `npm run check:browser play-scenes`, 22:43-22:49: pass, 494 cases (35 scenes); 3 known marks for `home-games` at 150%.
+- `npm run check:browser next-menus`, 22:49-22:59: pass (all cases, 17 sizes).
+- `npm run check:browser home`, 22:59: pass.
+- `npm run check:browser web-game`, 22:59-23:00: pass.
+- `npm run check:browser web-online`, 23:00-23:03: pass.
+
 ## Where a scout was wrong
 
 - Repair 1: the scout did not name that `mine()` false makes the phase `their-move`, which gave the help line "Your opponent now plays." (`main.ts:1468`). The scout's `late` also read `readAt` before the new read set it, which would lock every first read of a game; this branch sets the read time first.
