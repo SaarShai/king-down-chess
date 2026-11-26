@@ -1,6 +1,6 @@
 # Keep the named differences when the time limit cuts the last pass of the live check
 
-Status: in-review
+Status: done
 Source: the review of the ticket [13](13-ci-live-check-short-limit.md) repair, 2026-11-25
 
 ## Problem
@@ -30,4 +30,14 @@ A local site that answers the first pass at once with a different bundle, and ho
 - `tools/lib/deploy-site-kit.ts`: a new `site()` option `delayAfterRoots`. The delay starts only after this many requests of `/`, so only the later passes are late.
 - `tools/deploy-live-check.test.ts`: the new test 'keeps the differences of the pass before when the time limit stops the last pass' (limit 7000 ms, delay 4000 ms from the second pass). It also asserts that the check made a second pass, so that it cannot pass on one pass only.
 - Red first: with the old `deploy-live-check.mjs`, the test fails after 7 s, and the FAIL text has only `fetch failed (The operation was aborted due to timeout)` lines.
-- Green: `tools/deploy-live-check.test.ts` 79 of 79.
+- Green: `tools/deploy-live-check.test.ts` 79 of 79. Typecheck passes.
+
+## Review
+
+- One independent review at 04c8133a7: blocking 0, notes 3. The reviewer also ran the test with the old tool (red) and examined each order of abort and pass: a clean pass stays a pass; the first pass, limit 0 and a pass with no abort do not change.
+  1. A stopped pass drops its real new lines too. Recorded under Known limits; no code change.
+  2. The test could fail with no fault when the first pass took more than 2 s on a loaded runner. Repaired: limit 10000 ms, delay 6000 ms, so the first pass has 5 s.
+  3. The delay timer held the test worker for up to 4 s after the test. Repaired: `.unref()`.
+- One repair batch, f082a3c7d. Red again with the old tool (1 of 79 fails); green 79 of 79; typecheck passes.
+- Repair check by the same reviewer at f082a3c7d: blocking 0, no new notes.
+- Before the PR: `tools/deploy-slow-link.test.ts` 26 of 26 (it uses the changed delay timer); `npm run test:changed` 46 files, 695 passed, 1 skipped.
