@@ -750,7 +750,7 @@ export async function main() {
       active.off('request',recordOfflineRequest);
       active.off('requestfailed',recordFailedAsset);
       assert.deepEqual(failedAssets,[], 'Offline play has no failed asset requests');
-      active.off('console',recordOfflineError);assert.deepEqual(offlineErrors,[], 'Offline play logs no errors');
+      active.off('console',recordOfflineError);assert.deepEqual(offlineErrors,[], `Offline play logs no errors: ${JSON.stringify(offlineErrors).slice(0, 600)}`);
       await persistent.setOffline(false); offline = false;
       await restoreLocalSave(active, saved);
       await active.goto(`${origin}/index.html?title=0`); await readyBoard(active);
