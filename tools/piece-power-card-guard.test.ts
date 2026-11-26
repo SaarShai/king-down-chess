@@ -9,8 +9,10 @@ import { art, symbols } from '../src/account-game/art';
 import { RELEASED_CARDS } from '../src/content/cards';
 import { GameRules } from '../src/game-rules';
 import { matchMove } from '../src/muse/match-words';
-import { DEFAULT_RULES, K, LETTERS, NAMES, PROMOTIONS } from '../src/rules/engine';
+import { pieceIcon } from '../src/piece-icons';
+import { DEFAULT_RULES, K, LETTERS, NAMES, PROMOTIONS, type PieceType } from '../src/rules/engine';
 import { CLASSIC_CHESS, POOL } from '../src/rules/setup';
+import { SHARED_MECHANICS } from './fixtures/shared-mechanics';
 
 const released = [...new Set(['P', ...CLASSIC_CHESS, ...POOL])].map(l => LETTERS.indexOf(l));
 
@@ -58,5 +60,22 @@ describe('plugin: card motion for each released card', () => {
       .flatMap(id => [`src/plugin/card-motion/recipes/${id}.ts`, `src/plugin/assets/card-motion/${id}.webp`])
       .filter(path => !existsSync(path));
     expect(missing, 'plugin card motion: add the recipe and the map (tools/card-motion), or the card shows a still picture').toEqual([]);
+  });
+});
+
+describe('web: round icon for each released piece', () => {
+  it('gives each released piece an icon', () => {
+    // pieceIcon gives '' for a piece with no ICON_PIECES entry: the web shows no round icon for it.
+    const missing = released.filter(t => pieceIcon(t as PieceType) === '').map(t => NAMES[t]);
+    expect(missing, "src/piece-icons.ts ICON_PIECES: add the name of the released piece (and public/ui/icons/<name>.svg)").toEqual([]);
+  });
+});
+
+describe('shared mechanics: fixture for each released card', () => {
+  it('has a SHARED_MECHANICS row for the fixtureId of each released card', () => {
+    // Without the row, the card tests that read SHARED_MECHANICS fail with only TypeErrors ("reading setup").
+    const ids = new Set(SHARED_MECHANICS.map(row => row.id));
+    const missing = RELEASED_CARDS.filter(card => !ids.has(card.fixtureId)).map(card => `${card.fixtureId} (card ${card.id})`);
+    expect(missing, 'tools/fixtures/shared-mechanics.ts SHARED_MECHANICS: add the signature fixture of the released card').toEqual([]);
   });
 });

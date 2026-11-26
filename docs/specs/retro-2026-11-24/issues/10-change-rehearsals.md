@@ -133,6 +133,7 @@ Branch `guard-account-screen` (from origin/main d781512ed, head b3ce12081), work
    - Fake: `'records'` added to ReadRoute in `src/account-game/client.ts`.
    - Red: `src/account-game/runtime.ts(78,40): error TS2344: Type '"records"' does not satisfy the constraint 'never'.`
    - Green: `npm run typecheck` exit 0, 1.74 s.
+   - Later (ticket [55](55-guard-holes-second-probe.md)): the guard now excludes `typeof READ_SCREENS[number]`, and the two `enterRead` conditions use the same list through `isReadScreen`.
    - Commit: ba76417d9; comment fix b3ce12081 names the second list (navigate() at `:584`). At the head the red line is at (79,40).
    - Limit: the type is a third hand list. It makes a person open the place, but it does not prove that the conditions at `:400` and `:584` got the screen.
 3. Parser round trip: each account path reads back to its own route.

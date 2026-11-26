@@ -9,7 +9,7 @@ import { createWebPageHost } from './page-host';
 import { friendInvites } from '../plugin/invite';
 import { accountPath, parseAccountRoute, type AccountEntryRoute } from './routes';
 import { accountData } from '../account/data';
-import { READ_TOOLS } from '../account-game/types';
+import { READ_TOOLS, type Screen } from '../account-game/types';
 
 const text = (value = ''): ToolResult['content'] => [{ type: 'text', text: value }];
 const result = (_meta: Record<string, unknown> = {}, structuredContent?: unknown): ToolResult => ({ content: text(), _meta, ...(structuredContent !== undefined ? { structuredContent } : {}) });
@@ -163,7 +163,8 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
         if (current()) host.onResult?.(result({ ...(preview && { preview }) }, { screen: 'join' }));
       } else if (route.screen === 'new-friend') host.onResult?.(result({}, { screen: 'play', new_friend: true }));
       else if (route.screen === 'game') host.onResult?.(result({ board_id: route.gameId }, { screen: 'board', game_id: route.gameId }));
-      else host.onResult?.(result({}, { screen: route.screen }));
+      // A new entry-only screen (not a Screen of the page) gives TS1360 here: give it its own branch above.
+      else host.onResult?.(result({}, { screen: route.screen satisfies Screen }));
     } catch (error) {
       if (current()) host.onResult?.({ isError: true, content: text(error instanceof Error ? error.message : String(error)), _meta: { code: error instanceof OnlineError ? error.code : 'UNAVAILABLE' } });
     }

@@ -1,7 +1,7 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { FLAG_NAMES, scanFlags } from './build-flags.mjs';
+import { BUNDLES, defineBlock, FLAG_NAMES, importGraph, scanFlags } from './build-flags.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 // The quoted folders also make tools/lib/test-select.mjs select this test for a change of any file in them.
@@ -25,15 +25,35 @@ describe('build flags and environment variables', () => {
   });
 });
 
-describe('import.meta.env names in src', () => {
-  // Vite gives a bundle only the VITE_* names and its built-in names. Each other name needs a define, else it reads undefined.
-  it('each non-VITE_ name has a define in the plugin server build', () => {
-    const build = text('tools/plugin-server-build.mjs');
-    const names = [...new Set(reads.filter(read => read.client && read.place.startsWith('src/') && !read.name.startsWith('VITE_')).map(read => read.name))];
+describe('import.meta.env names in each bundle', () => {
+  // Vite gives a bundle only the VITE_* names and its built-in names. Each other name needs a define in the build() call
+  // of each bundle that holds the file, else that bundle reads undefined. BUNDLES in tools/build-flags.mjs lists the bundles.
+  const own = (read: { name: string; client: boolean }) => read.client && !read.name.startsWith('VITE_');
+  const graphs = BUNDLES.map(bundle => ({ ...bundle, files: importGraph(root, bundle.entries) as Set<string>, block: defineBlock(text(bundle.build), bundle.call) as string | undefined }));
+  const file = (place: string) => place.slice(0, place.lastIndexOf(':'));
+
+  it('finds the entries and the define block of each bundle', () => {
+    const broken = graphs.flatMap(bundle => [
+      ...bundle.entries.filter(entry => !existsSync(root + entry)).map(entry => `BUNDLES in tools/build-flags.mjs: the ${bundle.name} bundle names the entry ${entry}, which does not exist. Give the entry file of the bundle`),
+      ...bundle.block === undefined ? [`BUNDLES in tools/build-flags.mjs: ${bundle.build} has not one build() call with ${bundle.call} and a closed define block. Give a text that only the build() call of the ${bundle.name} bundle holds`] : [],
+    ]);
+    expect(broken).toEqual([]);
+  });
+
+  it('each non-VITE_ name has a define in each bundle that reads it', () => {
+    const names = reads.filter(own);
     expect(names.length).toBeGreaterThan(0);
-    const undefinedNames = names.filter(name => !build.includes(`'import.meta.env.${name}'`))
-      .map(name => `${firstPlace(name)} reads import.meta.env.${name}, but tools/plugin-server-build.mjs has no define of 'import.meta.env.${name}'. Add the define to each build of a bundle that holds the file, or the bundle reads undefined`);
+    const undefinedNames = [...new Set(graphs.flatMap(bundle => names.filter(read => bundle.files.has(file(read.place)) && !bundle.block?.includes(`'import.meta.env.${read.name}'`))
+      .map(read => `${read.place} reads import.meta.env.${read.name}, and the ${bundle.name} bundle holds the file, but ${bundle.call ? `the build() call with ${bundle.call} in ${bundle.build}` : `the define block of ${bundle.build}`} has no define of 'import.meta.env.${read.name}'. Add 'import.meta.env.${read.name}': JSON.stringify(...) to its define block, or the bundle reads undefined`)))];
     expect(undefinedNames).toEqual([]);
+  });
+
+  it('each file that reads a non-VITE_ name is in a listed bundle', () => {
+    // A build file names each define key as 'import.meta.env.NAME'; that is not a read.
+    const builds = new Set(BUNDLES.map(bundle => bundle.build));
+    const lost = [...new Set(reads.filter(read => own(read) && !builds.has(file(read.place)) && !graphs.some(bundle => bundle.files.has(file(read.place))))
+      .map(read => `${read.place} reads import.meta.env.${read.name}, but no bundle in BUNDLES of tools/build-flags.mjs imports the file. Add the bundle that holds it to BUNDLES (its build file, its build() call and its entries), and give that call a define of 'import.meta.env.${read.name}'`))];
+    expect(lost).toEqual([]);
   });
 });
 

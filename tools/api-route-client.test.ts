@@ -1,8 +1,8 @@
 // Each call of the website client (src/online/client.ts) must reach a route key of src/api/http.ts.
 // A wrong or renamed path gives a 404 only at run time; this test finds it first.
-import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { onlineClient } from '../src/online/client';
+import { routeKeys } from './api-route-keys';
 
 type Client = ReturnType<typeof onlineClient>;
 const id = 'd137864c-e174-4f38-9277-6bdd0a4289dc';
@@ -23,10 +23,9 @@ const samples: { [K in keyof Client]: (client: Client) => Promise<unknown> } = {
 };
 
 it('sends each client call to a route key of src/api/http.ts', async () => {
-  // The same key scan as tools/plugin-server-build.test.ts ('keeps every isolated operation set equal to the handler route keys').
-  const http = readFileSync(new URL('../src/api/http.ts', import.meta.url), 'utf8');
-  const keys = [...http.matchAll(/^  '([A-Z]+ \/api[^']*)':/gm)].map(match => match[1]);
-  expect(keys.length, 'the route key scan of src/api/http.ts finds no key; update this test').toBeGreaterThan(0);
+  // Each key in any quote form (tools/api-route-keys.ts); tools/api-route-lists.test.ts names a key in the wrong form.
+  const keys = routeKeys();
+  expect(keys.length, 'the route key scan of tools/api-route-keys.ts finds no key in src/api/http.ts; update the scan').toBeGreaterThan(0);
   const routes = keys.map(key => { const [method, path] = key.split(' '); return { method, pattern: new RegExp(`^${path.replace(/:\w+/g, '[^/]+')}$`) }; });
   const sent: string[] = [];
   const client = onlineClient({ token: async () => 'jwt', tries: 1, fetch: async (url, init) => { sent.push(`${init?.method} ${String(url).split('?')[0]}`); return new Response('{}', { status: 200 }); } });

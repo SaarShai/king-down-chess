@@ -7,6 +7,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createPluginServer } from '../src/plugin/server';
 import { TOOL_LIMITS } from '../src/plugin/service';
 import type { PluginTool } from '../src/plugin/tool-names';
+import { READ_TOOLS } from '../src/account-game/types';
 
 interface Row { visibility: 'app' | 'model,app'; readOnly: boolean; destructive: boolean; idempotent: boolean; openWorld: boolean }
 const app = (row: Partial<Row> = {}): Row => ({ visibility: 'app', readOnly: false, destructive: false, idempotent: true, openWorld: false, ...row });
@@ -53,4 +54,16 @@ it('lists each plugin tool with the hints of its table row', async () => {
 
 it('gives each tool named in TOOL_LIMITS its own counter', () => {
   for (const name of Object.keys(TOOL_LIMITS)) if (Object.hasOwn(COUNTER, name)) expect(COUNTER[name as PluginTool], `src/plugin/server.ts counts ${name} against its own TOOL_LIMITS key: set COUNTER.${name} in tools/plugin-tool-table.test.ts`).toBe(name);
+});
+
+/** Read-only tools that the account game does not queue as reads, each with its reason. */
+const NOT_READ_TOOLS: Partial<Record<PluginTool, string>> = {
+  kingdown_preview: 'only the plugin board sends it (src/plugin/screens/board.ts, background: true); the account-game queue never sends it',
+};
+
+it('queues each read-only tool as a read in the account game (READ_TOOLS)', () => {
+  const readOnly = (Object.keys(TABLE) as PluginTool[]).filter(name => TABLE[name].readOnly);
+  for (const name of readOnly) if (!Object.hasOwn(NOT_READ_TOOLS, name)) expect(READ_TOOLS, `Plugin tool ${name} is readOnly: add it to READ_TOOLS in src/account-game/types.ts (else the account game queues it as a write), or add it to NOT_READ_TOOLS in tools/plugin-tool-table.test.ts with a reason`).toContain(name);
+  for (const name of READ_TOOLS) expect(TABLE[name as PluginTool]?.readOnly, `READ_TOOLS in src/account-game/types.ts has ${name}, which is not a readOnly tool in TABLE: remove it there, or make the tool readOnly`).toBe(true);
+  for (const name of Object.keys(NOT_READ_TOOLS) as PluginTool[]) expect(TABLE[name].readOnly && !READ_TOOLS.includes(name), `NOT_READ_TOOLS in tools/plugin-tool-table.test.ts: remove ${name}; it is not readOnly or it is in READ_TOOLS`).toBe(true);
 });
