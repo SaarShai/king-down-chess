@@ -40,7 +40,7 @@ import { gameLayout, panelBox, type Form } from './layout';
 import { fitReader, narratorView, readerNodes, readerView, resetFit, sentences, type ReaderModel } from './reader';
 import { answerOffer, beforeNewGame, GAME_KEY, gameKeyOf, gameType, keepCopy, keptOffer, levelOf, readStored, SaveWriter, SKILLS, snapshot, gameFacts, savedPlayTime, storeChoice as store, storedChoice as stored, storedGameType, storedVibration, storeVibration, type GameType as Setup, type KeptOffer, type Level } from './saved';
 import { arrowStep, fileLabelRow, rankLabelColumn, sideText, SIDE_CHOICES, SIDE_KEY, squareAt, type SideChoice } from './sides';
-import { changeDraft, createDraft, OPTIONS_KEY, PANEL_KEY, readPanel, readOptions, rulesFor, startOf, type NewGameDraft } from './new-game';
+import { changeDraft, createDraft, mvpOptions, mvpPanel, OPTIONS_KEY, PANEL_KEY, readPanel, readOptions, rulesFor, startOf, type NewGameDraft } from './new-game';
 import { playScreen, statusParts, type Art } from './home';
 import { clearResult, markedResult, markResult } from './result-mark';
 import { newGamePanel } from './setup-table';
@@ -71,7 +71,7 @@ const engine = new Engine({ waitReady: true, workClock: true });
 interface Resource { subject: LearnSubject; hint?: string; side: Color; key: string | null; name: string; short: string; card: number | null; control: HTMLButtonElement }
 // The game type and options of the next game (owner playtest section 2). 'kingdown.setup' held 'cards' for powers and cards before the four types.
 let setup: Setup = storedGameType();
-let options = readOptions((() => { try { return JSON.parse(localStorage.getItem(OPTIONS_KEY) ?? 'null'); } catch { return null; } })()), resources: Resource[] = [], shown: Resource | null = null;
+let options = mvpOptions(readOptions((() => { try { return JSON.parse(localStorage.getItem(OPTIONS_KEY) ?? 'null'); } catch { return null; } })())), resources: Resource[] = [], shown: Resource | null = null;
 let pieceView = stored('kingdown.piece-view', ['figures', 'symbols']);
 // The next game's side choice, and the side of the live game (launch decision 10). The computer plays the other side.
 let sideChoice = stored(SIDE_KEY, SIDE_CHOICES) as SideChoice, player: Color = 0;
@@ -575,7 +575,7 @@ function openNewGame(source: HTMLElement, opts: { opponent?: 'computer' | 'perso
     const startRoute = shell.route, startPlace = startRoute.place;
     if (startPlace !== 'play' && !(opts.fromResult && ended && (startPlace === 'game' || startPlace === 'online'))) return;
     if (document.querySelector('dialog[open]')) return;
-    const memory = (() => { try { return readPanel(JSON.parse(sessionStorage.getItem(PANEL_KEY) ?? 'null')); } catch { return null; } })();
+    const memory = (() => { try { return mvpPanel(readPanel(JSON.parse(sessionStorage.getItem(PANEL_KEY) ?? 'null'))); } catch { return null; } })();
     const panel = newGamePanel({
       next,
       memory,

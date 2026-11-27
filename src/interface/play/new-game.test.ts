@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { armyTypes, cardLocked, selectCard, selectPiece, onlinePanelOptions, singleKinds, DOUBLE_KINDS, changeDraft, createDraft, dealArmy, kingChoices, poolLetters, poolLocked, levelKey, readPanel, restorePanel, shownKing, readOptions, rulesFor, startOf, DEFAULT_OPTIONS, type Choices } from './new-game';
+import { armyTypes, cardLocked, selectCard, selectPiece, onlinePanelOptions, singleKinds, DOUBLE_KINDS, changeDraft, createDraft, dealArmy, kingChoices, mvpOptions, mvpPanel, poolLetters, poolLocked, levelKey, readPanel, restorePanel, shownKing, readOptions, rulesFor, startOf, DEFAULT_OPTIONS, type Choices } from './new-game';
 import { gameType } from './saved';
 import { DEAL_CARDS } from '../../match/setup';
 import { A, G, K, M, N, O, P, R, colorOf } from '../../rules/engine';
@@ -222,4 +222,34 @@ it('build 6 options migrate the old piece pool, Random and both card modes', () 
   expect(four.options.cardPool).toEqual(old.picked);
   expect(readPanel(JSON.parse(JSON.stringify(all)))).toEqual(all);
   expect(readOptions({ ...oldOptions, pool: ['Q', 'R', 'B', 'N'] }).seconds).toEqual(['R', 'B', 'N']);
+});
+
+it('default MVP resets gated power-user options and custom panel deals without ?custom=1', () => {
+  const king = { king: 'Flame', power: 'Haste' } as const;
+  const custom = {
+    pool: ['Q', 'R', 'B', 'N', 'A', 'G'],
+    seconds: ['R'],
+    arrangement: 'manual' as const,
+    cardPool: DEFAULT_OPTIONS.cardPool.slice(0, 4),
+    king,
+    opponentKing: { king: 'Frost', power: 'IceWall' } as const,
+  };
+  expect(mvpOptions(custom, false)).toEqual({ ...DEFAULT_OPTIONS, king });
+  expect(mvpOptions(custom, true)).toEqual(custom);
+
+  const draft = createDraft(choices({ setup: 'both', options: custom }));
+  const deal = { back: draft.back, rules: draft.rules, player: draft.player };
+  const panel = readPanel({ ...choices({ setup: 'both' }), options: custom, opponent: 'person', section: 'pieces', action: 'link', deal })!;
+  const normalized = mvpPanel(panel, false)!;
+  expect(normalized.options).toEqual({ ...DEFAULT_OPTIONS, king });
+  expect(normalized.section).toBeNull();
+  expect(normalized.deal).toBeUndefined();
+  expect(normalized.action).toBe('link');
+  expect(mvpPanel(panel, true)).toEqual(panel);
+
+  const mvpDraft = createDraft(choices({ setup: 'both', options: { ...DEFAULT_OPTIONS, king } }));
+  const mvpDeal = { back: mvpDraft.back, rules: mvpDraft.rules, player: mvpDraft.player };
+  const plainPanel = readPanel({ ...choices({ setup: 'both' }), options: { ...DEFAULT_OPTIONS, king }, opponent: 'person', section: null, deal: mvpDeal })!;
+  expect(mvpPanel(plainPanel, false)?.deal).toEqual(mvpDeal);
+  expect(mvpPanel(null, false)).toBeNull();
 });

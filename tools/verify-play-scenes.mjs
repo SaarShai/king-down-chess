@@ -28,8 +28,9 @@ const browser = await launch();
 const faults = [], known = [], used = new Set();
 let links, cases = 0;
 
+const CUSTOM_SCENES = new Set(['setup-cards', 'setup-piece-pool']);
 async function openScene(page, scene) {
-  await page.goto(`${base.href}?scene=${scene}`);
+  await page.goto(`${base.href}?scene=${scene}${CUSTOM_SCENES.has(scene) ? '&custom=1' : ''}`);
   await page.waitForFunction(scene => document.body.dataset.sceneReady === scene, scene, { timeout: 15_000 });
 }
 

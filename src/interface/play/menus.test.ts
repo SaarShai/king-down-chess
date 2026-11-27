@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, it, vi } from 'vitest';
-import { aboutLinks, gameMenu, settingsSheet, SETTING_ORDER } from './menus';
+import { aboutLinks, gameMenu, settingsSheet, SETTING_ORDER, supportsVibration } from './menus';
+import { customSetupEnabled } from './new-game';
 import { homeText, summaryLine } from './home';
 import { guideCounts, guideEntries, kingBlocks, neighbours, pieceGroups } from './guide';
 import { KINGS } from '../../rules/engine';
@@ -98,4 +99,17 @@ it('a press moves only the lower brass edge of the main button: no box, outline,
   // The plain press stays for reduced motion, and the disabled plate has no depth.
   expect(components).toContain(".kd-button[data-kind='main']:not(:disabled, [aria-disabled='true']):active { box-shadow: var(--main-pressed); }");
   expect(components).toMatch(/\.kd-button\[data-kind='main'\]:is\(:disabled, \[aria-disabled='true'\]\) \{[^}]*box-shadow: none/);
+});
+
+it('dev-gates power-user New Game customizers behind ?custom=1 and hides Vibration on non-haptic desktop', () => {
+  expect(customSetupEnabled('')).toBe(false);
+  expect(customSetupEnabled('?custom=0')).toBe(false);
+  expect(customSetupEnabled('?custom=1')).toBe(true);
+  expect(customSetupEnabled('?foo=bar&custom=1')).toBe(true);
+  expect(supportsVibration()).toBe(false);
+  const setup = source('play/setup-table.ts');
+  expect(setup).toContain('const custom = customSetupEnabled();');
+  expect(setup).toContain('const staticSeat = friend || (!own && !custom);');
+  const menus = source('play/menus.ts');
+  expect(menus).toContain("if (name === 'vibration' && !supportsVibration()) row.hidden = true;");
 });
