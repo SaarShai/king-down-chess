@@ -98,6 +98,34 @@ export function restorePanel(memory: PanelMemory): NewGameDraft {
   const draft = createDraft(memory, Math.random, memory.deal?.back);
   return memory.deal ? { ...draft, ...memory.deal, game: new Game(memory.deal.back, memory.deal.rules) } : draft;
 }
+/** Normalize power-user customizer options to MVP defaults unless ?custom=1 is enabled. */
+export function mvpOptions(options: GameOptions, custom = customSetupEnabled()): GameOptions {
+  if (custom) return options;
+  return {
+    pool: DEFAULT_OPTIONS.pool,
+    seconds: DEFAULT_OPTIONS.seconds,
+    arrangement: DEFAULT_OPTIONS.arrangement,
+    cardPool: DEFAULT_OPTIONS.cardPool,
+    king: options.king,
+  };
+}
+/** Normalize panel memory for default MVP so stale custom options or deals cannot lock hidden controls. */
+export function mvpPanel(memory: PanelMemory | null | undefined, custom = customSetupEnabled()): PanelMemory | null {
+  if (!memory || custom) return memory ?? null;
+  const options = mvpOptions(memory.options, false);
+  const changed =
+    memory.options.arrangement !== options.arrangement ||
+    memory.options.opponentKing !== undefined ||
+    poolLetters(memory.options.pool, memory.options.seconds) !== poolLetters(options.pool, options.seconds) ||
+    memory.options.cardPool.join() !== options.cardPool.join();
+  const { deal, ...rest } = memory;
+  return {
+    ...rest,
+    options,
+    section: memory.section === 'pieces' ? null : memory.section,
+    ...(!changed && deal ? { deal } : {}),
+  };
+}
 /** The options of a stored value, each field checked; a wrong field takes its default. */
 export function readOptions(value: unknown): GameOptions {
   const v = (value && typeof value === 'object' ? value : {}) as Partial<Record<keyof GameOptions, unknown>>;

@@ -14,7 +14,7 @@ import { cardSummary, homeText, type Art } from './home';
 import { levelPill } from './level-pill';
 import { ms } from './motion';
 import { at, burst, ease, later, onFrame, pulse, reducedMotion, sound, Spring, tween, type Effect } from './fx';
-import { cardLocked, changeDraft, customSetupEnabled, DOUBLE_KINDS, kingChoices, onlinePanelOptions, poolLetters, poolLocked, restorePanel, selectCard, selectPiece, shownKing, type GameOptions, type NewGameDraft, type PanelMemory } from './new-game';
+import { cardLocked, changeDraft, customSetupEnabled, DOUBLE_KINDS, kingChoices, mvpOptions, mvpPanel, onlinePanelOptions, poolLetters, poolLocked, restorePanel, selectCard, selectPiece, shownKing, type GameOptions, type NewGameDraft, type PanelMemory } from './new-game';
 import { hasCards, hasPowers, typeName, typeOfFlags, type GameType } from './saved';
 import { sideText } from './sides';
 import { cardLine, kingLabel, panelText, pieces, text } from './texts';
@@ -64,8 +64,9 @@ export function newGamePanel(d: PanelData, art: Art): { element: HTMLDialogEleme
     if (!next) void begin(next);
     else { replacement = next; openChoice('confirm', start); }
   } });
-  const saved = d.memory;
-  let draft = saved ? restorePanel(saved) : d.next, opponent = d.opponent ?? saved?.opponent ?? 'computer';
+  const saved = mvpPanel(d.memory, custom);
+  let draft = saved ? restorePanel(saved) : custom ? d.next : changeDraft(d.next, { options: mvpOptions(d.next.options, false) });
+  let opponent = d.opponent ?? saved?.opponent ?? 'computer';
   let resumeAction = d.resumeInviteAction && saved?.opponent === 'person' ? saved.action : undefined;
   let choice: Choice | null = null, replacement = '', signingIn = false;
   let opener: HTMLElement | null = null, choiceSource = '', starting = false, busy = false, actionId = 0;
