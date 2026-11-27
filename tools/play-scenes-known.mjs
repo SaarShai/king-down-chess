@@ -15,7 +15,6 @@ export const KNOWN = new Map([
     'control "FRIEND" overlaps control "Friendly"',
     'control "FRIEND" overlaps text "Friendly"',
     'control "Friendly" overlaps text "Friend"',
-    'control "Powers" overlaps text "Dark King"',
     'text "Friend" overlaps text "Friendly"',
   ], 'at 568x320 with 150% text the opponent choice covers part of the level choice and the controls need a scroll'],
   [cases(['setup-friend'], ['568x320'], [150]), [
