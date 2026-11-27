@@ -284,7 +284,7 @@ export const panelText = {
     ? `Both players get ${names.slice(0, 3).join(', ')} and ${names[3]}.`
     : 'Both players get the same 4 cards from this pool.',
   cardPoolLock: 'Add a card before you remove a locked card.',
-  send: 'Send link', byName: 'Invite by name', back: 'Back', closeRule: 'Back to cards', loading: 'Opening online play…', onlineFailed: 'Online play cannot load. Try again.',
+  send: 'Send link', byName: 'Invite by name', back: 'Back', closeRule: 'Back to cards', loading: 'Opening online play…', onlineFailed: 'Online play cannot load. Check your connection and try again.',
 } as const;
 /** The same board step for a solo game and each online seat (owner playtest 90). */
 export const arrangeText = {
