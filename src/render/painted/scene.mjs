@@ -1472,14 +1472,15 @@ function drawEncounter(a,t) {
    const {x,y}=foot(square),unit=lastPoses?.get(square);
    const body=bodyRuntime?.rest(characterOf(value),armyOf(value))??stillBody(value);
    const figure={x,y:y+headroom,bodyHeight:body?body.scale*body.unitHeight:figureHeight(characterOf(value))};
-   if(snapshot&&unit?.value===value){
+   const lit=frozen?.has(square)?null:struckFlash(square);
+   if((snapshot||lit)&&unit?.value===value){
     const rect={x:x-TILE,y:y+headroom-2*TILE,width:2*TILE,height:2.5*TILE};
     const image=document.createElement('canvas');image.width=rect.width*res;image.height=rect.height*res;
     const out=image.getContext('2d');
     if(out){
      out.setTransform(res,0,0,res,-rect.x*res,(headroom-rect.y)*res);
-     drawPiece(out,value,unit.pose,unit.opacity,unit.extension,frozen?.has(square)?{frozen:true}:struckFlash(square),null);
-     figure.from={image,rect};
+     drawPiece(out,value,unit.pose,unit.opacity,unit.extension,frozen?.has(square)?{frozen:true}:lit,null);
+     figure.from=lit?{image,rect,flash:true}:{image,rect};
     }
    }
    return figure;

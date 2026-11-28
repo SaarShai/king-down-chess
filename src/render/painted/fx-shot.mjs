@@ -58,14 +58,15 @@ export function punchAt(timeline,since,dir,reduced=false){
  const k=ms/t.peakMs,f=k*Math.exp(1-k)*(1-ms/(to-from));
  return {x:dir.x*t.px*f,y:dir.y*t.px*f};
 }
-// The punch is a CSS translate of the board canvas, never a redraw. A timer puts it back to '' when the frames stop.
-let punchTimer=0;
+// The punch is a CSS translate of the board canvas, never a redraw. A per-board timer puts it back to '' when frames stop.
+const punchTimers=new WeakMap();
 export function setPunch(board,offset){
  const k=(board.clientWidth||BOARD)/BOARD;
  const value=offset&&(Math.abs(offset.x)>.01||Math.abs(offset.y)>.01)?`${(offset.x*k).toFixed(2)}px ${(offset.y*k).toFixed(2)}px`:'';
  if(board.style.translate!==value)board.style.translate=value;
- clearTimeout(punchTimer);
- if(value)punchTimer=setTimeout(()=>{board.style.translate='';},60);
+ const prev=punchTimers.get(board);
+ if(prev){clearTimeout(prev);punchTimers.delete(board);}
+ if(value)punchTimers.set(board,setTimeout(()=>{board.style.translate='';punchTimers.delete(board);},60));
 }
 /**
  * One frame of the shot's marks. rel: ms from the painted release; flightMs: release to contact. origin: the bow,
