@@ -12,8 +12,8 @@ export interface MomentTarget {
   onReady?(): void;
 }
 export interface CollapseTarget extends MomentTarget {
-  /** The old pose and its rectangle in layer CSS pixels. Supply it for pawn, bishop and archer. */
-  from?: { image: CanvasImageSource; rect: Rect };
+  /** The old pose and its rectangle in layer CSS pixels. Supply it for dissolving pieces or lit hit-flash snapshots. */
+  from?: { image: CanvasImageSource; rect: Rect; flash?: boolean };
 }
 
 /** Each pose uses the same scale and feet point. */

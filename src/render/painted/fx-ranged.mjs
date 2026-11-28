@@ -2,6 +2,7 @@
 // Every value is a pure function of the attack's clock, so a rewind, Fast (the caller scales the clock) and a
 // flipped board need nothing here. Sprites and masks are made once; a frame allocates no canvas.
 import {clamp} from './painted-mesh.mjs';
+import {shotLook,drawShot,hitFlash} from './fx-shot.mjs';
 const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
 const span=(t,a,b)=>clamp((t-a)/(b-a),0,1);
 const mix=(a,b,t)=>a+(b-a)*t;
@@ -14,10 +15,11 @@ export const SHOT={flightMs:220,flash:70,jolt:70,stagger:200,land:430,rest:490,f
 const ARROW_SCALE=3,ARROW_FAT=1.8,FLASH_SCALE=8,RAY_SCALE=2.1;
 /** The ranged kinds. rangedFrame draws their shot also while the painted effect still loads (player null). */
 export const RANGED=['maester','archer'];
-/** The added beats of a ranged attack: how long the body holds, where the action ends and how long the effect draws. */
-export function rangedPlan(kind,attack,release){
+/** The added beats of a ranged attack: how long the body holds, where the action ends and how long the effect draws.
+ *  look: the Archer's shot as data (fx-shot.mjs), the golden arrow unless a skin is named. */
+export function rangedPlan(kind,attack,release,skin='shot'){
  if(kind==='maester')return {kind,hold:{at:release,ms:RAY.holdMs},end:attack.durationMs+RAY.holdMs,effectMs:RAY.beamMs};
- if(kind==='archer')return {kind,hold:null,end:Math.max(attack.durationMs,release+SHOT.flightMs+SHOT.end),effectMs:SHOT.flightMs+SHOT.arrowEnd};
+ if(kind==='archer')return {kind,hold:null,end:Math.max(attack.durationMs,release+SHOT.flightMs+SHOT.end),effectMs:SHOT.flightMs+SHOT.arrowEnd,look:shotLook(skin)};
  return null;
 }
 /** The attack bank's clock with the hold in it: frozen at `at` for `ms`, then late by `ms`. */
@@ -116,11 +118,11 @@ export function drawDissolve(d){
  c.restore();
  d.layer(left,top,wide,tall);
 }
-/** The struck figure's hit frames: the figure, lit white, into the effect layer. */
+/** The struck figure's hit frames: the figure (its own drawn frame and transform), lit warm white, into the effect layer. */
 export function drawFlash(d){
  const box=d.box,c=d.clear(),left=box.l-40,top=box.top-40,wide=box.r-box.l+80,tall=box.foot-box.top+70;
  d.draw(c);
- c.save();c.globalCompositeOperation='source-atop';c.fillStyle=`rgba(255,246,214,${d.flash})`;c.fillRect(left,top,wide,tall);c.restore();
+ c.save();c.globalCompositeOperation='source-atop';c.globalAlpha=d.flash;c.fillStyle=d.colour??'rgb(255,246,214)';c.fillRect(left,top,wide,tall);c.restore();
  d.layer(left,top,wide,tall);
 }
 // The trail stops behind the head, so the arrow itself reads in front of it.
@@ -164,8 +166,9 @@ function drawLodged(ctx,player,point,dir,scale,alpha,res){
  * One frame of a ranged attack. plan: rangedPlan. elapsed, release: the action's clock. origin, target: board points.
  * victim: the scene's unit (pose, opacity, fx are set here). box(): the victim's drawn bounds {x,foot,top,l,r}, read
  * when drawn, since its frame is chosen after this. scale: the published effect's own. effects: drawn over the figures.
+ * reduced: reduced motion (no punch, no bright hit-flash).
  */
-export function rangedFrame(ctx,{plan,elapsed,release,origin,target,victim,box,player,scale,seed,effects,res=1}){
+export function rangedFrame(ctx,{plan,elapsed,release,origin,target,victim,box,player,scale,seed,effects,res=1,reduced=false}){
  const rel=elapsed-release;
  if(plan.kind==='maester'){
   if(!victim)return;
@@ -178,11 +181,13 @@ export function rangedFrame(ctx,{plan,elapsed,release,origin,target,victim,box,p
  // The arrow flies at the chest: the hit point of a figure is at its hips.
  const ground=victim?.pose.foot.y??target.y,aim={x:target.x,y:target.y-(ground-target.y)*.4};
  const dx=aim.x-origin.x,dy=aim.y-origin.y,length=Math.hypot(dx,dy)||1,dir={x:dx/length,y:dy/length},arrow=71*scale*ARROW_SCALE;
- const since=rel-SHOT.flightMs,away=Math.sign(Math.abs(dx)>1?dx:0)||(victim?.pose.facing??1);
+ const since=rel-SHOT.flightMs,away=Math.sign(Math.abs(dx)>1?dx:0)||(victim?.pose.facing??1),look=plan.look;
+ if(look)drawShot(ctx,{timeline:look,rel,flightMs:SHOT.flightMs,origin,impact:aim,foot:{...(victim?.pose.foot??target)},dir,player,scale,seed,effects,res,reduced});
  if(victim&&since>=0){
   const m=struckAt(since,away,dir),base=victim.pose;
   victim.pose={...base,ground:base.ground??base.foot,foot:{x:base.foot.x+m.dx,y:base.foot.y+m.dy},rotation:m.tilt*base.facing};
-  victim.opacity=m.opacity;victim.fx={ranged:{kind:'shot',flash:m.flash,shadow:1}};
+  const lit=look?hitFlash(look,since,reduced):{flash:reduced?0:m.flash,colour:null};
+  victim.opacity=m.opacity;victim.fx={ranged:{kind:'shot',flash:lit.flash,colour:lit.colour,shadow:1}};
   const c=Math.cos(m.tilt),s=Math.sin(m.tilt),fx=aim.x-base.foot.x,fy=aim.y-base.foot.y,point={x:base.foot.x+m.dx+fx*c-fy*s,y:base.foot.y+m.dy+fx*s+fy*c},shot={x:dir.x*c-dir.y*s,y:dir.x*s+dir.y*c};
   effects.push(()=>{
    drawDust(ctx,base.foot,away,since);
@@ -192,7 +197,7 @@ export function rangedFrame(ctx,{plan,elapsed,release,origin,target,victim,box,p
    if(player&&since<100)player.draw(ctx,{elapsedMs:SHOT.flightMs+since,origin:[origin.x,origin.y],target:[aim.x,aim.y],scale:scale*FLASH_SCALE,seed});
   });
  }
- if(rel>=0&&rel<SHOT.flightMs)effects.push(()=>{
+ if(!look&&rel>=0&&rel<SHOT.flightMs)effects.push(()=>{
   const u=rel/SHOT.flightMs;drawTrail(ctx,origin,dir,u,length,arrow);
   if(rel<40)bloom(ctx,goldSprite(),origin.x,origin.y,16,1-rel/40);
   if(player)drawArrow(ctx,player,{x:origin.x+dx*u,y:origin.y+dy*u},dir,scale*ARROW_SCALE,res);

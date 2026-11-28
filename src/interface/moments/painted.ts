@@ -88,7 +88,7 @@ export function dissolves(piece: string) {
 }
 
 export function playCollapse(piece: string, army: Army, target: CollapseTarget, pack?: Awaited<ReturnType<typeof loadMoment>>) {
-  return play(`collapse/${piece}/${army}`, target, true, pack, dissolves(piece) ? target.from : undefined);
+  return play(`collapse/${piece}/${army}`, target, true, pack, dissolves(piece) || target.from?.flash ? target.from : undefined);
 }
 
 export function playBow(king: typeof kings[number], army: Army, target: MomentTarget, pack?: Awaited<ReturnType<typeof loadMoment>>) {

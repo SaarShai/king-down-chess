@@ -66,6 +66,16 @@ it('starts a knight with the full first pose and can skip the rest exactly once'
   expect(f.player.remove).toHaveBeenCalledOnce();
 });
 
+it('dissolves a lit hit-flash snapshot for non-dissolving pieces like knight', async () => {
+  const f = fixture();
+  const flashFrom = { ...f.target.from!, flash: true };
+  const playback = playCollapse('knight', 'white', { ...f.target, from: flashFrom });
+  await Promise.resolve();
+  expect(f.player.draw).toHaveBeenLastCalledWith(0, 1, flashFrom, 0);
+  playback.dispose();
+  await expect(playback.finished).resolves.toBe('cancelled');
+});
+
 it.each(['clock', 'skip'] as const)('holds the last bow pose after %s until disposal', async end => {
   const f = fixture(), playback = playBow('frost', 'black', f.target);
   await Promise.resolve();

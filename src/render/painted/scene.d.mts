@@ -113,7 +113,7 @@ export interface PaintedScene {
   /** The figure's registration and optional last drawn pose, in canvas units. */
   momentFigure(square: number, snapshot: boolean): {
     x: number; y: number; bodyHeight: number;
-    from?: { image: HTMLCanvasElement; rect: { x: number; y: number; width: number; height: number } };
+    from?: { image: HTMLCanvasElement; rect: { x: number; y: number; width: number; height: number }; flash?: boolean };
   } | undefined;
   /** A see-through copy of figure `piece` standing on `square` (a move preview), drawn into `ctx`; for setDecorate. */
   ghost(ctx: CanvasRenderingContext2D, piece: number, square: number, opacity?: number): void;

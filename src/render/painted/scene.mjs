@@ -31,6 +31,7 @@ import {loadWindArt} from './wind-art.mjs';
 import {loadRiftArt} from './fx-kings.mjs';
 import {SHADE,shadowField,shadowWeights,fxFade,poolShape,poolAlpha,glidePool} from './contact-shadow.mjs';
 import {SHOT,RANGED,rangedPlan,heldClock,rangedFrame,drawDissolve,drawFlash,struckAt} from './fx-ranged.mjs';
+import {hitFlash} from './fx-shot.mjs';
 export const SIZE=960, PAD=32, TILE=112;
 /** The floor round the board, by default: the trial, the trailer and the plugin page draw it. */
 export const FLOOR='#e6e1cf';
@@ -654,6 +655,12 @@ function vortex(out,foot,phase,strength) {
   const value=position.board[selected],pose=poseFor(value,selected),target=selectionTarget();
   return target?aimed(value,pose,target):pose;
  }
+ // The hit-flash of the Archer's victim at its contact (null: not that victim, no shot look, or reduced motion).
+ function struckFlash(square){
+  const a=animation,look=a?.runtime?.ranged?.look;
+  if(!look||reducedMotion||a.move.captures[0]!==square)return null;
+  const lit=hitFlash(look,0);return lit.flash>0?{ranged:{kind:'shot',flash:lit.flash,colour:lit.colour,shadow:1}}:null;
+ }
  // A ranged victim's drawn bounds, upright (its bank frame's outline; a sprite figure: from its hit point).
  function victimBox(pose,type){
   const shape=bankShape(pose,type);if(shape)return shape;
@@ -772,7 +779,7 @@ function vortex(out,foot,phase,strength) {
    if(origin&&target){
     const options={elapsedMs:elapsed-release,origin:[origin.x,origin.y],target:[target.x,target.y],scale:bankBody.scale*bank.bodyHeightPx/640,seed:a.move.from*64+a.move.to};
     if(kind==='queen'){options.secondaryOrigin=secondary?[secondary.x,secondary.y]:undefined;options.emissionMs=Math.min(240,(bank.beatTimes.releaseHoldEnd??bank.beatTimes.recovery)-release);options.originAt=(launch,palm)=>{const p=project(palm?'near-palm':'far-palm',release+launch);return p?[p.x,p.y]:null;};const body=victim?.pose.bank,at=victim?.pose.foot??target;Object.assign(options,{victim,bounds:[0,-headroom,SIZE,SIZE],foot:[at.x,at.y],height:body?body.unitHeight*body.scale*victim.pose.scale/specs[typeOf(victim.value)].scale:Math.max(60,(at.y-target.y)*2.3)});r.effect.player.pose(options);}
-    if(r.ranged)rangedFrame(ctx,{plan:r.ranged,elapsed,release,origin,target,victim,box:()=>victimBox(victim.pose,typeOf(victim.value)),player:r.effect.player,scale:options.scale,seed:options.seed,effects,res});
+    if(r.ranged)rangedFrame(ctx,{plan:r.ranged,elapsed,release,origin,target,victim,box:()=>victimBox(victim.pose,typeOf(victim.value)),player:r.effect.player,scale:options.scale,seed:options.seed,effects,res,reduced:reducedMotion});
     else effects.push(()=>r.effect.player.draw(ctx,options));
     effectFrames.push({kind,painted:!!r.effect.player,at:time,speed:a.speed,bodyDurationMs:bank.durationMs,bodyTime:bankBody.time,releaseMs:release,durationMs:r.ranged?.effectMs??r.effect.player.durationMs,elapsedMs:options.elapsedMs,origin,target,foot:a.from.foot,pivot:bankBody.pivot,scale:bankBody.scale});
    }
@@ -1457,20 +1464,23 @@ function drawEncounter(a,t) {
   /** A see-through copy of a figure standing on `square` (a move preview); for setDecorate. */
   /** Board-unit bounds {x,foot,top,l,r} of figure `value` standing at rest on `square`; from its height while its frames load. */
   figureBox(value,square){const pose=poseFor(value,square);pose.bank=bodyRuntime?.rest(characterOf(value),armyOf(value))??null;const h=figureHeight(characterOf(value)),{x,y}=pose.foot;return bankShape(pose,typeOf(value))??{x,foot:y,top:y-h,l:x-h*.4,r:x+h*.4};},
+  // The painted collapse takes a shot's victim at its contact and starts from this snapshot, so the snapshot is the
+  // struck figure lit by its hit-flash (fx-shot.mjs): its own frame and transform, through drawPiece's ranged path.
   momentFigure(square,snapshot){
    const value=position.board[square];
    if(!daylight||!value)return;
    const {x,y}=foot(square),unit=lastPoses?.get(square);
    const body=bodyRuntime?.rest(characterOf(value),armyOf(value))??stillBody(value);
    const figure={x,y:y+headroom,bodyHeight:body?body.scale*body.unitHeight:figureHeight(characterOf(value))};
-   if(snapshot&&unit?.value===value){
+   const lit=frozen?.has(square)?null:struckFlash(square);
+   if((snapshot||lit)&&unit?.value===value){
     const rect={x:x-TILE,y:y+headroom-2*TILE,width:2*TILE,height:2.5*TILE};
     const image=document.createElement('canvas');image.width=rect.width*res;image.height=rect.height*res;
     const out=image.getContext('2d');
     if(out){
      out.setTransform(res,0,0,res,-rect.x*res,(headroom-rect.y)*res);
-     drawPiece(out,value,unit.pose,unit.opacity,unit.extension,frozen?.has(square)?{frozen:true}:null,null);
-     figure.from={image,rect};
+     drawPiece(out,value,unit.pose,unit.opacity,unit.extension,frozen?.has(square)?{frozen:true}:lit,null);
+     figure.from=lit?{image,rect,flash:true}:{image,rect};
     }
    }
    return figure;

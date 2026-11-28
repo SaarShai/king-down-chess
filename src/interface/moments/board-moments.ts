@@ -57,6 +57,7 @@ export function boardMoments(layer: HTMLElement, view: PaintedView) {
       },
       from: from && {
         image: from.image,
+        flash: from.flash,
         get rect() {
           const k = view.momentScale, { x, y, width, height } = from.rect;
           return { x: x * k, y: y * k, width: width * k, height: height * k };
